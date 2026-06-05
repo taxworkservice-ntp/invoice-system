@@ -104,7 +104,7 @@ function getTemplate(data: PDFData): TemplateStyle {
 
 function drawDivider(doc: jsPDF, y: number, style: TemplateStyle, full: boolean = true): void {
   doc.setDrawColor(style.divider);
-  doc.setLineWidth(0.1);
+  doc.setLineWidth(0.06);
   if (full) {
     doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   }
@@ -224,7 +224,7 @@ function convertLogoToPDF(logoUrl: string): Promise<string | null> {
 function drawDocBorder(doc: jsPDF, style: TemplateStyle, startY: number, endY: number): void {
   if (!style.showDocBorder) return;
   doc.setDrawColor(style.docBorderColor);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.08);
   const s = 5;
   doc.rect(MARGIN - s, startY - 2, CONTENT_W + s * 2, endY - startY + 4, "D");
 }
@@ -340,7 +340,7 @@ async function drawHeader(doc: jsPDF, data: PDFData, startY: number): Promise<nu
 
   if (style.headerPattern === "line") {
     doc.setDrawColor(style.accent);
-    doc.setLineWidth(1);
+    doc.setLineWidth(0.3);
     doc.line(MARGIN + CONTENT_W - 55, rightY, MARGIN + CONTENT_W, rightY);
     rightY += 3;
   }
@@ -432,7 +432,7 @@ async function drawHeader(doc: jsPDF, data: PDFData, startY: number): Promise<nu
   // ── Divider between header and body ──
   if (style.headerPattern === "solid") {
     doc.setDrawColor(style.accent);
-    doc.setLineWidth(0.4);
+    doc.setLineWidth(0.08);
     doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
     y += 4;
   } else {
@@ -530,7 +530,7 @@ function drawTableHeader(
     doc.rect(MARGIN, y, CONTENT_W, rowH, "F");
   } else if (style.headerPattern === "line") {
     doc.setDrawColor(style.divider);
-    doc.setLineWidth(0.2);
+    doc.setLineWidth(0.08);
     doc.line(MARGIN, y + rowH, MARGIN + CONTENT_W, y + rowH);
   } else {
     doc.setFillColor(247, 246, 243);
@@ -593,7 +593,7 @@ function drawItemsTable(doc: jsPDF, data: PDFData, startY: number): number {
       doc.text(formatAmount(inv.total_amount), cols[5].x + cols[5].w, y + 5, { align: "right" });
 
       doc.setDrawColor(style.divider);
-      doc.setLineWidth(0.05);
+      doc.setLineWidth(0.04);
       doc.line(MARGIN, y + 7, MARGIN + CONTENT_W, y + 7);
       y += 7;
     }
@@ -656,7 +656,7 @@ function drawItemsTable(doc: jsPDF, data: PDFData, startY: number): number {
     }
 
     doc.setDrawColor(style.divider);
-    doc.setLineWidth(0.05);
+    doc.setLineWidth(0.04);
     doc.line(MARGIN, y + rowH, MARGIN + CONTENT_W, y + rowH);
     y += rowH;
     subtotalSum += item.line_total || 0;
@@ -695,7 +695,7 @@ function drawTaxSummary(doc: jsPDF, data: PDFData, startY: number): number {
   doc.setFillColor(250, 250, 250);
   doc.rect(boxX, y - 4, boxW, boxHeight, "F");
   doc.setDrawColor(style.divider);
-  doc.setLineWidth(0.12);
+  doc.setLineWidth(0.08);
   doc.rect(boxX, y - 4, boxW, boxHeight, "D");
 
   doc.setFont("Sarabun", "normal");
@@ -729,7 +729,7 @@ function drawTaxSummary(doc: jsPDF, data: PDFData, startY: number): number {
     }
 
     doc.setDrawColor(style.divider);
-    doc.setLineWidth(0.1);
+    doc.setLineWidth(0.08);
     doc.line(labelX, y - 4, rightX, y - 4);
   }
 
@@ -749,7 +749,7 @@ function drawTaxSummary(doc: jsPDF, data: PDFData, startY: number): number {
     y += 6;
 
     doc.setDrawColor(style.divider);
-    doc.setLineWidth(0.1);
+    doc.setLineWidth(0.08);
     doc.line(labelX, y - 4, rightX, y - 4);
 
     doc.setFont("Sarabun", "bold");
@@ -888,7 +888,7 @@ async function drawHeaderConsistent(doc: jsPDF, data: PDFData, startY: number): 
   let rightY = startY;
   if (style.headerPattern === "line") {
     doc.setDrawColor(style.accent);
-    doc.setLineWidth(1);
+    doc.setLineWidth(0.3);
     doc.line(CONTENT_RIGHT - 55, rightY, CONTENT_RIGHT, rightY);
     rightY += 3;
   }
@@ -945,7 +945,7 @@ async function drawHeaderConsistent(doc: jsPDF, data: PDFData, startY: number): 
   y = Math.max(leftY, rightY) + 3;
   if (style.headerPattern === "solid") {
     doc.setDrawColor(style.accent);
-    doc.setLineWidth(0.4);
+    doc.setLineWidth(0.08);
     doc.line(MARGIN, y, CONTENT_RIGHT, y);
     y += 4;
   } else {
@@ -1084,7 +1084,7 @@ function drawTaxSummaryConsistent(doc: jsPDF, data: PDFData, startY: number): nu
   doc.setFillColor(250, 250, 250);
   doc.rect(boxX, y - 4, boxW, boxHeight, "F");
   doc.setDrawColor(style.divider);
-  doc.setLineWidth(0.12);
+  doc.setLineWidth(0.08);
   doc.rect(boxX, y - 4, boxW, boxHeight, "D");
 
   if (document.vat_registered && document.doc_type !== "delivery_note") {
@@ -1111,7 +1111,7 @@ function drawTaxSummaryConsistent(doc: jsPDF, data: PDFData, startY: number): nu
     }
 
     doc.setDrawColor(style.divider);
-    doc.setLineWidth(0.1);
+    doc.setLineWidth(0.08);
     doc.line(labelX, y - 4, rightX, y - 4);
   }
 
@@ -1137,7 +1137,7 @@ function drawTaxSummaryConsistent(doc: jsPDF, data: PDFData, startY: number): nu
     );
 
     doc.setDrawColor(style.divider);
-    doc.setLineWidth(0.1);
+    doc.setLineWidth(0.08);
     doc.line(labelX, y - 4, rightX, y - 4);
 
     y = drawSummaryRow(
@@ -1251,7 +1251,7 @@ function drawFooter(doc: jsPDF, data: PDFData): void {
 
     const drawSigBlock = (x: number, label: string) => {
       doc.setDrawColor(style.divider);
-      doc.setLineWidth(0.12);
+      doc.setLineWidth(0.08);
       doc.line(x, footerY, x + sigWidth, footerY);
 
       doc.setFont("Sarabun", "normal");
@@ -1271,7 +1271,7 @@ function drawFooter(doc: jsPDF, data: PDFData): void {
     if (document.doc_type === "receipt" || document.doc_type === "tax_invoice_receipt") {
       const stampX = MARGIN + CONTENT_W - 45;
       doc.setDrawColor(style.subtle);
-      doc.setLineWidth(0.15);
+      doc.setLineWidth(0.08);
       doc.setLineDashPattern([2, 2], 0);
       doc.rect(stampX, footerY + 22, 40, 20, "D");
       doc.setLineDashPattern([], 0);
@@ -1299,7 +1299,7 @@ function drawFooterClean(doc: jsPDF, data: PDFData): void {
 
     const drawSigBlock = (x: number, label: string) => {
       doc.setDrawColor(style.divider);
-      doc.setLineWidth(0.12);
+      doc.setLineWidth(0.08);
       doc.line(x, footerY, x + sigWidth, footerY);
 
       doc.setFont("Sarabun", "normal");
@@ -1325,7 +1325,7 @@ function drawFooterClean(doc: jsPDF, data: PDFData): void {
     if (document.doc_type === "receipt" || document.doc_type === "tax_invoice_receipt") {
       const stampX = MARGIN + CONTENT_W - 45;
       doc.setDrawColor(style.subtle);
-      doc.setLineWidth(0.15);
+      doc.setLineWidth(0.08);
       doc.setLineDashPattern([2, 2], 0);
       doc.rect(stampX, footerY + 22, 40, 20, "D");
       doc.setLineDashPattern([], 0);
