@@ -1,0 +1,10 @@
+.vercel
+node_modules
+dist
+.env
+*.tsbuildinfo
+nul
+R2_key.md
+supabase_key.md
+test user.md
+supabase/.temp

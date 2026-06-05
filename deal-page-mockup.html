@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal Page Mockup</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #ECEAE5; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 24px 16px; font-family: -apple-system, 'Sarabun', sans-serif; }
+
+.phone {
+  background: #F7F6F3;
+  border-radius: 20px;
+  border: 0.5px solid #D8D6CF;
+  overflow: hidden;
+  width: 100%;
+  max-width: 375px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+}
+
+/* TOP BAR */
+.topbar {
+  background: #fff;
+  border-bottom: 0.5px solid #E8E6DF;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.back { color: #378ADD; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.topbar-title { font-size: 15px; font-weight: 600; color: #1A1A18; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-more { color: #888780; font-size: 20px; cursor: pointer; padding: 0 2px; }
+
+/* SCROLL */
+.scroll { padding: 14px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: calc(100vh - 100px); }
+
+/* CUSTOMER CARD */
+.customer-card {
+  background: #fff;
+  border: 0.5px solid #E8E6DF;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.customer-name { font-size: 15px; font-weight: 600; color: #1A1A18; }
+.customer-sub { font-size: 12px; color: #888780; margin-top: 3px; line-height: 1.5; }
+.amount-col { text-align: right; flex-shrink: 0; }
+.amount-big { font-size: 20px; font-weight: 700; color: #1A1A18; }
+.amount-label { font-size: 11px; color: #888780; margin-top: 2px; }
+
+/* PIPELINE */
+.pipeline {
+  background: #fff;
+  border: 0.5px solid #E8E6DF;
+  border-radius: 10px;
+  padding: 16px;
+}
+.section-label {
+  font-size: 11px;
+  color: #888780;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+}
+.stages {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+.stage { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.stage-dot {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  position: relative; z-index: 1;
+}
+.dot-done { background: #EAF3DE; color: #27500A; }
+.dot-active { background: #378ADD; color: #fff; box-shadow: 0 0 0 4px #E6F1FB; }
+.dot-pending { background: #F1EFE8; color: #AAAAAA; }
+.stage-name { font-size: 10px; color: #888780; text-align: center; line-height: 1.4; }
+.stage-name.active { color: #378ADD; font-weight: 600; }
+.stage-name.done { color: #27500A; }
+.connector {
+  flex: 0.5;
+  height: 2px;
+  margin-top: 14px;
+}
+.conn-done { background: #C8E6B0; }
+.conn-pending { background: #E8E6DF; }
+
+/* ACTION BUTTON */
+.action-btn {
+  width: 100%;
+  background: #378ADD;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 13px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.action-btn:hover { background: #2A72C7; }
+.action-hint {
+  font-size: 11px;
+  color: #888780;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* TIMELINE */
+.timeline-wrap { display: flex; flex-direction: column; gap: 0; }
+.timeline { display: flex; flex-direction: column; }
+.t-item { display: flex; gap: 10px; }
+.t-left { display: flex; flex-direction: column; align-items: center; width: 28px; flex-shrink: 0; }
+.t-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.td-done { background: #27500A; }
+.td-converted { background: #AAAAAA; }
+.td-active { background: #378ADD; box-shadow: 0 0 0 3px #E6F1FB; width: 12px; height: 12px; margin-top: 4px; }
+.td-generated { background: #27500A; }
+.t-line { flex: 1; width: 1.5px; background: #E8E6DF; margin-top: 3px; margin-bottom: 0; }
+.t-line.last { background: transparent; }
+.t-card {
+  flex: 1;
+  background: #fff;
+  border: 0.5px solid #E8E6DF;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  transition: border-color 0.15s;
+}
+.t-card:hover { border-color: #378ADD; }
+.t-card.current { border-color: #378ADD; background: #FAFCFF; }
+.t-type { font-size: 12px; font-weight: 600; color: #1A1A18; }
+.t-type.current { color: #378ADD; }
+.t-num { font-size: 11px; color: #888780; margin-top: 2px; }
+.t-date { font-size: 10px; color: #AAAAAA; margin-top: 3px; }
+.t-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+.t-amount { font-size: 13px; font-weight: 600; color: #1A1A18; }
+.badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.b-paid { background: #EAF3DE; color: #27500A; }
+.b-sent { background: #E6F1FB; color: #0C447C; }
+.b-converted { background: #F1EFE8; color: #888780; }
+.b-generated { background: #EAF3DE; color: #27500A; }
+.t-pdf { font-size: 10px; color: #378ADD; cursor: pointer; }
+
+/* SIDE ACTIONS */
+.side-card {
+  background: #fff;
+  border: 0.5px solid #E8E6DF;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.side-btns { display: flex; gap: 8px; margin-top: 10px; }
+.side-btn {
+  flex: 1;
+  background: #F7F6F3;
+  border: 0.5px solid #E8E6DF;
+  border-radius: 7px;
+  padding: 10px 8px;
+  font-size: 12px;
+  color: #444441;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.side-btn:hover { border-color: #378ADD; color: #378ADD; }
+
+/* Spacer */
+.spacer { height: 8px; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="topbar">
+    <span class="back">← หน้าหลัก</span>
+    <span class="topbar-title">ร้านมาลี สเตชันเนอรี่</span>
+    <span class="topbar-more">···</span>
+  </div>
+
+  <div class="scroll">
+
+    <!-- Customer summary -->
+    <div class="customer-card">
+      <div>
+        <div class="customer-name">ร้านมาลี สเตชันเนอรี่</div>
+        <div class="customer-sub">กระดาษ A4 × 50 รีม<br>หมึกพิมพ์ × 5 กล่อง</div>
+      </div>
+      <div class="amount-col">
+        <div class="amount-big">฿ 13,000</div>
+        <div class="amount-label">ยอดที่ต้องรับ</div>
+      </div>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="pipeline">
+      <div class="section-label">ขั้นตอน</div>
+      <div class="stages">
+        <div class="stage">
+          <div class="stage-dot dot-done">✓</div>
+          <div class="stage-name done">ใบเสนอ<br>ราคา</div>
+        </div>
+        <div class="connector conn-done"></div>
+        <div class="stage">
+          <div class="stage-dot dot-done">✓</div>
+          <div class="stage-name done">ใบแจ้ง<br>หนี้</div>
+        </div>
+        <div class="connector conn-pending"></div>
+        <div class="stage">
+          <div class="stage-dot dot-active">3</div>
+          <div class="stage-name active">วางบิล<br>เก็บเงิน</div>
+        </div>
+        <div class="connector conn-pending"></div>
+        <div class="stage">
+          <div class="stage-dot dot-pending">4</div>
+          <div class="stage-name">เสร็จ<br>สิ้น</div>
+        </div>
+      </div>
+
+      <button class="action-btn">
+        💰 ลูกค้าชำระเงินแล้ว — ยืนยันรับเงิน
+      </button>
+      <div class="action-hint">ครบกำหนด 15 พ.ค. 2025 &nbsp;·&nbsp; BN-2025-003</div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="timeline-wrap">
+      <div class="section-label" style="padding: 0 2px;">ประวัติเอกสาร</div>
+      <div class="timeline">
+
+        <div class="t-item">
+          <div class="t-left">
+            <div class="t-dot td-converted"></div>
+            <div class="t-line"></div>
+          </div>
+          <div class="t-card">
+            <div>
+              <div class="t-type">ใบเสนอราคา</div>
+              <div class="t-num">QT-2025-004</div>
+              <div class="t-date">1 พ.ค. 2025</div>
+            </div>
+            <div class="t-right">
+              <div class="t-amount">฿ 12,500</div>
+              <div class="badge b-converted">แปลงแล้ว</div>
+              <div class="t-pdf">⬇ PDF</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="t-item">
+          <div class="t-left">
+            <div class="t-dot td-done"></div>
+            <div class="t-line"></div>
+          </div>
+          <div class="t-card">
+            <div>
+              <div class="t-type">ใบแจ้งหนี้</div>
+              <div class="t-num">INV-2025-007</div>
+              <div class="t-date">3 พ.ค. 2025</div>
+            </div>
+            <div class="t-right">
+              <div class="t-amount">฿ 13,375</div>
+              <div class="badge b-sent">อยู่ในวางบิล</div>
+              <div class="t-pdf">⬇ PDF</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="t-item">
+          <div class="t-left">
+            <div class="t-dot td-active"></div>
+            <div class="t-line last"></div>
+          </div>
+          <div class="t-card current">
+            <div>
+              <div class="t-type current">ใบวางบิล</div>
+              <div class="t-num">BN-2025-003</div>
+              <div class="t-date">5 พ.ค. 2025 · ครบ 15 พ.ค.</div>
+            </div>
+            <div class="t-right">
+              <div class="t-amount">฿ 13,000</div>
+              <div class="badge b-sent">รอชำระ</div>
+              <div class="t-pdf">⬇ PDF</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Side actions -->
+    <div class="side-card">
+      <div class="section-label">เพิ่มเติม</div>
+      <div class="side-btns">
+        <button class="side-btn">📦 บันทึกการส่งของ</button>
+        <button class="side-btn">✏️ ยกเลิก / แก้ไข</button>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "crons": [
+    {
+      "path": "/api/cron/overdue",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}

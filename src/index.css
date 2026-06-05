@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background: #F7F6F3;
+  color: #1a1a1a;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.2s ease-out;
+}
+
+.animate-toast-out {
+  animation: toast-out 0.15s ease-in forwards;
+}
+
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-overlay-in {
+  animation: modal-overlay-in 0.15s ease-out;
+}
+
+.animate-modal-in {
+  animation: modal-content-in 0.2s ease-out;
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    max-height: 200px;
+    transform: translateY(0);
+  }
+}
+
+.animate-slideDown {
+  animation: slide-down 0.25s ease-out;
+  overflow: hidden;
+}
+
+.print-preview-shell {
+  color: #101828;
+}
+
+.print-sheet {
+  position: relative;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 16mm 18mm;
+  background: #ffffff;
+  border: 1px solid #d7dee7;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  box-sizing: border-box;
+}
+
+.print-theme-modern {
+  border-color: #cfd8e3;
+  border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
+  background:
+    linear-gradient(180deg, #2f6fed 0 5px, transparent 5px 100%),
+    #ffffff;
+}
+
+.print-only {
+  display: none;
+}
+
+.print-block,
+.print-header,
+.print-table,
+.print-table tr,
+.print-table thead,
+.print-table tbody,
+.print-table tfoot {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  body {
+    margin: 0;
+    color: #101828;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-toolbar {
+    display: none !important;
+  }
+
+  .print-preview-shell {
+    min-height: auto;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .print-sheet {
+    width: 100%;
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: white;
+  }
+
+  .print-theme-modern {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: #ffffff;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+}
