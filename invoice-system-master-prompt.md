@@ -681,3 +681,32 @@ Do not build these in v1. They can be added without redesigning the system:
 | Auth | Supabase Auth only | Zero custom auth code |
 | Currency | Thai Baht only, no multi-currency | Scope control |
 | Backend | No custom server — Supabase + Vercel cron only | Simplicity, cost |
+---
+
+## Current Rollout Status
+
+Completed recently:
+- Documents list redesigned into a cleaner command-center style
+- Mobile-first improvements for Documents list filters and scanning
+- Quick-detail document modal from the Documents list
+- Quick-detail modal supports outside-click close
+- Quick-detail modal now fetches full document detail on open
+- Quick-detail modal shows compact item lines and financial summary
+- Document detail page visual hierarchy improved for clearer summary and actions
+
+Still remaining:
+
+### Phase 1
+- Finish polishing document detail page so summary, actions, and related information feel fully consistent across mobile and desktop
+- Improve Home dashboard into a stronger "what needs attention now" view
+- Simplify create/edit document forms and reduce visual noise in long workflows
+
+### Phase 2
+- Redesign Customers list and customer detail around relationship status, outstanding amount, and recent activity
+- Reorganize Settings into clearer business-friendly sections
+- Improve empty states, confirmations, and general UI consistency across screens
+
+### Phase 3
+- Refine Inventory/Catalog UX and item selection flow
+- Improve workflow visibility across related documents: quotation -> invoice -> billing note -> receipt
+- Add deeper mobile polish for sticky actions, sheet behavior, and reduced scroll fatigue

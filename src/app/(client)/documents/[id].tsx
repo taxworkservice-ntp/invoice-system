@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ArrowRight, CalendarDays, CircleDollarSign, FileStack, NotebookText, Printer, UserRound } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
@@ -32,6 +34,28 @@ function DocTypeBadge({ docType, vatRegistered }: { docType: Document["doc_type"
     <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${color.bg} ${color.text}`}>
       {label.thai}
     </span>
+  );
+}
+
+function DetailCard({
+  title,
+  icon,
+  children,
+  className = "",
+}: {
+  title: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={`rounded-[22px] border border-[#E8E6DF] bg-white p-4 sm:p-5 ${className}`}>
+      <div className="mb-4 flex items-center gap-2">
+        {icon ? <span className="text-[#8A8478]">{icon}</span> : null}
+        <h3 className="text-sm font-semibold text-[#1A1A18]">{title}</h3>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -515,8 +539,19 @@ export default function DocumentDetailPage() {
   const lineDiscountTotal = doc.line_items?.reduce((sum, item) => sum + (item.discount_amount || 0), 0) || 0;
   const grossSubtotal = doc.subtotal + (doc.discount_amount || 0) + lineDiscountTotal;
   const usesHtmlPrintPreview = isHtmlPrintTemplate(clientProfile?.pdf_template);
-
   const docLabel = documentTypeLabel(doc.doc_type, doc.vat_registered);
+  const customerName = customer?.name || "ไม่ได้ระบุลูกค้า";
+  const issueDateLabel = formatDate(doc.issue_date);
+  const dueDateLabel = doc.due_date ? formatDate(doc.due_date) : "ไม่มีกำหนด";
+  const statusMessage = isVoided
+    ? "ยกเลิกแล้ว เก็บไว้เป็นประวัติ"
+    : isPaid
+      ? "ปิดงานแล้วและมีข้อมูลรับเงินครบ"
+      : isOverdue
+        ? "เกินกำหนดแล้ว ควรติดตามการชำระ"
+        : isSent || isIssued
+          ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
+          : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
 
   return (
     <AppShell
@@ -534,90 +569,107 @@ export default function DocumentDetailPage() {
         </div>
       )}
 
-      <div className="bg-white border border-card-border rounded-card p-5 text-center mb-4">
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <h2 className="text-lg font-semibold text-gray-800">{doc.doc_number || "-"}</h2>
-          <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
-          <Badge status={doc.status} />
-          {isOverdue && (
-            <span className="inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-700">
-              เกินกำหนด
-            </span>
-          )}
+      <div className="mb-4 rounded-[26px] border border-[#E8E6DF] bg-[linear-gradient(135deg,#FFFDF8_0%,#F5F1E8_100%)] p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
+              <Badge status={doc.status} />
+              {isOverdue && (
+                <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
+                  เกินกำหนด
+                </span>
+              )}
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-[#1A1A18] sm:text-3xl">{doc.doc_number || "-"}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#625C52]">{statusMessage}</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                  <UserRound className="h-3.5 w-3.5" />
+                  ลูกค้า
+                </div>
+                <p className="mt-2 text-sm font-medium text-[#1A1A18]">{customerName}</p>
+              </div>
+              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  วันที่ออก
+                </div>
+                <p className="mt-2 text-sm font-medium text-[#1A1A18]">{issueDateLabel}</p>
+              </div>
+              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  ครบกำหนด
+                </div>
+                <p className={`mt-2 text-sm font-medium ${isOverdue ? "text-red-700" : "text-[#1A1A18]"}`}>{dueDateLabel}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full max-w-sm rounded-[24px] border border-[#E5DED2] bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+              <CircleDollarSign className="h-4 w-4" />
+              ยอดสำคัญ
+            </div>
+            <div className="mt-3 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</div>
+            <p className="mt-1 text-sm text-[#6B655C]">{doc.wht_rate > 0 ? "ยอดสุทธิหลังหัก ณ ที่จ่าย" : "ยอดรวมเอกสารนี้"}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => navigate(`/documents/edit?id=${doc.id}`)}>
+                แก้ไขเอกสาร
+              </Button>
+              {doc.deal_id && (
+                <Button variant="secondary" size="sm" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
+                  เปิดดีล
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
-        <p className="text-xs text-gray-500 mt-1">
-          {customer?.name || "ไม่ระบุ"} &middot; {formatDate(doc.issue_date)}
-          {doc.due_date && (
-            <>
-              {" "}
-              &middot; ครบกำหนด{" "}
-              <span className={isOverdue ? "text-red-600 font-medium" : ""}>{formatDate(doc.due_date)}</span>
-            </>
-          )}
-        </p>
-        <p className="text-3xl font-bold text-gray-900 mt-2">฿{formatCurrency(doc.net_payable)}</p>
-        <p className="text-xs text-gray-500 mt-0.5">
-          {doc.wht_rate > 0 ? "ยอดที่ต้องชำระ" : "รวมทั้งสิ้น"}
-        </p>
-        {doc.deal_id && (
-          <button
-            onClick={() => navigate(`/deals/${doc.deal_id}`)}
-            className="block mx-auto mt-2 text-xs text-primary hover:underline"
-          >
-            ดูดีล
-          </button>
-        )}
       </div>
 
-      {isDraft && (
-        <div className="bg-[#F1EFE8] border-[0.5px] border-[#E8E6DF] rounded-lg p-3 text-center text-sm text-[#444441] mb-4">
-          ฉบับร่าง — ยังไม่ได้ส่ง
-        </div>
-      )}
-      {isSent && (
-        <div className="bg-[#E6F1FB] border-[0.5px] border-[#C8DAEE] rounded-lg p-3 text-center text-sm text-[#0C447C] mb-4">
-          ส่งแล้ว — รอดำเนินการ
-        </div>
-      )}
-      {isPaid && (
-        <div className="bg-[#EAF3DE] border-[0.5px] border-[#C8E6B0] rounded-lg p-3 text-center text-sm text-[#27500A] mb-4">
-          ชำระแล้ว
-        </div>
-      )}
-      {isVoided && (
-        <div className="bg-[#FCEBEB] border-[0.5px] border-[#F5C6C6] rounded-lg p-3 text-center text-sm text-[#791F1F] mb-4">
-          ยกเลิกแล้ว — เอกสารนี้ไม่มีผลบังคับใช้
-        </div>
-      )}
-      {doc.status === "generated" && (
-        <div className="bg-[#EAF3DE] border-[0.5px] border-[#C8E6B0] rounded-lg p-3 text-center text-sm text-[#27500A] mb-4">
-          ออกอัตโนมัติ
-        </div>
-      )}
+      <div
+        className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+          isVoided
+            ? "border-[#F2D4D4] bg-[#FFF4F4] text-[#8A2020]"
+            : isPaid
+              ? "border-[#CFE7D8] bg-[#EDF8F1] text-[#1E5A38]"
+              : isOverdue
+                ? "border-[#F0D0D0] bg-[#FFF0F0] text-[#8A2020]"
+                : isSent || isIssued
+                  ? "border-[#D9E7F7] bg-[#EAF4FF] text-[#0C447C]"
+                  : "border-[#E5E1D9] bg-[#F6F2EA] text-[#4C463D]"
+        }`}
+      >
+        {statusMessage}
+      </div>
 
       {pdfUrl && (
-        <div className="bg-white border border-card-border rounded-card overflow-hidden mb-4 shadow-sm">
+        <DetailCard title="ตัวอย่างเอกสาร" icon={<Printer className="h-4 w-4" />} className="mb-4">
           <iframe
             src={pdfUrl}
-            className="w-full h-[60vh] md:h-[50vh]"
+            className="w-full h-[60vh] rounded-2xl border border-[#ECE7DD]"
             title="PDF Preview"
           />
-        </div>
+        </DetailCard>
       )}
 
       {doc.line_items && doc.line_items.length > 0 && (
-        <div className="bg-white border border-card-border rounded-card overflow-hidden mb-4">
-          <div className="px-4 py-2 bg-gray-50 border-b border-card-border">
-            <h3 className="text-sm font-medium text-gray-600">รายการ</h3>
-          </div>
+        <DetailCard title="รายการเอกสาร" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
+          <div className="-mt-4 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-card-border">
-                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium w-8">#</th>
-                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">รายการ</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">จำนวน</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">ราคา/หน่วย</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">รวม</th>
+              <tr className="border-b border-card-border bg-[#FAF8F3]">
+                <th className="w-8 px-4 py-3 text-left text-xs font-medium text-gray-500">#</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">รายการ</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">จำนวน</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">ราคา/หน่วย</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">รวม</th>
               </tr>
             </thead>
             <tbody>
@@ -639,21 +691,20 @@ export default function DocumentDetailPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </DetailCard>
       )}
 
       {doc.doc_type === "billing_note" && doc.billing_invoices && doc.billing_invoices.length > 0 && (
-        <div className="bg-white border border-card-border rounded-card overflow-hidden mb-4">
-          <div className="px-4 py-2 bg-gray-50 border-b border-card-border">
-            <h3 className="text-sm font-medium text-gray-600">ใบแจ้งหนี้ที่รวม</h3>
-          </div>
+        <DetailCard title="ใบแจ้งหนี้ที่รวม" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
+          <div className="-mt-4 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-card-border">
-                <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">เลขที่ใบแจ้งหนี้</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">ยอดก่อน VAT</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">VAT</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">รวม</th>
+              <tr className="border-b border-card-border bg-[#FAF8F3]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">เลขที่ใบแจ้งหนี้</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">ยอดก่อน VAT</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">VAT</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">รวม</th>
               </tr>
             </thead>
             <tbody>
@@ -667,10 +718,11 @@ export default function DocumentDetailPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </DetailCard>
       )}
 
-      <div className="bg-white border border-card-border rounded-card p-4 mb-4">
+      <DetailCard title="สรุปยอด" icon={<CircleDollarSign className="h-4 w-4" />} className="mb-4">
         <div className="space-y-1 text-sm">
           {lineDiscountTotal > 0 && (
             <>
@@ -725,11 +777,11 @@ export default function DocumentDetailPage() {
             </>
           )}
         </div>
-      </div>
+      </DetailCard>
 
       {isPaid && (doc.payment_method || doc.paid_at || doc.amount_received != null) && (
-        <div className="bg-green-50 border border-green-200 rounded-card p-4 mb-4 space-y-1 text-sm">
-          <h3 className="text-sm font-medium text-green-800 mb-2">ชำระเงินแล้ว</h3>
+        <DetailCard title="ข้อมูลรับเงิน" icon={<CircleDollarSign className="h-4 w-4" />} className="mb-4 border-green-200 bg-green-50">
+          <div className="space-y-1 text-sm">
           {doc.payment_method && (
             <div className="flex justify-between">
               <span className="text-green-700">วิธีชำระ:</span>
@@ -754,20 +806,24 @@ export default function DocumentDetailPage() {
               <span>{doc.wht_certificate_no}</span>
             </div>
           )}
-        </div>
+          </div>
+        </DetailCard>
       )}
 
       {doc.note && (
-        <div className="bg-white border border-card-border rounded-card p-4 mb-4">
-          <h3 className="text-xs font-medium text-gray-500 mb-1">หมายเหตุ</h3>
+        <DetailCard title="หมายเหตุ" icon={<NotebookText className="h-4 w-4" />} className="mb-4">
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{doc.note}</p>
-        </div>
+        </DetailCard>
       )}
 
       <div className="h-20" />
 
-      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-white border-t border-card-border px-4 py-3 z-30 md:static md:border-0 md:bg-transparent md:p-0 md:space-y-2">
-        <div className="max-w-4xl mx-auto space-y-2">
+      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-white border-t border-card-border px-4 py-3 z-30 md:static md:border-0 md:bg-transparent md:p-0">
+        <div className="max-w-4xl mx-auto space-y-2 rounded-[24px] border border-[#E8E6DF] bg-white p-3 shadow-[0_12px_30px_rgba(26,26,24,0.08)] md:p-4">
+          <div className="pb-1">
+            <h3 className="text-sm font-semibold text-[#1A1A18]">การดำเนินการถัดไป</h3>
+            <p className="mt-1 text-xs leading-5 text-[#6F6A61]">{statusMessage}</p>
+          </div>
           {usesHtmlPrintPreview ? (
             <div className="space-y-2">
               <Button

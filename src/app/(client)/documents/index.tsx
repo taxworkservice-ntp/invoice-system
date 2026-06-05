@@ -1,23 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  AlertTriangle,
-  ArrowUpDown,
-  CheckCircle2,
-  Clock3,
-  FileText,
-  Search,
-  SlidersHorizontal,
-  XCircle,
-} from "lucide-react";
+import { AlertTriangle, ArrowUpDown, CheckCircle2, Clock3, FileText, Search, SlidersHorizontal, XCircle } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { Card } from "../../../components/ui/Card";
+import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SkeletonCard, SkeletonTable } from "../../../components/ui/Skeleton";
-import { useDocuments } from "../../../hooks/useDocuments";
+import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
 import { useAuth } from "../../../hooks/useAuth";
 import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
@@ -85,12 +78,7 @@ function getNextStepText(doc: Document) {
 function DocTypeBadge({ docType, vatRegistered = false }: { docType: DocumentType; vatRegistered?: boolean }) {
   const color = DOC_TYPE_COLORS[docType];
   const label = documentTypeLabel(docType, vatRegistered);
-
-  return (
-    <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${color.bg} ${color.text}`}>
-      {label.thai}
-    </span>
-  );
+  return <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${color.bg} ${color.text}`}>{label.thai}</span>;
 }
 
 function SummaryCard({
@@ -107,7 +95,7 @@ function SummaryCard({
   hint: string;
   active: boolean;
   tone: "blue" | "amber" | "red" | "green" | "gray";
-  icon: React.ReactNode;
+  icon: ReactNode;
   onClick: () => void;
 }) {
   const tones = {
@@ -119,11 +107,7 @@ function SummaryCard({
   };
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-[18px] border p-4 text-left transition-colors ${tones[tone]}`}
-    >
+    <button type="button" onClick={onClick} className={`rounded-[18px] border p-4 text-left transition-colors ${tones[tone]}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="text-xs font-medium uppercase tracking-[0.12em] opacity-70">{title}</div>
@@ -136,15 +120,7 @@ function SummaryCard({
   );
 }
 
-function SectionHeader({
-  title,
-  hint,
-  count,
-}: {
-  title: string;
-  hint: string;
-  count: number;
-}) {
+function SectionHeader({ title, hint, count }: { title: string; hint: string; count: number }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
@@ -156,13 +132,7 @@ function SectionHeader({
   );
 }
 
-function DocumentCard({
-  doc,
-  onOpen,
-}: {
-  doc: Document;
-  onOpen: () => void;
-}) {
+function DocumentCard({ doc, onOpen }: { doc: Document; onOpen: () => void }) {
   const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
   const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
 
@@ -177,11 +147,7 @@ function DocumentCard({
               <span className="hidden sm:inline-flex">
                 <Badge status={doc.status} />
               </span>
-              {overdue && (
-                <span className="inline-flex rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
-                  ต้องติดตาม
-                </span>
-              )}
+              {overdue && <span className="inline-flex rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">ต้องติดตาม</span>}
             </div>
 
             <div className="space-y-1">
@@ -194,11 +160,7 @@ function DocumentCard({
 
             <div className="flex flex-col gap-1 text-xs text-[#888780] sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
               <span>ออกเอกสาร: {formatBuddhistDate(doc.issue_date)}</span>
-              {doc.due_date && (
-                <span className={overdue ? "font-medium text-red-600" : ""}>
-                  ครบกำหนด: {formatBuddhistDate(doc.due_date)}
-                </span>
-              )}
+              {doc.due_date && <span className={overdue ? "font-medium text-red-600" : ""}>ครบกำหนด: {formatBuddhistDate(doc.due_date)}</span>}
             </div>
           </div>
 
@@ -209,6 +171,193 @@ function DocumentCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+function QuickDetailModal({
+  doc,
+  open,
+  loading,
+  onClose,
+  onOpenFull,
+}: {
+  doc: Document | null;
+  open: boolean;
+  loading: boolean;
+  onClose: () => void;
+  onOpenFull: () => void;
+}) {
+  if (!open) return null;
+
+  if (loading || !doc) {
+    return (
+      <Modal open={open} onClose={onClose} title="รายละเอียดเอกสาร" className="md:max-w-3xl">
+        <div className="space-y-3">
+          <SkeletonCard className="p-0" />
+          <SkeletonCard className="p-0" />
+          <SkeletonCard className="p-0" />
+        </div>
+      </Modal>
+    );
+  }
+
+  const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
+  const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
+  const items = Array.isArray(doc.line_items) ? doc.line_items : [];
+  const lineDiscountTotal = items.reduce((sum, item) => sum + (item.discount_amount || 0), 0);
+  const detailRows = [
+    { label: "ลูกค้า", value: customerName },
+    { label: "วันที่ออก", value: formatBuddhistDate(doc.issue_date) },
+    { label: "ครบกำหนด", value: doc.due_date ? formatBuddhistDate(doc.due_date) : "ไม่มีกำหนด", emphasis: overdue },
+    { label: "ขั้นตอนถัดไป", value: getNextStepText(doc) },
+  ];
+
+  return (
+    <Modal open={open} onClose={onClose} title={doc.doc_number || "รายละเอียดเอกสาร"} className="md:max-w-3xl">
+      <div className="space-y-4">
+        <div className="rounded-[22px] border border-[#E8E6DF] bg-[linear-gradient(135deg,#FFFDF8_0%,#F6F2EA_100%)] p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
+            <Badge status={doc.status} />
+            {overdue && (
+              <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">ต้องติดตาม</span>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">ยอดสุทธิ</div>
+            <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</div>
+          </div>
+        </div>
+
+        <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
+          <div className="space-y-3 text-sm">
+            {detailRows.map((row) => (
+              <div key={row.label} className="flex items-start justify-between gap-4">
+                <span className="text-[#7B766E]">{row.label}</span>
+                <span className={`text-right font-medium ${row.emphasis ? "text-red-700" : "text-[#1A1A18]"}`}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {items.length > 0 && (
+          <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-3.5 sm:p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">รายการ</div>
+              <div className="text-xs text-[#7B766E]">{items.length} รายการ</div>
+            </div>
+
+            <div className="mt-2.5 space-y-1.5 sm:hidden">
+              {items.slice(0, 4).map((item) => (
+                <div key={item.id} className="rounded-[18px] border border-[#F0ECE5] bg-[#FCFBF8] px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="truncate text-sm font-medium leading-5 text-[#1A1A18]">{item.item_name}</p>
+                        <div className="shrink-0 text-right">
+                          <div className="text-[10px] uppercase tracking-[0.12em] text-[#8A8478]">รวม</div>
+                          <div className="text-sm font-semibold leading-5 text-[#1A1A18]">฿ {formatCurrency(item.line_total)}</div>
+                        </div>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-[#7B766E]">
+                        <span>{item.quantity} {item.unit}</span>
+                        <span>x ฿ {formatCurrency(item.unit_price)}</span>
+                      </div>
+                      {item.discount_amount > 0 && (
+                        <p className="mt-1 text-[11px] leading-4 text-red-700">ส่วนลด {item.discount_percent}% (-฿ {formatCurrency(item.discount_amount)})</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-2.5 hidden overflow-hidden rounded-2xl border border-[#F0ECE5] sm:block">
+              <div className="grid grid-cols-[minmax(0,1.7fr)_0.8fr_0.9fr] gap-3 bg-[#FAF8F3] px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                <div>รายการ</div>
+                <div className="text-right">จำนวน x ราคา</div>
+                <div className="text-right">Total</div>
+              </div>
+              {items.slice(0, 4).map((item, index) => (
+                <div
+                  key={item.id}
+                  className={`grid grid-cols-[minmax(0,1.7fr)_0.8fr_0.9fr] gap-3 px-4 py-3 ${
+                    index === 0 ? "" : "border-t border-[#F0ECE5]"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium leading-5 text-[#1A1A18]">{item.item_name}</p>
+                    {item.discount_amount > 0 && (
+                      <p className="mt-1 text-[11px] leading-4 text-red-700">ส่วนลด {item.discount_percent}% (-฿ {formatCurrency(item.discount_amount)})</p>
+                    )}
+                  </div>
+                  <div className="text-right text-sm leading-5 text-[#5F5A52]">
+                    {item.quantity} {item.unit}
+                    <div className="mt-0.5 text-[11px] leading-4 text-[#8A8478]">x ฿ {formatCurrency(item.unit_price)}</div>
+                  </div>
+                  <div className="text-right text-sm font-semibold leading-5 text-[#1A1A18]">฿ {formatCurrency(item.line_total)}</div>
+                </div>
+              ))}
+            </div>
+
+            {items.length > 4 && <div className="mt-3 text-center text-xs text-[#7B766E]">และอีก {items.length - 4} รายการในหน้ารายละเอียดเต็ม</div>}
+          </div>
+        )}
+
+        <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
+          <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">สรุปยอด</div>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-[#7B766E]">Subtotal</span>
+              <span className="text-right font-medium text-[#1A1A18]">฿ {formatCurrency(doc.subtotal)}</span>
+            </div>
+            {lineDiscountTotal > 0 && (
+              <div className="flex items-start justify-between gap-4 text-red-700">
+                <span>ส่วนลดรายการ</span>
+                <span className="text-right font-medium">-฿ {formatCurrency(lineDiscountTotal)}</span>
+              </div>
+            )}
+            {doc.discount_amount > 0 && (
+              <div className="flex items-start justify-between gap-4 text-red-700">
+                <span>ส่วนลดท้ายบิล</span>
+                <span className="text-right font-medium">-฿ {formatCurrency(doc.discount_amount)}</span>
+              </div>
+            )}
+            {doc.vat_registered && (
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-[#7B766E]">VAT {doc.vat_rate}%</span>
+                <span className="text-right font-medium text-[#1A1A18]">฿ {formatCurrency(doc.vat_amount)}</span>
+              </div>
+            )}
+            {doc.wht_rate > 0 && (
+              <div className="flex items-start justify-between gap-4 text-red-700">
+                <span>หัก ณ ที่จ่าย {doc.wht_rate}%</span>
+                <span className="text-right font-medium">-฿ {formatCurrency(doc.wht_amount)}</span>
+              </div>
+            )}
+            <div className="flex items-start justify-between gap-4 border-t border-[#F0ECE5] pt-2">
+              <span className="font-medium text-[#1A1A18]">ยอดสุทธิ</span>
+              <span className="text-right text-base font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</span>
+            </div>
+          </div>
+        </div>
+
+        {doc.note && (
+          <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
+            <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">หมายเหตุ</div>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#4F4A42]">{doc.note}</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            ปิด
+          </Button>
+          <Button onClick={onOpenFull}>เปิดหน้ารายละเอียด</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -227,6 +376,9 @@ export default function DocumentsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const [quickDetailLoading, setQuickDetailLoading] = useState(false);
   const preset = searchParams.get("preset");
 
   useEffect(() => {
@@ -307,7 +459,6 @@ export default function DocumentsPage() {
         const customerName = ((doc as any).customer?.name || "").toLowerCase();
         const docNumber = (doc.doc_number || "").toLowerCase();
         const note = (doc.note || "").toLowerCase();
-
         if (!customerName.includes(query) && !docNumber.includes(query) && !note.includes(query)) return false;
       }
 
@@ -364,31 +515,31 @@ export default function DocumentsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function openDocModal(doc: Document) {
+    setSelectedDocId(doc.id);
+    setSelectedDoc(doc);
+    setQuickDetailLoading(true);
+    try {
+      const fullDoc = await getDocumentDetail(doc.id);
+      setSelectedDoc(fullDoc);
+    } catch {
+      setSelectedDoc(doc);
+    } finally {
+      setQuickDetailLoading(false);
+    }
+  }
+
+  function closeDocModal() {
+    setSelectedDocId(null);
+    setSelectedDoc(null);
+    setQuickDetailLoading(false);
+  }
+
   const sections = [
-    {
-      key: "attention",
-      title: "ต้องดูตอนนี้",
-      hint: "ร่างค้าง เอกสารเกินกำหนด และงานที่ยังรอเก็บเงิน",
-      docs: grouped.attention,
-    },
-    {
-      key: "active",
-      title: "กำลังดำเนินการ",
-      hint: "เอกสารที่ยังอยู่ใน workflow แต่ยังไม่ใช่งานเร่งด่วน",
-      docs: grouped.active,
-    },
-    {
-      key: "completed",
-      title: "เสร็จแล้ว",
-      hint: "ประวัติเอกสารที่ปิดงานแล้วหรือรับเงินแล้ว",
-      docs: grouped.completed,
-    },
-    {
-      key: "voided",
-      title: "ยกเลิก",
-      hint: "เก็บไว้เป็นประวัติอ้างอิงภายหลัง",
-      docs: grouped.voided,
-    },
+    { key: "attention", title: "ต้องดูตอนนี้", hint: "ร่างค้าง เอกสารเกินกำหนด และงานที่ยังรอเก็บเงิน", docs: grouped.attention },
+    { key: "active", title: "กำลังดำเนินการ", hint: "เอกสารที่ยังอยู่ใน workflow แต่ยังไม่ใช่งานเร่งด่วน", docs: grouped.active },
+    { key: "completed", title: "เสร็จแล้ว", hint: "ประวัติเอกสารที่ปิดงานแล้วหรือรับเงินแล้ว", docs: grouped.completed },
+    { key: "voided", title: "ยกเลิก", hint: "เก็บไว้เป็นประวัติอ้างอิงภายหลัง", docs: grouped.voided },
   ].filter((section) => section.docs.length > 0);
 
   const mobileQuickFilters: { label: string; value: QuickView; count: number }[] = [
@@ -413,9 +564,7 @@ export default function DocumentsPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-[#1A1A18]">Documents command center</h2>
-              <p className="mt-1 text-sm leading-6 text-[#6F6A61]">
-                ดูว่าเอกสารไหนต้องตามต่อ เอกสารไหนเสร็จแล้ว และเปิดรายละเอียดได้เร็วขึ้นจากหน้าเดียว
-              </p>
+              <p className="mt-1 text-sm leading-6 text-[#6F6A61]">ดูว่าเอกสารไหนต้องตามต่อ เอกสารไหนเสร็จแล้ว และเปิดรายละเอียดได้เร็วขึ้นจากหน้าเดียว</p>
             </div>
             <div className="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[#7D776D] sm:block">
               {filtered.length} จาก {documents.length} รายการ
@@ -427,51 +576,11 @@ export default function DocumentsPage() {
               Array.from({ length: 5 }).map((_, index) => <SkeletonCard key={index} className="p-0" />)
             ) : (
               <>
-                <SummaryCard
-                  title="ร่าง"
-                  count={summary.draft}
-                  hint="ยังไม่ได้ส่งลูกค้า"
-                  active={quickView === "draft"}
-                  tone="blue"
-                  icon={<FileText className="h-5 w-5" />}
-                  onClick={() => setQuickView((value) => (value === "draft" ? "all" : "draft"))}
-                />
-                <SummaryCard
-                  title="รอเก็บเงิน"
-                  count={summary.collect}
-                  hint="ใบวางบิลที่ยังต้องตาม"
-                  active={quickView === "collect"}
-                  tone="amber"
-                  icon={<Clock3 className="h-5 w-5" />}
-                  onClick={() => setQuickView((value) => (value === "collect" ? "all" : "collect"))}
-                />
-                <SummaryCard
-                  title="เกินกำหนด"
-                  count={summary.overdue}
-                  hint="ควรขึ้นมาก่อนบนมือถือ"
-                  active={quickView === "attention" || (quickView === "all" && statusFilter === "overdue")}
-                  tone="red"
-                  icon={<AlertTriangle className="h-5 w-5" />}
-                  onClick={() => setQuickView((value) => (value === "attention" ? "all" : "attention"))}
-                />
-                <SummaryCard
-                  title="รับเงินเดือนนี้"
-                  count={summary.paidThisMonth}
-                  hint="ไว้เช็กของที่ปิดงานแล้ว"
-                  active={quickView === "paid"}
-                  tone="green"
-                  icon={<CheckCircle2 className="h-5 w-5" />}
-                  onClick={() => setQuickView((value) => (value === "paid" ? "all" : "paid"))}
-                />
-                <SummaryCard
-                  title="ยกเลิก"
-                  count={summary.voided}
-                  hint="เก็บแยกจากเอกสารที่ยังใช้งาน"
-                  active={quickView === "voided"}
-                  tone="gray"
-                  icon={<XCircle className="h-5 w-5" />}
-                  onClick={() => setQuickView((value) => (value === "voided" ? "all" : "voided"))}
-                />
+                <SummaryCard title="ร่าง" count={summary.draft} hint="ยังไม่ได้ส่งลูกค้า" active={quickView === "draft"} tone="blue" icon={<FileText className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "draft" ? "all" : "draft"))} />
+                <SummaryCard title="รอเก็บเงิน" count={summary.collect} hint="ใบวางบิลที่ยังต้องตาม" active={quickView === "collect"} tone="amber" icon={<Clock3 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "collect" ? "all" : "collect"))} />
+                <SummaryCard title="เกินกำหนด" count={summary.overdue} hint="ควรขึ้นมาก่อนบนมือถือ" active={quickView === "attention" || (quickView === "all" && statusFilter === "overdue")} tone="red" icon={<AlertTriangle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "attention" ? "all" : "attention"))} />
+                <SummaryCard title="รับเงินเดือนนี้" count={summary.paidThisMonth} hint="ไว้เช็กของที่ปิดงานแล้ว" active={quickView === "paid"} tone="green" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "paid" ? "all" : "paid"))} />
+                <SummaryCard title="ยกเลิก" count={summary.voided} hint="เก็บแยกจากเอกสารที่ยังใช้งาน" active={quickView === "voided"} tone="gray" icon={<XCircle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "voided" ? "all" : "voided"))} />
               </>
             )}
           </div>
@@ -483,11 +592,7 @@ export default function DocumentsPage() {
                   key={filter.value}
                   type="button"
                   onClick={() => setQuickView(filter.value)}
-                  className={`shrink-0 rounded-full border px-3 py-2 text-sm transition-colors ${
-                    quickView === filter.value
-                      ? "border-primary bg-primary text-white"
-                      : "border-[#DDD7CC] bg-white text-[#4D493F]"
-                  }`}
+                  className={`shrink-0 rounded-full border px-3 py-2 text-sm transition-colors ${quickView === filter.value ? "border-primary bg-primary text-white" : "border-[#DDD7CC] bg-white text-[#4D493F]"}`}
                 >
                   {filter.label} ({filter.count})
                 </button>
@@ -501,21 +606,9 @@ export default function DocumentsPage() {
             <div className="flex items-center gap-2 md:hidden">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A968F]" />
-                <Input
-                  id="search-mobile"
-                  className="pl-9"
-                  placeholder="ค้นหาเอกสาร"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
+                <Input id="search-mobile" className="pl-9" placeholder="ค้นหาเอกสาร" value={search} onChange={(event) => setSearch(event.target.value)} />
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="shrink-0"
-                onClick={() => setMobileFiltersOpen((value) => !value)}
-              >
+              <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={() => setMobileFiltersOpen((value) => !value)}>
                 <SlidersHorizontal className="h-4 w-4" />
                 {hasFilters ? "ตัวกรอง" : "กรอง"}
               </Button>
@@ -536,13 +629,7 @@ export default function DocumentsPage() {
               <label className="mb-1 block text-xs font-medium text-[#666258]">ค้นหาเอกสาร</label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A968F]" />
-                <Input
-                  id="search"
-                  className="pl-9"
-                  placeholder="ค้นหาชื่อลูกค้า เลขที่เอกสาร หรือหมายเหตุ"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
+                <Input id="search" className="pl-9" placeholder="ค้นหาชื่อลูกค้า เลขที่เอกสาร หรือหมายเหตุ" value={search} onChange={(event) => setSearch(event.target.value)} />
               </div>
             </div>
 
@@ -575,11 +662,7 @@ export default function DocumentsPage() {
                     key={filter.value}
                     type="button"
                     onClick={() => setDocTypeFilter(filter.value)}
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${
-                      docTypeFilter === filter.value
-                        ? "border-primary bg-primary text-white"
-                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                    }`}
+                    className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${docTypeFilter === filter.value ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
                   >
                     {filter.label}
                   </button>
@@ -598,11 +681,7 @@ export default function DocumentsPage() {
                     key={filter.value}
                     type="button"
                     onClick={() => setStatusFilter(filter.value)}
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${
-                      statusFilter === filter.value
-                        ? "border-[#3F3B34] bg-[#3F3B34] text-white"
-                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                    }`}
+                    className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${statusFilter === filter.value ? "border-[#3F3B34] bg-[#3F3B34] text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
                   >
                     {filter.label}
                   </button>
@@ -613,9 +692,7 @@ export default function DocumentsPage() {
 
           <div className="hidden flex-wrap items-center justify-between gap-3 border-t border-[#F0ECE5] pt-3 md:flex">
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#7D776D]">
-              {quickView !== "all" && (
-                <span className="rounded-full bg-[#EEF5FC] px-2.5 py-1 text-[#1A5A92]">กำลังดูแบบลัด</span>
-              )}
+              {quickView !== "all" && <span className="rounded-full bg-[#EEF5FC] px-2.5 py-1 text-[#1A5A92]">กำลังดูแบบลัด</span>}
               {hasFilters && (
                 <button type="button" onClick={clearFilters} className="text-primary hover:underline">
                   ล้างตัวกรองทั้งหมด
@@ -635,10 +712,7 @@ export default function DocumentsPage() {
         {loading ? (
           <SkeletonTable />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            title="ไม่พบเอกสาร"
-            description={documents.length === 0 ? "ยังไม่มีเอกสารในระบบ" : "ลองเปลี่ยนคำค้นหา หรือปรับตัวกรอง"}
-          />
+          <EmptyState title="ไม่พบเอกสาร" description={documents.length === 0 ? "ยังไม่มีเอกสารในระบบ" : "ลองเปลี่ยนคำค้นหา หรือปรับตัวกรอง"} />
         ) : (
           <div className="space-y-5">
             {sections.map((section) => (
@@ -646,7 +720,7 @@ export default function DocumentsPage() {
                 <SectionHeader title={section.title} hint={section.hint} count={section.docs.length} />
                 <div className="space-y-2">
                   {section.docs.map((doc) => (
-                    <DocumentCard key={doc.id} doc={doc} onOpen={() => navigate(`/documents/${doc.id}`)} />
+                    <DocumentCard key={doc.id} doc={doc} onOpen={() => openDocModal(doc)} />
                   ))}
                 </div>
               </section>
@@ -654,6 +728,18 @@ export default function DocumentsPage() {
           </div>
         )}
       </div>
+
+      <QuickDetailModal
+        doc={selectedDoc}
+        open={!!selectedDocId}
+        loading={quickDetailLoading}
+        onClose={closeDocModal}
+        onOpenFull={() => {
+          if (!selectedDocId) return;
+          navigate(`/documents/${selectedDocId}`);
+          closeDocModal();
+        }}
+      />
     </AppShell>
   );
 }

@@ -5,9 +5,10 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, className = "" }: ModalProps) {
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -33,7 +34,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div className="absolute inset-0 bg-black/30 animate-overlay-in" onClick={onClose} />
-      <div className="relative bg-white rounded-t-xl md:rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl animate-modal-in">
+      <div className={`relative bg-white rounded-t-xl md:rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl animate-modal-in ${className}`}>
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold">{title}</h2>
