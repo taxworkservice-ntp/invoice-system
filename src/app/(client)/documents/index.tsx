@@ -135,6 +135,9 @@ function SectionHeader({ title, hint, count }: { title: string; hint: string; co
 function DocumentCard({ doc, onOpen }: { doc: Document; onOpen: () => void }) {
   const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
   const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
+  const itemNames = Array.isArray(doc.line_items) ? doc.line_items.map((item) => item.item_name.trim()).filter(Boolean) : [];
+  const previewItems = itemNames.slice(0, 3);
+  const remainingItems = itemNames.length - previewItems.length;
 
   return (
     <Card onClick={onOpen} className="cursor-pointer overflow-hidden !p-0">
@@ -162,6 +165,26 @@ function DocumentCard({ doc, onOpen }: { doc: Document; onOpen: () => void }) {
               <span>ออกเอกสาร: {formatBuddhistDate(doc.issue_date)}</span>
               {doc.due_date && <span className={overdue ? "font-medium text-red-600" : ""}>ครบกำหนด: {formatBuddhistDate(doc.due_date)}</span>}
             </div>
+            {previewItems.length > 0 && (
+              <div className="pt-1">
+                <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#9A968F]">Items</div>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {previewItems.map((itemName, index) => (
+                    <span
+                      key={`${doc.id}-item-${index}-${itemName}`}
+                      className="inline-flex max-w-full rounded-full bg-[#F3F0E8] px-2.5 py-1 text-xs text-[#5B564D]"
+                    >
+                      <span className="truncate">{itemName}</span>
+                    </span>
+                  ))}
+                  {remainingItems > 0 && (
+                    <span className="inline-flex rounded-full bg-[#ECE8DE] px-2.5 py-1 text-xs font-medium text-[#6E685E]">
+                      +{remainingItems} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="shrink-0 pl-2 text-right">

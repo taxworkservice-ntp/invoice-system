@@ -16,7 +16,34 @@ export function useDocuments(userId: string | undefined) {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setDocuments(data as unknown as Document[]);
+      const docs = data as unknown as Document[];
+      const docIds = docs.map((doc) => doc.id).filter(Boolean);
+
+      if (docIds.length === 0) {
+        setDocuments(docs);
+        setLoading(false);
+        return;
+      }
+
+      const { data: lineItems } = await supabase
+        .from("document_line_items")
+        .select("*")
+        .in("document_id", docIds)
+        .order("sort_order", { ascending: true });
+
+      const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
+      for (const item of (lineItems || []) as DocumentLineItem[]) {
+        const existing = lineItemsByDoc.get(item.document_id) || [];
+        existing.push(item);
+        lineItemsByDoc.set(item.document_id, existing);
+      }
+
+      setDocuments(
+        docs.map((doc) => ({
+          ...doc,
+          line_items: lineItemsByDoc.get(doc.id) || [],
+        })) as Document[],
+      );
     }
     setLoading(false);
   }, [userId]);
