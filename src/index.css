@@ -93,6 +93,14 @@ body {
   color: #101828;
 }
 
+.print-preview-frame {
+  width: 100%;
+}
+
+.print-preview-scale {
+  transform-origin: top center;
+}
+
 .print-sheet {
   position: relative;
   width: 210mm;
@@ -158,6 +166,14 @@ body {
     padding: 0;
   }
 
+  .print-preview-frame {
+    height: auto !important;
+  }
+
+  .print-preview-scale {
+    transform: none !important;
+  }
+
   .print-sheet {
     width: 100%;
     min-height: auto;
@@ -178,5 +194,16 @@ body {
 
   .print-only {
     display: block !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .print-preview-frame {
+    overflow: hidden;
+  }
+
+  .print-preview-scale {
+    width: max-content;
+    margin: 0 auto;
   }
 }
