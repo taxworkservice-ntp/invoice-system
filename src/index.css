@@ -203,7 +203,7 @@ body {
   }
 
   .print-preview-scale {
+    transform-origin: top left;
     width: max-content;
-    margin: 0 auto;
   }
 }

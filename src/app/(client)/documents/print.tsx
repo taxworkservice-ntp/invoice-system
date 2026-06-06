@@ -12,11 +12,12 @@ export default function DocumentPrintPreviewPage() {
   const [data, setData] = useState<PrintDocumentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const previewFrameRef = useRef<HTMLDivElement | null>(null);
+const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const previewSheetRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [previewHeight, setPreviewHeight] = useState<number | null>(null);
   const [previewViewportWidth, setPreviewViewportWidth] = useState<number | null>(null);
+  const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +57,7 @@ export default function DocumentPrintPreviewPage() {
         setPreviewScale(1);
         setPreviewHeight(null);
         setPreviewViewportWidth(null);
+        setPreviewMarginLeft(null);
         return;
       }
 
@@ -66,9 +68,11 @@ export default function DocumentPrintPreviewPage() {
       if (!sheetWidth || !sheetHeight) return;
 
       const scale = Math.min(1, availableWidth / sheetWidth);
+      const scaledWidth = sheetWidth * scale;
       setPreviewScale(scale);
       setPreviewHeight(sheetHeight * scale);
       setPreviewViewportWidth(availableWidth);
+      setPreviewMarginLeft((availableWidth - scaledWidth) / 2);
     }
 
     requestAnimationFrame(() => updatePreviewScale());
@@ -146,7 +150,7 @@ export default function DocumentPrintPreviewPage() {
     );
   }
 
-  return (
+return (
     <div className="print-preview-shell min-h-screen bg-[#EEF2F6] px-2 py-3 sm:px-4 sm:py-6">
       <div
         className="print-toolbar mx-auto mb-3 flex w-full max-w-[230mm] flex-col gap-3 rounded-[20px] border border-[#D7DEE7] bg-white px-3 py-3 shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:px-4"
@@ -182,7 +186,10 @@ export default function DocumentPrintPreviewPage() {
           <div
             ref={previewSheetRef}
             className="print-preview-scale"
-            style={{ transform: `scale(${previewScale})` }}
+            style={{
+              transform: `scale(${previewScale})`,
+              ...(previewMarginLeft != null ? { marginLeft: `${previewMarginLeft}px` } : {}),
+            }}
           >
             <PrintErrorBoundary onError={() => {}}>
               <PrintDocument data={data} />
