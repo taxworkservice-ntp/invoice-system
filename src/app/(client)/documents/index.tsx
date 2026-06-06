@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowUpDown, CheckCircle2, Clock3, FileText, Search, SlidersHorizontal, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, Ban, CheckCircle2, Clock3, Copy, CreditCard, Edit3, FileText, MoreHorizontal, Search, Send, SlidersHorizontal, Trash2, XCircle } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
@@ -12,6 +12,8 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { SkeletonCard, SkeletonTable } from "../../../components/ui/Skeleton";
 import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
 import { useAuth } from "../../../hooks/useAuth";
+import { useToast } from "../../../hooks/useToast";
+import { supabase } from "../../../lib/supabase";
 import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
@@ -42,6 +44,29 @@ const STATUS_FILTERS: { label: string; value: DocumentStatus | "all" }[] = [
 ];
 
 type QuickView = "all" | "attention" | "draft" | "collect" | "paid" | "voided";
+
+const DOC_TYPE_BORDER: Record<DocumentType, string> = {
+  quotation: "border-l-purple-400",
+  invoice: "border-l-blue-400",
+  tax_invoice_receipt: "border-l-emerald-400",
+  billing_note: "border-l-orange-400",
+  receipt: "border-l-green-400",
+  delivery_note: "border-l-teal-400",
+  credit_note: "border-l-red-400",
+};
+
+function relativeDueLabel(dueDate: string): { text: string; urgent: boolean } {
+  const due = new Date(dueDate);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  const diff = Math.round((due.getTime() - now.getTime()) / 86400000);
+  if (diff < 0) return { text: `เกินกำหนด ${Math.abs(diff)} วัน`, urgent: true };
+  if (diff === 0) return { text: "ครบกำหนดวันนี้", urgent: true };
+  if (diff === 1) return { text: "ครบกำหนดพรุ่งนี้", urgent: false };
+  if (diff <= 7) return { text: `ครบกำหนดใน ${diff} วัน`, urgent: false };
+  return { text: "", urgent: false };
+}
 
 function isResolvedStatus(status: DocumentStatus) {
   return status === "paid" || status === "generated" || status === "issued" || status === "voided" || status === "converted";
@@ -132,15 +157,59 @@ function SectionHeader({ title, hint, count }: { title: string; hint: string; co
   );
 }
 
-function DocumentCard({ doc, onOpen }: { doc: Document; onOpen: () => void }) {
+function DocumentCard({
+  doc,
+  onOpen,
+  menuOpen,
+  onToggleMenu,
+  onMenuAction,
+  menuLoading,
+  pendingConfirm,
+}: {
+  doc: Document;
+  onOpen: () => void;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onMenuAction: (action: string) => void;
+  menuLoading: boolean;
+  pendingConfirm: { docId: string; action: "void" | "delete" } | null;
+}) {
+  const menuDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuDropdownRef.current && !menuDropdownRef.current.contains(e.target as Node)) {
+        onToggleMenu();
+      }
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onToggleMenu();
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+    };
+  }, [menuOpen, onToggleMenu]);
   const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
+  const isDraft = doc.status === "draft";
+  const isSent = doc.status === "sent";
+  const isPaid = doc.status === "paid" || doc.status === "generated" || doc.status === "issued";
+  const isVoided = doc.status === "voided";
+  const isConverted = doc.status === "converted";
+  const isTerminal = isPaid || isVoided || isConverted;
+  const dueRel = doc.due_date ? relativeDueLabel(doc.due_date) : null;
+  const isConfirming = pendingConfirm?.docId === doc.id;
+
   const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
   const itemNames = Array.isArray(doc.line_items) ? doc.line_items.map((item) => item.item_name.trim()).filter(Boolean) : [];
   const previewItems = itemNames.slice(0, 3);
   const remainingItems = itemNames.length - previewItems.length;
 
   return (
-    <Card onClick={onOpen} className="cursor-pointer overflow-hidden !p-0">
+    <Card onClick={onOpen} className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""}`}>
       <div className="p-3.5 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1 space-y-2">
@@ -163,7 +232,15 @@ function DocumentCard({ doc, onOpen }: { doc: Document; onOpen: () => void }) {
 
             <div className="flex flex-col gap-1 text-xs text-[#888780] sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
               <span>ออกเอกสาร: {formatBuddhistDate(doc.issue_date)}</span>
-              {doc.due_date && <span className={overdue ? "font-medium text-red-600" : ""}>ครบกำหนด: {formatBuddhistDate(doc.due_date)}</span>}
+              {doc.due_date && dueRel?.text ? (
+                <span className={dueRel.urgent ? "font-medium text-red-600" : ""}>
+                  &middot; {dueRel.text}
+                </span>
+              ) : doc.due_date ? (
+                <span className={overdue ? "font-medium text-red-600" : ""}>
+                  &middot; ครบกำหนด: {formatBuddhistDate(doc.due_date)}
+                </span>
+              ) : null}
             </div>
             {previewItems.length > 0 && (
               <div className="pt-1">
@@ -188,10 +265,161 @@ function DocumentCard({ doc, onOpen }: { doc: Document; onOpen: () => void }) {
 
           <div className="shrink-0 pl-2 text-right">
             <div className="text-[11px] uppercase tracking-[0.12em] text-[#888780]">ยอดสุทธิ</div>
-            <div className="mt-1 text-sm font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</div>
+            <div className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-[#1A1A18]"}`}>
+              ฿{formatCurrency(doc.net_payable)}
+            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleMenu(); }}
+              className="mt-1.5 rounded p-0.5 hover:bg-gray-100 transition-colors"
+              disabled={menuLoading}
+            >
+              <MoreHorizontal size={15} className={menuLoading ? "text-gray-300" : "text-[#9A968F]"} />
+            </button>
           </div>
         </div>
       </div>
+
+      {menuOpen && (
+        <div
+          ref={menuDropdownRef}
+          className="absolute right-3 top-12 z-50 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {menuLoading && (
+            <div className="px-3 py-2 text-xs text-gray-400 text-center">กำลังดำเนินการ...</div>
+          )}
+
+          {!menuLoading && isConfirming && (
+            <>
+              <div className="px-3 py-1.5 text-xs text-red-600 font-medium border-b border-gray-100">
+                {pendingConfirm!.action === "void" ? "ยืนยันการยกเลิก?" : "ยืนยันการลบ?"}
+              </div>
+              <button
+                className="w-full text-left px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 flex items-center gap-2"
+                onClick={() => onMenuAction(pendingConfirm!.action)}
+              >
+                <Trash2 size={14} />
+                <span>ยืนยัน</span>
+              </button>
+              <button
+                className="w-full text-left px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
+                onClick={() => onMenuAction("cancelConfirm")}
+              >
+                <span className="pl-[22px]">ยกเลิก</span>
+              </button>
+            </>
+          )}
+
+          {!menuLoading && !isConfirming && (
+            <>
+              {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (
+                <>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("send")}>
+                    <Send size={14} />
+                    <span>ทำเครื่องหมายว่าส่งแล้ว</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
+                    <Edit3 size={14} />
+                    <span>แก้ไข</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
+                    <Trash2 size={14} />
+                    <span>ลบ</span>
+                  </button>
+                </>
+              )}
+
+              {isDraft && doc.doc_type === "credit_note" && (
+                <>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("issue_cn")}>
+                    <FileText size={14} />
+                    <span>ออกใบลดหนี้</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
+                    <Edit3 size={14} />
+                    <span>แก้ไข</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
+                    <Trash2 size={14} />
+                    <span>ลบ</span>
+                  </button>
+                </>
+              )}
+
+              {isDraft && doc.doc_type === "receipt" && (
+                <>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
+                    <Edit3 size={14} />
+                    <span>แก้ไข</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
+                    <Trash2 size={14} />
+                    <span>ลบ</span>
+                  </button>
+                </>
+              )}
+
+              {isSent && doc.doc_type === "quotation" && (
+                <>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("convert")}>
+                    <Copy size={14} />
+                    <span>แปลงเป็นใบแจ้งหนี้</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
+                    <Ban size={14} />
+                    <span>ยกเลิก</span>
+                  </button>
+                </>
+              )}
+
+              {isSent && doc.doc_type === "invoice" && (
+                <>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("billing")}>
+                    <FileText size={14} />
+                    <span>วางบิล</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("pay")}>
+                    <CreditCard size={14} />
+                    <span>รับเงินแล้ว</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
+                    <Ban size={14} />
+                    <span>ยกเลิก</span>
+                  </button>
+                </>
+              )}
+
+              {isSent && doc.doc_type === "billing_note" && (
+                <>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("pay")}>
+                    <CreditCard size={14} />
+                    <span>รับเงินแล้ว</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
+                    <Ban size={14} />
+                    <span>ยกเลิก</span>
+                  </button>
+                </>
+              )}
+
+              {isSent && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && (
+                <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
+                  <Ban size={14} />
+                  <span>ยกเลิก</span>
+                </button>
+              )}
+
+              {isTerminal && (
+                <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("copy")}>
+                  <Copy size={14} />
+                  <span>คัดลอกเป็นฉบับร่าง</span>
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
@@ -387,7 +615,8 @@ export default function DocumentsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { profile } = useAuth();
-  const { documents, loading } = useDocuments(profile?.id);
+  const toast = useToast();
+  const { documents, loading, refetch } = useDocuments(profile?.id);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -402,6 +631,10 @@ export default function DocumentsPage() {
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [quickDetailLoading, setQuickDetailLoading] = useState(false);
   const preset = searchParams.get("preset");
+
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [inlineLoading, setInlineLoading] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{ docId: string; action: "void" | "delete" } | null>(null);
 
   useEffect(() => {
     setQuickView("all");
@@ -440,6 +673,67 @@ export default function DocumentsPage() {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [search]);
+
+  const handleInlineAction = async (doc: Document, action: string) => {
+    if (!profile?.id) return;
+    setInlineLoading(doc.id);
+    try {
+      if (action === "send") {
+        const newStatus: DocumentStatus = doc.doc_type === "tax_invoice_receipt" ? "issued" : "sent";
+        await supabase.from("documents").update({ status: newStatus }).eq("id", doc.id);
+        toast.success("ทำเครื่องหมายว่าส่งแล้ว");
+      } else if (action === "void") {
+        await supabase.from("documents").update({ status: "voided" as DocumentStatus, voided_at: new Date().toISOString() }).eq("id", doc.id);
+        toast.success("ยกเลิกเอกสารแล้ว");
+      } else if (action === "delete") {
+        await supabase.from("document_line_items").delete().eq("document_id", doc.id);
+        await supabase.from("documents").delete().eq("id", doc.id);
+        toast.success("ลบเอกสารแล้ว");
+      } else if (action === "issue_cn") {
+        await supabase.from("documents").update({ status: "issued" as DocumentStatus }).eq("id", doc.id);
+        toast.success("ออกใบลดหนี้แล้ว");
+      }
+      setOpenMenuId(null);
+      setPendingConfirm(null);
+      await refetch();
+    } catch (err: any) {
+      toast.error(err.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setInlineLoading(null);
+    }
+  };
+
+  const handleMenuAction = (doc: Document, action: string) => {
+    if (action === "void" || action === "delete") {
+      setPendingConfirm({ docId: doc.id, action });
+      return;
+    }
+    if (action === "cancelConfirm") {
+      setPendingConfirm(null);
+      return;
+    }
+    if (action === "edit") {
+      setOpenMenuId(null);
+      navigate(`/documents/${doc.id}/edit`);
+      return;
+    }
+    if (action === "convert" || action === "pay" || action === "copy") {
+      setOpenMenuId(null);
+      navigate(`/documents/${doc.id}`);
+      return;
+    }
+    if (action === "billing") {
+      setOpenMenuId(null);
+      navigate(`/documents/new?type=billing_note&deal=${doc.deal_id || ""}`);
+      return;
+    }
+    handleInlineAction(doc, action);
+  };
+
+  const toggleMenu = (docId: string) => {
+    setOpenMenuId(openMenuId === docId ? null : docId);
+    setPendingConfirm(null);
+  };
 
   const summary = useMemo(() => {
     const paidThisMonth = documents.filter((doc) => {
@@ -741,9 +1035,18 @@ export default function DocumentsPage() {
               <section key={section.key} className="space-y-3">
                 <SectionHeader title={section.title} hint={section.hint} count={section.docs.length} />
                 <div className="space-y-2">
-                  {section.docs.map((doc) => (
-                    <DocumentCard key={doc.id} doc={doc} onOpen={() => openDocModal(doc)} />
-                  ))}
+                   {section.docs.map((doc) => (
+                     <DocumentCard
+                       key={doc.id}
+                       doc={doc}
+                       onOpen={() => openDocModal(doc)}
+                       menuOpen={openMenuId === doc.id}
+                       onToggleMenu={() => toggleMenu(doc.id)}
+                       onMenuAction={(action) => handleMenuAction(doc, action)}
+                       menuLoading={inlineLoading === doc.id}
+                       pendingConfirm={pendingConfirm}
+                     />
+                   ))}
                 </div>
               </section>
             ))}
