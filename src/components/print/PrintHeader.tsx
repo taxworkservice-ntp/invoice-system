@@ -1,6 +1,17 @@
 import { documentTypeLabel } from "../../lib/docLabels";
 import { LOGO_SIZE_OPTIONS } from "../../constants";
+import type { DocumentType } from "../../types";
 import type { PrintDocumentData } from "../../lib/print";
+
+const PRINT_DOC_TYPE_ACCENTS: Record<DocumentType, string> = {
+  quotation: "#7E57C2",
+  invoice: "#378ADD",
+  tax_invoice_receipt: "#1F9D73",
+  billing_note: "#D97706",
+  receipt: "#2F855A",
+  delivery_note: "#0F9AA8",
+  credit_note: "#DC2626",
+};
 
 function getLogoPx(logoSize: string | null): number {
   return LOGO_SIZE_OPTIONS.find(o => o.value === logoSize)?.px ?? 64;
@@ -19,9 +30,11 @@ function formatDate(date: string | null | undefined) {
 export function PrintHeader({ data }: { data: PrintDocumentData }) {
   const { clientProfile, customer, document, referenceDoc } = data;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
+  const accentColor = PRINT_DOC_TYPE_ACCENTS[document.doc_type];
 
   return (
     <header className="print-header bg-white text-[#1F2937] border-transparent print-modern-header px-5 pb-5 pt-3">
+      <div className="mb-4 h-[1px] w-full rounded-full opacity-80" style={{ backgroundColor: accentColor }} />
       <div className="flex justify-between gap-4 items-start">
         <div className="min-w-0 flex-1">
           {clientProfile.logo_url ? (
@@ -86,7 +99,7 @@ export function PrintHeader({ data }: { data: PrintDocumentData }) {
         </div>
       </div>
 
-      <div className="mt-4 -mx-5 bg-[#F7F8FA] px-5 py-3">
+      <div className="mt-4 border border-[#E8ECF2] bg-[#F8FAFC] px-5 py-3">
         <div className="text-[10px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
         <div className="mt-1 font-semibold text-[13px]">{customer.name}</div>
         <div className="mt-1 space-y-0.5 text-[11px] text-[#475467]">

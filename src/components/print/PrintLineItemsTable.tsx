@@ -1,8 +1,8 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 
-function getRowClass(index: number) {
-  return `break-inside-avoid align-top ${index % 2 === 0 ? "bg-white" : "bg-[#FAFBFC]"}`;
+function getRowClass() {
+  return "break-inside-avoid align-top bg-white";
 }
 
 export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
@@ -13,7 +13,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
       <section className="print-block mt-4">
         <div className="mb-1 text-[10px] tracking-[0.12em] text-[#667085]">รายการใบแจ้งหนี้</div>
         <table className="print-table w-full border-separate border-spacing-0">
-          <thead className="bg-[#F4F7FB] text-[#344054]">
+          <thead className="bg-[#F4F7FB] text-[#344054] [&_th]:border-b [&_th]:border-[#D9E1EA]">
             <tr>
               <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">เลขที่ใบแจ้งหนี้</th>
               <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">วันที่ออก</th>
@@ -23,21 +23,21 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
             </tr>
           </thead>
           <tbody>
-            {billingNoteInvoices.map((invoice, index) => (
-              <tr key={invoice.id} className={getRowClass(index)}>
-                <td className="px-2 py-2 text-[11px] text-[#111827] border-t border-[#E4EAF1]">
+            {billingNoteInvoices.map((invoice) => (
+              <tr key={invoice.id} className={getRowClass()}>
+                <td className="px-2 py-2 text-[11px] text-[#111827] border-t border-[#E6EBF2]">
                   {invoice.invoice_number}
                 </td>
-                <td className="px-2 py-2 text-[11px] text-[#475467] border-t border-[#E4EAF1]">
+                <td className="px-2 py-2 text-[11px] text-[#475467] border-t border-[#E6EBF2]">
                   {invoice.issue_date || "-"}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E4EAF1]">
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">
                   {formatCurrency(invoice.subtotal)}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E4EAF1]">
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">
                   {formatCurrency(invoice.vat_amount)}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t border-[#E4EAF1]">
+                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t border-[#E6EBF2]">
                   {formatCurrency(invoice.total_amount)}
                 </td>
               </tr>
@@ -54,7 +54,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
         {document.doc_type === "receipt" ? "รายการที่ชำระ" : "รายการสินค้าและบริการ"}
       </div>
       <table className="print-table w-full border-separate border-spacing-0">
-        <thead className="bg-[#F4F7FB] text-[#344054]">
+        <thead className="bg-[#F4F7FB] text-[#344054] [&_th]:border-b [&_th]:border-[#D9E1EA]">
           <tr>
             <th className="w-[8mm] px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">ลำดับ</th>
             <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">รายละเอียด</th>
@@ -70,9 +70,9 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
             const hasLineDiscount = item.discount_amount > 0 || item.discount_percent > 0;
 
             return (
-              <tr key={item.id} className={getRowClass(index)}>
-                <td className="px-2 py-2 text-[11px] text-[#667085] border-t border-[#E4EAF1]">{index + 1}</td>
-                <td className="px-2 py-2 text-[11px] text-[#111827] border-t border-[#E4EAF1]">
+              <tr key={item.id} className={getRowClass()}>
+                <td className="px-2 py-2 text-[11px] text-[#667085] border-t border-[#E6EBF2]">{index + 1}</td>
+                <td className="px-2 py-2 text-[11px] text-[#111827] border-t border-[#E6EBF2]">
                   <div className="leading-[16px]">{item.item_name}</div>
                   {hasLineDiscount ? (
                     <div className="mt-0.5 text-[10px] text-[#B54708]">
@@ -80,13 +80,13 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                     </div>
                   ) : null}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E4EAF1]">{item.quantity}</td>
-                <td className="px-2 py-2 text-[11px] text-[#475467] border-t border-[#E4EAF1]">{item.unit}</td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E4EAF1]">{formatCurrency(item.unit_price)}</td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E4EAF1]">
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">{item.quantity}</td>
+                <td className="px-2 py-2 text-[11px] text-[#475467] border-t border-[#E6EBF2]">{item.unit}</td>
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">{formatCurrency(item.unit_price)}</td>
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">
                   {hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t border-[#E4EAF1]">
+                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t border-[#E6EBF2]">
                   {formatCurrency(item.line_total)}
                 </td>
               </tr>
