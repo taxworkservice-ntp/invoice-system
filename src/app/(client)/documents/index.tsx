@@ -429,6 +429,7 @@ function QuickDetailModal({
   open,
   loading,
   onClose,
+  onOpenPreview,
   onOpenFull,
   onOpenDeal,
 }: {
@@ -436,6 +437,7 @@ function QuickDetailModal({
   open: boolean;
   loading: boolean;
   onClose: () => void;
+  onOpenPreview: () => void;
   onOpenFull: () => void;
   onOpenDeal: () => void;
 }) {
@@ -613,7 +615,10 @@ function QuickDetailModal({
                   เปิดดีล
                 </Button>
               )}
-              <Button onClick={onOpenFull} className="w-full sm:w-auto">
+              <Button variant="secondary" onClick={onOpenFull} className="w-full sm:w-auto">
+                ดูรายละเอียด
+              </Button>
+              <Button onClick={onOpenPreview} className="w-full sm:w-auto">
                 ดูเอกสาร
               </Button>
             </div>
@@ -1072,6 +1077,10 @@ export default function DocumentsPage() {
         open={!!selectedDocId}
         loading={quickDetailLoading}
         onClose={closeDocModal}
+        onOpenPreview={() => {
+          if (!selectedDocId) return;
+          window.open(`/documents/${selectedDocId}/print`, "_blank", "noopener,noreferrer");
+        }}
         onOpenFull={() => {
           if (!selectedDocId) return;
           navigate(`/documents/${selectedDocId}`);
@@ -1086,6 +1095,5 @@ export default function DocumentsPage() {
     </AppShell>
   );
 }
-
 
 
