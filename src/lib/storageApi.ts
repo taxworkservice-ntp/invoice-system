@@ -21,6 +21,10 @@ export async function getR2PresignedUrl(key: string, _expiresIn: number = 3600):
   return result.url;
 }
 
+export function getProxiedImageUrl(key: string): string {
+  return `/api/storage/image-proxy?key=${encodeURIComponent(key)}`;
+}
+
 export async function uploadToR2(key: string, file: File): Promise<string> {
   const result = await apiFetch<{ uploadUrl: string }>("/api/storage/upload-url", {
     method: "POST",

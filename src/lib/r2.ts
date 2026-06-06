@@ -7,4 +7,5 @@ export {
   signatureKey,
   stampKey,
   pdfKey,
+  getProxiedImageUrl,
 } from "./storageApi";
