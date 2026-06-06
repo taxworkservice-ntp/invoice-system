@@ -26,7 +26,7 @@ export default function DocumentPrintPreviewPage() {
         setData(result);
       } catch (err: unknown) {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : "Unable to open print preview.";
+        const message = err instanceof Error ? err.message : "ไม่สามารถเปิดหน้าแสดงเอกสารได้";
         setError(message);
       } finally {
         if (!cancelled) {
@@ -89,11 +89,11 @@ export default function DocumentPrintPreviewPage() {
     return (
       <div className="min-h-screen bg-[#EEF2F6] px-6 py-10">
         <div className="mx-auto max-w-3xl rounded-[24px] border border-[#E4E7EC] bg-white p-8 shadow-sm">
-          <h1 className="text-[24px] font-semibold text-[#101828]">Print preview unavailable</h1>
-          <p className="mt-3 text-[14px] text-[#475467]">{error || "Unable to prepare this document for print preview."}</p>
+          <h1 className="text-[24px] font-semibold text-[#101828]">ไม่สามารถแสดงเอกสารได้</h1>
+          <p className="mt-3 text-[14px] text-[#475467]">{error || "ไม่สามารถเตรียมเอกสารสำหรับการพิมพ์ได้"}</p>
           <div className="mt-6">
             <Button variant="secondary" onClick={() => navigate(-1)}>
-              Back
+              กลับ
             </Button>
           </div>
         </div>
@@ -105,13 +105,13 @@ export default function DocumentPrintPreviewPage() {
     <div className="print-preview-shell min-h-screen bg-[#EEF2F6] px-4 py-6">
       <div className="print-toolbar mx-auto mb-4 flex max-w-[230mm] items-center justify-between gap-3 rounded-[20px] border border-[#D7DEE7] bg-white px-4 py-3 shadow-sm">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">Print Preview</div>
-          <div className="text-[15px] font-semibold text-[#101828]">{data.document.doc_number || "Document"}</div>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">ดูเอกสาร</div>
+          <div className="text-[15px] font-semibold text-[#101828]">{data.document.doc_number || "เอกสาร"}</div>
           <div className="mt-1 text-[11px] text-[#667085]">เลือกพิมพ์หรือบันทึกเป็น PDF ได้จากปุ่มด้านขวา</div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => navigate(-1)}>
-            Back
+            กลับ
           </Button>
           <Button variant="secondary" onClick={handlePrint}>
             พิมพ์
