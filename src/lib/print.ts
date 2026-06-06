@@ -208,18 +208,15 @@ export async function openClassicPdfFallback(data: {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
-  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-    import("html2canvas"),
-    import("jspdf"),
-  ]);
-
-  const isMobile = window.innerWidth < 768;
+async function renderModernPrintCanvas(
+  data: PrintableDocumentDataBase,
+  copyType: "original" | "copy" = "original",
+): Promise<HTMLCanvasElement> {
+  const { default: html2canvas } = await import("html2canvas");
   const container = document.createElement("div");
-  container.style.cssText = isMobile
-    ? "position:fixed;top:0;left:0;width:210mm;opacity:0;pointer-events:none;z-index:-1;"
-    : "position:absolute;left:-9999px;top:0;width:210mm;";
+  container.style.cssText = "position:fixed;top:0;left:0;width:210mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;";
   document.body.appendChild(container);
+  let root: { render: (...args: any[]) => void; unmount: () => void } | null = null;
 
   try {
     const { createRoot } = await import("react-dom/client");
@@ -231,16 +228,15 @@ export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Pr
       template: "modern",
     };
 
-    const root = createRoot(container);
+    root = createRoot(container);
 
     await new Promise<void>((resolve) => {
-      root.render(React.createElement(PrintDocument, { data: printData, copyType: "original" as const }));
+      root?.render(React.createElement(PrintDocument, { data: printData, copyType }));
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
 
     const sheet = container.querySelector<HTMLElement>(".print-sheet");
     if (!sheet) {
-      root.unmount();
       throw new Error("Print sheet not found");
     }
 
@@ -258,24 +254,48 @@ export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Pr
       ),
     );
 
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-    const canvas = await html2canvas(sheet, {
-      scale: isMobile ? 1.5 : 2,
+    return await html2canvas(sheet, {
+      scale: Math.max(2, window.devicePixelRatio || 1),
       useCORS: true,
       backgroundColor: "#ffffff",
+      width: sheet.scrollWidth,
+      height: sheet.scrollHeight,
+      windowWidth: sheet.scrollWidth,
+      windowHeight: sheet.scrollHeight,
     });
-
-    root.unmount();
-
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    pdf.addImage(imgData, "PNG", 0, 0, pageW, pageH);
-
-    return pdf.output("blob");
   } finally {
+    root?.unmount();
     document.body.removeChild(container);
   }
+}
+
+export async function generateModernPDFDocument(
+  data: PrintableDocumentDataBase,
+  copyTypes: Array<"original" | "copy"> = ["original"],
+) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  for (const [index, copyType] of copyTypes.entries()) {
+    const canvas = await renderModernPrintCanvas(data, copyType);
+    if (index > 0) {
+      pdf.addPage();
+    }
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
+  }
+
+  return pdf;
+}
+
+export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
+  const pdf = await generateModernPDFDocument(data, ["original"]);
+  return pdf.output("blob");
 }

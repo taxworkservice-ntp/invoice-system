@@ -5,7 +5,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { PrintDocument } from "../../../components/print/PrintDocument";
 import type { CopyType } from "../../../components/print/PrintDocument";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
-import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
+import { generateModernPDFDocument, getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { DOC_TYPE_SHORT } from "../../../constants";
 
 export default function DocumentPrintPreviewPage() {
@@ -146,38 +146,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     if (savingPdf || !data) return;
     setSavingPdf(true);
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-      const sheet = document.querySelector<HTMLElement>(".print-sheet");
-      if (!sheet) throw new Error("Print sheet not found");
-
-      const isMobile = window.innerWidth < 768;
-
-      const images = sheet.querySelectorAll("img");
-      await Promise.all(
-        Array.from(images).map(
-          (img) =>
-            new Promise<void>((r) => {
-              if (img.complete) r();
-              else { img.onload = () => r(); img.onerror = () => r(); }
-            }),
-        ),
-      );
-
-      const canvas = await html2canvas(sheet, {
-        scale: isMobile ? 1.5 : 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      pdf.addImage(imgData, "PNG", 0, 0, pageW, pageH);
-
+      const pdf = await generateModernPDFDocument(data, ["original"]);
       const short = DOC_TYPE_SHORT[data.document.doc_type];
       const datePart = data.document.issue_date
         ? data.document.issue_date.replace(/-/g, "")
@@ -196,39 +165,8 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
   async function handleSaveBothPdf() {
     if (savingPdf || !data) return;
     setSavingPdf(true);
-    const prevCopyType = copyType;
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-      const sheet = document.querySelector<HTMLElement>(".print-sheet");
-      if (!sheet) throw new Error("Print sheet not found");
-
-      const isMobile = window.innerWidth < 768;
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-
-      setCopyType("original");
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const canvasOriginal = await html2canvas(sheet, {
-        scale: isMobile ? 1.5 : 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-      pdf.addImage(canvasOriginal.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
-
-      setCopyType("copy");
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const canvasCopy = await html2canvas(sheet, {
-        scale: isMobile ? 1.5 : 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-      pdf.addPage();
-      pdf.addImage(canvasCopy.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
-
+      const pdf = await generateModernPDFDocument(data, ["original", "copy"]);
       const short = DOC_TYPE_SHORT[data.document.doc_type];
       const datePart = data.document.issue_date
         ? data.document.issue_date.replace(/-/g, "")
@@ -240,7 +178,6 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
       console.error("Failed to save PDF:", err);
       void openBrowserPrintDialog();
     } finally {
-      setCopyType(prevCopyType);
       setSavingPdf(false);
     }
   }
