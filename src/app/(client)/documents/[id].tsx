@@ -834,7 +834,7 @@ export default function DocumentDetailPage() {
                 disabled={!clientProfile || !doc.customer || generatingPdf}
                 loading={generatingPdf}
               >
-                {generatingPdf ? "Opening print preview..." : "Open Print Preview"}
+                {generatingPdf ? "กำลังเปิดเอกสาร..." : "ดูเอกสาร"}
               </Button>
             </div>
           ) : !pdfUrl ? (
