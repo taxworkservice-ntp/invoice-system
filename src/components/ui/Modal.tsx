@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, children, className = "" }: ModalP
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30 animate-overlay-in" onClick={onClose} />
       <div className={`relative bg-white rounded-t-xl md:rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl animate-modal-in ${className}`}>
         {title && (
