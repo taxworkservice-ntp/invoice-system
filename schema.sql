@@ -495,6 +495,7 @@ declare
   v_effective_date date := coalesce(p_issue_date, current_date);
   v_year        int := extract(year from v_effective_date)::int;
   v_month       int := extract(month from v_effective_date)::int;
+  v_existing_max int := 0;
   v_next_seq    int;
   v_doc_number  text;
 begin
@@ -507,17 +508,25 @@ begin
     raise exception 'No sequence configured for this document type';
   end if;
 
-  -- Reset sequence if period (year-month) has changed
-  if v_seq.reset_yearly and (
-    v_seq.last_year is null
-    or v_seq.last_month is null
-    or v_seq.last_year != v_year
-    or v_seq.last_month != v_month
-  ) then
-    v_next_seq := 1;
+  if v_seq.reset_yearly then
+    select coalesce(max(substring(doc_number from '([0-9]+)$')::int), 0)
+      into v_existing_max
+    from documents
+    where user_id = p_user_id
+      and doc_type = p_doc_type
+      and doc_number is not null
+      and extract(year from issue_date)::int = v_year
+      and extract(month from issue_date)::int = v_month;
   else
-    v_next_seq := coalesce(v_seq.last_sequence, 0) + 1;
+    select coalesce(max(substring(doc_number from '([0-9]+)$')::int), 0)
+      into v_existing_max
+    from documents
+    where user_id = p_user_id
+      and doc_type = p_doc_type
+      and doc_number is not null;
   end if;
+
+  v_next_seq := v_existing_max + 1;
 
   -- Update sequence record
   update doc_number_sequences

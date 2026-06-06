@@ -133,7 +133,7 @@ export default function SettingsPage() {
   }
 
   function getResetYearly(docType: DocumentType): boolean {
-    return sequences[docType]?.reset_yearly ?? false;
+    return sequences[docType]?.reset_yearly ?? true;
   }
 
   function setPrefix(docType: DocumentType, value: string) {
