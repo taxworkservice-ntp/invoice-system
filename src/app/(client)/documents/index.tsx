@@ -167,7 +167,6 @@ function DocumentCard({ doc, onOpen }: { doc: Document; onOpen: () => void }) {
             </div>
             {previewItems.length > 0 && (
               <div className="pt-1">
-                <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#9A968F]">Items</div>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {previewItems.map((itemName, index) => (
                     <span

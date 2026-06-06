@@ -17,11 +17,11 @@ import { formatCurrency } from "../../lib/format";
 import { formatBuddhistDate } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS } from "../../constants";
-import type { Deal, Document, Customer } from "../../types";
+import type { Deal, Document, Customer, DocumentLineItem } from "../../types";
 
 type DealDoc = Pick<
   Document,
-  "id" | "doc_type" | "doc_number" | "status" | "total_amount" | "net_payable" | "due_date" | "created_at" | "updated_at" | "paid_at"
+  "id" | "doc_type" | "doc_number" | "status" | "total_amount" | "net_payable" | "due_date" | "created_at" | "updated_at" | "paid_at" | "line_items"
 >;
 
 type DealWithRelations = Deal & {
@@ -33,6 +33,7 @@ type DashboardDeal = {
   dealId: string;
   customerName: string;
   itemSummary: string;
+  itemNames: string[];
   amount: number;
   status: Document["status"];
   updatedAt: string;
@@ -79,6 +80,16 @@ function getAmountDocument(documents: DealDoc[]) {
     [...nonVoided].reverse().find((doc) => doc.doc_type === "quotation") ||
     null
   );
+}
+
+function getItemPreview(documents: DealDoc[]) {
+  const nonVoided = documents.filter((doc) => doc.status !== "voided");
+  const sourceDoc =
+    [...nonVoided].reverse().find((doc) => (doc.line_items || []).length > 0) ||
+    nonVoided.find((doc) => (doc.line_items || []).length > 0) ||
+    null;
+
+  return (sourceDoc?.line_items || []).map((item) => item.item_name.trim()).filter(Boolean);
 }
 
 function getCompletedAt(documents: DealDoc[]) {
@@ -140,6 +151,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     dealId: deal.id,
     customerName: deal.customers?.name || "ลูกค้า",
     itemSummary: deal.title || latestDocument?.doc_number || "",
+    itemNames: getItemPreview(deal.documents || []),
     amount: amountDocument?.net_payable || 0,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     updatedAt: latestDocument?.updated_at || deal.updated_at,
@@ -199,7 +211,35 @@ export default function HomePage() {
       return;
     }
 
-    setDeals(((data || []) as unknown as DealWithRelations[]).map(deriveDashboardDeal));
+    const dealsWithRelations = (data || []) as unknown as DealWithRelations[];
+    const docIds = dealsWithRelations.flatMap((deal) => (deal.documents || []).map((doc) => doc.id)).filter(Boolean);
+    const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
+
+    if (docIds.length > 0) {
+      const { data: lineItemsData } = await supabase
+        .from("document_line_items")
+        .select("*")
+        .in("document_id", docIds)
+        .order("sort_order", { ascending: true });
+
+      for (const item of (lineItemsData || []) as DocumentLineItem[]) {
+        const current = lineItemsByDoc.get(item.document_id) || [];
+        current.push(item);
+        lineItemsByDoc.set(item.document_id, current);
+      }
+    }
+
+    setDeals(
+      dealsWithRelations
+        .map((deal) => ({
+          ...deal,
+          documents: (deal.documents || []).map((doc) => ({
+            ...doc,
+            line_items: lineItemsByDoc.get(doc.id) || [],
+          })),
+        }))
+        .map(deriveDashboardDeal),
+    );
     setLoading(false);
     setRefreshing(false);
   }, [userId]);
@@ -451,6 +491,7 @@ export default function HomePage() {
                       key={deal.dealId}
                       customerName={deal.customerName}
                       itemSummary={deal.itemSummary || deal.latestDocument?.doc_number || DOC_TYPE_LABELS[deal.latestDocument?.doc_type || "quotation"].th}
+                      itemNames={deal.itemNames}
                       amountText={`฿ ${formatCurrency(deal.amount)}`}
                       status={deal.status}
                       nextActionLabel={deal.nextActionLabel}
@@ -476,6 +517,7 @@ export default function HomePage() {
                         key={deal.dealId}
                         customerName={deal.customerName}
                         itemSummary={deal.itemSummary || deal.latestDocument?.doc_number || "ชำระเรียบร้อย"}
+                        itemNames={deal.itemNames}
                         amountText={`฿ ${formatCurrency(deal.amount)}`}
                         paidAtText={deal.paidAt ? formatBuddhistDate(deal.paidAt) : undefined}
                         onTap={() => navigate(`/deals/${deal.dealId}`)}
