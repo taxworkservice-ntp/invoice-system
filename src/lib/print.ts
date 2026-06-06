@@ -214,8 +214,11 @@ export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Pr
     import("jspdf"),
   ]);
 
+  const isMobile = window.innerWidth < 768;
   const container = document.createElement("div");
-  container.style.cssText = "position:absolute;left:-9999px;top:0;width:210mm;";
+  container.style.cssText = isMobile
+    ? "position:fixed;top:0;left:0;width:210mm;opacity:0;pointer-events:none;z-index:-1;"
+    : "position:absolute;left:-9999px;top:0;width:210mm;";
   document.body.appendChild(container);
 
   try {
@@ -241,8 +244,24 @@ export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Pr
       throw new Error("Print sheet not found");
     }
 
+    const images = sheet.querySelectorAll("img");
+    await Promise.all(
+      Array.from(images).map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) resolve();
+            else {
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            }
+          }),
+      ),
+    );
+
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
     const canvas = await html2canvas(sheet, {
-      scale: 2,
+      scale: isMobile ? 1.5 : 2,
       useCORS: true,
       backgroundColor: "#ffffff",
     });

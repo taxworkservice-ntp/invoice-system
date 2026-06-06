@@ -126,6 +126,22 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     void openBrowserPrintDialog();
   }
 
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.open(url, "_blank");
+    } else {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
   async function handleSavePdf() {
     if (savingPdf || !data) return;
     setSavingPdf(true);
@@ -137,8 +153,21 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
       const sheet = document.querySelector<HTMLElement>(".print-sheet");
       if (!sheet) throw new Error("Print sheet not found");
 
+      const isMobile = window.innerWidth < 768;
+
+      const images = sheet.querySelectorAll("img");
+      await Promise.all(
+        Array.from(images).map(
+          (img) =>
+            new Promise<void>((r) => {
+              if (img.complete) r();
+              else { img.onload = () => r(); img.onerror = () => r(); }
+            }),
+        ),
+      );
+
       const canvas = await html2canvas(sheet, {
-        scale: 2,
+        scale: isMobile ? 1.5 : 2,
         useCORS: true,
         backgroundColor: "#ffffff",
       });
@@ -154,7 +183,8 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
         ? data.document.issue_date.replace(/-/g, "")
         : new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const filename = `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
-      pdf.save(filename);
+      const blob = pdf.output("blob");
+      triggerDownload(blob, filename);
     } catch (err) {
       console.error("Failed to save PDF:", err);
       void openBrowserPrintDialog();
@@ -175,6 +205,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
       const sheet = document.querySelector<HTMLElement>(".print-sheet");
       if (!sheet) throw new Error("Print sheet not found");
 
+      const isMobile = window.innerWidth < 768;
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
@@ -182,7 +213,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
       setCopyType("original");
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const canvasOriginal = await html2canvas(sheet, {
-        scale: 2,
+        scale: isMobile ? 1.5 : 2,
         useCORS: true,
         backgroundColor: "#ffffff",
       });
@@ -191,7 +222,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
       setCopyType("copy");
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const canvasCopy = await html2canvas(sheet, {
-        scale: 2,
+        scale: isMobile ? 1.5 : 2,
         useCORS: true,
         backgroundColor: "#ffffff",
       });
@@ -202,7 +233,9 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
       const datePart = data.document.issue_date
         ? data.document.issue_date.replace(/-/g, "")
         : new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      pdf.save(`${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`);
+      const filename = `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
+      const blob = pdf.output("blob");
+      triggerDownload(blob, filename);
     } catch (err) {
       console.error("Failed to save PDF:", err);
       void openBrowserPrintDialog();

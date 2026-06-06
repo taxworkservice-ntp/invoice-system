@@ -1397,7 +1397,20 @@ export function downloadPDF(data: PDFData, doc: jsPDF): void {
     ? data.document.issue_date.replace(/-/g, "")
     : new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const filename = `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
-  doc.save(filename);
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.open(url, "_blank");
+  } else {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 function needsReference(type: DocumentType): boolean {
