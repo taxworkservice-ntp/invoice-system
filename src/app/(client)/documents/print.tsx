@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -12,7 +12,6 @@ export default function DocumentPrintPreviewPage() {
   const [data, setData] = useState<PrintDocumentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const didAutoPrint = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,45 +41,41 @@ export default function DocumentPrintPreviewPage() {
     };
   }, [id]);
 
-  useEffect(() => {
-    if (!data || didAutoPrint.current) return;
-    didAutoPrint.current = true;
-
+  async function openBrowserPrintDialog() {
     const images = Array.from(document.querySelectorAll(".print-sheet img")) as HTMLImageElement[];
     const pendingImages = images.filter((img) => !img.complete);
 
-    const openPrintDialog = () => {
+    if (pendingImages.length === 0) {
       window.setTimeout(() => {
         window.focus();
         window.print();
       }, 250);
-    };
-
-    if (pendingImages.length === 0) {
-      openPrintDialog();
       return;
     }
 
-    let loadedCount = 0;
-    const handleImageReady = () => {
-      loadedCount += 1;
-      if (loadedCount >= pendingImages.length) {
-        openPrintDialog();
-      }
-    };
+    await Promise.all(
+      pendingImages.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            img.addEventListener("load", () => resolve(), { once: true });
+            img.addEventListener("error", () => resolve(), { once: true });
+          }),
+      ),
+    );
 
-    pendingImages.forEach((img) => {
-      img.addEventListener("load", handleImageReady, { once: true });
-      img.addEventListener("error", handleImageReady, { once: true });
-    });
+    window.setTimeout(() => {
+      window.focus();
+      window.print();
+    }, 250);
+  }
 
-    return () => {
-      pendingImages.forEach((img) => {
-        img.removeEventListener("load", handleImageReady);
-        img.removeEventListener("error", handleImageReady);
-      });
-    };
-  }, [data]);
+  function handlePrint() {
+    void openBrowserPrintDialog();
+  }
+
+  function handleSavePdf() {
+    void openBrowserPrintDialog();
+  }
 
   if (loading) {
     return (
@@ -112,13 +107,17 @@ export default function DocumentPrintPreviewPage() {
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">Print Preview</div>
           <div className="text-[15px] font-semibold text-[#101828]">{data.document.doc_number || "Document"}</div>
+          <div className="mt-1 text-[11px] text-[#667085]">เลือกพิมพ์หรือบันทึกเป็น PDF ได้จากปุ่มด้านขวา</div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => navigate(-1)}>
             Back
           </Button>
-          <Button onClick={() => window.print()}>
-            Print / Save PDF
+          <Button variant="secondary" onClick={handlePrint}>
+            พิมพ์
+          </Button>
+          <Button onClick={handleSavePdf}>
+            บันทึกเป็น PDF
           </Button>
         </div>
       </div>
