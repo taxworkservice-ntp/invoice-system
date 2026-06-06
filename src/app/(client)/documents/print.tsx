@@ -126,20 +126,38 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     void openBrowserPrintDialog();
   }
 
-  function triggerDownload(blob: Blob, filename: string) {
+  async function triggerDownload(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.open(url, "_blank");
-    } else {
+
+    try {
+      const file = new File([blob], filename, { type: "application/pdf" });
+      if (isMobile && typeof navigator.share === "function") {
+        const shareData = { files: [file], title: filename };
+        if (typeof navigator.canShare !== "function" || navigator.canShare(shareData)) {
+          await navigator.share(shareData);
+          return;
+        }
+      }
+
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
+      a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+
+      if (isMobile) {
+        window.setTimeout(() => {
+          if (!document.hidden) {
+            window.open(url, "_blank", "noopener,noreferrer");
+          }
+        }, 400);
+      }
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     }
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
   async function handleSavePdf() {
@@ -153,7 +171,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
         : new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const filename = `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
       const blob = pdf.output("blob");
-      triggerDownload(blob, filename);
+      await triggerDownload(blob, filename);
     } catch (err) {
       console.error("Failed to save PDF:", err);
       void openBrowserPrintDialog();
@@ -173,7 +191,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
         : new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const filename = `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
       const blob = pdf.output("blob");
-      triggerDownload(blob, filename);
+      await triggerDownload(blob, filename);
     } catch (err) {
       console.error("Failed to save PDF:", err);
       void openBrowserPrintDialog();
