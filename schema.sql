@@ -543,6 +543,189 @@ end;
 $$ language plpgsql security definer;
 
 
+-- Repair document numbers for an existing client by rebuilding them from issue_date
+-- Optionally force monthly-reset mode to match the current application behavior
+create or replace function repair_doc_numbers(
+  p_user_id uuid,
+  p_doc_type document_type default null,
+  p_force_reset_yearly boolean default false
+)
+returns table (
+  doc_type document_type,
+  repaired_count int,
+  last_year int,
+  last_month int,
+  last_sequence int,
+  last_doc_number text
+) as $$
+declare
+  v_seq doc_number_sequences%rowtype;
+begin
+  if p_force_reset_yearly then
+    update doc_number_sequences
+    set reset_yearly = true
+    where doc_number_sequences.user_id = p_user_id
+      and (p_doc_type is null or doc_number_sequences.doc_type = p_doc_type);
+  end if;
+
+  for v_seq in
+    select *
+    from doc_number_sequences
+    where doc_number_sequences.user_id = p_user_id
+      and (p_doc_type is null or doc_number_sequences.doc_type = p_doc_type)
+    order by doc_number_sequences.doc_type
+    for update
+  loop
+    with ranked as (
+      select
+        d.id,
+        extract(year from d.issue_date)::int as issue_year,
+        extract(month from d.issue_date)::int as issue_month,
+        (row_number() over (
+          partition by
+            case when v_seq.reset_yearly then extract(year from d.issue_date)::int else 1 end,
+            case when v_seq.reset_yearly then extract(month from d.issue_date)::int else 1 end
+          order by d.issue_date, d.created_at, d.id
+        ))::int as bucket_sequence,
+        (row_number() over (
+          order by d.issue_date, d.created_at, d.id
+        ))::int as global_sequence,
+        (row_number() over (
+          order by d.issue_date desc, d.created_at desc, d.id desc
+        ))::int as reverse_order
+      from documents d
+      where d.user_id = p_user_id
+        and d.doc_type = v_seq.doc_type
+    )
+    update documents d
+    set doc_number =
+      v_seq.prefix
+      || '-' || ranked.issue_year
+      || '-' || lpad(ranked.issue_month::text, 2, '0')
+      || '-' || lpad(
+        (
+          case
+            when v_seq.reset_yearly then ranked.bucket_sequence
+            else ranked.global_sequence
+          end
+        )::text,
+        3,
+        '0'
+      )
+    from ranked
+    where d.id = ranked.id;
+
+    if exists (
+      select 1
+      from documents
+      where documents.user_id = p_user_id
+        and documents.doc_type = v_seq.doc_type
+    ) then
+      with ranked as (
+        select
+          d.id,
+          extract(year from d.issue_date)::int as issue_year,
+          extract(month from d.issue_date)::int as issue_month,
+          (row_number() over (
+            partition by
+              case when v_seq.reset_yearly then extract(year from d.issue_date)::int else 1 end,
+              case when v_seq.reset_yearly then extract(month from d.issue_date)::int else 1 end
+            order by d.issue_date, d.created_at, d.id
+          ))::int as bucket_sequence,
+          (row_number() over (
+            order by d.issue_date, d.created_at, d.id
+          ))::int as global_sequence,
+          (row_number() over (
+            order by d.issue_date desc, d.created_at desc, d.id desc
+          ))::int as reverse_order
+        from documents d
+        where d.user_id = p_user_id
+          and d.doc_type = v_seq.doc_type
+      ),
+      latest as (
+        select
+          issue_year,
+          issue_month,
+          case
+            when v_seq.reset_yearly then bucket_sequence
+            else global_sequence
+          end as effective_sequence
+        from ranked
+        where reverse_order = 1
+      )
+      update doc_number_sequences
+      set last_year = latest.issue_year,
+          last_month = latest.issue_month,
+          last_sequence = latest.effective_sequence
+      from latest
+      where id = v_seq.id;
+
+      return query
+      with ranked as (
+        select
+          d.id,
+          extract(year from d.issue_date)::int as issue_year,
+          extract(month from d.issue_date)::int as issue_month,
+          (row_number() over (
+            partition by
+              case when v_seq.reset_yearly then extract(year from d.issue_date)::int else 1 end,
+              case when v_seq.reset_yearly then extract(month from d.issue_date)::int else 1 end
+            order by d.issue_date, d.created_at, d.id
+          ))::int as bucket_sequence,
+          (row_number() over (
+            order by d.issue_date, d.created_at, d.id
+          ))::int as global_sequence,
+          (row_number() over (
+            order by d.issue_date desc, d.created_at desc, d.id desc
+          ))::int as reverse_order
+        from documents d
+        where d.user_id = p_user_id
+          and d.doc_type = v_seq.doc_type
+      ),
+      stats as (
+        select count(*)::int as repaired_count
+        from ranked
+      )
+      select
+        v_seq.doc_type,
+        stats.repaired_count,
+        ranked.issue_year,
+        ranked.issue_month,
+        case
+          when v_seq.reset_yearly then ranked.bucket_sequence
+          else ranked.global_sequence
+        end,
+        v_seq.prefix
+          || '-' || ranked.issue_year
+          || '-' || lpad(ranked.issue_month::text, 2, '0')
+          || '-' || lpad(
+            (
+              case
+                when v_seq.reset_yearly then ranked.bucket_sequence
+                else ranked.global_sequence
+              end
+            )::text,
+            3,
+            '0'
+          )
+      from ranked
+      cross join stats
+      where ranked.reverse_order = 1;
+    else
+      update doc_number_sequences
+      set last_year = null,
+          last_month = null,
+          last_sequence = 0
+      where doc_number_sequences.id = v_seq.id;
+
+      return query
+      select v_seq.doc_type, 0, null::int, null::int, 0, null::text;
+    end if;
+  end loop;
+end;
+$$ language plpgsql security definer;
+
+
 -- Auto-mark overdue billing notes
 -- Run this daily via Supabase pg_cron or a Vercel cron job
 create or replace function mark_overdue_billing_notes()
