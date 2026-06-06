@@ -473,6 +473,12 @@ Used on: Quotation, Invoice, Delivery Note, Credit Note.
 User can add items by searching catalog or typing freely.
 Free-text items (no item_id) do not affect stock.
 
+The item name input uses a custom `CatalogAutocomplete` dropdown (replacing the native
+`<datalist>`). It filters by partial name match, shows item type badge and unit price
+per suggestion, and displays a green checkmark when the line item is linked to a catalog
+entry. Selection autofills item_type, unit, and unit_price. Keyboard navigation (↑↓ Enter Esc)
+supported. Same component reused in the Credit Note form as an add-from-catalog selector.
+
 ---
 
 ## Item Catalog
@@ -558,6 +564,18 @@ Invoice no. / Invoice date / Amount / VAT / Total
 
 **Thai font:** use Sarabun or Noto Sans Thai — embed in PDF, do not rely on system fonts.
 
+**PDF template — Modern (HTML print):**
+An alternative "modern" template renders as styled HTML and is captured with `html2canvas`.
+Users select their template in Settings (classic / modern / bold / perforated).
+Bulk ZIP downloads respect the chosen template — documents using the modern template
+are rendered off-screen in a hidden container before capture.
+
+**Layout alignment (modern template):**
+- Header outer container uses no side padding; inner content areas use `px-2` (8px) to match table cell padding
+- Customer detail section background and border span the full table width (174mm)
+- Table column headers have background only (no bottom border line)
+- Tax invoice/receipt label renders as two stacked lines: "ใบกำกับภาษี /" + "ใบเสร็จรับเงิน"
+
 ---
 
 ## Search and Filter — Documents Screen
@@ -572,10 +590,10 @@ Invoice no. / Invoice date / Amount / VAT / Total
 
 ## Data Export
 
-Available in Settings or Documents screen:
+Available in the Documents screen:
 
 - **CSV export:** all documents, one row per document, columns: doc_number, doc_type, status, customer_name, issue_date, due_date, subtotal, vat, wht, net_payable, paid_at
-- **PDF bundle:** zip file of PDFs for filtered document set (generate each PDF, zip client-side using JSZip)
+- **Bulk PDF ZIP download:** multi-select documents via checkboxes, then download all selected as a ZIP of PDFs. Shows progress (e.g. "กำลังสร้าง 3/12"). Respects the client's chosen PDF template (classic jsPDF or modern html2canvas). Uses JSZip for packaging. Mobile: floating selection bar at bottom with count and download button.
 
 ---
 
@@ -693,6 +711,11 @@ Completed recently:
 - Quick-detail modal now fetches full document detail on open
 - Quick-detail modal shows compact item lines and financial summary
 - Document detail page visual hierarchy improved for clearer summary and actions
+- Catalog autocomplete with visual match indicator replaces native datalist in deal/credit note forms
+- Multi-select and bulk PDF ZIP download on Documents page (respects classic and modern templates)
+- PDF print template layout aligned: customer background matches table width, unified text inset
+- Tax invoice/receipt label split into two stacked lines on print template
+- Home greeting uses full company name (not just first word)
 
 Still remaining:
 
@@ -707,6 +730,5 @@ Still remaining:
 - Improve empty states, confirmations, and general UI consistency across screens
 
 ### Phase 3
-- Refine Inventory/Catalog UX and item selection flow
 - Improve workflow visibility across related documents: quotation -> invoice -> billing note -> receipt
 - Add deeper mobile polish for sticky actions, sheet behavior, and reduced scroll fatigue
