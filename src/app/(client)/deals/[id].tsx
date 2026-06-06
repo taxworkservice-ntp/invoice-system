@@ -274,8 +274,8 @@ export default function DealDetailPage() {
     if (!userId || !dealId || !customer) return;
     setActionLoadingId(quotation.id);
     try {
-      const now = new Date().toISOString().slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId, "invoice", now);
+      const issueDate = quotation.issue_date || new Date().toISOString().slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, "invoice", issueDate);
 
       const lineItems = docsWithMeta.find((item) => item.document.id === quotation.id)?.line_items || [];
 
@@ -288,7 +288,7 @@ export default function DealDetailPage() {
           doc_type: "invoice",
           doc_number: docNumber,
           status: "sent",
-          issue_date: now,
+          issue_date: issueDate,
           vat_registered: quotation.vat_registered,
           vat_rate: quotation.vat_rate,
           wht_rate: quotation.wht_rate,
@@ -442,8 +442,8 @@ export default function DealDetailPage() {
           .in("id", linkedInvoiceIds);
       }
 
-      const today = now.slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId, "receipt", today);
+      const issueDate = now.slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, "receipt", issueDate);
 
       await supabase.from("documents").insert({
         user_id: userId,
@@ -452,7 +452,7 @@ export default function DealDetailPage() {
         doc_type: "receipt",
         doc_number: docNumber,
         status: "generated" as DocumentStatus,
-        issue_date: today,
+        issue_date: issueDate,
         vat_registered: payDocument.vat_registered,
         vat_rate: payDocument.vat_rate,
         wht_rate: payDocument.wht_rate,
@@ -560,7 +560,7 @@ export default function DealDetailPage() {
     if (!voidDocument || !userId || !dealId) return;
     setVoiding(true);
     try {
-      const now = new Date().toISOString().slice(0, 10);
+      const issueDate = voidDocument.issue_date || new Date().toISOString().slice(0, 10);
 
       await supabase
         .from("documents")
@@ -571,7 +571,7 @@ export default function DealDetailPage() {
         })
         .eq("id", voidDocument.id);
 
-      const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type, now);
+      const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type, issueDate);
 
       const { data: newDoc } = await supabase
         .from("documents")
@@ -582,7 +582,7 @@ export default function DealDetailPage() {
           doc_type: voidDocument.doc_type,
           doc_number: newDocNumber,
           status: "draft" as DocumentStatus,
-          issue_date: now,
+          issue_date: issueDate,
           vat_registered: voidDocument.vat_registered,
           vat_rate: voidDocument.vat_rate,
           wht_rate: voidDocument.wht_rate,

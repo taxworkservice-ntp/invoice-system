@@ -150,8 +150,8 @@ export default function DocumentDetailPage() {
       }
 
       if (voidAndRecreate) {
-        const now = new Date().toISOString().slice(0, 10);
-        const newDocNumber = await generateDocNumberBE(userId, doc.doc_type, now);
+        const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
+        const newDocNumber = await generateDocNumberBE(userId, doc.doc_type, issueDate);
         const { data: newDoc } = await supabase
           .from("documents")
           .insert({
@@ -161,7 +161,7 @@ export default function DocumentDetailPage() {
             doc_type: doc.doc_type,
             doc_number: newDocNumber,
             status: "draft" as DocumentStatus,
-            issue_date: now,
+            issue_date: issueDate,
             due_date: doc.due_date,
             vat_registered: doc.vat_registered,
             vat_rate: doc.vat_rate,
@@ -306,8 +306,8 @@ export default function DocumentDetailPage() {
     if (!doc || !userId) return;
     setActionLoading("convert");
     try {
-      const now = new Date().toISOString().slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId, "invoice", now);
+      const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, "invoice", issueDate);
       const { data: invoice } = await supabase
         .from("documents")
         .insert({
@@ -317,7 +317,7 @@ export default function DocumentDetailPage() {
           doc_type: "invoice",
           doc_number: docNumber,
           status: "sent" as DocumentStatus,
-          issue_date: now,
+          issue_date: issueDate,
           due_date: doc.due_date,
           vat_registered: doc.vat_registered,
           vat_rate: doc.vat_rate,
@@ -375,8 +375,8 @@ export default function DocumentDetailPage() {
     if (!doc || !userId) return;
     setActionLoading("copy");
     try {
-      const now = new Date().toISOString().slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId, doc.doc_type, now);
+      const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, doc.doc_type, issueDate);
       const { data: copy } = await supabase
         .from("documents")
         .insert({
@@ -386,7 +386,7 @@ export default function DocumentDetailPage() {
           doc_type: doc.doc_type,
           doc_number: docNumber,
           status: "draft" as DocumentStatus,
-          issue_date: now,
+          issue_date: issueDate,
           due_date: doc.due_date,
           vat_registered: doc.vat_registered,
           vat_rate: doc.vat_rate,

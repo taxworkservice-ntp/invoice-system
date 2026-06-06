@@ -12,6 +12,7 @@ import { CatalogAutocomplete } from "../CatalogAutocomplete";
 import { Spinner } from "../ui/Spinner";
 import { generateDocNumberBE } from "../../lib/docNumber";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
+import { formatBuddhistDate } from "../../lib/dates";
 import { DOC_TYPE_LABELS } from "../../constants";
 import type { Document, DocumentLineItem, Customer, Deal } from "../../types";
 
@@ -37,6 +38,10 @@ function uid() {
   return `cn_${++idCounter}_${Date.now()}`;
 }
 
+function todayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -57,6 +62,8 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
   const [note, setNote] = useState("");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
   const [addItemInput, setAddItemInput] = useState("");
+  const [issueDate, setIssueDate] = useState(todayString());
+  const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
 
   const [docId, setDocId] = useState<string | null>(null);
   const [existingStatus, setExistingStatus] = useState("");
@@ -131,6 +138,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
     setDocId((doc as any).id);
     setNote((doc as any).note || "");
     setDocumentDiscountPercent((doc as any).discount_percent || 0);
+    setIssueDate((doc as any).issue_date || todayString());
 
     if ((doc as any).converted_from_id) {
       setRefInvoiceId((doc as any).converted_from_id);
@@ -268,13 +276,13 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       whtRate,
       { discountPercent: documentDiscountPercent },
     );
-    const now = new Date().toISOString().slice(0, 10);
+    const effectiveIssueDate = issueDate || todayString();
 
     try {
       let targetDocId = docId;
 
       if (!isEditing) {
-        const docNumber = await generateDocNumberBE(userId, "credit_note", now);
+        const docNumber = await generateDocNumberBE(userId, "credit_note", effectiveIssueDate);
         const { data: newDoc, error: insertErr } = await supabase
           .from("documents")
           .insert({
@@ -284,7 +292,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
             doc_type: "credit_note",
             doc_number: docNumber,
             status,
-            issue_date: now,
+            issue_date: effectiveIssueDate,
             vat_registered: vatRegistered,
             vat_rate: vatRate,
             wht_rate: whtRate,
@@ -308,6 +316,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
           .from("documents")
           .update({
             status,
+            issue_date: effectiveIssueDate,
             vat_registered: vatRegistered,
             vat_rate: vatRate,
             wht_rate: whtRate,
@@ -394,6 +403,50 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
             <div>
               <span className="text-[11px] text-[#888780]">ลูกค้า</span>
               <p className="text-sm font-medium">{customer?.name || "-"}</p>
+            </div>
+
+            <div className="rounded-xl border border-[#E7E5DE] bg-[#FBFAF7] px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">วันที่ที่ใช้บนเอกสาร</div>
+                  <div className="mt-1 text-sm font-semibold text-[#1A1A18]">{formatBuddhistDate(issueDate)}</div>
+                </div>
+                {!isReadOnly && (
+                  <div className="flex gap-2">
+                    {issueDate !== todayString() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueDate(todayString());
+                          setShowIssueDatePicker(false);
+                        }}
+                        className="rounded-lg border border-[#D7DEE7] px-3 py-2 text-xs font-medium text-[#475467] transition-colors hover:bg-white"
+                      >
+                        ใช้วันนี้
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowIssueDatePicker((prev) => !prev)}
+                      className="rounded-lg border border-[#D7DEE7] bg-white px-3 py-2 text-xs font-medium text-[#1A1A18] transition-colors hover:bg-gray-50"
+                    >
+                      {showIssueDatePicker || issueDate !== todayString() ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
+                    </button>
+                  </div>
+                )}
+              </div>
+              {(showIssueDatePicker || issueDate !== todayString()) && !isReadOnly && (
+                <div className="mt-3 border-t border-[#ECE8DE] pt-3">
+                  <Input
+                    id="creditNoteIssueDate"
+                    label="วันที่ออกเอกสาร"
+                    type="date"
+                    value={issueDate}
+                    max={todayString()}
+                    onChange={(e) => setIssueDate(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             {!isEditing && paidInvoices.length > 0 && (
