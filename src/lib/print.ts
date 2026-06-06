@@ -207,3 +207,56 @@ export async function openClassicPdfFallback(data: {
   window.open(url, "_blank");
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+
+export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
+
+  const container = document.createElement("div");
+  container.style.cssText = "position:absolute;left:-9999px;top:0;width:210mm;";
+  document.body.appendChild(container);
+
+  try {
+    const { createRoot } = await import("react-dom/client");
+    const { PrintDocument } = await import("../components/print/PrintDocument");
+    const React = await import("react");
+
+    const printData: PrintDocumentData = {
+      ...data,
+      template: "modern",
+    };
+
+    const root = createRoot(container);
+
+    await new Promise<void>((resolve) => {
+      root.render(React.createElement(PrintDocument, { data: printData, copyType: "original" as const }));
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const sheet = container.querySelector<HTMLElement>(".print-sheet");
+    if (!sheet) {
+      root.unmount();
+      throw new Error("Print sheet not found");
+    }
+
+    const canvas = await html2canvas(sheet, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+    });
+
+    root.unmount();
+
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    pdf.addImage(imgData, "PNG", 0, 0, pageW, pageH);
+
+    return pdf.output("blob");
+  } finally {
+    document.body.removeChild(container);
+  }
+}

@@ -801,35 +801,54 @@ export default function DocumentsPage() {
     const ids = Array.from(selectedDocIds);
 
     try {
-      const { generatePDFBlob } = await import("../../../lib/pdf");
+      const { data: clientProfile } = await supabase
+        .from("client_profiles")
+        .select("*")
+        .eq("user_id", profile.id)
+        .single();
+
+      if (!clientProfile) {
+        toast.error("ไม่พบข้อมูลโปรไฟล์");
+        return;
+      }
+
+      const isModern = clientProfile.pdf_template === "modern";
       const JSZip = (await import("jszip")).default;
+
+      let generateBlob: (docId: string) => Promise<Blob | null>;
+
+      if (isModern) {
+        const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
+        generateBlob = async (docId: string) => {
+          const data = await getPrintableDocumentDataBase(docId);
+          return generateModernPDFBlob(data);
+        };
+      } else {
+        const { generatePDFBlob } = await import("../../../lib/pdf");
+        generateBlob = async (docId: string) => {
+          const doc = await getDocumentDetail(docId);
+          if (!doc) return null;
+          const customer = (doc as any).customer || null;
+          if (!customer) return null;
+          return generatePDFBlob({
+            document: doc,
+            lineItems: doc.line_items || [],
+            billingNoteInvoices: (doc as any).billing_invoices || [],
+            clientProfile,
+            customer,
+          });
+        };
+      }
 
       const zip = new JSZip();
 
       for (let i = 0; i < ids.length; i++) {
         setBulkProgress({ current: i + 1, total: ids.length });
 
-        const doc = await getDocumentDetail(ids[i]);
-        if (!doc) continue;
+        const blob = await generateBlob(ids[i]);
+        if (!blob) continue;
 
-        const { data: clientProfile } = await supabase
-          .from("client_profiles")
-          .select("*")
-          .eq("user_id", profile.id)
-          .single();
-
-        const customer = (doc as any).customer || null;
-        if (!clientProfile || !customer) continue;
-
-        const blob = await generatePDFBlob({
-          document: doc,
-          lineItems: doc.line_items || [],
-          billingNoteInvoices: (doc as any).billing_invoices || [],
-          clientProfile,
-          customer,
-        });
-
-        const filename = `${doc.doc_type}_${doc.doc_number || ids[i].slice(0, 8)}.pdf`;
+        const filename = `${ids[i].slice(0, 8)}.pdf`;
         zip.file(filename, blob, { binary: true });
       }
 
