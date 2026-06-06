@@ -1,6 +1,7 @@
 import { documentTypeLabel } from "../../lib/docLabels";
 import { LOGO_SIZE_OPTIONS } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
+import type { CopyType } from "./PrintDocument";
 
 function getLogoPx(logoSize: string | null): number {
   return LOGO_SIZE_OPTIONS.find(o => o.value === logoSize)?.px ?? 64;
@@ -16,9 +17,10 @@ function formatDate(date: string | null | undefined) {
   return `${d}/${m}/${y}`;
 }
 
-export function PrintHeader({ data }: { data: PrintDocumentData }) {
+export function PrintHeader({ data, copyType = "original" }: { data: PrintDocumentData; copyType?: CopyType }) {
   const { clientProfile, customer, document, referenceDoc } = data;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
+  const copyLabel = copyType === "copy" ? "สำเนา" : "ต้นฉบับ";
 
   return (
     <header className="print-header bg-white text-[#1F2937] border-transparent print-modern-header px-5 pb-5 pt-3">
@@ -49,7 +51,7 @@ export function PrintHeader({ data }: { data: PrintDocumentData }) {
         </div>
 
         <div className="shrink-0 text-right text-[#111827] w-[64mm] p-0">
-          <div className="text-[9px] tracking-[0.18em] text-[#7A8699]">ต้นฉบับ</div>
+          <div className="text-[9px] tracking-[0.18em] text-[#7A8699]">{copyLabel}</div>
           <div className="mt-1 text-[26px] font-semibold tracking-[-0.02em] leading-tight text-[#111827]">
             {label.thai}
           </div>

@@ -8,6 +8,8 @@ import { PrintTotals } from "./PrintTotals";
 const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note"]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
 
+export type CopyType = "original" | "copy";
+
 const DOC_ACCENT_COLORS: Record<DocumentType, string> = {
   quotation: "#7E57C2",
   invoice: "#378ADD",
@@ -18,17 +20,26 @@ const DOC_ACCENT_COLORS: Record<DocumentType, string> = {
   credit_note: "#DC2626",
 };
 
-export function PrintDocument({ data }: { data: PrintDocumentData }) {
+const COPY_LABELS: Record<CopyType, string> = {
+  original: "ต้นฉบับ",
+  copy: "สำเนา",
+};
+
+export function PrintDocument({ data, copyType = "original" }: { data: PrintDocumentData; copyType?: CopyType }) {
   const showBank = SHOW_BANK_TYPES.has(data.document.doc_type);
   const showPaymentMethod = SHOW_PAYMENT_METHOD_TYPES.has(data.document.doc_type);
   const hasPayment = (showPaymentMethod && data.document.payment_method) || data.document.wht_certificate_no || data.document.amount_received != null;
   const signatureUrl = data.clientProfile.signature_url;
   const stampUrl = data.clientProfile.stamp_url;
   const accentColor = DOC_ACCENT_COLORS[data.document.doc_type];
+  const isCopy = copyType === "copy";
 
   return (
-    <article className="print-sheet print-theme-modern" style={{ "--doc-accent": accentColor } as React.CSSProperties}>
-      <PrintHeader data={data} />
+    <article
+      className={isCopy ? "print-sheet print-theme-modern print-copy" : "print-sheet print-theme-modern"}
+      style={{ "--doc-accent": accentColor } as React.CSSProperties}
+    >
+      <PrintHeader data={data} copyType={copyType} />
       <PrintLineItemsTable data={data} />
       <PrintTotals data={data} />
 
@@ -76,6 +87,10 @@ export function PrintDocument({ data }: { data: PrintDocumentData }) {
           </div>
         </div>
       </footer>
+
+      {isCopy && (
+        <div className="print-copy-watermark">{COPY_LABELS[copyType]}</div>
+      )}
     </article>
   );
 }

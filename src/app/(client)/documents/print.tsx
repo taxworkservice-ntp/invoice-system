@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { PrintDocument } from "../../../components/print/PrintDocument";
+import type { CopyType } from "../../../components/print/PrintDocument";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { DOC_TYPE_SHORT } from "../../../constants";
@@ -20,6 +21,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const [previewViewportWidth, setPreviewViewportWidth] = useState<number | null>(null);
   const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
+  const [copyType, setCopyType] = useState<CopyType>("original");
 
   useEffect(() => {
     let cancelled = false;
@@ -195,7 +197,25 @@ return (
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">ดูเอกสาร</div>
           <div className="text-[15px] font-semibold text-[#101828]">{data.document.doc_number || "เอกสาร"}</div>
-          <div className="mt-1 text-[11px] text-[#667085]">เลือกพิมพ์หรือบันทึกเป็น PDF ได้จากปุ่มด้านขวา</div>
+          <div className="mt-1 flex items-center gap-1 text-[11px] text-[#667085]">
+            <span>ประเภท:</span>
+            <div className="inline-flex rounded-md border border-[#D7DEE7] overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setCopyType("original")}
+                className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${copyType === "original" ? "bg-[#378ADD] text-white" : "bg-white text-[#475467] hover:bg-gray-50"}`}
+              >
+                ต้นฉบับ
+              </button>
+              <button
+                type="button"
+                onClick={() => setCopyType("copy")}
+                className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors border-l border-[#D7DEE7] ${copyType === "copy" ? "bg-[#378ADD] text-white" : "bg-white text-[#475467] hover:bg-gray-50"}`}
+              >
+                สำเนา
+              </button>
+            </div>
+          </div>
         </div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <Button variant="secondary" onClick={() => navigate(-1)} className="flex-1 sm:flex-none">
@@ -228,7 +248,7 @@ return (
             }}
           >
             <PrintErrorBoundary onError={() => {}}>
-              <PrintDocument data={data} />
+              <PrintDocument data={data} copyType={copyType} />
             </PrintErrorBoundary>
           </div>
         </div>

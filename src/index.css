@@ -121,6 +121,22 @@ body {
   background:
     linear-gradient(180deg, var(--doc-accent, #2f6fed) 0 5px, transparent 5px 100%),
     #ffffff;
+  position: relative;
+}
+
+.print-copy-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  font-size: 72px;
+  font-weight: 800;
+  color: rgba(200, 200, 200, 0.18);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 0;
+  letter-spacing: 0.05em;
 }
 
 .print-only {
