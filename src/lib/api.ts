@@ -30,10 +30,27 @@ export async function apiFetch<T>(input: string, init: RequestInit = {}): Promis
   });
 
   const rawText = await response.text();
-  const payload = rawText ? JSON.parse(rawText) : {};
+  const contentType = response.headers.get("content-type") || "";
+
+  let payload: unknown = {};
+  if (rawText) {
+    if (contentType.includes("application/json")) {
+      payload = JSON.parse(rawText);
+    } else {
+      payload = { error: rawText };
+    }
+  }
+
+  const payloadError =
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    typeof payload.error === "string"
+      ? payload.error
+      : null;
 
   if (!response.ok) {
-    throw new Error(payload.error || "Request failed");
+    throw new Error(payloadError || `Request failed with status ${response.status}`);
   }
 
   return payload as T;
