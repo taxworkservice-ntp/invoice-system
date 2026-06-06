@@ -113,14 +113,14 @@ export default function AdminClientDetailPage() {
 
   async function handleResetPassword() {
     if (!email) return;
-    if (!window.confirm(`เธชเนเธเธญเธตเน€เธกเธฅเธฃเธตเน€เธเนเธ•เธฃเธซเธฑเธชเธเนเธฒเธเนเธซเน ${email}?`)) return;
+    if (!window.confirm(`ส่งอีเมลรีเซ็ตรหัสผ่านให้ ${email}?`)) return;
 
     setResetting(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("เธชเนเธเธญเธตเน€เธกเธฅเธฃเธตเน€เธเนเธ•เธฃเธซเธฑเธชเธเนเธฒเธเนเธฅเนเธง โ“");
+      toast.success("ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว ✓");
     }
     setResetting(false);
   }
@@ -128,18 +128,18 @@ export default function AdminClientDetailPage() {
   async function handleChangePassword() {
     if (!id) return;
     if (!newPassword || newPassword.length < 6) {
-      toast.error("เธฃเธซเธฑเธชเธเนเธฒเธเธ•เนเธญเธเธกเธตเธญเธขเนเธฒเธเธเนเธญเธข 6 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ");
+      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
       return;
     }
     if (newPassword !== newPasswordConfirm) {
-      toast.error("เธฃเธซเธฑเธชเธเนเธฒเธเนเธกเนเธ•เธฃเธเธเธฑเธ");
+      toast.error("รหัสผ่านไม่ตรงกัน");
       return;
     }
 
     setChangingPassword(true);
     try {
       await updateAdminClientPassword(id, newPassword);
-      toast.success("เน€เธเธฅเธตเนเธขเธเธฃเธซเธฑเธชเธเนเธฒเธเน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง โ“");
+      toast.success("เปลี่ยนรหัสผ่านเรียบร้อยแล้ว ✓");
       setShowPasswordModal(false);
       setNewPassword("");
       setNewPasswordConfirm("");
@@ -154,8 +154,8 @@ export default function AdminClientDetailPage() {
     if (!id) return;
 
     const confirmMsg = isActive
-      ? `เธเธดเธ”เธเธฒเธฃเนเธเนเธเธฒเธเธเธฑเธเธเธตเธเธญเธ ${clientProfile?.company_name_th || email}? เธฅเธนเธเธเนเธฒเธเธฐเนเธกเนเธชเธฒเธกเธฒเธฃเธ–เน€เธเนเธฒเธชเธนเนเธฃเธฐเธเธเนเธ”เน`
-      : `เน€เธเธดเธ”เนเธเนเธเธฒเธเธเธฑเธเธเธตเธเธญเธ ${clientProfile?.company_name_th || email}?`;
+      ? `ปิดการใช้งานบัญชีของ ${clientProfile?.company_name_th || email}? ลูกค้าจะไม่สามารถเข้าสู่ระบบได้`
+      : `เปิดใช้งานบัญชีของ ${clientProfile?.company_name_th || email}?`;
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -165,7 +165,7 @@ export default function AdminClientDetailPage() {
     try {
       await updateAdminClientStatus(id, !isActive);
       setIsActive(!isActive);
-      toast.success(isActive ? "เธเธดเธ”เธเธฒเธฃเนเธเนเธเธฒเธเธเธฑเธเธเธตเนเธฅเนเธง" : "เน€เธเธดเธ”เนเธเนเธเธฒเธเธเธฑเธเธเธตเนเธฅเนเธง");
+      toast.success(isActive ? "ปิดการใช้งานบัญชีแล้ว" : "เปิดใช้งานบัญชีแล้ว");
     } catch (error: any) {
       toast.error(error.message || "Unable to update account status");
     } finally {
@@ -178,12 +178,12 @@ export default function AdminClientDetailPage() {
 
     const expected = clientProfile.company_name_th?.trim() || email.trim();
     if (!expected) {
-      toast.error("เนเธกเนเธเธเธเธทเนเธญเธเธฃเธดเธฉเธฑเธ—เธชเธณเธซเธฃเธฑเธเธขเธทเธเธขเธฑเธ");
+      toast.error("ไม่พบชื่อบริษัทสำหรับยืนยัน");
       return;
     }
 
     if (workspaceResetConfirm.trim() !== expected) {
-      toast.error("เธเธทเนเธญเธขเธทเธเธขเธฑเธเนเธกเนเธ•เธฃเธเธเธฑเธ");
+      toast.error("ชื่อยืนยันไม่ตรงกัน");
       return;
     }
 
@@ -206,7 +206,7 @@ export default function AdminClientDetailPage() {
 
     const expected = clientProfile.company_name_th?.trim() || email.trim();
     if (deleteConfirm.trim() !== expected) {
-      toast.error("เธเธทเนเธญเธขเธทเธเธขเธฑเธเนเธกเนเธ•เธฃเธเธเธฑเธ");
+      toast.error("ชื่อยืนยันไม่ตรงกัน");
       return;
     }
 
@@ -214,10 +214,10 @@ export default function AdminClientDetailPage() {
     try {
       await deleteAdminClient(id);
       setShowDeleteModal(false);
-      toast.success("เธฅเธเธเนเธญเธกเธนเธฅเธฅเธนเธเธเนเธฒเธ—เธฑเนเธเธซเธกเธ”เน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง");
+      toast.success("ลบข้อมูลลูกค้าทั้งหมดเรียบร้อยแล้ว");
       navigate("/admin/clients", { replace: true });
     } catch (error: any) {
-      toast.error(error.message || "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธเนเธญเธกเธนเธฅเธฅเธนเธเธเนเธฒเนเธ”เน");
+      toast.error(error.message || "ไม่สามารถลบข้อมูลลูกค้าได้");
     } finally {
       setDeleting(false);
     }
@@ -231,7 +231,7 @@ export default function AdminClientDetailPage() {
             <button onClick={() => navigate("/admin/clients")} className="text-gray-500 hover:text-gray-700 p-1">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-sm font-semibold text-gray-800 ml-2">เธเนเธญเธกเธนเธฅเธฅเธนเธเธเนเธฒ</h1>
+            <h1 className="text-sm font-semibold text-gray-800 ml-2">ข้อมูลลูกค้า</h1>
           </div>
         </header>
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -249,11 +249,11 @@ export default function AdminClientDetailPage() {
             <button onClick={() => navigate("/admin/clients")} className="text-gray-500 hover:text-gray-700 p-1">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-sm font-semibold text-gray-800 ml-2">เนเธกเนเธเธเธเนเธญเธกเธนเธฅ</h1>
+            <h1 className="text-sm font-semibold text-gray-800 ml-2">ไม่พบข้อมูล</h1>
           </div>
         </header>
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <p className="text-sm text-gray-500">เนเธกเนเธเธเธเนเธญเธกเธนเธฅเธฅเธนเธเธเนเธฒ</p>
+          <p className="text-sm text-gray-500">ไม่พบข้อมูลลูกค้า</p>
         </div>
       </div>
     );
@@ -271,7 +271,7 @@ export default function AdminClientDetailPage() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-sm font-semibold text-[#1A1A18] truncate">
-              {clientProfile.company_name_th || email || "เธฅเธนเธเธเนเธฒ"}
+              {clientProfile.company_name_th || email || "ลูกค้า"}
             </h1>
           </div>
           <div className="relative">
@@ -288,7 +288,7 @@ export default function AdminClientDetailPage() {
                   disabled={toggling}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
                 >
-                  {isActive ? "เธเธดเธ”เธเธฒเธฃเนเธเนเธเธฒเธเธเธฑเธเธเธต" : "เน€เธเธดเธ”เนเธเนเธเธฒเธเธเธฑเธเธเธต"}
+                  {isActive ? "ปิดการใช้งานบัญชี" : "เปิดใช้งานบัญชี"}
                 </button>
               </div>
             )}
@@ -307,49 +307,49 @@ export default function AdminClientDetailPage() {
               className="flex items-center gap-1 text-[#633806] font-medium text-sm hover:underline shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
-              เธซเธขเธธเธ”เธ”เธนเนเธเธเธฒเธเธฐเธฅเธนเธเธเนเธฒ
+              หยุดดูในฐานะลูกค้า
             </button>
           </div>
           <span className="text-sm text-[#633806]/80 truncate ml-2">
-            เธเธณเธฅเธฑเธเธ”เธนเนเธเธเธฒเธเธฐ: <strong>{clientProfile.company_name_th}</strong>
+            กำลังดูในฐานะ: <strong>{clientProfile.company_name_th}</strong>
           </span>
         </div>
       )}
 
       <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
-        <div className={CARD_LABEL}>เธเนเธญเธกเธนเธฅเธฅเธนเธเธเนเธฒ</div>
+        <div className={CARD_LABEL}>ข้อมูลลูกค้า</div>
 
         <Card>
           <div className="space-y-2">
             <div>
-              <span className="text-[11px] text-[#888780]">เธเธทเนเธญเธเธฃเธดเธฉเธฑเธ—</span>
+              <span className="text-[11px] text-[#888780]">ชื่อบริษัท</span>
               <p className="text-[13px] text-[#1A1A18] font-medium">{clientProfile.company_name_th || "-"}</p>
             </div>
             {clientProfile.company_name_en && (
               <div>
-                <span className="text-[11px] text-[#888780]">เธเธทเนเธญเธเธฃเธดเธฉเธฑเธ— (EN)</span>
+                <span className="text-[11px] text-[#888780]">ชื่อบริษัท (EN)</span>
                 <p className="text-[13px] text-[#1A1A18]">{clientProfile.company_name_en}</p>
               </div>
             )}
             <div>
-              <span className="text-[11px] text-[#888780]">เธญเธตเน€เธกเธฅ</span>
+              <span className="text-[11px] text-[#888780]">อีเมล</span>
               <p className="text-[13px] text-[#1A1A18]">{email || "-"}</p>
             </div>
             {clientProfile.tax_id && (
               <div>
-                <span className="text-[11px] text-[#888780]">เน€เธฅเธเธเธนเนเน€เธชเธตเธขเธ เธฒเธฉเธต</span>
+                <span className="text-[11px] text-[#888780]">เลขผู้เสียภาษี</span>
                 <p className="text-[13px] text-[#1A1A18]">{clientProfile.tax_id}</p>
               </div>
             )}
             {clientProfile.address && (
               <div>
-                <span className="text-[11px] text-[#888780]">เธ—เธตเนเธญเธขเธนเน</span>
+                <span className="text-[11px] text-[#888780]">ที่อยู่</span>
                 <p className="text-[13px] text-[#1A1A18]">{clientProfile.address}</p>
               </div>
             )}
             {clientProfile.phone && (
               <div>
-                <span className="text-[11px] text-[#888780]">เนเธ—เธฃ</span>
+                <span className="text-[11px] text-[#888780]">โทร</span>
                 <p className="text-[13px] text-[#1A1A18]">{clientProfile.phone}</p>
               </div>
             )}
@@ -357,37 +357,37 @@ export default function AdminClientDetailPage() {
               <div>
                 <span className="text-[11px] text-[#888780]">VAT</span>
                 <p className="text-[13px] text-[#1A1A18]">
-                  {clientProfile.vat_registered ? "เธเธ”เธ—เธฐเน€เธเธตเธขเธ" : "เนเธกเนเนเธ”เนเธเธ”"}
+                  {clientProfile.vat_registered ? "จดทะเบียน" : "ไม่ได้จด"}
                 </p>
               </div>
               <div>
-                <span className="text-[11px] text-[#888780]">WHT เน€เธฃเธดเนเธกเธ•เนเธ</span>
+                <span className="text-[11px] text-[#888780]">WHT เริ่มต้น</span>
                 <p className="text-[13px] text-[#1A1A18]">
-                  {clientProfile.default_wht_rate === "0" ? "เนเธกเนเธกเธต" : `${clientProfile.default_wht_rate}%`}
+                  {clientProfile.default_wht_rate === "0" ? "ไม่มี" : `${clientProfile.default_wht_rate}%`}
                 </p>
               </div>
               <div>
-                <span className="text-[11px] text-[#888780]">เธชเธ–เธฒเธเธฐ</span>
+                <span className="text-[11px] text-[#888780]">สถานะ</span>
                 <p className="text-[13px]">
                   <span
                     className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${
                       isActive ? "bg-[#EAF3DE] text-[#27500A]" : "bg-[#F1EFE8] text-[#888780]"
                     }`}
                   >
-                    {isActive ? "เนเธเนเธเธฒเธเธญเธขเธนเน" : "เธเธดเธ”เธเธฒเธฃเนเธเนเธเธฒเธ"}
+                    {isActive ? "ใช้งานอยู่" : "ปิดการใช้งาน"}
                   </span>
                 </p>
               </div>
             </div>
             <div className="pt-1">
-              <span className="text-[11px] text-[#888780]">เธชเธฃเนเธฒเธเธเธฑเธเธเธตเน€เธกเธทเนเธญ: {formatBuddhistDate(clientProfile.created_at)}</span>
-              <span className="text-[11px] text-[#888780] ml-4">เน€เธญเธเธชเธฒเธฃเธ—เธฑเนเธเธซเธกเธ”: {documents.length >= 10 ? "10+" : documents.length}</span>
+              <span className="text-[11px] text-[#888780]">สร้างบัญชีเมื่อ: {formatBuddhistDate(clientProfile.created_at)}</span>
+              <span className="text-[11px] text-[#888780] ml-4">เอกสารทั้งหมด: {documents.length >= 10 ? "10+" : documents.length}</span>
               <span className="text-[11px] text-[#888780] ml-4">Deal: {dealCount}</span>
             </div>
           </div>
         </Card>
 
-        <div className={CARD_LABEL}>เธเธฒเธฃเธเธฑเธ”เธเธฒเธฃ</div>
+        <div className={CARD_LABEL}>การจัดการ</div>
 
         <Card>
           <div className="space-y-2">
@@ -396,11 +396,11 @@ export default function AdminClientDetailPage() {
               className="w-full"
               style={{ backgroundColor: "#E6F1FB", color: "#0C447C", border: "0.5px solid #378ADD" }}
             >
-              เธ”เธนเนเธเธเธฒเธเธฐเธฅเธนเธเธเนเธฒ
+              ดูในฐานะลูกค้า
             </Button>
 
             <Button variant="secondary" className="w-full" onClick={handleResetPassword} disabled={resetting || !email}>
-              {resetting ? "เธเธณเธฅเธฑเธเธชเนเธเธญเธตเน€เธกเธฅ..." : "เธฃเธตเน€เธเนเธ•เธฃเธซเธฑเธชเธเนเธฒเธ (เธชเนเธเธญเธตเน€เธกเธฅ)"}
+              {resetting ? "กำลังส่งอีเมล..." : "รีเซ็ตรหัสผ่าน (ส่งอีเมล)"}
             </Button>
 
             <Button
@@ -413,11 +413,11 @@ export default function AdminClientDetailPage() {
               }}
               disabled={!id}
             >
-              เน€เธเธฅเธตเนเธขเธเธฃเธซเธฑเธชเธเนเธฒเธ (เธเธณเธซเธเธ”เน€เธญเธ)
+              เปลี่ยนรหัสผ่าน (กำหนดเอง)
             </Button>
 
             <Button variant="secondary" className="w-full text-[#C0392B] border-[#C0392B]/20 hover:bg-red-50" onClick={handleToggleActive} disabled={toggling}>
-              {toggling ? "เธเธณเธฅเธฑเธเธ”เธณเน€เธเธดเธเธเธฒเธฃ..." : isActive ? "เธเธดเธ”เธเธฒเธฃเนเธเนเธเธฒเธเธเธฑเธเธเธต" : "เน€เธเธดเธ”เนเธเนเธเธฒเธเธเธฑเธเธเธต"}
+              {toggling ? "กำลังดำเนินการ..." : isActive ? "ปิดการใช้งานบัญชี" : "เปิดใช้งานบัญชี"}
             </Button>
 
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
@@ -463,21 +463,21 @@ export default function AdminClientDetailPage() {
           </div>
         </Card>
 
-        <div className={CARD_LABEL}>เน€เธญเธเธชเธฒเธฃเธฅเนเธฒเธชเธธเธ” ({documents.length >= 10 ? "10+" : documents.length} เธฃเธฒเธขเธเธฒเธฃ)</div>
+        <div className={CARD_LABEL}>เอกสารล่าสุด ({documents.length >= 10 ? "10+" : documents.length} รายการ)</div>
 
         <Card>
           {documents.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">เธขเธฑเธเนเธกเนเธกเธตเน€เธญเธเธชเธฒเธฃ</p>
+            <p className="text-sm text-gray-400 text-center py-4">ยังไม่มีเอกสาร</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className="border-b border-[#E8E6DF] text-[#888780]">
-                    <th className="text-left py-2 pr-2">เน€เธฅเธเธ—เธตเน</th>
-                    <th className="text-left py-2 pr-2">เธเธฃเธฐเน€เธ เธ—</th>
-                    <th className="text-left py-2 pr-2">เธฅเธนเธเธเนเธฒ</th>
-                    <th className="text-right py-2 pr-2">เธขเธญเธ”เธฃเธงเธก</th>
-                    <th className="text-left py-2">เธชเธ–เธฒเธเธฐ</th>
+                    <th className="text-left py-2 pr-2">เลขที่</th>
+                    <th className="text-left py-2 pr-2">ประเภท</th>
+                    <th className="text-left py-2 pr-2">ลูกค้า</th>
+                    <th className="text-right py-2 pr-2">ยอดรวม</th>
+                    <th className="text-left py-2">สถานะ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -486,7 +486,7 @@ export default function AdminClientDetailPage() {
                       <td className="py-2 pr-2 font-medium">{document.doc_number || "-"}</td>
                       <td className="py-2 pr-2">{DOC_TYPE_LABELS[document.doc_type]?.th || document.doc_type}</td>
                       <td className="py-2 pr-2 text-[#888780]">{(document as any).customer?.name || "-"}</td>
-                      <td className="py-2 pr-2 text-right">เธฟ {document.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2 pr-2 text-right">฿ {document.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
                       <td className="py-2">
                         <span
                           className={`inline-flex px-1.5 py-0.5 rounded text-[11px] font-medium ${
@@ -607,27 +607,27 @@ export default function AdminClientDetailPage() {
             setNewPasswordConfirm("");
           }
         }}
-        title="เน€เธเธฅเธตเนเธขเธเธฃเธซเธฑเธชเธเนเธฒเธ"
+        title="เปลี่ยนรหัสผ่าน"
       >
         <div className="space-y-4">
           <p className="text-sm leading-6 text-gray-700">
-            เธเธณเธซเธเธ”เธฃเธซเธฑเธชเธเนเธฒเธเนเธซเธกเนเนเธซเนเธเธฑเธ <strong>{clientProfile.company_name_th || email}</strong>
+            กำหนดรหัสผ่านใหม่ให้กับ <strong>{clientProfile.company_name_th || email}</strong>
           </p>
           <Input
             id="new-password"
-            label="เธฃเธซเธฑเธชเธเนเธฒเธเนเธซเธกเน"
+            label="รหัสผ่านใหม่"
             type="password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
-            placeholder="เธฃเธซเธฑเธชเธเนเธฒเธเธญเธขเนเธฒเธเธเนเธญเธข 6 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ"
+            placeholder="รหัสผ่านอย่างน้อย 6 ตัวอักษร"
           />
           <Input
             id="new-password-confirm"
-            label="เธขเธทเธเธขเธฑเธเธฃเธซเธฑเธชเธเนเธฒเธเนเธซเธกเน"
+            label="ยืนยันรหัสผ่านใหม่"
             type="password"
             value={newPasswordConfirm}
             onChange={(event) => setNewPasswordConfirm(event.target.value)}
-            placeholder="เนเธชเนเธฃเธซเธฑเธชเธเนเธฒเธเธญเธตเธเธเธฃเธฑเนเธ"
+            placeholder="ใส่รหัสผ่านอีกครั้ง"
           />
           <div className="flex gap-2 justify-end">
             <Button
@@ -639,10 +639,10 @@ export default function AdminClientDetailPage() {
               }}
               disabled={changingPassword}
             >
-              เธขเธเน€เธฅเธดเธ
+              ยกเลิก
             </Button>
             <Button onClick={handleChangePassword} loading={changingPassword} disabled={!newPassword || !newPasswordConfirm}>
-              เน€เธเธฅเธตเนเธขเธเธฃเธซเธฑเธชเธเนเธฒเธ
+              เปลี่ยนรหัสผ่าน
             </Button>
           </div>
         </div>

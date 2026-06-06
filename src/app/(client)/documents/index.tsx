@@ -605,16 +605,16 @@ function QuickDetailModal({
         <div className="space-y-2 border-t border-[#F0ECE5] pt-3">
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
             <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">
-              ª‘¥
+              ‡∏õ‡∏¥‡∏î
             </Button>
             <div className="flex flex-col gap-2 sm:flex-row">
               {doc.deal_id && (
                 <Button variant="secondary" onClick={onOpenDeal} className="w-full sm:w-auto">
-                  ‡ª‘¥¥’≈
+                  ‡πÄ‡∏õ‡∏¥‡∏î‡∏î‡∏µ‡∏•
                 </Button>
               )}
               <Button onClick={onOpenFull} className="w-full sm:w-auto">
-                ¥Ÿ‡Õ° “√
+                ‡∏î‡∏π‡πÄ‡∏≠‡∏Å‡∏™‡∏≤‡∏£
               </Button>
             </div>
           </div>
