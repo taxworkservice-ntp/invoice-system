@@ -23,7 +23,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
   const copyLabel = copyType === "copy" ? "สำเนา" : "ต้นฉบับ";
 
   return (
-    <header className="print-header bg-white text-[#1F2937] border-transparent print-modern-header px-5 pb-5 pt-3">
+    <header className="print-header bg-white text-[#1F2937] border-transparent print-modern-header px-2 pb-5 pt-3">
       <div className="flex justify-between gap-4 items-start">
         <div className="min-w-0 flex-1">
           {clientProfile.logo_url ? (
@@ -88,7 +88,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
         </div>
       </div>
 
-      <div className="mt-4 border border-[#E8ECF2] bg-[#F8FAFC] px-5 py-3">
+      <div className="mt-4 border border-[#E8ECF2] bg-[#F8FAFC] px-2 py-3">
         <div className="text-[10px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
         <div className="mt-1 font-semibold text-[13px]">{customer.name}</div>
         <div className="mt-1 space-y-0.5 text-[11px] text-[#475467]">
