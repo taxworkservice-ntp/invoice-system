@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
+import type { DocumentType } from "../../types";
 import { PrintHeader } from "./PrintHeader";
 import { PrintLineItemsTable } from "./PrintLineItemsTable";
 import { PrintTotals } from "./PrintTotals";
@@ -7,15 +8,26 @@ import { PrintTotals } from "./PrintTotals";
 const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note"]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
 
+const DOC_ACCENT_COLORS: Record<DocumentType, string> = {
+  quotation: "#7E57C2",
+  invoice: "#378ADD",
+  tax_invoice_receipt: "#1F9D73",
+  billing_note: "#D97706",
+  receipt: "#2F855A",
+  delivery_note: "#0F9AA8",
+  credit_note: "#DC2626",
+};
+
 export function PrintDocument({ data }: { data: PrintDocumentData }) {
   const showBank = SHOW_BANK_TYPES.has(data.document.doc_type);
   const showPaymentMethod = SHOW_PAYMENT_METHOD_TYPES.has(data.document.doc_type);
   const hasPayment = (showPaymentMethod && data.document.payment_method) || data.document.wht_certificate_no || data.document.amount_received != null;
   const signatureUrl = data.clientProfile.signature_url;
   const stampUrl = data.clientProfile.stamp_url;
+  const accentColor = DOC_ACCENT_COLORS[data.document.doc_type];
 
   return (
-    <article className="print-sheet print-theme-modern">
+    <article className="print-sheet print-theme-modern" style={{ "--doc-accent": accentColor } as React.CSSProperties}>
       <PrintHeader data={data} />
       <PrintLineItemsTable data={data} />
       <PrintTotals data={data} />
