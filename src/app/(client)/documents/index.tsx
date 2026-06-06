@@ -430,12 +430,14 @@ function QuickDetailModal({
   loading,
   onClose,
   onOpenFull,
+  onOpenDeal,
 }: {
   doc: Document | null;
   open: boolean;
   loading: boolean;
   onClose: () => void;
   onOpenFull: () => void;
+  onOpenDeal: () => void;
 }) {
   if (!open) return null;
 
@@ -600,11 +602,22 @@ function QuickDetailModal({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            ปิด
-          </Button>
-          <Button onClick={onOpenFull}>เปิดหน้ารายละเอียด</Button>
+        <div className="space-y-2 border-t border-[#F0ECE5] pt-3">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">
+              �Դ
+            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {doc.deal_id && (
+                <Button variant="secondary" onClick={onOpenDeal} className="w-full sm:w-auto">
+                  �Դ���
+                </Button>
+              )}
+              <Button onClick={onOpenFull} className="w-full sm:w-auto">
+                ���͡���
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </Modal>
@@ -1064,7 +1077,15 @@ export default function DocumentsPage() {
           navigate(`/documents/${selectedDocId}`);
           closeDocModal();
         }}
+        onOpenDeal={() => {
+          if (!selectedDoc?.deal_id) return;
+          navigate(`/deals/${selectedDoc.deal_id}`);
+          closeDocModal();
+        }}
       />
     </AppShell>
   );
 }
+
+
+
