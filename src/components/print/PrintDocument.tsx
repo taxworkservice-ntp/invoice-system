@@ -5,10 +5,12 @@ import { PrintLineItemsTable } from "./PrintLineItemsTable";
 import { PrintTotals } from "./PrintTotals";
 
 const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note"]);
+const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
 
 export function PrintDocument({ data }: { data: PrintDocumentData }) {
   const showBank = SHOW_BANK_TYPES.has(data.document.doc_type);
-  const hasPayment = data.document.payment_method || data.document.wht_certificate_no || data.document.amount_received != null;
+  const showPaymentMethod = SHOW_PAYMENT_METHOD_TYPES.has(data.document.doc_type);
+  const hasPayment = (showPaymentMethod && data.document.payment_method) || data.document.wht_certificate_no || data.document.amount_received != null;
   const signatureUrl = data.clientProfile.signature_url;
   const stampUrl = data.clientProfile.stamp_url;
 
@@ -25,10 +27,19 @@ export function PrintDocument({ data }: { data: PrintDocumentData }) {
             {showBank && data.clientProfile.bank_name ? <div>ธนาคาร: {data.clientProfile.bank_name}</div> : null}
             {showBank && data.clientProfile.bank_account ? <div>เลขที่บัญชี: {data.clientProfile.bank_account}</div> : null}
             {hasPayment ? <div className="border-t border-[#E8ECF2] my-1" /> : null}
-            {data.document.payment_method ? <div>วิธีชำระเงิน: {data.document.payment_method}</div> : null}
+            {showPaymentMethod && data.document.payment_method ? <div>วิธีชำระเงิน: {data.document.payment_method}</div> : null}
             {data.document.wht_certificate_no ? <div>เลขที่หนังสือรับรองหัก ณ ที่จ่าย: {data.document.wht_certificate_no}</div> : null}
             {data.document.amount_received != null ? <div>จำนวนเงินที่รับ: {formatCurrency(data.document.amount_received)}</div> : null}
           </div>
+          {stampUrl && (
+            <div className="mt-3">
+              <img
+                src={stampUrl}
+                alt="ตราประทับ"
+                className="h-[60px] w-auto object-contain opacity-90"
+              />
+            </div>
+          )}
         </div>
 
         <div className="border-t border-[#D3DAE6] pt-4">
@@ -48,16 +59,7 @@ export function PrintDocument({ data }: { data: PrintDocumentData }) {
                   />
                 )}
               </div>
-              <div className="mt-1 text-center relative">
-                ผู้มีอำนาจลงนาม
-                {stampUrl && (
-                  <img
-                    src={stampUrl}
-                    alt="ตราประทับ"
-                    className="absolute right-0 top-[-48px] h-[52px] w-auto object-contain opacity-90"
-                  />
-                )}
-              </div>
+              <div className="mt-1 text-center">ผู้มีอำนาจลงนาม</div>
             </div>
           </div>
         </div>
