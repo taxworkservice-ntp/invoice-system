@@ -54,8 +54,8 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
           <div className="text-[9px] tracking-[0.18em] text-[#7A8699]">{copyLabel}</div>
           {document.doc_type === "tax_invoice_receipt" ? (
             <div className="mt-1 font-semibold tracking-[-0.02em] leading-tight text-[#111827]">
-              <div className="text-[20px]">ใบกำกับภาษี /</div>
-              <div className="text-[20px]">ใบเสร็จรับเงิน</div>
+              <div className="text-[26px]">ใบกำกับภาษี /</div>
+              <div className="text-[26px]">ใบเสร็จรับเงิน</div>
             </div>
           ) : (
             <div className="mt-1 text-[26px] font-semibold tracking-[-0.02em] leading-tight text-[#111827]">
