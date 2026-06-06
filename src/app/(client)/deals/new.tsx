@@ -8,6 +8,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
+import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
@@ -219,6 +220,22 @@ export default function NewDealPage() {
 
   const removeLineItem = (id: string) => {
     setLineItems((prev) => prev.filter((lineItem) => lineItem.id !== id));
+  };
+
+  const selectCatalogItem = (lineItemId: string, catalogItem: { id: string; name: string; item_type: string; unit_price: number; base_unit: string }) => {
+    setLineItems((prev) =>
+      prev.map((lineItem) => {
+        if (lineItem.id !== lineItemId) return lineItem;
+        return {
+          ...lineItem,
+          item_name: catalogItem.name,
+          item_id: catalogItem.id,
+          item_type: catalogItem.item_type,
+          unit: catalogItem.base_unit,
+          unit_price: !lineItem.unit_price || lineItem.unit_price === 0 ? catalogItem.unit_price : lineItem.unit_price,
+        };
+      }),
+    );
   };
 
   const handleAddNewCustomer = async () => {
@@ -533,23 +550,17 @@ export default function NewDealPage() {
           <Card>
             <h3 className="text-sm font-medium mb-3">รายการ</h3>
             <div className="space-y-2">
-              {lineItems.map((item, idx) => (
+              {lineItems.map((item) => (
                 <div key={item.id} className="pb-2 border-b border-gray-100 last:border-0">
                   <div className="flex gap-1 mb-1">
-                    <div className="relative flex-1">
-                      <input
-                        className="w-full px-2 py-1.5 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
-                        placeholder="ชื่อรายการ"
-                        value={item.item_name}
-                        onChange={(e) => updateLineItem(item.id, "item_name", e.target.value)}
-                        list={`items-datalist-${idx}`}
-                      />
-                      <datalist id={`items-datalist-${idx}`}>
-                        {items.map((catalogItem) => (
-                          <option key={catalogItem.id} value={catalogItem.name} />
-                        ))}
-                      </datalist>
-                    </div>
+                    <CatalogAutocomplete
+                      items={items}
+                      value={item.item_name}
+                      onChange={(val) => updateLineItem(item.id, "item_name", val)}
+                      onSelect={(catalogItem) => selectCatalogItem(item.id, catalogItem)}
+                      matched={!!item.item_id}
+                      placeholder="ชื่อรายการ"
+                    />
                   </div>
                   <div className="flex gap-1 items-center">
                     <Input

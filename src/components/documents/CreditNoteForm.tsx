@@ -8,6 +8,7 @@ import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
+import { CatalogAutocomplete } from "../CatalogAutocomplete";
 import { Spinner } from "../ui/Spinner";
 import { generateDocNumberBE } from "../../lib/docNumber";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
@@ -55,6 +56,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
   const [items, setItems] = useState<CreditItem[]>([]);
   const [note, setNote] = useState("");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
+  const [addItemInput, setAddItemInput] = useState("");
 
   const [docId, setDocId] = useState<string | null>(null);
   const [existingStatus, setExistingStatus] = useState("");
@@ -511,21 +513,16 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
 
           {!isReadOnly && (
             <div className="mt-3 flex items-center gap-2">
-              <Select
-                value=""
-                onChange={(e) => {
-                  if (e.target.value) handleAddCatalogItem(e.target.value);
-                  e.target.value = "";
+              <CatalogAutocomplete
+                items={catalogItems}
+                value={addItemInput}
+                onChange={setAddItemInput}
+                onSelect={(cat) => {
+                  handleAddCatalogItem(cat.id);
+                  setAddItemInput("");
                 }}
-                className="flex-1"
-              >
-                <option value="">+ เพิ่มรายการจากแค็ตตาล็อก</option>
-                {catalogItems.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name} — ฿{cat.unit_price}
-                  </option>
-                ))}
-              </Select>
+                placeholder="+ เพิ่มรายการจากแค็ตตาล็อก"
+              />
             </div>
           )}
         </Card>

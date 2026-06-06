@@ -165,6 +165,9 @@ function DocumentCard({
   onMenuAction,
   menuLoading,
   pendingConfirm,
+  isSelected,
+  onToggleSelect,
+  selectMode,
 }: {
   doc: Document;
   onOpen: () => void;
@@ -173,6 +176,9 @@ function DocumentCard({
   onMenuAction: (action: string) => void;
   menuLoading: boolean;
   pendingConfirm: { docId: string; action: "void" | "delete" } | null;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  selectMode?: boolean;
 }) {
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -209,9 +215,19 @@ function DocumentCard({
   const remainingItems = itemNames.length - previewItems.length;
 
   return (
-    <Card onClick={onOpen} className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""}`}>
+    <Card onClick={selectMode ? onToggleSelect : onOpen} className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""} ${isSelected ? "ring-2 ring-primary bg-primary/5" : ""}`}>
       <div className="p-3.5 sm:p-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          {selectMode && (
+            <div className="shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={isSelected || false}
+                onChange={onToggleSelect}
+                className="h-4 w-4 accent-primary cursor-pointer"
+              />
+            </div>
+          )}
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold text-[#1A1A18]">{doc.doc_number || "-"}</span>
@@ -263,7 +279,7 @@ function DocumentCard({
             )}
           </div>
 
-          <div className="shrink-0 pl-2 text-right">
+          <div className="shrink-0 pl-2 text-right ml-auto">
             <div className="text-[11px] uppercase tracking-[0.12em] text-[#888780]">ยอดสุทธิ</div>
             <div className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-[#1A1A18]"}`}>
               ฿{formatCurrency(doc.net_payable)}
@@ -418,8 +434,8 @@ function DocumentCard({
               )}
             </>
           )}
-        </div>
-      )}
+          </div>
+        )}
     </Card>
   );
 }
@@ -653,6 +669,9 @@ export default function DocumentsPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [inlineLoading, setInlineLoading] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<{ docId: string; action: "void" | "delete" } | null>(null);
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     setQuickView("all");
@@ -751,6 +770,87 @@ export default function DocumentsPage() {
   const toggleMenu = (docId: string) => {
     setOpenMenuId(openMenuId === docId ? null : docId);
     setPendingConfirm(null);
+  };
+
+  const toggleSelectDoc = (docId: string) => {
+    setSelectedDocIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(docId)) {
+        next.delete(docId);
+      } else {
+        next.add(docId);
+      }
+      return next;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    const allIds = new Set(filtered.map((d) => d.id));
+    setSelectedDocIds(allIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedDocIds(new Set());
+  };
+
+  const handleBulkDownloadPDF = async () => {
+    if (selectedDocIds.size === 0 || !profile?.id) return;
+    setBulkDownloading(true);
+    setBulkProgress({ current: 0, total: selectedDocIds.size });
+
+    const ids = Array.from(selectedDocIds);
+
+    try {
+      const { generatePDFBlob } = await import("../../../lib/pdf");
+      const JSZip = (await import("jszip")).default;
+
+      const zip = new JSZip();
+
+      for (let i = 0; i < ids.length; i++) {
+        setBulkProgress({ current: i + 1, total: ids.length });
+
+        const doc = await getDocumentDetail(ids[i]);
+        if (!doc) continue;
+
+        const { data: clientProfile } = await supabase
+          .from("client_profiles")
+          .select("*")
+          .eq("user_id", profile.id)
+          .single();
+
+        const customer = (doc as any).customer || null;
+        if (!clientProfile || !customer) continue;
+
+        const blob = await generatePDFBlob({
+          document: doc,
+          lineItems: doc.line_items || [],
+          billingNoteInvoices: (doc as any).billing_invoices || [],
+          clientProfile,
+          customer,
+        });
+
+        const filename = `${doc.doc_type}_${doc.doc_number || ids[i].slice(0, 8)}.pdf`;
+        zip.file(filename, blob, { binary: true });
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `documents_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`ดาวน์โหลด ${selectedDocIds.size} ไฟล์เรียบร้อย`);
+      clearSelection();
+    } catch (err: any) {
+      toast.error(err.message || "เกิดข้อผิดพลาดในการสร้าง PDF");
+    } finally {
+      setBulkDownloading(false);
+      setBulkProgress({ current: 0, total: 0 });
+    }
   };
 
   const summary = useMemo(() => {
@@ -1036,9 +1136,23 @@ export default function DocumentsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs text-[#7D776D]">{filtered.length} จาก {documents.length} รายการ</span>
+              {selectedDocIds.size > 0 ? (
+                <Button variant="secondary" size="sm" onClick={clearSelection}>
+                  ยกเลิกเลือก ({selectedDocIds.size})
+                </Button>
+              ) : (
+                <Button variant="secondary" size="sm" onClick={selectAllFiltered} disabled={filtered.length === 0}>
+                  เลือกทั้งหมด
+                </Button>
+              )}
               <Button variant="secondary" size="sm" onClick={handleExportCSV}>
                 ส่งออก CSV
               </Button>
+              {selectedDocIds.size > 0 && (
+                <Button variant="primary" size="sm" onClick={handleBulkDownloadPDF} loading={bulkDownloading} disabled={bulkDownloading}>
+                  {bulkDownloading ? `กำลังสร้าง ${bulkProgress.current}/${bulkProgress.total}` : "ดาวน์โหลด PDF (ZIP)"}
+                </Button>
+              )}
             </div>
           </div>
         </section>
@@ -1063,11 +1177,30 @@ export default function DocumentsPage() {
                        onMenuAction={(action) => handleMenuAction(doc, action)}
                        menuLoading={inlineLoading === doc.id}
                        pendingConfirm={pendingConfirm}
+                       isSelected={selectedDocIds.has(doc.id)}
+                       onToggleSelect={() => toggleSelectDoc(doc.id)}
+                       selectMode={selectedDocIds.size > 0}
                      />
                    ))}
                 </div>
               </section>
             ))}
+          </div>
+        )}
+
+        {selectedDocIds.size > 0 && (
+          <div className="sticky bottom-4 z-30 mx-auto flex w-full max-w-lg items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-white px-5 py-3 shadow-xl md:hidden">
+            <span className="text-sm font-medium text-primary">
+              เลือก {selectedDocIds.size} รายการ
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={clearSelection}>
+                ล้าง
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleBulkDownloadPDF} loading={bulkDownloading} disabled={bulkDownloading}>
+                {bulkDownloading ? `${bulkProgress.current}/${bulkProgress.total}` : "ดาวน์โหลด ZIP"}
+              </Button>
+            </div>
           </div>
         )}
       </div>
