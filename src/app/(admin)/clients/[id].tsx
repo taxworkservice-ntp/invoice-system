@@ -5,6 +5,7 @@ import {
   deleteAdminClient,
   getAdminClientUser,
   resetAdminClientWorkspace,
+  resetAllClientData,
   updateAdminClientPassword,
   updateAdminClientStatus,
 } from "../../../lib/adminApi";
@@ -47,6 +48,9 @@ export default function AdminClientDetailPage() {
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [showResetAllModal, setShowResetAllModal] = useState(false);
+  const [resetAllConfirm, setResetAllConfirm] = useState("");
+  const [resettingAll, setResettingAll] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -198,6 +202,29 @@ export default function AdminClientDetailPage() {
       toast.error(error.message || "Reset workspace failed");
     } finally {
       setResetting(false);
+    }
+  }
+
+  async function handleResetAllData() {
+    if (!id || !clientProfile) return;
+
+    const expected = clientProfile.company_name_th?.trim() || email.trim();
+    if (resetAllConfirm.trim() !== expected) {
+      toast.error("ชื่อยืนยันไม่ตรงกัน");
+      return;
+    }
+
+    setResettingAll(true);
+    try {
+      await resetAllClientData(id);
+      setShowResetAllModal(false);
+      setResetAllConfirm("");
+      toast.success("ล้างข้อมูลทั้งหมดเรียบร้อยแล้ว");
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Reset all data failed");
+    } finally {
+      setResettingAll(false);
     }
   }
 
@@ -443,6 +470,25 @@ export default function AdminClientDetailPage() {
               </Button>
             </div>
 
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-orange-800">Reset All Data</div>
+              <p className="mt-1 text-sm leading-6 text-orange-900">
+                Permanently delete all documents, deals, customers, catalog items, and stock history.
+                Number sequences will be reset. The client account and profile settings are preserved.
+                This action cannot be undone.
+              </p>
+              <Button
+                variant="danger"
+                className="mt-3 w-full justify-center"
+                onClick={() => {
+                  setResetAllConfirm("");
+                  setShowResetAllModal(true);
+                }}
+              >
+                Reset all data to empty
+              </Button>
+            </div>
+
             <div className="rounded-lg border border-red-200 bg-red-50 p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-red-800">Delete Client</div>
               <p className="mt-1 text-sm leading-6 text-red-900">
@@ -545,6 +591,48 @@ export default function AdminClientDetailPage() {
             </Button>
             <Button variant="danger" onClick={handleArchiveAndResetWorkspace} loading={resetting} disabled={workspaceResetConfirm.trim() !== confirmName}>
               Confirm reset
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showResetAllModal}
+        onClose={() => {
+          if (!resettingAll) {
+            setShowResetAllModal(false);
+            setResetAllConfirm("");
+          }
+        }}
+        title="Reset all client data"
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-6 text-gray-700">
+            This will permanently delete all documents, deals, customers, catalog items,
+            and stock history for this client. Document numbering will be reset to defaults.
+            The client account and profile settings (company name, tax ID, logo, PDF template, etc.)
+            will be preserved. This action cannot be undone.
+          </p>
+          <Input
+            id="reset-all-confirm"
+            label={`Type "${confirmName}" to confirm`}
+            value={resetAllConfirm}
+            onChange={(event) => setResetAllConfirm(event.target.value)}
+            placeholder={confirmName}
+          />
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowResetAllModal(false);
+                setResetAllConfirm("");
+              }}
+              disabled={resettingAll}
+            >
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleResetAllData} loading={resettingAll} disabled={resetAllConfirm.trim() !== confirmName}>
+              Delete all data
             </Button>
           </div>
         </div>
