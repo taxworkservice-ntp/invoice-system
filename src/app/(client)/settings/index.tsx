@@ -462,7 +462,7 @@ export default function SettingsPage() {
             </p>
 
             <div className="border-t border-[#E8E6DF] pt-3">
-              <p className="text-[11px] font-semibold text-[#888780] mb-2">ข้อมูลธนาคาร (สำหรับใบมีปรุ)</p>
+              <p className="text-[11px] font-semibold text-[#888780] mb-2">ข้อมูลธนาคาร</p>
               <Input
                 label="ชื่อธนาคาร"
                 value={bankName}
