@@ -164,6 +164,57 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     }
   }
 
+  async function handleSaveBothPdf() {
+    if (savingPdf || !data) return;
+    setSavingPdf(true);
+    const prevCopyType = copyType;
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const sheet = document.querySelector<HTMLElement>(".print-sheet");
+      if (!sheet) throw new Error("Print sheet not found");
+
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+
+      setCopyType("original");
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const canvasOriginal = await html2canvas(sheet, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+      });
+      pdf.addImage(canvasOriginal.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
+
+      setCopyType("copy");
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const canvasCopy = await html2canvas(sheet, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+      });
+      pdf.addPage();
+      pdf.addImage(canvasCopy.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
+
+      const short = DOC_TYPE_SHORT[data.document.doc_type];
+      const datePart = data.document.issue_date
+        ? data.document.issue_date.replace(/-/g, "")
+        : new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      pdf.save(`${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`);
+    } catch (err) {
+      console.error("Failed to save PDF:", err);
+      void openBrowserPrintDialog();
+    } finally {
+      setCopyType(prevCopyType);
+      setSavingPdf(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#EEF2F6] flex items-center justify-center">
@@ -224,8 +275,11 @@ return (
           <Button variant="secondary" onClick={handlePrint} className="flex-1 sm:flex-none">
             พิมพ์
           </Button>
-          <Button onClick={handleSavePdf} disabled={savingPdf} className="w-full sm:w-auto">
+          <Button onClick={handleSavePdf} disabled={savingPdf} className="flex-1 sm:flex-none">
             {savingPdf ? "กำลังบันทึก..." : "บันทึกเป็น PDF"}
+          </Button>
+          <Button onClick={handleSaveBothPdf} disabled={savingPdf} variant="secondary" className="flex-1 sm:flex-none">
+            {savingPdf ? "กำลังบันทึก..." : "ต้นฉบับ+สำเนา"}
           </Button>
         </div>
       </div>
