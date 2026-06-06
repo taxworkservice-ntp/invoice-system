@@ -126,6 +126,41 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     void openBrowserPrintDialog();
   }
 
+  async function convertImagesToDataUrls(sheet: HTMLElement): Promise<() => void> {
+    const images = Array.from(sheet.querySelectorAll("img")) as HTMLImageElement[];
+    const originals: string[] = [];
+
+    await Promise.all(
+      images.map(async (img) => {
+        try {
+          const resp = await fetch(img.src, { mode: "cors" });
+          const blob = await resp.blob();
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          originals.push(img.src);
+          img.src = dataUrl;
+          await new Promise<void>((resolve) => {
+            if (img.complete) resolve();
+            else img.addEventListener("load", () => resolve(), { once: true });
+          });
+        } catch {
+          // If fetch fails, leave as-is
+        }
+      }),
+    );
+
+    return () => {
+      let idx = 0;
+      for (const img of images) {
+        if (originals[idx]) img.src = originals[idx];
+        idx++;
+      }
+    };
+  }
+
   async function handleSavePdf() {
     if (savingPdf || !data) return;
     setSavingPdf(true);
@@ -137,12 +172,16 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
       const sheet = document.querySelector<HTMLElement>(".print-sheet");
       if (!sheet) throw new Error("Print sheet not found");
 
+      const restore = await convertImagesToDataUrls(sheet);
+
       const canvas = await html2canvas(sheet, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
       });
+
+      restore();
 
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -182,22 +221,26 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
 
       setCopyType("original");
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const restore1 = await convertImagesToDataUrls(sheet);
       const canvasOriginal = await html2canvas(sheet, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
       });
+      restore1();
       pdf.addImage(canvasOriginal.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
 
       setCopyType("copy");
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const restore2 = await convertImagesToDataUrls(sheet);
       const canvasCopy = await html2canvas(sheet, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
       });
+      restore2();
       pdf.addPage();
       pdf.addImage(canvasCopy.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
 
