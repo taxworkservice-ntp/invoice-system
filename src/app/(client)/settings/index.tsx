@@ -7,10 +7,12 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
 import { LogoUpload } from "../../../components/ui/LogoUpload";
+import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useToast } from "../../../hooks/useToast";
 import { WHT_RATE_OPTIONS, DOC_TYPE_LABELS, LOGO_SIZE_OPTIONS } from "../../../constants";
+import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
 import type { ClientProfile, DocNumberSequence, DocumentType } from "../../../types";
 
 const DOC_TYPES: DocumentType[] = [
@@ -44,6 +46,8 @@ export default function SettingsPage() {
   const [pdfTemplate, setPdfTemplate] = useState("modern");
   const [bankName, setBankName] = useState("");
   const [bankAccount, setBankAccount] = useState("");
+  const [signatureKey, setSignatureKey] = useState<string | null>(null);
+  const [stampKey, setStampKey] = useState<string | null>(null);
   const [logoKey, setLogoKey] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState("small");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -119,6 +123,8 @@ export default function SettingsPage() {
       setPdfTemplate(clientProfile.pdf_template || "modern");
       setBankName((clientProfile as any).bank_name || "");
       setBankAccount((clientProfile as any).bank_account || "");
+      setSignatureKey((clientProfile as any).signature_url || null);
+      setStampKey((clientProfile as any).stamp_url || null);
     }
   }, [clientProfile]);
 
@@ -171,6 +177,8 @@ export default function SettingsPage() {
       pdf_template: pdfTemplate,
       bank_name: bankName.trim() || null,
       bank_account: bankAccount.trim() || null,
+      signature_url: signatureKey,
+      stamp_url: stampKey,
     };
 
     let err;
@@ -475,6 +483,29 @@ export default function SettingsPage() {
                 onChange={(e) => { setBankAccount(e.target.value); setProfileSaved(false); }}
                 placeholder="XXX-X-XXXXX-X"
               />
+            </div>
+
+            <div className="border-t border-[#E8E6DF] pt-3">
+              <p className="text-[11px] font-semibold text-[#888780] mb-2">ลายเซ็นและตราประทับ</p>
+              <div className="grid grid-cols-2 gap-3">
+                <ImageUpload
+                  userId={userId!}
+                  storageKeyFn={signatureKeyFn}
+                  currentKey={signatureKey}
+                  onKeyChange={(k) => { setSignatureKey(k); setProfileSaved(false); }}
+                  label="ลายเซ็น"
+                />
+                <ImageUpload
+                  userId={userId!}
+                  storageKeyFn={stampKeyFn}
+                  currentKey={stampKey}
+                  onKeyChange={(k) => { setStampKey(k); setProfileSaved(false); }}
+                  label="ตราประทับ"
+                />
+              </div>
+              <p className="text-[11px] text-[#888780] mt-1">
+                ลายเซ็นและตราจะแสดงบนเอกสารใบแจ้งหนี้ ใบกำกับภาษี และใบวางบิล
+              </p>
             </div>
 
             {profileError && <p className="text-xs text-red-500">{profileError}</p>}

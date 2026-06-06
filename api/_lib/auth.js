@@ -49,8 +49,8 @@ export async function requireLogoAccess(req, key) {
     return { user, profile };
   }
 
-  const allowedPrefix = `logos/${user.id}/`;
-  if (!key.startsWith(allowedPrefix)) {
+  const allowedPrefixes = [`logos/${user.id}/`, `signatures/${user.id}/`, `stamps/${user.id}/`];
+  if (!allowedPrefixes.some((prefix) => key.startsWith(prefix))) {
     throw new ApiError(403, "Forbidden");
   }
 

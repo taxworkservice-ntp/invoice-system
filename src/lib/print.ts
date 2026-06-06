@@ -144,6 +144,22 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     }
   }
 
+  if (clientProfile.signature_url) {
+    try {
+      clientProfile.signature_url = await getR2PresignedUrl(clientProfile.signature_url);
+    } catch {
+      clientProfile.signature_url = null;
+    }
+  }
+
+  if (clientProfile.stamp_url) {
+    try {
+      clientProfile.stamp_url = await getR2PresignedUrl(clientProfile.stamp_url);
+    } catch {
+      clientProfile.stamp_url = null;
+    }
+  }
+
   return {
     document,
     lineItems,

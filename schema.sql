@@ -120,6 +120,10 @@ create table client_profiles (
   bank_name             text,
   bank_account          text,
 
+  -- Signature & stamp images (R2 storage paths)
+  signature_url         text,
+  stamp_url             text,
+
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );

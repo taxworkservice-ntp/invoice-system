@@ -57,6 +57,8 @@ export interface ClientProfile {
   pdf_template: string;
   bank_name: string | null;
   bank_account: string | null;
+  signature_url: string | null;
+  stamp_url: string | null;
   created_at: string;
   updated_at: string;
 }

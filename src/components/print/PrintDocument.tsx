@@ -9,6 +9,8 @@ const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note
 export function PrintDocument({ data }: { data: PrintDocumentData }) {
   const showBank = SHOW_BANK_TYPES.has(data.document.doc_type);
   const hasPayment = data.document.payment_method || data.document.wht_certificate_no || data.document.amount_received != null;
+  const signatureUrl = data.clientProfile.signature_url;
+  const stampUrl = data.clientProfile.stamp_url;
 
   return (
     <article className="print-sheet print-theme-modern">
@@ -37,8 +39,25 @@ export function PrintDocument({ data }: { data: PrintDocumentData }) {
               <div className="mt-1 text-center">ผู้รับเงิน</div>
             </div>
             <div>
-              <div className="border-b border-[#98A2B3] pb-6" />
-              <div className="mt-1 text-center">ผู้มีอำนาจลงนาม</div>
+              <div className="relative border-b border-[#98A2B3] pb-6">
+                {signatureUrl && (
+                  <img
+                    src={signatureUrl}
+                    alt="ลายเซ็น"
+                    className="absolute left-1/2 bottom-0 h-[56px] -translate-x-1/2 object-contain"
+                  />
+                )}
+              </div>
+              <div className="mt-1 text-center relative">
+                ผู้มีอำนาจลงนาม
+                {stampUrl && (
+                  <img
+                    src={stampUrl}
+                    alt="ตราประทับ"
+                    className="absolute right-0 top-[-48px] h-[52px] w-auto object-contain opacity-90"
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>

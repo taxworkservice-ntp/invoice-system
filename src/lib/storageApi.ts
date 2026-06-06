@@ -4,6 +4,14 @@ export function logoKey(userId: string, ext: string = "png"): string {
   return `logos/${userId}/logo.${ext}`;
 }
 
+export function signatureKey(userId: string, ext: string = "png"): string {
+  return `signatures/${userId}/signature.${ext}`;
+}
+
+export function stampKey(userId: string, ext: string = "png"): string {
+  return `stamps/${userId}/stamp.${ext}`;
+}
+
 export function pdfKey(userId: string, documentId: string): string {
   return `pdfs/${userId}/${documentId}.pdf`;
 }
