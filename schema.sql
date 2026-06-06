@@ -486,13 +486,15 @@ create trigger trg_documents_updated_at
 -- Call this inside a transaction when saving a new document
 create or replace function generate_doc_number(
   p_user_id   uuid,
-  p_doc_type  document_type
+  p_doc_type  document_type,
+  p_issue_date date
 )
 returns text as $$
 declare
   v_seq         doc_number_sequences%rowtype;
-  v_year        int := extract(year from current_date)::int;
-  v_month       int := extract(month from current_date)::int;
+  v_effective_date date := coalesce(p_issue_date, current_date);
+  v_year        int := extract(year from v_effective_date)::int;
+  v_month       int := extract(month from v_effective_date)::int;
   v_next_seq    int;
   v_doc_number  text;
 begin

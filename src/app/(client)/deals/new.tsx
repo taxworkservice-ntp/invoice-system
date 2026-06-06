@@ -43,6 +43,10 @@ interface UnpaidInvoice {
   issue_date: string;
 }
 
+function todayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function NewDealPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -72,7 +76,10 @@ export default function NewDealPage() {
   const [whtRate, setWhtRate] = useState<WhtRate>(clientProfile?.default_wht_rate ?? "0");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [issueDate, setIssueDate] = useState(todayString());
+  const [paymentDate, setPaymentDate] = useState(todayString());
+  const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
+  const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
 
   const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
@@ -301,8 +308,9 @@ export default function NewDealPage() {
         createdDealId = deal.id;
       }
 
-      const docNumber = await generateDocNumberBE(userId, type);
-      const now = new Date().toISOString().slice(0, 10);
+      const now = todayString();
+      const documentIssueDate = isTaxInvoiceReceipt ? paymentDate : issueDate;
+      const docNumber = await generateDocNumberBE(userId, type, documentIssueDate);
 
       const docPayload: Record<string, unknown> = {
         user_id: userId,
@@ -311,7 +319,7 @@ export default function NewDealPage() {
         doc_type: type,
         doc_number: docNumber,
         status: isTaxInvoiceReceipt ? "issued" : "draft",
-        issue_date: isTaxInvoiceReceipt ? paymentDate : now,
+        issue_date: documentIssueDate,
         vat_registered: isTaxInvoiceReceipt ? true : vatRegistered,
         vat_rate: vatRate,
         wht_rate: parseFloat(whtRate),
@@ -401,6 +409,8 @@ export default function NewDealPage() {
   };
 
   const canSave = selectedCustomer && (isBillingNote ? selectedInvoiceIds.size > 0 : lineItems.some((lineItem) => lineItem.item_name.trim()));
+  const isIssueDateToday = issueDate === todayString();
+  const isPaymentDateToday = paymentDate === todayString();
 
   return (
     <AppShell title={label} showBack>
@@ -545,6 +555,112 @@ export default function NewDealPage() {
             </div>
           )}
         </Card>
+
+        {!isBillingNote && (
+          <Card>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-medium text-[#1A1A18]">
+                  {isTaxInvoiceReceipt ? "วันที่เอกสารและรับชำระ" : "วันที่ออกเอกสาร"}
+                </h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  ค่าเริ่มต้นเป็นวันนี้ และเปลี่ยนได้เมื่อต้องการออกย้อนหลัง
+                </p>
+              </div>
+              {((isTaxInvoiceReceipt && !isPaymentDateToday) || (!isTaxInvoiceReceipt && !isIssueDateToday)) && (
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
+                  ย้อนหลัง
+                </span>
+              )}
+            </div>
+
+            {!isTaxInvoiceReceipt ? (
+              <div className="mt-4 rounded-xl border border-[#E7E5DE] bg-[#FBFAF7] px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">วันที่ที่ใช้บนเอกสาร</div>
+                    <div className="mt-1 text-sm font-semibold text-[#1A1A18]">{formatBuddhistDate(issueDate)}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    {!isIssueDateToday && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueDate(todayString());
+                          setShowIssueDatePicker(false);
+                        }}
+                        className="rounded-lg border border-[#D7DEE7] px-3 py-2 text-xs font-medium text-[#475467] transition-colors hover:bg-white"
+                      >
+                        ใช้วันนี้
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowIssueDatePicker((prev) => !prev)}
+                      className="rounded-lg border border-[#D7DEE7] bg-white px-3 py-2 text-xs font-medium text-[#1A1A18] transition-colors hover:bg-gray-50"
+                    >
+                      {showIssueDatePicker || !isIssueDateToday ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
+                    </button>
+                  </div>
+                </div>
+                {(showIssueDatePicker || !isIssueDateToday) && (
+                  <div className="mt-3 border-t border-[#ECE8DE] pt-3">
+                    <Input
+                      id="issueDate"
+                      label="วันที่ออกเอกสาร"
+                      type="date"
+                      value={issueDate}
+                      max={todayString()}
+                      onChange={(e) => setIssueDate(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-[#E7E5DE] bg-[#FBFAF7] px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">วันที่รับชำระและวันที่บนเอกสาร</div>
+                    <div className="mt-1 text-sm font-semibold text-[#1A1A18]">{formatBuddhistDate(paymentDate)}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    {!isPaymentDateToday && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentDate(todayString());
+                          setShowPaymentDatePicker(false);
+                        }}
+                        className="rounded-lg border border-[#D7DEE7] px-3 py-2 text-xs font-medium text-[#475467] transition-colors hover:bg-white"
+                      >
+                        ใช้วันนี้
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentDatePicker((prev) => !prev)}
+                      className="rounded-lg border border-[#D7DEE7] bg-white px-3 py-2 text-xs font-medium text-[#1A1A18] transition-colors hover:bg-gray-50"
+                    >
+                      {showPaymentDatePicker || !isPaymentDateToday ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
+                    </button>
+                  </div>
+                </div>
+                {(showPaymentDatePicker || !isPaymentDateToday) && (
+                  <div className="mt-3 border-t border-[#ECE8DE] pt-3">
+                    <Input
+                      id="paymentDateSummary"
+                      label="วันที่รับชำระ"
+                      type="date"
+                      value={paymentDate}
+                      max={todayString()}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+        )}
 
         {isQuotationOrInvoice && (
           <Card>
@@ -780,12 +896,6 @@ export default function NewDealPage() {
           <Card>
             <h3 className="text-sm font-medium mb-3">ข้อมูลการรับชำระ</h3>
             <div className="space-y-3">
-              <Input
-                label="วันที่รับชำระ"
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-              />
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   วิธีชำระเงิน

@@ -274,8 +274,8 @@ export default function DealDetailPage() {
     if (!userId || !dealId || !customer) return;
     setActionLoadingId(quotation.id);
     try {
-      const docNumber = await generateDocNumberBE(userId, "invoice");
       const now = new Date().toISOString().slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, "invoice", now);
 
       const lineItems = docsWithMeta.find((item) => item.document.id === quotation.id)?.line_items || [];
 
@@ -350,8 +350,8 @@ export default function DealDetailPage() {
     if (!userId || !dealId || !customer) return;
     setActionLoadingId(invoice.id);
     try {
-      const docNumber = await generateDocNumberBE(userId!, "billing_note");
       const now = new Date().toISOString().slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId!, "billing_note", now);
 
       const { data: bnDoc, error } = await supabase
         .from("documents")
@@ -442,8 +442,8 @@ export default function DealDetailPage() {
           .in("id", linkedInvoiceIds);
       }
 
-      const docNumber = await generateDocNumberBE(userId, "receipt");
       const today = now.slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, "receipt", today);
 
       await supabase.from("documents").insert({
         user_id: userId,
@@ -484,8 +484,8 @@ export default function DealDetailPage() {
     if (!userId || !dealId || !customer) return;
     setActionLoadingId("delivery");
     try {
-      const docNumber = await generateDocNumberBE(userId, "delivery_note");
       const now = new Date().toISOString().slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, "delivery_note", now);
 
       const quotationOrInvoice = docsWithMeta.find(
         (d) => d.document.doc_type === "quotation" || d.document.doc_type === "invoice"
@@ -571,7 +571,7 @@ export default function DealDetailPage() {
         })
         .eq("id", voidDocument.id);
 
-      const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type);
+      const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type, now);
 
       const { data: newDoc } = await supabase
         .from("documents")
@@ -682,7 +682,8 @@ export default function DealDetailPage() {
       if (dealError || !newDeal) throw dealError || new Error("ไม่สามารถสร้างดีลใหม่ได้");
 
       if (sourceDoc) {
-        const docNumber = await generateDocNumberBE(userId, "quotation");
+        const issueDate = new Date().toISOString().slice(0, 10);
+        const docNumber = await generateDocNumberBE(userId, "quotation", issueDate);
         const { data: quotationDoc, error: docError } = await supabase
           .from("documents")
           .insert({
@@ -692,7 +693,7 @@ export default function DealDetailPage() {
             doc_type: "quotation",
             doc_number: docNumber,
             status: "draft" as DocumentStatus,
-            issue_date: new Date().toISOString().slice(0, 10),
+            issue_date: issueDate,
             vat_registered: sourceDoc.document.vat_registered,
             vat_rate: sourceDoc.document.vat_rate,
             wht_rate: sourceDoc.document.wht_rate,

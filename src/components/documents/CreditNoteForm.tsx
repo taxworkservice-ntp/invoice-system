@@ -274,7 +274,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       let targetDocId = docId;
 
       if (!isEditing) {
-        const docNumber = await generateDocNumberBE(userId, "credit_note");
+        const docNumber = await generateDocNumberBE(userId, "credit_note", now);
         const { data: newDoc, error: insertErr } = await supabase
           .from("documents")
           .insert({

@@ -150,8 +150,8 @@ export default function DocumentDetailPage() {
       }
 
       if (voidAndRecreate) {
-        const newDocNumber = await generateDocNumberBE(userId, doc.doc_type);
         const now = new Date().toISOString().slice(0, 10);
+        const newDocNumber = await generateDocNumberBE(userId, doc.doc_type, now);
         const { data: newDoc } = await supabase
           .from("documents")
           .insert({
@@ -268,7 +268,7 @@ export default function DocumentDetailPage() {
         }
       }
 
-      const recNumber = await generateDocNumberBE(userId, "receipt");
+      const recNumber = await generateDocNumberBE(userId, "receipt", payDate);
       await supabase.from("documents").insert({
         user_id: userId,
         deal_id: doc.deal_id,
@@ -306,8 +306,8 @@ export default function DocumentDetailPage() {
     if (!doc || !userId) return;
     setActionLoading("convert");
     try {
-      const docNumber = await generateDocNumberBE(userId, "invoice");
       const now = new Date().toISOString().slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, "invoice", now);
       const { data: invoice } = await supabase
         .from("documents")
         .insert({
@@ -375,8 +375,8 @@ export default function DocumentDetailPage() {
     if (!doc || !userId) return;
     setActionLoading("copy");
     try {
-      const docNumber = await generateDocNumberBE(userId, doc.doc_type);
       const now = new Date().toISOString().slice(0, 10);
+      const docNumber = await generateDocNumberBE(userId, doc.doc_type, now);
       const { data: copy } = await supabase
         .from("documents")
         .insert({

@@ -24,7 +24,7 @@ Thai SME workflows.
 | Backend / DB | Supabase (PostgreSQL + Auth + Storage) |
 | Hosting | Vercel |
 | Styling | Tailwind CSS |
-| PDF generation | react-pdf or jsPDF (client-side, no server needed) |
+| PDF generation | jsPDF (classic) + HTML print to jsPDF (modern), client-side |
 | Language | TypeScript |
 
 **Supabase Auth** handles all authentication — email and password only.
@@ -544,8 +544,11 @@ Date | Type | Qty entered | Converted to base | Reason | Balance
 
 ## PDF Generation
 
-Use `jsPDF` with Thai font support, or `@react-pdf/renderer`.
-Generate client-side — no server needed.
+Use two client-side PDF paths:
+- `jsPDF` with embedded Thai font support for the classic renderer
+- styled HTML rendered into a fixed A4 off-screen sheet, then captured and inserted into `jsPDF` for the modern renderer
+
+Do not use `@react-pdf/renderer` here. Generate client-side only — no server needed.
 
 **Every PDF (A4, portrait):**
 - Header: client logo + company name + address + tax ID (right side) + document type Thai and English + document number + date
@@ -565,10 +568,21 @@ Invoice no. / Invoice date / Amount / VAT / Total
 **Thai font:** use Sarabun or Noto Sans Thai — embed in PDF, do not rely on system fonts.
 
 **PDF template — Modern (HTML print):**
-An alternative "modern" template renders as styled HTML and is captured with `html2canvas`.
+An alternative "modern" template renders as styled HTML and is captured with `html2canvas`,
+but it must never capture the visible mobile preview itself. Always render a separate fixed-width
+A4 sheet off-screen in a hidden container, then capture that hidden sheet so mobile and desktop
+export match the same layout.
+
 Users select their template in Settings (classic / modern / bold / perforated).
 Bulk ZIP downloads respect the chosen template — documents using the modern template
 are rendered off-screen in a hidden container before capture.
+
+**Modern save/download behavior:**
+- Desktop: clicking save should trigger a normal file download
+- Mobile: clicking save should first attempt the browser's native save/share flow for the PDF file
+- If native mobile file sharing is unavailable, try a direct browser download
+- Only fall back to opening the PDF in a new tab if the browser refuses both save/share and download
+- Accept that some mobile browsers, especially iOS Safari and in-app browsers, may still show a share sheet instead of silently saving straight to device storage
 
 **Layout alignment (modern template):**
 - Header outer container uses no side padding; inner content areas use `px-2` (8px) to match table cell padding
@@ -715,6 +729,8 @@ Completed recently:
 - Multi-select and bulk PDF ZIP download on Documents page (respects classic and modern templates)
 - PDF print template layout aligned: customer background matches table width, unified text inset
 - Tax invoice/receipt label split into two stacked lines on print template
+- Modern PDF export now renders from a hidden fixed A4 sheet so mobile and desktop layout stay consistent
+- Mobile PDF save now prefers native save/share or direct download before falling back to opening a tab
 - Home greeting uses full company name (not just first word)
 
 Still remaining:

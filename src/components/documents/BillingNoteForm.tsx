@@ -410,7 +410,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     };
 
     if (options?.assignDocNumber && !payload.doc_number) {
-      payload.doc_number = await generateDocNumberBE(userId, "billing_note");
+      payload.doc_number = await generateDocNumberBE(userId, "billing_note", issueDate);
     }
 
     try {
