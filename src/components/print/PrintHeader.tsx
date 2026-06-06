@@ -88,7 +88,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
         </div>
       </div>
 
-      <div className="mt-4 border border-[#E8ECF2] bg-[#F8FAFC] py-3">
+      <div className="mt-4 bg-[#F8FAFC] py-3">
         <div className="px-2">
           <div className="text-[10px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
           <div className="mt-1 font-semibold text-[13px]">{customer.name}</div>

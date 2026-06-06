@@ -13,7 +13,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
       <section className="print-block mt-4">
         <div className="mb-1 text-[10px] tracking-[0.12em] text-[#667085]">รายการใบแจ้งหนี้</div>
         <table className="print-table w-full border-separate border-spacing-0">
-          <thead className="bg-[#F4F7FB] text-[#344054] [&_th]:border-b [&_th]:border-[#D9E1EA]">
+          <thead className="bg-[#F4F7FB] text-[#344054]">
             <tr>
               <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">เลขที่ใบแจ้งหนี้</th>
               <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">วันที่ออก</th>
@@ -54,7 +54,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
         {document.doc_type === "receipt" ? "รายการที่ชำระ" : "รายการสินค้าและบริการ"}
       </div>
       <table className="print-table w-full border-separate border-spacing-0">
-        <thead className="bg-[#F4F7FB] text-[#344054] [&_th]:border-b [&_th]:border-[#D9E1EA]">
+        <thead className="bg-[#F4F7FB] text-[#344054]">
           <tr>
             <th className="w-[8mm] px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">ลำดับ</th>
             <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">รายละเอียด</th>
