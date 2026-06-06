@@ -8,6 +8,14 @@ export default defineConfig({
       "@": "/src",
     },
   },
+  server: {
+    proxy: {
+      "/api": {
+        target: "https://invoice-system.vercel.app",
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {
