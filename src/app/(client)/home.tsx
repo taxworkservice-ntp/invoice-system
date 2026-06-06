@@ -48,7 +48,7 @@ type DashboardDeal = {
 
 function firstNameFromCompanyName(name: string | null | undefined) {
   if (!name) return "";
-  return name.trim().split(/\s+/)[0] || "";
+  return name.trim() || "";
 }
 
 function isResolvedStatus(status: Document["status"]) {
@@ -446,7 +446,7 @@ export default function HomePage() {
         </div>
 
         <HomeTopBar
-          greeting={greetingName ? `สวัสดี, คุณ${greetingName} 👋` : "สวัสดี 👋"}
+          greeting={greetingName ? `สวัสดี, ${greetingName} 👋` : "สวัสดี 👋"}
           subtitle={actionCount === 0 ? "ทุกรายการเรียบร้อย ✓" : `วันนี้มี ${actionCount} รายการรอดำเนินการ`}
           isAllClear={actionCount === 0}
           onNewDeal={() => setNewSheetOpen(true)}
