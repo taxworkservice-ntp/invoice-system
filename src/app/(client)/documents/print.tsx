@@ -5,6 +5,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { PrintDocument } from "../../../components/print/PrintDocument";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
+import { DOC_TYPE_SHORT } from "../../../constants";
 
 export default function DocumentPrintPreviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const [previewHeight, setPreviewHeight] = useState<number | null>(null);
   const [previewViewportWidth, setPreviewViewportWidth] = useState<number | null>(null);
   const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
+  const [savingPdf, setSavingPdf] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,8 +124,42 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     void openBrowserPrintDialog();
   }
 
-  function handleSavePdf() {
-    void openBrowserPrintDialog();
+  async function handleSavePdf() {
+    if (savingPdf || !data) return;
+    setSavingPdf(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const sheet = document.querySelector<HTMLElement>(".print-sheet");
+      if (!sheet) throw new Error("Print sheet not found");
+
+      const canvas = await html2canvas(sheet, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      pdf.addImage(imgData, "PNG", 0, 0, pageW, pageH);
+
+      const short = DOC_TYPE_SHORT[data.document.doc_type];
+      const datePart = data.document.issue_date
+        ? data.document.issue_date.replace(/-/g, "")
+        : new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const filename = `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
+      pdf.save(filename);
+    } catch (err) {
+      console.error("Failed to save PDF:", err);
+      void openBrowserPrintDialog();
+    } finally {
+      setSavingPdf(false);
+    }
   }
 
   if (loading) {
@@ -168,8 +204,8 @@ return (
           <Button variant="secondary" onClick={handlePrint} className="flex-1 sm:flex-none">
             พิมพ์
           </Button>
-          <Button onClick={handleSavePdf} className="w-full sm:w-auto">
-            บันทึกเป็น PDF
+          <Button onClick={handleSavePdf} disabled={savingPdf} className="w-full sm:w-auto">
+            {savingPdf ? "กำลังบันทึก..." : "บันทึกเป็น PDF"}
           </Button>
         </div>
       </div>
