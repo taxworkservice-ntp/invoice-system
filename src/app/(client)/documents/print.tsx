@@ -16,6 +16,7 @@ export default function DocumentPrintPreviewPage() {
   const previewSheetRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [previewHeight, setPreviewHeight] = useState<number | null>(null);
+  const [previewViewportWidth, setPreviewViewportWidth] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,10 +55,13 @@ export default function DocumentPrintPreviewPage() {
       if (window.innerWidth >= 768) {
         setPreviewScale(1);
         setPreviewHeight(null);
+        setPreviewViewportWidth(null);
         return;
       }
 
-      const frameWidth = frame.clientWidth;
+      const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+      const availableWidth = Math.max(280, viewportWidth - 16);
+      const frameWidth = Math.min(frame.clientWidth || availableWidth, availableWidth);
       const sheetWidth = sheet.scrollWidth;
       const sheetHeight = sheet.scrollHeight;
       if (!frameWidth || !sheetWidth || !sheetHeight) return;
@@ -65,10 +69,12 @@ export default function DocumentPrintPreviewPage() {
       const scale = Math.min(1, frameWidth / sheetWidth);
       setPreviewScale(scale);
       setPreviewHeight(sheetHeight * scale);
+      setPreviewViewportWidth(availableWidth);
     }
 
     updatePreviewScale();
     window.addEventListener("resize", updatePreviewScale);
+    window.visualViewport?.addEventListener("resize", updatePreviewScale);
 
     const observer =
       typeof ResizeObserver !== "undefined"
@@ -80,6 +86,7 @@ export default function DocumentPrintPreviewPage() {
 
     return () => {
       window.removeEventListener("resize", updatePreviewScale);
+      window.visualViewport?.removeEventListener("resize", updatePreviewScale);
       observer?.disconnect();
     };
   }, [data]);
@@ -146,7 +153,10 @@ export default function DocumentPrintPreviewPage() {
 
   return (
     <div className="print-preview-shell min-h-screen bg-[#EEF2F6] px-2 py-3 sm:px-4 sm:py-6">
-      <div className="print-toolbar mx-auto mb-3 flex w-full max-w-[230mm] flex-col gap-3 rounded-[20px] border border-[#D7DEE7] bg-white px-3 py-3 shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+      <div
+        className="print-toolbar mx-auto mb-3 flex w-full max-w-[230mm] flex-col gap-3 rounded-[20px] border border-[#D7DEE7] bg-white px-3 py-3 shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:px-4"
+        style={previewViewportWidth ? { maxWidth: `${previewViewportWidth}px` } : undefined}
+      >
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">ดูเอกสาร</div>
           <div className="text-[15px] font-semibold text-[#101828]">{data.document.doc_number || "เอกสาร"}</div>
@@ -165,7 +175,10 @@ export default function DocumentPrintPreviewPage() {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[230mm]">
+      <div
+        className="mx-auto w-full max-w-[230mm]"
+        style={previewViewportWidth ? { maxWidth: `${previewViewportWidth}px` } : undefined}
+      >
         <div
           ref={previewFrameRef}
           className="print-preview-frame"
