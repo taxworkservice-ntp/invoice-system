@@ -52,9 +52,16 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
 
         <div className="shrink-0 text-right text-[#111827] w-[64mm] p-0 px-2">
           <div className="text-[9px] tracking-[0.18em] text-[#7A8699]">{copyLabel}</div>
-          <div className="mt-1 text-[26px] font-semibold tracking-[-0.02em] leading-tight text-[#111827]">
-            {label.thai}
-          </div>
+          {document.doc_type === "tax_invoice_receipt" ? (
+            <div className="mt-1 font-semibold tracking-[-0.02em] leading-tight text-[#111827]">
+              <div className="text-[20px]">ใบกำกับภาษี /</div>
+              <div className="text-[20px]">ใบเสร็จรับเงิน</div>
+            </div>
+          ) : (
+            <div className="mt-1 text-[26px] font-semibold tracking-[-0.02em] leading-tight text-[#111827]">
+              {label.thai}
+            </div>
+          )}
 
           <div className="mt-3 space-y-1 text-[11px]">
             <div className="flex justify-between gap-2">
