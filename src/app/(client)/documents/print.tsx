@@ -61,33 +61,28 @@ export default function DocumentPrintPreviewPage() {
 
       const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
       const availableWidth = Math.max(280, viewportWidth - 16);
-      const frameWidth = Math.min(frame.clientWidth || availableWidth, availableWidth);
       const sheetWidth = sheet.scrollWidth;
       const sheetHeight = sheet.scrollHeight;
-      if (!frameWidth || !sheetWidth || !sheetHeight) return;
+      if (!sheetWidth || !sheetHeight) return;
 
-      const scale = Math.min(1, frameWidth / sheetWidth);
+      const scale = Math.min(1, availableWidth / sheetWidth);
       setPreviewScale(scale);
       setPreviewHeight(sheetHeight * scale);
       setPreviewViewportWidth(availableWidth);
     }
 
-    updatePreviewScale();
+    requestAnimationFrame(() => updatePreviewScale());
+
+    const observer = new ResizeObserver(() => updatePreviewScale());
+    if (previewSheetRef.current) observer.observe(previewSheetRef.current);
+
     window.addEventListener("resize", updatePreviewScale);
     window.visualViewport?.addEventListener("resize", updatePreviewScale);
 
-    const observer =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => updatePreviewScale())
-        : null;
-
-    if (observer && previewFrameRef.current) observer.observe(previewFrameRef.current);
-    if (observer && previewSheetRef.current) observer.observe(previewSheetRef.current);
-
     return () => {
+      observer.disconnect();
       window.removeEventListener("resize", updatePreviewScale);
       window.visualViewport?.removeEventListener("resize", updatePreviewScale);
-      observer?.disconnect();
     };
   }, [data]);
 
