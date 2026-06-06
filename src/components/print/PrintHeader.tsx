@@ -23,9 +23,9 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
   const copyLabel = copyType === "copy" ? "สำเนา" : "ต้นฉบับ";
 
   return (
-    <header className="print-header bg-white text-[#1F2937] border-transparent print-modern-header px-2 pb-5 pt-3">
+    <header className="print-header bg-white text-[#1F2937] border-transparent print-modern-header px-0 pb-5 pt-3">
       <div className="flex justify-between gap-4 items-start">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 px-2">
           {clientProfile.logo_url ? (
             <img
               src={clientProfile.logo_url}
@@ -50,7 +50,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
           </div>
         </div>
 
-        <div className="shrink-0 text-right text-[#111827] w-[64mm] p-0">
+        <div className="shrink-0 text-right text-[#111827] w-[64mm] p-0 px-2">
           <div className="text-[9px] tracking-[0.18em] text-[#7A8699]">{copyLabel}</div>
           <div className="mt-1 text-[26px] font-semibold tracking-[-0.02em] leading-tight text-[#111827]">
             {label.thai}
@@ -88,13 +88,15 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
         </div>
       </div>
 
-      <div className="mt-4 border border-[#E8ECF2] bg-[#F8FAFC] px-2 py-3">
-        <div className="text-[10px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
-        <div className="mt-1 font-semibold text-[13px]">{customer.name}</div>
-        <div className="mt-1 space-y-0.5 text-[11px] text-[#475467]">
-          {customer.tax_id ? <div>เลขประจำตัวผู้เสียภาษี: {customer.tax_id}</div> : null}
-          {customer.address ? <div className="whitespace-pre-line leading-[18px]">{customer.address}</div> : null}
-          {customer.phone ? <div>โทร: {customer.phone}</div> : null}
+      <div className="mt-4 border border-[#E8ECF2] bg-[#F8FAFC] py-3">
+        <div className="px-2">
+          <div className="text-[10px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
+          <div className="mt-1 font-semibold text-[13px]">{customer.name}</div>
+          <div className="mt-1 space-y-0.5 text-[11px] text-[#475467]">
+            {customer.tax_id ? <div>เลขประจำตัวผู้เสียภาษี: {customer.tax_id}</div> : null}
+            {customer.address ? <div className="whitespace-pre-line leading-[18px]">{customer.address}</div> : null}
+            {customer.phone ? <div>โทร: {customer.phone}</div> : null}
+          </div>
         </div>
       </div>
     </header>
