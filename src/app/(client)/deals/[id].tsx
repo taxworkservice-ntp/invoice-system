@@ -16,6 +16,7 @@ import { generateDocNumberBE } from "../../../lib/docNumber";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { isHtmlPrintTemplate } from "../../../lib/print";
+import { buildReceiptBackdateFields, isPastDate, toLocalMiddayIso, todayString } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
@@ -28,6 +29,7 @@ import type {
   ClientProfile,
   DocumentStatus,
   DocumentType,
+  PaymentMethod,
 } from "../../../types";
 
 interface DocWithMeta {
@@ -113,9 +115,11 @@ export default function DealDetailPage() {
 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [payDocument, setPayDocument] = useState<Document | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
   const [amountReceived, setAmountReceived] = useState(0);
   const [whtCertificateNo, setWhtCertificateNo] = useState("");
+  const [paymentDate, setPaymentDate] = useState(todayString());
+  const [paymentBackdateReason, setPaymentBackdateReason] = useState("");
   const [paying, setPaying] = useState(false);
 
   const [confirmConvertDoc, setConfirmConvertDoc] = useState<Document | null>(null);
@@ -410,20 +414,31 @@ export default function DealDetailPage() {
     setAmountReceived(doc.net_payable);
     setPaymentMethod("bank_transfer");
     setWhtCertificateNo("");
+    setPaymentDate(todayString());
+    setPaymentBackdateReason("");
     setPaymentModalOpen(true);
   };
 
   const handleConfirmPayment = async () => {
     if (!payDocument || !userId || !dealId) return;
+    if (isPastDate(paymentDate) && !paymentBackdateReason.trim()) {
+      toast.error("กรุณาระบุเหตุผลในการออกใบเสร็จย้อนหลัง");
+      return;
+    }
     setPaying(true);
     try {
-      const now = new Date().toISOString();
+      const paidAt = toLocalMiddayIso(paymentDate);
+      const receiptBackdateFields = buildReceiptBackdateFields({
+        selectedDate: paymentDate,
+        userId,
+        reason: paymentBackdateReason,
+      });
 
       await supabase
         .from("documents")
         .update({
           status: "paid" as DocumentStatus,
-          paid_at: now,
+          paid_at: paidAt,
           payment_method: paymentMethod,
           amount_received: amountReceived,
           wht_certificate_no: whtCertificateNo || null,
@@ -439,11 +454,11 @@ export default function DealDetailPage() {
       if (linkedInvoiceIds.length > 0) {
         await supabase
           .from("documents")
-          .update({ status: "paid" as DocumentStatus, paid_at: now })
+          .update({ status: "paid" as DocumentStatus, paid_at: paidAt })
           .in("id", linkedInvoiceIds);
       }
 
-      const issueDate = now.slice(0, 10);
+      const issueDate = paymentDate;
       const docNumber = await generateDocNumberBE(userId, "receipt", issueDate);
 
       await supabase.from("documents").insert({
@@ -467,12 +482,14 @@ export default function DealDetailPage() {
         payment_method: paymentMethod,
         amount_received: amountReceived,
         wht_certificate_no: whtCertificateNo || null,
-        paid_at: now,
+        paid_at: paidAt,
+        ...receiptBackdateFields,
       });
 
       toast.success("บันทึกรับเงินสำเร็จ");
       setPaymentModalOpen(false);
       setPayDocument(null);
+      setPaymentBackdateReason("");
       fetchDealData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -1263,7 +1280,7 @@ export default function DealDetailPage() {
                 <select
                   className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
                 >
                   {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
@@ -1277,6 +1294,33 @@ export default function DealDetailPage() {
                 onChange={(e) => setWhtCertificateNo(e.target.value)}
                 placeholder="กรอกถ้ามี"
               />
+
+              <Input
+                label="วันที่รับเงิน"
+                type="date"
+                value={paymentDate}
+                max={todayString()}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
+
+              {isPastDate(paymentDate) && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                  <p className="text-sm font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    วันที่บนใบเสร็จจะใช้วันที่รับเงินจริง และระบบจะเก็บเวลาที่เข้ามาบันทึกไว้แยกกันเพื่อใช้ตรวจสอบย้อนหลัง
+                  </p>
+                  <div className="mt-3">
+                    <label className="mb-1 block text-xs font-medium text-amber-900">เหตุผลในการออกย้อนหลัง</label>
+                    <textarea
+                      value={paymentBackdateReason}
+                      onChange={(e) => setPaymentBackdateReason(e.target.value)}
+                      rows={3}
+                      placeholder="เช่น รับเงินเมื่อ 2 วันก่อน แต่เพิ่งเข้ามาบันทึกและออกใบเสร็จวันนี้"
+                      className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-2 justify-end">
                 <Button variant="secondary" onClick={() => setPaymentModalOpen(false)}>

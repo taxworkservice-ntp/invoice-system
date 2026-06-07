@@ -342,6 +342,9 @@ create table documents (
   wht_certificate_no  text,
   paid_at             timestamptz,
   amount_received     numeric(15,2),               -- net payable actually received
+  backdated_at        timestamptz,
+  backdated_by_user_id uuid references profiles(id) on delete set null,
+  backdated_reason    text,
 
   -- Void and copy tracking
   voided_at           timestamptz,

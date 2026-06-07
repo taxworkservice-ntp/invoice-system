@@ -19,6 +19,7 @@ import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { isHtmlPrintTemplate } from "../../../lib/print";
+import { buildReceiptBackdateFields, isPastDate, toLocalMiddayIso, todayString } from "../../../lib/receiptBackdating";
 import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile } from "../../../types";
 import type { PDFData } from "../../../lib/pdf";
 import type jsPDF from "jspdf";
@@ -85,7 +86,8 @@ export default function DocumentDetailPage() {
   const [payAmount, setPayAmount] = useState(0);
   const toast = useToast();
   const [payWhtCert, setPayWhtCert] = useState("");
-  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payDate, setPayDate] = useState(todayString());
+  const [payBackdateReason, setPayBackdateReason] = useState("");
   const [paying, setPaying] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState(false);
@@ -241,14 +243,25 @@ export default function DocumentDetailPage() {
 
   const handlePay = async () => {
     if (!doc || !userId || payAmount <= 0) return;
+    const isBackdatedReceipt = isPastDate(payDate);
+    if (isBackdatedReceipt && !payBackdateReason.trim()) {
+      setError("กรุณาระบุเหตุผลในการออกใบเสร็จย้อนหลัง");
+      return;
+    }
+
     setPaying(true);
     try {
-      const now = new Date().toISOString();
+      const paidAt = toLocalMiddayIso(payDate);
+      const receiptBackdateFields = buildReceiptBackdateFields({
+        selectedDate: payDate,
+        userId,
+        reason: payBackdateReason,
+      });
       await supabase
         .from("documents")
         .update({
           status: "paid" as DocumentStatus,
-          paid_at: now,
+          paid_at: paidAt,
           payment_method: payMethod,
           amount_received: payAmount,
           wht_certificate_no: payWhtCert || null,
@@ -264,7 +277,7 @@ export default function DocumentDetailPage() {
         if (linked?.length) {
           await supabase
             .from("documents")
-            .update({ status: "paid" as DocumentStatus, paid_at: now })
+            .update({ status: "paid" as DocumentStatus, paid_at: paidAt })
             .in("id", linked.map((item: any) => item.invoice_id));
         }
       }
@@ -278,7 +291,7 @@ export default function DocumentDetailPage() {
         doc_number: recNumber,
         status: "generated" as DocumentStatus,
         issue_date: payDate,
-        paid_at: now,
+        paid_at: paidAt,
         vat_registered: doc.vat_registered,
         vat_rate: doc.vat_rate,
         wht_rate: doc.wht_rate,
@@ -292,9 +305,11 @@ export default function DocumentDetailPage() {
         payment_method: payMethod,
         amount_received: payAmount,
         wht_certificate_no: payWhtCert || null,
+        ...receiptBackdateFields,
       });
 
       setPayModal(false);
+      setPayBackdateReason("");
       await fetchDoc();
     } catch (err: any) {
       setError(err.message);
@@ -512,7 +527,9 @@ export default function DocumentDetailPage() {
     setPayAmount(doc.net_payable);
     setPayMethod("bank_transfer");
     setPayWhtCert("");
-    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayDate(todayString());
+    setPayBackdateReason("");
+    setError("");
     setPayModal(true);
   };
 
@@ -546,6 +563,7 @@ export default function DocumentDetailPage() {
   const customerName = customer?.name || "ไม่ได้ระบุลูกค้า";
   const issueDateLabel = formatDate(doc.issue_date);
   const dueDateLabel = doc.due_date ? formatDate(doc.due_date) : "ไม่มีกำหนด";
+  const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
   const statusMessage = isVoided
     ? "ยกเลิกแล้ว เก็บไว้เป็นประวัติ"
     : isPaid
@@ -809,6 +827,35 @@ export default function DocumentDetailPage() {
               <span>{doc.wht_certificate_no}</span>
             </div>
           )}
+          </div>
+        </DetailCard>
+      )}
+
+      {hasBackdateAudit && (
+        <DetailCard title="ข้อมูลการออกย้อนหลัง" icon={<CalendarDays className="h-4 w-4" />} className="mb-4 border-amber-200 bg-amber-50">
+          <div className="space-y-2 text-sm text-amber-950">
+            <div className="flex justify-between gap-4">
+              <span className="text-amber-800">วันที่บนใบเสร็จ</span>
+              <span>{formatDate(doc.issue_date)}</span>
+            </div>
+            {doc.backdated_at && (
+              <div className="flex justify-between gap-4">
+                <span className="text-amber-800">บันทึกย้อนหลังเมื่อ</span>
+                <span>{formatDate(doc.backdated_at)}</span>
+              </div>
+            )}
+            {doc.created_at && (
+              <div className="flex justify-between gap-4">
+                <span className="text-amber-800">สร้างในระบบเมื่อ</span>
+                <span>{formatDate(doc.created_at)}</span>
+              </div>
+            )}
+            {doc.backdated_reason && (
+              <div className="rounded-xl border border-amber-200 bg-white/70 p-3 text-sm text-amber-950">
+                <div className="mb-1 text-xs font-medium uppercase tracking-[0.12em] text-amber-700">เหตุผล</div>
+                <p className="whitespace-pre-wrap">{doc.backdated_reason}</p>
+              </div>
+            )}
           </div>
         </DetailCard>
       )}
@@ -1100,8 +1147,27 @@ export default function DocumentDetailPage() {
             label="วันที่รับเงิน"
             type="date"
             value={payDate}
+            max={todayString()}
             onChange={(e) => setPayDate(e.target.value)}
           />
+          {isPastDate(payDate) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+              <p className="text-sm font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
+              <p className="mt-1 text-xs leading-5 text-amber-800">
+                ระบบจะใช้วันที่รับเงินจริงบนใบเสร็จ และเก็บเวลาที่บันทึกเข้าระบบไว้แยกกันเพื่อให้ตรวจสอบย้อนหลังได้
+              </p>
+              <div className="mt-3">
+                <label className="mb-1 block text-xs font-medium text-amber-900">เหตุผลในการออกย้อนหลัง</label>
+                <textarea
+                  value={payBackdateReason}
+                  onChange={(e) => setPayBackdateReason(e.target.value)}
+                  rows={3}
+                  placeholder="เช่น รับชำระเมื่อ 2 วันก่อน แต่เพิ่งได้รับหลักฐานและเข้ามาบันทึกวันนี้"
+                  className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                />
+              </div>
+            </div>
+          )}
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setPayModal(false)}>ปิด</Button>
             <Button variant="primary" onClick={handlePay} loading={paying} disabled={payAmount <= 0}>ยืนยัน</Button>

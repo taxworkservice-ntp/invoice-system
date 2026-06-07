@@ -155,6 +155,9 @@ export interface Document {
   wht_certificate_no: string | null;
   paid_at: string | null;
   amount_received: number | null;
+  backdated_at: string | null;
+  backdated_by_user_id: string | null;
+  backdated_reason: string | null;
   voided_at: string | null;
   voided_reason: string | null;
   copied_from_id: string | null;
