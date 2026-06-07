@@ -362,6 +362,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
               unit: it.unit,
               unit_price: it.unitPrice,
               quantity: it.quantity,
+              base_quantity: it.quantity,
               discount_percent: it.discountPercent,
               discount_amount: lineCalc.discountAmount,
               qty_carton: null,

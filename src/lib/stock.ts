@@ -127,7 +127,16 @@ export async function deductStockOnDocumentSent(
 
     if (!item) continue;
 
-    const newStock = round3(item.stock_count - li.quantity);
+    const baseQuantity = round3(Number(li.base_quantity ?? li.quantity ?? 0));
+    const requestedQuantity =
+      li.carton_unit && li.unit === li.carton_unit && li.qty_carton != null
+        ? Number(li.qty_carton)
+        : Number(li.quantity ?? 0);
+    const availableQuantity =
+      li.carton_unit && li.unit === li.carton_unit && item.qty_per_carton
+        ? baseToCartons(item.stock_count, item.qty_per_carton)
+        : item.stock_count;
+    const newStock = round3(item.stock_count - baseQuantity);
     const finalStock = Math.max(0, newStock);
 
     if (newStock < 0) {
@@ -136,8 +145,8 @@ export async function deductStockOnDocumentSent(
       );
       warnings.push({
         itemName: li.item_name,
-        requested: li.quantity,
-        available: item.stock_count,
+        requested: requestedQuantity,
+        available: availableQuantity,
         unit: li.unit,
       });
     }
@@ -158,7 +167,7 @@ export async function deductStockOnDocumentSent(
       item_id: li.item_id,
       user_id: userId,
       movement_type: "auto_out",
-      qty_base: -li.quantity,
+      qty_base: -baseQuantity,
       qty_carton: li.qty_carton ? -li.qty_carton : null,
       carton_unit: li.carton_unit || null,
       balance_after: finalStock,
@@ -200,7 +209,8 @@ export async function restoreStockOnVoid(
 
     if (!item) continue;
 
-    const newStock = round3(item.stock_count + li.quantity);
+    const baseQuantity = round3(Number(li.base_quantity ?? li.quantity ?? 0));
+    const newStock = round3(item.stock_count + baseQuantity);
 
     await supabase
       .from("items")
@@ -211,7 +221,7 @@ export async function restoreStockOnVoid(
       item_id: li.item_id,
       user_id: userId,
       movement_type: "return_in",
-      qty_base: li.quantity,
+      qty_base: baseQuantity,
       qty_carton: li.qty_carton || null,
       carton_unit: li.carton_unit || null,
       balance_after: newStock,

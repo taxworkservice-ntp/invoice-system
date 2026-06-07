@@ -14,9 +14,9 @@ import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
-import { deductStockOnDocumentSent } from "../../../lib/stock";
+import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, round3 } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
-import type { DocumentType, Customer, WhtRate, PaymentMethod } from "../../../types";
+import type { DocumentType, Customer, WhtRate, PaymentMethod, Item } from "../../../types";
 
 interface LineItemForm {
   id: string;
@@ -28,10 +28,28 @@ interface LineItemForm {
   quantity: number;
   discount_percent?: number;
   unit: string;
+  base_unit: string;
+  carton_unit: string | null;
+  qty_per_carton: number | null;
+  base_unit_price: number | null;
 }
 
 function createEmptyLine(): LineItemForm {
-  return { id: crypto.randomUUID(), item_id: null, item_sku: null, item_name: "", item_type: "product", unit_price: 0, quantity: 1, discount_percent: 0, unit: "ชิ้น" };
+  return {
+    id: crypto.randomUUID(),
+    item_id: null,
+    item_sku: null,
+    item_name: "",
+    item_type: "product",
+    unit_price: 0,
+    quantity: 1,
+    discount_percent: 0,
+    unit: "ชิ้น",
+    base_unit: "ชิ้น",
+    carton_unit: null,
+    qty_per_carton: null,
+    base_unit_price: null,
+  };
 }
 
 interface UnpaidInvoice {
@@ -46,6 +64,52 @@ interface UnpaidInvoice {
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function hasCartonOption(lineItem: LineItemForm) {
+  return Boolean(lineItem.carton_unit && lineItem.qty_per_carton && lineItem.qty_per_carton > 0);
+}
+
+function isCartonUnitSelected(lineItem: LineItemForm) {
+  return hasCartonOption(lineItem) && lineItem.unit === lineItem.carton_unit;
+}
+
+function getLineBaseQuantity(lineItem: LineItemForm) {
+  if (isCartonUnitSelected(lineItem) && lineItem.qty_per_carton) {
+    return cartonsToBase(lineItem.quantity, lineItem.qty_per_carton);
+  }
+
+  return round3(lineItem.quantity);
+}
+
+function getSuggestedUnitPrice(baseUnitPrice: number, unit: string, cartonUnit?: string | null, qtyPerCarton?: number | null) {
+  if (cartonUnit && qtyPerCarton && qtyPerCarton > 0 && unit === cartonUnit) {
+    return Math.round(baseUnitPrice * qtyPerCarton * 100) / 100;
+  }
+
+  return baseUnitPrice;
+}
+
+function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item): LineItemForm {
+  const unit = catalogItem.base_unit;
+  return {
+    ...lineItem,
+    item_name: catalogItem.name,
+    item_id: catalogItem.id,
+    item_sku: catalogItem.sku,
+    item_type: catalogItem.item_type,
+    unit,
+    base_unit: catalogItem.base_unit,
+    carton_unit: catalogItem.carton_unit,
+    qty_per_carton: catalogItem.qty_per_carton,
+    base_unit_price: catalogItem.unit_price,
+    unit_price: getSuggestedUnitPrice(
+      catalogItem.unit_price,
+      unit,
+      catalogItem.carton_unit,
+      catalogItem.qty_per_carton,
+    ),
+  };
 }
 
 export default function NewDealPage() {
@@ -197,7 +261,7 @@ export default function NewDealPage() {
     setLineItems((prev) =>
       prev.map((lineItem) => {
         if (lineItem.id !== id) return lineItem;
-        const updated = { ...lineItem, [field]: value };
+        const updated = { ...lineItem, [field]: value } as LineItemForm;
 
         if (field === "item_name") {
           const name = (value as string).trim();
@@ -205,17 +269,15 @@ export default function NewDealPage() {
             (c) => c.name.toLowerCase() === name.toLowerCase(),
           );
           if (catalogItem) {
-            updated.item_id = catalogItem.id;
-            updated.item_sku = catalogItem.sku;
-            updated.item_type = catalogItem.item_type;
-            updated.unit = catalogItem.base_unit;
-            if (!lineItem.unit_price || lineItem.unit_price === 0) {
-              updated.unit_price = catalogItem.unit_price;
-            }
+            return applyCatalogItemToLine(updated, catalogItem);
           } else {
             updated.item_id = null;
             updated.item_sku = null;
             updated.item_type = "product";
+            updated.base_unit = updated.unit || "ชิ้น";
+            updated.carton_unit = null;
+            updated.qty_per_carton = null;
+            updated.base_unit_price = null;
           }
         }
 
@@ -232,18 +294,28 @@ export default function NewDealPage() {
     setLineItems((prev) => prev.filter((lineItem) => lineItem.id !== id));
   };
 
-  const selectCatalogItem = (lineItemId: string, catalogItem: { id: string; sku: string | null; name: string; item_type: string; unit_price: number; base_unit: string }) => {
+  const selectCatalogItem = (lineItemId: string, catalogItem: Item) => {
     setLineItems((prev) =>
       prev.map((lineItem) => {
         if (lineItem.id !== lineItemId) return lineItem;
+        return applyCatalogItemToLine(lineItem, catalogItem);
+      }),
+    );
+  };
+
+  const updateLineUnit = (id: string, nextUnit: string) => {
+    setLineItems((prev) =>
+      prev.map((lineItem) => {
+        if (lineItem.id !== id) return lineItem;
         return {
           ...lineItem,
-          item_name: catalogItem.name,
-          item_id: catalogItem.id,
-          item_sku: catalogItem.sku,
-          item_type: catalogItem.item_type,
-          unit: catalogItem.base_unit,
-          unit_price: !lineItem.unit_price || lineItem.unit_price === 0 ? catalogItem.unit_price : lineItem.unit_price,
+          unit: nextUnit,
+          unit_price: getSuggestedUnitPrice(
+            lineItem.base_unit_price ?? lineItem.unit_price,
+            nextUnit,
+            lineItem.carton_unit,
+            lineItem.qty_per_carton,
+          ),
         };
       }),
     );
@@ -352,6 +424,8 @@ export default function NewDealPage() {
         if (validItems.length > 0) {
           const lineItemRecords = validItems.map((lineItem, idx) => {
             const lineCalc = calculateLineAmounts(lineItem);
+            const baseQuantity = getLineBaseQuantity(lineItem);
+            const soldByCarton = isCartonUnitSelected(lineItem);
             return {
               document_id: document.id,
               user_id: userId,
@@ -362,8 +436,11 @@ export default function NewDealPage() {
               unit: lineItem.unit,
               unit_price: lineItem.unit_price,
               quantity: lineItem.quantity,
+              base_quantity: baseQuantity,
               discount_percent: lineItem.discount_percent || 0,
               discount_amount: lineCalc.discountAmount,
+              qty_carton: soldByCarton ? lineItem.quantity : null,
+              carton_unit: soldByCarton ? lineItem.carton_unit : null,
               line_total: lineCalc.lineTotal,
               sort_order: idx,
             };
@@ -517,42 +594,42 @@ export default function NewDealPage() {
                   )}
                 </div>
               )}
-              {showNewCustomerForm && (
+                            {showNewCustomerForm && (
                 <div className="mt-3 border-t pt-3 space-y-2">
                   <Input
-                    label="ชื่อลูกค้า"
+                    label="�����١���"
                     value={newCustomer.name}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, name: e.target.value }))
                     }
-                    placeholder="ชื่อบริษัทหรือชื่อลูกค้า"
+                    placeholder="���ͺ���ѷ���ͪ����١���"
                   />
                   <Input
-                    label="เลขผู้เสียภาษี"
+                    label="�Ţ�����������"
                     value={newCustomer.tax_id}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, tax_id: e.target.value }))
                     }
-                    placeholder="เลข 13 หลัก"
+                    placeholder="�Ţ 13 ��ѡ"
                   />
                   <Input
-                    label="ที่อยู่"
+                    label="�������"
                     value={newCustomer.address}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, address: e.target.value }))
                     }
-                    placeholder="ที่อยู่"
+                    placeholder="�������"
                   />
                   <div className="flex gap-2">
                     <Button variant="secondary" size="sm" onClick={() => setShowNewCustomerForm(false)}>
-                      ยกเลิก
+                      ¡��ԡ
                     </Button>
                     <Button
                       size="sm"
                       onClick={handleAddNewCustomer}
                       disabled={!newCustomer.name.trim() || savingCustomer}
                     >
-                      {savingCustomer ? "กำลังบันทึก..." : "บันทึก"}
+                      {savingCustomer ? "���ѧ�ѹ�֡..." : "�ѹ�֡"}
                     </Button>
                   </div>
                 </div>
@@ -671,9 +748,14 @@ export default function NewDealPage() {
           <Card>
             <h3 className="text-sm font-medium mb-3">รายการ</h3>
             <div className="space-y-2">
-              {lineItems.map((item) => (
-                <div key={item.id} className="pb-2 border-b border-gray-100 last:border-0">
-                  <div className="flex gap-1 mb-1">
+              {lineItems.map((item) => {
+                const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
+                const soldByCarton = isCartonUnitSelected(item);
+                const baseQuantity = getLineBaseQuantity(item);
+
+                return (
+                <div key={item.id} className="pb-3 border-b border-gray-100 last:border-0">
+                  <div className="flex gap-1 mb-2">
                     <CatalogAutocomplete
                       items={items}
                       value={item.item_name}
@@ -731,8 +813,48 @@ export default function NewDealPage() {
                       </button>
                     )}
                   </div>
+                  {hasCartonOption(item) && (
+                    <div className="mt-2 rounded-lg border border-[#ECE8DE] bg-[#FBFAF7] px-3 py-2 text-xs text-gray-600">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateLineUnit(item.id, item.base_unit)}
+                          className={`rounded-full px-2.5 py-1 transition-colors ${
+                            !soldByCarton ? "bg-[#1A1A18] text-white" : "bg-white text-gray-600 border border-[#D7DEE7]"
+                          }`}
+                        >
+                          ขายเป็น {item.base_unit}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => item.carton_unit && updateLineUnit(item.id, item.carton_unit)}
+                          className={`rounded-full px-2.5 py-1 transition-colors ${
+                            soldByCarton ? "bg-[#1A1A18] text-white" : "bg-white text-gray-600 border border-[#D7DEE7]"
+                          }`}
+                        >
+                          ขายเป็น {item.carton_unit}
+                        </button>
+                      </div>
+                      <div className="mt-2">1 {item.carton_unit} = {item.qty_per_carton} {item.base_unit}</div>
+                      <div className="mt-1">
+                        ตัดสต็อกเป็น {baseQuantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {item.base_unit}
+                        {soldByCarton ? ` จาก ${item.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${item.carton_unit}` : ""}
+                      </div>
+                      {matchedItem && (
+                        <div className="mt-1 text-gray-500">
+                          คงเหลือ {formatMixedStock(
+                            matchedItem.stock_count,
+                            matchedItem.base_unit,
+                            matchedItem.carton_unit,
+                            matchedItem.qty_per_carton,
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
               <Button variant="secondary" size="sm" onClick={addLineItem}>
                 + เพิ่มรายการ
               </Button>
@@ -990,4 +1112,6 @@ export default function NewDealPage() {
     </AppShell>
   );
 }
+
+
 

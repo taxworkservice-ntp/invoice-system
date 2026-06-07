@@ -181,6 +181,7 @@ export interface DocumentLineItem {
   unit: string;
   unit_price: number;
   quantity: number;
+  base_quantity: number | null;
   discount_percent: number;
   discount_amount: number;
   qty_carton: number | null;

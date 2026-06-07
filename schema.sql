@@ -403,10 +403,11 @@ create table document_line_items (
   unit            text not null default 'ชิ้น',
   unit_price      numeric(15,2) not null,
   quantity        numeric(15,3) not null,
+  base_quantity   numeric(15,3),
   discount_percent numeric(5,2) not null default 0,
   discount_amount numeric(15,2) not null default 0,
 
-  -- Carton display (informational only — stock deducts in base unit)
+  -- Carton display snapshot when sold by carton
   qty_carton      numeric(15,3),
   carton_unit     text,
 
