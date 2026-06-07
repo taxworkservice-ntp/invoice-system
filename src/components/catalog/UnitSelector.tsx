@@ -54,7 +54,7 @@ export function UnitSelector({ value, onChange, label, disabled }: Props) {
             setCustomValue(e.target.value);
             onChange(e.target.value);
           }}
-          placeholder="หน่วยที่กำหนดเอง"
+          placeholder="พิมพ์ชื่อหน่วยเอง"
           className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
           autoFocus
         />

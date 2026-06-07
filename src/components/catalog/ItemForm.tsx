@@ -29,7 +29,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [unitPrice, setUnitPrice] = useState(
     item ? String(item.unit_price) : "",
   );
-  const [baseUnit, setBaseUnit] = useState(item?.base_unit || "เธเธดเนเธ");
+  const [baseUnit, setBaseUnit] = useState(item?.base_unit || "ชิ้น");
   const [cartonEnabled, setCartonEnabled] = useState(!!item?.carton_unit);
   const [cartonUnit, setCartonUnit] = useState(item?.carton_unit || "");
   const [qtyPerCarton, setQtyPerCarton] = useState(
@@ -46,7 +46,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     const fieldErrors: Record<string, string> = {};
 
     if (!name.trim()) {
-      fieldErrors.name = "Please enter an item name";
+      fieldErrors.name = "กรุณากรอกชื่อสินค้า";
     }
 
     const skuError = validateSku(sku);
@@ -55,19 +55,19 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     }
 
     if (!unitPrice || isNaN(Number(unitPrice)) || Number(unitPrice) < 0) {
-      fieldErrors.unitPrice = "Please enter a valid price";
+      fieldErrors.unitPrice = "กรุณากรอกราคาให้ถูกต้อง";
     }
 
     if (cartonEnabled) {
       if (!cartonUnit) {
-        fieldErrors.cartonUnit = "Please choose a carton unit";
+        fieldErrors.cartonUnit = "กรุณาเลือกหน่วยรอง";
       }
       const qty = parseFloat(String(qtyPerCarton));
       if (!qtyPerCarton || isNaN(qty) || qty < 1) {
-        fieldErrors.qtyPerCarton = "Please enter at least 1 unit per carton";
+        fieldErrors.qtyPerCarton = "กรุณากรอกจำนวนต่อหน่วยอย่างน้อย 1";
       }
       if (cartonUnit === baseUnit) {
-        fieldErrors.cartonUnit = "Carton unit must be different from base unit";
+        fieldErrors.cartonUnit = "หน่วยรองต้องไม่ซ้ำกับหน่วยฐาน";
       }
     }
 
@@ -85,7 +85,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       sku: normalizeSku(sku),
       item_type: itemType,
       unit_price: isNaN(price) ? 0 : price,
-      base_unit: baseUnit || "เธเธดเนเธ",
+      base_unit: baseUnit || "ชิ้น",
       carton_unit:
         cartonEnabled && itemType === "product" ? cartonUnit : null,
       qty_per_carton:
@@ -102,7 +102,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
           .update(payload)
           .eq("id", item!.id);
         if (error) throw error;
-        toast.success("Saved changes");
+        toast.success("บันทึกการเปลี่ยนแปลงแล้ว");
         onSave(item!.id);
       } else {
         Object.assign(payload, {
@@ -131,11 +131,11 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
             movement_type: "manual_in",
             qty_base: stockQty,
             balance_after: stockQty,
-            reason: "เธชเธ•เนเธญเธเน€เธฃเธดเนเธกเธ•เนเธ",
+            reason: "สต็อกเริ่มต้น",
           });
         }
 
-        toast.success("Item saved");
+        toast.success("เพิ่มสินค้าเรียบร้อย");
         onSave(newItem.id);
       }
     } catch (err: unknown) {
@@ -147,7 +147,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       }
 
       toast.error(
-        err instanceof Error ? err.message : "Something went wrong",
+        err instanceof Error ? err.message : "เกิดข้อผิดพลาด",
       );
     }
 
@@ -203,7 +203,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
             setName(e.target.value);
             setErrors((prev) => ({ ...prev, name: "" }));
           }}
-          placeholder="เน€เธเนเธ เธเธฃเธฐเธ”เธฒเธฉ A4, เธญเธญเธเนเธเธเนเธฅเนเธเน..."
+          placeholder="เช่น กระดาษ A4, ออกแบบโลโก้..."
           className="w-full text-[15px] px-0 py-1 border-b border-[#E8E6DF] focus:outline-none focus:border-[#378ADD] transition-colors bg-transparent"
           autoFocus={!isEdit}
         />
@@ -214,7 +214,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
 
       <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
         <div className="flex items-center gap-1">
-          <span className="text-[15px] text-[#1A1A18]">เธฟ</span>
+          <span className="text-[15px] text-[#1A1A18]">฿</span>
           <input
             type="number"
             min="0"
@@ -235,13 +235,13 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
         )}
         {cartonPreviewPrice && (
           <p className="text-[12px] text-[#888780] mt-1">
-            = เธฟ{" "}
+            = ฿{" "}
             {(
               (parseFloat(unitPrice) || 0) * parseFloat(String(qtyPerCarton))
             ).toLocaleString("th-TH", {
               minimumFractionDigits: 2,
             })}{" "}
-            เธ•เนเธญ{cartonUnit} ({qtyPerCarton} {baseUnit} ร— เธฟ{" "}
+            ต่อ{cartonUnit} ({qtyPerCarton} {baseUnit} x ฿{" "}
             {(parseFloat(unitPrice) || 0).toLocaleString("th-TH", {
               minimumFractionDigits: 2,
             })}
@@ -252,12 +252,12 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
 
       <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4 space-y-4">
         <div className="text-[11px] uppercase font-semibold text-[#888780]">
-          เธซเธเนเธงเธข
+          หน่วย
         </div>
         <UnitSelector
           value={baseUnit}
           onChange={setBaseUnit}
-          label="เธซเธเนเธงเธขเธเธฒเธ"
+          label="หน่วยฐาน"
         />
         {itemType === "product" && (
           <>
@@ -294,7 +294,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       {itemType === "product" && (
         <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4 space-y-4">
           <div className="text-[11px] uppercase font-semibold text-[#888780]">
-            เธชเธ•เนเธญเธ
+            สต็อก
           </div>
           {!isEdit && (
             <StockInitialField
@@ -309,7 +309,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
           )}
           <div>
             <label className="block text-[13px] text-[#1A1A18] mb-1">
-              เนเธเนเธเน€เธ•เธทเธญเธเน€เธกเธทเนเธญเน€เธซเธฅเธทเธญ
+              แจ้งเตือนเมื่อเหลือ
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -323,7 +323,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
               <span className="text-sm text-[#888780]">{baseUnit}</span>
             </div>
             <p className="text-[11px] text-[#888780] mt-1">
-              เธฃเธฐเธเธเธเธฐเนเธชเธ”เธเน€เธ•เธทเธญเธเน€เธกเธทเนเธญเธชเธ•เนเธญเธเน€เธซเธฅเธทเธญเธเนเธญเธขเธเธงเนเธฒเธเธณเธเธงเธเธเธตเน
+              ระบบจะแสดงเตือนเมื่อสต็อกเหลือน้อยกว่าจำนวนนี้
             </p>
           </div>
         </div>
@@ -336,7 +336,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
           loading={saving}
           className="flex-1"
         >
-          {isEdit ? "เธเธฑเธเธ—เธถเธเธเธฒเธฃเน€เธเธฅเธตเนเธขเธเนเธเธฅเธ" : "เธเธฑเธเธ—เธถเธเธชเธดเธเธเนเธฒ / เธเธฃเธดเธเธฒเธฃ"}
+          {isEdit ? "บันทึกการเปลี่ยนแปลง" : "บันทึกสินค้า / บริการ"}
         </Button>
       </div>
     </div>

@@ -23,7 +23,7 @@ export default function AdminClientNewPage() {
     setEmailError("");
 
     if (!email.trim()) {
-      setEmailError("เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธญเธตเน€เธกเธฅ");
+      setEmailError("กรุณากรอกอีเมล");
       return;
     }
 
@@ -35,13 +35,17 @@ export default function AdminClientNewPage() {
         companyName: companyName.trim(),
         adminNote: adminNote.trim(),
       });
-      toast.success(`เธชเธฃเนเธฒเธเธเธฑเธเธเธตเนเธฅเนเธง เธชเนเธเธญเธตเน€เธกเธฅเน€เธเธดเธเนเธเธ—เธตเน ${result.email}`);
+
+      toast.success(`สร้างบัญชีและส่งอีเมลเชิญไปที่ ${result.email}`);
       navigate(`/admin/clients/${result.userId}`, { replace: true });
     } catch (e: any) {
-      if (e.message?.includes("already been registered") || e.message?.includes("already exists")) {
-        setEmailError("เธญเธตเน€เธกเธฅเธเธตเนเธกเธตเธเธฑเธเธเธตเธญเธขเธนเนเนเธฅเนเธง");
+      if (
+        e.message?.includes("already been registered") ||
+        e.message?.includes("already exists")
+      ) {
+        setEmailError("อีเมลนี้ถูกใช้สร้างบัญชีแล้ว");
       } else {
-        setError(e.message || "เธชเธฃเนเธฒเธเธเธฑเธเธเธตเนเธกเนเธชเธณเน€เธฃเนเธ");
+        setError(e.message || "เกิดข้อผิดพลาดในการสร้างลูกค้า");
       }
       setCreating(false);
       return;
@@ -57,9 +61,11 @@ export default function AdminClientNewPage() {
               onClick={() => navigate("/admin/clients")}
               className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
             >
-              <span className="text-sm">โ เธฅเธนเธเธเนเธฒ</span>
+              <span className="text-sm">← ลูกค้า</span>
             </button>
-            <h1 className="text-sm font-semibold text-gray-800">เน€เธเธดเนเธกเธฅเธนเธเธเนเธฒเนเธซเธกเน</h1>
+            <h1 className="text-sm font-semibold text-gray-800">
+              เพิ่มลูกค้าใหม่
+            </h1>
           </div>
         </div>
       </header>
@@ -69,33 +75,36 @@ export default function AdminClientNewPage() {
           <Card>
             <div className="space-y-4">
               <Input
-                label="เธญเธตเน€เธกเธฅ *"
+                label="อีเมล *"
                 type="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
-                placeholder="เธญเธตเน€เธกเธฅเธชเธณเธซเธฃเธฑเธเน€เธเนเธฒเธชเธนเนเธฃเธฐเธเธ"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError("");
+                }}
+                placeholder="name@company.com"
                 error={emailError}
                 autoFocus
               />
               <p className="text-[11px] text-[#888780] -mt-3">
-                เธฅเธนเธเธเนเธฒเธเธฐเนเธ”เนเธฃเธฑเธเธญเธตเน€เธกเธฅเธชเธณเธซเธฃเธฑเธเธ•เธฑเนเธเธฃเธซเธฑเธชเธเนเธฒเธ
+                ลูกค้าจะได้รับอีเมลสำหรับตั้งรหัสผ่าน
               </p>
 
               <Input
-                label="เธเธทเนเธญเธเธฃเธดเธฉเธฑเธ— (เน€เธเธทเนเธญเธเธ•เนเธ)"
+                label="ชื่อบริษัท (เบื้องต้น)"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="เธฅเธนเธเธเนเธฒเธชเธฒเธกเธฒเธฃเธ–เนเธเนเนเธเน€เธญเธเนเธ”เนเธ เธฒเธขเธซเธฅเธฑเธ"
+                placeholder="ชื่อบริษัทหรือชื่อร้าน"
               />
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
-                  เธซเธกเธฒเธขเน€เธซเธ•เธธเธชเธณเธซเธฃเธฑเธ admin
+                  หมายเหตุสำหรับ admin
                 </label>
                 <textarea
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
-                  placeholder="เธเธฑเธเธ—เธถเธเธชเนเธงเธเธ•เธฑเธงเธชเธณเธซเธฃเธฑเธ admin (เธฅเธนเธเธเนเธฒเนเธกเนเน€เธซเนเธ)"
+                  placeholder="บันทึกข้อมูลเพิ่มเติมสำหรับทีม admin"
                   rows={3}
                   className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 placeholder:text-gray-400 resize-none"
                 />
@@ -104,7 +113,9 @@ export default function AdminClientNewPage() {
               {error && <p className="text-xs text-red-500">{error}</p>}
 
               <Button type="submit" className="w-full" disabled={creating}>
-                {creating ? "เธเธณเธฅเธฑเธเธชเธฃเนเธฒเธ..." : "เธชเธฃเนเธฒเธเธเธฑเธเธเธตเนเธฅเธฐเธชเนเธเธญเธตเน€เธกเธฅเน€เธเธดเธ"}
+                {creating
+                  ? "กำลังสร้างบัญชี..."
+                  : "สร้างบัญชีและส่งอีเมลเชิญ"}
               </Button>
             </div>
           </Card>

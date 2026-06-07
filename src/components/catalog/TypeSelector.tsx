@@ -20,7 +20,7 @@ export function TypeSelector({ value, onChange, disabled }: Props) {
             : "text-[#888780]"
         }`}
       >
-        <span className="text-base">🛍</span> สินค้า
+        <span className="text-base">สินค้า</span>
       </button>
       <button
         type="button"
@@ -31,7 +31,7 @@ export function TypeSelector({ value, onChange, disabled }: Props) {
             : "text-[#888780]"
         }`}
       >
-        <span className="text-base">⚙</span> บริการ
+        <span className="text-base">บริการ</span>
       </button>
     </div>
   );
