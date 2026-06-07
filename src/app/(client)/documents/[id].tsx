@@ -654,7 +654,7 @@ export default function DocumentDetailPage() {
             <div className="mt-3 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</div>
             <p className="mt-1 text-sm text-[#6B655C]">{doc.wht_rate > 0 ? "ยอดสุทธิหลังหัก ณ ที่จ่าย" : "ยอดรวมเอกสารนี้"}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => navigate(`/documents/edit?id=${doc.id}`)}>
+              <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
                 แก้ไขเอกสาร
               </Button>
               {doc.deal_id && (
