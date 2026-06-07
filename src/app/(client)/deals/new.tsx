@@ -597,39 +597,39 @@ export default function NewDealPage() {
                             {showNewCustomerForm && (
                 <div className="mt-3 border-t pt-3 space-y-2">
                   <Input
-                    label="ª×èÍÅÙ¡¤éÒ"
+                    label="ï¿½ï¿½ï¿½ï¿½ï¿½Ù¡ï¿½ï¿½ï¿½"
                     value={newCustomer.name}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, name: e.target.value }))
                     }
-                    placeholder="ª×èÍºÃÔÉÑ·ËÃ×Íª×èÍÅÙ¡¤éÒ"
+                    placeholder="ï¿½ï¿½ï¿½Íºï¿½ï¿½ï¿½Ñ·ï¿½ï¿½ï¿½Íªï¿½ï¿½ï¿½ï¿½Ù¡ï¿½ï¿½ï¿½"
                   />
                   <Input
-                    label="àÅ¢¼ÙéàÊÕÂÀÒÉÕ"
+                    label="ï¿½Å¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                     value={newCustomer.tax_id}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, tax_id: e.target.value }))
                     }
-                    placeholder="àÅ¢ 13 ËÅÑ¡"
+                    placeholder="ï¿½Å¢ 13 ï¿½ï¿½Ñ¡"
                   />
                   <Input
-                    label="·ÕèÍÂÙè"
+                    label="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                     value={newCustomer.address}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, address: e.target.value }))
                     }
-                    placeholder="·ÕèÍÂÙè"
+                    placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                   />
                   <div className="flex gap-2">
                     <Button variant="secondary" size="sm" onClick={() => setShowNewCustomerForm(false)}>
-                      Â¡àÅÔ¡
+                      Â¡ï¿½ï¿½Ô¡
                     </Button>
                     <Button
                       size="sm"
                       onClick={handleAddNewCustomer}
                       disabled={!newCustomer.name.trim() || savingCustomer}
                     >
-                      {savingCustomer ? "¡ÓÅÑ§ºÑ¹·Ö¡..." : "ºÑ¹·Ö¡"}
+                      {savingCustomer ? "ï¿½ï¿½ï¿½Ñ§ï¿½Ñ¹ï¿½Ö¡..." : "ï¿½Ñ¹ï¿½Ö¡"}
                     </Button>
                   </div>
                 </div>
@@ -765,48 +765,63 @@ export default function NewDealPage() {
                       placeholder="à¸Šà¸·à¹ˆà¸­à¸£à¸²à¸¢à¸à¸²à¸£"
                     />
                   </div>
-                  <div className="flex gap-1 items-center">
-                    <Input
-                      type="number"
-                      placeholder="à¸£à¸²à¸„à¸²/à¸«à¸™à¹ˆà¸§à¸¢"
-                      value={item.unit_price || ""}
-                      onChange={(e) =>
-                        updateLineItem(item.id, "unit_price", parseFloat(e.target.value) || 0)
-                      }
-                      className="w-[100px]"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="à¸ˆà¸³à¸™à¸§à¸™"
-                      value={item.quantity || ""}
-                      onChange={(e) =>
-                        updateLineItem(item.id, "quantity", parseFloat(e.target.value) || 0)
-                      }
-                      className="w-[64px]"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="%à¸¥à¸”"
-                      value={item.discount_percent || ""}
-                      onChange={(e) =>
-                        updateLineItem(item.id, "discount_percent", parseFloat(e.target.value) || 0)
-                      }
-                      className="w-[68px]"
-                    />
-                    <Input
-                      placeholder="à¸«à¸™à¹ˆà¸§à¸¢"
-                      value={item.unit}
-                      onChange={(e) => updateLineItem(item.id, "unit", e.target.value)}
-                      className="w-[72px]"
-                    />
-                    <div className="flex-1 text-right text-xs font-medium text-gray-700 min-w-[70px]">
+                  <div className="flex gap-1 items-start">
+                    <label className="w-[100px]">
+                      <span className="text-[10px] text-gray-400 block mb-0.5">à¸£à¸²à¸„à¸²</span>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={item.unit_price || ""}
+                        onChange={(e) =>
+                          updateLineItem(item.id, "unit_price", parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full"
+                      />
+                    </label>
+                    <label className="w-[64px]">
+                      <span className="text-[10px] text-gray-400 block mb-0.5">à¸ˆà¸³à¸™à¸§à¸™</span>
+                      <Input
+                        type="number"
+                        placeholder="1"
+                        min="0"
+                        value={item.quantity || ""}
+                        onChange={(e) =>
+                          updateLineItem(item.id, "quantity", parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full"
+                      />
+                    </label>
+                    <label className="w-[68px]">
+                      <span className="text-[10px] text-gray-400 block mb-0.5">à¸ªà¹ˆà¸§à¸™à¸¥à¸”</span>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        min="0"
+                        max="100"
+                        value={item.discount_percent || ""}
+                        onChange={(e) =>
+                          updateLineItem(item.id, "discount_percent", parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full"
+                      />
+                    </label>
+                    <label className="w-[72px]">
+                      <span className="text-[10px] text-gray-400 block mb-0.5">à¸«à¸™à¹ˆà¸§à¸¢</span>
+                      <Input
+                        placeholder="à¸Šà¸´à¹‰à¸™"
+                        value={item.unit}
+                        onChange={(e) => updateLineItem(item.id, "unit", e.target.value)}
+                        className="w-full"
+                      />
+                    </label>
+                    <div className="flex-1 text-right text-xs font-medium text-gray-700 min-w-[70px] pt-[22px]">
                       à¸¿{calculateLineAmounts(item).lineTotal.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                       })}
                     </div>
                     {lineItems.length > 1 && (
                       <button
-                        className="text-gray-400 hover:text-red-500 px-1 text-sm"
+                        className="text-gray-400 hover:text-red-500 px-1 text-sm pt-[22px]"
                         onClick={() => removeLineItem(item.id)}
                       >
                         Ã—
