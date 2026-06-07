@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { CatalogSearch } from "./CatalogSearch";
 import { CatalogTypeTabs } from "./CatalogTypeTabs";
 import { ItemCard } from "./ItemCard";
+import { StockReportTable } from "./StockReportTable";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { isLowStock, isOutOfStock, baseToCartons } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS } from "./constants";
 import { supabase } from "../../lib/supabase";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, LayoutGrid, Table2 } from "lucide-react";
 import type { Item, StockMovement } from "../../types";
 
 type TabKey = "all" | "product" | "service";
@@ -25,6 +26,7 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [exportingMovements, setExportingMovements] = useState(false);
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   const filtered = useMemo(() => {
     let result = items;
@@ -200,6 +202,22 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
         <div className="flex-1">
           <CatalogSearch value={search} onChange={setSearch} />
         </div>
+        <div className="flex items-center rounded-lg border border-[#E8E6DF] overflow-hidden shrink-0">
+          <button
+            className={`px-2 py-1.5 text-xs transition-colors ${viewMode === "card" ? "bg-primary/10 text-primary" : "text-gray-400 hover:text-gray-600"}`}
+            onClick={() => setViewMode("card")}
+            title="การ์ด"
+          >
+            <LayoutGrid size={14} />
+          </button>
+          <button
+            className={`px-2 py-1.5 text-xs transition-colors border-l border-[#E8E6DF] ${viewMode === "table" ? "bg-primary/10 text-primary" : "text-gray-400 hover:text-gray-600"}`}
+            onClick={() => setViewMode("table")}
+            title="ตาราง"
+          >
+            <Table2 size={14} />
+          </button>
+        </div>
         <Button
           variant="secondary"
           size="sm"
@@ -244,50 +262,75 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
           />
         )
       ) : isFiltering ? (
-        <div className="space-y-2">
-          {filtered.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              onTap={(it) => navigate(`/catalog/${it.id}`)}
-            />
-          ))}
-        </div>
+        viewMode === "table" ? (
+          <StockReportTable items={filtered} />
+        ) : (
+          <div className="space-y-2">
+            {filtered.map((item) => (
+              <ItemCard
+                key={item.id}
+                item={item}
+                onTap={(it) => navigate(`/catalog/${it.id}`)}
+              />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="space-y-4">
-          {productItems.length > 0 && (
-            <div>
-              <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
-                สินค้า
+        (viewMode === "table" ? (
+          <div className="space-y-4">
+            {productItems.length > 0 && (
+              <div>
+                <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+                  สินค้า
+                </div>
+                <StockReportTable items={productItems} />
               </div>
-              <div className="space-y-2">
-                {productItems.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    onTap={(it) => navigate(`/catalog/${it.id}`)}
-                  />
-                ))}
+            )}
+            {services.length > 0 && (
+              <div>
+                <div className="text-[11px] uppercase font-semibold text-[#888780] py-2 mt-4">
+                  บริการ
+                </div>
+                <StockReportTable items={services} startIndex={productItems.length} />
               </div>
-            </div>
-          )}
-          {services.length > 0 && (
-            <div>
-              <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
-                บริการ
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {productItems.length > 0 && (
+              <div>
+                <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+                  สินค้า
+                </div>
+                <div className="space-y-2">
+                  {productItems.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      onTap={(it) => navigate(`/catalog/${it.id}`)}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="space-y-2">
-                {services.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    onTap={(it) => navigate(`/catalog/${it.id}`)}
-                  />
-                ))}
+            )}
+            {services.length > 0 && (
+              <div>
+                <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+                  บริการ
+                </div>
+                <div className="space-y-2">
+                  {services.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      onTap={(it) => navigate(`/catalog/${it.id}`)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        ))
       )}
     </div>
   );
