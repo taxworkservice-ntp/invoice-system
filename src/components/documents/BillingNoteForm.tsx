@@ -470,7 +470,9 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       }
 
       if (options?.navigateToDetail) {
-        navigate(`/documents/${savedDoc.id}`);
+        const targetDealId = savedDoc.deal_id || dealId || currentDeal?.id;
+        if (targetDealId) navigate(`/deals/${targetDealId}`);
+        else navigate(`/documents/${savedDoc.id}`);
       }
 
       return savedDoc as Document;
