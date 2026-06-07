@@ -95,7 +95,7 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
 
       const { data: movements, error } = await supabase
         .from("stock_movements")
-        .select("*, document:documents(doc_number)")
+        .select("*")
         .eq("user_id", userId)
         .gte("created_at", startOfMonth)
         .order("created_at", { ascending: false });
@@ -104,6 +104,18 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
       if (!movements || movements.length === 0) {
         alert("ไม่มีประวัติเคลื่อนไหวในเดือนนี้");
         return;
+      }
+
+      const docIds = [...new Set(movements.map((m: any) => m.document_id).filter(Boolean))];
+      let docMap: Map<string, string> = new Map();
+      if (docIds.length > 0) {
+        const { data: docs } = await supabase
+          .from("documents")
+          .select("id, doc_number")
+          .in("id", docIds);
+        if (docs) {
+          docMap = new Map(docs.map((d: any) => [d.id, d.doc_number]));
+        }
       }
 
       const itemMap = new Map(items.map((i) => [i.id, i]));
@@ -124,7 +136,7 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
           qtyStr,
           balanceStr,
           m.reason || "",
-          m.document?.doc_number || "",
+          docMap.get(m.document_id) || "",
         ];
       });
 
