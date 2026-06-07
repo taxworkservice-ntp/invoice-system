@@ -15,6 +15,7 @@ export default function CatalogPage() {
         items={items}
         loading={loading}
         onAdd={() => navigate("/catalog/new")}
+        userId={profile?.id}
       />
     </AppShell>
   );

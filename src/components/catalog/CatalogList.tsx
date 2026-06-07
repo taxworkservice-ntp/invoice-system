@@ -6,8 +6,10 @@ import { ItemCard } from "./ItemCard";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { formatMixedStock, isLowStock, isOutOfStock } from "../../lib/stock";
-import { Download } from "lucide-react";
-import type { Item } from "../../types";
+import { MOVEMENT_TYPE_LABELS } from "./constants";
+import { supabase } from "../../lib/supabase";
+import { Download, FileText } from "lucide-react";
+import type { Item, StockMovement } from "../../types";
 
 type TabKey = "all" | "product" | "service";
 
@@ -15,12 +17,14 @@ interface Props {
   items: Item[];
   loading: boolean;
   onAdd: () => void;
+  userId?: string;
 }
 
-export function CatalogList({ items, loading, onAdd }: Props) {
+export function CatalogList({ items, loading, onAdd, userId }: Props) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [exportingMovements, setExportingMovements] = useState(false);
 
   const filtered = useMemo(() => {
     let result = items;
@@ -81,6 +85,67 @@ export function CatalogList({ items, loading, onAdd }: Props) {
     URL.revokeObjectURL(url);
   }
 
+  async function handleExportMovementsCSV() {
+    if (!userId) return;
+    setExportingMovements(true);
+
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+      const { data: movements, error } = await supabase
+        .from("stock_movements")
+        .select("*, document:documents(doc_number)")
+        .eq("user_id", userId)
+        .gte("created_at", startOfMonth)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      if (!movements || movements.length === 0) {
+        alert("ไม่มีประวัติเคลื่อนไหวในเดือนนี้");
+        return;
+      }
+
+      const itemMap = new Map(items.map((i) => [i.id, i]));
+
+      const headers = ["วันที่", "รายการ", "ประเภท", "จำนวน", "คงเหลือ", "หมายเหตุ", "เอกสาร"];
+      const rows = movements.map((m: any) => {
+        const item = itemMap.get(m.item_id);
+        const itemName = item?.name || m.item_id;
+        const qtyStr = m.qty_base > 0
+          ? `+${formatMixedStock(m.qty_base, item?.base_unit || "ชิ้น", item?.carton_unit, item?.qty_per_carton)}`
+          : formatMixedStock(m.qty_base, item?.base_unit || "ชิ้น", item?.carton_unit, item?.qty_per_carton);
+        const balanceStr = formatMixedStock(m.balance_after, item?.base_unit || "ชิ้น", item?.carton_unit, item?.qty_per_carton);
+
+        return [
+          new Date(m.created_at).toLocaleDateString("th-TH"),
+          itemName,
+          MOVEMENT_TYPE_LABELS[m.movement_type] || m.movement_type,
+          qtyStr,
+          balanceStr,
+          m.reason || "",
+          m.document?.doc_number || "",
+        ];
+      });
+
+      const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      a.download = `stock_movements_${monthStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setExportingMovements(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -119,6 +184,17 @@ export function CatalogList({ items, loading, onAdd }: Props) {
         >
           <Download size={14} className="mr-1" />
           CSV
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleExportMovementsCSV}
+          loading={exportingMovements}
+          disabled={exportingMovements || !userId}
+          className="!rounded-lg shrink-0"
+        >
+          <FileText size={14} className="mr-1" />
+          ประวัติ
         </Button>
         <Button onClick={onAdd} size="sm" className="!rounded-lg shrink-0">
           + เพิ่ม
