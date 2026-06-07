@@ -766,7 +766,7 @@ export default function NewDealPage() {
                     />
                   </div>
                   <div className="flex gap-1 items-start">
-                    <label className="w-[100px]">
+                    <label className="w-[100px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">ราคา</span>
                       <Input
                         type="number"
@@ -778,7 +778,7 @@ export default function NewDealPage() {
                         className="w-full"
                       />
                     </label>
-                    <label className="w-[64px]">
+                    <label className="w-[64px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">จำนวน</span>
                       <Input
                         type="number"
@@ -791,7 +791,7 @@ export default function NewDealPage() {
                         className="w-full"
                       />
                     </label>
-                    <label className="w-[68px]">
+                    <label className="w-[68px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">ส่วนลด</span>
                       <Input
                         type="number"
@@ -805,7 +805,7 @@ export default function NewDealPage() {
                         className="w-full"
                       />
                     </label>
-                    <label className="w-[72px]">
+                    <label className="w-[72px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">หน่วย</span>
                       <Input
                         placeholder="ชิ้น"
