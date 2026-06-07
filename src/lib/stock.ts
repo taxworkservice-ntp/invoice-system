@@ -49,6 +49,32 @@ export function formatMixedStock(
   return parts.join(" ");
 }
 
+export function formatBaseWithCartonHint(
+  stockBase: number,
+  baseUnit: string,
+  cartonUnit?: string | null,
+  qtyPerCarton?: number | null,
+): string {
+  const baseStr = `${formatStockNumber(stockBase)} ${baseUnit}`;
+
+  if (!cartonUnit || !qtyPerCarton || qtyPerCarton <= 0) {
+    return baseStr;
+  }
+
+  const cartonStr = formatMixedStock(
+    stockBase,
+    baseUnit,
+    cartonUnit,
+    qtyPerCarton,
+  );
+
+  if (cartonStr === baseStr) {
+    return baseStr;
+  }
+
+  return `${baseStr} (หรือ ${cartonStr})`;
+}
+
 export function formatStock(
   stockBase: number,
   baseUnit: string,
@@ -158,10 +184,10 @@ export async function deductStockOnDocumentSent(
 
     const reasonLabel =
       document.doc_type === "delivery_note"
-        ? "เนเธเธชเนเธเธเธญเธ"
+        ? "ใบส่งของ"
         : document.doc_type === "tax_invoice_receipt"
-          ? "เนเธเธเธณเธเธฑเธเธ เธฒเธฉเธต/เนเธเน€เธชเธฃเนเธเธฃเธฑเธเน€เธเธดเธ"
-          : "เนเธเนเธเนเธเธซเธเธตเน";
+          ? "ใบกำกับภาษี/ใบเสร็จรับเงิน"
+          : "ใบแจ้งหนี้";
 
     await supabase.from("stock_movements").insert({
       item_id: li.item_id,
@@ -171,7 +197,7 @@ export async function deductStockOnDocumentSent(
       qty_carton: li.qty_carton ? -li.qty_carton : null,
       carton_unit: li.carton_unit || null,
       balance_after: finalStock,
-      reason: `เธ•เธฑเธ”เธชเธ•เนเธญเธเธเธฒเธ${reasonLabel} ${document.doc_number}`,
+      reason: `ตัดสต็อกจาก${reasonLabel} ${document.doc_number}`,
       document_id: documentId,
     });
   }
@@ -225,7 +251,7 @@ export async function restoreStockOnVoid(
       qty_carton: li.qty_carton || null,
       carton_unit: li.carton_unit || null,
       balance_after: newStock,
-      reason: `เธเธทเธเธชเธ•เนเธญเธเธเธฒเธเธเธฒเธฃเธขเธเน€เธฅเธดเธ ${docNumber}`,
+      reason: `คืนสต็อกจากการยกเลิกเอกสาร ${docNumber}`,
       document_id: voidedDocumentId,
     });
   }
@@ -297,7 +323,7 @@ export async function manualStockOut(
     movement_type: "manual_out",
     qty_base: -qtyBase,
     balance_after: finalStock,
-    reason: reason || "เธ•เธฑเธ”เธชเธ•เนเธญเธเธ”เนเธงเธขเธ•เธเน€เธญเธ",
+    reason: reason || "ตัดสต็อกด้วยตนเอง",
     document_id: null,
   });
 }

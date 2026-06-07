@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { StockMovement, Item } from "../../types";
 import { formatBuddhistDate } from "../../lib/dates";
-import { formatMixedStock } from "../../lib/stock";
+import { formatBaseWithCartonHint, formatMixedStock } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS, MOVEMENT_TYPE_ICONS } from "./constants";
 
 interface Props {
@@ -40,21 +40,21 @@ export function StockMovementRow({ movement, item }: Props) {
   const displayQty = Math.abs(movement.qty_base);
 
   return (
-    <div className="py-3 border-b border-[#F1EFE8] last:border-b-0">
+    <div className="border-b border-[#F1EFE8] py-3 last:border-b-0">
       <div className="flex items-start gap-3">
         <span
-          className={`text-lg shrink-0 leading-none mt-0.5 ${typeConfig.iconColor}`}
+          className={`mt-0.5 shrink-0 text-lg leading-none ${typeConfig.iconColor}`}
         >
           {MOVEMENT_TYPE_ICONS[movement.movement_type] || "+"}
         </span>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-medium text-[#1A1A18]">
               {MOVEMENT_TYPE_LABELS[movement.movement_type] ||
                 movement.movement_type}
             </span>
             <span
-              className={`text-[13px] font-semibold shrink-0 ml-3 ${typeConfig.qtyColor}`}
+              className={`ml-3 shrink-0 text-[13px] font-semibold ${typeConfig.qtyColor}`}
             >
               {isIn ? "+" : "-"}
               {formatMixedStock(
@@ -65,7 +65,7 @@ export function StockMovementRow({ movement, item }: Props) {
               )}
             </span>
           </div>
-          <div className="flex items-center justify-between mt-0.5">
+          <div className="mt-0.5 flex items-center justify-between">
             <span className="text-[11px] text-[#888780]">
               {formatBuddhistDate(movement.created_at)}
             </span>
@@ -80,7 +80,7 @@ export function StockMovementRow({ movement, item }: Props) {
             </span>
           </div>
           {movement.reason && (
-            <div className="text-[11px] text-[#AAAAAA] italic mt-0.5 truncate">
+            <div className="mt-0.5 truncate text-[11px] italic text-[#AAAAAA]">
               {movement.reason}
             </div>
           )}
@@ -88,14 +88,20 @@ export function StockMovementRow({ movement, item }: Props) {
             <button
               type="button"
               onClick={() => navigate(`/documents/${movement.document_id}`)}
-              className="text-[11px] text-[#378ADD] hover:underline mt-0.5"
+              className="mt-0.5 text-[11px] text-[#378ADD] hover:underline"
             >
               เอกสาร: {movement.document_id.slice(0, 8)}...
             </button>
           )}
           {movement.qty_carton && movement.carton_unit && (
-            <div className="text-[11px] text-[#888780] mt-0.5">
-              รวม {displayQty} {item.base_unit}
+            <div className="mt-0.5 text-[11px] text-[#888780]">
+              รวม{" "}
+              {formatBaseWithCartonHint(
+                displayQty,
+                item.base_unit,
+                item.carton_unit,
+                item.qty_per_carton,
+              )}
             </div>
           )}
         </div>
