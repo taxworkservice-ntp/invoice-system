@@ -1,4 +1,4 @@
-import { baseToCartons } from "../../lib/stock";
+import { formatMixedStock } from "../../lib/stock";
 
 interface Props {
   value: number | string;
@@ -37,7 +37,7 @@ export function StockInitialField({
       </div>
       {hasCarton && numValue > 0 && (
         <div className="text-[11px] text-[#888780]">
-          (= {baseToCartons(numValue, qtyPerCarton!)} {cartonUnit})
+          (= {formatMixedStock(numValue, baseUnit, cartonUnit, qtyPerCarton)})
         </div>
       )}
     </div>

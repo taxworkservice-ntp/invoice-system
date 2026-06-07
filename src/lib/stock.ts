@@ -12,16 +12,52 @@ export function baseToCartons(base: number, qtyPerCarton: number): number {
   return round3(base / qtyPerCarton);
 }
 
+function formatStockNumber(value: number): string {
+  if (Number.isInteger(value)) {
+    return value.toLocaleString("th-TH");
+  }
+
+  return round3(value).toLocaleString("th-TH", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  });
+}
+
+export function formatMixedStock(
+  stockBase: number,
+  baseUnit: string,
+  cartonUnit?: string | null,
+  qtyPerCarton?: number | null,
+): string {
+  if (!cartonUnit || !qtyPerCarton || qtyPerCarton <= 0) {
+    return `${formatStockNumber(stockBase)} ${baseUnit}`;
+  }
+
+  const normalizedStock = round3(stockBase);
+  const fullCartons = Math.floor(normalizedStock / qtyPerCarton);
+  const remainderBase = round3(normalizedStock - fullCartons * qtyPerCarton);
+  const parts: string[] = [];
+
+  if (fullCartons > 0) {
+    parts.push(`${formatStockNumber(fullCartons)} ${cartonUnit}`);
+  }
+
+  if (remainderBase > 0 || parts.length === 0) {
+    parts.push(`${formatStockNumber(remainderBase)} ${baseUnit}`);
+  }
+
+  return parts.join(" ");
+}
+
 export function formatStock(
   stockBase: number,
   baseUnit: string,
   cartonUnit?: string | null,
   qtyPerCarton?: number | null,
 ): string {
-  const baseStr = `${stockBase} ${baseUnit}`;
+  const baseStr = `${formatStockNumber(stockBase)} ${baseUnit}`;
   if (!cartonUnit || !qtyPerCarton || qtyPerCarton <= 0) return baseStr;
-  const cartons = baseToCartons(stockBase, qtyPerCarton);
-  return `${baseStr} (${cartons} ${cartonUnit})`;
+  return `${formatMixedStock(stockBase, baseUnit, cartonUnit, qtyPerCarton)} (${baseStr})`;
 }
 
 export function isLowStock(stockCount: number, threshold: number): boolean {
@@ -64,7 +100,9 @@ export async function deductStockOnDocumentSent(
   if (!document) return { warnings: [] };
 
   const shouldDeduct =
-    (trigger === "invoice" && (document.doc_type === "invoice" || document.doc_type === "tax_invoice_receipt")) ||
+    (trigger === "invoice" &&
+      (document.doc_type === "invoice" ||
+        document.doc_type === "tax_invoice_receipt")) ||
     (trigger === "delivery_note" && document.doc_type === "delivery_note");
 
   if (!shouldDeduct) return { warnings: [] };
@@ -111,10 +149,10 @@ export async function deductStockOnDocumentSent(
 
     const reasonLabel =
       document.doc_type === "delivery_note"
-        ? "ใบส่งของ"
+        ? "เนเธเธชเนเธเธเธญเธ"
         : document.doc_type === "tax_invoice_receipt"
-          ? "ใบกำกับภาษี/ใบเสร็จรับเงิน"
-          : "ใบแจ้งหนี้";
+          ? "เนเธเธเธณเธเธฑเธเธ เธฒเธฉเธต/เนเธเน€เธชเธฃเนเธเธฃเธฑเธเน€เธเธดเธ"
+          : "เนเธเนเธเนเธเธซเธเธตเน";
 
     await supabase.from("stock_movements").insert({
       item_id: li.item_id,
@@ -124,7 +162,7 @@ export async function deductStockOnDocumentSent(
       qty_carton: li.qty_carton ? -li.qty_carton : null,
       carton_unit: li.carton_unit || null,
       balance_after: finalStock,
-      reason: `ตัดสต็อกจาก${reasonLabel} ${document.doc_number}`,
+      reason: `เธ•เธฑเธ”เธชเธ•เนเธญเธเธเธฒเธ${reasonLabel} ${document.doc_number}`,
       document_id: documentId,
     });
   }
@@ -177,7 +215,7 @@ export async function restoreStockOnVoid(
       qty_carton: li.qty_carton || null,
       carton_unit: li.carton_unit || null,
       balance_after: newStock,
-      reason: `คืนสต็อกจากการยกเลิก ${docNumber}`,
+      reason: `เธเธทเธเธชเธ•เนเธญเธเธเธฒเธเธเธฒเธฃเธขเธเน€เธฅเธดเธ ${docNumber}`,
       document_id: voidedDocumentId,
     });
   }
@@ -249,7 +287,7 @@ export async function manualStockOut(
     movement_type: "manual_out",
     qty_base: -qtyBase,
     balance_after: finalStock,
-    reason: reason || "ตัดสต็อกด้วยตนเอง",
+    reason: reason || "เธ•เธฑเธ”เธชเธ•เนเธญเธเธ”เนเธงเธขเธ•เธเน€เธญเธ",
     document_id: null,
   });
 }

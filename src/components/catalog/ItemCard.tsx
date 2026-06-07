@@ -1,6 +1,6 @@
 import type { Item } from "../../types";
 import { formatCurrency } from "../../lib/format";
-import { baseToCartons } from "../../lib/stock";
+import { formatMixedStock } from "../../lib/stock";
 
 interface Props {
   item: Item;
@@ -15,7 +15,11 @@ export function ItemCard({ item, onTap }: Props) {
     item.stock_count > 0 &&
     item.low_stock_threshold > 0 &&
     item.stock_count <= item.low_stock_threshold;
-  const hasCarton = !!(item.carton_unit && item.qty_per_carton && item.qty_per_carton > 0);
+  const hasCarton = !!(
+    item.carton_unit &&
+    item.qty_per_carton &&
+    item.qty_per_carton > 0
+  );
 
   return (
     <div
@@ -41,7 +45,8 @@ export function ItemCard({ item, onTap }: Props) {
           </div>
           {hasCarton && (
             <div className="text-[11px] text-[#888780]">
-              ฿ {formatCurrency(item.unit_price * item.qty_per_carton!)} / {item.carton_unit}
+              ฿ {formatCurrency(item.unit_price * item.qty_per_carton!)} /{" "}
+              {item.carton_unit}
             </div>
           )}
         </div>
@@ -50,20 +55,27 @@ export function ItemCard({ item, onTap }: Props) {
       <div className="flex items-center gap-2 mt-2">
         <span
           className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-            isProduct ? "bg-[#E6F1FB] text-[#0C447C]" : "bg-[#F1EFE8] text-[#888780]"
+            isProduct
+              ? "bg-[#E6F1FB] text-[#0C447C]"
+              : "bg-[#F1EFE8] text-[#888780]"
           }`}
         >
           {isProduct ? "สินค้า" : "บริการ"}
         </span>
         {isProduct && (
-          <span className={`text-[12px] ${isOut ? "text-[#C0392B] font-medium" : "text-[#888780]"}`}>
+          <span
+            className={`text-[12px] ${
+              isOut ? "text-[#C0392B] font-medium" : "text-[#888780]"
+            }`}
+          >
             {isOut
-              ? "สต็อก: หมดแล้ว"
-              : `สต็อก: ${item.stock_count} ${item.base_unit}${
-                  hasCarton
-                    ? ` (${baseToCartons(item.stock_count, item.qty_per_carton!)} ${item.carton_unit})`
-                    : ""
-                }`}
+              ? "สต็อก: หมด"
+              : `สต็อก: ${formatMixedStock(
+                  item.stock_count,
+                  item.base_unit,
+                  item.carton_unit,
+                  item.qty_per_carton,
+                )}`}
           </span>
         )}
       </div>
@@ -76,7 +88,7 @@ export function ItemCard({ item, onTap }: Props) {
         )}
         {isLow && !isOut && (
           <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
-            ⚠ เหลือน้อย
+            ใกล้หมด
           </span>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { baseToCartons } from "../../lib/stock";
+import { formatMixedStock } from "../../lib/stock";
 import type { Item } from "../../types";
 
 interface Props {
@@ -31,18 +31,21 @@ export function StockStatusCard({ item, onStockIn, onStockOut }: Props) {
         สต็อกปัจจุบัน
       </div>
       <div className={`text-[36px] font-bold leading-tight ${stockColor}`}>
-        {item.stock_count}{" "}
-        <span className="text-[16px] font-normal">{item.base_unit}</span>
+        {formatMixedStock(
+          item.stock_count,
+          item.base_unit,
+          item.carton_unit,
+          item.qty_per_carton,
+        )}
       </div>
       {hasCarton && (
         <div className="text-[16px] text-[#888780]">
-          ({baseToCartons(item.stock_count, item.qty_per_carton!)}{" "}
-          {item.carton_unit})
+          รวม {item.stock_count.toLocaleString("th-TH")} {item.base_unit}
         </div>
       )}
       {isLow && !isOut && (
         <span className="inline-flex mt-2 px-2 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
-          ⚠ เหลือน้อย
+          ใกล้หมด
         </span>
       )}
       {isOut && (
