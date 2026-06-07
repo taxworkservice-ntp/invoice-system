@@ -64,6 +64,7 @@ create type wht_rate as enum ('0', '1', '2', '3', '5');
 create table profiles (
   id              uuid primary key references auth.users(id) on delete cascade,
   role            user_role not null default 'client',
+  admin_notes     text,
   created_at      timestamptz not null default now()
 );
 
@@ -123,6 +124,9 @@ create table client_profiles (
   -- Signature & stamp images (R2 storage paths)
   signature_url         text,
   stamp_url             text,
+
+  -- Onboarding / account state
+  password_changed      boolean not null default true,
 
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()

@@ -15,14 +15,22 @@ export default async function handler(req, res) {
     const email = body.email?.trim();
     const companyName = body.companyName?.trim() || "";
     const adminNote = body.adminNote?.trim() || "";
+    const tempPassword = body.password?.trim() || "";
 
     if (!email) throw new ApiError(400, "Email is required");
 
-    const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+    const createUserPayload = {
       email,
-      email_confirm: false,
+      email_confirm: !tempPassword,
       user_metadata: { company_name: companyName },
-    });
+    };
+
+    if (tempPassword) {
+      createUserPayload.password = tempPassword;
+      createUserPayload.email_confirm = true;
+    }
+
+    const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser(createUserPayload);
     if (authErr) throw authErr;
 
     const newUserId = authData.user.id;
@@ -34,24 +42,26 @@ export default async function handler(req, res) {
     });
     if (profileErr) throw profileErr;
 
-    if (companyName) {
-      const { error: cpErr } = await supabaseAdmin.from("client_profiles").insert({
-        user_id: newUserId,
-        company_name_th: companyName,
-      });
+    if (companyName || tempPassword) {
+      const cpInsert = { user_id: newUserId };
+      if (companyName) cpInsert.company_name_th = companyName;
+      if (tempPassword) cpInsert.password_changed = false;
+      const { error: cpErr } = await supabaseAdmin.from("client_profiles").insert(cpInsert);
       if (cpErr) throw cpErr;
     }
 
-    try {
-      await supabaseAdmin.auth.admin.generateLink({
-        type: "invite",
-        email,
-      });
-    } catch (error) {
-      console.warn("Invite link generation failed", error);
+    if (!tempPassword) {
+      try {
+        await supabaseAdmin.auth.admin.generateLink({
+          type: "invite",
+          email,
+        });
+      } catch (error) {
+        console.warn("Invite link generation failed", error);
+      }
     }
 
-    return sendJson(res, 200, { userId: newUserId, email });
+    return sendJson(res, 200, { userId: newUserId, email, ...(tempPassword ? { tempPassword } : {}) });
   } catch (error) {
     return sendError(res, error);
   }

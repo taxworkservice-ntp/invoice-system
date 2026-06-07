@@ -59,11 +59,13 @@ export default function LoginPage() {
     } else {
       const { data: cp } = await supabase
         .from("client_profiles")
-        .select("id")
+        .select("id, password_changed")
         .eq("user_id", data.user.id)
         .single();
 
-      if (cp) {
+      if (cp && cp.password_changed === false) {
+        navigate("/set-password", { replace: true });
+      } else if (cp) {
         navigate("/home", { replace: true });
       } else {
         navigate("/setup", { replace: true });

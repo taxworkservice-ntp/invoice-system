@@ -7,6 +7,7 @@ import { supabase } from "./lib/supabase";
 const LoginPage = lazy(() => import("./app/(auth)/login"));
 const SetupPage = lazy(() => import("./app/(auth)/setup"));
 const ResetPasswordPage = lazy(() => import("./app/(auth)/reset-password"));
+const SetPasswordPage = lazy(() => import("./app/(auth)/set-password"));
 const HomePage = lazy(() => import("./app/(client)/home"));
 const NewDealPage = lazy(() => import("./app/(client)/deals/new"));
 const DealDetailPage = lazy(() => import("./app/(client)/deals/[id]"));
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/login" element={!role ? <LoginPage /> : <Navigate to={isAdmin ? "/admin/clients" : "/home"} replace />} />
         <Route path="/setup" element={<SetupPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/set-password" element={<SetPasswordPage />} />
 
         {role === "client" ? (
           <>

@@ -20,7 +20,8 @@ export async function createAdminClient(payload: {
   email: string;
   companyName: string;
   adminNote: string;
-}): Promise<{ userId: string; email: string }> {
+  password?: string;
+}): Promise<{ userId: string; email: string; tempPassword?: string }> {
   return apiFetch("/api/admin/clients/create", {
     method: "POST",
     body: JSON.stringify(payload),
