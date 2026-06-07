@@ -21,6 +21,7 @@ import type { DocumentType, Customer, WhtRate, PaymentMethod } from "../../../ty
 interface LineItemForm {
   id: string;
   item_id: string | null;
+  item_sku?: string | null;
   item_name: string;
   item_type: string;
   unit_price: number;
@@ -30,7 +31,7 @@ interface LineItemForm {
 }
 
 function createEmptyLine(): LineItemForm {
-  return { id: crypto.randomUUID(), item_id: null, item_name: "", item_type: "product", unit_price: 0, quantity: 1, discount_percent: 0, unit: "ชิ้น" };
+  return { id: crypto.randomUUID(), item_id: null, item_sku: null, item_name: "", item_type: "product", unit_price: 0, quantity: 1, discount_percent: 0, unit: "ชิ้น" };
 }
 
 interface UnpaidInvoice {
@@ -205,6 +206,7 @@ export default function NewDealPage() {
           );
           if (catalogItem) {
             updated.item_id = catalogItem.id;
+            updated.item_sku = catalogItem.sku;
             updated.item_type = catalogItem.item_type;
             updated.unit = catalogItem.base_unit;
             if (!lineItem.unit_price || lineItem.unit_price === 0) {
@@ -212,6 +214,7 @@ export default function NewDealPage() {
             }
           } else {
             updated.item_id = null;
+            updated.item_sku = null;
             updated.item_type = "product";
           }
         }
@@ -229,7 +232,7 @@ export default function NewDealPage() {
     setLineItems((prev) => prev.filter((lineItem) => lineItem.id !== id));
   };
 
-  const selectCatalogItem = (lineItemId: string, catalogItem: { id: string; name: string; item_type: string; unit_price: number; base_unit: string }) => {
+  const selectCatalogItem = (lineItemId: string, catalogItem: { id: string; sku: string | null; name: string; item_type: string; unit_price: number; base_unit: string }) => {
     setLineItems((prev) =>
       prev.map((lineItem) => {
         if (lineItem.id !== lineItemId) return lineItem;
@@ -237,6 +240,7 @@ export default function NewDealPage() {
           ...lineItem,
           item_name: catalogItem.name,
           item_id: catalogItem.id,
+          item_sku: catalogItem.sku,
           item_type: catalogItem.item_type,
           unit: catalogItem.base_unit,
           unit_price: !lineItem.unit_price || lineItem.unit_price === 0 ? catalogItem.unit_price : lineItem.unit_price,
@@ -353,6 +357,7 @@ export default function NewDealPage() {
               user_id: userId,
               item_id: lineItem.item_id,
               item_name: lineItem.item_name,
+              item_sku: lineItem.item_sku || null,
               item_type: lineItem.item_type,
               unit: lineItem.unit,
               unit_price: lineItem.unit_price,

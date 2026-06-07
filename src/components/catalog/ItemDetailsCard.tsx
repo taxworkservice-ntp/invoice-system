@@ -14,6 +14,14 @@ export function ItemDetailsCard({ item }: Props) {
 
   return (
     <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
+      {item.sku && (
+        <div className="mb-4 flex items-center justify-between rounded-[10px] border border-[#ECE8DE] bg-[#FBFAF7] px-3 py-2.5">
+          <span className="text-[12px] text-[#888780]">SKU</span>
+          <span className="text-[13px] font-semibold tracking-[0.08em] text-[#1A1A18]">
+            {item.sku}
+          </span>
+        </div>
+      )}
       <div className="divide-y divide-[#F1EFE8]">
         <div className="flex justify-between py-2.5">
           <span className="text-[12px] text-[#888780]">ราคา</span>

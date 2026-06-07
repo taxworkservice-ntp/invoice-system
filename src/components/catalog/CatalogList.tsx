@@ -24,7 +24,11 @@ export function CatalogList({ items, loading, onAdd }: Props) {
     let result = items;
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter((i) => i.name.toLowerCase().includes(q));
+      result = result.filter(
+        (i) =>
+          i.name.toLowerCase().includes(q) ||
+          i.sku?.toLowerCase().includes(q),
+      );
     }
     if (activeTab !== "all") {
       result = result.filter((i) => i.item_type === activeTab);

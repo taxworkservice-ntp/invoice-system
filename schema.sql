@@ -210,6 +210,7 @@ create table items (
   user_id             uuid not null references profiles(id) on delete cascade,
 
   name                text not null,
+  sku                 text,
   item_type           item_type not null default 'product',
   unit_price          numeric(15,2) not null default 0,
 
@@ -233,6 +234,10 @@ create policy "Client manages own items"
   on items for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create unique index idx_items_user_sku_unique
+  on items (user_id, lower(sku))
+  where sku is not null;
 
 
 -- ============================================================
@@ -386,6 +391,7 @@ create table document_line_items (
 
   -- Snapshot of item at time of save (do not rely on item table for history)
   item_name       text not null,
+  item_sku        text,
   item_type       item_type not null default 'service',
   unit            text not null default 'ชิ้น',
   unit_price      numeric(15,2) not null,

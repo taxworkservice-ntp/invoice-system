@@ -24,6 +24,7 @@ interface CreditNoteFormProps {
 interface CreditItem {
   key: string;
   itemId: string;
+  itemSku?: string | null;
   itemName: string;
   itemType: "product" | "service";
   unit: string;
@@ -158,6 +159,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         (lines as DocumentLineItem[]).map((l) => ({
           key: uid(),
           itemId: l.item_id || "",
+          itemSku: l.item_sku || null,
           itemName: l.item_name,
           itemType: l.item_type,
           unit: l.unit,
@@ -192,6 +194,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         (lines || []).map((l: any) => ({
           key: uid(),
           itemId: l.item_id || "",
+          itemSku: l.item_sku || null,
           itemName: l.item_name,
           itemType: l.item_type,
           unit: l.unit,
@@ -244,6 +247,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       {
         key: uid(),
         itemId: cat.id,
+        itemSku: cat.sku,
         itemName: cat.name,
         itemType: cat.item_type,
         unit: cat.base_unit,
@@ -353,6 +357,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
               user_id: userId,
               item_id: it.itemId || null,
               item_name: it.itemName,
+              item_sku: it.itemSku || null,
               item_type: it.itemType,
               unit: it.unit,
               unit_price: it.unitPrice,

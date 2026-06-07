@@ -93,6 +93,7 @@ export interface Item {
   id: string;
   user_id: string;
   name: string;
+  sku: string | null;
   item_type: ItemType;
   unit_price: number;
   base_unit: string;
@@ -172,6 +173,7 @@ export interface DocumentLineItem {
   user_id: string;
   item_id: string | null;
   item_name: string;
+  item_sku: string | null;
   item_type: ItemType;
   unit: string;
   unit_price: number;

@@ -28,7 +28,8 @@ export function CatalogAutocomplete({
 
   const filtered = value.trim()
     ? items.filter((item) =>
-        item.name.toLowerCase().includes(value.trim().toLowerCase()),
+        item.name.toLowerCase().includes(value.trim().toLowerCase()) ||
+        item.sku?.toLowerCase().includes(value.trim().toLowerCase()),
       )
     : items.slice(0, 8);
 
@@ -152,7 +153,14 @@ export function CatalogAutocomplete({
                   <Package size={12} />
                 )}
               </span>
-              <span className="flex-1 truncate">{item.name}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate">{item.name}</div>
+                {item.sku && (
+                  <div className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
+                    {item.sku}
+                  </div>
+                )}
+              </div>
               <span className="shrink-0 text-xs text-gray-400">
                 ฿{item.unit_price.toLocaleString()}
               </span>

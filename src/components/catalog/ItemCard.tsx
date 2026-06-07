@@ -24,6 +24,13 @@ export function ItemCard({ item, onTap }: Props) {
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0 pr-3">
+          {item.sku && (
+            <div className="mb-1">
+              <span className="inline-flex rounded-full border border-[#E3DDD0] bg-[#F7F3EA] px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-[#7A5C1B]">
+                {item.sku}
+              </span>
+            </div>
+          )}
           <div className="text-[14px] font-semibold text-[#1A1A18] truncate">
             {item.name}
           </div>
