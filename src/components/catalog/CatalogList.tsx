@@ -5,7 +5,7 @@ import { CatalogTypeTabs } from "./CatalogTypeTabs";
 import { ItemCard } from "./ItemCard";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
-import { formatMixedStock, isLowStock, isOutOfStock } from "../../lib/stock";
+import { isLowStock, isOutOfStock, baseToCartons } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS } from "./constants";
 import { supabase } from "../../lib/supabase";
 import { Download, FileText } from "lucide-react";
@@ -55,22 +55,37 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
   function handleExportCSV() {
     if (productItems.length === 0) return;
 
-    const headers = ["ชื่อสินค้า", "SKU", "สต็อกปัจจุบัน", "หน่วยนับ", "จุดแจ้งเตือน", "สถานะ", "ราคาต่อหน่วย", "มูลค่าสต็อก"];
+    const hasCartonItems = productItems.some((i) => i.carton_unit && i.qty_per_carton);
+    const headers = ["ชื่อสินค้า", "SKU", "สต็อกรวม", "หน่วยนับ"];
+    if (hasCartonItems) headers.push("จำนวนลัง", "หน่วยลัง");
+    headers.push("จุดแจ้งเตือน", "สถานะ", "ราคาต่อหน่วย", "มูลค่าสต็อก");
+
     const rows = productItems.map((item) => {
       let status = "ปกติ";
       if (isOutOfStock(item.stock_count)) status = "หมด";
       else if (isLowStock(item.stock_count, item.low_stock_threshold)) status = "ใกล้หมด";
 
-      return [
+      const cartonCount = item.carton_unit && item.qty_per_carton
+        ? baseToCartons(item.stock_count, item.qty_per_carton)
+        : null;
+
+      const row: string[] = [
         item.name,
         item.sku || "",
-        formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton),
+        item.stock_count.toString(),
         item.base_unit,
+      ];
+      if (hasCartonItems) {
+        row.push(cartonCount != null ? cartonCount.toString() : "");
+        row.push(item.carton_unit || "");
+      }
+      row.push(
         item.low_stock_threshold.toString(),
         status,
         item.unit_price.toFixed(2),
         (item.stock_count * item.unit_price).toFixed(2),
-      ];
+      );
+      return row;
     });
 
     const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
@@ -120,21 +135,19 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
 
       const itemMap = new Map(items.map((i) => [i.id, i]));
 
-      const headers = ["วันที่", "รายการ", "ประเภท", "จำนวน", "คงเหลือ", "หมายเหตุ", "เอกสาร"];
+      const headers = ["วันที่", "รายการ", "ประเภท", "ปริมาณ", "หน่วย", "คงเหลือ", "หมายเหตุ", "เอกสาร"];
       const rows = movements.map((m: any) => {
         const item = itemMap.get(m.item_id);
         const itemName = item?.name || m.item_id;
-        const qtyStr = m.qty_base > 0
-          ? `+${formatMixedStock(m.qty_base, item?.base_unit || "ชิ้น", item?.carton_unit, item?.qty_per_carton)}`
-          : formatMixedStock(m.qty_base, item?.base_unit || "ชิ้น", item?.carton_unit, item?.qty_per_carton);
-        const balanceStr = formatMixedStock(m.balance_after, item?.base_unit || "ชิ้น", item?.carton_unit, item?.qty_per_carton);
+        const unit = item?.base_unit || "ชิ้น";
 
         return [
           new Date(m.created_at).toLocaleDateString("th-TH"),
           itemName,
           MOVEMENT_TYPE_LABELS[m.movement_type] || m.movement_type,
-          qtyStr,
-          balanceStr,
+          m.qty_base.toString(),
+          unit,
+          m.balance_after.toString(),
           m.reason || "",
           docMap.get(m.document_id) || "",
         ];
