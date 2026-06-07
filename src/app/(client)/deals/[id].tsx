@@ -16,7 +16,14 @@ import { generateDocNumberBE } from "../../../lib/docNumber";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { isHtmlPrintTemplate } from "../../../lib/print";
-import { buildReceiptBackdateFields, isPastDate, toLocalMiddayIso, todayString } from "../../../lib/receiptBackdating";
+import {
+  buildReceiptBackdateFields,
+  composeReceiptBackdateReason,
+  isPastDate,
+  RECEIPT_BACKDATE_REASON_OPTIONS,
+  toLocalMiddayIso,
+  todayString,
+} from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
@@ -120,6 +127,7 @@ export default function DealDetailPage() {
   const [whtCertificateNo, setWhtCertificateNo] = useState("");
   const [paymentDate, setPaymentDate] = useState(todayString());
   const [paymentBackdateReason, setPaymentBackdateReason] = useState("");
+  const [paymentBackdateNote, setPaymentBackdateNote] = useState("");
   const [paying, setPaying] = useState(false);
 
   const [confirmConvertDoc, setConfirmConvertDoc] = useState<Document | null>(null);
@@ -416,13 +424,14 @@ export default function DealDetailPage() {
     setWhtCertificateNo("");
     setPaymentDate(todayString());
     setPaymentBackdateReason("");
+    setPaymentBackdateNote("");
     setPaymentModalOpen(true);
   };
 
   const handleConfirmPayment = async () => {
     if (!payDocument || !userId || !dealId) return;
-    if (isPastDate(paymentDate) && !paymentBackdateReason.trim()) {
-      toast.error("กรุณาระบุเหตุผลในการออกใบเสร็จย้อนหลัง");
+    if (isPastDate(paymentDate) && !paymentBackdateReason) {
+      toast.error("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
       return;
     }
     setPaying(true);
@@ -431,7 +440,7 @@ export default function DealDetailPage() {
       const receiptBackdateFields = buildReceiptBackdateFields({
         selectedDate: paymentDate,
         userId,
-        reason: paymentBackdateReason,
+        reason: composeReceiptBackdateReason(paymentBackdateReason, paymentBackdateNote),
       });
 
       await supabase
@@ -490,6 +499,7 @@ export default function DealDetailPage() {
       setPaymentModalOpen(false);
       setPayDocument(null);
       setPaymentBackdateReason("");
+      setPaymentBackdateNote("");
       fetchDealData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -1311,11 +1321,24 @@ export default function DealDetailPage() {
                   </p>
                   <div className="mt-3">
                     <label className="mb-1 block text-xs font-medium text-amber-900">เหตุผลในการออกย้อนหลัง</label>
-                    <textarea
+                    <select
                       value={paymentBackdateReason}
                       onChange={(e) => setPaymentBackdateReason(e.target.value)}
+                      className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    >
+                      <option value="">เลือกเหตุผล</option>
+                      {RECEIPT_BACKDATE_REASON_OPTIONS.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mt-3">
+                    <label className="mb-1 block text-xs font-medium text-amber-900">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
+                    <textarea
+                      value={paymentBackdateNote}
+                      onChange={(e) => setPaymentBackdateNote(e.target.value)}
                       rows={3}
-                      placeholder="เช่น รับเงินเมื่อ 2 วันก่อน แต่เพิ่งเข้ามาบันทึกและออกใบเสร็จวันนี้"
+                      placeholder="รายละเอียดเพิ่มเติม เช่น วันที่ได้รับสลิป หรือข้อมูลที่ต้องการให้ทีมบัญชีเห็น"
                       className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
                     />
                   </div>

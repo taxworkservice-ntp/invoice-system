@@ -19,7 +19,14 @@ import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { isHtmlPrintTemplate } from "../../../lib/print";
-import { buildReceiptBackdateFields, isPastDate, toLocalMiddayIso, todayString } from "../../../lib/receiptBackdating";
+import {
+  buildReceiptBackdateFields,
+  composeReceiptBackdateReason,
+  isPastDate,
+  RECEIPT_BACKDATE_REASON_OPTIONS,
+  toLocalMiddayIso,
+  todayString,
+} from "../../../lib/receiptBackdating";
 import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile } from "../../../types";
 import type { PDFData } from "../../../lib/pdf";
 import type jsPDF from "jspdf";
@@ -88,6 +95,7 @@ export default function DocumentDetailPage() {
   const [payWhtCert, setPayWhtCert] = useState("");
   const [payDate, setPayDate] = useState(todayString());
   const [payBackdateReason, setPayBackdateReason] = useState("");
+  const [payBackdateNote, setPayBackdateNote] = useState("");
   const [paying, setPaying] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState(false);
@@ -244,8 +252,8 @@ export default function DocumentDetailPage() {
   const handlePay = async () => {
     if (!doc || !userId || payAmount <= 0) return;
     const isBackdatedReceipt = isPastDate(payDate);
-    if (isBackdatedReceipt && !payBackdateReason.trim()) {
-      setError("กรุณาระบุเหตุผลในการออกใบเสร็จย้อนหลัง");
+    if (isBackdatedReceipt && !payBackdateReason) {
+      setError("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
       return;
     }
 
@@ -255,7 +263,7 @@ export default function DocumentDetailPage() {
       const receiptBackdateFields = buildReceiptBackdateFields({
         selectedDate: payDate,
         userId,
-        reason: payBackdateReason,
+        reason: composeReceiptBackdateReason(payBackdateReason, payBackdateNote),
       });
       await supabase
         .from("documents")
@@ -310,6 +318,7 @@ export default function DocumentDetailPage() {
 
       setPayModal(false);
       setPayBackdateReason("");
+      setPayBackdateNote("");
       await fetchDoc();
     } catch (err: any) {
       setError(err.message);
@@ -529,6 +538,7 @@ export default function DocumentDetailPage() {
     setPayWhtCert("");
     setPayDate(todayString());
     setPayBackdateReason("");
+    setPayBackdateNote("");
     setError("");
     setPayModal(true);
   };
@@ -1157,12 +1167,24 @@ export default function DocumentDetailPage() {
                 ระบบจะใช้วันที่รับเงินจริงบนใบเสร็จ และเก็บเวลาที่บันทึกเข้าระบบไว้แยกกันเพื่อให้ตรวจสอบย้อนหลังได้
               </p>
               <div className="mt-3">
-                <label className="mb-1 block text-xs font-medium text-amber-900">เหตุผลในการออกย้อนหลัง</label>
-                <textarea
+                <Select
+                  label="เหตุผลในการออกย้อนหลัง"
                   value={payBackdateReason}
                   onChange={(e) => setPayBackdateReason(e.target.value)}
+                >
+                  <option value="">เลือกเหตุผล</option>
+                  {RECEIPT_BACKDATE_REASON_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </Select>
+              </div>
+              <div className="mt-3">
+                <label className="mb-1 block text-xs font-medium text-amber-900">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
+                <textarea
+                  value={payBackdateNote}
+                  onChange={(e) => setPayBackdateNote(e.target.value)}
                   rows={3}
-                  placeholder="เช่น รับชำระเมื่อ 2 วันก่อน แต่เพิ่งได้รับหลักฐานและเข้ามาบันทึกวันนี้"
+                  placeholder="รายละเอียดเพิ่มเติม เช่น วันที่ได้รับสลิป หรือข้อมูลที่ต้องการให้ทีมบัญชีเห็น"
                   className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
                 />
               </div>
