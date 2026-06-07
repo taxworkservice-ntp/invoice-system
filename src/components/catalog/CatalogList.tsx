@@ -5,6 +5,8 @@ import { CatalogTypeTabs } from "./CatalogTypeTabs";
 import { ItemCard } from "./ItemCard";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
+import { formatMixedStock, isLowStock, isOutOfStock } from "../../lib/stock";
+import { Download } from "lucide-react";
 import type { Item } from "../../types";
 
 type TabKey = "all" | "product" | "service";
@@ -36,7 +38,7 @@ export function CatalogList({ items, loading, onAdd }: Props) {
     return result;
   }, [items, search, activeTab]);
 
-  const products = useMemo(
+  const productItems = useMemo(
     () => filtered.filter((i) => i.item_type === "product"),
     [filtered],
   );
@@ -45,6 +47,39 @@ export function CatalogList({ items, loading, onAdd }: Props) {
     [filtered],
   );
   const isFiltering = search.trim() !== "" || activeTab !== "all";
+
+  function handleExportCSV() {
+    if (productItems.length === 0) return;
+
+    const headers = ["ชื่อสินค้า", "SKU", "สต็อกปัจจุบัน", "หน่วยนับ", "จุดแจ้งเตือน", "สถานะ", "ราคาต่อหน่วย", "มูลค่าสต็อก"];
+    const rows = productItems.map((item) => {
+      let status = "ปกติ";
+      if (isOutOfStock(item.stock_count)) status = "หมด";
+      else if (isLowStock(item.stock_count, item.low_stock_threshold)) status = "ใกล้หมด";
+
+      return [
+        item.name,
+        item.sku || "",
+        formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton),
+        item.base_unit,
+        item.low_stock_threshold.toString(),
+        status,
+        item.unit_price.toFixed(2),
+        (item.stock_count * item.unit_price).toFixed(2),
+      ];
+    });
+
+    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `stock_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   if (loading) {
     return (
@@ -75,6 +110,16 @@ export function CatalogList({ items, loading, onAdd }: Props) {
         <div className="flex-1">
           <CatalogSearch value={search} onChange={setSearch} />
         </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleExportCSV}
+          disabled={productItems.length === 0}
+          className="!rounded-lg shrink-0"
+        >
+          <Download size={14} className="mr-1" />
+          CSV
+        </Button>
         <Button onClick={onAdd} size="sm" className="!rounded-lg shrink-0">
           + เพิ่ม
         </Button>
@@ -109,13 +154,13 @@ export function CatalogList({ items, loading, onAdd }: Props) {
         </div>
       ) : (
         <div className="space-y-4">
-          {products.length > 0 && (
+          {productItems.length > 0 && (
             <div>
               <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
                 สินค้า
               </div>
               <div className="space-y-2">
-                {products.map((item) => (
+                {productItems.map((item) => (
                   <ItemCard
                     key={item.id}
                     item={item}
