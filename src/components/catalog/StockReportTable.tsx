@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { isLowStock, isOutOfStock } from "../../lib/stock";
+import { isLowStock, isOutOfStock, formatMixedStock } from "../../lib/stock";
 import type { Item } from "../../types";
 
 interface Props {
@@ -45,6 +45,9 @@ function StockRow({ item, index }: { item: Item; index: number }) {
       <td className="px-2 py-2.5 text-[11px] text-gray-500 text-center">
         {item.base_unit}
       </td>
+      <td className="px-2 py-2.5 text-[11px] text-right text-gray-500">
+        {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
+      </td>
       <td className="px-2 py-2.5 text-xs text-right tabular-nums text-gray-500">
         {item.low_stock_threshold}
       </td>
@@ -86,6 +89,7 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
         </div>
       </div>
       <div className="mt-1 flex items-center gap-4 text-[11px] text-gray-500">
+        <span>นับรวม: {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}</span>
         <span>แจ้งเตือน: {item.low_stock_threshold}</span>
         <span>฿{item.unit_price.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
         <span className="font-medium text-gray-600">= ฿{value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
@@ -107,6 +111,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
               <th className="px-2 py-2 text-left text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">รายการ</th>
               <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">สต็อก</th>
               <th className="px-2 py-2 text-center text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">หน่วย</th>
+              <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">นับรวม</th>
               <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">แจ้งเตือน</th>
               <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">ราคา</th>
               <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">มูลค่า</th>
