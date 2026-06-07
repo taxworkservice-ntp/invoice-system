@@ -1,17 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useToast } from "../../hooks/useToast";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import type { Subscription } from "@supabase/supabase-js";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const toast = useToast();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const authSubRef = useRef<Subscription | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -27,6 +29,7 @@ export default function LoginPage() {
         navigate("/reset-password", { replace: true });
       }
     });
+    authSubRef.current = subscription;
 
     return () => subscription.unsubscribe();
   }, [navigate]);
@@ -47,6 +50,8 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
+
+    authSubRef.current?.unsubscribe();
 
     const { data: profile } = await supabase
       .from("profiles")

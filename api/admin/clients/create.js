@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 
     if (companyName || tempPassword) {
       const cpInsert = { user_id: newUserId };
-      if (companyName) cpInsert.company_name_th = companyName;
+      cpInsert.company_name_th = companyName || "รอกรอกข้อมูลบริษัท";
       if (tempPassword) cpInsert.password_changed = false;
       const { error: cpErr } = await supabaseAdmin.from("client_profiles").insert(cpInsert);
       if (cpErr) throw cpErr;
