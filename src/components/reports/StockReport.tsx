@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Package, AlertTriangle, TrendingDown, Download } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -25,9 +26,12 @@ function formatDate(date: string) {
   return `${day}/${month}/${year}`;
 }
 
-function SummaryCard({ icon, label, value, alert = false }: { icon: React.ReactNode; label: string; value: string; alert?: boolean }) {
+function SummaryCard({ icon, label, value, alert = false, onClick }: { icon: React.ReactNode; label: string; value: string; alert?: boolean; onClick?: () => void }) {
   return (
-    <Card className="min-h-[78px] border-[0.5px] p-3 shadow-sm">
+    <Card
+      className={`min-h-[78px] border-[0.5px] p-3 shadow-sm ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500">
         {icon}
         {label}
@@ -39,11 +43,20 @@ function SummaryCard({ icon, label, value, alert = false }: { icon: React.ReactN
   );
 }
 
+const MOVEMENT_BADGE: Record<string, string> = {
+  manual_in: "bg-green-50 text-green-700",
+  auto_in: "bg-green-50 text-green-700",
+  return_in: "bg-green-50 text-green-700",
+  auto_out: "bg-red-50 text-red-700",
+  manual_out: "bg-red-50 text-red-700",
+};
+
 interface StockReportProps {
   userId: string | undefined;
 }
 
 export function StockReport({ userId }: StockReportProps) {
+  const navigate = useNavigate();
   const [dateFrom, setDateFrom] = useState(startOfMonth());
   const [dateTo, setDateTo] = useState(todayString());
   const { summary, lowStockItems, movements, loading, error, refetch } = useStockReport(userId, dateFrom, dateTo);
@@ -132,8 +145,8 @@ export function StockReport({ userId }: StockReportProps) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าทั้งหมด" value={`${summary.totalItems} รายการ`} />
           <SummaryCard icon={<TrendingDown className="h-4 w-4" />} label="มูลค่าสต็อก" value={formatCurrency(summary.totalValue)} />
-          <SummaryCard icon={<AlertTriangle className="h-4 w-4" />} label="สินค้าใกล้หมด" value={summary.lowStockCount.toString()} alert={summary.lowStockCount > 0} />
-          <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าหมด" value={summary.outOfStockCount.toString()} alert={summary.outOfStockCount > 0} />
+          <SummaryCard icon={<AlertTriangle className="h-4 w-4" />} label="สินค้าใกล้หมด" value={summary.lowStockCount.toString()} alert={summary.lowStockCount > 0} onClick={summary.lowStockCount > 0 ? () => navigate("/catalog?filter=low") : undefined} />
+          <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าหมด" value={summary.outOfStockCount.toString()} alert={summary.outOfStockCount > 0} onClick={summary.outOfStockCount > 0 ? () => navigate("/catalog?filter=out") : undefined} />
         </div>
       )}
 
@@ -142,7 +155,7 @@ export function StockReport({ userId }: StockReportProps) {
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-[#C0392B]">สินค้าที่ต้องเติมสต็อก</h3>
           <div className="space-y-2">
             {lowStockItems.slice(0, 10).map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-sm">
+              <div key={item.id} className="flex items-center justify-between text-sm cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${item.stock_count <= 0 ? "bg-[#C0392B]" : "bg-amber-500"}`} />
                   <span className="text-gray-700">{item.name}</span>
@@ -176,18 +189,37 @@ export function StockReport({ userId }: StockReportProps) {
                 </tr>
               </thead>
               <tbody>
-                {movements.slice(0, 100).map((m) => (
-                  <tr key={m.id} className="border-b border-[#F0EEE8] last:border-0">
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{formatDate(m.date)}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-gray-700">{m.itemName}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-600">{m.type}</td>
-                    <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-[#C0392B]" : "text-[#1E5A38]"}`}>
-                      {m.qty > 0 ? "+" : ""}{m.qty} {m.baseUnit}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{m.docNumber || m.reason || "-"}</td>
-                  </tr>
-                ))}
+                {(() => {
+                  let lastDate = "";
+                  const rows: React.ReactNode[] = [];
+                  movements.slice(0, 100).forEach((m) => {
+                    const dayLabel = formatDate(m.date);
+                    if (dayLabel !== lastDate) {
+                      lastDate = dayLabel;
+                      rows.push(
+                        <tr key={`day-${m.date}`} className="bg-[#FAFAF8]">
+                          <td colSpan={6} className="px-3 py-1.5 text-[10px] font-medium text-gray-400 uppercase tracking-[0.05em]">{dayLabel}</td>
+                        </tr>
+                      );
+                    }
+                    const badge = MOVEMENT_BADGE[m.typeKey] || "bg-gray-50 text-gray-600";
+                    rows.push(
+                      <tr key={m.id} className="border-b border-[#F0EEE8] last:border-0">
+                        <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-400"></td>
+                        <td className="whitespace-nowrap px-3 py-2 text-gray-700">{m.itemName}</td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${badge}`}>{m.type}</span>
+                        </td>
+                        <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-[#C0392B]" : "text-[#1E5A38]"}`}>
+                          {m.qty > 0 ? "+" : ""}{m.qty} {m.baseUnit}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{m.docNumber || m.reason || "-"}</td>
+                      </tr>
+                    );
+                  });
+                  return rows;
+                })()}
               </tbody>
             </table>
           </div>

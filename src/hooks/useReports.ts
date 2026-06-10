@@ -49,6 +49,7 @@ export interface StockMovementRow {
   itemName: string;
   itemSku: string | null;
   type: string;
+  typeKey: string;
   qty: number;
   balance: number;
   reason: string | null;
@@ -300,6 +301,7 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
             itemName: item?.name || "ไม่พบสินค้า",
             itemSku: item?.sku || null,
             type: typeLabels[m.movement_type] || m.movement_type,
+            typeKey: m.movement_type,
             qty: m.qty_base,
             balance: m.balance_after,
             reason: m.reason,
