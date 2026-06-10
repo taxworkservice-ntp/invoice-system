@@ -816,9 +816,7 @@ export default function DocumentDetailPage() {
         </DetailCard>
       )}
 
-      <div className="h-20" />
-
-      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-white border-t border-card-border px-4 py-3 z-30 md:static md:border-0 md:bg-transparent md:p-0">
+      <div className="bg-white border-t border-card-border px-4 py-3 md:static md:border-0 md:bg-transparent md:p-0">
         <div className="max-w-4xl mx-auto space-y-2 rounded-[24px] border border-[#E8E6DF] bg-white p-3 shadow-[0_12px_30px_rgba(26,26,24,0.08)] md:p-4">
           <div className="pb-1">
             <h3 className="text-sm font-semibold text-[#1A1A18]">การดำเนินการถัดไป</h3>
@@ -832,7 +830,7 @@ export default function DocumentDetailPage() {
                 className="w-full"
                 onClick={handleGeneratePdf}
               >
-                ดูเอกสาร
+                ดาวน์โหลดเอกสาร
               </Button>
             </div>
           )}

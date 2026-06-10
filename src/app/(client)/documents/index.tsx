@@ -642,7 +642,7 @@ function QuickDetailModal({
             </Button>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={onOpenPreview} className="w-full sm:w-auto">
-                ดูเอกสาร
+                ดาวน์โหลดเอกสาร
               </Button>
               <Button variant="secondary" onClick={onOpenFull} className="w-full sm:w-auto">
                 ดูรายละเอียด

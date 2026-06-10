@@ -231,7 +231,7 @@ return (
         style={previewViewportWidth ? { maxWidth: `${previewViewportWidth}px` } : undefined}
       >
         <div>
-          <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">ดูเอกสาร</div>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">ดาวน์โหลดเอกสาร</div>
           <div className="text-[15px] font-semibold text-[#101828]">{data.document.doc_number || "เอกสาร"}</div>
           <div className="mt-1 flex items-center gap-1 text-[11px] text-[#667085]">
             <span>ประเภท:</span>

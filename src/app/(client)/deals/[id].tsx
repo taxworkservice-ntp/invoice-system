@@ -1219,7 +1219,7 @@ export default function DealDetailPage() {
                               handleViewPDF(doc);
                             }}
                           >
-                            ดู PDF
+                            ดาวน์โหลดเอกสาร
                           </button>
                         </div>
                       </div>
