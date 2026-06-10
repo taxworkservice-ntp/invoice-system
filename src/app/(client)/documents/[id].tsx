@@ -900,36 +900,37 @@ export default function DocumentDetailPage() {
                 {generatingPdf ? "กำลังเปิดเอกสาร..." : "ดูเอกสาร"}
               </Button>
             </div>
-          ) : !pdfUrl ? (
+          ) : (
             <Button
               variant="primary"
               size="md"
               className="w-full"
-              onClick={handleGeneratePdf}
-              disabled={!clientProfile || !doc.customer || generatingPdf}
+              onClick={async () => {
+                if (generatingPdf || !clientProfile || !customer) return;
+                setGeneratingPdf(true);
+                try {
+                  const { generatePDFBlob } = await import("../../../lib/pdf");
+                  const blob = await generatePDFBlob({
+                    document: doc,
+                    lineItems: doc.line_items || [],
+                    billingNoteInvoices: doc.billing_invoices || [],
+                    clientProfile,
+                    customer,
+                  });
+                  const url = URL.createObjectURL(blob);
+                  window.open(url, "_blank");
+                  setTimeout(() => URL.revokeObjectURL(url), 5000);
+                } catch (err: any) {
+                  toast.error(err.message || "ไม่สามารถสร้าง PDF ได้");
+                } finally {
+                  setGeneratingPdf(false);
+                }
+              }}
+              disabled={!clientProfile || !customer || generatingPdf}
               loading={generatingPdf}
             >
-              {generatingPdf ? "กำลังสร้าง PDF..." : "สร้าง PDF"}
+              {generatingPdf ? "กำลังเปิดเอกสาร..." : "ดูเอกสาร"}
             </Button>
-          ) : (
-            <div className="flex gap-2">
-              <Button
-                className="flex-1 !bg-[#378ADD] !text-white"
-                size="md"
-                onClick={handleDownloadPdf}
-              >
-                ⬇ ดาวน์โหลด PDF
-              </Button>
-              <Button
-                variant="secondary"
-                size="md"
-                className="flex-1"
-                onClick={handleGeneratePdf}
-                loading={generatingPdf}
-              >
-                สร้างใหม่
-              </Button>
-            </div>
           )}
 
           {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (
