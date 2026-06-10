@@ -105,7 +105,7 @@ function getStatusPill(doc: Document | null) {
 export default function DealDetailPage() {
   const { id: dealId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const userId = profile?.id;
 
   const [deal, setDeal] = useState<Deal | null>(null);
@@ -145,6 +145,10 @@ export default function DealDetailPage() {
       return;
     }
     setLoading(true);
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setDocsWithMeta([]);
+    }, 15000);
     try {
       const { data: dealData } = await supabase
         .from("deals")
@@ -215,6 +219,7 @@ export default function DealDetailPage() {
       // eslint-disable-next-line no-console
       console.error(err);
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }, [dealId, userId]);
@@ -965,7 +970,7 @@ export default function DealDetailPage() {
     };
   }, [nonVoidedDocs]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <AppShell title="ดีล" showBack>
         <div className="space-y-3 animate-pulse">
