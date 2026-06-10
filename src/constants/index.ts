@@ -101,6 +101,7 @@ export const NEW_DEAL_OPTIONS = [
 export const BOTTOM_NAV_ITEMS = [
   { label: "หน้าหลัก", path: "/home" },
   { label: "เอกสาร", path: "/documents" },
+  { label: "รายงาน", path: "/reports" },
   { label: "สินค้า", path: "/catalog" },
   { label: "ลูกค้า", path: "/customers" },
   { label: "ตั้งค่า", path: "/settings" },

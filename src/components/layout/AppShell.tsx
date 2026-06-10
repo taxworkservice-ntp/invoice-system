@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, Package, Settings, ChevronRight, ArrowLeft } from "lucide-react";
+import { Home, FileText, BarChart3, Package, Settings, ChevronRight, ArrowLeft } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
@@ -8,6 +8,7 @@ import { BOTTOM_NAV_ITEMS } from "../../constants";
 const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
   "/documents": <FileText className="w-5 h-5" />,
+  "/reports": <BarChart3 className="w-5 h-5" />,
   "/catalog": <Package className="w-5 h-5" />,
   "/settings": <Settings className="w-5 h-5" />,
 };

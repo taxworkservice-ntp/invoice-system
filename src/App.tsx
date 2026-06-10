@@ -21,6 +21,7 @@ const CatalogItemPage = lazy(() => import("./app/(client)/catalog/[id]"));
 const CatalogEditPage = lazy(() => import("./app/(client)/catalog/edit"));
 const CatalogNewPage = lazy(() => import("./app/(client)/catalog/new"));
 const SettingsPage = lazy(() => import("./app/(client)/settings/index"));
+const ReportsPage = lazy(() => import("./app/(client)/reports/index"));
 const CustomersPage = lazy(() => import("./app/(client)/customers/index"));
 const CustomerDetailPage = lazy(() => import("./app/(client)/customers/[id]"));
 const AdminClients = lazy(() => import("./app/(admin)/clients"));
@@ -91,6 +92,7 @@ export default function App() {
             <Route path="/catalog/:id" element={<CatalogItemPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </>
