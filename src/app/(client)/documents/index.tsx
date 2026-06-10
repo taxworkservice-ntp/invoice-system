@@ -222,7 +222,7 @@ function DocumentCard({
   const remainingItems = itemNames.length - previewItems.length;
 
   return (
-    <Card onClick={selectMode ? onToggleSelect : onOpen} className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""} ${isSelected ? "ring-2 ring-primary bg-primary/5" : ""}`}>
+    <Card onClick={selectMode ? onToggleSelect : onOpen} className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${isVoided ? "border-l-gray-300" : DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""} ${isSelected ? "ring-2 ring-primary bg-primary/5" : ""}`}>
       <div className="p-3.5 sm:p-4">
         <div className="flex items-start gap-3">
           {selectMode && (
@@ -237,7 +237,7 @@ function DocumentCard({
           )}
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-[#1A1A18]">{doc.doc_number || "-"}</span>
+              <span className={`text-sm font-semibold ${isVoided ? "line-through text-gray-400" : "text-[#1A1A18]"}`}>{doc.doc_number || "-"}</span>
               <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
               <span className="hidden sm:inline-flex">
                 <Badge status={doc.status} />
