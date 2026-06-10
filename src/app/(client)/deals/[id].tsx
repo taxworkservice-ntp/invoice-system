@@ -926,13 +926,32 @@ export default function DealDetailPage() {
   }, [nonVoidedDocs]);
 
   const summaryStats = useMemo(() => {
-    const paid = nonVoidedDocs.filter(
-      (item) => item.document.status === "paid" || item.document.status === "generated" || item.document.status === "issued"
-    );
-    const totalCollected = paid.reduce((sum, item) => sum + (item.document.amount_received || item.document.net_payable || 0), 0);
-    const lastPaid = paid.length > 0 ? paid[paid.length - 1] : null;
-    const firstDoc = nonVoidedDocs.length > 0 ? nonVoidedDocs[0] : null;
-    return { totalCollected, lastPaid, firstDoc, docCount: nonVoidedDocs.length };
+    const best = nonVoidedDocs
+      .filter((item) => {
+        const doc = item.document;
+        if (["quotation", "delivery_note", "credit_note"].includes(doc.doc_type)) return false;
+        if (doc.doc_type === "receipt" && doc.status === "generated") return false;
+        return doc.status === "paid" || doc.status === "generated" || doc.status === "issued";
+      })
+      .sort((a, b) => {
+        const priority = (d: any) =>
+          d.doc_type === "billing_note" ? 1 :
+          d.doc_type === "tax_invoice_receipt" ? 2 :
+          d.doc_type === "invoice" ? 3 :
+          d.doc_type === "receipt" ? 4 : 5;
+        const pa = priority(a.document);
+        const pb = priority(b.document);
+        if (pa !== pb) return pa - pb;
+        const da = a.document.paid_at || a.document.issue_date;
+        const db = b.document.paid_at || b.document.issue_date;
+        return db.localeCompare(da);
+      });
+    const top = best[0] || null;
+    return {
+      totalCollected: top ? (top.document.amount_received || top.document.net_payable || 0) : 0,
+      lastPaid: top,
+      docCount: nonVoidedDocs.length,
+    };
   }, [nonVoidedDocs]);
 
   if (loading) {
