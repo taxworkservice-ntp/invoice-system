@@ -209,11 +209,12 @@ export default function DealDetailPage() {
         }))
       );
     } catch (err: any) {
-      toast.error(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+      // eslint-disable-next-line no-console
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [dealId, userId, toast]);
+  }, [dealId, userId]);
 
   useEffect(() => {
     fetchDealData();
