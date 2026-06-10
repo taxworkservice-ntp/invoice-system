@@ -74,6 +74,40 @@ export async function getDocumentDetail(documentId: string) {
 
   doc.line_items = (lineItems || []) as DocumentLineItem[];
 
+  if (doc.line_items.length === 0 && doc.doc_type === "receipt" && doc.deal_id) {
+    const { data: dealDocs } = await supabase
+      .from("documents")
+      .select("id, doc_type")
+      .eq("deal_id", doc.deal_id)
+      .order("created_at", { ascending: true });
+
+    if (dealDocs) {
+      const billingNote = dealDocs.find((d: any) => d.doc_type === "billing_note");
+      const invoiceDoc = dealDocs.find((d: any) => d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt");
+
+      let sourceIds: string[] = [];
+      if (billingNote) {
+        const { data: linked } = await supabase
+          .from("billing_note_invoices")
+          .select("invoice_id")
+          .eq("billing_note_id", billingNote.id);
+        sourceIds = [(linked || []).map((r: any) => r.invoice_id)].flat();
+        if (sourceIds.length === 0) sourceIds = [billingNote.id];
+      } else if (invoiceDoc) {
+        sourceIds = [invoiceDoc.id];
+      }
+
+      if (sourceIds.length > 0) {
+        const { data: sourceItems } = await supabase
+          .from("document_line_items")
+          .select("*")
+          .in("document_id", sourceIds)
+          .order("sort_order", { ascending: true });
+        doc.line_items = (sourceItems || []) as DocumentLineItem[];
+      }
+    }
+  }
+
   if (doc.doc_type === "billing_note") {
     const { data: invoices } = await supabase
       .from("billing_note_invoices")
