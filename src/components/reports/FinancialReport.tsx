@@ -66,15 +66,8 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const { summary, byType, monthly, topCustomers, arAging, loading, error } = useFinancialReport(userId, year, month);
 
-  const goPrev = () => {
-    if (month === 1) { setYear((y) => y - 1); setMonth(12); }
-    else setMonth((m) => m - 1);
-  };
-  const goNext = () => {
-    if (month === 12) { setYear((y) => y + 1); setMonth(1); }
-    else setMonth((m) => m + 1);
-  };
-  const canGoNext = year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1);
+  const today = new Date();
+  const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
 
   const maxMonthly = Math.max(...monthly.map((m) => m.total), 1);
 
@@ -144,11 +137,24 @@ export function FinancialReport({ userId }: FinancialReportProps) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={goPrev}>◀</Button>
-          <span className="min-w-[120px] text-center text-sm font-semibold text-[#1A1A18]">
-            {MONTH_NAMES_TH[month - 1]} {year + 543}
-          </span>
-          <Button variant="ghost" size="sm" onClick={goNext} disabled={canGoNext}>▶</Button>
+          <select
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+            className="rounded-lg border border-[#D4D0C8] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            {MONTH_NAMES_TH.map((name, i) => (
+              <option key={i + 1} value={i + 1}>{name}</option>
+            ))}
+          </select>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="rounded-lg border border-[#D4D0C8] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>{y + 543}</option>
+            ))}
+          </select>
         </div>
         <Button variant="secondary" size="sm" onClick={handleExportCSV}>
           <Download className="mr-1.5 h-4 w-4" />
