@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -903,6 +903,38 @@ export default function DealDetailPage() {
     return activeDoc.document.doc_number;
   }, [activeDoc]);
 
+  function handleCopyText(text: string) {
+    navigator.clipboard.writeText(text);
+    toast.success("คัดลอกแล้ว");
+  }
+
+  const docByStage = useMemo(() => {
+    const map = new Map<number, DocWithMeta>();
+    for (const item of nonVoidedDocs) {
+      const doc = item.document;
+      if (map.has(1) && map.has(2) && map.has(3) && map.has(4)) break;
+      if (doc.doc_type === "quotation" && !map.has(1)) map.set(1, item);
+      if (doc.doc_type === "invoice" && !map.has(2)) map.set(2, item);
+      if (doc.doc_type === "billing_note" && !map.has(3)) map.set(3, item);
+      if ((doc.doc_type === "receipt" || doc.doc_type === "tax_invoice_receipt") && !map.has(4)) map.set(4, item);
+    }
+    if (!map.has(4)) {
+      const paidDoc = nonVoidedDocs.find((item) => item.document.status === "paid" || item.document.status === "generated");
+      if (paidDoc) map.set(4, paidDoc);
+    }
+    return map;
+  }, [nonVoidedDocs]);
+
+  const summaryStats = useMemo(() => {
+    const paid = nonVoidedDocs.filter(
+      (item) => item.document.status === "paid" || item.document.status === "generated" || item.document.status === "issued"
+    );
+    const totalCollected = paid.reduce((sum, item) => sum + (item.document.amount_received || item.document.net_payable || 0), 0);
+    const lastPaid = paid.length > 0 ? paid[paid.length - 1] : null;
+    const firstDoc = nonVoidedDocs.length > 0 ? nonVoidedDocs[0] : null;
+    return { totalCollected, lastPaid, firstDoc, docCount: nonVoidedDocs.length };
+  }, [nonVoidedDocs]);
+
   if (loading) {
     return (
       <AppShell title="ดีล" showBack>
@@ -941,8 +973,28 @@ export default function DealDetailPage() {
       <div className="space-y-3">
         <Card className="border-[0.5px]">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[15px] font-semibold text-gray-900 truncate">{customer?.name || title}</div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="text-[15px] font-semibold text-gray-900 truncate">{customer?.name || title}</div>
+                  {customer?.phone && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleCopyText(customer.phone!); }}
+                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                      title="คัดลอกเบอร์โทร"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {customer?.tax_id && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleCopyText(customer.tax_id!); }}
+                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                      title="คัดลอกเลขภาษี"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               {itemSummary ? (
                 <div className="mt-1 text-xs text-gray-500 leading-5">{itemSummary}</div>
               ) : customer?.address ? (
@@ -983,12 +1035,15 @@ export default function DealDetailPage() {
               const isActive = currentStage === stage.step && !allDone;
               const isSkipped = stage.step === 1 && skippedStage1;
               const connectorDone = index < 3 && currentStage > stage.step + 0;
+              const stageDoc = docByStage.get(stage.step);
               return (
                 <div key={stage.step} className="flex items-start flex-1">
                   <div className="flex flex-col items-center flex-1">
                     <div
+                      onClick={stageDoc ? () => navigate(`/documents/${stageDoc.document.id}`) : undefined}
                       className={[
                         "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold relative z-[1]",
+                        stageDoc ? "cursor-pointer" : "",
                         isSkipped ? "bg-stone-100 text-stone-400" : "",
                         isDone ? "bg-paid-bg text-paid-text" : "",
                         isActive ? "bg-primary text-white shadow-[0_0_0_4px_rgba(55,138,221,0.12)]" : "",
@@ -1002,6 +1057,9 @@ export default function DealDetailPage() {
                       <br />
                       {stage.bottom}
                     </div>
+                    {isDone && stageDoc?.document.doc_number && (
+                      <div className="mt-0.5 max-w-[64px] truncate text-[9px] text-paid-text">{stageDoc.document.doc_number}</div>
+                    )}
                   </div>
                   {index < 3 && (
                     <div className={`mt-[15px] h-0.5 flex-1 ${connectorDone ? "bg-green-200" : "bg-card-border"}`} />
@@ -1036,6 +1094,29 @@ export default function DealDetailPage() {
           )}
         </Card>
 
+        {allDone && summaryStats && (
+          <Card className="border-[0.5px] border-green-200 bg-green-50">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-green-800">ดีลเสร็จสิ้น</div>
+                <div className="mt-1 space-y-0.5 text-xs leading-5 text-green-700">
+                  <div>รับเงินแล้ว ฿{formatCurrency(summaryStats.totalCollected)}</div>
+                  {summaryStats.lastPaid && (
+                    <div>
+                      ชำระเมื่อ {formatBuddhistDate(summaryStats.lastPaid.document.paid_at || summaryStats.lastPaid.document.issue_date)}
+                      {summaryStats.lastPaid.document.payment_method && (
+                        <> • {PAYMENT_METHOD_LABELS[summaryStats.lastPaid.document.payment_method]}</>
+                      )}
+                    </div>
+                  )}
+                  <div>{summaryStats.docCount} เอกสาร</div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         <div>
           <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
           {nonVoidedDocs.length === 0 ? (
@@ -1048,8 +1129,9 @@ export default function DealDetailPage() {
                 const doc = item.document;
                 const isCurrent = activeDoc?.document.id === doc.id;
                 const overdue = isOverdueDocument(doc);
+                const isDoneStage = item.stage === "done" && !isCurrent;
                 return (
-                  <div key={doc.id} className="flex gap-3">
+                  <div key={doc.id} className={`flex gap-3 ${isDoneStage ? "opacity-60" : ""}`}>
                     <div className="w-7 flex flex-col items-center shrink-0">
                       <div
                         className={[
@@ -1065,7 +1147,7 @@ export default function DealDetailPage() {
                       {index < nonVoidedDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
                     </div>
                     <Card
-                      className={`mb-2 flex-1 border-[0.5px] ${isCurrent ? "border-primary bg-blue-50/30" : ""}`}
+                      className={`mb-2 flex-1 border-[0.5px] ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-[#FAFAF8]" : ""}`}
                       onClick={() => navigate(`/documents/${doc.id}`)}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1085,6 +1167,12 @@ export default function DealDetailPage() {
                               </>
                             ) : null}
                           </div>
+                          {(doc.status === "paid" || doc.status === "generated" || doc.status === "issued") && (
+                            <div className="mt-1 text-[10px] text-green-600">
+                              ชำระแล้ว{doc.paid_at ? ` ${formatBuddhistDate(doc.paid_at)}` : ""}
+                              {doc.payment_method ? ` • ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
                           <div className="text-[13px] font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
