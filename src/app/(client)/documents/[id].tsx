@@ -978,15 +978,14 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {(isPaid || isVoided) && (
+          {doc.deal_id && (
             <Button
               variant="secondary"
               size="md"
               className="w-full"
-              loading={actionLoading === "copy"}
-              onClick={handleCopy}
+              onClick={() => navigate(`/deals/${doc.deal_id}`)}
             >
-              คัดลอกเป็นฉบับร่าง
+              เปิดดีล
             </Button>
           )}
 
