@@ -1394,11 +1394,8 @@ export async function generatePDFBlob(data: PDFData): Promise<Blob> {
 
 export function downloadPDF(data: PDFData, doc: jsPDF): void {
   const short = DOC_TYPE_SHORT[data.document.doc_type];
-  const datePart = data.document.issue_date
-    ? data.document.issue_date.replace(/-/g, "")
-    : new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const customerName = sanitizeFilename(data.customer?.name || short, short);
-  const filename = `${customerName}_${data.document.doc_number || "doc"}_${datePart}.pdf`;
+  const filename = `${customerName}-${data.document.doc_number || "doc"}.pdf`;
   const blob = doc.output("blob");
   const url = URL.createObjectURL(blob);
   const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
