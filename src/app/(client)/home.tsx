@@ -477,9 +477,10 @@ export default function HomePage() {
             <SummaryRow items={summaryCards.map((card) => ({ ...card }))} onCardTap={(preset) => navigate(`/documents?preset=${preset}`)} />
 
             <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-primary" />
                 <div className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">รายการที่ต้องดำเนินการ</div>
-                <div className="text-[11px] text-gray-400">{activeDeals.length} รายการ</div>
+                <div className="ml-auto text-[11px] text-gray-400">{activeDeals.length} รายการ</div>
               </div>
 
               {activeDeals.length === 0 ? (
@@ -506,10 +507,18 @@ export default function HomePage() {
             {recentlyDone.length > 0 && (
               <>
                 <div className="border-t border-card-border pt-1" />
-                <section>
+                <section className="opacity-60">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">เสร็จสิ้นล่าสุด</div>
-                    <div className="text-[11px] text-gray-400">{recentlyDone.length} รายการ</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">เสร็จสิ้นล่าสุด</div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] text-gray-400">{recentlyDone.length} รายการ</span>
+                      <button
+                        className="text-[11px] text-gray-400 hover:text-gray-600"
+                        onClick={() => navigate("/documents?preset=paid")}
+                      >
+                        ดูทั้งหมด
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {recentlyDone.map((deal) => (
