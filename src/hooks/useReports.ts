@@ -100,15 +100,30 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
 
       const docs = (allDocs || []) as any[];
 
+      const { data: bnLinks } = await supabase
+        .from("billing_note_invoices")
+        .select("invoice_id");
+      const invoiceIdsInBn = new Set((bnLinks || []).map((l: any) => l.invoice_id));
+
       const paidThisPeriod = docs.filter(
-        (d) => d.paid_at && d.paid_at.slice(0, 10) >= start && d.paid_at.slice(0, 10) <= end && (d.status === "paid" || d.status === "generated" || d.status === "issued")
+        (d) =>
+          d.paid_at &&
+          d.paid_at.slice(0, 10) >= start &&
+          d.paid_at.slice(0, 10) <= end &&
+          (d.status === "paid" || d.status === "generated" || d.status === "issued") &&
+          !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
       );
 
       const revenue = paidThisPeriod.reduce((sum, d) => sum + (d.net_payable || 0), 0);
       const collected = paidThisPeriod.reduce((sum, d) => sum + (d.amount_received || d.net_payable || 0), 0);
       const vatCollected = paidThisPeriod.reduce((sum, d) => sum + (d.vat_amount || 0), 0);
 
-      const outstanding = docs.filter((d) => d.status === "sent" || d.status === "overdue" || d.status === "in_billing")
+      const outstanding = docs
+        .filter(
+          (d) =>
+            (d.status === "sent" || d.status === "overdue") &&
+            !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
+        )
         .reduce((sum, d) => sum + (d.net_payable || 0), 0);
 
       setSummary({
@@ -138,7 +153,12 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       for (const m of months) {
         const { start: ms, end: me } = getMonthRange(m.year, m.month);
         const inMonth = docs.filter(
-          (d) => d.paid_at && d.paid_at.slice(0, 10) >= ms && d.paid_at.slice(0, 10) <= me && (d.status === "paid" || d.status === "generated" || d.status === "issued")
+          (d) =>
+            d.paid_at &&
+            d.paid_at.slice(0, 10) >= ms &&
+            d.paid_at.slice(0, 10) <= me &&
+            (d.status === "paid" || d.status === "generated" || d.status === "issued") &&
+            !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
         );
         monthlyData.push({
           month: `${m.month}`.padStart(2, "0"),
@@ -166,7 +186,11 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
 
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const overdueDocs = docs.filter((d) => d.status === "sent" || d.status === "overdue" || d.status === "in_billing");
+      const overdueDocs = docs.filter(
+        (d) =>
+          (d.status === "sent" || d.status === "overdue") &&
+          !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
+      );
       const buckets: ARAgingBucket[] = [
         { label: "1-30 วัน", total: 0, count: 0 },
         { label: "31-60 วัน", total: 0, count: 0 },
