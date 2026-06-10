@@ -109,7 +109,9 @@ export default function DocumentDetailPage() {
     }
   };
 
-
+  useEffect(() => {
+    fetchDoc();
+  }, [id]);
 
   const handleDelete = async () => {
     if (!doc || !userId) return;
