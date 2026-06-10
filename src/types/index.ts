@@ -53,6 +53,7 @@ export interface ClientProfile {
   vat_registered: boolean;
   vat_rate: number;
   default_wht_rate: WhtRate;
+  credit_term_days: number;
   stock_deduct_trigger: string;
   pdf_template: string;
   bank_name: string | null;

@@ -82,6 +82,15 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
   const [issueDate, setIssueDate] = useState(todayString());
   const [dueDate, setDueDate] = useState(addDays(todayString(), 7));
+
+  useEffect(() => {
+    if (clientProfile && !documentId) {
+      const days = clientProfile.credit_term_days ?? 7;
+      setDueDate(addDays(issueDate, days));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientProfile]);
+
   const [note, setNote] = useState("");
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
 
@@ -311,7 +320,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         setSelectedCustomer(document.customer || null);
         setCustomerSearch(document.customer?.name || "");
         setIssueDate(document.issue_date);
-        setDueDate(document.due_date || addDays(document.issue_date, 7));
+        setDueDate(document.due_date || addDays(document.issue_date, clientProfile?.credit_term_days ?? 7));
         setNote(document.note || "");
         setWhtRate(String(document.wht_rate || clientProfile?.default_wht_rate || "0") as WhtRate);
         setCurrentDeal(
@@ -723,7 +732,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 onChange={(event) => {
                   const nextValue = event.target.value;
                   setIssueDate(nextValue);
-                  if (!dueDate) setDueDate(addDays(nextValue, 7));
+                  if (!dueDate) setDueDate(addDays(nextValue, clientProfile?.credit_term_days ?? 7));
                 }}
                 disabled={readOnly}
               />

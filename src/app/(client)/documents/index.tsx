@@ -14,10 +14,11 @@ import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
-import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS } from "../../../constants";
+import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS, CHIP_COLORS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { isHtmlPrintTemplate } from "../../../lib/print";
 import type { Document, DocumentStatus, DocumentType } from "../../../types";
 
 const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
@@ -279,13 +280,13 @@ function DocumentCard({
                   {previewItems.map((itemName, index) => (
                     <span
                       key={`${doc.id}-item-${index}-${itemName}`}
-                      className="inline-flex max-w-full rounded-full bg-[#F3F0E8] px-2.5 py-1 text-xs text-[#5B564D]"
+                      className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs ${CHIP_COLORS[index % CHIP_COLORS.length]}`}
                     >
                       <span className="truncate">{itemName}</span>
                     </span>
                   ))}
                   {remainingItems > 0 && (
-                    <span className="inline-flex rounded-full bg-[#ECE8DE] px-2.5 py-1 text-xs font-medium text-[#6E685E]">
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${CHIP_COLORS[previewItems.length % CHIP_COLORS.length]} opacity-80`}>
                       +{remainingItems} more
                     </span>
                   )}
@@ -635,23 +636,23 @@ function QuickDetailModal({
           </div>
         )}
 
-        <div className="space-y-2 border-t border-[#F0ECE5] pt-3">
+         <div className="space-y-2 border-t border-[#F0ECE5] pt-3">
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-            <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">
+            <Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">
               ปิด
             </Button>
             <div className="flex flex-col gap-2 sm:flex-row">
-              {doc.deal_id && (
-                <Button variant="secondary" onClick={onOpenDeal} className="w-full sm:w-auto">
-                  เปิดดีล
-                </Button>
-              )}
-              <Button variant="secondary" onClick={onOpenFull} className="w-full sm:w-auto">
-                ดูรายละเอียด
-              </Button>
               <Button onClick={onOpenPreview} className="w-full sm:w-auto">
                 ดูเอกสาร
               </Button>
+              <Button variant="secondary" onClick={onOpenFull} className="w-full sm:w-auto">
+                ดูรายละเอียด
+              </Button>
+              {doc.deal_id && (
+                <Button variant="secondary" onClick={onOpenDeal} className="w-full sm:w-auto !bg-amber-50 !text-amber-700 !border-amber-200 hover:!bg-amber-100">
+                  เปิดดีล
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -1245,9 +1246,35 @@ export default function DocumentsPage() {
         open={!!selectedDocId}
         loading={quickDetailLoading}
         onClose={closeDocModal}
-        onOpenPreview={() => {
-          if (!selectedDocId) return;
-          window.open(`/documents/${selectedDocId}/print`, "_blank", "noopener,noreferrer");
+        onOpenPreview={async () => {
+          if (!selectedDocId || !profile?.id) return;
+          try {
+            const { data: clientProfile } = await supabase
+              .from("client_profiles")
+              .select("pdf_template")
+              .eq("user_id", profile.id)
+              .single();
+            if (clientProfile && isHtmlPrintTemplate(clientProfile.pdf_template)) {
+              window.open(`/documents/${selectedDocId}/print`, "_blank", "noopener,noreferrer");
+            } else {
+              const doc = await getDocumentDetail(selectedDocId);
+              if (!doc) return;
+              const customer = (doc as any).customer || null;
+              const { generatePDFBlob } = await import("../../../lib/pdf");
+              const blob = await generatePDFBlob({
+                document: doc,
+                lineItems: doc.line_items || [],
+                billingNoteInvoices: (doc as any).billing_invoices || [],
+                clientProfile: clientProfile as any,
+                customer,
+              });
+              const url = URL.createObjectURL(blob);
+              window.open(url, "_blank");
+              setTimeout(() => URL.revokeObjectURL(url), 5000);
+            }
+          } catch {
+            window.open(`/documents/${selectedDocId}/print`, "_blank", "noopener,noreferrer");
+          }
         }}
         onOpenFull={() => {
           if (!selectedDocId) return;

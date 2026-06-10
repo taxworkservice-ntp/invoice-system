@@ -1,5 +1,6 @@
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
+import { CHIP_COLORS } from "../../constants";
 import type { DocumentStatus } from "../../types";
 
 interface DealCardProps {
@@ -39,13 +40,13 @@ export function DealCard({
               {previewItems.map((itemName, index) => (
                 <span
                   key={`${customerName}-item-${index}-${itemName}`}
-                  className="inline-flex max-w-full rounded-full bg-[#F3F0E8] px-2.5 py-1 text-xs text-[#5B564D]"
+                  className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs ${CHIP_COLORS[index % CHIP_COLORS.length]}`}
                 >
                   <span className="truncate">{itemName}</span>
                 </span>
               ))}
               {remainingItems > 0 && (
-                <span className="inline-flex rounded-full bg-[#ECE8DE] px-2.5 py-1 text-xs font-medium text-[#6E685E]">
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${CHIP_COLORS[previewItems.length % CHIP_COLORS.length]} opacity-80`}>
                   +{remainingItems} more
                 </span>
               )}

@@ -57,6 +57,7 @@ export default function SettingsPage() {
   const [vatRegistered, setVatRegistered] = useState(false);
   const [vatRate, setVatRate] = useState("7.00");
   const [defaultWhtRate, setDefaultWhtRate] = useState("0");
+  const [creditTermDays, setCreditTermDays] = useState(7);
   const [savingTax, setSavingTax] = useState(false);
   const [taxError, setTaxError] = useState("");
   const [taxSaved, setTaxSaved] = useState(false);
@@ -119,6 +120,7 @@ export default function SettingsPage() {
       setVatRegistered(clientProfile.vat_registered);
       setVatRate(String(clientProfile.vat_rate));
       setDefaultWhtRate(clientProfile.default_wht_rate);
+      setCreditTermDays(clientProfile.credit_term_days ?? 7);
       setStockTrigger(clientProfile.stock_deduct_trigger || "invoice");
       setPdfTemplate(clientProfile.pdf_template || "modern");
       setBankName((clientProfile as any).bank_name || "");
@@ -227,6 +229,7 @@ export default function SettingsPage() {
         vat_registered: vatRegistered,
         vat_rate: parseFloat(vatRate),
         default_wht_rate: defaultWhtRate,
+        credit_term_days: creditTermDays,
       })
       .eq("user_id", userId);
 
@@ -241,6 +244,7 @@ export default function SettingsPage() {
         vat_registered: vatRegistered,
         vat_rate: parseFloat(vatRate),
         default_wht_rate: defaultWhtRate as any,
+        credit_term_days: creditTermDays,
       } as ClientProfile);
     }
     setSavingTax(false);
@@ -589,6 +593,24 @@ export default function SettingsPage() {
             </Select>
             <p className="text-[11px] text-[#888780] -mt-3">
               ใช้เป็นค่าเริ่มต้นในทุกเอกสาร แก้ไขได้ต่อเอกสาร
+            </p>
+
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-[#1A1A18] shrink-0">
+                ระยะเวลาเครดิต (วัน)
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={90}
+                value={creditTermDays}
+                onChange={(e) => { setCreditTermDays(Number(e.target.value)); setTaxSaved(false); }}
+                className="w-20 px-2 py-1.5 text-sm text-right border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD]"
+              />
+              <span className="text-sm text-[#888780]">วัน</span>
+            </div>
+            <p className="text-[11px] text-[#888780] -mt-3">
+              ใช้คำนวณวันที่ครบกำหนดชำระในใบวางบิล
             </p>
 
             <div className="bg-[#E6F1FB] text-[#0C447C] rounded-[8px] px-3 py-2.5 text-[12px]">

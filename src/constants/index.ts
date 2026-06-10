@@ -54,6 +54,15 @@ export const DOC_TYPE_COLORS: Record<DocumentType, { bg: string; text: string }>
   credit_note: { bg: "bg-red-100", text: "text-red-700" },
 };
 
+export const CHIP_COLORS = [
+  "bg-blue-50 text-blue-700",
+  "bg-green-50 text-green-700",
+  "bg-purple-50 text-purple-700",
+  "bg-amber-50 text-amber-700",
+  "bg-pink-50 text-pink-700",
+  "bg-teal-50 text-teal-700",
+];
+
 export const WHT_RATE_OPTIONS: { value: WhtRate; label: string }[] = [
   { value: "0", label: "ไม่มี" },
   { value: "1", label: "1%" },
