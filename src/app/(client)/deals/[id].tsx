@@ -136,82 +136,84 @@ export default function DealDetailPage() {
   const [copyingDeal, setCopyingDeal] = useState(false);
 
   const toast = useToast();
-  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [bulkDownloading, setBulkDownloading] = useState(false);
 
   const fetchDealData = useCallback(async () => {
     if (!dealId || !userId) return;
     setLoading(true);
+    try {
+      const { data: dealData } = await supabase
+        .from("deals")
+        .select("*")
+        .eq("id", dealId)
+        .single();
 
-    const { data: dealData } = await supabase
-      .from("deals")
-      .select("*")
-      .eq("id", dealId)
-      .single();
+      if (!dealData) {
+        setLoading(false);
+        return;
+      }
 
-    if (!dealData) {
+      const currentDeal = dealData as Deal;
+      setDeal(currentDeal);
+
+      const [
+        { data: clientData },
+        { data: customerData },
+        { data: docsData },
+      ] = await Promise.all([
+        supabase.from("client_profiles").select("*").eq("user_id", userId).single(),
+        supabase.from("customers").select("*").eq("id", currentDeal.customer_id).single(),
+        supabase.from("documents").select("*").eq("deal_id", dealId).order("created_at", { ascending: true }),
+      ]);
+
+      if (clientData) setClientProfile(clientData as ClientProfile);
+      if (customerData) setCustomer(customerData as Customer);
+
+      const docs = (docsData || []) as Document[];
+      const docIds = docs.map((doc) => doc.id);
+      const billingNoteIds = docs.filter((doc) => doc.doc_type === "billing_note").map((doc) => doc.id);
+
+      const [
+        { data: lineItemsData },
+        { data: billingInvoicesData },
+      ] = await Promise.all([
+        docIds.length
+          ? supabase.from("document_line_items").select("*").in("document_id", docIds).order("sort_order", { ascending: true })
+          : Promise.resolve({ data: [] as DocumentLineItem[] }),
+        billingNoteIds.length
+          ? supabase.from("billing_note_invoices").select("*").in("billing_note_id", billingNoteIds)
+          : Promise.resolve({ data: [] as BillingNoteInvoice[] }),
+      ]);
+
+      const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
+      ((lineItemsData || []) as DocumentLineItem[]).forEach((item) => {
+        const current = lineItemsByDoc.get(item.document_id) || [];
+        current.push(item);
+        lineItemsByDoc.set(item.document_id, current);
+      });
+
+      const billingByDoc = new Map<string, BillingNoteInvoice[]>();
+      ((billingInvoicesData || []) as BillingNoteInvoice[]).forEach((item) => {
+        const current = billingByDoc.get(item.billing_note_id) || [];
+        current.push(item);
+        billingByDoc.set(item.billing_note_id, current);
+      });
+
+      setDocsWithMeta(
+        docs.map((doc) => ({
+          document: doc,
+          stage: getDocStage(doc),
+          line_items: lineItemsByDoc.get(doc.id) || [],
+          billing_invoices: billingByDoc.get(doc.id) || [],
+        }))
+      );
+    } catch (err: any) {
+      toast.error(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const currentDeal = dealData as Deal;
-    setDeal(currentDeal);
-
-    const [
-      { data: clientData },
-      { data: customerData },
-      { data: docsData },
-    ] = await Promise.all([
-      supabase.from("client_profiles").select("*").eq("user_id", userId).single(),
-      supabase.from("customers").select("*").eq("id", currentDeal.customer_id).single(),
-      supabase.from("documents").select("*").eq("deal_id", dealId).order("created_at", { ascending: true }),
-    ]);
-
-    if (clientData) setClientProfile(clientData as ClientProfile);
-    if (customerData) setCustomer(customerData as Customer);
-
-    const docs = (docsData || []) as Document[];
-    const docIds = docs.map((doc) => doc.id);
-    const billingNoteIds = docs.filter((doc) => doc.doc_type === "billing_note").map((doc) => doc.id);
-
-    const [
-      { data: lineItemsData },
-      { data: billingInvoicesData },
-    ] = await Promise.all([
-      docIds.length
-        ? supabase.from("document_line_items").select("*").in("document_id", docIds).order("sort_order", { ascending: true })
-        : Promise.resolve({ data: [] as DocumentLineItem[] }),
-      billingNoteIds.length
-        ? supabase.from("billing_note_invoices").select("*").in("billing_note_id", billingNoteIds)
-        : Promise.resolve({ data: [] as BillingNoteInvoice[] }),
-    ]);
-
-    const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
-    ((lineItemsData || []) as DocumentLineItem[]).forEach((item) => {
-      const current = lineItemsByDoc.get(item.document_id) || [];
-      current.push(item);
-      lineItemsByDoc.set(item.document_id, current);
-    });
-
-    const billingByDoc = new Map<string, BillingNoteInvoice[]>();
-    ((billingInvoicesData || []) as BillingNoteInvoice[]).forEach((item) => {
-      const current = billingByDoc.get(item.billing_note_id) || [];
-      current.push(item);
-      billingByDoc.set(item.billing_note_id, current);
-    });
-
-    setDocsWithMeta(
-      docs.map((doc) => ({
-        document: doc,
-        stage: getDocStage(doc),
-        line_items: lineItemsByDoc.get(doc.id) || [],
-        billing_invoices: billingByDoc.get(doc.id) || [],
-      }))
-    );
-
-    setLoading(false);
-  }, [dealId, userId]);
+  }, [dealId, userId, toast]);
 
   useEffect(() => {
     fetchDealData();
@@ -1208,7 +1210,7 @@ export default function DealDetailPage() {
                               handleViewPDF(doc);
                             }}
                           >
-                            {pdfLoadingId === doc.id ? "..." : "ดู PDF"}
+                            ดู PDF
                           </button>
                         </div>
                       </div>
