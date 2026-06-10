@@ -15,7 +15,6 @@ import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
-import { isHtmlPrintTemplate } from "../../../lib/print";
 import {
   buildReceiptBackdateFields,
   composeReceiptBackdateReason,
@@ -218,44 +217,9 @@ export default function DealDetailPage() {
     fetchDealData();
   }, [fetchDealData]);
 
-  const handleViewPDF = async (doc: Document, lineItems: DocumentLineItem[], billingInvoices: BillingNoteInvoice[]) => {
-    if (!customer || !clientProfile) return;
-    setPdfLoadingId(doc.id);
-    try {
-      if (isHtmlPrintTemplate(clientProfile.pdf_template)) {
-        const previewUrl = `/documents/${doc.id}/print`;
-        window.open(previewUrl, "_blank", "noopener,noreferrer");
-        return;
-      }
-
-      const { generatePDFBlob } = await import("../../../lib/pdf");
-
-      let referenceDoc: Document | undefined;
-      if (doc.doc_type === "credit_note" && doc.converted_from_id) {
-        const { data: refDoc } = await supabase
-          .from("documents")
-          .select("*")
-          .eq("id", doc.converted_from_id)
-          .single();
-        if (refDoc) referenceDoc = refDoc as unknown as Document;
-      }
-
-      const blob = await generatePDFBlob({
-        document: doc,
-        lineItems: doc.doc_type === "billing_note" ? [] : lineItems,
-        billingNoteInvoices: doc.doc_type === "billing_note" ? billingInvoices : [],
-        clientProfile,
-        customer,
-        referenceDoc,
-      });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch {
-      toast.error("ไม่สามารถสร้าง PDF ได้");
-    } finally {
-      setPdfLoadingId(null);
-    }
+  const handleViewPDF = async (doc: Document) => {
+    const previewUrl = `/documents/${doc.id}/print`;
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleDownloadAll = async () => {
@@ -269,38 +233,15 @@ export default function DealDetailPage() {
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
-      const isModern = isHtmlPrintTemplate(clientProfile.pdf_template);
 
       for (let i = 0; i < toDownload.length; i++) {
         const item = toDownload[i];
         const doc = item.document;
 
         try {
-          let blob: Blob | null = null;
-          if (isModern) {
-            const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
-            const data = await getPrintableDocumentDataBase(doc.id);
-            blob = await generateModernPDFBlob(data);
-          } else {
-            let referenceDoc: Document | undefined;
-            if (doc.doc_type === "credit_note" && doc.converted_from_id) {
-              const { data: refDoc } = await supabase
-                .from("documents")
-                .select("*")
-                .eq("id", doc.converted_from_id)
-                .single();
-              if (refDoc) referenceDoc = refDoc as unknown as Document;
-            }
-            const { generatePDFBlob } = await import("../../../lib/pdf");
-            blob = await generatePDFBlob({
-              document: doc,
-              lineItems: doc.doc_type === "billing_note" ? [] : item.line_items,
-              billingNoteInvoices: doc.doc_type === "billing_note" ? item.billing_invoices : [],
-              clientProfile,
-              customer,
-              referenceDoc,
-            });
-          }
+          const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
+          const data = await getPrintableDocumentDataBase(doc.id);
+          const blob = await generateModernPDFBlob(data);
           const name = `${doc.doc_number || `doc_${i + 1}`}.pdf`;
           if (blob) zip.file(name, blob, { binary: true });
         } catch {
@@ -1264,7 +1205,7 @@ export default function DealDetailPage() {
                             className="text-[10px] text-primary hover:underline"
                             onClick={(event) => {
                               event.stopPropagation();
-                              handleViewPDF(doc, item.line_items, item.billing_invoices);
+                              handleViewPDF(doc);
                             }}
                           >
                             {pdfLoadingId === doc.id ? "..." : "ดู PDF"}

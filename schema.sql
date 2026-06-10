@@ -113,9 +113,9 @@ create table client_profiles (
   stock_deduct_trigger  text not null default 'invoice'
                         check (stock_deduct_trigger in ('invoice', 'delivery_note')),
 
-  -- PDF template preference
-  pdf_template          text not null default 'classic'
-                         check (pdf_template in ('classic', 'modern', 'bold', 'perforated')),
+  -- PDF template preference (modern only)
+  pdf_template          text not null default 'modern'
+                         check (pdf_template = 'modern'),
 
   -- Bank info for perforated template
   bank_name             text,

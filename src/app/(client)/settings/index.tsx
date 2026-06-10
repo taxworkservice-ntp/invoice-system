@@ -43,7 +43,6 @@ export default function SettingsPage() {
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [contactName, setContactName] = useState("");
-  const [pdfTemplate, setPdfTemplate] = useState("modern");
   const [bankName, setBankName] = useState("");
   const [bankAccount, setBankAccount] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
@@ -122,7 +121,6 @@ export default function SettingsPage() {
       setDefaultWhtRate(clientProfile.default_wht_rate);
       setCreditTermDays(clientProfile.credit_term_days ?? 7);
       setStockTrigger(clientProfile.stock_deduct_trigger || "invoice");
-      setPdfTemplate(clientProfile.pdf_template || "modern");
       setBankName((clientProfile as any).bank_name || "");
       setBankAccount((clientProfile as any).bank_account || "");
       setSignatureKey((clientProfile as any).signature_url || null);
@@ -176,7 +174,7 @@ export default function SettingsPage() {
       phone: phone || null,
       logo_url: logoKey,
       logo_size: logoSize,
-      pdf_template: pdfTemplate,
+      pdf_template: "modern",
       bank_name: bankName.trim() || null,
       bank_account: bankAccount.trim() || null,
       signature_url: signatureKey,

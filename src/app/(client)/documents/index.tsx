@@ -18,7 +18,6 @@ import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS, CHIP_COLORS } from "..
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
-import { isHtmlPrintTemplate } from "../../../lib/print";
 import type { Document, DocumentStatus, DocumentType } from "../../../types";
 
 const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
@@ -831,30 +830,11 @@ export default function DocumentsPage() {
       const isModern = clientProfile.pdf_template === "modern";
       const JSZip = (await import("jszip")).default;
 
-      let generateBlob: (docId: string) => Promise<Blob | null>;
-
-      if (isModern) {
-        const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
-        generateBlob = async (docId: string) => {
-          const data = await getPrintableDocumentDataBase(docId);
-          return generateModernPDFBlob(data);
-        };
-      } else {
-        const { generatePDFBlob } = await import("../../../lib/pdf");
-        generateBlob = async (docId: string) => {
-          const doc = await getDocumentDetail(docId);
-          if (!doc) return null;
-          const customer = (doc as any).customer || null;
-          if (!customer) return null;
-          return generatePDFBlob({
-            document: doc,
-            lineItems: doc.line_items || [],
-            billingNoteInvoices: (doc as any).billing_invoices || [],
-            clientProfile,
-            customer,
-          });
-        };
-      }
+      const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
+      const generateBlob = async (docId: string) => {
+        const data = await getPrintableDocumentDataBase(docId);
+        return generateModernPDFBlob(data);
+      };
 
       const zip = new JSZip();
 
@@ -1246,35 +1226,9 @@ export default function DocumentsPage() {
         open={!!selectedDocId}
         loading={quickDetailLoading}
         onClose={closeDocModal}
-        onOpenPreview={async () => {
-          if (!selectedDocId || !profile?.id) return;
-          try {
-            const { data: clientProfile } = await supabase
-              .from("client_profiles")
-              .select("pdf_template")
-              .eq("user_id", profile.id)
-              .single();
-            if (clientProfile && isHtmlPrintTemplate(clientProfile.pdf_template)) {
-              window.open(`/documents/${selectedDocId}/print`, "_blank", "noopener,noreferrer");
-            } else {
-              const doc = await getDocumentDetail(selectedDocId);
-              if (!doc) return;
-              const customer = (doc as any).customer || null;
-              const { generatePDFBlob } = await import("../../../lib/pdf");
-              const blob = await generatePDFBlob({
-                document: doc,
-                lineItems: doc.line_items || [],
-                billingNoteInvoices: (doc as any).billing_invoices || [],
-                clientProfile: clientProfile as any,
-                customer,
-              });
-              const url = URL.createObjectURL(blob);
-              window.open(url, "_blank");
-              setTimeout(() => URL.revokeObjectURL(url), 5000);
-            }
-          } catch {
-            window.open(`/documents/${selectedDocId}/print`, "_blank", "noopener,noreferrer");
-          }
+        onOpenPreview={() => {
+          if (!selectedDocId) return;
+          window.open(`/documents/${selectedDocId}/print`, "_blank", "noopener,noreferrer");
         }}
         onOpenFull={() => {
           if (!selectedDocId) return;

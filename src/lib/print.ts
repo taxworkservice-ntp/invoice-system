@@ -174,38 +174,7 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
 export async function getPrintDocumentData(documentId: string): Promise<PrintDocumentData> {
   const baseData = await getPrintableDocumentDataBase(documentId);
-
-  if (!isHtmlPrintTemplate(baseData.clientProfile.pdf_template)) {
-    throw new Error("This document is configured to use the classic PDF renderer.");
-  }
-
-  return {
-    ...baseData,
-    template: baseData.clientProfile.pdf_template,
-  };
-}
-
-export async function openClassicPdfFallback(data: {
-  document: Document;
-  lineItems: DocumentLineItem[];
-  billingNoteInvoices: BillingNoteInvoice[];
-  clientProfile: ClientProfile;
-  customer: Customer;
-  referenceDoc?: Document;
-}) {
-  const { generatePDFBlob } = await import("./pdf");
-  const blob = await generatePDFBlob({
-    document: data.document,
-    lineItems: data.lineItems,
-    billingNoteInvoices: data.billingNoteInvoices,
-    clientProfile: { ...data.clientProfile, pdf_template: "classic" },
-    customer: data.customer,
-    referenceDoc: data.referenceDoc,
-  });
-
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return { ...baseData, template: "modern" };
 }
 
 async function renderModernPrintCanvas(

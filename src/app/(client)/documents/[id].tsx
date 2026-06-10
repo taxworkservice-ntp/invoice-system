@@ -18,7 +18,6 @@ import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../.
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
-import { isHtmlPrintTemplate } from "../../../lib/print";
 import {
   buildReceiptBackdateFields,
   composeReceiptBackdateReason,
@@ -28,8 +27,6 @@ import {
   todayString,
 } from "../../../lib/receiptBackdating";
 import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile } from "../../../types";
-import type { PDFData } from "../../../lib/pdf";
-import type jsPDF from "jspdf";
 
 function formatDate(date: string): string {
   return formatBuddhistDate(date);
@@ -77,11 +74,7 @@ export default function DocumentDetailPage() {
   const [doc, setDoc] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [generatingPdf, setGeneratingPdf] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const pdfDocRef = useRef<jsPDF | null>(null);
-  const pdfDataRef = useRef<PDFData | null>(null);
 
   const [voidModal, setVoidModal] = useState(false);
   const [voidReason, setVoidReason] = useState("");
@@ -116,15 +109,7 @@ export default function DocumentDetailPage() {
     }
   };
 
-  useEffect(() => {
-    fetchDoc();
-  }, [id]);
 
-  useEffect(() => {
-    return () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    };
-  }, [pdfUrl]);
 
   const handleDelete = async () => {
     if (!doc || !userId) return;
@@ -489,49 +474,10 @@ export default function DocumentDetailPage() {
     }
   };
 
-  const handleGeneratePdf = async () => {
-    if (!doc || !clientProfile || !doc.customer) return;
-
-    if (isHtmlPrintTemplate(clientProfile.pdf_template)) {
-      const previewUrl = `/documents/${doc.id}/print`;
-      window.open(previewUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    setGeneratingPdf(true);
-    try {
-      const { generatePDF, generatePDFBlob } = await import("../../../lib/pdf");
-      const customer = doc.customer as unknown as Customer;
-      const pdfData: PDFData = {
-        document: doc,
-        lineItems: doc.line_items || [],
-        billingNoteInvoices: doc.billing_invoices || [],
-        clientProfile,
-        customer,
-      };
-      pdfDataRef.current = pdfData;
-      const pdfDoc = await generatePDF(pdfData);
-      pdfDocRef.current = pdfDoc;
-      const blob = await generatePDFBlob(pdfData);
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      const url = URL.createObjectURL(blob);
-      setPdfUrl(url);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setGeneratingPdf(false);
-    }
-  };
-
-  const handleDownloadPdf = async () => {
-    if (!pdfDocRef.current || !pdfDataRef.current) {
-      await handleGeneratePdf();
-      await new Promise((r) => setTimeout(r, 300));
-    }
-    if (pdfDocRef.current && pdfDataRef.current) {
-      const { downloadPDF } = await import("../../../lib/pdf");
-      downloadPDF(pdfDataRef.current, pdfDocRef.current);
-    }
+  const handleGeneratePdf = () => {
+    if (!doc) return;
+    const previewUrl = `/documents/${doc.id}/print`;
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
   const openPayModal = () => {
@@ -571,7 +517,6 @@ export default function DocumentDetailPage() {
   const isOverdue = doc.due_date && isSent && new Date(doc.due_date) < new Date();
   const lineDiscountTotal = doc.line_items?.reduce((sum, item) => sum + (item.discount_amount || 0), 0) || 0;
   const grossSubtotal = doc.subtotal + (doc.discount_amount || 0) + lineDiscountTotal;
-  const usesHtmlPrintPreview = isHtmlPrintTemplate(clientProfile?.pdf_template);
   const docLabel = documentTypeLabel(doc.doc_type, doc.vat_registered);
   const customerName = customer?.name || "ไม่ได้ระบุลูกค้า";
   const issueDateLabel = formatDate(doc.issue_date);
@@ -682,16 +627,6 @@ export default function DocumentDetailPage() {
       >
         {statusMessage}
       </div>
-
-      {pdfUrl && (
-        <DetailCard title="ตัวอย่างเอกสาร" icon={<Printer className="h-4 w-4" />} className="mb-4">
-          <iframe
-            src={pdfUrl}
-            className="w-full h-[60vh] rounded-2xl border border-[#ECE7DD]"
-            title="PDF Preview"
-          />
-        </DetailCard>
-      )}
 
       {doc.line_items && doc.line_items.length > 0 && (
         <DetailCard title="รายการเอกสาร" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
@@ -887,50 +822,17 @@ export default function DocumentDetailPage() {
             <h3 className="text-sm font-semibold text-[#1A1A18]">การดำเนินการถัดไป</h3>
             <p className="mt-1 text-xs leading-5 text-[#6F6A61]">{statusMessage}</p>
           </div>
-          {usesHtmlPrintPreview ? (
+          {(
             <div className="space-y-2">
               <Button
                 variant="primary"
                 size="md"
                 className="w-full"
                 onClick={handleGeneratePdf}
-                disabled={!clientProfile || !doc.customer || generatingPdf}
-                loading={generatingPdf}
               >
-                {generatingPdf ? "กำลังเปิดเอกสาร..." : "ดูเอกสาร"}
+                ดูเอกสาร
               </Button>
             </div>
-          ) : (
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full"
-              onClick={async () => {
-                if (generatingPdf || !clientProfile || !customer) return;
-                setGeneratingPdf(true);
-                try {
-                  const { generatePDFBlob } = await import("../../../lib/pdf");
-                  const blob = await generatePDFBlob({
-                    document: doc,
-                    lineItems: doc.line_items || [],
-                    billingNoteInvoices: doc.billing_invoices || [],
-                    clientProfile,
-                    customer,
-                  });
-                  const url = URL.createObjectURL(blob);
-                  window.open(url, "_blank");
-                  setTimeout(() => URL.revokeObjectURL(url), 5000);
-                } catch (err: any) {
-                  toast.error(err.message || "ไม่สามารถสร้าง PDF ได้");
-                } finally {
-                  setGeneratingPdf(false);
-                }
-              }}
-              disabled={!clientProfile || !customer || generatingPdf}
-              loading={generatingPdf}
-            >
-              {generatingPdf ? "กำลังเปิดเอกสาร..." : "ดูเอกสาร"}
-            </Button>
           )}
 
           {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (
