@@ -140,7 +140,10 @@ export default function DealDetailPage() {
   const [bulkDownloading, setBulkDownloading] = useState(false);
 
   const fetchDealData = useCallback(async () => {
-    if (!dealId || !userId) return;
+    if (!dealId || !userId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const { data: dealData } = await supabase
@@ -236,13 +239,13 @@ export default function DealDetailPage() {
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
+      const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
 
       for (let i = 0; i < toDownload.length; i++) {
         const item = toDownload[i];
         const doc = item.document;
 
         try {
-          const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
           const data = await getPrintableDocumentDataBase(doc.id);
           const blob = await generateModernPDFBlob(data);
           const name = `${doc.doc_number || `doc_${i + 1}`}.pdf`;
