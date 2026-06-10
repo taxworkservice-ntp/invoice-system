@@ -6,6 +6,7 @@ import { Skeleton } from "../ui/Skeleton";
 import { EmptyState } from "../ui/EmptyState";
 import { useStockReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
+import { formatMixedStock } from "../../lib/stock";
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
@@ -149,7 +150,7 @@ export function StockReport({ userId }: StockReportProps) {
                 </div>
                 <div className="text-right tabular-nums">
                   <span className={`font-medium ${item.stock_count <= 0 ? "text-[#C0392B]" : "text-amber-700"}`}>
-                    เหลือ {item.stock_count} {item.base_unit}
+                    เหลือ {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
                   </span>
                   <span className="ml-2 text-xs text-gray-400">(แจ้งที่ {item.low_stock_threshold})</span>
                 </div>
@@ -181,9 +182,9 @@ export function StockReport({ userId }: StockReportProps) {
                     <td className="whitespace-nowrap px-3 py-2 text-gray-700">{m.itemName}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-600">{m.type}</td>
                     <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-[#C0392B]" : "text-[#1E5A38]"}`}>
-                      {m.qty > 0 ? "+" : ""}{m.qty}
+                      {m.qty > 0 ? "+" : ""}{m.qty} {m.baseUnit}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{m.balance}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{m.docNumber || m.reason || "-"}</td>
                   </tr>
                 ))}

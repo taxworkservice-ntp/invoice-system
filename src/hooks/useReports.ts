@@ -53,6 +53,9 @@ export interface StockMovementRow {
   balance: number;
   reason: string | null;
   docNumber: string | null;
+  baseUnit: string;
+  cartonUnit: string | null;
+  qtyPerCarton: number | null;
 }
 
 function getMonthRange(year: number, month: number) {
@@ -301,6 +304,9 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
             balance: m.balance_after,
             reason: m.reason,
             docNumber: m.document_id ? docMap.get(m.document_id) || null : null,
+            baseUnit: item?.base_unit || "ชิ้น",
+            cartonUnit: item?.carton_unit || null,
+            qtyPerCarton: item?.qty_per_carton || null,
           };
         })
       );
