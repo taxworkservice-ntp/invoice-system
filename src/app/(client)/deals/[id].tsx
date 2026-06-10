@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2 } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -139,6 +139,7 @@ export default function DealDetailPage() {
   const toast = useToast();
   const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [bulkDownloading, setBulkDownloading] = useState(false);
 
   const fetchDealData = useCallback(async () => {
     if (!dealId || !userId) return;
@@ -254,6 +255,66 @@ export default function DealDetailPage() {
       toast.error("ไม่สามารถสร้าง PDF ได้");
     } finally {
       setPdfLoadingId(null);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (!clientProfile || !customer) return;
+    const toDownload = nonVoidedDocs.filter((item) => !(item.document.status === "voided"));
+    if (toDownload.length === 0) {
+      toast.error("ไม่มีเอกสารที่สามารถดาวน์โหลดได้");
+      return;
+    }
+    setBulkDownloading(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      for (let i = 0; i < toDownload.length; i++) {
+        const item = toDownload[i];
+        const doc = item.document;
+
+        let referenceDoc: Document | undefined;
+        if (doc.doc_type === "credit_note" && doc.converted_from_id) {
+          const { data: refDoc } = await supabase
+            .from("documents")
+            .select("*")
+            .eq("id", doc.converted_from_id)
+            .single();
+          if (refDoc) referenceDoc = refDoc as unknown as Document;
+        }
+
+        try {
+          const { generatePDFBlob } = await import("../../../lib/pdf");
+          const blob = await generatePDFBlob({
+            document: doc,
+            lineItems: doc.doc_type === "billing_note" ? [] : item.line_items,
+            billingNoteInvoices: doc.doc_type === "billing_note" ? item.billing_invoices : [],
+            clientProfile,
+            customer,
+            referenceDoc,
+          });
+          const name = `${doc.doc_number || `doc_${i + 1}`}.pdf`;
+          zip.file(name, blob, { binary: true });
+        } catch {
+          toast.error(`ไม่สามารถสร้าง PDF สำหรับ ${doc.doc_number || doc.id}`);
+        }
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `deal_documents_${dealId?.slice(0, 8) || "download"}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`ดาวน์โหลด ${toDownload.length} ไฟล์เรียบร้อย`);
+    } catch (err: any) {
+      toast.error(err.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setBulkDownloading(false);
     }
   };
 
@@ -685,11 +746,7 @@ export default function DealDetailPage() {
   const handleCurrentDocAction = () => {
     if (!activeDoc) return;
     if (activeDoc.document.status === "draft") {
-      if (activeDoc.document.doc_type === "billing_note") {
-        navigate(`/documents/${activeDoc.document.id}/edit`);
-        return;
-      }
-      navigate(`/documents/${activeDoc.document.id}`);
+      navigate(`/documents/${activeDoc.document.id}/edit`);
       return;
     }
     handleOpenVoidModal(activeDoc.document);
@@ -1259,6 +1316,17 @@ export default function DealDetailPage() {
             </div>
           )}
           <div className="mt-3 grid grid-cols-2 gap-2">
+            {nonVoidedDocs.length > 0 && (
+              <Button
+                variant="secondary"
+                className="col-span-2 justify-center !bg-page-bg"
+                loading={bulkDownloading}
+                onClick={handleDownloadAll}
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                {bulkDownloading ? `กำลังสร้าง ZIP (${nonVoidedDocs.length})` : "ดาวน์โหลดเอกสารทั้งหมด (ZIP)"}
+              </Button>
+            )}
             {hasProductItems && (
               <Button
                 variant="secondary"

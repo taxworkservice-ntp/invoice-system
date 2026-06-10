@@ -7,21 +7,27 @@ import { useState, useEffect } from "react";
 import { Spinner } from "../../../components/ui/Spinner";
 import { AppShell } from "../../../components/layout/AppShell";
 
+const EDITABLE_TYPES = ["billing_note", "credit_note"];
+
 export default function EditDocumentPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
   const [docType, setDocType] = useState<string | null>(null);
+  const [dealId, setDealId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id || !profile) return;
     supabase
       .from("documents")
-      .select("doc_type")
+      .select("doc_type, deal_id")
       .eq("id", id)
       .single()
       .then(({ data }) => {
-        if (data) setDocType(data.doc_type);
+        if (data) {
+          setDocType(data.doc_type);
+          setDealId(data.deal_id);
+        }
         setLoading(false);
       });
   }, [id, profile]);
@@ -33,5 +39,13 @@ export default function EditDocumentPage() {
     return <CreditNoteForm documentId={id} />;
   }
 
-  return <BillingNoteForm documentId={id} />;
+  if (docType === "billing_note") {
+    return <BillingNoteForm documentId={id} />;
+  }
+
+  if (dealId) {
+    return <Navigate to={`/deals/${dealId}`} replace />;
+  }
+
+  return <Navigate to={`/documents/${id}`} replace />;
 }
