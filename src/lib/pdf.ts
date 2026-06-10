@@ -5,6 +5,7 @@ import { documentTypeLabel } from "./docLabels";
 import { round2 } from "./tax";
 import { loadThaiFont } from "./fonts";
 import { thaiNumberToWords } from "./thaiNumberToWords";
+import { sanitizeFilename } from "./format";
 
 const MARGIN = 15;
 const CONTENT_W = 180;
@@ -1396,8 +1397,8 @@ export function downloadPDF(data: PDFData, doc: jsPDF): void {
   const datePart = data.document.issue_date
     ? data.document.issue_date.replace(/-/g, "")
     : new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const customerName = (data.customer?.name || short).replace(/\s+/g, "_").replace(/[^a-zA-Z0-9ก-๙_\-]/g, "");
-  const filename = `${short}-${customerName}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
+  const customerName = sanitizeFilename(data.customer?.name || short, short);
+  const filename = `${customerName}_${data.document.doc_number || "doc"}_${datePart}.pdf`;
   const blob = doc.output("blob");
   const url = URL.createObjectURL(blob);
   const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
