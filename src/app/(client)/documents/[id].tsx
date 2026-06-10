@@ -606,7 +606,7 @@ export default function DocumentDetailPage() {
               </Button>
               {doc.deal_id && (
                 <Button variant="secondary" size="sm" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
-                  เปิดดีล
+              กลับไปหน้าดีล
                 </Button>
               )}
             </div>
