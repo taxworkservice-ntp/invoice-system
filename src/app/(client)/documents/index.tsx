@@ -145,14 +145,19 @@ function SummaryCard({
   );
 }
 
-function SectionHeader({ title, hint, count }: { title: string; hint: string; count: number }) {
+function SectionHeader({ title, hint, count, tone = "active" }: { title: string; hint: string; count: number; tone?: "attention" | "active" | "muted" }) {
+  const dotColor = tone === "attention" ? "bg-[#C0392B]" : tone === "active" ? "bg-primary" : "bg-gray-300";
+  const dotVisible = tone !== "muted";
   return (
     <div className="flex items-end justify-between gap-4">
-      <div>
-        <h2 className="text-sm font-semibold text-[#1A1A18]">{title}</h2>
-        <p className="mt-1 text-xs text-[#6F6A61]">{hint}</p>
+      <div className="flex items-center gap-2">
+        {dotVisible && <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />}
+        <div>
+          <h2 className={`text-sm font-semibold ${tone === "muted" ? "text-gray-400" : "text-[#1A1A18]"}`}>{title}</h2>
+          <p className={`mt-1 text-xs ${tone === "muted" ? "text-gray-300" : "text-[#6F6A61]"}`}>{hint}</p>
+        </div>
       </div>
-      <span className="shrink-0 text-xs text-[#888780]">{count} รายการ</span>
+      <span className={`shrink-0 text-xs ${tone === "muted" ? "text-gray-300" : "text-[#888780]"}`}>{count} รายการ</span>
     </div>
   );
 }
@@ -168,6 +173,7 @@ function DocumentCard({
   isSelected,
   onToggleSelect,
   selectMode,
+  onOpenDeal,
 }: {
   doc: Document;
   onOpen: () => void;
@@ -179,6 +185,7 @@ function DocumentCard({
   isSelected?: boolean;
   onToggleSelect?: () => void;
   selectMode?: boolean;
+  onOpenDeal?: () => void;
 }) {
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -257,8 +264,16 @@ function DocumentCard({
                   &middot; ครบกำหนด: {formatBuddhistDate(doc.due_date)}
                 </span>
               ) : null}
+              {onOpenDeal && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onOpenDeal(); }}
+                  className="text-primary hover:underline"
+                >
+                  &middot; ดูดีล
+                </button>
+              )}
             </div>
-            {previewItems.length > 0 && (
+            {!isTerminal && previewItems.length > 0 && (
               <div className="pt-1">
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {previewItems.map((itemName, index) => (
@@ -279,11 +294,11 @@ function DocumentCard({
             )}
           </div>
 
-          <div className="shrink-0 pl-2 text-right ml-auto">
-            <div className="text-[11px] uppercase tracking-[0.12em] text-[#888780]">ยอดสุทธิ</div>
-            <div className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-[#1A1A18]"}`}>
-              ฿{formatCurrency(doc.net_payable)}
-            </div>
+            <div className={`shrink-0 pl-2 text-right ml-auto ${isTerminal ? "opacity-60" : ""}`}>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-[#888780]">ยอดสุทธิ</div>
+              <div className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-[#1A1A18]"}`}>
+                ฿{formatCurrency(doc.net_payable)}
+              </div>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onToggleMenu(); }}
@@ -989,10 +1004,10 @@ export default function DocumentsPage() {
   }
 
   const sections = [
-    { key: "attention", title: "ต้องดูตอนนี้", hint: "ร่างค้าง เอกสารเกินกำหนด และงานที่ยังรอเก็บเงิน", docs: grouped.attention },
-    { key: "active", title: "กำลังดำเนินการ", hint: "เอกสารที่ยังอยู่ใน workflow แต่ยังไม่ใช่งานเร่งด่วน", docs: grouped.active },
-    { key: "completed", title: "เสร็จแล้ว", hint: "ประวัติเอกสารที่ปิดงานแล้วหรือรับเงินแล้ว", docs: grouped.completed },
-    { key: "voided", title: "ยกเลิก", hint: "เก็บไว้เป็นประวัติอ้างอิงภายหลัง", docs: grouped.voided },
+    { key: "attention", title: "ต้องดูตอนนี้", hint: "ร่างค้าง เอกสารเกินกำหนด และงานที่ยังรอเก็บเงิน", tone: "attention" as const, docs: grouped.attention },
+    { key: "active", title: "กำลังดำเนินการ", hint: "เอกสารที่ยังอยู่ใน workflow แต่ยังไม่ใช่งานเร่งด่วน", tone: "active" as const, docs: grouped.active },
+    { key: "completed", title: "เสร็จแล้ว", hint: "ประวัติเอกสารที่ปิดงานแล้วหรือรับเงินแล้ว", tone: "muted" as const, docs: grouped.completed },
+    { key: "voided", title: "ยกเลิก", hint: "เก็บไว้เป็นประวัติอ้างอิงภายหลัง", tone: "muted" as const, docs: grouped.voided },
   ].filter((section) => section.docs.length > 0);
 
   const mobileQuickFilters: { label: string; value: QuickView; count: number }[] = [
@@ -1016,7 +1031,7 @@ export default function DocumentsPage() {
         <section className="rounded-[22px] border border-[#E8E6DF] bg-[linear-gradient(135deg,#FFFDF8_0%,#F7F4EC_100%)] p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-[#1A1A18]">Documents command center</h2>
+              <h2 className="text-base font-semibold text-[#1A1A18]">ศูนย์ควบคุมเอกสาร</h2>
               <p className="mt-1 text-sm leading-6 text-[#6F6A61]">ดูว่าเอกสารไหนต้องตามต่อ เอกสารไหนเสร็จแล้ว และเปิดรายละเอียดได้เร็วขึ้นจากหน้าเดียว</p>
             </div>
             <div className="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[#7D776D] sm:block">
@@ -1183,8 +1198,8 @@ export default function DocumentsPage() {
         ) : (
           <div className="space-y-5">
             {sections.map((section) => (
-              <section key={section.key} className="space-y-3">
-                <SectionHeader title={section.title} hint={section.hint} count={section.docs.length} />
+              <section key={section.key} className={`space-y-3 ${section.tone === "muted" ? "opacity-60" : ""}`}>
+                <SectionHeader title={section.title} hint={section.hint} count={section.docs.length} tone={section.tone} />
                 <div className="space-y-2">
                    {section.docs.map((doc) => (
                      <DocumentCard
@@ -1199,6 +1214,7 @@ export default function DocumentsPage() {
                        isSelected={selectedDocIds.has(doc.id)}
                        onToggleSelect={() => toggleSelectDoc(doc.id)}
                        selectMode={selectedDocIds.size > 0}
+                       onOpenDeal={doc.deal_id ? () => navigate(`/deals/${doc.deal_id}`) : undefined}
                      />
                    ))}
                 </div>
