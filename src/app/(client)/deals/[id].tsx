@@ -1,6 +1,20 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download } from "lucide-react";
+import {
+  MoreHorizontal,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Phone,
+  Copy,
+  CheckCircle2,
+  Download,
+  CalendarDays,
+  CircleDollarSign,
+  FileText,
+  UserRound,
+  Clock3,
+} from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -859,6 +873,14 @@ export default function DealDetailPage() {
   const title = deal?.title || customer?.name || "ดีล";
   const statusPill = getStatusPill(statusDoc);
   const isOverdue = statusDoc ? isOverdueDocument(statusDoc) : false;
+  const latestDocument = nonVoidedDocs[nonVoidedDocs.length - 1] || null;
+  const pendingDocsCount = nonVoidedDocs.filter((item) => item.stage !== "done").length;
+  const draftDocsCount = nonVoidedDocs.filter((item) => item.document.status === "draft").length;
+  const completedDocsCount = nonVoidedDocs.filter((item) =>
+    item.document.status === "paid" ||
+    item.document.status === "generated" ||
+    (item.document.doc_type === "tax_invoice_receipt" && item.document.status === "issued")
+  ).length;
   const amountLabel =
     amountDoc?.document.doc_type === "billing_note"
       ? "ยอดที่ต้องรับ"
@@ -970,6 +992,33 @@ export default function DealDetailPage() {
     };
   }, [nonVoidedDocs]);
 
+  const overviewStats = useMemo(() => ([
+    {
+      label: "เอกสารทั้งหมด",
+      value: `${nonVoidedDocs.length}`,
+      hint: voidedDocs.length > 0 ? `ยกเลิก ${voidedDocs.length}` : "พร้อมใช้งานทั้งหมด",
+      tone: "text-gray-900",
+    },
+    {
+      label: "ค้างดำเนินการ",
+      value: `${pendingDocsCount}`,
+      hint: pendingDocsCount > 0 ? "ยังมีขั้นตอนต่อไป" : "ปิดงานครบแล้ว",
+      tone: pendingDocsCount > 0 ? "text-amber-700" : "text-green-700",
+    },
+    {
+      label: "ฉบับร่าง",
+      value: `${draftDocsCount}`,
+      hint: draftDocsCount > 0 ? "รอตรวจสอบก่อนส่ง" : "ไม่มีเอกสารค้างร่าง",
+      tone: draftDocsCount > 0 ? "text-stone-700" : "text-gray-900",
+    },
+    {
+      label: "อัปเดตล่าสุด",
+      value: latestDocument ? formatBuddhistDate(latestDocument.document.updated_at || latestDocument.document.issue_date) : "-",
+      hint: latestDocument?.document.doc_number || "ยังไม่มีเอกสาร",
+      tone: "text-gray-900",
+    },
+  ]), [draftDocsCount, latestDocument, nonVoidedDocs.length, pendingDocsCount, voidedDocs.length]);
+
   if (authLoading || loading) {
     return (
       <AppShell title="ดีล" showBack>
@@ -1053,6 +1102,112 @@ export default function DealDetailPage() {
             </div>
           )}
         </Card>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          {overviewStats.map((stat) => (
+            <Card key={stat.label} className="border-[0.5px] p-0">
+              <div className="p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">{stat.label}</div>
+                <div className={`mt-2 text-2xl font-semibold ${stat.tone}`}>{stat.value}</div>
+                <div className="mt-1 text-xs text-gray-500">{stat.hint}</div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,1fr)]">
+          <Card className="border-[0.5px]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ภาพรวมดีล</div>
+                <div className="mt-1 text-lg font-semibold text-gray-900">{title}</div>
+                <div className="mt-1 text-sm text-gray-500">
+                  {deal?.created_at ? `สร้างเมื่อ ${formatBuddhistDate(deal.created_at)}` : "ยังไม่มีวันที่สร้าง"}
+                </div>
+              </div>
+              <div className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusPill.className}`}>
+                {statusPill.label}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-stone-500">
+                  <CircleDollarSign className="h-4 w-4" />
+                  มูลค่าหลักของดีล
+                </div>
+                <div className="mt-2 text-lg font-semibold text-gray-900">฿{formatCurrency(amountDoc ? getDocumentAmount(amountDoc.document) : 0)}</div>
+                <div className="mt-1 text-xs text-gray-500">{amountLabel}</div>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-stone-500">
+                  <Clock3 className="h-4 w-4" />
+                  ขั้นตอนปัจจุบัน
+                </div>
+                <div className="mt-2 text-lg font-semibold text-gray-900">{allDone ? "เสร็จสิ้น" : `${currentStage}/4`}</div>
+                <div className="mt-1 text-xs text-gray-500">{actionHint || "ยังไม่มีขั้นตอนที่กำลังทำ"}</div>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-stone-500">
+                  <FileText className="h-4 w-4" />
+                  เอกสารสำเร็จแล้ว
+                </div>
+                <div className="mt-2 text-lg font-semibold text-gray-900">{completedDocsCount}</div>
+                <div className="mt-1 text-xs text-gray-500">
+                  {latestDocument?.document.doc_number || "ยังไม่มีเอกสารล่าสุด"}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="border-[0.5px]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ลูกค้าและการติดตาม</div>
+                <div className="mt-1 text-lg font-semibold text-gray-900">{customer?.name || "ยังไม่ระบุลูกค้า"}</div>
+              </div>
+              {customer?.id && (
+                <Button variant="secondary" size="sm" onClick={() => navigate(`/customers/${customer.id}`)}>
+                  เปิดลูกค้า
+                </Button>
+              )}
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <UserRound className="mt-0.5 h-4 w-4 text-stone-500" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-stone-500">ข้อมูลติดต่อ</div>
+                  <div className="mt-1 text-sm text-gray-800">{customer?.phone || "ไม่มีเบอร์โทร"}</div>
+                  <div className="mt-1 text-xs text-gray-500">{customer?.tax_id || "ไม่มีเลขผู้เสียภาษี"}</div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <CalendarDays className="mt-0.5 h-4 w-4 text-stone-500" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-stone-500">วันที่สำคัญ</div>
+                  <div className="mt-1 text-sm text-gray-800">
+                    {latestDocument ? formatBuddhistDate(latestDocument.document.issue_date) : "ยังไม่มีเอกสาร"}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {isOverdue ? "มีเอกสารเกินกำหนดที่ต้องติดตาม" : "ยังไม่พบเอกสารเกินกำหนด"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <Phone className="mt-0.5 h-4 w-4 text-stone-500" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-stone-500">ที่อยู่/รายละเอียด</div>
+                  <div className="mt-1 text-sm leading-6 text-gray-700">
+                    {customer?.address || itemSummary || "ยังไม่มีรายละเอียดเพิ่มเติม"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
 
         <Card className="border-[0.5px]">
           <div className="mb-4 flex items-center justify-between gap-3">
