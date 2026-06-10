@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CircleDollarSign, TrendingUp, Wallet, FileText, Download } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
@@ -34,21 +35,38 @@ function SummaryCard({ icon, label, value, alert = false }: { icon: React.ReactN
 
 const MAX_BAR_HEIGHT = 120;
 
-function BarChart({ data, max }: { data: { label: string; value: number }[]; max: number }) {
+function BarChart({ data, max, activeIndex, onBarClick }: { data: { label: string; value: number; month: number; year: number }[]; max: number; activeIndex?: number; onBarClick?: (month: number, year: number) => void }) {
   const maxVal = Math.max(...data.map((d) => d.value), 1);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   return (
-    <div className="flex items-end gap-2 pt-2" style={{ height: MAX_BAR_HEIGHT + 24 }}>
+    <div className="flex items-end gap-2 pt-2" style={{ height: MAX_BAR_HEIGHT + 32 }}>
       {data.map((d, i) => {
         const h = max > 0 ? (d.value / max) * MAX_BAR_HEIGHT : 0;
         const isMax = d.value === maxVal;
+        const isActive = activeIndex === i;
+        const isHovered = hoveredIndex === i;
         return (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1">
-            <span className="text-[10px] font-medium tabular-nums text-gray-500">฿{(d.value / 1000).toFixed(0)}k</span>
+          <div
+            key={i}
+            className="group relative flex flex-1 flex-col items-center gap-1"
+            onMouseEnter={() => setHoveredIndex(i)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            {d.value > 0 && (isHovered || isActive) && (
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#1A1A18] px-2 py-0.5 text-[10px] font-medium text-white shadow-sm">
+                ฿{formatCurrency(d.value)}
+              </div>
+            )}
             <div
-              className={`w-full rounded-t-sm transition-all ${isMax ? "bg-primary" : "bg-primary/40"}`}
+              onClick={d.value > 0 && onBarClick ? () => onBarClick(d.month, d.year) : undefined}
+              className={[
+                "w-full rounded-t-sm transition-all",
+                d.value > 0 ? "cursor-pointer hover:brightness-110" : "",
+                isActive ? "bg-primary" : isMax ? "bg-primary" : "bg-primary/40",
+              ].join(" ")}
               style={{ height: Math.max(h, 2) }}
             />
-            <span className="text-[10px] text-gray-500">{d.label}</span>
+            <span className={`text-[10px] ${isActive ? "font-semibold text-primary" : "text-gray-500"}`}>{d.label}</span>
           </div>
         );
       })}
@@ -61,6 +79,7 @@ interface FinancialReportProps {
 }
 
 export function FinancialReport({ userId }: FinancialReportProps) {
+  const navigate = useNavigate();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -70,6 +89,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
 
   const maxMonthly = Math.max(...monthly.map((m) => m.total), 1);
+  const activeIndex = monthly.findIndex((m) => parseInt(m.month, 10) === month && m.year === year);
 
   function handleExportCSV() {
     const rows: string[][] = [];
@@ -178,8 +198,12 @@ export function FinancialReport({ userId }: FinancialReportProps) {
             data={monthly.map((m) => ({
               label: `${monthLabel(m.month)}`,
               value: m.total,
+              month: parseInt(m.month, 10),
+              year: m.year,
             }))}
             max={maxMonthly}
+            activeIndex={activeIndex >= 0 ? activeIndex : undefined}
+            onBarClick={(m, y) => { setMonth(m); setYear(y); }}
           />
         </Card>
       )}
