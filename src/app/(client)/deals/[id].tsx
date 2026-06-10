@@ -269,33 +269,40 @@ export default function DealDetailPage() {
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
+      const isModern = isHtmlPrintTemplate(clientProfile.pdf_template);
 
       for (let i = 0; i < toDownload.length; i++) {
         const item = toDownload[i];
         const doc = item.document;
 
-        let referenceDoc: Document | undefined;
-        if (doc.doc_type === "credit_note" && doc.converted_from_id) {
-          const { data: refDoc } = await supabase
-            .from("documents")
-            .select("*")
-            .eq("id", doc.converted_from_id)
-            .single();
-          if (refDoc) referenceDoc = refDoc as unknown as Document;
-        }
-
         try {
-          const { generatePDFBlob } = await import("../../../lib/pdf");
-          const blob = await generatePDFBlob({
-            document: doc,
-            lineItems: doc.doc_type === "billing_note" ? [] : item.line_items,
-            billingNoteInvoices: doc.doc_type === "billing_note" ? item.billing_invoices : [],
-            clientProfile,
-            customer,
-            referenceDoc,
-          });
+          let blob: Blob | null = null;
+          if (isModern) {
+            const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
+            const data = await getPrintableDocumentDataBase(doc.id);
+            blob = await generateModernPDFBlob(data);
+          } else {
+            let referenceDoc: Document | undefined;
+            if (doc.doc_type === "credit_note" && doc.converted_from_id) {
+              const { data: refDoc } = await supabase
+                .from("documents")
+                .select("*")
+                .eq("id", doc.converted_from_id)
+                .single();
+              if (refDoc) referenceDoc = refDoc as unknown as Document;
+            }
+            const { generatePDFBlob } = await import("../../../lib/pdf");
+            blob = await generatePDFBlob({
+              document: doc,
+              lineItems: doc.doc_type === "billing_note" ? [] : item.line_items,
+              billingNoteInvoices: doc.doc_type === "billing_note" ? item.billing_invoices : [],
+              clientProfile,
+              customer,
+              referenceDoc,
+            });
+          }
           const name = `${doc.doc_number || `doc_${i + 1}`}.pdf`;
-          zip.file(name, blob, { binary: true });
+          if (blob) zip.file(name, blob, { binary: true });
         } catch {
           toast.error(`ไม่สามารถสร้าง PDF สำหรับ ${doc.doc_number || doc.id}`);
         }
@@ -1315,11 +1322,11 @@ export default function DealDetailPage() {
                 : "For sent or later documents, this action voids the current version and creates a fresh draft copy."}
             </div>
           )}
-          <div className="mt-3 grid grid-cols-2 gap-2">
+           <div className="mt-3 grid grid-cols-2 gap-2">
             {nonVoidedDocs.length > 0 && (
               <Button
                 variant="secondary"
-                className="col-span-2 justify-center !bg-page-bg"
+                className="col-span-2 justify-center !bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100"
                 loading={bulkDownloading}
                 onClick={handleDownloadAll}
               >
@@ -1337,7 +1344,11 @@ export default function DealDetailPage() {
                 บันทึกการส่งของ
               </Button>
             )}
-            <Button variant="secondary" className="justify-center !bg-page-bg" onClick={handleCurrentDocAction}>
+            <Button
+              variant="secondary"
+              className={`justify-center ${activeDoc?.document.status !== "draft" ? "!bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100" : "!bg-page-bg"} ${hasProductItems ? "" : "col-span-2"}`}
+              onClick={handleCurrentDocAction}
+            >
               {activeDoc?.document.status === "draft" ? "แก้ไขฉบับร่าง" : "ยกเลิก / แก้ไข"}
             </Button>
             {allDone && hasPaidDocs && (
