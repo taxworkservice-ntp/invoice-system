@@ -37,12 +37,17 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
     return parseFloat(qtyBase) || 0;
   }, [hasCarton, useCarton, qtyCarton, qtyBase, item.qty_per_carton]);
 
+  const parsedDisplayUnitCost = parseFloat(unitCost) || 0;
+  const parsedBaseUnitCost =
+    hasCarton && useCarton && item.qty_per_carton && item.qty_per_carton > 0
+      ? parsedDisplayUnitCost / item.qty_per_carton
+      : parsedDisplayUnitCost;
+
   async function handleConfirm() {
-    const parsedUnitCost = parseFloat(unitCost) || 0;
-    if (computedQtyBase <= 0 || parsedUnitCost < 0) return;
+    if (computedQtyBase <= 0 || parsedBaseUnitCost < 0) return;
     setSaving(true);
     try {
-      await onConfirm(computedQtyBase, parsedUnitCost, reason);
+      await onConfirm(computedQtyBase, parsedBaseUnitCost, reason);
     } finally {
       setSaving(false);
     }
@@ -123,7 +128,7 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
 
         <div>
           <label className="block text-[13px] font-medium text-[#1A1A18] mb-1">
-            ต้นทุนต่อ {item.base_unit}
+            ต้นทุนต่อ {hasCarton && useCarton ? item.carton_unit : item.base_unit}
           </label>
           <input
             type="number"
@@ -137,6 +142,11 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
           <div className="mt-1 text-[11px] text-[#888780]">
             ใช้ราคาทุนจริงของล็อตที่รับเข้าในครั้งนี้
           </div>
+          {hasCarton && useCarton && item.qty_per_carton && item.qty_per_carton > 0 && parsedDisplayUnitCost > 0 && (
+            <div className="mt-1 text-[11px] text-[#888780]">
+              = {parsedBaseUnitCost.toFixed(2)} ต่อ {item.base_unit}
+            </div>
+          )}
         </div>
 
         <div>
@@ -164,7 +174,7 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
 
         <Button
           onClick={handleConfirm}
-          disabled={computedQtyBase <= 0 || (parseFloat(unitCost) || 0) < 0 || saving}
+          disabled={computedQtyBase <= 0 || parsedBaseUnitCost < 0 || saving}
           loading={saving}
           className="w-full !bg-[#27500A] hover:!bg-[#1a3e07] !text-white"
         >
