@@ -60,7 +60,7 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
     const hasCartonItems = productItems.some((i) => i.carton_unit && i.qty_per_carton);
     const headers = ["ชื่อสินค้า", "SKU", "สต็อกรวม", "หน่วยนับ"];
     if (hasCartonItems) headers.push("จำนวนลัง", "หน่วยลัง");
-    headers.push("จุดแจ้งเตือน", "สถานะ", "ราคาต่อหน่วย", "มูลค่าสต็อก");
+    headers.push("จุดแจ้งเตือน", "สถานะ", "ต้นทุนเฉลี่ยต่อหน่วย", "มูลค่าสต็อกตามทุน");
 
     const rows = productItems.map((item) => {
       let status = "ปกติ";
@@ -81,11 +81,11 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
         row.push(cartonCount != null ? cartonCount.toString() : "");
         row.push(item.carton_unit || "");
       }
-      row.push(
+        row.push(
         item.low_stock_threshold.toString(),
         status,
-        item.unit_price.toFixed(2),
-        (item.stock_count * item.unit_price).toFixed(2),
+        item.avg_cost.toFixed(2),
+        item.stock_value.toFixed(2),
       );
       return row;
     });
@@ -137,7 +137,7 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
 
       const itemMap = new Map(items.map((i) => [i.id, i]));
 
-      const headers = ["วันที่", "รายการ", "ประเภท", "ปริมาณ", "หน่วย", "คงเหลือ", "หมายเหตุ", "เอกสาร"];
+      const headers = ["วันที่", "รายการ", "ประเภท", "ปริมาณ", "หน่วย", "ต้นทุน/หน่วย", "มูลค่ารายการ", "คงเหลือ", "มูลค่าคงเหลือ", "หมายเหตุ", "เอกสาร"];
       const rows = movements.map((m: any) => {
         const item = itemMap.get(m.item_id);
         const itemName = item?.name || m.item_id;
@@ -149,7 +149,10 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
           MOVEMENT_TYPE_LABELS[m.movement_type] || m.movement_type,
           m.qty_base.toString(),
           unit,
+          (m.unit_cost ?? "").toString(),
+          (m.movement_value ?? "").toString(),
           m.balance_after.toString(),
+          (m.balance_value_after ?? "").toString(),
           m.reason || "",
           docMap.get(m.document_id) || "",
         ];

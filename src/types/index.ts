@@ -101,6 +101,8 @@ export interface Item {
   carton_unit: string | null;
   qty_per_carton: number | null;
   stock_count: number;
+  avg_cost: number;
+  stock_value: number;
   low_stock_threshold: number;
   is_active: boolean;
   created_at: string;
@@ -116,6 +118,9 @@ export interface StockMovement {
   qty_carton: number | null;
   carton_unit: string | null;
   balance_after: number;
+  unit_cost: number | null;
+  movement_value: number | null;
+  balance_value_after: number | null;
   reason: string | null;
   document_id: string | null;
   created_at: string;

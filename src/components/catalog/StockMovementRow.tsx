@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { StockMovement, Item } from "../../types";
 import { formatBuddhistDate } from "../../lib/dates";
+import { formatCurrency } from "../../lib/format";
 import { formatBaseWithCartonHint, formatMixedStock } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS, MOVEMENT_TYPE_ICONS } from "./constants";
 
@@ -82,6 +83,11 @@ export function StockMovementRow({ movement, item }: Props) {
           {movement.reason && (
             <div className="mt-0.5 truncate text-[11px] italic text-[#AAAAAA]">
               {movement.reason}
+            </div>
+          )}
+          {(movement.unit_cost != null || movement.movement_value != null) && (
+            <div className="mt-0.5 text-[11px] text-[#888780]">
+              ทุน/หน่วย ฿{formatCurrency(movement.unit_cost || 0)} · มูลค่า ฿{formatCurrency(movement.movement_value || 0)}
             </div>
           )}
           {hasDocument && movement.document_id && (

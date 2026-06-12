@@ -8,7 +8,7 @@ import type { Item } from "../../types";
 interface Props {
   item: Item;
   isOpen: boolean;
-  onConfirm: (qtyBase: number, reason: string) => Promise<void>;
+  onConfirm: (qtyBase: number, unitCost: number, reason: string) => Promise<void>;
   onDismiss: () => void;
 }
 
@@ -21,6 +21,9 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
   const [useCarton, setUseCarton] = useState(hasCarton);
   const [qtyCarton, setQtyCarton] = useState("");
   const [qtyBase, setQtyBase] = useState("");
+  const [unitCost, setUnitCost] = useState(
+    item.avg_cost > 0 ? String(item.avg_cost) : String(item.unit_price || ""),
+  );
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -35,10 +38,11 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
   }, [hasCarton, useCarton, qtyCarton, qtyBase, item.qty_per_carton]);
 
   async function handleConfirm() {
-    if (computedQtyBase <= 0) return;
+    const parsedUnitCost = parseFloat(unitCost) || 0;
+    if (computedQtyBase <= 0 || parsedUnitCost < 0) return;
     setSaving(true);
     try {
-      await onConfirm(computedQtyBase, reason);
+      await onConfirm(computedQtyBase, parsedUnitCost, reason);
     } finally {
       setSaving(false);
     }
@@ -47,6 +51,7 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
   function handleDismiss() {
     setQtyCarton("");
     setQtyBase("");
+    setUnitCost(item.avg_cost > 0 ? String(item.avg_cost) : String(item.unit_price || ""));
     setReason("");
     setUseCarton(hasCarton);
     onDismiss();
@@ -118,6 +123,24 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
 
         <div>
           <label className="block text-[13px] font-medium text-[#1A1A18] mb-1">
+            ต้นทุนต่อ {item.base_unit}
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={unitCost}
+            onChange={(e) => setUnitCost(e.target.value)}
+            placeholder="0.00"
+            className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+          />
+          <div className="mt-1 text-[11px] text-[#888780]">
+            ใช้ราคาทุนจริงของล็อตที่รับเข้าในครั้งนี้
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[13px] font-medium text-[#1A1A18] mb-1">
             เหตุผล / หมายเหตุ
           </label>
           <input
@@ -141,7 +164,7 @@ export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
 
         <Button
           onClick={handleConfirm}
-          disabled={computedQtyBase <= 0 || saving}
+          disabled={computedQtyBase <= 0 || (parseFloat(unitCost) || 0) < 0 || saving}
           loading={saving}
           className="w-full !bg-[#27500A] hover:!bg-[#1a3e07] !text-white"
         >

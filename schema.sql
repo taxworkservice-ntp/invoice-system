@@ -225,6 +225,8 @@ create table items (
 
   -- Stock (products only)
   stock_count         numeric(15,3) not null default 0,
+  avg_cost            numeric(15,2) not null default 0,
+  stock_value         numeric(15,2) not null default 0,
   low_stock_threshold numeric(15,3) not null default 5,
 
   is_active           boolean not null default true,
@@ -264,6 +266,9 @@ create table stock_movements (
   carton_unit     text,
 
   balance_after   numeric(15,3) not null,    -- stock count after this movement
+  unit_cost       numeric(15,2),
+  movement_value  numeric(15,2),
+  balance_value_after numeric(15,2),
   reason          text,                       -- manual note or auto reference
   document_id     uuid,                       -- reference to invoice if auto movement
 

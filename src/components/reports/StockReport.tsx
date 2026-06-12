@@ -73,7 +73,7 @@ export function StockReport({ userId }: StockReportProps) {
     }
     rows.push([]);
     rows.push(["ประวัติความเคลื่อนไหว"]);
-    rows.push(["วันที่", "รายการ", "SKU", "ประเภท", "จำนวน", "คงเหลือ", "เอกสารอ้างอิง", "หมายเหตุ"]);
+    rows.push(["วันที่", "รายการ", "SKU", "ประเภท", "จำนวน", "ต้นทุน/หน่วย", "มูลค่ารายการ", "คงเหลือ", "มูลค่าคงเหลือ", "เอกสารอ้างอิง", "หมายเหตุ"]);
     for (const m of movements) {
       rows.push([
         formatDate(m.date),
@@ -81,7 +81,10 @@ export function StockReport({ userId }: StockReportProps) {
         m.itemSku || "",
         m.type,
         m.qty.toString(),
+        (m.unitCost ?? 0).toString(),
+        (m.movementValue ?? 0).toString(),
         m.balance.toString(),
+        (m.balanceValue ?? 0).toString(),
         m.docNumber || "",
         m.reason || "",
       ]);
@@ -144,7 +147,7 @@ export function StockReport({ userId }: StockReportProps) {
       {summary && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าทั้งหมด" value={`${summary.totalItems} รายการ`} />
-          <SummaryCard icon={<TrendingDown className="h-4 w-4" />} label="มูลค่าสต็อก" value={formatCurrency(summary.totalValue)} />
+          <SummaryCard icon={<TrendingDown className="h-4 w-4" />} label="มูลค่าสต็อกตามทุน" value={formatCurrency(summary.totalValue)} />
           <SummaryCard icon={<AlertTriangle className="h-4 w-4" />} label="สินค้าใกล้หมด" value={summary.lowStockCount.toString()} alert={summary.lowStockCount > 0} onClick={summary.lowStockCount > 0 ? () => navigate("/catalog?filter=low") : undefined} />
           <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าหมด" value={summary.outOfStockCount.toString()} alert={summary.outOfStockCount > 0} onClick={summary.outOfStockCount > 0 ? () => navigate("/catalog?filter=out") : undefined} />
         </div>
@@ -184,7 +187,10 @@ export function StockReport({ userId }: StockReportProps) {
                   <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium text-gray-500">รายการ</th>
                   <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium text-gray-500">ประเภท</th>
                   <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">จำนวน</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">ทุน/หน่วย</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">มูลค่า</th>
                   <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">คงเหลือ</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">มูลค่าคงเหลือ</th>
                   <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium text-gray-500">เอกสาร</th>
                 </tr>
               </thead>
@@ -198,7 +204,7 @@ export function StockReport({ userId }: StockReportProps) {
                       lastDate = dayLabel;
                       rows.push(
                         <tr key={`day-${m.date}`} className="bg-[#FAFAF8]">
-                          <td colSpan={6} className="px-3 py-1.5 text-[10px] font-medium text-gray-400 uppercase tracking-[0.05em]">{dayLabel}</td>
+                          <td colSpan={9} className="px-3 py-1.5 text-[10px] font-medium text-gray-400 uppercase tracking-[0.05em]">{dayLabel}</td>
                         </tr>
                       );
                     }
@@ -213,7 +219,16 @@ export function StockReport({ userId }: StockReportProps) {
                         <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-[#C0392B]" : "text-[#1E5A38]"}`}>
                           {m.qty > 0 ? "+" : ""}{m.qty} {m.baseUnit}
                         </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                          ฿{formatCurrency(m.unitCost || 0)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                          ฿{formatCurrency(m.movementValue || 0)}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                          ฿{formatCurrency(m.balanceValue || 0)}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{m.docNumber || m.reason || "-"}</td>
                       </tr>
                     );

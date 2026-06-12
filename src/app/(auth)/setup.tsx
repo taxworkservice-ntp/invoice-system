@@ -104,6 +104,7 @@ export default function SetupPage() {
 
     const price = parseFloat(itemPrice);
     const stock = itemType === "product" ? parseInt(initialStock, 10) || 0 : 0;
+    const openingValue = stock > 0 ? stock * price : 0;
 
     const { data: newItem, error: itemError } = await supabase
       .from("items")
@@ -114,6 +115,8 @@ export default function SetupPage() {
         unit_price: price,
         base_unit: itemUnit,
         stock_count: stock,
+        avg_cost: stock > 0 ? price : 0,
+        stock_value: openingValue,
       })
       .select("id")
       .single();
@@ -132,6 +135,9 @@ export default function SetupPage() {
         movement_type: "manual_in",
         qty_base: stock,
         balance_after: stock,
+        unit_cost: price,
+        movement_value: openingValue,
+        balance_value_after: openingValue,
         reason: "สต็อกเริ่มต้น",
       });
     }

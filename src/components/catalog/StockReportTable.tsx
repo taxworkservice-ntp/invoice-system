@@ -11,7 +11,7 @@ function StockRow({ item, index }: { item: Item; index: number }) {
   const navigate = useNavigate();
   const low = isLowStock(item.stock_count, item.low_stock_threshold);
   const out = isOutOfStock(item.stock_count);
-  const value = item.stock_count * item.unit_price;
+  const value = item.stock_value;
 
   let rowBg = "";
   let textColor = "";
@@ -52,7 +52,7 @@ function StockRow({ item, index }: { item: Item; index: number }) {
         {item.low_stock_threshold}
       </td>
       <td className="px-2 py-2.5 text-xs text-right tabular-nums text-gray-600 hidden sm:table-cell">
-        {item.unit_price.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+        {item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
       </td>
       <td className="px-2 py-2.5 text-xs text-right tabular-nums font-medium text-gray-700 hidden sm:table-cell">
         {value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
@@ -65,7 +65,7 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
   const navigate = useNavigate();
   const low = isLowStock(item.stock_count, item.low_stock_threshold);
   const out = isOutOfStock(item.stock_count);
-  const value = item.stock_count * item.unit_price;
+  const value = item.stock_value;
 
   let rowBg = "";
   if (out) rowBg = "bg-red-50/60";
@@ -91,7 +91,7 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
       <div className="mt-1 flex items-center gap-4 text-[11px] text-gray-500">
         <span>นับรวม: {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}</span>
         <span>แจ้งเตือน: {item.low_stock_threshold}</span>
-        <span>฿{item.unit_price.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+        <span>ทุน ฿{item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
         <span className="font-medium text-gray-600">= ฿{value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
       </div>
     </div>
@@ -113,7 +113,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
               <th className="px-2 py-2 text-center text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">หน่วย</th>
               <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">นับรวม</th>
               <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">แจ้งเตือน</th>
-              <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">ราคา</th>
+              <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">ต้นทุนเฉลี่ย</th>
               <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">มูลค่า</th>
             </tr>
           </thead>

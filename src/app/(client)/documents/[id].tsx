@@ -524,6 +524,7 @@ export default function DocumentDetailPage() {
   const issueDateLabel = formatDate(doc.issue_date);
   const dueDateLabel = doc.due_date ? formatDate(doc.due_date) : "ไม่มีกำหนด";
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
+  const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
   const statusMessage = isVoided
     ? "ยกเลิกแล้ว เก็บไว้เป็นประวัติ"
     : isPaid
@@ -601,12 +602,14 @@ export default function DocumentDetailPage() {
             <div className="mt-3 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</div>
             <p className="mt-1 text-sm text-[#6B655C]">{doc.wht_rate > 0 ? "ยอดสุทธิหลังหัก ณ ที่จ่าย" : "ยอดรวมเอกสารนี้"}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
-                แก้ไขเอกสาร
-              </Button>
+              {canEditDocument && (
+                <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
+                  แก้ไขเอกสาร
+                </Button>
+              )}
               {doc.deal_id && (
                 <Button variant="secondary" size="sm" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
-              กลับไปหน้าดีล
+              ไปที่หน้าดีล
                 </Button>
               )}
             </div>
@@ -985,7 +988,7 @@ export default function DocumentDetailPage() {
               className="w-full"
               onClick={() => navigate(`/deals/${doc.deal_id}`)}
             >
-              เปิดดีล
+              ไปที่หน้าดีล
             </Button>
           )}
 

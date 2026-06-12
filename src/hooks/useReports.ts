@@ -52,6 +52,9 @@ export interface StockMovementRow {
   typeKey: string;
   qty: number;
   balance: number;
+  unitCost: number | null;
+  movementValue: number | null;
+  balanceValue: number | null;
   reason: string | null;
   docNumber: string | null;
   baseUnit: string;
@@ -249,7 +252,7 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
 
       const allItems = (items || []) as Item[];
       const activeItems = allItems.filter((i) => i.item_type === "product");
-      const totalValue = activeItems.reduce((sum, i) => sum + (i.stock_count || 0) * (i.unit_price || 0), 0);
+      const totalValue = activeItems.reduce((sum, i) => sum + (i.stock_value || 0), 0);
       const lowStock = activeItems.filter((i) => i.stock_count > 0 && i.stock_count <= (i.low_stock_threshold || 5));
       const outOfStock = activeItems.filter((i) => i.stock_count <= 0);
 
@@ -304,6 +307,9 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
             typeKey: m.movement_type,
             qty: m.qty_base,
             balance: m.balance_after,
+            unitCost: m.unit_cost ?? null,
+            movementValue: m.movement_value ?? null,
+            balanceValue: m.balance_value_after ?? null,
             reason: m.reason,
             docNumber: m.document_id ? docMap.get(m.document_id) || null : null,
             baseUnit: item?.base_unit || "ชิ้น",

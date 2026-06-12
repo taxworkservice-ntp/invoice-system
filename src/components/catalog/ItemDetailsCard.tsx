@@ -29,6 +29,22 @@ export function ItemDetailsCard({ item }: Props) {
             ฿ {formatCurrency(item.unit_price)} / {item.base_unit}
           </span>
         </div>
+        {item.item_type === "product" && (
+          <>
+            <div className="flex justify-between py-2.5">
+              <span className="text-[12px] text-[#888780]">ต้นทุนเฉลี่ย</span>
+              <span className="text-[13px] text-[#1A1A18]">
+                ฿ {formatCurrency(item.avg_cost)} / {item.base_unit}
+              </span>
+            </div>
+            <div className="flex justify-between py-2.5">
+              <span className="text-[12px] text-[#888780]">มูลค่าสต็อก</span>
+              <span className="text-[13px] text-[#1A1A18]">
+                ฿ {formatCurrency(item.stock_value)}
+              </span>
+            </div>
+          </>
+        )}
         {hasCarton && (
           <div className="flex justify-between py-2.5">
             <span className="text-[12px] text-[#888780]">หน่วยรอง</span>

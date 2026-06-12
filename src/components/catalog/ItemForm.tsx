@@ -36,6 +36,9 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     item?.qty_per_carton ? String(item.qty_per_carton) : "",
   );
   const [initialStock, setInitialStock] = useState("0");
+  const [initialCost, setInitialCost] = useState(
+    item?.avg_cost ? String(item.avg_cost) : "",
+  );
   const [lowStockThreshold, setLowStockThreshold] = useState(
     item ? String(item.low_stock_threshold) : "5",
   );
@@ -56,6 +59,17 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
 
     if (!unitPrice || isNaN(Number(unitPrice)) || Number(unitPrice) < 0) {
       fieldErrors.unitPrice = "กรุณากรอกราคาให้ถูกต้อง";
+    }
+
+    if (!isEdit && itemType === "product") {
+      const startingStock = parseFloat(initialStock) || 0;
+      const startingCost = parseFloat(initialCost);
+      if (
+        startingStock > 0 &&
+        (!initialCost || isNaN(startingCost) || startingCost < 0)
+      ) {
+        fieldErrors.initialCost = "กรุณากรอกราคาทุนเริ่มต้นให้ถูกต้อง";
+      }
     }
 
     if (cartonEnabled) {
@@ -108,6 +122,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
         Object.assign(payload, {
           user_id: profile.id,
           stock_count: 0,
+          avg_cost: 0,
+          stock_value: 0,
           is_active: true,
         });
 
@@ -120,10 +136,16 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
         const newItem = data as Item;
 
         const stockQty = parseFloat(initialStock) || 0;
+        const costPerUnit = parseFloat(initialCost) || 0;
+        const openingValue = stockQty > 0 ? stockQty * costPerUnit : 0;
         if (itemType === "product" && stockQty > 0) {
           await supabase
             .from("items")
-            .update({ stock_count: stockQty })
+            .update({
+              stock_count: stockQty,
+              avg_cost: costPerUnit,
+              stock_value: openingValue,
+            })
             .eq("id", newItem.id);
           await supabase.from("stock_movements").insert({
             item_id: newItem.id,
@@ -131,6 +153,9 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
             movement_type: "manual_in",
             qty_base: stockQty,
             balance_after: stockQty,
+            unit_cost: costPerUnit,
+            movement_value: openingValue,
+            balance_value_after: openingValue,
             reason: "สต็อกเริ่มต้น",
           });
         }
@@ -297,15 +322,42 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
             สต็อก
           </div>
           {!isEdit && (
-            <StockInitialField
-              value={initialStock}
-              onChange={(value) => setInitialStock(String(value))}
-              baseUnit={baseUnit}
-              cartonUnit={cartonEnabled ? cartonUnit : null}
-              qtyPerCarton={
-                cartonEnabled ? parseFloat(String(qtyPerCarton)) || 0 : 0
-              }
-            />
+            <>
+              <StockInitialField
+                value={initialStock}
+                onChange={(value) => setInitialStock(String(value))}
+                baseUnit={baseUnit}
+                cartonUnit={cartonEnabled ? cartonUnit : null}
+                qtyPerCarton={
+                  cartonEnabled ? parseFloat(String(qtyPerCarton)) || 0 : 0
+                }
+              />
+              <div>
+                <label className="block text-[13px] text-[#1A1A18] mb-1">
+                  ต้นทุนเริ่มต้นต่อ {baseUnit}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={initialCost}
+                  onChange={(e) => {
+                    setInitialCost(e.target.value);
+                    setErrors((prev) => ({ ...prev, initialCost: "" }));
+                  }}
+                  className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                  placeholder="เช่น 45.00"
+                />
+                <p className="text-[11px] text-[#888780] mt-1">
+                  ใช้คำนวณต้นทุนเฉลี่ยและมูลค่าสต็อกเริ่มต้น
+                </p>
+                {errors.initialCost && (
+                  <p className="text-[11px] text-[#C0392B] mt-1">
+                    {errors.initialCost}
+                  </p>
+                )}
+              </div>
+            </>
           )}
           <div>
             <label className="block text-[13px] text-[#1A1A18] mb-1">

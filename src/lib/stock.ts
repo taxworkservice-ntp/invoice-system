@@ -4,6 +4,10 @@ export function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export function cartonsToBase(cartons: number, qtyPerCarton: number): number {
   return round3(cartons * qtyPerCarton);
 }
@@ -105,6 +109,28 @@ export interface DeductStockResult {
   warnings: StockWarning[];
 }
 
+function nextAverageCost(stockCount: number, stockValue: number): number {
+  if (stockCount <= 0 || stockValue <= 0) return 0;
+  return round2(stockValue / stockCount);
+}
+
+async function findDocumentMovementValue(
+  documentId: string,
+  itemId: string,
+): Promise<number | null> {
+  const { data } = await supabase
+    .from("stock_movements")
+    .select("movement_value")
+    .eq("document_id", documentId)
+    .eq("item_id", itemId)
+    .eq("movement_type", "auto_out")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data?.movement_value ?? null;
+}
+
 export async function deductStockOnDocumentSent(
   documentId: string,
   userId: string,
@@ -147,7 +173,7 @@ export async function deductStockOnDocumentSent(
 
     const { data: item } = await supabase
       .from("items")
-      .select("stock_count, carton_unit, qty_per_carton")
+      .select("stock_count, avg_cost, stock_value, carton_unit, qty_per_carton")
       .eq("id", li.item_id)
       .single();
 
@@ -164,6 +190,12 @@ export async function deductStockOnDocumentSent(
         : item.stock_count;
     const newStock = round3(item.stock_count - baseQuantity);
     const finalStock = Math.max(0, newStock);
+    const unitCost = round2(Number(item.avg_cost || 0));
+    const movementValue = round2(baseQuantity * unitCost);
+    const finalStockValue =
+      finalStock <= 0
+        ? 0
+        : Math.max(0, round2(Number(item.stock_value || 0) - movementValue));
 
     if (newStock < 0) {
       console.warn(
@@ -179,7 +211,11 @@ export async function deductStockOnDocumentSent(
 
     await supabase
       .from("items")
-      .update({ stock_count: finalStock })
+      .update({
+        stock_count: finalStock,
+        stock_value: finalStockValue,
+        avg_cost: nextAverageCost(finalStock, finalStockValue),
+      })
       .eq("id", li.item_id);
 
     const reasonLabel =
@@ -197,6 +233,9 @@ export async function deductStockOnDocumentSent(
       qty_carton: li.qty_carton ? -li.qty_carton : null,
       carton_unit: li.carton_unit || null,
       balance_after: finalStock,
+      unit_cost: unitCost,
+      movement_value: movementValue,
+      balance_value_after: finalStockValue,
       reason: `ตัดสต็อกจาก${reasonLabel} ${document.doc_number}`,
       document_id: documentId,
     });
@@ -229,7 +268,7 @@ export async function restoreStockOnVoid(
 
     const { data: item } = await supabase
       .from("items")
-      .select("stock_count")
+      .select("stock_count, avg_cost, stock_value")
       .eq("id", li.item_id)
       .single();
 
@@ -237,10 +276,20 @@ export async function restoreStockOnVoid(
 
     const baseQuantity = round3(Number(li.base_quantity ?? li.quantity ?? 0));
     const newStock = round3(item.stock_count + baseQuantity);
+    const priorMovementValue = await findDocumentMovementValue(voidedDocumentId, li.item_id);
+    const unitCost = round2(
+      priorMovementValue != null && baseQuantity > 0
+        ? priorMovementValue / baseQuantity
+        : Number(item.avg_cost || 0),
+    );
+    const movementValue =
+      priorMovementValue != null ? round2(priorMovementValue) : round2(baseQuantity * unitCost);
+    const newStockValue = round2(Number(item.stock_value || 0) + movementValue);
+    const avgCost = nextAverageCost(newStock, newStockValue);
 
     await supabase
       .from("items")
-      .update({ stock_count: newStock })
+      .update({ stock_count: newStock, stock_value: newStockValue, avg_cost: avgCost })
       .eq("id", li.item_id);
 
     await supabase.from("stock_movements").insert({
@@ -251,6 +300,9 @@ export async function restoreStockOnVoid(
       qty_carton: li.qty_carton || null,
       carton_unit: li.carton_unit || null,
       balance_after: newStock,
+      unit_cost: unitCost,
+      movement_value: movementValue,
+      balance_value_after: newStockValue,
       reason: `คืนสต็อกจากการยกเลิกเอกสาร ${docNumber}`,
       document_id: voidedDocumentId,
     });
@@ -261,21 +313,25 @@ export async function manualStockIn(
   itemId: string,
   userId: string,
   qtyBase: number,
+  unitCost: number,
   reason?: string,
 ): Promise<void> {
   const { data: item } = await supabase
     .from("items")
-    .select("stock_count")
+    .select("stock_count, stock_value")
     .eq("id", itemId)
     .single();
 
   if (!item) return;
 
   const newStock = round3(item.stock_count + qtyBase);
+  const movementValue = round2(qtyBase * unitCost);
+  const newStockValue = round2(Number(item.stock_value || 0) + movementValue);
+  const avgCost = nextAverageCost(newStock, newStockValue);
 
   await supabase
     .from("items")
-    .update({ stock_count: newStock })
+    .update({ stock_count: newStock, stock_value: newStockValue, avg_cost: avgCost })
     .eq("id", itemId);
 
   await supabase.from("stock_movements").insert({
@@ -284,6 +340,9 @@ export async function manualStockIn(
     movement_type: "manual_in",
     qty_base: qtyBase,
     balance_after: newStock,
+    unit_cost: round2(unitCost),
+    movement_value: movementValue,
+    balance_value_after: newStockValue,
     reason: reason || null,
     document_id: null,
   });
@@ -297,7 +356,7 @@ export async function manualStockOut(
 ): Promise<void> {
   const { data: item } = await supabase
     .from("items")
-    .select("stock_count")
+    .select("stock_count, avg_cost, stock_value")
     .eq("id", itemId)
     .single();
 
@@ -305,6 +364,12 @@ export async function manualStockOut(
 
   const newStock = round3(item.stock_count - qtyBase);
   const finalStock = Math.max(0, newStock);
+  const unitCost = round2(Number(item.avg_cost || 0));
+  const movementValue = round2(qtyBase * unitCost);
+  const finalStockValue =
+    finalStock <= 0
+      ? 0
+      : Math.max(0, round2(Number(item.stock_value || 0) - movementValue));
 
   if (newStock < 0) {
     console.warn(
@@ -314,7 +379,11 @@ export async function manualStockOut(
 
   await supabase
     .from("items")
-    .update({ stock_count: finalStock })
+    .update({
+      stock_count: finalStock,
+      stock_value: finalStockValue,
+      avg_cost: nextAverageCost(finalStock, finalStockValue),
+    })
     .eq("id", itemId);
 
   await supabase.from("stock_movements").insert({
@@ -323,6 +392,9 @@ export async function manualStockOut(
     movement_type: "manual_out",
     qty_base: -qtyBase,
     balance_after: finalStock,
+    unit_cost: unitCost,
+    movement_value: movementValue,
+    balance_value_after: finalStockValue,
     reason: reason || "ตัดสต็อกด้วยตนเอง",
     document_id: null,
   });

@@ -59,10 +59,10 @@ export default function CatalogItemPage() {
       });
   }
 
-  async function handleStockIn(qtyBase: number, reason: string) {
+  async function handleStockIn(qtyBase: number, unitCost: number, reason: string) {
     if (!item || !profile) return;
     try {
-      await manualStockIn(item.id, profile.id, qtyBase, reason || undefined);
+      await manualStockIn(item.id, profile.id, qtyBase, unitCost, reason || undefined);
       toast.success(`รับสินค้าเข้าแล้ว +${qtyBase} ${item.base_unit}`);
       setStockModal(null);
       reloadItem();
