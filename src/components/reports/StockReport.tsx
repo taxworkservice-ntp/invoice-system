@@ -59,7 +59,7 @@ export function StockReport({ userId }: StockReportProps) {
   const navigate = useNavigate();
   const [dateFrom, setDateFrom] = useState(startOfMonth());
   const [dateTo, setDateTo] = useState(todayString());
-  const { summary, lowStockItems, movements, loading, error, refetch } = useStockReport(userId, dateFrom, dateTo);
+  const { summary, lowStockItems, movements, valuation, loading, error, refetch } = useStockReport(userId, dateFrom, dateTo);
 
   function handleExportCSV() {
     const rows: string[][] = [];
@@ -147,10 +147,48 @@ export function StockReport({ userId }: StockReportProps) {
       {summary && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าทั้งหมด" value={`${summary.totalItems} รายการ`} />
-          <SummaryCard icon={<TrendingDown className="h-4 w-4" />} label="มูลค่าสต็อกตามทุน" value={formatCurrency(summary.totalValue)} />
+          <SummaryCard icon={<TrendingDown className="h-4 w-4" />} label="มูลค่าสต็อก (ทุนเฉลี่ย)" value={formatCurrency(summary.totalValue)} />
           <SummaryCard icon={<AlertTriangle className="h-4 w-4" />} label="สินค้าใกล้หมด" value={summary.lowStockCount.toString()} alert={summary.lowStockCount > 0} onClick={summary.lowStockCount > 0 ? () => navigate("/catalog?filter=low") : undefined} />
           <SummaryCard icon={<Package className="h-4 w-4" />} label="สินค้าหมด" value={summary.outOfStockCount.toString()} alert={summary.outOfStockCount > 0} onClick={summary.outOfStockCount > 0 ? () => navigate("/catalog?filter=out") : undefined} />
         </div>
+      )}
+
+      {valuation && valuation.length > 0 && (
+        <Card className="border-[0.5px] p-4 shadow-sm">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">มูลค่าสต็อกตามทุนเฉลี่ย</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#E8E6DF]">
+                  <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium text-gray-500">รายการ</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">คงเหลือ</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">ทุนเฉลี่ย/หน่วย</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">มูลค่า</th>
+                </tr>
+              </thead>
+              <tbody>
+                {valuation.map((item: import("../../types").Item) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-[#F0EEE8] cursor-pointer last:border-0 hover:bg-[#FAFAF8] transition-colors"
+                    onClick={() => navigate(`/catalog/${item.id}`)}
+                  >
+                    <td className="whitespace-nowrap px-3 py-2 text-gray-700">{item.name}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                      {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                      ฿{formatCurrency(item.avg_cost || 0)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums font-medium text-[#1A1A18]">
+                      ฿{formatCurrency(item.stock_value || 0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {hasWarnings && (

@@ -236,6 +236,7 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
   const [summary, setSummary] = useState<StockSummary | null>(null);
   const [lowStockItems, setLowStockItems] = useState<Item[]>([]);
   const [movements, setMovements] = useState<StockMovementRow[]>([]);
+  const [valuation, setValuation] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -264,6 +265,13 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
       });
 
       setLowStockItems([...lowStock, ...outOfStock].slice(0, 50));
+
+      setValuation(
+        activeItems
+          .filter((i) => (i.stock_count || 0) > 0 || (i.stock_value || 0) > 0)
+          .sort((a, b) => (b.stock_value || 0) - (a.stock_value || 0))
+          .slice(0, 20)
+      );
 
       const { data: movementsData } = await supabase
         .from("stock_movements")
@@ -329,5 +337,5 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
     fetchData();
   }, [fetchData]);
 
-  return { summary, lowStockItems, movements, loading, error, refetch: fetchData };
+  return { summary, lowStockItems, movements, valuation, loading, error, refetch: fetchData };
 }
