@@ -123,6 +123,7 @@ export interface StockMovement {
   balance_value_after: number | null;
   reason: string | null;
   document_id: string | null;
+  parent_movement_id: string | null;
   created_at: string;
 }
 

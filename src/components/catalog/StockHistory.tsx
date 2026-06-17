@@ -8,6 +8,7 @@ interface Props {
   loading: boolean;
   item: Item;
   onLoadMore?: () => void;
+  onRevert?: (movement: StockMovement) => void;
 }
 
 const PAGE_SIZE = 20;
@@ -17,6 +18,7 @@ export function StockHistory({
   loading,
   item,
   onLoadMore,
+  onRevert,
 }: Props) {
   const [visible, setVisible] = useState(PAGE_SIZE);
 
@@ -61,7 +63,7 @@ export function StockHistory({
       ) : (
         <div className="bg-white border border-[#E8E6DF] rounded-[10px] px-4">
           {shown.map((m) => (
-            <StockMovementRow key={m.id} movement={m} item={item} />
+            <StockMovementRow key={m.id} movement={m} item={item} onRevert={onRevert} />
           ))}
           {hasMore && (
             <div className="py-3 text-center">

@@ -399,3 +399,106 @@ export async function manualStockOut(
     document_id: null,
   });
 }
+
+export type RevertReason =
+  | "not_found"
+  | "not_manual_in"
+  | "already_reverted"
+  | "insufficient_stock";
+
+export type RevertResult =
+  | { ok: true; reversalMovementId: string; prefillQty: number }
+  | { ok: false; reason: RevertReason; currentStock: number; requiredQty: number };
+
+export async function revertManualStockIn(
+  movementId: string,
+  userId: string,
+  reason: string,
+): Promise<RevertResult> {
+  const { data: original, error: originalErr } = await supabase
+    .from("stock_movements")
+    .select("*")
+    .eq("id", movementId)
+    .eq("user_id", userId)
+    .single();
+
+  if (originalErr || !original) {
+    return { ok: false, reason: "not_found", currentStock: 0, requiredQty: 0 };
+  }
+
+  if (original.movement_type !== "manual_in") {
+    return { ok: false, reason: "not_manual_in", currentStock: 0, requiredQty: 0 };
+  }
+
+  const { data: existingReversal } = await supabase
+    .from("stock_movements")
+    .select("id")
+    .eq("parent_movement_id", movementId)
+    .maybeSingle();
+
+  if (existingReversal) {
+    return { ok: false, reason: "already_reverted", currentStock: 0, requiredQty: 0 };
+  }
+
+  const { data: item, error: itemErr } = await supabase
+    .from("items")
+    .select("stock_count, stock_value")
+    .eq("id", original.item_id)
+    .single();
+
+  if (itemErr || !item) {
+    return { ok: false, reason: "not_found", currentStock: 0, requiredQty: 0 };
+  }
+
+  const requiredQty = Number(original.qty_base);
+  const currentStock = Number(item.stock_count || 0);
+
+  if (currentStock < requiredQty) {
+    return { ok: false, reason: "insufficient_stock", currentStock, requiredQty };
+  }
+
+  const originalUnitCost = Number(original.unit_cost || 0);
+  const originalMovementValue = Number(original.movement_value || 0);
+
+  const newStock = round3(currentStock - requiredQty);
+  const reversalMovementValue = round2(-originalMovementValue);
+  const newStockValue = round2(Number(item.stock_value || 0) + reversalMovementValue);
+  const newAvgCost = nextAverageCost(newStock, newStockValue);
+
+  const { error: updateErr } = await supabase
+    .from("items")
+    .update({ stock_count: newStock, stock_value: newStockValue, avg_cost: newAvgCost })
+    .eq("id", original.item_id);
+
+  if (updateErr) {
+    return { ok: false, reason: "not_found", currentStock, requiredQty };
+  }
+
+  const reasonText = reason
+    ? `ยกเลิกรายการรับสินค้าเข้า: ${reason}`
+    : "ยกเลิกรายการรับสินค้าเข้า";
+
+  const { data: reversal, error: insertErr } = await supabase
+    .from("stock_movements")
+    .insert({
+      item_id: original.item_id,
+      user_id: userId,
+      movement_type: "manual_out",
+      qty_base: -requiredQty,
+      balance_after: newStock,
+      unit_cost: originalUnitCost,
+      movement_value: reversalMovementValue,
+      balance_value_after: newStockValue,
+      reason: reasonText,
+      document_id: null,
+      parent_movement_id: original.id,
+    })
+    .select("id")
+    .single();
+
+  if (insertErr || !reversal) {
+    return { ok: false, reason: "not_found", currentStock, requiredQty };
+  }
+
+  return { ok: true, reversalMovementId: reversal.id, prefillQty: requiredQty };
+}

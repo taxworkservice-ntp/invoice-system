@@ -8,9 +8,10 @@ import { MOVEMENT_TYPE_LABELS, MOVEMENT_TYPE_ICONS } from "./constants";
 interface Props {
   movement: StockMovement;
   item: Item;
+  onRevert?: (movement: StockMovement) => void;
 }
 
-export function StockMovementRow({ movement, item }: Props) {
+export function StockMovementRow({ movement, item, onRevert }: Props) {
   const navigate = useNavigate();
   const isIn =
     movement.movement_type === "manual_in" ||
@@ -110,6 +111,20 @@ export function StockMovementRow({ movement, item }: Props) {
               )}
             </div>
           )}
+          {onRevert &&
+            movement.movement_type === "manual_in" &&
+            !movement.parent_movement_id && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRevert(movement);
+                }}
+                className="mt-1 text-[11px] text-[#C0392B] hover:underline"
+              >
+                ยกเลิกรายการนี้
+              </button>
+            )}
         </div>
       </div>
     </div>

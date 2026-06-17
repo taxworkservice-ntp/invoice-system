@@ -10,17 +10,36 @@ interface Props {
   isOpen: boolean;
   onConfirm: (qtyBase: number, unitCost: number, reason: string) => Promise<void>;
   onDismiss: () => void;
+  initialQty?: number;
+  initialUseCarton?: boolean;
 }
 
-export function StockInModal({ item, isOpen, onConfirm, onDismiss }: Props) {
+export function StockInModal({
+  item,
+  isOpen,
+  onConfirm,
+  onDismiss,
+  initialQty,
+  initialUseCarton,
+}: Props) {
   const hasCarton = !!(
     item.carton_unit &&
     item.qty_per_carton &&
     item.qty_per_carton > 0
   );
-  const [useCarton, setUseCarton] = useState(hasCarton);
-  const [qtyCarton, setQtyCarton] = useState("");
-  const [qtyBase, setQtyBase] = useState("");
+  const [useCarton, setUseCarton] = useState(
+    initialUseCarton !== undefined ? initialUseCarton : hasCarton,
+  );
+  const [qtyCarton, setQtyCarton] = useState(
+    initialQty && initialUseCarton
+      ? item.qty_per_carton && item.qty_per_carton > 0
+        ? String(initialQty / item.qty_per_carton)
+        : ""
+      : "",
+  );
+  const [qtyBase, setQtyBase] = useState(
+    initialQty && (!initialUseCarton || !hasCarton) ? String(initialQty) : "",
+  );
   const [unitCost, setUnitCost] = useState(
     item.avg_cost > 0 ? String(item.avg_cost) : String(item.unit_price || ""),
   );
