@@ -163,6 +163,7 @@ export function StockReport({ userId }: StockReportProps) {
                   <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium text-gray-500">รายการ</th>
                   <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">คงเหลือ</th>
                   <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">ทุนเฉลี่ย/หน่วย</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">ทุนเฉลี่ย/หน่วยรอง</th>
                   <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">มูลค่า</th>
                 </tr>
               </thead>
@@ -179,6 +180,11 @@ export function StockReport({ userId }: StockReportProps) {
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
                       ฿{formatCurrency(item.avg_cost || 0)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                      {item.carton_unit && item.qty_per_carton && item.qty_per_carton > 0
+                        ? `฿${formatCurrency((item.avg_cost || 0) * item.qty_per_carton)} / ${item.carton_unit}`
+                        : "—"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums font-medium text-[#1A1A18]">
                       ฿{formatCurrency(item.stock_value || 0)}
