@@ -72,14 +72,22 @@ create table profiles (
 -- Clients can only read their own
 alter table profiles enable row level security;
 
+-- Security definer function to avoid recursive RLS
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+$$;
+
 create policy "Admin reads all profiles"
   on profiles for select
-  using (
-    exists (
-      select 1 from profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 create policy "Client reads own profile"
   on profiles for select
@@ -141,12 +149,7 @@ create policy "Client manages own profile"
 
 create policy "Admin reads all client profiles"
   on client_profiles for select
-  using (
-    exists (
-      select 1 from profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 
 -- ============================================================
@@ -372,12 +375,7 @@ create policy "Client manages own documents"
 
 create policy "Admin reads all documents"
   on documents for select
-  using (
-    exists (
-      select 1 from profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 -- Index for common queries
 create index idx_documents_user_status   on documents(user_id, status);
