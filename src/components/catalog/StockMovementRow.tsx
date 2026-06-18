@@ -9,9 +9,10 @@ interface Props {
   movement: StockMovement;
   item: Item;
   onRevert?: (movement: StockMovement) => void;
+  onEdit?: (movement: StockMovement) => void;
 }
 
-export function StockMovementRow({ movement, item, onRevert }: Props) {
+export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
   const navigate = useNavigate();
   const isIn =
     movement.movement_type === "manual_in" ||
@@ -111,19 +112,36 @@ export function StockMovementRow({ movement, item, onRevert }: Props) {
               )}
             </div>
           )}
-          {onRevert &&
-            movement.movement_type === "manual_in" &&
+          {(onEdit || onRevert) &&
+            (movement.movement_type === "manual_in" ||
+              movement.movement_type === "manual_out") &&
             !movement.parent_movement_id && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRevert(movement);
-                }}
-                className="mt-1 text-[11px] text-[#C0392B] hover:underline"
-              >
-                ยกเลิกรายการนี้
-              </button>
+              <div className="mt-1 flex items-center gap-3">
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(movement);
+                    }}
+                    className="text-[11px] text-[#378ADD] hover:underline"
+                  >
+                    แก้ไข
+                  </button>
+                )}
+                {onRevert && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRevert(movement);
+                    }}
+                    className="text-[11px] text-[#C0392B] hover:underline"
+                  >
+                    ยกเลิกรายการนี้
+                  </button>
+                )}
+              </div>
             )}
         </div>
       </div>

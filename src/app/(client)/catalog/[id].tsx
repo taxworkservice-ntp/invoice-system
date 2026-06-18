@@ -12,6 +12,7 @@ import { StockStatusCard } from "../../../components/catalog/StockStatusCard";
 import { StockHistory } from "../../../components/catalog/StockHistory";
 import { StockInModal } from "../../../components/catalog/StockInModal";
 import { StockOutModal } from "../../../components/catalog/StockOutModal";
+import { CorrectionModal } from "../../../components/catalog/CorrectionModal";
 import { ItemDetailsCard } from "../../../components/catalog/ItemDetailsCard";
 import { formatCurrency } from "../../../lib/format";
 import {
@@ -19,6 +20,9 @@ import {
   manualStockIn,
   manualStockOut,
   revertManualStockIn,
+  revertManualStockOut,
+  correctManualStockIn,
+  correctManualStockOut,
 } from "../../../lib/stock";
 import { formatBuddhistDate } from "../../../lib/dates";
 import type { Item, StockMovement } from "../../../types";
@@ -45,6 +49,7 @@ export default function CatalogItemPage() {
   const [prefillUseCarton, setPrefillUseCarton] = useState<boolean | undefined>(
     undefined,
   );
+  const [correctTarget, setCorrectTarget] = useState<StockMovement | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -103,44 +108,81 @@ export default function CatalogItemPage() {
 
   async function handleConfirmRevert() {
     if (!revertTarget || !profile) return;
+    const isIn = revertTarget.movement_type === "manual_in";
     setReverting(true);
     try {
-      const result = await revertManualStockIn(
-        revertTarget.id,
-        profile.id,
-        revertReason.trim() || "ยกเลิกรายการรับสินค้าเข้า",
-      );
+      const result = isIn
+        ? await revertManualStockIn(
+            revertTarget.id,
+            profile.id,
+            revertReason.trim() || (isIn ? "ยกเลิกรายการรับสินค้าเข้า" : "ยกเลิกรายการตัดสต็อก"),
+          )
+        : await revertManualStockOut(
+            revertTarget.id,
+            profile.id,
+            revertReason.trim() || "ยกเลิกรายการตัดสต็อก",
+          );
       if (!result.ok) {
         if (result.reason === "insufficient_stock" && item) {
           toast.error(
-            `ไม่สามารถยกเลิกได้ — ปัจจุบันเหลือ ${result.currentStock} ${item.base_unit} แต่รายการเดิมรับเข้า ${result.requiredQty} ${item.base_unit}`,
+            `ไม่สามารถยกเลิกได้ — ปัจจุบันเหลือ ${result.currentStock} ${item.base_unit} แต่รายการเดิมต้องการ ${result.requiredQty} ${item.base_unit}`,
           );
         } else if (result.reason === "already_reverted") {
           toast.error("รายการนี้ถูกยกเลิกไปแล้ว");
-        } else if (result.reason === "not_manual_in") {
-          toast.error("สามารถยกเลิกได้เฉพาะรายการรับสินค้าเข้าเท่านั้น");
+        } else if (result.reason === "not_manual_in" || result.reason === "not_manual_out") {
+          toast.error("สามารถยกเลิกได้เฉพาะรายการรับเข้า/ตัดสต็อกเท่านั้น");
         } else {
           toast.error("ไม่พบรายการที่ต้องการยกเลิก");
         }
         setReverting(false);
         return;
       }
-      toast.success("ยกเลิกรายการแล้ว — กรุณากรอกต้นทุนที่ถูกต้อง");
+      toast.success(isIn
+        ? "ยกเลิกรายการแล้ว — กรุณากรอกต้นทุนที่ถูกต้อง"
+        : "ยกเลิกรายการตัดสต็อกแล้ว");
       setRevertTarget(null);
       setRevertReason("");
       reloadItem();
       refetchMovements();
-      setPrefillQty(result.prefillQty);
-      const usedCarton =
-        hasCarton &&
-        revertTarget.qty_carton != null &&
-        Number(revertTarget.qty_carton) > 0;
-      setPrefillUseCarton(usedCarton);
-      setStockModal("in");
+      if (isIn) {
+        setPrefillQty(result.prefillQty);
+        const usedCarton =
+          hasCarton &&
+          revertTarget.qty_carton != null &&
+          Number(revertTarget.qty_carton) > 0;
+        setPrefillUseCarton(usedCarton);
+        setStockModal("in");
+      }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setReverting(false);
+    }
+  }
+
+  async function handleCorrect(qtyBase: number, unitCost: number, reasonNote: string) {
+    if (!correctTarget || !profile || !item) return;
+    const isIn = correctTarget.movement_type === "manual_in";
+    try {
+      const result = isIn
+        ? await correctManualStockIn(correctTarget.id, profile.id, qtyBase, unitCost, reasonNote || undefined)
+        : await correctManualStockOut(correctTarget.id, profile.id, qtyBase, reasonNote || undefined);
+      if (!result.ok) {
+        if (result.reason === "insufficient_stock") {
+          toast.error(`ไม่สามารถแก้ไขได้ — สต็อกคงเหลือไม่พอ (มี ${result.currentStock} ${item.base_unit})`);
+        } else if (result.reason === "already_reverted") {
+          toast.error("รายการนี้ถูกยกเลิกแล้ว ไม่สามารถแก้ไขได้");
+        } else {
+          toast.error("ไม่พบรายการที่ต้องการแก้ไข");
+        }
+        return;
+      }
+      toast.success("แก้ไขรายการเรียบร้อย");
+      setCorrectTarget(null);
+      reloadItem();
+      refetchMovements();
+    } catch (err: any) {
+      toast.error(err.message);
     }
   }
 
@@ -222,6 +264,7 @@ export default function CatalogItemPage() {
                 setRevertTarget(m);
                 setRevertReason("");
               }}
+              onEdit={(m) => setCorrectTarget(m)}
             />
           </>
         )}
@@ -247,6 +290,16 @@ export default function CatalogItemPage() {
           onDismiss={() => setStockModal(null)}
         />
 
+        {correctTarget && (
+          <CorrectionModal
+            item={item}
+            movement={correctTarget}
+            isOpen={!!correctTarget}
+            onConfirm={handleCorrect}
+            onDismiss={() => setCorrectTarget(null)}
+          />
+        )}
+
         <Modal
           open={!!revertTarget}
           onClose={() => {
@@ -255,7 +308,7 @@ export default function CatalogItemPage() {
               setRevertReason("");
             }
           }}
-          title="ยกเลิกรายการรับสินค้าเข้า"
+          title={revertTarget?.movement_type === "manual_in" ? "ยกเลิกรายการรับสินค้าเข้า" : "ยกเลิกรายการตัดสต็อก"}
         >
           {revertTarget && (
             <div className="space-y-4">
@@ -265,9 +318,9 @@ export default function CatalogItemPage() {
                   วันที่: {formatBuddhistDate(revertTarget.created_at)}
                 </div>
                 <div className="text-[#444441]">
-                  จำนวน: +
+                  จำนวน: {revertTarget.movement_type === "manual_in" ? "+" : "-"}
                   {formatMixedStock(
-                    Number(revertTarget.qty_base),
+                    Math.abs(Number(revertTarget.qty_base)),
                     item.base_unit,
                     item.carton_unit,
                     item.qty_per_carton,
@@ -293,9 +346,9 @@ export default function CatalogItemPage() {
               </div>
 
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
-                การยกเลิกจะตัดสต็อกออกตามจำนวนเดิม
-                และคืนค่า avg_cost และ stock_value
-                ให้เป็นเหมือนก่อนรับเข้ารายการนี้
+                {revertTarget.movement_type === "manual_in"
+                  ? "การยกเลิกจะตัดสต็อกออกตามจำนวนเดิม และคืนค่า avg_cost และ stock_value ให้เป็นเหมือนก่อนรับเข้ารายการนี้"
+                  : "การยกเลิกจะคืนสต็อกกลับตามจำนวนเดิม และปรับค่า avg_cost และ stock_value กลับเป็นก่อนตัด"}
               </div>
 
               <div>
@@ -306,7 +359,7 @@ export default function CatalogItemPage() {
                   type="text"
                   value={revertReason}
                   onChange={(e) => setRevertReason(e.target.value)}
-                  placeholder="เช่น กรอกทุนผิด, จำนวนผิด"
+                  placeholder={revertTarget.movement_type === "manual_in" ? "เช่น กรอกทุนผิด, จำนวนผิด" : "เช่น ตัดผิดรายการ, จำนวนผิด"}
                   className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
                 />
               </div>

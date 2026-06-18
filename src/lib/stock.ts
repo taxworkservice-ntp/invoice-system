@@ -400,9 +400,144 @@ export async function manualStockOut(
   });
 }
 
+export type CorrectResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "not_manual" | "already_reverted" | "insufficient_stock"; currentStock: number; requiredQty: number };
+
+export async function correctManualStockIn(
+  movementId: string,
+  userId: string,
+  newQtyBase: number,
+  newUnitCost: number,
+  reasonNote?: string,
+): Promise<CorrectResult> {
+  const { data: original, error: originalErr } = await supabase
+    .from("stock_movements")
+    .select("*")
+    .eq("id", movementId)
+    .eq("user_id", userId)
+    .single();
+
+  if (originalErr || !original) return { ok: false, reason: "not_found", currentStock: 0, requiredQty: 0 };
+  if (original.movement_type !== "manual_in") return { ok: false, reason: "not_manual", currentStock: 0, requiredQty: 0 };
+
+  const { data: reversal } = await supabase
+    .from("stock_movements")
+    .select("id")
+    .eq("parent_movement_id", movementId)
+    .maybeSingle();
+  if (reversal) return { ok: false, reason: "already_reverted", currentStock: 0, requiredQty: 0 };
+
+  const { data: item, error: itemErr } = await supabase
+    .from("items")
+    .select("stock_count, stock_value")
+    .eq("id", original.item_id)
+    .single();
+  if (itemErr || !item) return { ok: false, reason: "not_found", currentStock: 0, requiredQty: 0 };
+
+  const oldQty = Number(original.qty_base);
+  const oldValue = Number(original.movement_value || 0);
+  const newValue = round2(newQtyBase * newUnitCost);
+
+  const qtyDelta = round3(newQtyBase - oldQty);
+  const valueDelta = round2(newValue - oldValue);
+
+  const newStockCount = round3(Number(item.stock_count) + qtyDelta);
+  if (newStockCount < 0) {
+    return { ok: false, reason: "insufficient_stock", currentStock: Number(item.stock_count), requiredQty: -qtyDelta };
+  }
+
+  const newStockValue = round2(Number(item.stock_value || 0) + valueDelta);
+  const newAvgCost = nextAverageCost(newStockCount, newStockValue);
+
+  const reason = reasonNote
+    ? `${original.reason || "สต็อกเริ่มต้น"} [แก้ไข: ${reasonNote}]`
+    : original.reason;
+
+  await supabase.from("items")
+    .update({ stock_count: newStockCount, stock_value: newStockValue, avg_cost: newAvgCost })
+    .eq("id", original.item_id);
+
+  await supabase.from("stock_movements")
+    .update({
+      qty_base: newQtyBase,
+      unit_cost: round2(newUnitCost),
+      movement_value: newValue,
+      balance_after: newStockCount,
+      balance_value_after: newStockValue,
+      reason,
+    })
+    .eq("id", movementId);
+
+  return { ok: true };
+}
+
+export async function correctManualStockOut(
+  movementId: string,
+  userId: string,
+  newQtyBase: number,
+  reasonNote?: string,
+): Promise<CorrectResult> {
+  const { data: original, error: originalErr } = await supabase
+    .from("stock_movements")
+    .select("*")
+    .eq("id", movementId)
+    .eq("user_id", userId)
+    .single();
+
+  if (originalErr || !original) return { ok: false, reason: "not_found", currentStock: 0, requiredQty: 0 };
+  if (original.movement_type !== "manual_out") return { ok: false, reason: "not_manual", currentStock: 0, requiredQty: 0 };
+
+  const { data: reversal } = await supabase
+    .from("stock_movements")
+    .select("id")
+    .eq("parent_movement_id", movementId)
+    .maybeSingle();
+  if (reversal) return { ok: false, reason: "already_reverted", currentStock: 0, requiredQty: 0 };
+
+  const { data: item, error: itemErr } = await supabase
+    .from("items")
+    .select("stock_count, avg_cost, stock_value")
+    .eq("id", original.item_id)
+    .single();
+  if (itemErr || !item) return { ok: false, reason: "not_found", currentStock: 0, requiredQty: 0 };
+
+  const oldQty = Math.abs(Number(original.qty_base));
+  const qtyDelta = round3(oldQty - newQtyBase);
+
+  const unitCost = round2(Number(item.avg_cost || 0));
+  const valueDelta = round2(qtyDelta * unitCost);
+
+  const newStockCount = round3(Number(item.stock_count) + qtyDelta);
+  const newStockValue = round2(Number(item.stock_value || 0) + valueDelta);
+  const newMoveValue = round2(newQtyBase * unitCost);
+
+  const reason = reasonNote
+    ? `${original.reason || "ตัดสต็อกด้วยตนเอง"} [แก้ไข: ${reasonNote}]`
+    : original.reason;
+
+  await supabase.from("items")
+    .update({ stock_count: newStockCount, stock_value: newStockValue, avg_cost: nextAverageCost(newStockCount, newStockValue) })
+    .eq("id", original.item_id);
+
+  await supabase.from("stock_movements")
+    .update({
+      qty_base: -newQtyBase,
+      unit_cost: unitCost,
+      movement_value: newMoveValue,
+      balance_after: newStockCount,
+      balance_value_after: newStockValue,
+      reason,
+    })
+    .eq("id", movementId);
+
+  return { ok: true };
+}
+
 export type RevertReason =
   | "not_found"
   | "not_manual_in"
+  | "not_manual_out"
   | "already_reverted"
   | "insufficient_stock";
 
@@ -498,6 +633,88 @@ export async function revertManualStockIn(
 
   if (insertErr || !reversal) {
     return { ok: false, reason: "not_found", currentStock, requiredQty };
+  }
+
+  return { ok: true, reversalMovementId: reversal.id, prefillQty: requiredQty };
+}
+
+export async function revertManualStockOut(
+  movementId: string,
+  userId: string,
+  reason: string,
+): Promise<RevertResult> {
+  const { data: original, error: originalErr } = await supabase
+    .from("stock_movements")
+    .select("*")
+    .eq("id", movementId)
+    .eq("user_id", userId)
+    .single();
+
+  if (originalErr || !original) {
+    return { ok: false, reason: "not_found", currentStock: 0, requiredQty: 0 };
+  }
+
+  if (original.movement_type !== "manual_out") {
+    return { ok: false, reason: "not_manual_out", currentStock: 0, requiredQty: 0 };
+  }
+
+  const { data: existingReversal } = await supabase
+    .from("stock_movements")
+    .select("id")
+    .eq("parent_movement_id", movementId)
+    .maybeSingle();
+
+  if (existingReversal) {
+    return { ok: false, reason: "already_reverted", currentStock: 0, requiredQty: 0 };
+  }
+
+  const { data: item, error: itemErr } = await supabase
+    .from("items")
+    .select("stock_count, avg_cost, stock_value")
+    .eq("id", original.item_id)
+    .single();
+
+  if (itemErr || !item) {
+    return { ok: false, reason: "not_found", currentStock: 0, requiredQty: 0 };
+  }
+
+  const requiredQty = Math.abs(Number(original.qty_base));
+  const unitCost = round2(Number(item.avg_cost || 0));
+  const movementValue = round2(requiredQty * unitCost);
+
+  const newStock = round3(Number(item.stock_count) + requiredQty);
+  const newStockValue = round2(Number(item.stock_value || 0) + movementValue);
+  const newAvgCost = nextAverageCost(newStock, newStockValue);
+
+  await supabase
+    .from("items")
+    .update({ stock_count: newStock, stock_value: newStockValue, avg_cost: newAvgCost })
+    .eq("id", original.item_id);
+
+  const reasonText = reason
+    ? `ยกเลิกรายการตัดสต็อก: ${reason}`
+    : "ยกเลิกรายการตัดสต็อก";
+
+  const { data: reversal, error: insertErr } = await supabase
+    .from("stock_movements")
+    .insert({
+      item_id: original.item_id,
+      user_id: userId,
+      movement_type: "manual_in",
+      qty_base: requiredQty,
+      balance_after: newStock,
+      unit_cost: unitCost,
+      movement_value: movementValue,
+      balance_value_after: newStockValue,
+      reason: reasonText,
+      document_id: null,
+      parent_movement_id: original.id,
+    })
+    .select("id")
+    .single();
+
+  if (insertErr || !reversal) {
+    return { ok: false, reason: "not_found", currentStock: Number(item.stock_count), requiredQty };
   }
 
   return { ok: true, reversalMovementId: reversal.id, prefillQty: requiredQty };

@@ -176,6 +176,10 @@ create policy "Client manages own sequences"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+create policy "Admin reads all sequences"
+  on doc_number_sequences for select
+  using (public.is_admin());
+
 
 -- ============================================================
 -- CUSTOMERS
@@ -205,6 +209,10 @@ create policy "Client manages own customers"
   on customers for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "Admin reads all customers"
+  on customers for select
+  using (public.is_admin());
 
 
 -- ============================================================
@@ -244,6 +252,10 @@ create policy "Client manages own items"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+create policy "Admin reads all items"
+  on items for select
+  using (public.is_admin());
+
 create unique index idx_items_user_sku_unique
   on items (user_id, lower(sku))
   where sku is not null;
@@ -274,6 +286,7 @@ create table stock_movements (
   balance_value_after numeric(15,2),
   reason          text,                       -- manual note or auto reference
   document_id     uuid,                       -- reference to invoice if auto movement
+  parent_movement_id uuid,                    -- links reversal back to original movement
 
   created_at      timestamptz not null default now()
 );
@@ -284,6 +297,10 @@ create policy "Client manages own stock movements"
   on stock_movements for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "Admin reads all stock movements"
+  on stock_movements for select
+  using (public.is_admin());
 
 
 -- ============================================================
@@ -309,6 +326,10 @@ create policy "Client manages own deals"
   on deals for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "Admin reads all deals"
+  on deals for select
+  using (public.is_admin());
 
 
 -- ============================================================
@@ -428,6 +449,10 @@ create policy "Client manages own line items"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+create policy "Admin reads all line items"
+  on document_line_items for select
+  using (public.is_admin());
+
 create index idx_line_items_document on document_line_items(document_id);
 
 
@@ -460,6 +485,10 @@ create policy "Client manages own billing note invoices"
   on billing_note_invoices for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "Admin reads all billing note invoices"
+  on billing_note_invoices for select
+  using (public.is_admin());
 
 create index idx_bni_billing_note on billing_note_invoices(billing_note_id);
 create index idx_bni_invoice      on billing_note_invoices(invoice_id);
