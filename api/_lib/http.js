@@ -19,7 +19,7 @@ export function readJsonBody(req) {
 }
 
 export function sendJson(res, status, payload) {
-  res.status(status).setHeader("Content-Type", "application/json");
+  res.status(status).setHeader("Content-Type", "application/json; charset=utf-8");
   res.send(JSON.stringify(payload));
 }
 

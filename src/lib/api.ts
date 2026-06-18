@@ -21,7 +21,7 @@ export async function apiFetch<T>(input: string, init: RequestInit = {}): Promis
   headers.set("Authorization", `Bearer ${token}`);
 
   if (init.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+    headers.set("Content-Type", "application/json; charset=utf-8");
   }
 
   const response = await fetch(input, {
