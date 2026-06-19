@@ -13,6 +13,7 @@
     "@aws-sdk/s3-presigned-post": "^3.1061.0",
     "@aws-sdk/s3-request-presigner": "^3.1056.0",
     "@supabase/supabase-js": "^2.49.4",
+    "exceljs": "^4.4.0",
     "jspdf": "^2.5.2",
     "jszip": "^3.10.1",
     "lucide-react": "^1.17.0",

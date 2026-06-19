@@ -339,3 +339,105 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
 
   return { summary, lowStockItems, movements, valuation, loading, error, refetch: fetchData };
 }
+
+const TYPE_LABELS_EXPORT: Record<string, string> = {
+  manual_in: "รับสินค้าเข้า",
+  auto_out: "ตัดสต็อกจากเอกสาร",
+  manual_out: "ตัดสต็อกด้วยตนเอง",
+  auto_in: "คืนสต็อกจากเอกสาร",
+  return_in: "คืนสต็อก",
+};
+
+export interface FullStockReport {
+  summary: StockSummary;
+  lowStockItems: Item[];
+  movements: StockMovementRow[];
+  valuation: Item[];
+}
+
+export async function fetchFullStockReport(
+  userId: string,
+  dateFrom: string,
+  dateTo: string,
+): Promise<FullStockReport> {
+  const { data: items } = await supabase
+    .from("items")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_active", true);
+
+  const allItems = (items || []) as Item[];
+  const activeItems = allItems.filter((i) => i.item_type === "product");
+  const totalValue = activeItems.reduce((sum, i) => sum + (i.stock_value || 0), 0);
+  const lowStock = activeItems.filter((i) => i.stock_count > 0 && i.stock_count <= (i.low_stock_threshold || 5));
+  const outOfStock = activeItems.filter((i) => i.stock_count <= 0);
+
+  const summary: StockSummary = {
+    totalItems: activeItems.length,
+    totalValue,
+    lowStockCount: lowStock.length,
+    outOfStockCount: outOfStock.length,
+  };
+
+  const lowStockItems = [...lowStock, ...outOfStock];
+
+  const valuation = activeItems
+    .filter((i) => (i.stock_count || 0) > 0 || (i.stock_value || 0) > 0)
+    .sort((a, b) => (b.stock_value || 0) - (a.stock_value || 0));
+
+  let movementsData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("stock_movements")
+      .select("*")
+      .eq("user_id", userId)
+      .gte("created_at", dateFrom)
+      .lte("created_at", dateTo + "T23:59:59")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const batch = data || [];
+    movementsData = movementsData.concat(batch);
+    if (batch.length < pageSize) break;
+    from += pageSize;
+  }
+
+  const itemMap = new Map(allItems.map((i) => [i.id, i]));
+  const docIds = [...new Set(movementsData.map((m: any) => m.document_id).filter(Boolean))];
+  const docMap = new Map<string, string>();
+  if (docIds.length > 0) {
+    const { data: docs } = await supabase
+      .from("documents")
+      .select("id, doc_number")
+      .in("id", docIds);
+    for (const d of (docs || []) as any[]) {
+      docMap.set(d.id, d.doc_number || "-");
+    }
+  }
+
+  const movements: StockMovementRow[] = movementsData.map((m) => {
+    const item = itemMap.get(m.item_id);
+    return {
+      id: m.id,
+      date: m.created_at,
+      itemName: item?.name || "ไม่พบสินค้า",
+      itemSku: item?.sku || null,
+      type: TYPE_LABELS_EXPORT[m.movement_type] || m.movement_type,
+      typeKey: m.movement_type,
+      qty: m.qty_base,
+      balance: m.balance_after,
+      unitCost: m.unit_cost ?? null,
+      movementValue: m.movement_value ?? null,
+      balanceValue: m.balance_value_after ?? null,
+      reason: m.reason,
+      docNumber: m.document_id ? docMap.get(m.document_id) || null : null,
+      baseUnit: item?.base_unit || "ชิ้น",
+      cartonUnit: item?.carton_unit || null,
+      qtyPerCarton: item?.qty_per_carton || null,
+    };
+  });
+
+  return { summary, lowStockItems, movements, valuation };
+}

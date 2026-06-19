@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Package, AlertTriangle, TrendingDown, Download } from "lucide-react";
+import { Package, AlertTriangle, TrendingDown, Download, Loader2 } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
 import { EmptyState } from "../ui/EmptyState";
-import { useStockReport } from "../../hooks/useReports";
+import { useStockReport, fetchFullStockReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
 import { formatMixedStock } from "../../lib/stock";
 
@@ -60,43 +60,38 @@ export function StockReport({ userId }: StockReportProps) {
   const [dateFrom, setDateFrom] = useState(startOfMonth());
   const [dateTo, setDateTo] = useState(todayString());
   const { summary, lowStockItems, movements, valuation, loading, error, refetch } = useStockReport(userId, dateFrom, dateTo);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  function handleExportCSV() {
-    const rows: string[][] = [];
-    rows.push(["รายงานสต็อก"]);
-    rows.push([]);
-    if (summary) {
-      rows.push(["สินค้าทั้งหมด", summary.totalItems.toString()]);
-      rows.push(["มูลค่าสต็อก", summary.totalValue.toString()]);
-      rows.push(["สินค้าใกล้หมด", summary.lowStockCount.toString()]);
-      rows.push(["สินค้าหมด", summary.outOfStockCount.toString()]);
+  async function handleExportXLSX() {
+    if (!userId || exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const full = await fetchFullStockReport(userId, dateFrom, dateTo);
+      const { buildStockReportXlsx } = await import("../../lib/stockReportXlsx");
+      const bytes = await buildStockReportXlsx({
+        summary: full.summary,
+        valuation: full.valuation,
+        lowStockItems: full.lowStockItems,
+        movements: full.movements,
+        dateFrom,
+        dateTo,
+      });
+      const blob = new Blob([bytes as BlobPart], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `stock_report_${dateFrom}_to_${dateTo}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setExportError(err?.message || "ไม่สามารถส่งออกรายงานได้");
+    } finally {
+      setExporting(false);
     }
-    rows.push([]);
-    rows.push(["ประวัติความเคลื่อนไหว"]);
-    rows.push(["วันที่", "รายการ", "SKU", "ประเภท", "จำนวน", "ต้นทุน/หน่วย", "มูลค่ารายการ", "คงเหลือ", "มูลค่าคงเหลือ", "เอกสารอ้างอิง", "หมายเหตุ"]);
-    for (const m of movements) {
-      rows.push([
-        formatDate(m.date),
-        m.itemName,
-        m.itemSku || "",
-        m.type,
-        m.qty.toString(),
-        (m.unitCost ?? 0).toString(),
-        (m.movementValue ?? 0).toString(),
-        m.balance.toString(),
-        (m.balanceValue ?? 0).toString(),
-        m.docNumber || "",
-        m.reason || "",
-      ]);
-    }
-    const csv = rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `stock_report_${dateFrom}_to_${dateTo}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 
   if (loading) {
@@ -138,11 +133,20 @@ export function StockReport({ userId }: StockReportProps) {
             className="rounded-lg border border-[#D4D0C8] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
-        <Button variant="secondary" size="sm" onClick={handleExportCSV}>
-          <Download className="mr-1.5 h-4 w-4" />
-          ส่งออก CSV
+        <Button variant="secondary" size="sm" onClick={handleExportXLSX} disabled={exporting}>
+          {exporting ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-1.5 h-4 w-4" />
+          )}
+          {exporting ? "กำลังสร้างไฟล์..." : "ส่งออก Excel"}
         </Button>
       </div>
+      {exportError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+          {exportError}
+        </div>
+      )}
 
       {summary && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -53,6 +53,19 @@ export function formatMixedStock(
   return parts.join(" ");
 }
 
+export function formatMovementQty(
+  qtyBase: number,
+  baseUnit: string,
+  cartonUnit?: string | null,
+  qtyPerCarton?: number | null,
+): string {
+  const sign = qtyBase < 0 ? "−" : "";
+  const absQty = Math.abs(qtyBase);
+  const body = formatMixedStock(absQty, baseUnit, cartonUnit, qtyPerCarton);
+  if (qtyBase === 0) return `0 ${baseUnit}`;
+  return `${sign}${body}`;
+}
+
 export function formatBaseWithCartonHint(
   stockBase: number,
   baseUnit: string,
