@@ -111,6 +111,7 @@ create table client_profiles (
   phone                 text,
   contact_name          text,                -- ชื่อผู้ติดต่อ / ชื่อเจ้าของ
   logo_url              text,                -- Supabase Storage path
+  logo_size             text,                -- 'square' or 'full'
 
   -- Tax defaults (pre-fill on every new document)
   vat_registered        boolean not null default false,
