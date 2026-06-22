@@ -209,7 +209,13 @@ export default function SettingsPage() {
         tax_id: taxId || null,
         address: address || null,
         phone: phone || null,
+        contact_name: contactName.trim() || null,
         logo_url: logoKey,
+        logo_size: logoSize,
+        bank_name: bankName.trim() || null,
+        bank_account: bankAccount.trim() || null,
+        signature_url: signatureKey,
+        stamp_url: stampKey,
       } as ClientProfile);
     }
     setSavingProfile(false);
