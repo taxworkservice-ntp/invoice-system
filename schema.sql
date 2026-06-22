@@ -130,6 +130,9 @@ create table client_profiles (
   bank_name             text,
   bank_account          text,
 
+  -- Invoice / billing defaults
+  credit_term_days      integer not null default 7,
+
   -- Signature & stamp images (R2 storage paths)
   signature_url         text,
   stamp_url             text,
