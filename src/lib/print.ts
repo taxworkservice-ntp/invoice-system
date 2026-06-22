@@ -230,7 +230,7 @@ async function renderModernPrintCanvas(
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     return await html2canvas(sheet, {
-      scale: Math.max(2, window.devicePixelRatio || 1),
+      scale: 3,
       useCORS: true,
       backgroundColor: "#ffffff",
       width: sheet.scrollWidth,

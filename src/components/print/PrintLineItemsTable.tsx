@@ -25,19 +25,19 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
           <tbody>
             {billingNoteInvoices.map((invoice) => (
               <tr key={invoice.id} className={getRowClass()}>
-                <td className="px-2 py-2 text-[11px] text-[#111827] border-t border-[#E6EBF2]">
+                <td className="px-2 py-2 text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {invoice.invoice_number}
                 </td>
-                <td className="px-2 py-2 text-[11px] text-[#475467] border-t border-[#E6EBF2]">
+                <td className="px-2 py-2 text-[11px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
                   {invoice.issue_date || "-"}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {formatCurrency(invoice.subtotal)}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {formatCurrency(invoice.vat_amount)}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t border-[#E6EBF2]">
+                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {formatCurrency(invoice.total_amount)}
                 </td>
               </tr>
@@ -71,8 +71,8 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
 
             return (
               <tr key={item.id} className={getRowClass()}>
-                <td className="px-2 py-2 text-[11px] text-[#667085] border-t border-[#E6EBF2]">{index + 1}</td>
-                <td className="px-2 py-2 text-[11px] text-[#111827] border-t border-[#E6EBF2]">
+                <td className="px-2 py-2 text-[11px] text-[#667085] border-t-[0.5px] border-[#E6EBF2]">{index + 1}</td>
+                <td className="px-2 py-2 text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   <div className="leading-[16px]">{item.item_name}</div>
                   {hasLineDiscount ? (
                     <div className="mt-0.5 text-[10px] text-[#B54708]">
@@ -80,13 +80,13 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                     </div>
                   ) : null}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">{item.quantity}</td>
-                <td className="px-2 py-2 text-[11px] text-[#475467] border-t border-[#E6EBF2]">{item.unit}</td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">{formatCurrency(item.unit_price)}</td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t border-[#E6EBF2]">
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">{item.quantity}</td>
+                <td className="px-2 py-2 text-[11px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">{item.unit}</td>
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">{formatCurrency(item.unit_price)}</td>
+                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t border-[#E6EBF2]">
+                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {formatCurrency(item.line_total)}
                 </td>
               </tr>

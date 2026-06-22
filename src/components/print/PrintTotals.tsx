@@ -13,7 +13,7 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
         </div>
       </div>
 
-      <div className="border-t border-[#C9D5E3] pt-4">
+      <div className="border-t-[0.5px] border-[#C9D5E3] pt-4">
         <div className="space-y-1.5 text-[11px] text-[#344054]">
           {lineDiscountTotal > 0 ? (
             <>
@@ -47,7 +47,7 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
             </div>
           ) : null}
 
-          <div className="flex justify-between gap-4 border-t border-[#C9D5E3] pt-3 font-semibold text-[#111827]">
+          <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-3 font-semibold text-[#111827]">
             <span>รวมทั้งสิ้น</span>
             <span>{formatCurrency(document.total_amount)}</span>
           </div>
@@ -58,13 +58,13 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
                 <span>หัก ณ ที่จ่าย {document.wht_rate}%</span>
                 <span>-{formatCurrency(document.wht_amount)}</span>
               </div>
-              <div className="flex justify-between gap-4 border-t border-[#111827] pt-3 text-[15px] font-semibold text-[#111827]">
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-3 text-[15px] font-semibold text-[#111827]">
                 <span>ยอดชำระสุทธิ</span>
                 <span>{formatCurrency(document.net_payable)}</span>
               </div>
             </>
           ) : (
-            <div className="flex justify-between gap-4 border-t border-[#111827] pt-3 text-[15px] font-semibold text-[#111827]">
+            <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-3 text-[15px] font-semibold text-[#111827]">
               <span>ยอดชำระสุทธิ</span>
               <span>{formatCurrency(document.total_amount)}</span>
             </div>
