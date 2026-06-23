@@ -110,7 +110,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
     rows.push([]);
     if (summary) {
       rows.push(["รายได้รวม", summary.revenue.toString()]);
-      rows.push(["กำไรสุทธิ", ((summary.collected || 0) - cogs).toString()]);
+      rows.push(["กำไรสุทธิ", ((summary.revenue || 0) - cogs).toString()]);
       rows.push(["เก็บแล้ว", summary.collected.toString()]);
       rows.push(["ค้างชำระ", summary.outstanding.toString()]);
       rows.push(["VAT ที่เก็บ", summary.vatCollected.toString()]);
@@ -209,7 +209,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       {summary && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <SummaryCard icon={<TrendingUp className="h-4 w-4" />} label="รายได้รวม" value={formatCurrency(summary.revenue)} delta={revenueDelta} />
-          <SummaryCard icon={<CircleDollarSign className="h-4 w-4" />} label="กำไรสุทธิ" value={formatCurrency((summary.collected || 0) - cogs)} delta={null} />
+          <SummaryCard icon={<CircleDollarSign className="h-4 w-4" />} label="กำไรสุทธิ" value={formatCurrency((summary.revenue || 0) - cogs)} delta={null} />
           <SummaryCard icon={<Wallet className="h-4 w-4" />} label="เก็บแล้ว" value={formatCurrency(summary.collected)} />
           <SummaryCard icon={<FileText className="h-4 w-4" />} label="ค้างชำระ" value={formatCurrency(summary.outstanding)} alert={summary.outstanding > 0} />
           <SummaryCard icon={<BarChart3 className="h-4 w-4" />} label="VAT ที่เก็บ" value={formatCurrency(summary.vatCollected)} />
