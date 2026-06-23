@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CircleDollarSign, TrendingUp, Wallet, FileText, Download, BarChart3, Users } from "lucide-react";
+import { CircleDollarSign, TrendingUp, Wallet, FileText, Download, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -9,6 +9,7 @@ import { useFinancialReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
 import { formatBuddhistDate } from "../../lib/dates";
 import { TransactionTable } from "./TransactionTable";
+import { buildFinancialReportXlsx } from "../../lib/financialReportXlsx";
 
 const MONTH_NAMES_TH = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -103,46 +104,27 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   const maxMonthly = Math.max(...monthly.map((m) => m.total), 1);
   const activeIndex = monthly.findIndex((m) => parseInt(m.month, 10) === month && m.year === year);
 
-  function handleExportCSV() {
-    const rows: string[][] = [];
-    rows.push(["รายงานการเงิน", `${month}/${year}`]);
-    rows.push([]);
-    if (summary) {
-      rows.push(["รายได้รวม", summary.revenue.toString()]);
-      rows.push(["กำไรสุทธิ", ((summary.revenue || 0) - cogs).toString()]);
-      rows.push(["เก็บแล้ว", summary.collected.toString()]);
-      rows.push(["ค้างชำระ", summary.outstanding.toString()]);
-      rows.push(["VAT ที่เก็บ", summary.vatCollected.toString()]);
-      rows.push(["จำนวนเอกสาร", summary.docCount.toString()]);
-      rows.push(["ต้นทุนขาย (COGS)", cogs.toString()]);
-      rows.push(["อัตราการเก็บเงิน", `${(collectionRate * 100).toFixed(1)}%`]);
+  async function handleExportExcel() {
+    try {
+      const data = await buildFinancialReportXlsx({
+        summary,
+        transactions,
+        arByCustomer,
+        inactiveCustomers,
+        cogs,
+        collectionRate,
+        dateFrom: `${String(month).padStart(2, "0")}/${year}`,
+      });
+      const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `financial_report_${year}-${String(month).padStart(2, "0")}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed:", err);
     }
-    rows.push([]);
-    rows.push(["รายการแยกตามธุรกรรม"]);
-    rows.push(["วันที่", "เลขที่", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "WHT", "ยอดสุทธิ", "สถานะ"]);
-    for (const t of transactions) {
-      rows.push([t.date, t.doc_number, t.doc_type, t.customer_name, t.subtotal.toString(), t.vat_amount.toString(), t.total_amount.toString(), t.wht_amount.toString(), t.net_payable.toString(), t.status]);
-    }
-    rows.push([]);
-    rows.push(["ลูกค้าค้างชำระ"]);
-    rows.push(["ชื่อ", "ยอดค้าง", "จำนวนบิล", "ค้างนานสุด (วัน)"]);
-    for (const c of arByCustomer) {
-      rows.push([c.name, c.total.toString(), c.count.toString(), c.daysOverdue.toString()]);
-    }
-    rows.push([]);
-    rows.push(["ลูกค้าที่หายไป (ไม่มีดีล 90+ วัน)"]);
-    rows.push(["ชื่อ", "ดีลล่าสุด", "วันตั้งแต่ดีลล่าสุด"]);
-    for (const c of inactiveCustomers) {
-      rows.push([c.name, c.lastDealDate || "—", c.daysSinceLastDeal.toString()]);
-    }
-    const csv = rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `financial_report_${year}-${String(month).padStart(2, "0")}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 
   if (loading) {
@@ -192,9 +174,9 @@ export function FinancialReport({ userId }: FinancialReportProps) {
             ))}
           </select>
         </div>
-        <Button variant="secondary" size="sm" onClick={handleExportCSV}>
+        <Button variant="secondary" size="sm" onClick={handleExportExcel}>
           <Download className="mr-1.5 h-4 w-4" />
-          ส่งออก CSV
+          ส่งออก Excel
         </Button>
       </div>
 
