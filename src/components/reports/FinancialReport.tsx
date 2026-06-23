@@ -8,7 +8,6 @@ import { EmptyState } from "../ui/EmptyState";
 import { useFinancialReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
 import { formatBuddhistDate } from "../../lib/dates";
-import { DOC_TYPE_LABELS } from "../../constants";
 import { TransactionTable } from "./TransactionTable";
 
 const MONTH_NAMES_TH = [
@@ -96,7 +95,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const { summary, byType, monthly, topCustomers, arByCustomer, inactiveCustomers, cogs, collectionRate, revenueDelta, transactions, loading, error } = useFinancialReport(userId, year, month);
+  const { summary, monthly, arByCustomer, inactiveCustomers, cogs, collectionRate, revenueDelta, transactions, loading, error } = useFinancialReport(userId, year, month);
 
   const today = new Date();
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
@@ -119,23 +118,16 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       rows.push(["อัตราการเก็บเงิน", `${(collectionRate * 100).toFixed(1)}%`]);
     }
     rows.push([]);
-    rows.push(["รายได้แยกตามประเภทเอกสาร"]);
-    rows.push(["ประเภท", "จำนวน", "ยอดรวม"]);
-    for (const t of byType) {
-      const label = DOC_TYPE_LABELS[t.docType as keyof typeof DOC_TYPE_LABELS]?.th || t.docType;
-      rows.push([label, t.count.toString(), t.total.toString()]);
+    rows.push(["รายการแยกตามธุรกรรม"]);
+    rows.push(["วันที่", "เลขที่", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "WHT", "ยอดสุทธิ", "สถานะ"]);
+    for (const t of transactions) {
+      rows.push([t.date, t.doc_number, t.doc_type, t.customer_name, t.subtotal.toString(), t.vat_amount.toString(), t.total_amount.toString(), t.wht_amount.toString(), t.net_payable.toString(), t.status]);
     }
     rows.push([]);
     rows.push(["ลูกค้าค้างชำระ"]);
     rows.push(["ชื่อ", "ยอดค้าง", "จำนวนบิล", "ค้างนานสุด (วัน)"]);
     for (const c of arByCustomer) {
       rows.push([c.name, c.total.toString(), c.count.toString(), c.daysOverdue.toString()]);
-    }
-    rows.push([]);
-    rows.push(["ลูกค้าสูงสุด"]);
-    rows.push(["ชื่อ", "จำนวน", "ยอดรวม"]);
-    for (const c of topCustomers) {
-      rows.push([c.name, c.count.toString(), c.total.toString()]);
     }
     rows.push([]);
     rows.push(["ลูกค้าที่หายไป (ไม่มีดีล 90+ วัน)"]);
@@ -250,31 +242,6 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         </Card>
       )}
 
-      {byType.length > 0 && (
-        <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">รายได้แยกตามประเภทเอกสาร</h3>
-          <div className="space-y-2">
-            {byType.map((t) => {
-              const label = DOC_TYPE_LABELS[t.docType as keyof typeof DOC_TYPE_LABELS]?.th || t.docType;
-              const pct = summary && summary.revenue > 0 ? ((t.total / summary.revenue) * 100).toFixed(1) : "0";
-              return (
-                <div key={t.docType} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-primary/60" />
-                    <span className="text-gray-700">{label}</span>
-                  </div>
-                  <div className="text-right tabular-nums">
-                    <span className="font-medium text-[#1A1A18]">฿{formatCurrency(t.total)}</span>
-                    <span className="ml-2 text-xs text-gray-400">({pct}%)</span>
-                    <span className="ml-2 text-xs text-gray-400">· {t.count} รายการ</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
-
       {arByCustomer.length > 0 && (
         <Card className="border-[0.5px] p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ</h3>
@@ -302,26 +269,6 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         <Card className="border-[0.5px] p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ</h3>
           <p className="text-center py-6 text-[13px] text-[#888780]">ไม่มีลูกค้าค้างชำระ 🎉</p>
-        </Card>
-      )}
-
-      {topCustomers.length > 0 && (
-        <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าสูงสุด</h3>
-          <div className="space-y-2">
-            {topCustomers.map((c, i) => (
-              <div key={c.customerId} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">
-                  <span className="mr-2 font-medium text-gray-400">#{i + 1}</span>
-                  {c.name}
-                </span>
-                <div className="text-right tabular-nums">
-                  <span className="font-medium text-[#1A1A18]">฿{formatCurrency(c.total)}</span>
-                  <span className="ml-2 text-xs text-gray-400">({c.count} ครั้ง)</span>
-                </div>
-              </div>
-            ))}
-          </div>
         </Card>
       )}
 
@@ -354,7 +301,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         <TransactionTable transactions={transactions} />
       </div>
 
-      {summary && summary.revenue === 0 && byType.length === 0 && arByCustomer.length === 0 && inactiveCustomers.length === 0 && (
+      {summary && summary.revenue === 0 && transactions.length === 0 && arByCustomer.length === 0 && inactiveCustomers.length === 0 && (
         <EmptyState title="ไม่มีข้อมูล" description="ยังไม่มีรายการที่ชำระเงินในเดือนนี้" />
       )}
     </div>
