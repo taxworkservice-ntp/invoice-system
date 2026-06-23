@@ -304,7 +304,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         const cid = deal.customer_id as string;
         const cname = deal.customer?.name || "ไม่ระบุ";
         const existing = lastDealMap.get(cid);
-        if (!existing || (deal.created_at && deal.created_at > existing.lastDate)) {
+        if (!existing || (deal.created_at && deal.created_at > (existing.lastDate || ""))) {
           lastDealMap.set(cid, { name: cname, lastDate: deal.created_at?.slice(0, 10) || null });
         }
       }
