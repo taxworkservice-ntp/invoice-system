@@ -133,7 +133,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
 
       const { data: allDocs } = await supabase
         .from("documents")
-        .select("id, doc_type, status, subtotal, vat_amount, total_amount, net_payable, paid_at, issue_date, due_date, customer_id, customer:customer_id(name)")
+        .select("id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, wht_amount, paid_at, issue_date, due_date, customer_id, customer:customer_id(name)")
         .eq("user_id", userId)
         .neq("doc_type", "receipt")
         .neq("doc_type", "delivery_note")
@@ -298,7 +298,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const txns: Transaction[] = paidThisPeriod.map((d: any) => ({
         id: d.id,
         date: d.paid_at?.slice(0, 10) || "",
-        doc_number: (d as any).doc_number || "-",
+        doc_number: d.doc_number || "-",
         doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
         customer_name: d.customer?.name || "ไม่ระบุ",
         subtotal: d.subtotal || 0,
