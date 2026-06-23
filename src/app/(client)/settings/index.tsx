@@ -48,7 +48,7 @@ export default function SettingsPage() {
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
   const [logoKey, setLogoKey] = useState<string | null>(null);
-  const [logoSize, setLogoSize] = useState("small");
+  const [logoSize, setLogoSize] = useState(LOGO_SIZE_OPTIONS[0].value);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);

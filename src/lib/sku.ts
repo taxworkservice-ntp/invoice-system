@@ -8,11 +8,11 @@ export function validateSku(value: string) {
   const sku = normalizeSku(value);
 
   if (!sku) {
-    return "Please enter a SKU";
+    return "กรุณากรอก SKU";
   }
 
   if (!SKU_PATTERN.test(sku)) {
-    return "Use A-Z, 0-9, - or / only";
+    return "ใช้ได้เฉพาะ A-Z, 0-9, - หรือ /";
   }
 
   return null;

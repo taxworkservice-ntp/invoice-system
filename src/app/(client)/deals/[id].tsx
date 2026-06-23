@@ -130,7 +130,6 @@ export default function DealDetailPage() {
   const [paying, setPaying] = useState(false);
 
   const [confirmConvertDoc, setConfirmConvertDoc] = useState<Document | null>(null);
-  const [confirmBillingDoc, setConfirmBillingDoc] = useState<Document | null>(null);
   const [showVoided, setShowVoided] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copyingDeal, setCopyingDeal] = useState(false);
@@ -370,68 +369,6 @@ export default function DealDetailPage() {
       toast.success("แปลงเป็นใบแจ้งหนี้สำเร็จ");
       fetchDealData();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  const handleCreateBillingNote = async (invoice: Document) => {
-    if (!dealId) return;
-    setConfirmBillingDoc(null);
-    navigate(`/documents/new?type=billing_note&dealId=${dealId}`);
-    return;
-    if (!userId || !dealId || !customer) return;
-    setActionLoadingId(invoice.id);
-    try {
-      const now = new Date().toISOString().slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId!, "billing_note", now);
-
-      const { data: bnDoc, error } = await supabase
-        .from("documents")
-        .insert({
-          user_id: userId,
-          deal_id: dealId,
-          customer_id: customer!.id,
-          doc_type: "billing_note",
-          doc_number: docNumber,
-          status: "draft",
-          issue_date: now,
-          vat_registered: invoice.vat_registered,
-          vat_rate: invoice.vat_rate,
-          wht_rate: invoice.wht_rate,
-          discount_percent: invoice.discount_percent,
-          discount_amount: invoice.discount_amount,
-          subtotal: invoice.subtotal,
-          vat_amount: invoice.vat_amount,
-          total_amount: invoice.total_amount,
-          wht_amount: invoice.wht_amount,
-          net_payable: invoice.net_payable,
-          converted_from_id: invoice.id,
-        })
-        .select("*")
-        .single();
-      if (error) throw error;
-
-      await supabase.from("billing_note_invoices").insert({
-        billing_note_id: bnDoc.id,
-        invoice_id: invoice.id,
-        user_id: userId,
-        invoice_number: invoice.doc_number || "",
-        issue_date: invoice.issue_date || null,
-        subtotal: invoice.subtotal,
-        vat_amount: invoice.vat_amount,
-        total_amount: invoice.total_amount,
-      });
-
-      await supabase
-        .from("documents")
-        .update({ status: "in_billing" as DocumentStatus })
-        .eq("id", invoice.id);
-
-      toast.success("สร้างใบวางบิลสำเร็จ");
-      fetchDealData();
-    } catch (err: any) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setActionLoadingId(null);
@@ -1114,7 +1051,7 @@ export default function DealDetailPage() {
                 onClick={() => {
                   if (mainAction.type === "send_draft") handleSendDraft(mainAction.doc);
                   if (mainAction.type === "convert") setConfirmConvertDoc(mainAction.doc);
-                  if (mainAction.type === "billing") setConfirmBillingDoc(mainAction.doc);
+                  if (mainAction.type === "billing") navigate(`/documents/new?type=billing_note&dealId=${dealId}`);
                   if (mainAction.type === "collect") handleOpenPaymentModal(mainAction.doc);
                 }}
               >
@@ -1346,33 +1283,6 @@ export default function DealDetailPage() {
               }}
             >
               {actionLoadingId === confirmConvertDoc?.id ? "..." : "ยืนยัน"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={confirmBillingDoc !== null} onClose={() => setConfirmBillingDoc(null)} title="ยืนยันการสร้างใบวางบิล">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">คุณต้องการสร้างใบวางบิลใช่หรือไม่?</p>
-          {confirmBillingDoc && (
-            <p className="text-sm">
-              ยอดรวม: <span className="font-semibold">฿{formatCurrency(confirmBillingDoc.net_payable)}</span>
-            </p>
-          )}
-          <div className="flex gap-2 pt-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setConfirmBillingDoc(null)}>ยกเลิก</Button>
-            <Button
-              variant="primary"
-              className="flex-1"
-              disabled={actionLoadingId === confirmBillingDoc?.id}
-              onClick={() => {
-                if (confirmBillingDoc) {
-                  handleCreateBillingNote(confirmBillingDoc);
-                  setConfirmBillingDoc(null);
-                }
-              }}
-            >
-              {actionLoadingId === confirmBillingDoc?.id ? "..." : "ยืนยัน"}
             </Button>
           </div>
         </div>

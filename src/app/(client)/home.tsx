@@ -376,13 +376,13 @@ export default function HomePage() {
   const recentlyDone = useMemo(
     () =>
       deals
-        .filter((deal) => deal.isDone && deal.paidAt)
+        .filter((deal) => deal.isDone)
         .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || ""))
         .slice(0, 5),
     [deals]
   );
 
-  const greetingName = firstNameFromCompanyName(clientProfile?.company_name_th);
+  const greetingName = clientProfile?.contact_name ? clientProfile.contact_name.trim() : "";
   const actionCount = activeDeals.length;
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
