@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { MoreVertical } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Badge } from "../../../components/ui/Badge";
+import { NewDealSheet } from "../../../components/home/NewDealSheet";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
@@ -39,6 +41,8 @@ export default function CustomerDetailPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [newSheetOpen, setNewSheetOpen] = useState(false);
 
   const [dealFilter, setDealFilter] = useState<"all" | "active" | "done">("all");
 
@@ -155,9 +159,35 @@ export default function CustomerDetailPage() {
       title={customer.name}
       showBack
       action={
-        <Button size="sm" variant="danger" onClick={() => setDeleteConfirm(true)}>
-          ลบ
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button size="sm" onClick={() => setNewSheetOpen(true)} className="!text-[12px]">
+            + สร้าง deal
+          </Button>
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F7F6F3] transition-colors"
+            >
+              <MoreVertical className="w-4 h-4 text-[#888780]" />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 bg-white border border-[#E8E6DF] rounded-lg shadow-lg z-50 min-w-[130px]">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleteConfirm(true);
+                    }}
+                    className="w-full text-left px-3 py-2.5 text-[13px] text-[#C0392B] hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    ลบลูกค้า
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       }
     >
       <div className="space-y-4">
@@ -299,7 +329,7 @@ export default function CustomerDetailPage() {
 
           {filteredDeals.length === 0 ? (
             <div className="text-center py-8 text-[13px] text-[#888780]">
-              ยังไม่มี deal กับลูกค้ารายนี้
+              ยังไม่มี deal — กด + สร้าง deal ด้านบนเพื่อเริ่ม
             </div>
           ) : (
             <div className="space-y-2">
@@ -361,6 +391,15 @@ export default function CustomerDetailPage() {
           </div>
         </div>
       )}
+
+      <NewDealSheet
+        open={newSheetOpen}
+        onClose={() => setNewSheetOpen(false)}
+        onSelect={(type) => {
+          setNewSheetOpen(false);
+          navigate(`/deals/new?type=${type}&customer_id=${customer.id}`);
+        }}
+      />
     </AppShell>
   );
 }

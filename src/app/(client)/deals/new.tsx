@@ -124,7 +124,7 @@ export default function NewDealPage() {
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
-  const { customers, addCustomer } = useCustomers(userId);
+  const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const { items } = useItems(userId);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -161,6 +161,17 @@ export default function NewDealPage() {
       setWhtRate(clientProfile.default_wht_rate);
     }
   }, [clientProfile]);
+
+  useEffect(() => {
+    const customerId = searchParams.get("customer_id");
+    if (!customerId || customersLoading || selectedCustomer) return;
+    const match = customers.find((c) => c.id === customerId);
+    if (match) {
+      setSelectedCustomer(match);
+      setCustomerSearch(match.name);
+      setShowCustomerDropdown(false);
+    }
+  }, [searchParams, customers, customersLoading, selectedCustomer]);
 
   useEffect(() => {
     if (!isTaxInvoiceReceipt) return;
