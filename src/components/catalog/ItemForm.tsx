@@ -165,8 +165,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       }
     } catch (err: unknown) {
       if (isDuplicateSkuError(err)) {
-        setErrors((prev) => ({ ...prev, sku: "This SKU is already in use" }));
-        toast.error("This SKU is already in use");
+        setErrors((prev) => ({ ...prev, sku: "SKU นี้ถูกใช้แล้ว" }));
+        toast.error("SKU นี้ถูกใช้แล้ว");
         setSaving(false);
         return;
       }

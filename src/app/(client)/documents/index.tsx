@@ -711,6 +711,12 @@ export default function DocumentsPage() {
       setDocTypeFilter("billing_note");
       setStatusFilter("paid");
     }
+
+    if (preset === "paid") {
+      setQuickView("paid");
+      setDocTypeFilter("billing_note");
+      setStatusFilter("paid");
+    }
   }, [preset]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -776,7 +782,7 @@ export default function DocumentsPage() {
     }
     if (action === "billing") {
       setOpenMenuId(null);
-      navigate(`/documents/new?type=billing_note&deal=${doc.deal_id || ""}`);
+      navigate(`/documents/new?type=billing_note&dealId=${doc.deal_id || ""}`);
       return;
     }
     handleInlineAction(doc, action);

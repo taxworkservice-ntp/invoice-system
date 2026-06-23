@@ -124,7 +124,7 @@ export default function NewDealPage() {
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
-  const { customers, addCustomer } = useCustomers(userId);
+  const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const { items } = useItems(userId);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -161,6 +161,17 @@ export default function NewDealPage() {
       setWhtRate(clientProfile.default_wht_rate);
     }
   }, [clientProfile]);
+
+  useEffect(() => {
+    const customerId = searchParams.get("customer_id");
+    if (!customerId || customersLoading || selectedCustomer) return;
+    const match = customers.find((c) => c.id === customerId);
+    if (match) {
+      setSelectedCustomer(match);
+      setCustomerSearch(match.name);
+      setShowCustomerDropdown(false);
+    }
+  }, [searchParams, customers, customersLoading, selectedCustomer]);
 
   useEffect(() => {
     if (!isTaxInvoiceReceipt) return;
@@ -597,39 +608,39 @@ export default function NewDealPage() {
                             {showNewCustomerForm && (
                 <div className="mt-3 border-t pt-3 space-y-2">
                   <Input
-                    label="�����١���"
+                    label="ชื่อลูกค้า"
                     value={newCustomer.name}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, name: e.target.value }))
                     }
-                    placeholder="���ͺ���ѷ���ͪ����١���"
+                    placeholder="ชื่อบริษัทหรือชื่อลูกค้า"
                   />
                   <Input
-                    label="�Ţ�����������"
+                    label="เลขผู้เสียภาษี"
                     value={newCustomer.tax_id}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, tax_id: e.target.value }))
                     }
-                    placeholder="�Ţ 13 ��ѡ"
+                    placeholder="13 หลัก (ถ้ามี)"
                   />
                   <Input
-                    label="�������"
+                    label="ที่อยู่"
                     value={newCustomer.address}
                     onChange={(e) =>
                       setNewCustomer((prev) => ({ ...prev, address: e.target.value }))
                     }
-                    placeholder="�������"
+                    placeholder="ที่อยู่"
                   />
                   <div className="flex gap-2">
                     <Button variant="secondary" size="sm" onClick={() => setShowNewCustomerForm(false)}>
-                      ¡��ԡ
+                      ยกเลิก
                     </Button>
                     <Button
                       size="sm"
                       onClick={handleAddNewCustomer}
                       disabled={!newCustomer.name.trim() || savingCustomer}
                     >
-                      {savingCustomer ? "���ѧ�ѹ�֡..." : "�ѹ�֡"}
+                      {savingCustomer ? "กำลังบันทึก..." : "บันทึก"}
                     </Button>
                   </div>
                 </div>
