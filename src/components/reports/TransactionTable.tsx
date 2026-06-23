@@ -118,7 +118,7 @@ export function TransactionTable({ transactions }: Props) {
           {sorted.map((t) => (
             <tr
               key={t.id}
-              onClick={() => navigate(`/documents/${t.id}`)}
+              onClick={() => navigate(t.deal_id ? `/deals/${t.deal_id}` : `/documents/${t.id}`)}
               className="border-b border-[#E6EBF2] hover:bg-[#F8FAFC] cursor-pointer transition-colors"
             >
               {COLUMNS.map((col) => {

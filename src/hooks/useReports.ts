@@ -54,6 +54,7 @@ export interface InactiveCustomer {
 
 export interface Transaction {
   id: string;
+  deal_id: string | null;
   date: string;
   doc_number: string;
   doc_type: string;
@@ -133,7 +134,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
 
       const { data: allDocs } = await supabase
         .from("documents")
-        .select("id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, wht_amount, paid_at, issue_date, due_date, customer_id, customer:customer_id(name)")
+        .select("id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, wht_amount, paid_at, issue_date, due_date, customer_id, customer:customer_id(name)")
         .eq("user_id", userId)
         .neq("doc_type", "receipt")
         .neq("doc_type", "delivery_note")
@@ -155,7 +156,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           d.paid_at.slice(0, 10) >= start &&
           d.paid_at.slice(0, 10) <= end &&
           (d.status === "paid" || d.status === "generated" || d.status === "issued") &&
-          !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
+          d.doc_type !== "billing_note"
       );
 
       const revenue = paidThisPeriod.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0);
@@ -297,6 +298,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       };
       const txns: Transaction[] = paidThisPeriod.map((d: any) => ({
         id: d.id,
+        deal_id: d.deal_id || null,
         date: d.paid_at?.slice(0, 10) || "",
         doc_number: d.doc_number || "-",
         doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
