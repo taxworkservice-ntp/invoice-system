@@ -309,7 +309,7 @@ export default function CustomerDetailPage() {
                 );
                 const latestDoc = sortedDocs.find((d) => d.status !== "voided") || sortedDocs[0];
                 const billingDoc = sortedDocs.find((d) => d.doc_type === "billing_note" && d.status !== "voided");
-                const amount = billingDoc?.net_payable || latestDoc?.total_amount || 0;
+                const amount = latestDoc?.total_amount || billingDoc?.net_payable || 0;
 
                 return (
                   <Card key={deal.id} onClick={() => navigate(`/deals/${deal.id}`)}>

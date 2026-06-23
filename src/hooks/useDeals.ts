@@ -61,7 +61,7 @@ export function useDeals(userId: string | undefined) {
         deal_id: dealId,
         customer_name: (d as any).customer?.name || "",
         item_summary: "",
-        amount: d.net_payable,
+        amount: d.total_amount || d.net_payable,
         status: d.status,
         stage,
         doc_type: d.doc_type,

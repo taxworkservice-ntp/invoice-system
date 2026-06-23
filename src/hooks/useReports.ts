@@ -36,6 +36,21 @@ export interface ARAgingBucket {
   count: number;
 }
 
+export interface Transaction {
+  id: string;
+  date: string;
+  doc_number: string;
+  doc_type: string;
+  customer_name: string;
+  subtotal: number;
+  vat_amount: number;
+  total_amount: number;
+  wht_amount: number;
+  net_payable: number;
+  status: string;
+  is_paid: boolean;
+}
+
 export interface StockSummary {
   totalItems: number;
   totalValue: number;
@@ -84,6 +99,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
   const [monthly, setMonthly] = useState<MonthlyRevenue[]>([]);
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
   const [arAging, setArAging] = useState<ARAgingBucket[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,7 +137,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
       );
 
-      const revenue = paidThisPeriod.reduce((sum, d) => sum + (d.net_payable || 0), 0);
+      const revenue = paidThisPeriod.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0);
       const collected = paidThisPeriod.reduce((sum, d) => sum + (d.amount_received || d.net_payable || 0), 0);
       const vatCollected = paidThisPeriod.reduce((sum, d) => sum + (d.vat_amount || 0), 0);
 
@@ -146,7 +162,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         const t = d.doc_type as string;
         const existing = typeMap.get(t) || { count: 0, total: 0 };
         existing.count++;
-        existing.total += d.net_payable || 0;
+        existing.total += d.total_amount || d.net_payable || 0;
         typeMap.set(t, existing);
       }
       setByType(
@@ -170,7 +186,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         monthlyData.push({
           month: `${m.month}`.padStart(2, "0"),
           year: m.year,
-          total: inMonth.reduce((sum, d) => sum + (d.net_payable || 0), 0),
+          total: inMonth.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0),
         });
       }
       setMonthly(monthlyData);
@@ -180,7 +196,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         const cid = d.customer_id as string;
         const cname = d.customer?.name || "ไม่ระบุ";
         const existing = custMap.get(cid) || { name: cname, total: 0, count: 0 };
-        existing.total += d.net_payable || 0;
+        existing.total += d.total_amount || d.net_payable || 0;
         existing.count++;
         custMap.set(cid, existing);
       }
@@ -218,6 +234,36 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         buckets[idx].count++;
       }
       setArAging(buckets);
+
+      const statusLabels: Record<string, string> = {
+        paid: "ชำระแล้ว",
+        generated: "รอชำระ",
+        issued: "รอชำระ",
+        sent: "รอชำระ",
+        overdue: "เกินกำหนด",
+      };
+
+      const docTypeLabels: Record<string, string> = {
+        invoice: "ใบแจ้งหนี้",
+        tax_invoice_receipt: "ใบกำกับภาษี",
+        billing_note: "ใบวางบิล",
+      };
+
+      const txns: Transaction[] = paidThisPeriod.map((d: any) => ({
+        id: d.id,
+        date: d.paid_at?.slice(0, 10) || "",
+        doc_number: (d as any).doc_number || "-",
+        doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
+        customer_name: d.customer?.name || "ไม่ระบุ",
+        subtotal: d.subtotal || 0,
+        vat_amount: d.vat_amount || 0,
+        total_amount: d.total_amount || 0,
+        wht_amount: d.wht_amount || 0,
+        net_payable: d.net_payable || 0,
+        status: statusLabels[d.status as string] || d.status,
+        is_paid: d.status === "paid",
+      }));
+      setTransactions(txns);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -229,7 +275,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
     fetchData();
   }, [fetchData]);
 
-  return { summary, byType, monthly, topCustomers, arAging, loading, error, refetch: fetchData };
+  return { summary, byType, monthly, topCustomers, arAging, transactions, loading, error, refetch: fetchData };
 }
 
 export function useStockReport(userId: string | undefined, dateFrom: string, dateTo: string) {

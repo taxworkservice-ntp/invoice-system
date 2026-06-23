@@ -152,7 +152,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     customerName: deal.customers?.name || "ลูกค้า",
     itemSummary: deal.title || latestDocument?.doc_number || "",
     itemNames: getItemPreview(deal.documents || []),
-    amount: amountDocument?.net_payable || 0,
+    amount: amountDocument?.total_amount || amountDocument?.net_payable || 0,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     updatedAt: latestDocument?.updated_at || deal.updated_at,
     dueDate: latestDocument?.due_date || null,

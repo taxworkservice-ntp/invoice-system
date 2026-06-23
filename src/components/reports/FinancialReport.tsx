@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { CircleDollarSign, TrendingUp, Wallet, FileText, Download } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
-import { EmptyState } from "../ui/EmptyState";
 import { useFinancialReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
 import { DOC_TYPE_LABELS } from "../../constants";
+import { TransactionTable } from "./TransactionTable";
 
 const MONTH_NAMES_TH = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -79,11 +78,10 @@ interface FinancialReportProps {
 }
 
 export function FinancialReport({ userId }: FinancialReportProps) {
-  const navigate = useNavigate();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const { summary, byType, monthly, topCustomers, arAging, loading, error } = useFinancialReport(userId, year, month);
+  const { summary, byType, monthly, topCustomers, arAging, transactions, loading, error } = useFinancialReport(userId, year, month);
 
   const today = new Date();
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
@@ -208,78 +206,9 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         </Card>
       )}
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        {byType.length > 0 && (
-          <Card className="border-[0.5px] p-4 shadow-sm">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">รายได้แยกตามประเภทเอกสาร</h3>
-            <div className="space-y-2">
-              {byType.map((t) => {
-                const label = DOC_TYPE_LABELS[t.docType as keyof typeof DOC_TYPE_LABELS]?.th || t.docType;
-                const pct = summary && summary.revenue > 0 ? ((t.total / summary.revenue) * 100).toFixed(1) : "0";
-                return (
-                  <div key={t.docType} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary/60" />
-                      <span className="text-gray-700">{label}</span>
-                    </div>
-                    <div className="text-right tabular-nums">
-                      <span className="font-medium text-[#1A1A18]">฿{formatCurrency(t.total)}</span>
-                      <span className="ml-2 text-xs text-gray-400">({pct}%)</span>
-                      <span className="ml-2 text-xs text-gray-400">· {t.count} รายการ</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        )}
-
-        {arAging.length > 0 && (
-          <Card className="border-[0.5px] p-4 shadow-sm">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">AR Aging (ค้างชำระ)</h3>
-            <div className="space-y-2">
-              {arAging.map((a) => {
-                const pct = summary && summary.outstanding > 0 ? ((a.total / summary.outstanding) * 100).toFixed(1) : "0";
-                const isHigh = a.label === "61-90 วัน" || a.label === "90+ วัน";
-                return (
-                  <div key={a.label} className={`flex items-center justify-between text-sm ${isHigh && a.total > 0 ? "text-[#C0392B]" : "text-gray-700"}`}>
-                    <span>{a.label}</span>
-                    <div className="text-right tabular-nums">
-                      <span className="font-medium">฿{formatCurrency(a.total)}</span>
-                      <span className="ml-2 text-xs text-gray-400">({pct}%)</span>
-                      <span className="ml-2 text-xs text-gray-400">· {a.count} ใบ</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        )}
+      <div className="space-y-4">
+        <TransactionTable transactions={transactions} />
       </div>
-
-      {topCustomers.length > 0 && (
-        <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าสูงสุด</h3>
-          <div className="space-y-2">
-            {topCustomers.map((c, i) => (
-              <div key={c.customerId} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">
-                  <span className="mr-2 font-medium text-gray-400">#{i + 1}</span>
-                  {c.name}
-                </span>
-                <div className="text-right tabular-nums">
-                  <span className="font-medium text-[#1A1A18]">฿{formatCurrency(c.total)}</span>
-                  <span className="ml-2 text-xs text-gray-400">({c.count} ครั้ง)</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {summary && summary.revenue === 0 && byType.length === 0 && (
-        <EmptyState title="ไม่มีข้อมูล" description="ยังไม่มีรายการที่ชำระเงินในเดือนนี้" />
-      )}
     </div>
   );
 }
