@@ -4,7 +4,7 @@ import { Modal } from "../ui/Modal";
 interface NewDealSheetProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "billing_note" | "invoice_from_delivery_notes") => void;
+  onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes") => void;
 }
 
 const OPTIONS = [
@@ -13,6 +13,12 @@ const OPTIONS = [
     title: "ส่งใบเสนอราคาก่อน",
     subtitle: "เหมาะเมื่อยังไม่ได้ตกลงราคา",
     type: "quotation" as const,
+  },
+  {
+    icon: "🚚",
+    title: "ออกใบส่งของ",
+    subtitle: "ใช้เมื่อส่งสินค้าก่อน แล้วค่อยรวมออกใบแจ้งหนี้ภายหลัง",
+    type: "delivery_note" as const,
   },
   {
     icon: "📄",

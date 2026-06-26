@@ -119,7 +119,8 @@ export default function NewDealPage() {
   const label = DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
   const isBillingNote = type === "billing_note";
   const isTaxInvoiceReceipt = type === "tax_invoice_receipt";
-  const isQuotationOrInvoice = type === "quotation" || type === "invoice" || isTaxInvoiceReceipt;
+  const isDeliveryNote = type === "delivery_note";
+  const isLineItemDocument = type === "quotation" || type === "invoice" || isTaxInvoiceReceipt || isDeliveryNote;
 
   const { profile } = useAuth();
   const userId = profile?.id;
@@ -357,7 +358,7 @@ export default function NewDealPage() {
     if (!selectedCustomer || !userId) return;
     setError(null);
 
-    if (isQuotationOrInvoice) {
+    if (isLineItemDocument) {
       const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
       if (validItems.length === 0) {
         setError("กรุณาเพิ่มอย่างน้อย 1 รายการ");
@@ -430,7 +431,7 @@ export default function NewDealPage() {
 
       if (docError) throw docError;
 
-      if (isQuotationOrInvoice) {
+      if (isLineItemDocument) {
         const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
         if (validItems.length > 0) {
           const lineItemRecords = validItems.map((lineItem, idx) => {
@@ -755,7 +756,7 @@ export default function NewDealPage() {
           </Card>
         )}
 
-        {isQuotationOrInvoice && (
+        {isLineItemDocument && (
           <Card>
             <h3 className="text-sm font-medium mb-3">รายการ</h3>
             <div className="space-y-2">
@@ -1138,6 +1139,5 @@ export default function NewDealPage() {
     </AppShell>
   );
 }
-
 
 
