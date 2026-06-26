@@ -62,7 +62,6 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
 
   const [quotation, setQuotation] = useState<QuotationWithCustomer | null>(null);
   const [quotationLines, setQuotationLines] = useState<DocumentLineItem[]>([]);
-  const [deliveryTotals, setDeliveryTotals] = useState<Map<string, DeliveryTotals>>(new Map());
   const [lines, setLines] = useState<DeliveryLine[]>([]);
   const [issueDate, setIssueDate] = useState(todayString());
   const [note, setNote] = useState("");
@@ -122,7 +121,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
         const qLines = (quoteLines || []) as DocumentLineItem[];
         const initialLines = qLines.map((line) => {
           const total = totals.get(line.id) || { delivered: 0, pending: 0 };
-          const remaining = round3(line.quantity - total.delivered);
+          const remaining = round3(line.quantity - total.delivered - total.pending);
           return {
             source: line,
             quantity: Math.max(0, remaining),
@@ -134,7 +133,6 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
         if (cancelled) return;
         setQuotation(quote);
         setQuotationLines(qLines);
-        setDeliveryTotals(totals);
         setLines(initialLines);
       } catch (err: any) {
         if (!cancelled) setError(err.message || "โหลดข้อมูลไม่สำเร็จ");
@@ -155,7 +153,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
   );
 
   const overDeliveryLines = useMemo(
-    () => lines.filter((line) => line.quantity > Math.max(0, round3(line.source.quantity - line.delivered))),
+    () => lines.filter((line) => line.quantity > Math.max(0, round3(line.source.quantity - line.delivered - line.pending))),
     [lines],
   );
 
@@ -341,7 +339,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
 
           <div className="space-y-2">
             {lines.map((line) => {
-              const remaining = round3(line.source.quantity - line.delivered);
+              const deliveredRemaining = round3(line.source.quantity - line.delivered);
+              const remaining = round3(line.source.quantity - line.delivered - line.pending);
               const over = line.quantity > Math.max(0, remaining);
               const totalWithPending = round3(line.delivered + line.pending + line.quantity);
 
@@ -381,7 +380,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
                       )}
                       {line.pending > 0 && (
                         <div className="mt-1 text-xs text-gray-500">
-                          รวมร่างค้างและรอบนี้: {formatQty(totalWithPending)} {line.source.unit}
+                          ยังไม่รวมร่างค้าง คงเหลือหลังส่งจริง: {formatQty(deliveredRemaining)} {line.source.unit} • รวมร่างค้างและรอบนี้: {formatQty(totalWithPending)} {line.source.unit}
                         </div>
                       )}
                     </div>

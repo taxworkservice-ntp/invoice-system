@@ -95,6 +95,7 @@ export default function DocumentDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   const [convertModal, setConvertModal] = useState(false);
+  const [hasQuotationDnActivity, setHasQuotationDnActivity] = useState(false);
 
   const fetchDoc = async () => {
     if (!id) return;
@@ -102,6 +103,28 @@ export default function DocumentDetailPage() {
     try {
       const data = await getDocumentDetail(id);
       setDoc(data);
+      if (data.doc_type === "quotation") {
+        const [{ data: dnDocs }, { data: dnLines }] = await Promise.all([
+          supabase
+            .from("documents")
+            .select("id")
+            .eq("converted_from_id", data.id)
+            .eq("doc_type", "delivery_note")
+            .neq("status", "voided")
+            .limit(1),
+          supabase
+            .from("document_line_items")
+            .select("id, document:document_id(id, doc_type, status)")
+            .eq("source_document_id", data.id)
+            .limit(1),
+        ]);
+        const hasSourceDnLine = ((dnLines || []) as any[]).some(
+          (line) => line.document?.doc_type === "delivery_note" && line.document?.status !== "voided",
+        );
+        setHasQuotationDnActivity(Boolean(dnDocs?.length || hasSourceDnLine));
+      } else {
+        setHasQuotationDnActivity(false);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -222,6 +245,8 @@ export default function DocumentDetailPage() {
               discount_amount: lineItem.discount_amount,
               qty_carton: lineItem.qty_carton,
               carton_unit: lineItem.carton_unit,
+              source_document_id: lineItem.source_document_id,
+              source_line_item_id: lineItem.source_line_item_id,
               line_total: lineItem.line_total,
               sort_order: index,
             }))
@@ -390,6 +415,8 @@ export default function DocumentDetailPage() {
             discount_amount: lineItem.discount_amount,
             qty_carton: lineItem.qty_carton,
             carton_unit: lineItem.carton_unit,
+            source_document_id: lineItem.source_document_id || doc.id,
+            source_line_item_id: lineItem.source_line_item_id || lineItem.id,
             line_total: lineItem.line_total,
             sort_order: index,
           }))
@@ -465,6 +492,8 @@ export default function DocumentDetailPage() {
             discount_amount: lineItem.discount_amount,
             qty_carton: lineItem.qty_carton,
             carton_unit: lineItem.carton_unit,
+            source_document_id: lineItem.source_document_id,
+            source_line_item_id: lineItem.source_line_item_id,
             line_total: lineItem.line_total,
             sort_order: index,
           }))
@@ -958,7 +987,7 @@ export default function DocumentDetailPage() {
               variant="secondary"
               size="md"
               className="w-full"
-              onClick={() => navigate(`/documents/new?type=billing_note&deal=${doc.deal_id || ""}`)}
+              onClick={() => navigate(`/documents/new?type=billing_note&dealId=${doc.deal_id || ""}`)}
             >
               📋 วางบิล
             </Button>
@@ -970,7 +999,24 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && doc.doc_type === "quotation" && (
+          {isSent && doc.doc_type === "quotation" && hasQuotationDnActivity && (
+            <Button
+              variant="primary"
+              size="md"
+              className="w-full"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  type: "delivery_note_from_quotation",
+                  quotationId: doc.id,
+                });
+                navigate(`/documents/new?${params.toString()}`);
+              }}
+            >
+              ออกใบส่งของจากใบเสนอราคา
+            </Button>
+          )}
+
+          {isSent && doc.doc_type === "quotation" && !hasQuotationDnActivity && (
             <Button
               variant="primary"
               size="md"

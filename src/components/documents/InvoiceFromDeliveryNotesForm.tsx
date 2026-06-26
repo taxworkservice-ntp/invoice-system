@@ -162,14 +162,40 @@ export function InvoiceFromDeliveryNotesForm() {
     [selectedDeliveryNotes],
   );
 
+  const selectedDealId = useMemo(() => {
+    const dealIds = Array.from(new Set(selectedDeliveryNotes.map((doc) => doc.deal_id).filter(Boolean)));
+    return dealIds.length === 1 ? dealIds[0] : null;
+  }, [selectedDeliveryNotes]);
+
+  const taxSnapshot = useMemo(() => {
+    if (selectedDeliveryNotes.length === 0) {
+      return {
+        vatRegistered: clientProfile?.vat_registered ?? false,
+        vatRate: clientProfile?.vat_rate ?? VAT_DEFAULT,
+        mixed: false,
+      };
+    }
+
+    const first = selectedDeliveryNotes[0];
+    const mixed = selectedDeliveryNotes.some(
+      (doc) => doc.vat_registered !== first.vat_registered || Number(doc.vat_rate) !== Number(first.vat_rate),
+    );
+
+    return {
+      vatRegistered: first.vat_registered,
+      vatRate: first.vat_rate ?? VAT_DEFAULT,
+      mixed,
+    };
+  }, [clientProfile?.vat_rate, clientProfile?.vat_registered, selectedDeliveryNotes]);
+
   const tax = useMemo(() => {
     return calculateTax(
       selectedLines.map(({ line }) => lineTaxInput(line)),
-      clientProfile?.vat_registered ?? false,
-      clientProfile?.vat_rate ?? VAT_DEFAULT,
+      taxSnapshot.vatRegistered,
+      taxSnapshot.vatRate,
       parseFloat(whtRate),
     );
-  }, [clientProfile?.vat_rate, clientProfile?.vat_registered, selectedLines, whtRate]);
+  }, [selectedLines, taxSnapshot.vatRate, taxSnapshot.vatRegistered, whtRate]);
 
   const toggleDn = (id: string) => {
     setSelectedIds((prev) => {
@@ -197,14 +223,14 @@ export function InvoiceFromDeliveryNotesForm() {
         .from("documents")
         .insert({
           user_id: userId,
-          deal_id: null,
+          deal_id: selectedDealId,
           customer_id: selectedCustomer.id,
           doc_type: "invoice",
           doc_number: docNumber,
           status: "sent" as DocumentStatus,
           issue_date: issueDate,
-          vat_registered: clientProfile?.vat_registered ?? false,
-          vat_rate: clientProfile?.vat_rate ?? VAT_DEFAULT,
+          vat_registered: taxSnapshot.vatRegistered,
+          vat_rate: taxSnapshot.vatRate,
           wht_rate: parseFloat(whtRate),
           discount_percent: 0,
           discount_amount: tax.discountAmount,
@@ -294,6 +320,16 @@ export function InvoiceFromDeliveryNotesForm() {
           <div>
             <p className="font-medium">โปรดยืนยันเวลาการออกใบกำกับภาษีกับบัญชีของคุณ</p>
             <p className="mt-0.5 text-xs leading-5">ระบบรองรับการรวมใบส่งของหลายใบเพื่อออกใบกำกับภาษีภายหลัง แต่กิจการ VAT ควรตรวจสอบจุดรับรู้ภาษีให้ถูกต้อง</p>
+          </div>
+        </div>
+      )}
+
+      {taxSnapshot.mixed && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">ใบส่งของที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน</p>
+            <p className="mt-0.5 text-xs leading-5">ระบบจะใช้การตั้งค่าภาษีจากใบส่งของใบแรกในรายการ โปรดตรวจสอบก่อนสร้างใบแจ้งหนี้</p>
           </div>
         </div>
       )}

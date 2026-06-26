@@ -172,6 +172,16 @@ export async function deductStockOnDocumentSent(
 
   if (!shouldDeduct) return { warnings: [] };
 
+  const { data: existingMovement } = await supabase
+    .from("stock_movements")
+    .select("id")
+    .eq("document_id", documentId)
+    .eq("movement_type", "auto_out")
+    .limit(1)
+    .maybeSingle();
+
+  if (existingMovement) return { warnings: [] };
+
   const { data: lineItems } = await supabase
     .from("document_line_items")
     .select("*")

@@ -48,6 +48,7 @@ interface DocWithMeta {
 type MainAction =
   | { type: "send_draft"; doc: Document; label: string; danger?: boolean }
   | { type: "convert"; doc: Document; label: string }
+  | { type: "delivery_from_quote"; doc: Document; label: string }
   | { type: "invoice_from_dns"; doc: Document; label: string }
   | { type: "billing"; doc: Document; label: string }
   | { type: "collect"; doc: Document; label: string; danger?: boolean }
@@ -374,6 +375,8 @@ export default function DealDetailPage() {
             discount_amount: li.discount_amount,
             qty_carton: li.qty_carton,
             carton_unit: li.carton_unit,
+            source_document_id: quotation.id,
+            source_line_item_id: li.id,
             line_total: li.line_total,
             sort_order: idx,
           }))
@@ -501,6 +504,14 @@ export default function DealDetailPage() {
         [...sourceCandidates].reverse().find((d) => d.document.doc_type === "invoice") ||
         [...sourceCandidates].reverse().find((d) => d.document.doc_type === "quotation");
       const sourceDoc = quotationOrInvoice?.document;
+      if (sourceDoc?.doc_type === "quotation") {
+        const params = new URLSearchParams({
+          type: "delivery_note_from_quotation",
+          quotationId: sourceDoc.id,
+        });
+        navigate(`/documents/new?${params.toString()}`);
+        return;
+      }
 
       const { data: dnDoc, error } = await supabase
         .from("documents")
@@ -545,6 +556,8 @@ export default function DealDetailPage() {
             discount_amount: li.discount_amount,
             qty_carton: li.qty_carton,
             carton_unit: li.carton_unit,
+            source_document_id: sourceDoc?.id ?? null,
+            source_line_item_id: li.id,
             line_total: li.line_total,
             sort_order: idx,
           }))
@@ -662,6 +675,8 @@ export default function DealDetailPage() {
               discount_amount: li.discount_amount,
               qty_carton: li.qty_carton,
               carton_unit: li.carton_unit,
+              source_document_id: li.source_document_id,
+              source_line_item_id: li.source_line_item_id,
               line_total: li.line_total,
               sort_order: idx,
             }))
@@ -885,6 +900,16 @@ export default function DealDetailPage() {
     };
   }, [latestQuotation, nonVoidedDocs]);
 
+  const hasQuotationDeliveryActivity = useMemo(() => {
+    if (!latestQuotation) return false;
+    const quoteId = latestQuotation.document.id;
+    return nonVoidedDocs.some((item) => {
+      if (item.document.doc_type !== "delivery_note") return false;
+      if (item.document.converted_from_id === quoteId) return true;
+      return item.line_items.some((line) => line.source_document_id === quoteId);
+    });
+  }, [latestQuotation, nonVoidedDocs]);
+
   const allDone = nonVoidedDocs.length > 0 && nonVoidedDocs.every((item) => item.stage === "done");
   const hasPaidDocs = nonVoidedDocs.some(
     (item) => item.document.status === "paid" || (item.document.doc_type === "tax_invoice_receipt" && item.document.status === "issued")
@@ -955,6 +980,9 @@ export default function DealDetailPage() {
       return { type: "invoice_from_dns", doc, label: "ออกใบแจ้งหนี้จากใบส่งของ" };
     }
     if (doc.doc_type === "quotation" && doc.status === "sent") {
+      if (hasQuotationDeliveryActivity) {
+        return { type: "delivery_from_quote", doc, label: "ออกใบส่งของจากใบเสนอราคา" };
+      }
       return { type: "convert", doc, label: "ลูกค้าตกลงแล้ว" };
     }
     if (doc.doc_type === "invoice" && doc.status === "sent") {
@@ -969,7 +997,7 @@ export default function DealDetailPage() {
       };
     }
     return null;
-  }, [activeDoc, allDone]);
+  }, [activeDoc, allDone, hasQuotationDeliveryActivity]);
 
   const actionHint = useMemo(() => {
     if (!activeDoc?.document.doc_number) return "";
@@ -1239,6 +1267,13 @@ export default function DealDetailPage() {
                 onClick={() => {
                   if (mainAction.type === "send_draft") handleSendDraft(mainAction.doc);
                   if (mainAction.type === "convert") setConfirmConvertDoc(mainAction.doc);
+                  if (mainAction.type === "delivery_from_quote") {
+                    const params = new URLSearchParams({
+                      type: "delivery_note_from_quotation",
+                      quotationId: mainAction.doc.id,
+                    });
+                    navigate(`/documents/new?${params.toString()}`);
+                  }
                   if (mainAction.type === "invoice_from_dns") navigate("/documents/new?type=invoice_from_delivery_notes");
                   if (mainAction.type === "billing") navigate(`/documents/new?type=billing_note&dealId=${dealId}`);
                   if (mainAction.type === "collect") handleOpenPaymentModal(mainAction.doc);
