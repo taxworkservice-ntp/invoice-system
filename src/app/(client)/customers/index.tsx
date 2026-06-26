@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, List, AlertTriangle, Star, X } from "lucide-react";
+import { LayoutGrid, List, AlertTriangle, Star, X, Table2, Briefcase } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -13,8 +13,8 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import type { Customer } from "../../../types";
 
-type ViewMode = "list" | "grid";
-type FilterMode = "all" | "favorites";
+type ViewMode = "list" | "grid" | "table";
+type FilterMode = "all" | "favorites" | "hasDeals";
 
 export default function CustomersPage() {
   const navigate = useNavigate();
@@ -28,12 +28,12 @@ export default function CustomersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
     const stored = window.localStorage.getItem("customersViewMode");
-    return stored === "grid" || stored === "list" ? stored : "list";
+    return stored === "grid" || stored === "list" || stored === "table" ? stored : "list";
   });
   const [filterMode, setFilterMode] = useState<FilterMode>(() => {
     if (typeof window === "undefined") return "all";
     const stored = window.localStorage.getItem("customersFilterMode");
-    return stored === "all" || stored === "favorites" ? stored : "all";
+    return stored === "all" || stored === "favorites" || stored === "hasDeals" ? stored : "all";
   });
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -61,7 +61,7 @@ export default function CustomersPage() {
   }, []);
 
   useEffect(() => {
-    if (search.trim() && filterMode === "favorites") {
+    if (search.trim() && filterMode !== "all") {
       setFilterMode("all");
     }
   }, [search, filterMode]);
@@ -110,6 +110,7 @@ export default function CustomersPage() {
   const filtered = useMemo(() => {
     let list = customers;
     if (filterMode === "favorites") list = list.filter((c) => c.is_favorite);
+    if (filterMode === "hasDeals") list = list.filter((c) => (dealCounts[c.id] || 0) > 0);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -119,9 +120,13 @@ export default function CustomersPage() {
       );
     }
     return list;
-  }, [customers, search, filterMode]);
+  }, [customers, search, filterMode, dealCounts]);
 
   const favoriteCount = useMemo(() => customers.filter((c) => c.is_favorite).length, [customers]);
+  const hasDealsCount = useMemo(
+    () => customers.filter((c) => (dealCounts[c.id] || 0) > 0).length,
+    [customers, dealCounts],
+  );
 
   async function handleAddCustomer() {
     if (!newName.trim() || !profile?.id) return;
@@ -194,6 +199,7 @@ export default function CustomersPage() {
               onClick={() => setViewMode("list")}
               aria-label="มุมมองรายการ"
               aria-pressed={viewMode === "list"}
+              title="รายการ"
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === "list" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
               }`}
@@ -203,13 +209,26 @@ export default function CustomersPage() {
             <button
               type="button"
               onClick={() => setViewMode("grid")}
-              aria-label="มุมมองตาราง"
+              aria-label="มุมมองตารางการ์ด"
               aria-pressed={viewMode === "grid"}
+              title="ตารางการ์ด"
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === "grid" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
               }`}
             >
               <LayoutGrid size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              aria-label="มุมมองตาราง"
+              aria-pressed={viewMode === "table"}
+              title="ตาราง"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === "table" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+              }`}
+            >
+              <Table2 size={16} />
             </button>
           </div>
           <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-lg shrink-0">
@@ -241,6 +260,18 @@ export default function CustomersPage() {
             <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
             รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
           </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode((prev) => (prev === "hasDeals" ? "all" : "hasDeals"))}
+            className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors inline-flex items-center gap-1 ${
+              filterMode === "hasDeals"
+                ? "bg-[#22C55E] text-white"
+                : "bg-[#DCFCE7] text-[#15803D] hover:bg-[#BBF7D0]"
+            }`}
+          >
+            <Briefcase size={12} />
+            มี deal {hasDealsCount > 0 && <span className="ml-1 opacity-70">{hasDealsCount}</span>}
+          </button>
         </div>
 
         {(search.trim() || filterMode !== "all") && customers.length > 0 && (
@@ -252,14 +283,24 @@ export default function CustomersPage() {
         {loading ? (
           <div className={viewMode === "grid"
             ? "grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            : viewMode === "table"
+            ? "bg-white border border-card-border rounded-card overflow-hidden"
             : "space-y-2"
           }>
-            {[...Array(viewMode === "grid" ? 6 : 4)].map((_, i) => (
-              <div key={i} className="bg-white border border-[#E8E6DF] rounded-[10px] p-4 animate-pulse min-h-[120px]">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-1/2" />
+            {viewMode === "table" ? (
+              <div className="p-4 space-y-2">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-8 bg-gray-200 rounded animate-pulse" />
+                ))}
               </div>
-            ))}
+            ) : (
+              [...Array(viewMode === "grid" ? 6 : 4)].map((_, i) => (
+                <div key={i} className="bg-white border border-[#E8E6DF] rounded-[10px] p-4 animate-pulse min-h-[120px]">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-gray-200 rounded w-1/2" />
+                </div>
+              ))
+            )}
           </div>
         ) : filtered.length === 0 ? (
           customers.length === 0 ? (
@@ -276,9 +317,20 @@ export default function CustomersPage() {
                   <p>ยังไม่มีรายการโปรด</p>
                   <p className="mt-1">กด ★ ที่การ์ดลูกค้าเพื่อเพิ่มเป็นรายการโปรด</p>
                 </>
+              ) : filterMode === "hasDeals" && hasDealsCount === 0 ? (
+                <>
+                  <Briefcase size={28} className="mx-auto mb-2 text-[#AAAAAA]" />
+                  <p>ยังไม่มีลูกค้าที่มี deal</p>
+                  <p className="mt-1">สร้าง deal กับลูกค้าก่อน แล้วจะปรากฏที่นี่</p>
+                </>
               ) : filterMode === "favorites" ? (
                 <>
                   <p>ไม่พบ "{search}" ในรายการโปรด</p>
+                  <p className="mt-1">ลองค้นหาด้วยชื่อหรือเลขผู้เสียภาษี</p>
+                </>
+              ) : filterMode === "hasDeals" ? (
+                <>
+                  <p>ไม่พบ "{search}" ในลูกค้าที่มี deal</p>
                   <p className="mt-1">ลองค้นหาด้วยชื่อหรือเลขผู้เสียภาษี</p>
                 </>
               ) : (
@@ -345,6 +397,80 @@ export default function CustomersPage() {
                 </Card>
               );
             })}
+          </div>
+        ) : viewMode === "table" ? (
+          <div className="bg-white border border-card-border rounded-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                    <th className="px-3 py-2 w-10"></th>
+                    <th className="px-3 py-2 font-semibold">ชื่อลูกค้า</th>
+                    <th className="px-3 py-2 font-semibold hidden sm:table-cell">เลขผู้เสียภาษี</th>
+                    <th className="px-3 py-2 font-semibold hidden md:table-cell">เบอร์โทร</th>
+                    <th className="px-3 py-2 font-semibold text-right">Deals</th>
+                    <th className="px-3 py-2 font-semibold hidden sm:table-cell">สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((c) => {
+                    const count = dealCounts[c.id] || 0;
+                    const incomplete = isIncomplete(c);
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => navigate(`/customers/${c.id}`)}
+                        className="border-b border-[#F0EFE9] last:border-0 hover:bg-[#FAFAF7] cursor-pointer transition-colors"
+                      >
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={(e) => toggleFavorite(c, e)}
+                            aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
+                            aria-pressed={c.is_favorite}
+                            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F0EFE9] transition-colors"
+                          >
+                            <Star
+                              size={14}
+                              className={c.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+                            />
+                          </button>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <CustomerAvatar customer={c} size="sm" />
+                            <span className="font-semibold text-[#1A1A18] truncate">{c.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-[12px] text-[#444441] hidden sm:table-cell">
+                          {c.tax_id || <span className="text-[#AAAAAA] italic font-sans">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-[#444441] hidden md:table-cell">
+                          {c.phone || <span className="text-[#AAAAAA] italic">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {count > 0 ? (
+                            <span className="text-[#378ADD] font-medium">{count}</span>
+                          ) : (
+                            <span className="text-[#AAAAAA]">0</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 hidden sm:table-cell">
+                          {incomplete ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
+                              <AlertTriangle size={10} />
+                              ไม่ครบ
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-[#AAAAAA]">ครบ</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">
