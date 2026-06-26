@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { CatalogSearch } from "./CatalogSearch";
 import { CatalogTypeTabs } from "./CatalogTypeTabs";
@@ -9,27 +9,64 @@ import { EmptyState } from "../ui/EmptyState";
 import { isLowStock, isOutOfStock, baseToCartons } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS } from "./constants";
 import { supabase } from "../../lib/supabase";
-import { Download, FileText, LayoutGrid, Table2 } from "lucide-react";
-import type { Item, StockMovement } from "../../types";
+import { Download, FileText, LayoutGrid, List, Table2, Star, X } from "lucide-react";
+import { useToast } from "../../hooks/useToast";
+import type { Item } from "../../types";
 
 type TabKey = "all" | "product" | "service";
+type ViewMode = "list" | "grid" | "table";
+type FilterMode = "all" | "favorites";
 
 interface Props {
   items: Item[];
   loading: boolean;
   onAdd: () => void;
   userId?: string;
+  onToggleFavorite: (item: Item, e: React.MouseEvent) => void;
 }
 
-export function CatalogList({ items, loading, onAdd, userId }: Props) {
+export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite }: Props) {
   const navigate = useNavigate();
+  const toast = useToast();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [exportingMovements, setExportingMovements] = useState(false);
-  const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "list";
+    const stored = window.localStorage.getItem("catalogViewMode");
+    return stored === "list" || stored === "grid" || stored === "table" ? stored : "list";
+  });
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    window.localStorage.setItem("catalogViewMode", viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "/") return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const target = e.target as HTMLElement | null;
+      if (target?.isContentEditable) return;
+      e.preventDefault();
+      const input = searchRef.current?.querySelector("input");
+      input?.focus();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (search.trim() && filterMode === "favorites") {
+      setFilterMode("all");
+    }
+  }, [search, filterMode]);
 
   const filtered = useMemo(() => {
     let result = items;
+    if (filterMode === "favorites") result = result.filter((i) => i.is_favorite);
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -42,7 +79,11 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
       result = result.filter((i) => i.item_type === activeTab);
     }
     return result;
-  }, [items, search, activeTab]);
+  }, [items, search, activeTab, filterMode]);
+
+  const favoriteCount = useMemo(() => items.filter((i) => i.is_favorite).length, [items]);
+  const isFiltering = search.trim() !== "" || activeTab !== "all" || filterMode !== "all";
+  const showCount = isFiltering && items.length > 0;
 
   const productItems = useMemo(
     () => filtered.filter((i) => i.item_type === "product"),
@@ -52,7 +93,6 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
     () => filtered.filter((i) => i.item_type === "service"),
     [filtered],
   );
-  const isFiltering = search.trim() !== "" || activeTab !== "all";
 
   function handleExportCSV() {
     if (productItems.length === 0) return;
@@ -119,7 +159,7 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
 
       if (error) throw error;
       if (!movements || movements.length === 0) {
-        alert("ไม่มีประวัติเคลื่อนไหวในเดือนนี้");
+        toast.error("ไม่มีประวัติเคลื่อนไหวในเดือนนี้");
         return;
       }
 
@@ -170,10 +210,22 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert(err.message || "เกิดข้อผิดพลาด");
+      toast.error(err.message || "เกิดข้อผิดพลาด");
     } finally {
       setExportingMovements(false);
     }
+  }
+
+  function renderItemCard(item: Item, variant: "list" | "grid") {
+    return (
+      <ItemCard
+        key={item.id}
+        item={item}
+        variant={variant}
+        onTap={(it) => navigate(`/catalog/${it.id}`)}
+        onToggleFavorite={onToggleFavorite}
+      />
+    );
   }
 
   if (loading) {
@@ -202,23 +254,57 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <CatalogSearch value={search} onChange={setSearch} />
+        <div ref={searchRef} className="flex-1">
+          <div className="relative">
+            <CatalogSearch value={search} onChange={setSearch} />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="ล้างการค้นหา"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md text-[#888780] hover:text-[#1A1A18] hover:bg-[#E8E6DF] transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center rounded-lg border border-[#E8E6DF] overflow-hidden shrink-0">
+        <div className="flex items-center bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg p-0.5 shrink-0">
           <button
-            className={`px-2 py-1.5 text-xs transition-colors ${viewMode === "card" ? "bg-primary/10 text-primary" : "text-gray-400 hover:text-gray-600"}`}
-            onClick={() => setViewMode("card")}
-            title="การ์ด"
+            type="button"
+            onClick={() => setViewMode("list")}
+            aria-label="มุมมองรายการ"
+            aria-pressed={viewMode === "list"}
+            title="รายการ"
+            className={`p-1.5 rounded-md transition-colors ${
+              viewMode === "list" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+            }`}
           >
-            <LayoutGrid size={14} />
+            <List size={16} />
           </button>
           <button
-            className={`px-2 py-1.5 text-xs transition-colors border-l border-[#E8E6DF] ${viewMode === "table" ? "bg-primary/10 text-primary" : "text-gray-400 hover:text-gray-600"}`}
-            onClick={() => setViewMode("table")}
-            title="ตาราง"
+            type="button"
+            onClick={() => setViewMode("grid")}
+            aria-label="มุมมองตารางการ์ด"
+            aria-pressed={viewMode === "grid"}
+            title="ตารางการ์ด"
+            className={`p-1.5 rounded-md transition-colors ${
+              viewMode === "grid" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+            }`}
           >
-            <Table2 size={14} />
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("table")}
+            aria-label="มุมมองตารางสต็อก"
+            aria-pressed={viewMode === "table"}
+            title="ตารางสต็อก"
+            className={`p-1.5 rounded-md transition-colors ${
+              viewMode === "table" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+            }`}
+          >
+            <Table2 size={16} />
           </button>
         </div>
         <Button
@@ -247,7 +333,27 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
         </Button>
       </div>
 
-      <CatalogTypeTabs activeTab={activeTab} onChange={setActiveTab} />
+      <div className="flex items-center gap-2 flex-wrap">
+        <CatalogTypeTabs activeTab={activeTab} onChange={setActiveTab} />
+        <button
+          type="button"
+          onClick={() => setFilterMode("favorites")}
+          className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors inline-flex items-center gap-1 ${
+            filterMode === "favorites"
+              ? "bg-[#F59E0B] text-white"
+              : "bg-[#FEF3E2] text-[#B45309] hover:bg-[#FDE9C4]"
+          }`}
+        >
+          <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
+          รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
+        </button>
+      </div>
+
+      {showCount && (
+        <div className="text-[11px] text-[#888780]">
+          แสดง {filtered.length} จาก {items.length} รายการ
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         items.length === 0 ? (
@@ -258,28 +364,22 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
               <Button onClick={onAdd}>+ เพิ่มสินค้า / บริการ</Button>
             }
           />
+        ) : filterMode === "favorites" && favoriteCount === 0 ? (
+          <div className="text-center py-12 text-[13px] text-[#888780]">
+            <Star size={28} className="mx-auto mb-2 text-[#AAAAAA]" />
+            <p>ยังไม่มีรายการโปรด</p>
+            <p className="mt-1">กด ★ ที่การ์ดสินค้าเพื่อเพิ่มเป็นรายการโปรด</p>
+          </div>
         ) : (
-          <EmptyState
-            title={`ไม่พบ "${search}"`}
-            description="ลองค้นหาด้วยคำอื่น"
-          />
-        )
-      ) : isFiltering ? (
-        viewMode === "table" ? (
-          <StockReportTable items={filtered} />
-        ) : (
-          <div className="space-y-2">
-            {filtered.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onTap={(it) => navigate(`/catalog/${it.id}`)}
-              />
-            ))}
+          <div className="text-center py-12 text-[13px] text-[#888780]">
+            <p>ไม่พบ "{search}"</p>
+            <p className="mt-1">ลองค้นหาด้วยคำอื่น</p>
           </div>
         )
-      ) : (
-        (viewMode === "table" ? (
+      ) : viewMode === "table" ? (
+        isFiltering ? (
+          <StockReportTable items={filtered} />
+        ) : (
           <div className="space-y-4">
             {productItems.length > 0 && (
               <div>
@@ -298,6 +398,12 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
               </div>
             )}
           </div>
+        )
+      ) : viewMode === "grid" ? (
+        isFiltering ? (
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((item) => renderItemCard(item, "grid"))}
+          </div>
         ) : (
           <div className="space-y-4">
             {productItems.length > 0 && (
@@ -305,14 +411,8 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
                 <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
                   สินค้า
                 </div>
-                <div className="space-y-2">
-                  {productItems.map((item) => (
-                    <ItemCard
-                      key={item.id}
-                      item={item}
-                      onTap={(it) => navigate(`/catalog/${it.id}`)}
-                    />
-                  ))}
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {productItems.map((item) => renderItemCard(item, "grid"))}
                 </div>
               </div>
             )}
@@ -321,19 +421,40 @@ export function CatalogList({ items, loading, onAdd, userId }: Props) {
                 <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
                   บริการ
                 </div>
-                <div className="space-y-2">
-                  {services.map((item) => (
-                    <ItemCard
-                      key={item.id}
-                      item={item}
-                      onTap={(it) => navigate(`/catalog/${it.id}`)}
-                    />
-                  ))}
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {services.map((item) => renderItemCard(item, "grid"))}
                 </div>
               </div>
             )}
           </div>
-        ))
+        )
+      ) : isFiltering ? (
+        <div className="space-y-2">
+          {filtered.map((item) => renderItemCard(item, "list"))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {productItems.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+                สินค้า
+              </div>
+              <div className="space-y-2">
+                {productItems.map((item) => renderItemCard(item, "list"))}
+              </div>
+            </div>
+          )}
+          {services.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+                บริการ
+              </div>
+              <div className="space-y-2">
+                {services.map((item) => renderItemCard(item, "list"))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

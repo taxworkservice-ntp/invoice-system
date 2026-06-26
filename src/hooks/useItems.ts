@@ -26,7 +26,11 @@ export function useItems(userId: string | undefined) {
     fetch();
   }, [fetch]);
 
-  return { items, loading, refetch: fetch };
+  function updateItemLocal(id: string, patch: Partial<Item>) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  }
+
+  return { items, loading, refetch: fetch, updateItemLocal };
 }
 
 export function useStockMovements(itemId: string | undefined) {

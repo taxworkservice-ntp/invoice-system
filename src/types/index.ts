@@ -108,6 +108,7 @@ export interface Item {
   stock_value: number;
   low_stock_threshold: number;
   is_active: boolean;
+  is_favorite: boolean;
   created_at: string;
   updated_at: string;
 }

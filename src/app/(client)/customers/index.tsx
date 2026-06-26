@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, List, AlertTriangle, Star } from "lucide-react";
+import { LayoutGrid, List, AlertTriangle, Star, X } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -31,10 +31,32 @@ export default function CustomersPage() {
     return stored === "grid" || stored === "list" ? stored : "list";
   });
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     window.localStorage.setItem("customersViewMode", viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "/") return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const target = e.target as HTMLElement | null;
+      if (target?.isContentEditable) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (search.trim() && filterMode === "favorites") {
+      setFilterMode("all");
+    }
+  }, [search, filterMode]);
 
   async function toggleFavorite(c: Customer, e: React.MouseEvent) {
     e.stopPropagation();
@@ -135,14 +157,28 @@ export default function CustomersPage() {
     <AppShell title="ลูกค้า">
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <input
+              ref={searchRef}
               type="text"
               className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-[14px] py-[10px] text-[14px] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
               placeholder="ค้นหาชื่อลูกค้า หรือเลขผู้เสียภาษี..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  searchRef.current?.focus();
+                }}
+                aria-label="ล้างการค้นหา"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md text-[#888780] hover:text-[#1A1A18] hover:bg-[#E8E6DF] transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
           <div className="flex items-center bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg p-0.5 shrink-0">
             <button
@@ -198,6 +234,12 @@ export default function CustomersPage() {
             รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
           </button>
         </div>
+
+        {(search.trim() || filterMode !== "all") && customers.length > 0 && (
+          <div className="text-[11px] text-[#888780]">
+            แสดง {filtered.length} จาก {customers.length} รายการ
+          </div>
+        )}
 
         {loading ? (
           <div className={viewMode === "grid"
