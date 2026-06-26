@@ -4,8 +4,10 @@ import { formatCurrency } from "../../lib/format";
 interface SummaryItem {
   label: string;
   value: number;
+  count?: number;
   alert?: boolean;
   preset: string;
+  hint?: string;
 }
 
 interface SummaryRowProps {
@@ -22,10 +24,18 @@ export function SummaryRow({ items, onCardTap }: SummaryRowProps) {
           className="min-h-[78px] border-[0.5px] p-3 cursor-pointer shadow-sm hover:shadow-md"
           onClick={() => onCardTap(item.preset)}
         >
-          <div className={`text-[18px] font-medium tabular-nums ${item.alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
-            ฿ {formatCurrency(item.value)}
+          <div className="flex items-start justify-between gap-2">
+            <div className={`text-[18px] font-semibold tabular-nums leading-none ${item.alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
+              {item.count != null ? item.count : `฿ ${formatCurrency(item.value)}`}
+            </div>
+            {item.count != null && item.value > 0 && (
+              <div className={`text-[11px] tabular-nums ${item.alert ? "text-[#C0392B]" : "text-gray-500"}`}>
+                ฿ {formatCurrency(item.value)}
+              </div>
+            )}
           </div>
-          <div className="mt-1 text-[11px] leading-4 text-gray-500">{item.label}</div>
+          <div className="mt-2 text-[11px] font-medium leading-4 text-gray-700">{item.label}</div>
+          {item.hint && <div className="mt-0.5 text-[10px] leading-4 text-gray-400">{item.hint}</div>}
         </Card>
       ))}
     </div>

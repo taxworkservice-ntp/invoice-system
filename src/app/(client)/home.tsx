@@ -36,6 +36,9 @@ type DashboardDeal = {
   itemNames: string[];
   amount: number;
   status: Document["status"];
+  stageLabel: string;
+  workflowHint: string;
+  queue: HomeQueue;
   updatedAt: string;
   dueDate: string | null;
   paidAt: string | null;
@@ -45,6 +48,9 @@ type DashboardDeal = {
   isOverdue: boolean;
   nextActionLabel: string;
 };
+
+type HomeQueue = "wait_send" | "wait_invoice" | "wait_collect" | "overdue" | "progress" | "done";
+type HomeFilter = "all" | "wait_send" | "wait_invoice" | "wait_collect" | "overdue";
 
 function firstNameFromCompanyName(name: string | null | undefined) {
   if (!name) return "";
@@ -142,12 +148,79 @@ function getNextActionLabel(doc: DealDoc | null) {
   return "";
 }
 
+function getDnWaitingForInvoice(documents: DealDoc[]) {
+  return documents.filter((doc) => doc.doc_type === "delivery_note" && doc.status === "sent");
+}
+
+function getBillingWaitingForPayment(documents: DealDoc[]) {
+  return documents.filter((doc) => doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue"));
+}
+
+function getQuotationDeliveryProgress(documents: DealDoc[]) {
+  const nonVoided = documents.filter((doc) => doc.status !== "voided");
+  const quote = [...nonVoided].reverse().find((doc) => doc.doc_type === "quotation");
+  if (!quote?.line_items?.length) return null;
+
+  const deliveredByQuoteLine = new Map<string, number>();
+  for (const doc of nonVoided) {
+    if (doc.doc_type !== "delivery_note" || (doc.status !== "sent" && doc.status !== "converted")) continue;
+    for (const line of doc.line_items || []) {
+      if (line.source_document_id !== quote.id || !line.source_line_item_id) continue;
+      deliveredByQuoteLine.set(line.source_line_item_id, (deliveredByQuoteLine.get(line.source_line_item_id) || 0) + line.quantity);
+    }
+  }
+
+  const quoted = quote.line_items.reduce((sum, line) => sum + line.quantity, 0);
+  const delivered = quote.line_items.reduce((sum, line) => sum + (deliveredByQuoteLine.get(line.id) || 0), 0);
+  if (delivered <= 0) return null;
+  return { delivered, quoted };
+}
+
+function getStageInfo(documents: DealDoc[], latestDocument: DealDoc | null, isDone: boolean, isOverdue: boolean) {
+  const dnWaiting = getDnWaitingForInvoice(documents);
+  const billingWaiting = getBillingWaitingForPayment(documents);
+  const quoteProgress = getQuotationDeliveryProgress(documents);
+
+  if (isDone) return { stageLabel: "เสร็จแล้ว", workflowHint: "ปิดงานแล้ว", queue: "done" as HomeQueue };
+  if (isOverdue) return { stageLabel: "เกินกำหนด", workflowHint: "ต้องติดตาม", queue: "overdue" as HomeQueue };
+  if (dnWaiting.length > 0) {
+    return {
+      stageLabel: "รอออกใบแจ้งหนี้",
+      workflowHint: `ส่งของแล้ว ${dnWaiting.length} ใบ`,
+      queue: "wait_invoice" as HomeQueue,
+    };
+  }
+  if (billingWaiting.length > 0) return { stageLabel: "รอรับเงิน", workflowHint: "ใบวางบิลส่งแล้ว", queue: "wait_collect" as HomeQueue };
+  if (latestDocument?.status === "draft") {
+    const label = latestDocument.doc_type === "quotation"
+      ? "รอส่งใบเสนอราคา"
+      : latestDocument.doc_type === "delivery_note"
+        ? "รอส่งของ"
+        : latestDocument.doc_type === "invoice"
+          ? "รอส่งใบแจ้งหนี้"
+          : "รอส่งเอกสาร";
+    return { stageLabel: label, workflowHint: "ฉบับร่าง", queue: "wait_send" as HomeQueue };
+  }
+  if (quoteProgress) {
+    return {
+      stageLabel: "กำลังส่งของ",
+      workflowHint: `ส่งแล้ว ${quoteProgress.delivered.toLocaleString("th-TH")} / ${quoteProgress.quoted.toLocaleString("th-TH")}`,
+      queue: "progress" as HomeQueue,
+    };
+  }
+  if (latestDocument?.doc_type === "quotation") return { stageLabel: "ใบเสนอราคา", workflowHint: "รอลูกค้าตอบ", queue: "progress" as HomeQueue };
+  if (latestDocument?.doc_type === "invoice") return { stageLabel: "รอวางบิล", workflowHint: "ใบแจ้งหนี้ส่งแล้ว", queue: "progress" as HomeQueue };
+  if (latestDocument?.doc_type === "delivery_note") return { stageLabel: "ใบส่งของ", workflowHint: "รอดำเนินการต่อ", queue: "progress" as HomeQueue };
+  return { stageLabel: "กำลังดำเนินการ", workflowHint: latestDocument?.doc_number || "", queue: "progress" as HomeQueue };
+}
+
 function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const latestDocument = getLatestRelevantDocument(deal.documents || []);
   const amountDocument = getAmountDocument(deal.documents || []);
   const paidAt = getCompletedAt(deal.documents || []);
   const isDone = isDealDone(deal.documents || []);
   const isOverdue = isOverdueDocument(latestDocument);
+  const stageInfo = getStageInfo(deal.documents || [], latestDocument, isDone, isOverdue);
 
   return {
     dealId: deal.id,
@@ -156,6 +229,9 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     itemNames: getItemPreview(deal.documents || []),
     amount: amountDocument?.total_amount || amountDocument?.net_payable || 0,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
+    stageLabel: stageInfo.stageLabel,
+    workflowHint: stageInfo.workflowHint,
+    queue: stageInfo.queue,
     updatedAt: latestDocument?.updated_at || deal.updated_at,
     dueDate: latestDocument?.due_date || null,
     paidAt,
@@ -178,6 +254,7 @@ export default function HomePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newSheetOpen, setNewSheetOpen] = useState(false);
+  const [homeFilter, setHomeFilter] = useState<HomeFilter>("all");
   const [pullDistance, setPullDistance] = useState(0);
   const [showNudge, setShowNudge] = useState<"profile" | "customer" | "items" | null>(null);
   const [nudgesLoaded, setNudgesLoaded] = useState(false);
@@ -329,40 +406,36 @@ export default function HomePage() {
   }
 
   const summary = useMemo(() => {
-    const now = new Date();
-    const month = now.getMonth();
-    const year = now.getFullYear();
-
     return deals.reduce(
       (acc, deal) => {
-        const billingNotes = deal.documents.filter((doc) => doc.doc_type === "billing_note");
-        billingNotes.forEach((doc) => {
-          if (doc.status === "sent" || isOverdueDocument(doc)) acc.unpaid += doc.net_payable || 0;
-          if (isOverdueDocument(doc)) acc.overdue += doc.net_payable || 0;
-          if (doc.status === "paid" && doc.paid_at) {
-            const paidAt = new Date(doc.paid_at);
-            if (paidAt.getMonth() === month && paidAt.getFullYear() === year) {
-              acc.receivedThisMonth += doc.net_payable || 0;
-            }
-          }
-        });
-
-        const combinedDocs = deal.documents.filter((doc) => doc.doc_type === "tax_invoice_receipt");
-        combinedDocs.forEach((doc) => {
-          if ((doc.status === "issued" || doc.status === "paid") && doc.paid_at) {
-            const paidAt = new Date(doc.paid_at);
-            if (paidAt.getMonth() === month && paidAt.getFullYear() === year) {
-              acc.receivedThisMonth += doc.net_payable || doc.total_amount || 0;
-            }
-          }
-        });
+        if (deal.queue === "wait_invoice") {
+          acc.waitInvoiceCount += 1;
+          acc.waitInvoiceAmount += deal.amount || 0;
+        }
+        if (deal.queue === "wait_collect") {
+          acc.waitCollectCount += 1;
+          acc.waitCollectAmount += deal.amount || 0;
+        }
+        if (deal.queue === "overdue") {
+          acc.overdueCount += 1;
+          acc.overdueAmount += deal.amount || 0;
+        }
+        if (deal.queue === "wait_send") acc.waitSendCount += 1;
         return acc;
       },
-      { unpaid: 0, receivedThisMonth: 0, overdue: 0 }
+      {
+        waitInvoiceCount: 0,
+        waitInvoiceAmount: 0,
+        waitCollectCount: 0,
+        waitCollectAmount: 0,
+        overdueCount: 0,
+        overdueAmount: 0,
+        waitSendCount: 0,
+      }
     );
   }, [deals]);
 
-  const activeDeals = useMemo(
+  const activeDealsAll = useMemo(
     () =>
       deals
         .filter((deal) => !deal.isDone)
@@ -375,6 +448,15 @@ export default function HomePage() {
     [deals]
   );
 
+  const activeDeals = useMemo(
+    () =>
+      activeDealsAll.filter((deal) => {
+        if (homeFilter === "all") return true;
+        return deal.queue === homeFilter;
+      }),
+    [activeDealsAll, homeFilter]
+  );
+
   const recentlyDone = useMemo(
     () =>
       deals
@@ -385,7 +467,7 @@ export default function HomePage() {
   );
 
   const greetingName = clientProfile?.contact_name ? clientProfile.contact_name.trim() : "";
-  const actionCount = activeDeals.length;
+  const actionCount = activeDealsAll.length;
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (window.scrollY > 0 || refreshing) return;
@@ -407,10 +489,18 @@ export default function HomePage() {
   };
 
   const summaryCards = [
-    { label: "ยังไม่ชำระ", value: summary.unpaid, alert: false, preset: "unpaid" },
-    { label: "รับแล้วเดือนนี้", value: summary.receivedThisMonth, alert: false, preset: "paid_this_month" },
-    { label: "เกินกำหนด", value: summary.overdue, alert: summary.overdue > 0, preset: "overdue" },
+    { label: "รอออกบิล", value: summary.waitInvoiceAmount, count: summary.waitInvoiceCount, alert: false, preset: "wait_invoice", hint: "ใบส่งของ" },
+    { label: "รอเก็บเงิน", value: summary.waitCollectAmount, count: summary.waitCollectCount, alert: false, preset: "wait_collect", hint: "ใบวางบิล" },
+    { label: "เกินกำหนด", value: summary.overdueAmount, count: summary.overdueCount, alert: summary.overdueCount > 0, preset: "overdue", hint: "ควรติดตาม" },
   ] as const;
+
+  const quickFilters: { label: string; value: HomeFilter; count: number }[] = [
+    { label: "ทั้งหมด", value: "all", count: activeDealsAll.length },
+    { label: "รอส่ง", value: "wait_send", count: summary.waitSendCount },
+    { label: "รอออกบิล", value: "wait_invoice", count: summary.waitInvoiceCount },
+    { label: "รอเก็บเงิน", value: "wait_collect", count: summary.waitCollectCount },
+    { label: "เกินกำหนด", value: "overdue", count: summary.overdueCount },
+  ];
 
   if (loading) {
     return (
@@ -476,17 +566,41 @@ export default function HomePage() {
           />
         ) : (
           <>
-            <SummaryRow items={summaryCards.map((card) => ({ ...card }))} onCardTap={(preset) => navigate(`/documents?preset=${preset}`)} />
+            <SummaryRow
+              items={summaryCards.map((card) => ({ ...card }))}
+              onCardTap={(preset) => setHomeFilter(preset as HomeFilter)}
+            />
 
             <section>
-              <div className="mb-3 flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-primary" />
-                <div className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">รายการที่ต้องดำเนินการ</div>
-                <div className="ml-auto text-[11px] text-gray-400">{activeDeals.length} รายการ</div>
+              <div className="mb-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                  <div className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">
+                    {homeFilter === "all" ? "ต้องทำวันนี้ / กำลังดำเนินการ" : quickFilters.find((filter) => filter.value === homeFilter)?.label}
+                  </div>
+                  <div className="ml-auto text-[11px] text-gray-400">{activeDeals.length} รายการ</div>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {quickFilters.map((filter) => (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() => setHomeFilter(filter.value)}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        homeFilter === filter.value
+                          ? "border-primary bg-blue-50 text-primary"
+                          : "border-card-border bg-white text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >
+                      {filter.label}
+                      <span className="ml-1 text-[10px] opacity-70">{filter.count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {activeDeals.length === 0 ? (
-                <EmptyState title="ยังไม่มีรายการ" description="กด “สร้างใหม่” เพื่อเริ่มต้น" />
+                <EmptyState title="ยังไม่มีรายการในคิวนี้" description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างใหม่” เพื่อเริ่มงาน" />
               ) : (
                 <div className="space-y-3">
                   {activeDeals.map((deal) => (
@@ -497,6 +611,8 @@ export default function HomePage() {
                       itemNames={deal.itemNames}
                       amountText={`฿ ${formatCurrency(deal.amount)}`}
                       status={deal.status}
+                      stageLabel={deal.stageLabel}
+                      workflowHint={deal.workflowHint}
                       nextActionLabel={deal.nextActionLabel}
                       isOverdue={deal.isOverdue}
                       onTap={() => navigate(`/deals/${deal.dealId}`)}

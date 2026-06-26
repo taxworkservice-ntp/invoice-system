@@ -9,6 +9,8 @@ interface DealCardProps {
   itemNames?: string[];
   amountText: string;
   status: DocumentStatus;
+  stageLabel: string;
+  workflowHint?: string;
   nextActionLabel: string;
   isOverdue?: boolean;
   onTap: () => void;
@@ -20,6 +22,8 @@ export function DealCard({
   itemNames = [],
   amountText,
   status,
+  stageLabel,
+  workflowHint,
   nextActionLabel,
   isOverdue,
   onTap,
@@ -35,6 +39,12 @@ export function DealCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-[#1A1A18] truncate">{customerName}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex rounded-md bg-[#EEF6FF] px-2 py-0.5 text-[11px] font-medium text-[#0C447C]">
+              {stageLabel}
+            </span>
+            <Badge status={status} />
+          </div>
           {previewItems.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {previewItems.map((itemName, index) => (
@@ -57,12 +67,12 @@ export function DealCard({
         </div>
         <div className="text-right shrink-0">
           <div className="text-sm font-semibold text-[#1A1A18]">{amountText}</div>
-          <div className="mt-1">
-            <Badge status={status} />
-          </div>
+          {workflowHint && <div className="mt-1 max-w-[120px] text-[10px] leading-4 text-gray-400">{workflowHint}</div>}
         </div>
       </div>
-      <div className={`mt-3 text-xs font-medium leading-4 ${isOverdue ? "text-[#C0392B]" : "text-primary"}`}>
+      <div className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold leading-4 ${
+        isOverdue ? "bg-red-50 text-[#C0392B]" : "bg-blue-50 text-primary"
+      }`}>
         {nextActionLabel}
       </div>
     </Card>
