@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { LayoutGrid, List, AlertTriangle } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -11,6 +12,8 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import type { Customer } from "../../../types";
 
+type ViewMode = "list" | "grid";
+
 export default function CustomersPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -20,6 +23,37 @@ export default function CustomersPage() {
   const [dealCounts, setDealCounts] = useState<Record<string, number>>({});
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "list";
+    const stored = window.localStorage.getItem("customersViewMode");
+    return stored === "grid" || stored === "list" ? stored : "list";
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem("customersViewMode", viewMode);
+  }, [viewMode]);
+
+  const getInitials = (name: string) => {
+    const cleaned = name.replace(/^บริษัท\s+|^ห้างหุ้นส่วนจำกัด\s+|^ร้าน\s+/i, "").trim();
+    if (!cleaned) return "?";
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  };
+
+  const avatarColor = (name: string) => {
+    const palette = [
+      "bg-[#E8F1FB] text-[#378ADD]",
+      "bg-[#FDE9E7] text-[#C2410C]",
+      "bg-[#E6F4EA] text-[#1E7E34]",
+      "bg-[#FEF3E2] text-[#B45309]",
+      "bg-[#F0E7F8] text-[#7C3AED]",
+      "bg-[#FCE7F3] text-[#BE185D]",
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    return palette[hash % palette.length];
+  };
 
   const [newName, setNewName] = useState("");
   const [newTaxId, setNewTaxId] = useState("");
@@ -108,15 +142,42 @@ export default function CustomersPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <div className="flex items-center bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg p-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              aria-label="มุมมองรายการ"
+              aria-pressed={viewMode === "list"}
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === "list" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+              }`}
+            >
+              <List size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              aria-label="มุมมองตาราง"
+              aria-pressed={viewMode === "grid"}
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === "grid" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+              }`}
+            >
+              <LayoutGrid size={16} />
+            </button>
+          </div>
           <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-lg shrink-0">
             + เพิ่ม
           </Button>
         </div>
 
         {loading ? (
-          <div className="space-y-2">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white border border-[#E8E6DF] rounded-[10px] p-4 animate-pulse">
+          <div className={viewMode === "grid"
+            ? "grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            : "space-y-2"
+          }>
+            {[...Array(viewMode === "grid" ? 10 : 4)].map((_, i) => (
+              <div key={i} className="bg-white border border-[#E8E6DF] rounded-[10px] p-4 animate-pulse min-h-[120px]">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
                 <div className="h-3 bg-gray-200 rounded w-1/2" />
               </div>
@@ -135,6 +196,53 @@ export default function CustomersPage() {
               <p className="mt-1">ลองค้นหาด้วยชื่อหรือเลขผู้เสียภาษี</p>
             </div>
           )
+        ) : viewMode === "grid" ? (
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {filtered.map((c) => {
+              const count = dealCounts[c.id] || 0;
+              const incomplete = isIncomplete(c);
+              return (
+                <Card key={c.id} onClick={() => navigate(`/customers/${c.id}`)} className="!p-3.5 flex flex-col gap-2.5 min-h-[120px]">
+                  <div className="flex items-start gap-2.5">
+                    <div className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center text-[13px] font-semibold ${avatarColor(c.name)}`}>
+                      {getInitials(c.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
+                        {c.name}
+                      </div>
+                      {c.tax_id ? (
+                        <div className="text-[11px] text-[#888780] mt-1 font-mono truncate">
+                          {c.tax_id}
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-[#AAAAAA] mt-1 italic">
+                          ไม่มีเลขผู้เสียภาษี
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 mt-auto border-t border-[#F0EFE9]">
+                    {incomplete ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
+                        <AlertTriangle size={10} />
+                        ข้อมูลไม่ครบ
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-[#AAAAAA]">ข้อมูลครบ</span>
+                    )}
+                    {count > 0 ? (
+                      <span className="text-[11px] text-[#378ADD] font-medium">
+                        {count} deals →
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-[#AAAAAA]">ยังไม่มี deal</span>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         ) : (
           <div className="space-y-2">
             {filtered.map((c) => {
