@@ -39,5 +39,9 @@ export function useCustomers(userId: string | undefined) {
     return c;
   }
 
-  return { customers, loading, refetch: fetch, addCustomer };
+  function updateCustomerLocal(id: string, patch: Partial<Customer>) {
+    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }
+
+  return { customers, loading, refetch: fetch, addCustomer, updateCustomerLocal };
 }

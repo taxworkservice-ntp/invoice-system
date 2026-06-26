@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, RotateCcw } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -8,12 +8,20 @@ import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Badge } from "../../../components/ui/Badge";
 import { NewDealSheet } from "../../../components/home/NewDealSheet";
+import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import type { Customer, Deal, Document } from "../../../types";
+
+const AVATAR_PRESET_COLORS = [
+  "#378ADD", "#C2410C", "#1E7E34", "#B45309",
+  "#7C3AED", "#BE185D", "#0F766E", "#1565C0",
+  "#DC2626", "#EA580C", "#CA8A04", "#16A34A",
+  "#0891B2", "#9333EA", "#DB2777", "#475569",
+];
 
 interface DealWithDocs extends Deal {
   documents: Document[];
@@ -37,7 +45,11 @@ export default function CustomerDetailPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editContact, setEditContact] = useState("");
+  const [editAvatarInitials, setEditAvatarInitials] = useState("");
+  const [editAvatarColor, setEditAvatarColor] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const [useCustomAvatar, setUseCustomAvatar] = useState(false);
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -67,6 +79,9 @@ export default function CustomerDetailPage() {
         setEditPhone(custRes.data.phone || "");
         setEditEmail(custRes.data.email || "");
         setEditContact(custRes.data.contact_name || "");
+        setEditAvatarInitials(custRes.data.avatar_initials || "");
+        setEditAvatarColor(custRes.data.avatar_color || "");
+        setUseCustomAvatar(Boolean(custRes.data.avatar_initials || custRes.data.avatar_color));
       }
       if (dealsRes.data) {
         setDeals(dealsRes.data as unknown as DealWithDocs[]);
@@ -82,6 +97,8 @@ export default function CustomerDetailPage() {
       return;
     }
     setSaving(true);
+    const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 2) : null;
+    const avatarColor = useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor) ? editAvatarColor : null;
     const { error: err } = await supabase
       .from("customers")
       .update({
@@ -91,16 +108,65 @@ export default function CustomerDetailPage() {
         phone: editPhone || null,
         email: editEmail || null,
         contact_name: editContact || null,
+        avatar_initials: avatarInitials,
+        avatar_color: avatarColor,
       })
       .eq("id", customer.id);
     if (err) {
       toast.error(err.message);
     } else {
-      setCustomer({ ...customer, name: editName.trim(), tax_id: editTaxId || null, address: editAddress || null, phone: editPhone || null, email: editEmail || null, contact_name: editContact || null });
+      setCustomer({
+        ...customer,
+        name: editName.trim(),
+        tax_id: editTaxId || null,
+        address: editAddress || null,
+        phone: editPhone || null,
+        email: editEmail || null,
+        contact_name: editContact || null,
+        avatar_initials: avatarInitials,
+        avatar_color: avatarColor,
+      });
       toast.success("บันทึกแล้ว");
       setEditing(false);
     }
     setSaving(false);
+  }
+
+  async function saveAvatar() {
+    if (!customer) return;
+    setSavingAvatar(true);
+    const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 2) : null;
+    const avatarColor = useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor) ? editAvatarColor : null;
+    const { error: err } = await supabase
+      .from("customers")
+      .update({ avatar_initials: avatarInitials, avatar_color: avatarColor })
+      .eq("id", customer.id);
+    if (err) {
+      toast.error(err.message);
+    } else {
+      setCustomer({ ...customer, avatar_initials: avatarInitials, avatar_color: avatarColor });
+      toast.success("บันทึก avatar แล้ว");
+    }
+    setSavingAvatar(false);
+  }
+
+  async function resetAvatar() {
+    if (!customer) return;
+    setSavingAvatar(true);
+    const { error: err } = await supabase
+      .from("customers")
+      .update({ avatar_initials: null, avatar_color: null })
+      .eq("id", customer.id);
+    if (err) {
+      toast.error(err.message);
+    } else {
+      setCustomer({ ...customer, avatar_initials: null, avatar_color: null });
+      setEditAvatarInitials("");
+      setEditAvatarColor("");
+      setUseCustomAvatar(false);
+      toast.success("คืนค่า avatar เป็นอัตโนมัติ");
+    }
+    setSavingAvatar(false);
   }
 
   async function handleDeactivate() {
@@ -191,6 +257,104 @@ export default function CustomerDetailPage() {
       }
     >
       <div className="space-y-4">
+        <Card>
+          <div className="flex items-start gap-3 mb-3">
+            <CustomerAvatar customer={customer} size="lg" />
+            <div className="flex-1 min-w-0">
+              <h2 className="text-[16px] font-bold text-[#1A1A18] truncate">
+                {customer.name}
+              </h2>
+              <div className="text-[11px] text-[#888780] mt-0.5">
+                avatar: {customer.avatar_initials || customer.avatar_color
+                  ? <span className="text-[#378ADD]">กำหนดเอง</span>
+                  : "อัตโนมัติ"}
+              </div>
+            </div>
+            <button
+              onClick={() => setEditing(true)}
+              className="text-[12px] text-[#378ADD] hover:underline shrink-0"
+            >
+              แก้ไข
+            </button>
+          </div>
+
+          <div className="border-t border-[#F0EFE9] pt-3 mt-1">
+            <div className="text-[11px] uppercase font-semibold text-[#888780] mb-2">
+              รูป avatar
+            </div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-[13px] text-[#444441]">
+                <input
+                  type="checkbox"
+                  checked={useCustomAvatar}
+                  onChange={(e) => setUseCustomAvatar(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-[#378ADD] focus:ring-[#378ADD]"
+                />
+                กำหนด avatar เอง
+              </label>
+
+              {useCustomAvatar && (
+                <>
+                  <div>
+                    <div className="text-[11px] text-[#888780] mb-1.5">
+                      ตัวอักษร (สูงสุด 2 ตัว)
+                    </div>
+                    <Input
+                      value={editAvatarInitials}
+                      onChange={(e) => setEditAvatarInitials(e.target.value.toUpperCase().slice(0, 2))}
+                      placeholder="เช่น BP"
+                      maxLength={2}
+                      className="!w-24 !text-center font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-[#888780] mb-1.5">
+                      สีพื้น
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {AVATAR_PRESET_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setEditAvatarColor(c)}
+                          aria-label={`เลือกสี ${c}`}
+                          className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                            editAvatarColor.toLowerCase() === c.toLowerCase()
+                              ? "border-[#1A1A18] scale-110"
+                              : "border-white shadow-sm hover:scale-105"
+                          }`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      onClick={saveAvatar}
+                      loading={savingAvatar}
+                      disabled={savingAvatar}
+                      className="!text-[12px]"
+                    >
+                      บันทึก avatar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={resetAvatar}
+                      disabled={savingAvatar || (!customer.avatar_initials && !customer.avatar_color)}
+                      className="!text-[12px]"
+                    >
+                      <RotateCcw size={12} className="mr-1" />
+                      คืนค่าอัตโนมัติ
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+
         {editing ? (
           <Card>
             <div className="space-y-3">
@@ -238,15 +402,6 @@ export default function CustomerDetailPage() {
           </Card>
         ) : (
           <Card>
-            <div className="flex items-start justify-between mb-3">
-              <h2 className="text-[16px] font-bold text-[#1A1A18]">{customer.name}</h2>
-              <button
-                onClick={() => setEditing(true)}
-                className="text-[12px] text-[#378ADD] hover:underline shrink-0"
-              >
-                แก้ไข
-              </button>
-            </div>
             <div className="space-y-2">
               {customer.tax_id && (
                 <div>
@@ -276,6 +431,11 @@ export default function CustomerDetailPage() {
                 <div>
                   <span className="text-[11px] text-[#888780]">ชื่อผู้ติดต่อ: </span>
                   <span className="text-[13px] text-[#444441]">{customer.contact_name}</span>
+                </div>
+              )}
+              {!customer.tax_id && !customer.address && !customer.phone && !customer.email && !customer.contact_name && (
+                <div className="text-[12px] text-[#AAAAAA] italic">
+                  ยังไม่มีข้อมูลติดต่อ — กด แก้ไข เพื่อเพิ่ม
                 </div>
               )}
             </div>

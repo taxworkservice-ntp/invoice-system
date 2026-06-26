@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, List, AlertTriangle } from "lucide-react";
+import { LayoutGrid, List, AlertTriangle, Star } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Input } from "../../../components/ui/Input";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { useCustomers } from "../../../hooks/useCustomers";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
@@ -13,12 +14,13 @@ import { supabase } from "../../../lib/supabase";
 import type { Customer } from "../../../types";
 
 type ViewMode = "list" | "grid";
+type FilterMode = "all" | "favorites";
 
 export default function CustomersPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const toast = useToast();
-  const { customers, loading, refetch } = useCustomers(profile?.id);
+  const { customers, loading, refetch, updateCustomerLocal } = useCustomers(profile?.id);
   const [search, setSearch] = useState("");
   const [dealCounts, setDealCounts] = useState<Record<string, number>>({});
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -28,32 +30,26 @@ export default function CustomersPage() {
     const stored = window.localStorage.getItem("customersViewMode");
     return stored === "grid" || stored === "list" ? stored : "list";
   });
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
 
   useEffect(() => {
     window.localStorage.setItem("customersViewMode", viewMode);
   }, [viewMode]);
 
-  const getInitials = (name: string) => {
-    const cleaned = name.replace(/^บริษัท\s+|^ห้างหุ้นส่วนจำกัด\s+|^ร้าน\s+/i, "").trim();
-    if (!cleaned) return "?";
-    const words = cleaned.split(/\s+/).filter(Boolean);
-    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-    return (words[0][0] + words[1][0]).toUpperCase();
-  };
-
-  const avatarColor = (name: string) => {
-    const palette = [
-      "bg-[#E8F1FB] text-[#378ADD]",
-      "bg-[#FDE9E7] text-[#C2410C]",
-      "bg-[#E6F4EA] text-[#1E7E34]",
-      "bg-[#FEF3E2] text-[#B45309]",
-      "bg-[#F0E7F8] text-[#7C3AED]",
-      "bg-[#FCE7F3] text-[#BE185D]",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-    return palette[hash % palette.length];
-  };
+  async function toggleFavorite(c: Customer, e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    const next = !c.is_favorite;
+    updateCustomerLocal(c.id, { is_favorite: next });
+    const { error } = await supabase
+      .from("customers")
+      .update({ is_favorite: next })
+      .eq("id", c.id);
+    if (error) {
+      updateCustomerLocal(c.id, { is_favorite: !next });
+      toast.error(error.message);
+    }
+  }
 
   const [newName, setNewName] = useState("");
   const [newTaxId, setNewTaxId] = useState("");
@@ -82,14 +78,20 @@ export default function CustomersPage() {
   }, [profile?.id, customers]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return customers;
-    const q = search.toLowerCase();
-    return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.tax_id && c.tax_id.includes(q)),
-    );
-  }, [customers, search]);
+    let list = customers;
+    if (filterMode === "favorites") list = list.filter((c) => c.is_favorite);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.tax_id && c.tax_id.includes(q)),
+      );
+    }
+    return list;
+  }, [customers, search, filterMode]);
+
+  const favoriteCount = useMemo(() => customers.filter((c) => c.is_favorite).length, [customers]);
 
   async function handleAddCustomer() {
     if (!newName.trim() || !profile?.id) return;
@@ -171,12 +173,38 @@ export default function CustomersPage() {
           </Button>
         </div>
 
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFilterMode("all")}
+            className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors ${
+              filterMode === "all"
+                ? "bg-[#1A1A18] text-white"
+                : "bg-[#F7F6F3] text-[#888780] hover:bg-[#E8E6DF]"
+            }`}
+          >
+            ทั้งหมด {customers.length > 0 && <span className="ml-1 opacity-70">{customers.length}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode("favorites")}
+            className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors inline-flex items-center gap-1 ${
+              filterMode === "favorites"
+                ? "bg-[#F59E0B] text-white"
+                : "bg-[#FEF3E2] text-[#B45309] hover:bg-[#FDE9C4]"
+            }`}
+          >
+            <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
+            รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
+          </button>
+        </div>
+
         {loading ? (
           <div className={viewMode === "grid"
-            ? "grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            ? "grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
             : "space-y-2"
           }>
-            {[...Array(viewMode === "grid" ? 10 : 4)].map((_, i) => (
+            {[...Array(viewMode === "grid" ? 6 : 4)].map((_, i) => (
               <div key={i} className="bg-white border border-[#E8E6DF] rounded-[10px] p-4 animate-pulse min-h-[120px]">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
                 <div className="h-3 bg-gray-200 rounded w-1/2" />
@@ -192,21 +220,46 @@ export default function CustomersPage() {
             />
           ) : (
             <div className="text-center py-12 text-[13px] text-[#888780]">
-              <p>ไม่พบ "{search}"</p>
-              <p className="mt-1">ลองค้นหาด้วยชื่อหรือเลขผู้เสียภาษี</p>
+              {filterMode === "favorites" && favoriteCount === 0 ? (
+                <>
+                  <Star size={28} className="mx-auto mb-2 text-[#AAAAAA]" />
+                  <p>ยังไม่มีรายการโปรด</p>
+                  <p className="mt-1">กด ★ ที่การ์ดลูกค้าเพื่อเพิ่มเป็นรายการโปรด</p>
+                </>
+              ) : filterMode === "favorites" ? (
+                <>
+                  <p>ไม่พบ "{search}" ในรายการโปรด</p>
+                  <p className="mt-1">ลองค้นหาด้วยชื่อหรือเลขผู้เสียภาษี</p>
+                </>
+              ) : (
+                <>
+                  <p>ไม่พบ "{search}"</p>
+                  <p className="mt-1">ลองค้นหาด้วยชื่อหรือเลขผู้เสียภาษี</p>
+                </>
+              )}
             </div>
           )
         ) : viewMode === "grid" ? (
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((c) => {
               const count = dealCounts[c.id] || 0;
               const incomplete = isIncomplete(c);
               return (
-                <Card key={c.id} onClick={() => navigate(`/customers/${c.id}`)} className="!p-3.5 flex flex-col gap-2.5 min-h-[120px]">
-                  <div className="flex items-start gap-2.5">
-                    <div className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center text-[13px] font-semibold ${avatarColor(c.name)}`}>
-                      {getInitials(c.name)}
-                    </div>
+                <Card key={c.id} onClick={() => navigate(`/customers/${c.id}`)} className="!p-3.5 flex flex-col gap-2.5 min-h-[120px] relative">
+                  <button
+                    type="button"
+                    onClick={(e) => toggleFavorite(c, e)}
+                    aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
+                    aria-pressed={c.is_favorite}
+                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F7F6F3] transition-colors"
+                  >
+                    <Star
+                      size={16}
+                      className={c.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+                    />
+                  </button>
+                  <div className="flex items-start gap-2.5 pr-7">
+                    <CustomerAvatar customer={c} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
                         {c.name}
@@ -249,7 +302,19 @@ export default function CustomersPage() {
               const count = dealCounts[c.id] || 0;
               return (
                 <Card key={c.id} onClick={() => navigate(`/customers/${c.id}`)}>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={(e) => toggleFavorite(c, e)}
+                      aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
+                      aria-pressed={c.is_favorite}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F7F6F3] transition-colors"
+                    >
+                      <Star
+                        size={16}
+                        className={c.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+                      />
+                    </button>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <div className="text-[14px] font-semibold text-[#1A1A18] truncate">
@@ -272,7 +337,7 @@ export default function CustomersPage() {
                         </div>
                       )}
                     </div>
-                    <div className="text-right shrink-0 ml-3">
+                    <div className="text-right shrink-0">
                       {count > 0 ? (
                         <span className="text-[12px] text-[#378ADD]">{count} deals →</span>
                       ) : (

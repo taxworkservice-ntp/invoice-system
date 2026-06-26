@@ -86,6 +86,9 @@ export interface Customer {
   email: string | null;
   note: string | null;
   is_active: boolean;
+  is_favorite: boolean;
+  avatar_initials: string | null;
+  avatar_color: string | null;
   created_at: string;
   updated_at: string;
 }
