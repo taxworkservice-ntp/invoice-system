@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, List, AlertTriangle, Star, X, Table2, Briefcase } from "lucide-react";
+import { AlertTriangle, Star, X, Briefcase } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Input } from "../../../components/ui/Input";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { ViewToggle } from "../../../components/ui/ViewToggle";
+import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { useCustomers } from "../../../hooks/useCustomers";
 import { useAuth } from "../../../hooks/useAuth";
@@ -13,7 +15,6 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import type { Customer } from "../../../types";
 
-type ViewMode = "list" | "grid" | "table";
 type FilterMode = "all" | "favorites" | "hasDeals";
 
 export default function CustomersPage() {
@@ -193,44 +194,7 @@ export default function CustomersPage() {
               </button>
             )}
           </div>
-          <div className="flex items-center bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg p-0.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              aria-label="มุมมองรายการ"
-              aria-pressed={viewMode === "list"}
-              title="รายการ"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === "list" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-              }`}
-            >
-              <List size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("grid")}
-              aria-label="มุมมองตารางการ์ด"
-              aria-pressed={viewMode === "grid"}
-              title="ตารางการ์ด"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === "grid" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-              }`}
-            >
-              <LayoutGrid size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              aria-label="มุมมองตาราง"
-              aria-pressed={viewMode === "table"}
-              title="ตาราง"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === "table" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-              }`}
-            >
-              <Table2 size={16} />
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} />
           <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-lg shrink-0">
             + เพิ่ม
           </Button>

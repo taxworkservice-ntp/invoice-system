@@ -7,6 +7,8 @@ import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { ViewToggle } from "../../components/ui/ViewToggle";
+import type { ViewMode } from "../../components/ui/ViewToggle";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
 import { SummaryRow } from "../../components/home/SummaryRow";
 import { DealCard } from "../../components/home/DealCard";
@@ -255,7 +257,16 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const [homeFilter, setHomeFilter] = useState<HomeFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "list";
+    const stored = window.localStorage.getItem("homeViewMode");
+    return stored === "list" || stored === "grid" || stored === "table" ? stored : "list";
+  });
   const [pullDistance, setPullDistance] = useState(0);
+
+  useEffect(() => {
+    window.localStorage.setItem("homeViewMode", viewMode);
+  }, [viewMode]);
   const [showNudge, setShowNudge] = useState<"profile" | "customer" | "items" | null>(null);
   const [nudgesLoaded, setNudgesLoaded] = useState(false);
 
@@ -518,8 +529,8 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, index) => (
+        <div className="space-y-3">
+            {Array.from({ length: viewMode === "grid" ? 6 : viewMode === "table" ? 5 : 3 }).map((_, index) => (
               <Skeleton key={index} className="h-20 rounded-xl bg-[#F1EFE8]" />
             ))}
           </div>
@@ -543,6 +554,10 @@ export default function HomePage() {
           isAllClear={actionCount === 0}
           onNewDeal={() => setNewSheetOpen(true)}
         />
+
+        <div className="flex justify-end">
+          <ViewToggle value={viewMode} onChange={setViewMode} />
+        </div>
 
         {showNudge && (
           <HomeNudgeBanner
@@ -601,6 +616,80 @@ export default function HomePage() {
 
               {activeDeals.length === 0 ? (
                 <EmptyState title="ยังไม่มีรายการในคิวนี้" description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างใหม่” เพื่อเริ่มงาน" />
+              ) : viewMode === "grid" ? (
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {activeDeals.map((deal) => (
+                    <Card
+                      key={deal.dealId}
+                      className={`rounded-xl border-[0.5px] p-3.5 shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-2.5 min-h-[130px] ${deal.isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
+                      onClick={() => navigate(`/deals/${deal.dealId}`)}
+                    >
+                      <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
+                        {deal.customerName}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex rounded-md bg-[#EEF6FF] px-2 py-0.5 text-[10px] font-medium text-[#0C447C]">
+                          {deal.stageLabel}
+                        </span>
+                        <span className={`inline-flex items-center justify-center w-2 h-2 rounded-full ${
+                          deal.isOverdue ? "bg-[#C0392B]" : deal.status === "sent" ? "bg-primary" : "bg-[#888780]"
+                        }`} />
+                      </div>
+                      <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
+                        <span className="text-[11px] text-[#888780] truncate max-w-[60%]">{deal.nextActionLabel}</span>
+                        <span className="text-[13px] font-semibold text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</span>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : viewMode === "table" ? (
+                <div className="bg-white border border-card-border rounded-card overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px]">
+                      <thead>
+                        <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                          <th className="px-3 py-2 font-semibold">ลูกค้า</th>
+                          <th className="px-3 py-2 font-semibold">สถานะ</th>
+                          <th className="px-3 py-2 font-semibold hidden sm:table-cell">รายการ</th>
+                          <th className="px-3 py-2 font-semibold text-right">จำนวนเงิน</th>
+                          <th className="px-3 py-2 font-semibold hidden md:table-cell">ขั้นตอนถัดไป</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeDeals.map((deal) => (
+                          <tr
+                            key={deal.dealId}
+                            onClick={() => navigate(`/deals/${deal.dealId}`)}
+                            className="border-b border-[#F0EFE9] last:border-0 hover:bg-[#FAFAF7] cursor-pointer transition-colors"
+                          >
+                            <td className="px-3 py-2">
+                              <span className="font-semibold text-[#1A1A18] truncate block max-w-[180px]">{deal.customerName}</span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1.5">
+                                {deal.isOverdue && <span className="w-2 h-2 rounded-full bg-[#C0392B] shrink-0" />}
+                                <span className="text-[12px] text-[#444441]">{deal.stageLabel}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 hidden sm:table-cell">
+                              <span className="text-[12px] text-[#888780] truncate block max-w-[200px]">
+                                {deal.itemNames?.length ? deal.itemNames.slice(0, 2).join(", ") : deal.itemSummary}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <span className="font-medium text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</span>
+                            </td>
+                            <td className="px-3 py-2 hidden md:table-cell">
+                              <span className={`text-[11px] ${deal.isOverdue ? "text-[#C0392B] font-medium" : "text-[#888780]"}`}>
+                                {deal.nextActionLabel}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {activeDeals.map((deal) => (

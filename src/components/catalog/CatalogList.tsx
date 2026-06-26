@@ -6,15 +6,16 @@ import { ItemCard } from "./ItemCard";
 import { StockReportTable } from "./StockReportTable";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
+import { ViewToggle } from "../ui/ViewToggle";
+import type { ViewMode } from "../ui/ViewToggle";
 import { isLowStock, isOutOfStock, baseToCartons } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS } from "./constants";
 import { supabase } from "../../lib/supabase";
-import { Download, FileText, LayoutGrid, List, Table2, Star, X } from "lucide-react";
+import { Download, FileText, Star, X } from "lucide-react";
 import { useToast } from "../../hooks/useToast";
 import type { Item } from "../../types";
 
 type TabKey = "all" | "product" | "service";
-type ViewMode = "list" | "grid" | "table";
 type FilterMode = "all" | "favorites";
 
 interface Props {
@@ -277,44 +278,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite }:
             )}
           </div>
         </div>
-        <div className="flex items-center bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg p-0.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setViewMode("list")}
-            aria-label="มุมมองรายการ"
-            aria-pressed={viewMode === "list"}
-            title="รายการ"
-            className={`p-1.5 rounded-md transition-colors ${
-              viewMode === "list" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-            }`}
-          >
-            <List size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("grid")}
-            aria-label="มุมมองตารางการ์ด"
-            aria-pressed={viewMode === "grid"}
-            title="ตารางการ์ด"
-            className={`p-1.5 rounded-md transition-colors ${
-              viewMode === "grid" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-            }`}
-          >
-            <LayoutGrid size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("table")}
-            aria-label="มุมมองตารางสต็อก"
-            aria-pressed={viewMode === "table"}
-            title="ตารางสต็อก"
-            className={`p-1.5 rounded-md transition-colors ${
-              viewMode === "table" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-            }`}
-          >
-            <Table2 size={16} />
-          </button>
-        </div>
+        <ViewToggle value={viewMode} onChange={setViewMode} />
         <Button
           variant="secondary"
           size="sm"

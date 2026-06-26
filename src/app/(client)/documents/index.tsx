@@ -10,6 +10,8 @@ import { Card } from "../../../components/ui/Card";
 import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SkeletonCard, SkeletonTable } from "../../../components/ui/Skeleton";
+import { ViewToggle } from "../../../components/ui/ViewToggle";
+import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
@@ -689,6 +691,15 @@ export default function DocumentsPage() {
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "list";
+    const stored = window.localStorage.getItem("documentsViewMode");
+    return stored === "list" || stored === "grid" || stored === "table" ? stored : "list";
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem("documentsViewMode", viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     setQuickView("all");
@@ -1194,6 +1205,7 @@ export default function DocumentsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs text-[#7D776D]">{filtered.length} จาก {documents.length} รายการ</span>
+              <ViewToggle value={viewMode} onChange={setViewMode} />
               {selectedDocIds.size > 0 ? (
                 <Button variant="secondary" size="sm" onClick={clearSelection}>
                   ยกเลิกเลือก ({selectedDocIds.size})
@@ -1219,6 +1231,101 @@ export default function DocumentsPage() {
           <SkeletonTable />
         ) : filtered.length === 0 ? (
           <EmptyState title="ไม่พบเอกสาร" description={documents.length === 0 ? "ยังไม่มีเอกสารในระบบ" : "ลองเปลี่ยนคำค้นหา หรือปรับตัวกรอง"} />
+        ) : viewMode !== "list" ? (
+          viewMode === "grid" ? (
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((doc) => {
+                const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
+                const isVoided = doc.status === "voided";
+                const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
+                return (
+                  <Card
+                    key={doc.id}
+                    onClick={() => openDocModal(doc)}
+                    className={`cursor-pointer !p-3.5 flex flex-col gap-2.5 min-h-[110px] relative ${isVoided ? "opacity-50" : ""} ${overdue ? "border-l-4 border-l-[#C0392B]" : ""} ${selectedDocIds.has(doc.id) ? "ring-2 ring-primary bg-primary/5" : ""}`}
+                  >
+                    {selectedDocIds.size > 0 && (
+                      <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={selectedDocIds.has(doc.id)} onChange={() => toggleSelectDoc(doc.id)} className="h-4 w-4 accent-primary cursor-pointer" />
+                      </div>
+                    )}
+                    <div className="flex items-start gap-2 pr-6">
+                      <span className={`shrink-0 w-2 h-2 mt-1.5 rounded-full ${
+                        isVoided ? "bg-gray-300" : overdue ? "bg-[#C0392B]" : doc.status === "draft" ? "bg-[#888780]" : "bg-primary"
+                      }`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12px] font-semibold text-[#1A1A18] truncate">
+                          {doc.doc_number || "-"}
+                        </div>
+                        <div className="text-[12px] text-[#444441] line-clamp-2 leading-tight mt-0.5">
+                          {customerName}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
+                      {overdue && <span className="text-[10px] text-[#C0392B] font-medium">เกินกำหนด</span>}
+                    </div>
+                    <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
+                      <span className="text-[11px] text-[#888780]">{formatBuddhistDate(doc.issue_date)}</span>
+                      <span className="text-[12px] font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable || 0)}</span>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-white border border-card-border rounded-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                      <th className="px-3 py-2 font-semibold">เลขที่</th>
+                      <th className="px-3 py-2 font-semibold">ประเภท</th>
+                      <th className="px-3 py-2 font-semibold">ลูกค้า</th>
+                      <th className="px-3 py-2 font-semibold hidden sm:table-cell">วันที่</th>
+                      <th className="px-3 py-2 font-semibold text-right">จำนวนเงิน</th>
+                      <th className="px-3 py-2 font-semibold hidden md:table-cell">สถานะ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((doc) => {
+                      const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
+                      const isVoided = doc.status === "voided";
+                      const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
+                      return (
+                        <tr
+                          key={doc.id}
+                          onClick={() => openDocModal(doc)}
+                          className={`border-b border-[#F0EFE9] last:border-0 hover:bg-[#FAFAF7] cursor-pointer transition-colors ${isVoided ? "opacity-50" : ""} ${selectedDocIds.has(doc.id) ? "bg-primary/5" : ""}`}
+                        >
+                          <td className="px-3 py-2">
+                            <span className="font-semibold text-[#1A1A18]">{doc.doc_number || "-"}</span>
+                            {overdue && <span className="ml-1.5 w-2 h-2 rounded-full bg-[#C0392B] inline-block" />}
+                          </td>
+                          <td className="px-3 py-2">
+                            <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="text-[#444441] truncate block max-w-[180px]">{customerName}</span>
+                          </td>
+                          <td className="px-3 py-2 hidden sm:table-cell text-[#888780] text-[12px]">
+                            {formatBuddhistDate(doc.issue_date)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <span className="font-medium text-[#1A1A18]">฿ {formatCurrency(doc.net_payable || 0)}</span>
+                          </td>
+                          <td className="px-3 py-2 hidden md:table-cell">
+                            <Badge status={doc.status} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
         ) : (
           <div className="space-y-5">
             {sections.map((section) => (
