@@ -30,12 +30,20 @@ export default function CustomersPage() {
     const stored = window.localStorage.getItem("customersViewMode");
     return stored === "grid" || stored === "list" ? stored : "list";
   });
-  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [filterMode, setFilterMode] = useState<FilterMode>(() => {
+    if (typeof window === "undefined") return "all";
+    const stored = window.localStorage.getItem("customersFilterMode");
+    return stored === "all" || stored === "favorites" ? stored : "all";
+  });
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     window.localStorage.setItem("customersViewMode", viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    window.localStorage.setItem("customersFilterMode", filterMode);
+  }, [filterMode]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -223,7 +231,7 @@ export default function CustomersPage() {
           </button>
           <button
             type="button"
-            onClick={() => setFilterMode("favorites")}
+            onClick={() => setFilterMode((prev) => (prev === "favorites" ? "all" : "favorites"))}
             className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors inline-flex items-center gap-1 ${
               filterMode === "favorites"
                 ? "bg-[#F59E0B] text-white"

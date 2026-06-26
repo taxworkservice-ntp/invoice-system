@@ -30,7 +30,11 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite }:
   const toast = useToast();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
-  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [filterMode, setFilterMode] = useState<FilterMode>(() => {
+    if (typeof window === "undefined") return "all";
+    const stored = window.localStorage.getItem("catalogFilterMode");
+    return stored === "all" || stored === "favorites" ? stored : "all";
+  });
   const [exportingMovements, setExportingMovements] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
@@ -42,6 +46,10 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite }:
   useEffect(() => {
     window.localStorage.setItem("catalogViewMode", viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    window.localStorage.setItem("catalogFilterMode", filterMode);
+  }, [filterMode]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -337,7 +345,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite }:
         <CatalogTypeTabs activeTab={activeTab} onChange={setActiveTab} />
         <button
           type="button"
-          onClick={() => setFilterMode("favorites")}
+          onClick={() => setFilterMode((prev) => (prev === "favorites" ? "all" : "favorites"))}
           className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors inline-flex items-center gap-1 ${
             filterMode === "favorites"
               ? "bg-[#F59E0B] text-white"
