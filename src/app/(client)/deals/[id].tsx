@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, PackageCheck } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -91,6 +91,17 @@ function buildItemSummary(lineItems: DocumentLineItem[]) {
     .map((item) => `${item.item_name} × ${item.quantity}`)
     .join(", ");
   return lineItems.length > 2 ? `${summary} และอีก ${lineItems.length - 2} รายการ` : summary;
+}
+
+function round3(value: number) {
+  return Math.round(value * 1000) / 1000;
+}
+
+function formatQty(value: number) {
+  return round3(value).toLocaleString("th-TH", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  });
 }
 
 function getStatusPill(doc: Document | null) {
@@ -814,6 +825,66 @@ export default function DealDetailPage() {
     [docsWithMeta]
   );
 
+  const latestQuotation = useMemo(
+    () => [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "quotation") || null,
+    [nonVoidedDocs]
+  );
+
+  const deliveryProgress = useMemo(() => {
+    if (!latestQuotation) return null;
+
+    const quote = latestQuotation.document;
+    const quoteLines = latestQuotation.line_items;
+    if (quoteLines.length === 0) return null;
+
+    const deliveredByLine = new Map<string, number>();
+    const pendingByLine = new Map<string, number>();
+
+    for (const item of nonVoidedDocs) {
+      const doc = item.document;
+      if (doc.doc_type !== "delivery_note") continue;
+      if (doc.status === "voided") continue;
+
+      for (const line of item.line_items) {
+        if (line.source_document_id !== quote.id || !line.source_line_item_id) continue;
+        if (doc.status === "sent" || doc.status === "converted") {
+          deliveredByLine.set(
+            line.source_line_item_id,
+            round3((deliveredByLine.get(line.source_line_item_id) || 0) + line.quantity),
+          );
+        } else if (doc.status === "draft") {
+          pendingByLine.set(
+            line.source_line_item_id,
+            round3((pendingByLine.get(line.source_line_item_id) || 0) + line.quantity),
+          );
+        }
+      }
+    }
+
+    const rows = quoteLines.map((line) => {
+      const delivered = deliveredByLine.get(line.id) || 0;
+      const pending = pendingByLine.get(line.id) || 0;
+      const remaining = round3(line.quantity - delivered);
+      return { line, delivered, pending, remaining, over: delivered > line.quantity };
+    });
+
+    const totalQuoted = round3(rows.reduce((sum, row) => sum + row.line.quantity, 0));
+    const totalDelivered = round3(rows.reduce((sum, row) => sum + row.delivered, 0));
+    const totalPending = round3(rows.reduce((sum, row) => sum + row.pending, 0));
+    const allDelivered = rows.every((row) => row.delivered >= row.line.quantity);
+    const hasOverDelivery = rows.some((row) => row.over);
+
+    return {
+      quotation: quote,
+      rows,
+      totalQuoted,
+      totalDelivered,
+      totalPending,
+      allDelivered,
+      hasOverDelivery,
+    };
+  }, [latestQuotation, nonVoidedDocs]);
+
   const allDone = nonVoidedDocs.length > 0 && nonVoidedDocs.every((item) => item.stage === "done");
   const hasPaidDocs = nonVoidedDocs.some(
     (item) => item.document.status === "paid" || (item.document.doc_type === "tax_invoice_receipt" && item.document.status === "issued")
@@ -1043,6 +1114,70 @@ export default function DealDetailPage() {
             </div>
           )}
         </Card>
+
+        {deliveryProgress && (
+          <Card className={`border-[0.5px] ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <PackageCheck className="h-4 w-4 text-[#0F9AA8]" />
+                  <div className="text-sm font-semibold text-[#1A1A18]">ความคืบหน้าการส่งของจากใบเสนอราคา</div>
+                </div>
+                <div className="mt-1 text-xs leading-5 text-gray-500">
+                  {deliveryProgress.quotation.doc_number || "ใบเสนอราคา"} • ส่งแล้ว {formatQty(deliveryProgress.totalDelivered)} / เสนอราคา {formatQty(deliveryProgress.totalQuoted)}
+                  {deliveryProgress.totalPending > 0 ? ` • ร่างค้าง ${formatQty(deliveryProgress.totalPending)}` : ""}
+                </div>
+              </div>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                deliveryProgress.allDelivered
+                  ? "bg-green-100 text-green-700"
+                  : deliveryProgress.hasOverDelivery
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-blue-100 text-blue-700"
+              }`}>
+                {deliveryProgress.allDelivered ? "ส่งครบแล้ว" : deliveryProgress.hasOverDelivery ? "มีส่งเกิน" : "กำลังส่ง"}
+              </span>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {deliveryProgress.rows.slice(0, 4).map((row) => (
+                <div key={row.line.id} className="rounded-lg border border-white/70 bg-white/70 px-3 py-2">
+                  <div className="flex items-start justify-between gap-3 text-xs">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-[#1A1A18]">{row.line.item_name}</div>
+                      <div className="mt-0.5 text-gray-500">
+                        ส่งแล้ว {formatQty(row.delivered)} / {formatQty(row.line.quantity)} {row.line.unit}
+                        {row.pending > 0 ? ` • ร่างค้าง ${formatQty(row.pending)}` : ""}
+                      </div>
+                    </div>
+                    <div className={`shrink-0 text-right font-medium ${row.remaining < 0 ? "text-amber-700" : "text-gray-700"}`}>
+                      คงเหลือ {formatQty(row.remaining)} {row.line.unit}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {deliveryProgress.rows.length > 4 && (
+                <div className="text-center text-[11px] text-gray-500">และอีก {deliveryProgress.rows.length - 4} รายการ</div>
+              )}
+            </div>
+
+            {deliveryProgress.quotation.status === "sent" && (
+              <Button
+                variant="secondary"
+                className="mt-3 w-full justify-center !bg-teal-50 !text-teal-700 !border-teal-200 hover:!bg-teal-100"
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    type: "delivery_note_from_quotation",
+                    quotationId: deliveryProgress.quotation.id,
+                  });
+                  navigate(`/documents/new?${params.toString()}`);
+                }}
+              >
+                ออกใบส่งของจากใบเสนอราคา
+              </Button>
+            )}
+          </Card>
+        )}
 
         <Card className="border-[0.5px]">
           <div className="mb-4 flex items-center justify-between gap-3">
