@@ -1,4 +1,4 @@
-import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLineItem } from "../types";
+import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLineItem, InvoiceDeliveryNote } from "../types";
 import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
 import { getR2PresignedUrl, getProxiedImageUrl } from "./r2";
@@ -9,6 +9,7 @@ export interface PrintDocumentData {
   document: Document;
   lineItems: DocumentLineItem[];
   billingNoteInvoices: BillingNoteInvoice[];
+  invoiceDeliveryNotes: InvoiceDeliveryNote[];
   clientProfile: ClientProfile;
   customer: Customer;
   referenceDoc?: Document;
@@ -21,6 +22,7 @@ export interface PrintableDocumentDataBase {
   document: Document;
   lineItems: DocumentLineItem[];
   billingNoteInvoices: BillingNoteInvoice[];
+  invoiceDeliveryNotes: InvoiceDeliveryNote[];
   clientProfile: ClientProfile;
   customer: Customer;
   referenceDoc?: Document;
@@ -135,6 +137,16 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
   const lineDiscountTotal = lineItems.reduce((sum, item) => sum + (item.discount_amount || 0), 0);
   const grossSubtotal = document.subtotal + (document.discount_amount || 0) + lineDiscountTotal;
+  let invoiceDeliveryNotes = document.invoice_delivery_notes || [];
+
+  if ((document.doc_type === "invoice" || document.doc_type === "tax_invoice_receipt") && invoiceDeliveryNotes.length === 0) {
+    const { data: deliveryNotes } = await supabase
+      .from("invoice_delivery_notes")
+      .select("*")
+      .eq("invoice_id", documentId)
+      .order("issue_date", { ascending: true });
+    invoiceDeliveryNotes = (deliveryNotes || []) as InvoiceDeliveryNote[];
+  }
 
   if (clientProfile.logo_url) {
     try {
@@ -164,6 +176,7 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     document,
     lineItems,
     billingNoteInvoices: document.billing_invoices || [],
+    invoiceDeliveryNotes,
     clientProfile,
     customer,
     referenceDoc,

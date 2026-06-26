@@ -23,7 +23,7 @@ import {
   toLocalMiddayIso,
   todayString,
 } from "../../../lib/receiptBackdating";
-import { deductStockOnDocumentSent } from "../../../lib/stock";
+import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import type {
@@ -48,6 +48,7 @@ interface DocWithMeta {
 type MainAction =
   | { type: "send_draft"; doc: Document; label: string; danger?: boolean }
   | { type: "convert"; doc: Document; label: string }
+  | { type: "invoice_from_dns"; doc: Document; label: string }
   | { type: "billing"; doc: Document; label: string }
   | { type: "collect"; doc: Document; label: string; danger?: boolean }
   | { type: "done"; label: string }
@@ -60,7 +61,10 @@ function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
   if (doc.doc_type === "invoice" && doc.status !== "paid") return "invoice";
   if (doc.doc_type === "billing_note" && doc.status !== "paid") return "collect";
   if (doc.status === "paid" || doc.status === "generated") return "done";
-  if (doc.doc_type === "receipt" || doc.doc_type === "delivery_note") return "done";
+  if (doc.doc_type === "delivery_note") {
+    return "invoice";
+  }
+  if (doc.doc_type === "receipt") return "done";
   if (doc.doc_type === "credit_note") {
     if (doc.status === "draft") return "collect";
     if (doc.status === "sent" || doc.status === "issued") return "done";
@@ -291,6 +295,12 @@ export default function DealDetailPage() {
           toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
         );
       }
+      if (doc.doc_type === "delivery_note") {
+        const { warnings } = await deductStockOnDocumentSent(doc.id, userId);
+        warnings.forEach((w) =>
+          toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+        );
+      }
 
       toast.success("อัปเดตสถานะเอกสารแล้ว");
       fetchDealData();
@@ -473,9 +483,13 @@ export default function DealDetailPage() {
       const now = new Date().toISOString().slice(0, 10);
       const docNumber = await generateDocNumberBE(userId, "delivery_note", now);
 
-      const quotationOrInvoice = docsWithMeta.find(
-        (d) => d.document.doc_type === "quotation" || d.document.doc_type === "invoice"
+      const sourceCandidates = docsWithMeta.filter(
+        (d) => d.document.status !== "voided" && (d.document.doc_type === "quotation" || d.document.doc_type === "invoice")
       );
+      const quotationOrInvoice =
+        [...sourceCandidates].reverse().find((d) => d.document.doc_type === "invoice") ||
+        [...sourceCandidates].reverse().find((d) => d.document.doc_type === "quotation");
+      const sourceDoc = quotationOrInvoice?.document;
 
       const { data: dnDoc, error } = await supabase
         .from("documents")
@@ -485,18 +499,19 @@ export default function DealDetailPage() {
           customer_id: customer.id,
           doc_type: "delivery_note",
           doc_number: docNumber,
-          status: "generated" as DocumentStatus,
+          status: "sent" as DocumentStatus,
           issue_date: now,
-          vat_registered: quotationOrInvoice?.document.vat_registered ?? false,
-          vat_rate: quotationOrInvoice?.document.vat_rate ?? VAT_DEFAULT,
-          wht_rate: quotationOrInvoice?.document.wht_rate ?? 0,
-          discount_percent: quotationOrInvoice?.document.discount_percent ?? 0,
-          discount_amount: quotationOrInvoice?.document.discount_amount ?? 0,
-          subtotal: 0,
-          vat_amount: 0,
-          total_amount: 0,
-          wht_amount: 0,
-          net_payable: 0,
+          vat_registered: sourceDoc?.vat_registered ?? false,
+          vat_rate: sourceDoc?.vat_rate ?? VAT_DEFAULT,
+          wht_rate: sourceDoc?.wht_rate ?? 0,
+          discount_percent: sourceDoc?.discount_percent ?? 0,
+          discount_amount: sourceDoc?.discount_amount ?? 0,
+          subtotal: sourceDoc?.subtotal ?? 0,
+          vat_amount: sourceDoc?.vat_amount ?? 0,
+          total_amount: sourceDoc?.total_amount ?? 0,
+          wht_amount: sourceDoc?.wht_amount ?? 0,
+          net_payable: sourceDoc?.net_payable ?? 0,
+          converted_from_id: sourceDoc?.id ?? null,
         })
         .select("*")
         .single();
@@ -524,6 +539,11 @@ export default function DealDetailPage() {
           }))
         );
       }
+
+      const { warnings } = await deductStockOnDocumentSent(dnDoc.id, userId);
+      warnings.forEach((w) =>
+        toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+      );
 
       toast.success("สร้างใบส่งของสำเร็จ");
       fetchDealData();
@@ -558,6 +578,31 @@ export default function DealDetailPage() {
           voided_reason: voidReason || null,
         })
         .eq("id", voidDocument.id);
+
+      if (voidDocument.doc_type === "delivery_note" && voidDocument.status === "sent") {
+        await restoreStockOnVoid(voidDocument.id, userId);
+      }
+
+      if (voidDocument.doc_type === "invoice") {
+        const { data: linkedDns } = await supabase
+          .from("invoice_delivery_notes")
+          .select("delivery_note_id")
+          .eq("invoice_id", voidDocument.id)
+          .is("released_at", null);
+
+        if (linkedDns?.length) {
+          await supabase
+            .from("invoice_delivery_notes")
+            .update({ released_at: new Date().toISOString() })
+            .eq("invoice_id", voidDocument.id)
+            .is("released_at", null);
+
+          await supabase
+            .from("documents")
+            .update({ status: "sent" as DocumentStatus })
+            .in("id", linkedDns.map((link: any) => link.delivery_note_id));
+        }
+      }
 
       const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type, issueDate);
 
@@ -807,11 +852,13 @@ export default function DealDetailPage() {
     ? 4
     : activeDoc?.document.doc_type === "quotation"
       ? 1
-      : activeDoc?.document.doc_type === "invoice"
+    : activeDoc?.document.doc_type === "invoice"
         ? 2
-        : activeDoc?.document.doc_type === "billing_note"
-          ? 3
-          : 4;
+        : activeDoc?.document.doc_type === "delivery_note"
+          ? 2
+          : activeDoc?.document.doc_type === "billing_note"
+            ? 3
+            : 4;
 
   const skippedStage1 = !nonVoidedDocs.some((item) => item.document.doc_type === "quotation");
 
@@ -828,8 +875,13 @@ export default function DealDetailPage() {
             ? "ส่งใบเสนอราคาแล้ว"
             : doc.doc_type === "invoice"
               ? "ส่งใบแจ้งหนี้แล้ว"
+              : doc.doc_type === "delivery_note"
+                ? "ส่งของแล้ว"
               : "ส่งใบวางบิลแล้ว",
       };
+    }
+    if (doc.doc_type === "delivery_note" && doc.status === "sent") {
+      return { type: "invoice_from_dns", doc, label: "ออกใบแจ้งหนี้จากใบส่งของ" };
     }
     if (doc.doc_type === "quotation" && doc.status === "sent") {
       return { type: "convert", doc, label: "ลูกค้าตกลงแล้ว" };
@@ -868,6 +920,7 @@ export default function DealDetailPage() {
       if (map.has(1) && map.has(2) && map.has(3) && map.has(4)) break;
       if (doc.doc_type === "quotation" && !map.has(1)) map.set(1, item);
       if (doc.doc_type === "invoice" && !map.has(2)) map.set(2, item);
+      if (doc.doc_type === "delivery_note" && !map.has(2)) map.set(2, item);
       if (doc.doc_type === "billing_note" && !map.has(3)) map.set(3, item);
       if ((doc.doc_type === "receipt" || doc.doc_type === "tax_invoice_receipt") && !map.has(4)) map.set(4, item);
     }
@@ -1051,6 +1104,7 @@ export default function DealDetailPage() {
                 onClick={() => {
                   if (mainAction.type === "send_draft") handleSendDraft(mainAction.doc);
                   if (mainAction.type === "convert") setConfirmConvertDoc(mainAction.doc);
+                  if (mainAction.type === "invoice_from_dns") navigate("/documents/new?type=invoice_from_delivery_notes");
                   if (mainAction.type === "billing") navigate(`/documents/new?type=billing_note&dealId=${dealId}`);
                   if (mainAction.type === "collect") handleOpenPaymentModal(mainAction.doc);
                 }}

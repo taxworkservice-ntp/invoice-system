@@ -142,8 +142,33 @@ export default function DocumentDetailPage() {
         })
         .eq("id", doc.id);
 
-      if ((doc.doc_type === "invoice" && doc.status === "sent") || (doc.doc_type === "tax_invoice_receipt" && doc.status === "issued")) {
+      if (
+        (doc.doc_type === "invoice" && doc.status === "sent") ||
+        (doc.doc_type === "delivery_note" && doc.status === "sent") ||
+        (doc.doc_type === "tax_invoice_receipt" && doc.status === "issued")
+      ) {
         await restoreStockOnVoid(doc.id, userId);
+      }
+
+      if (doc.doc_type === "invoice") {
+        const { data: linkedDns } = await supabase
+          .from("invoice_delivery_notes")
+          .select("delivery_note_id")
+          .eq("invoice_id", doc.id)
+          .is("released_at", null);
+
+        if (linkedDns?.length) {
+          await supabase
+            .from("invoice_delivery_notes")
+            .update({ released_at: new Date().toISOString() })
+            .eq("invoice_id", doc.id)
+            .is("released_at", null);
+
+          await supabase
+            .from("documents")
+            .update({ status: "sent" as DocumentStatus })
+            .in("id", linkedDns.map((link: any) => link.delivery_note_id));
+        }
       }
 
       if (voidAndRecreate) {
@@ -688,6 +713,31 @@ export default function DocumentDetailPage() {
                   <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.subtotal)}</td>
                   <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.vat_amount)}</td>
                   <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.total_amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </DetailCard>
+      )}
+
+      {(doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") && doc.invoice_delivery_notes && doc.invoice_delivery_notes.length > 0 && (
+        <DetailCard title="อ้างอิงใบส่งของ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
+          <div className="-mt-4 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-card-border bg-[#FAF8F3]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">เลขที่ใบส่งของ</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">วันที่ส่งของ</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">มูลค่าอ้างอิง</th>
+              </tr>
+            </thead>
+            <tbody>
+              {doc.invoice_delivery_notes.map((deliveryNote) => (
+                <tr key={deliveryNote.id} className="border-b border-card-border last:border-0">
+                  <td className="px-4 py-2 text-gray-700">{deliveryNote.delivery_note_number}</td>
+                  <td className="px-4 py-2 text-gray-700">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>
+                  <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(deliveryNote.total_amount)}</td>
                 </tr>
               ))}
             </tbody>

@@ -288,15 +288,14 @@ export async function restoreStockOnVoid(
     if (!item) continue;
 
     const baseQuantity = round3(Number(li.base_quantity ?? li.quantity ?? 0));
-    const newStock = round3(item.stock_count + baseQuantity);
     const priorMovementValue = await findDocumentMovementValue(voidedDocumentId, li.item_id);
+    if (priorMovementValue == null) continue;
+
+    const newStock = round3(item.stock_count + baseQuantity);
     const unitCost = round2(
-      priorMovementValue != null && baseQuantity > 0
-        ? priorMovementValue / baseQuantity
-        : Number(item.avg_cost || 0),
+      baseQuantity > 0 ? priorMovementValue / baseQuantity : Number(item.avg_cost || 0),
     );
-    const movementValue =
-      priorMovementValue != null ? round2(priorMovementValue) : round2(baseQuantity * unitCost);
+    const movementValue = round2(priorMovementValue);
     const newStockValue = round2(Number(item.stock_value || 0) + movementValue);
     const avgCost = nextAverageCost(newStock, newStockValue);
 

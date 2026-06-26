@@ -4,7 +4,7 @@ import { Modal } from "../ui/Modal";
 interface NewDealSheetProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "billing_note") => void;
+  onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "billing_note" | "invoice_from_delivery_notes") => void;
 }
 
 const OPTIONS = [
@@ -28,6 +28,12 @@ const OPTIONS = [
   },
   {
     icon: "📦",
+    title: "รวมใบส่งของเพื่อออกใบแจ้งหนี้",
+    subtitle: "ใช้เมื่อส่งของหลายครั้งแล้วค่อยออกบิลรวม",
+    type: "invoice_from_delivery_notes" as const,
+  },
+  {
+    icon: "📋",
     title: "รวมใบแจ้งหนี้เพื่อออกใบวางบิล",
     subtitle: "ใช้เมื่อจะวางบิลหลายใบพร้อมกัน",
     type: "billing_note" as const,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import type { Document, DocumentLineItem, BillingNoteInvoice, DocumentType, DocumentStatus } from "../types";
+import type { Document, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote } from "../types";
 
 export function useDocuments(userId: string | undefined) {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -114,6 +114,15 @@ export async function getDocumentDetail(documentId: string) {
       .select("*")
       .eq("billing_note_id", documentId);
     doc.billing_invoices = (invoices || []) as BillingNoteInvoice[];
+  }
+
+  if (doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") {
+    const { data: deliveryNotes } = await supabase
+      .from("invoice_delivery_notes")
+      .select("*")
+      .eq("invoice_id", documentId)
+      .order("issue_date", { ascending: true });
+    doc.invoice_delivery_notes = (deliveryNotes || []) as InvoiceDeliveryNote[];
   }
 
   return doc;

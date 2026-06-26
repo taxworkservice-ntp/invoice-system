@@ -3,6 +3,18 @@ import type { PrintDocumentData } from "../../lib/print";
 
 export function PrintTotals({ data }: { data: PrintDocumentData }) {
   const { document, grossSubtotal, lineDiscountTotal } = data;
+  const isDeliveryNote = document.doc_type === "delivery_note";
+
+  if (isDeliveryNote) {
+    return (
+      <section className="print-block mt-4">
+        <div className="text-[10px] tracking-[0.12em] text-[#667085]">หมายเหตุการส่งของ</div>
+        <div className="mt-2 min-h-[24mm] whitespace-pre-line text-[11px] leading-[18px] text-[#475467]">
+          {document.note?.trim() || "-"}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="print-block mt-4 grid grid-cols-[1fr_68mm] gap-4">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowUpDown, Ban, CheckCircle2, Clock3, Copy, CreditCard, Edit3, FileText, MoreHorizontal, Search, Send, SlidersHorizontal, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, Ban, CheckCircle2, Clock3, Copy, CreditCard, Edit3, FileStack, FileText, MoreHorizontal, Search, Send, SlidersHorizontal, Trash2, XCircle } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
@@ -18,6 +18,7 @@ import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS, CHIP_COLORS } from "..
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import type { Document, DocumentStatus, DocumentType } from "../../../types";
 
 const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
@@ -43,7 +44,7 @@ const STATUS_FILTERS: { label: string; value: DocumentStatus | "all" }[] = [
   { label: "ยกเลิก", value: "voided" },
 ];
 
-type QuickView = "all" | "attention" | "draft" | "collect" | "paid" | "voided";
+type QuickView = "all" | "attention" | "draft" | "dn_invoice" | "collect" | "paid" | "voided";
 
 const DOC_TYPE_BORDER: Record<DocumentType, string> = {
   quotation: "border-l-purple-400",
@@ -94,6 +95,7 @@ function getNextStepText(doc: Document) {
   if (doc.status === "overdue" || isActuallyOverdue(doc)) return "ต้องติดตามการชำระ";
   if (doc.doc_type === "quotation" && doc.status === "sent") return "รอลูกค้ายืนยัน";
   if (doc.doc_type === "invoice" && doc.status === "sent") return "พร้อมวางบิลหรือรับเงิน";
+  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "ส่งของแล้ว รอออกใบแจ้งหนี้";
   if (doc.doc_type === "billing_note" && doc.status === "sent") return "รอรับเงิน";
   if (doc.status === "paid" || doc.status === "generated" || doc.status === "issued") return "เสร็จสมบูรณ์";
   if (doc.status === "voided") return "เก็บไว้เป็นประวัติ";
@@ -739,9 +741,40 @@ export default function DocumentsPage() {
       if (action === "send") {
         const newStatus: DocumentStatus = doc.doc_type === "tax_invoice_receipt" ? "issued" : "sent";
         await supabase.from("documents").update({ status: newStatus }).eq("id", doc.id);
+        if (doc.doc_type === "invoice" || doc.doc_type === "delivery_note" || doc.doc_type === "tax_invoice_receipt") {
+          const { warnings } = await deductStockOnDocumentSent(doc.id, profile.id);
+          warnings.forEach((warning) => toast.info(`⚠ ${warning.itemName} สต็อกไม่พอ`));
+        }
         toast.success("ทำเครื่องหมายว่าส่งแล้ว");
       } else if (action === "void") {
         await supabase.from("documents").update({ status: "voided" as DocumentStatus, voided_at: new Date().toISOString() }).eq("id", doc.id);
+        if (
+          (doc.doc_type === "invoice" && doc.status === "sent") ||
+          (doc.doc_type === "delivery_note" && doc.status === "sent") ||
+          (doc.doc_type === "tax_invoice_receipt" && doc.status === "issued")
+        ) {
+          await restoreStockOnVoid(doc.id, profile.id);
+        }
+        if (doc.doc_type === "invoice") {
+          const { data: linkedDns } = await supabase
+            .from("invoice_delivery_notes")
+            .select("delivery_note_id")
+            .eq("invoice_id", doc.id)
+            .is("released_at", null);
+
+          if (linkedDns?.length) {
+            await supabase
+              .from("invoice_delivery_notes")
+              .update({ released_at: new Date().toISOString() })
+              .eq("invoice_id", doc.id)
+              .is("released_at", null);
+
+            await supabase
+              .from("documents")
+              .update({ status: "sent" as DocumentStatus })
+              .in("id", linkedDns.map((link: any) => link.delivery_note_id));
+          }
+        }
         toast.success("ยกเลิกเอกสารแล้ว");
       } else if (action === "delete") {
         await supabase.from("document_line_items").delete().eq("document_id", doc.id);
@@ -884,6 +917,7 @@ export default function DocumentsPage() {
 
     return {
       draft: documents.filter((doc) => doc.status === "draft").length,
+      dnReady: documents.filter((doc) => doc.doc_type === "delivery_note" && doc.status === "sent").length,
       collect: documents.filter((doc) => doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue")).length,
       overdue: documents.filter((doc) => doc.status === "overdue" || isActuallyOverdue(doc)).length,
       paidThisMonth,
@@ -898,6 +932,7 @@ export default function DocumentsPage() {
 
       if (quickView === "attention" && !needsAttention(doc)) return false;
       if (quickView === "draft" && doc.status !== "draft") return false;
+      if (quickView === "dn_invoice" && !(doc.doc_type === "delivery_note" && doc.status === "sent")) return false;
       if (quickView === "collect" && !(doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue" || doc.status === "paid"))) return false;
       if (quickView === "paid" && !(doc.doc_type === "billing_note" && doc.status === "paid")) return false;
       if (quickView === "voided" && doc.status !== "voided") return false;
@@ -1001,6 +1036,7 @@ export default function DocumentsPage() {
     { label: "ทั้งหมด", value: "all", count: documents.length },
     { label: "ต้องตาม", value: "attention", count: summary.overdue },
     { label: "ร่าง", value: "draft", count: summary.draft },
+    { label: "รอออกบิล", value: "dn_invoice", count: summary.dnReady },
     { label: "รอเก็บเงิน", value: "collect", count: summary.collect },
     { label: "รับเงินแล้ว", value: "paid", count: summary.paidThisMonth },
   ];
@@ -1026,12 +1062,13 @@ export default function DocumentsPage() {
             </div>
           </div>
 
-          <div className="mt-4 hidden gap-2 md:grid md:grid-cols-5">
+          <div className="mt-4 hidden gap-2 md:grid md:grid-cols-6">
             {loading ? (
-              Array.from({ length: 5 }).map((_, index) => <SkeletonCard key={index} className="p-0" />)
+              Array.from({ length: 6 }).map((_, index) => <SkeletonCard key={index} className="p-0" />)
             ) : (
               <>
                 <SummaryCard title="ร่าง" count={summary.draft} hint="ยังไม่ได้ส่งลูกค้า" active={quickView === "draft"} tone="blue" icon={<FileText className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "draft" ? "all" : "draft"))} />
+                <SummaryCard title="รอออกบิล" count={summary.dnReady} hint="ใบส่งของที่ยังไม่ได้ออกใบแจ้งหนี้" active={quickView === "dn_invoice"} tone="blue" icon={<FileStack className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "dn_invoice" ? "all" : "dn_invoice"))} />
                 <SummaryCard title="รอเก็บเงิน" count={summary.collect} hint="ใบวางบิลที่ยังต้องตาม" active={quickView === "collect"} tone="amber" icon={<Clock3 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "collect" ? "all" : "collect"))} />
                 <SummaryCard title="เกินกำหนด" count={summary.overdue} hint="ควรขึ้นมาก่อนบนมือถือ" active={quickView === "attention" || (quickView === "all" && statusFilter === "overdue")} tone="red" icon={<AlertTriangle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "attention" ? "all" : "attention"))} />
                 <SummaryCard title="รับเงินเดือนนี้" count={summary.paidThisMonth} hint="ไว้เช็กของที่ปิดงานแล้ว" active={quickView === "paid"} tone="green" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "paid" ? "all" : "paid"))} />
@@ -1250,5 +1287,3 @@ export default function DocumentsPage() {
     </AppShell>
   );
 }
-
-

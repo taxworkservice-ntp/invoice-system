@@ -134,6 +134,8 @@ function getNextActionLabel(doc: DealDoc | null) {
   if (doc.doc_type === "quotation" && doc.status === "sent") return "ลูกค้าตกลงแล้วใช่ไหม →";
   if (doc.doc_type === "invoice" && doc.status === "draft") return "ส่งใบแจ้งหนี้แล้วหรือยัง →";
   if (doc.doc_type === "invoice" && doc.status === "sent") return "ถึงเวลาวางบิลแล้ว →";
+  if (doc.doc_type === "delivery_note" && doc.status === "draft") return "ส่งของแล้วหรือยัง →";
+  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "ออกใบแจ้งหนี้จากใบส่งของ →";
   if (doc.doc_type === "tax_invoice_receipt") return "";
   if (doc.doc_type === "billing_note" && doc.status === "draft") return "ส่งใบวางบิลแล้วหรือยัง →";
   if (doc.doc_type === "billing_note" && doc.status === "sent") return "รับเงินแล้วใช่ไหม →";
@@ -547,6 +549,10 @@ export default function HomePage() {
           setNewSheetOpen(false);
           if (type === "billing_note") {
             navigate("/documents/new?type=billing_note");
+            return;
+          }
+          if (type === "invoice_from_delivery_notes") {
+            navigate("/documents/new?type=invoice_from_delivery_notes");
             return;
           }
           navigate(`/deals/new?type=${type}`);

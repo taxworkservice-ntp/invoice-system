@@ -178,6 +178,7 @@ export interface Document {
   deal?: Deal;
   line_items?: DocumentLineItem[];
   billing_invoices?: BillingNoteInvoice[];
+  invoice_delivery_notes?: InvoiceDeliveryNote[];
 }
 
 export interface DocumentLineItem {
@@ -196,6 +197,8 @@ export interface DocumentLineItem {
   discount_amount: number;
   qty_carton: number | null;
   carton_unit: string | null;
+  source_document_id: string | null;
+  source_line_item_id: string | null;
   line_total: number;
   sort_order: number;
   created_at: string;
@@ -211,6 +214,20 @@ export interface BillingNoteInvoice {
   subtotal: number;
   vat_amount: number;
   total_amount: number;
+  created_at: string;
+}
+
+export interface InvoiceDeliveryNote {
+  id: string;
+  invoice_id: string;
+  delivery_note_id: string;
+  user_id: string;
+  delivery_note_number: string;
+  issue_date: string | null;
+  subtotal: number;
+  vat_amount: number;
+  total_amount: number;
+  released_at: string | null;
   created_at: string;
 }
 

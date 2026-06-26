@@ -439,6 +439,10 @@ create table document_line_items (
   qty_carton      numeric(15,3),
   carton_unit     text,
 
+  -- Source document tracing for generated invoices (e.g. invoice lines copied from DNs)
+  source_document_id uuid references documents(id) on delete set null,
+  source_line_item_id uuid references document_line_items(id) on delete set null,
+
   line_total      numeric(15,2) not null,     -- unit_price × quantity, stored at save time
 
   sort_order      int not null default 0,
@@ -458,6 +462,49 @@ create policy "Admin reads all line items"
   using (public.is_admin());
 
 create index idx_line_items_document on document_line_items(document_id);
+create index idx_line_items_source_document on document_line_items(source_document_id);
+
+
+-- ============================================================
+-- INVOICE DELIVERY NOTE LINKS
+-- Delivery notes bundled into a later invoice/tax invoice
+-- ============================================================
+
+create table invoice_delivery_notes (
+  id                    uuid primary key default uuid_generate_v4(),
+  invoice_id            uuid not null references documents(id) on delete cascade,
+  delivery_note_id      uuid not null references documents(id) on delete restrict,
+  user_id               uuid not null references profiles(id) on delete cascade,
+
+  -- Snapshot of DN at time of invoicing
+  delivery_note_number  text not null,
+  issue_date            date,
+  subtotal              numeric(15,2) not null,
+  vat_amount            numeric(15,2) not null,
+  total_amount          numeric(15,2) not null,
+
+  -- Set when an invoice is voided and the DN is released for reinvoicing
+  released_at           timestamptz,
+
+  created_at            timestamptz not null default now()
+);
+
+alter table invoice_delivery_notes enable row level security;
+
+create policy "Client manages own invoice delivery notes"
+  on invoice_delivery_notes for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Admin reads all invoice delivery notes"
+  on invoice_delivery_notes for select
+  using (public.is_admin());
+
+create index idx_idn_invoice on invoice_delivery_notes(invoice_id);
+create index idx_idn_delivery_note on invoice_delivery_notes(delivery_note_id);
+create unique index idx_idn_one_active_invoice_per_dn
+  on invoice_delivery_notes(delivery_note_id)
+  where released_at is null;
 
 
 -- ============================================================

@@ -7,6 +7,7 @@ function getRowClass() {
 
 export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
   const { document, lineItems, billingNoteInvoices } = data;
+  const isDeliveryNote = document.doc_type === "delivery_note";
 
   if (document.doc_type === "billing_note") {
     return (
@@ -60,9 +61,13 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
             <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">รายละเอียด</th>
             <th className="w-[16mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">จำนวน</th>
             <th className="w-[16mm] px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">หน่วย</th>
-            <th className="w-[22mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ราคา/หน่วย</th>
-            <th className="w-[14mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ส่วนลด</th>
-            <th className="w-[24mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">จำนวนเงิน</th>
+            {!isDeliveryNote && (
+              <>
+                <th className="w-[22mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ราคา/หน่วย</th>
+                <th className="w-[14mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ส่วนลด</th>
+                <th className="w-[24mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">จำนวนเงิน</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -74,7 +79,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                 <td className="px-2 py-2 text-[11px] text-[#667085] border-t-[0.5px] border-[#E6EBF2]">{index + 1}</td>
                 <td className="px-2 py-2 text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   <div className="leading-[16px]">{item.item_name}</div>
-                  {hasLineDiscount ? (
+                  {hasLineDiscount && !isDeliveryNote ? (
                     <div className="mt-0.5 text-[10px] text-[#B54708]">
                       ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | ฿${formatCurrency(item.discount_amount)}` : ""}
                     </div>
@@ -82,13 +87,17 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                 </td>
                 <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">{item.quantity}</td>
                 <td className="px-2 py-2 text-[11px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">{item.unit}</td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">{formatCurrency(item.unit_price)}</td>
-                <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
-                </td>
-                <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {formatCurrency(item.line_total)}
-                </td>
+                {!isDeliveryNote && (
+                  <>
+                    <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">{formatCurrency(item.unit_price)}</td>
+                    <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                      {hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
+                    </td>
+                    <td className="px-2 py-2 text-right text-[11px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                      {formatCurrency(item.line_total)}
+                    </td>
+                  </>
+                )}
               </tr>
             );
           })}

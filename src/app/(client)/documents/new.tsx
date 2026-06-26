@@ -1,6 +1,7 @@
 import { Navigate, useSearchParams } from "react-router-dom";
 import { BillingNoteForm } from "../../../components/documents/BillingNoteForm";
 import { CreditNoteForm } from "../../../components/documents/CreditNoteForm";
+import { InvoiceFromDeliveryNotesForm } from "../../../components/documents/InvoiceFromDeliveryNotesForm";
 
 export default function NewDocumentPage() {
   const [searchParams] = useSearchParams();
@@ -13,6 +14,10 @@ export default function NewDocumentPage() {
 
   if (type === "credit_note") {
     return <CreditNoteForm dealId={dealId} />;
+  }
+
+  if (type === "invoice_from_delivery_notes") {
+    return <InvoiceFromDeliveryNotesForm />;
   }
 
   const nextParams = new URLSearchParams(searchParams);
