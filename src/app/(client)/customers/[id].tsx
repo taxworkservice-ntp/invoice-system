@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreVertical, RotateCcw } from "lucide-react";
+import { ArrowRight, MoreVertical, RotateCcw } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Badge } from "../../../components/ui/Badge";
+import { ViewToggle } from "../../../components/ui/ViewToggle";
+import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { NewDealSheet } from "../../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { supabase } from "../../../lib/supabase";
@@ -25,6 +27,46 @@ const AVATAR_PRESET_COLORS = [
 
 interface DealWithDocs extends Deal {
   documents: Document[];
+}
+
+type DealFilter = "all" | "active" | "done";
+
+type DealHistoryItem = {
+  deal: DealWithDocs;
+  latestDoc: Document | null;
+  amount: number;
+  isDone: boolean;
+  latestDate: string;
+};
+
+const DEAL_HISTORY_VIEW_STORAGE_KEY = "customer_deal_history_view";
+
+function isResolvedDealDocument(doc: Document | null) {
+  if (!doc) return false;
+  return ["paid", "voided", "generated", "issued"].includes(doc.status);
+}
+
+function getSortedDocs(deal: DealWithDocs) {
+  return [...(deal.documents || [])].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+}
+
+function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
+  const sortedDocs = getSortedDocs(deal);
+  const latestDoc = sortedDocs.find((doc) => doc.status !== "voided") || sortedDocs[0] || null;
+  const billingDoc = sortedDocs.find((doc) => doc.doc_type === "billing_note" && doc.status !== "voided") || null;
+  const amountDoc = billingDoc || latestDoc;
+  const amount = amountDoc?.net_payable || amountDoc?.total_amount || 0;
+  const latestDate = latestDoc?.issue_date || latestDoc?.updated_at || deal.updated_at;
+
+  return {
+    deal,
+    latestDoc,
+    amount,
+    isDone: isResolvedDealDocument(latestDoc),
+    latestDate,
+  };
 }
 
 export default function CustomerDetailPage() {
@@ -56,7 +98,28 @@ export default function CustomerDetailPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [newSheetOpen, setNewSheetOpen] = useState(false);
 
-  const [dealFilter, setDealFilter] = useState<"all" | "active" | "done">("all");
+  const [dealFilter, setDealFilter] = useState<DealFilter>("all");
+  const [dealHistoryView, setDealHistoryView] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "list";
+    const stored = localStorage.getItem(DEAL_HISTORY_VIEW_STORAGE_KEY);
+    return stored === "table" ? "table" : "list";
+  });
+  const [hasStoredDealHistoryView] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const stored = localStorage.getItem(DEAL_HISTORY_VIEW_STORAGE_KEY);
+    return stored === "list" || stored === "table";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(DEAL_HISTORY_VIEW_STORAGE_KEY, dealHistoryView);
+  }, [dealHistoryView]);
+
+  useEffect(() => {
+    if (hasStoredDealHistoryView || deals.length < 8) return;
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches) {
+      setDealHistoryView("table");
+    }
+  }, [deals.length, hasStoredDealHistoryView]);
 
   useEffect(() => {
     if (!id) return;
@@ -185,12 +248,26 @@ export default function CustomerDetailPage() {
     setDeleting(false);
   }
 
-  const filteredDeals = deals.filter((d) => {
-    if (dealFilter === "all") return true;
-    const latestDoc = d.documents?.[d.documents.length - 1];
-    if (dealFilter === "active") return latestDoc && latestDoc.status !== "paid" && latestDoc.status !== "voided";
-    return latestDoc && (latestDoc.status === "paid" || latestDoc.status === "voided");
-  });
+  const dealHistoryItems = useMemo(
+    () => deals.map(getDealHistoryItem),
+    [deals],
+  );
+
+  const activeDealItems = useMemo(
+    () => dealHistoryItems.filter((item) => !item.isDone),
+    [dealHistoryItems],
+  );
+
+  const doneDealItems = useMemo(
+    () => dealHistoryItems.filter((item) => item.isDone),
+    [dealHistoryItems],
+  );
+
+  const filteredDealItems = useMemo(() => {
+    if (dealFilter === "active") return activeDealItems;
+    if (dealFilter === "done") return doneDealItems;
+    return [...activeDealItems, ...doneDealItems];
+  }, [activeDealItems, dealFilter, doneDealItems]);
 
   const totalReceived = deals.reduce((sum, d) => {
     const paidDoc = d.documents?.find((doc) => doc.status === "paid" && doc.doc_type === "billing_note");
@@ -467,68 +544,175 @@ export default function CustomerDetailPage() {
         </Card>
 
         <div>
-          <div className="text-[11px] uppercase font-semibold text-[#888780] mb-2">
-            ประวัติ deal
-          </div>
-          <div className="flex gap-2 mb-3">
-            {(["all", "active", "done"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setDealFilter(tab)}
-                className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors ${
-                  dealFilter === tab
-                    ? "bg-[#378ADD] text-white"
-                    : "bg-[#F7F6F3] text-[#888780] hover:bg-[#E8E6DF]"
-                }`}
-              >
-                {tab === "all" ? "ทั้งหมด" : tab === "active" ? "กำลังดำเนินการ" : "เสร็จสิ้น"}
-              </button>
-            ))}
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase font-semibold text-[#888780]">
+                ประวัติ deal
+              </div>
+              <div className="mt-0.5 text-[11px] text-[#AAA49A]">
+                กำลังดำเนินการ {activeDealItems.length} · เสร็จสิ้น {doneDealItems.length}
+              </div>
+            </div>
+            <ViewToggle
+              value={dealHistoryView}
+              onChange={setDealHistoryView}
+              variants={["list", "table"]}
+              className="hidden sm:flex"
+            />
           </div>
 
-          {filteredDeals.length === 0 ? (
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {(["all", "active", "done"] as const).map((tab) => {
+              const count = tab === "all" ? dealHistoryItems.length : tab === "active" ? activeDealItems.length : doneDealItems.length;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setDealFilter(tab)}
+                  className={`shrink-0 px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors ${
+                    dealFilter === tab
+                      ? "bg-[#378ADD] text-white"
+                      : "bg-[#F7F6F3] text-[#888780] hover:bg-[#E8E6DF]"
+                  }`}
+                >
+                  {tab === "all" ? "ทั้งหมด" : tab === "active" ? "กำลังดำเนินการ" : "เสร็จสิ้น"} {count}
+                </button>
+              );
+            })}
+          </div>
+
+          {filteredDealItems.length === 0 ? (
             <div className="text-center py-8 text-[13px] text-[#888780]">
               ยังไม่มี deal — กด + สร้าง deal ด้านบนเพื่อเริ่ม
             </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredDeals.map((deal) => {
-                const sortedDocs = [...(deal.documents || [])].sort(
-                  (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-                );
-                const latestDoc = sortedDocs.find((d) => d.status !== "voided") || sortedDocs[0];
-                const billingDoc = sortedDocs.find((d) => d.doc_type === "billing_note" && d.status !== "voided");
-                const amount = latestDoc?.total_amount || billingDoc?.net_payable || 0;
-
-                return (
-                  <Card key={deal.id} onClick={() => navigate(`/deals/${deal.id}`)}>
+          ) : dealHistoryView === "table" ? (
+            <>
+              <div className="space-y-2 sm:hidden">
+                {filteredDealItems.map((item) => (
+                  <Card
+                    key={item.deal.id}
+                    onClick={() => navigate(`/deals/${item.deal.id}`)}
+                    className={item.isDone ? "!bg-[#FAFAF8] !border-[#F0EEE8] !shadow-none" : ""}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-semibold text-[#1A1A18] truncate">
-                          {deal.title || "Deal"}
+                        <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
+                          {item.deal.title || "Deal"}
                         </div>
-                        {latestDoc && (
-                          <div className="text-[11px] text-[#888780] mt-0.5">
-                            {latestDoc.doc_number || "ยังไม่มีเลขเอกสาร"}
-                            {latestDoc.issue_date && ` · ${formatBuddhistDate(latestDoc.issue_date)}`}
-                          </div>
-                        )}
+                        <div className="mt-0.5 text-[11px] text-[#888780]">
+                          {item.latestDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
+                          {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
+                        </div>
                       </div>
-                      <div className="text-right shrink-0 ml-3">
-                        <div className="text-[13px] font-semibold text-[#1A1A18]">
-                          ฿ {formatCurrency(amount)}
+                      <div className="ml-3 shrink-0 text-right">
+                        <div className={`font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[13px] text-[#1A1A18]"}`}>
+                          ฿ {formatCurrency(item.amount)}
                         </div>
-                        {latestDoc && (
+                        {item.latestDoc && (
                           <div className="mt-1">
-                            <Badge status={latestDoc.status} />
+                            <Badge status={item.latestDoc.status} />
                           </div>
                         )}
                       </div>
                     </div>
                   </Card>
-                );
-              })}
+                ))}
+              </div>
+              <div className="hidden overflow-hidden rounded-card border border-card-border bg-white sm:block">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b border-card-border bg-[#F7F6F3] text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                      <th className="px-3 py-2 font-semibold">Deal / เอกสารล่าสุด</th>
+                      <th className="px-3 py-2 font-semibold">วันที่</th>
+                      <th className="px-3 py-2 font-semibold">สถานะ</th>
+                      <th className="px-3 py-2 text-right font-semibold">ยอด</th>
+                      <th className="px-3 py-2 text-right font-semibold">เปิด</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-card-border">
+                    {filteredDealItems.map((item) => (
+                      <tr
+                        key={item.deal.id}
+                        onClick={() => navigate(`/deals/${item.deal.id}`)}
+                        className={`cursor-pointer transition-colors hover:bg-[#FAF8F3] ${
+                          item.isDone ? "bg-[#FAFAF8] text-[#8A8478]" : "bg-white text-[#1A1A18]"
+                        }`}
+                      >
+                        <td className="px-3 py-2">
+                          <div className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
+                            {item.deal.title || "Deal"}
+                          </div>
+                          <div className="mt-0.5 truncate text-[11px] text-[#888780]">
+                            {item.latestDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-[12px] text-[#888780]">
+                          {item.latestDate ? formatBuddhistDate(item.latestDate) : "-"}
+                        </td>
+                        <td className="px-3 py-2">
+                          {item.latestDoc ? <Badge status={item.latestDoc.status} /> : <span className="text-[12px] text-[#AAA49A]">-</span>}
+                        </td>
+                        <td className={`px-3 py-2 text-right font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[#1A1A18]"}`}>
+                          ฿ {formatCurrency(item.amount)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex justify-end">
+                            <ArrowRight className="h-4 w-4 text-[#AAA49A]" />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              {(dealFilter === "all" ? [
+                { key: "active", title: "กำลังดำเนินการ", items: activeDealItems },
+                { key: "done", title: "เสร็จสิ้นแล้ว", items: doneDealItems },
+              ] : [{ key: dealFilter, title: dealFilter === "active" ? "กำลังดำเนินการ" : "เสร็จสิ้นแล้ว", items: filteredDealItems }])
+                .filter((section) => section.items.length > 0)
+                .map((section) => (
+                  <div key={section.key} className="space-y-2">
+                    {dealFilter === "all" && (
+                      <div className={`text-[11px] font-semibold ${section.key === "done" ? "text-[#AAA49A]" : "text-[#888780]"}`}>
+                        {section.title} ({section.items.length})
+                      </div>
+                    )}
+                    {section.items.map((item) => (
+                      <Card
+                        key={item.deal.id}
+                        onClick={() => navigate(`/deals/${item.deal.id}`)}
+                        className={item.isDone ? "!bg-[#FAFAF8] !border-[#F0EEE8] !shadow-none" : ""}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
+                              {item.deal.title || "Deal"}
+                            </div>
+                            {item.latestDoc && (
+                              <div className="text-[11px] text-[#888780] mt-0.5">
+                                {item.latestDoc.doc_number || "ยังไม่มีเลขเอกสาร"}
+                                {item.latestDoc.issue_date && ` · ${formatBuddhistDate(item.latestDoc.issue_date)}`}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0 ml-3">
+                            <div className={`font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[13px] text-[#1A1A18]"}`}>
+                              ฿ {formatCurrency(item.amount)}
+                            </div>
+                            {item.latestDoc && (
+                              <div className="mt-1">
+                                <Badge status={item.latestDoc.status} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ))}
             </div>
           )}
         </div>
