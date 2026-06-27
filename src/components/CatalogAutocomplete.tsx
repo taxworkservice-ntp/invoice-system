@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Check, Package, Wrench } from "lucide-react";
+import { Check, Package, Search, Wrench } from "lucide-react";
+import { CatalogItemPickerModal } from "./catalog/CatalogItemPickerModal";
 import type { Item } from "../types";
 
 interface CatalogAutocompleteProps {
@@ -12,6 +13,9 @@ interface CatalogAutocompleteProps {
   className?: string;
 }
 
+const INITIAL_RESULT_LIMIT = 12;
+const SEARCH_RESULT_LIMIT = 50;
+
 export function CatalogAutocomplete({
   items,
   value,
@@ -22,18 +26,25 @@ export function CatalogAutocomplete({
   className = "",
 }: CatalogAutocompleteProps) {
   const [open, setOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const search = value.trim().toLowerCase();
+  const sortedItems = value.trim()
+    ? items
+    : [...items].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th"));
 
-  const filtered = value.trim()
-    ? items.filter((item) =>
-        item.name.toLowerCase().includes(value.trim().toLowerCase()) ||
-        item.sku?.toLowerCase().includes(value.trim().toLowerCase()),
+  const filtered = search
+    ? sortedItems.filter((item) =>
+        item.name.toLowerCase().includes(search) ||
+        item.sku?.toLowerCase().includes(search),
       )
-    : items.slice(0, 8);
+    : sortedItems;
 
-  const sliced = filtered.slice(0, 20);
+  const resultLimit = search ? SEARCH_RESULT_LIMIT : INITIAL_RESULT_LIMIT;
+  const sliced = filtered.slice(0, resultLimit);
+  const hiddenCount = Math.max(filtered.length - sliced.length, 0);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -100,12 +111,17 @@ export function CatalogAutocomplete({
     }
   };
 
+  const openFullPicker = () => {
+    setOpen(false);
+    setPickerOpen(true);
+  };
+
   return (
     <div className={`relative flex-1 ${className}`}>
       <div className="relative">
         <input
           ref={inputRef}
-          className={`w-full py-1.5 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary ${matched ? "pr-7 pl-2" : "px-2"}`}
+          className={`w-full py-1.5 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary ${matched ? "pl-2 pr-16" : "pl-2 pr-10"}`}
           placeholder={placeholder}
           value={value}
           onChange={(e) => {
@@ -114,19 +130,32 @@ export function CatalogAutocomplete({
             setHighlightIndex(-1);
           }}
           onFocus={() => {
+            if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+              openFullPicker();
+              return;
+            }
             setOpen(true);
             setHighlightIndex(-1);
           }}
           onKeyDown={handleKeyDown}
         />
         {matched && (
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-green-500">
+          <span className="absolute right-9 top-1/2 -translate-y-1/2 text-green-500">
             <Check size={14} />
           </span>
         )}
+        <button
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={openFullPicker}
+          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          aria-label="เปิดตัวเลือกรายการ"
+        >
+          <Search size={14} />
+        </button>
       </div>
 
-      {open && sliced.length > 0 && (
+      {open && (sliced.length > 0 || search) && (
         <ul
           ref={listRef}
           className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
@@ -169,8 +198,29 @@ export function CatalogAutocomplete({
               </span>
             </li>
           ))}
+          {sliced.length === 0 && (
+            <li className="px-3 py-3 text-sm text-gray-500">
+              ไม่พบรายการที่ตรงกับคำค้น
+            </li>
+          )}
+          {hiddenCount > 0 && (
+            <li className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-[11px] text-gray-500">
+              แสดง {sliced.length} จาก {filtered.length} รายการ พิมพ์ชื่อหรือ SKU เพื่อค้นหาให้แคบลง
+            </li>
+          )}
         </ul>
       )}
+      <CatalogItemPickerModal
+        open={pickerOpen}
+        items={items}
+        initialSearch={value}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(item) => {
+          onSelect(item);
+          setPickerOpen(false);
+          close();
+        }}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { Modal } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
+import { CustomerPickerModal } from "../customers/CustomerPickerModal";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
 import { useToast } from "../../hooks/useToast";
@@ -65,7 +66,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
-  const { customers, loading: customersLoading } = useCustomers(userId);
+  const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -77,8 +78,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   const [currentDocumentId, setCurrentDocumentId] = useState<string | undefined>(documentId);
   const [currentDeal, setCurrentDeal] = useState<(Pick<Deal, "id" | "title"> & { customer?: Customer | null }) | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
   const [issueDate, setIssueDate] = useState(todayString());
   const [dueDate, setDueDate] = useState(addDays(todayString(), 7));
@@ -111,15 +111,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
   const selectedCustomerId = selectedCustomer?.id || null;
   const selectedInvoiceIdsArray = useMemo(() => [...selectedInvoiceIds], [selectedInvoiceIds]);
-
-  const filteredCustomers = useMemo(() => {
-    const query = customerSearch.trim().toLowerCase();
-    if (!query) return customers;
-    return customers.filter((customer) => {
-      const haystacks = [customer.name, customer.tax_id || "", customer.contact_name || ""].join(" ").toLowerCase();
-      return haystacks.includes(query);
-    });
-  }, [customerSearch, customers]);
 
   const selectedInvoices = useMemo(
     () => invoiceOptions.filter((invoice) => selectedInvoiceIds.has(invoice.id)),
@@ -318,7 +309,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         setExistingDocument(document);
         setCurrentDocumentId(document.id);
         setSelectedCustomer(document.customer || null);
-        setCustomerSearch(document.customer?.name || "");
         setIssueDate(document.issue_date);
         setDueDate(document.due_date || addDays(document.issue_date, clientProfile?.credit_term_days ?? 7));
         setNote(document.note || "");
@@ -352,7 +342,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         });
         if (customer) {
           setSelectedCustomer(customer);
-          setCustomerSearch(customer.name);
           await loadInvoiceOptions(customer.id, undefined, dealId);
         }
         setWhtRate(clientProfile?.default_wht_rate || "0");
@@ -386,6 +375,18 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }, [dueDate, selectedCustomerId, selectedInvoiceIds.size]);
+
+  const handleSelectCustomer = useCallback((customer: Customer) => {
+    setSelectedCustomer(customer);
+    setErrors((prev) => ({ ...prev, customer: "" }));
+    setInvoiceOptions([]);
+    setSelectedInvoiceIds(new Set());
+    setSavedInvoiceIds(new Set());
+    initialHydratedRef.current = true;
+    loadInvoiceOptions(customer.id).catch((err: unknown) => {
+      toast.error(err instanceof Error ? err.message : "โหลดใบแจ้งหนี้ไม่สำเร็จ");
+    });
+  }, [loadInvoiceOptions, toast]);
 
   const persistBillingNote = useCallback(async (options?: { assignDocNumber?: boolean; showToast?: boolean; navigateToDetail?: boolean; silent?: boolean }) => {
     if (!userId || !selectedCustomerId) return null;
@@ -673,51 +674,34 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               <Spinner />
             )
           ) : (
-            <div className="relative">
-              <Input
-                id="customerSearch"
-                value={customerSearch}
-                placeholder="ค้นหาลูกค้า"
-                onFocus={() => setShowCustomerDropdown(true)}
-                onChange={(event) => {
-                  setCustomerSearch(event.target.value);
-                  setShowCustomerDropdown(true);
-                  setErrors((prev) => ({ ...prev, customer: "" }));
-                }}
-                disabled={readOnly}
-              />
-              {showCustomerDropdown && !readOnly && (
-                <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-card-border bg-white shadow-lg">
-                  {filteredCustomers.map((customer) => (
-                    <button
-                      key={customer.id}
-                      className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setSelectedCustomer(customer);
-                        setCustomerSearch(customer.name);
-                        setShowCustomerDropdown(false);
-                        setInvoiceOptions([]);
-                        setSelectedInvoiceIds(new Set());
-                        setSavedInvoiceIds(new Set());
-                        initialHydratedRef.current = true;
-                        loadInvoiceOptions(customer.id).catch((err: unknown) => {
-                          toast.error(err instanceof Error ? err.message : "โหลดใบแจ้งหนี้ไม่สำเร็จ");
-                        });
-                      }}
-                    >
-                      <div className="font-medium text-gray-900">{customer.name}</div>
-                      {customer.tax_id && <div className="text-xs text-gray-500">{customer.tax_id}</div>}
-                    </button>
-                  ))}
-                  {!filteredCustomers.length && (
-                    <div className="px-3 py-3 text-sm text-gray-500">ไม่พบลูกค้า</div>
+            selectedCustomer ? (
+              <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-[#FAF8F3] p-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900">{selectedCustomer.name}</div>
+                  {selectedCustomer.tax_id && <div className="mt-1 text-xs text-gray-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</div>}
+                  {selectedCustomer.address && <div className="mt-1 line-clamp-2 text-xs text-gray-500">{selectedCustomer.address}</div>}
+                  {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
+                    <div className="mt-1 text-xs text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</div>
                   )}
                 </div>
-              )}
-            </div>
+                {!readOnly && <Button variant="ghost" size="sm" onClick={() => setCustomerPickerOpen(true)}>เปลี่ยน</Button>}
+              </div>
+            ) : (
+              <Button variant="secondary" className="w-full justify-center" disabled={readOnly} onClick={() => setCustomerPickerOpen(true)}>
+                เลือกลูกค้า
+              </Button>
+            )
           )}
           {errors.customer && <div className="mt-2 text-xs text-red-500">{errors.customer}</div>}
+          <CustomerPickerModal
+            open={customerPickerOpen && !readOnly}
+            customers={customers}
+            selectedCustomerId={selectedCustomer?.id}
+            taxSensitive
+            onClose={() => setCustomerPickerOpen(false)}
+            onSelect={handleSelectCustomer}
+            onCreate={async (customer) => addCustomer(customer)}
+          />
         </Card>
 
         <Card>

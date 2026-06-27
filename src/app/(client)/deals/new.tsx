@@ -9,6 +9,7 @@ import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
+import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
@@ -129,11 +130,7 @@ export default function NewDealPage() {
   const { items } = useItems(userId);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: "", tax_id: "", address: "" });
-  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([createEmptyLine()]);
   const [showMore, setShowMore] = useState(false);
@@ -169,8 +166,6 @@ export default function NewDealPage() {
     const match = customers.find((c) => c.id === customerId);
     if (match) {
       setSelectedCustomer(match);
-      setCustomerSearch(match.name);
-      setShowCustomerDropdown(false);
     }
   }, [searchParams, customers, customersLoading, selectedCustomer]);
 
@@ -215,12 +210,6 @@ export default function NewDealPage() {
       return next;
     });
   };
-
-  const filteredCustomers = useMemo(() => {
-    if (!customerSearch) return customers;
-    const q = customerSearch.toLowerCase();
-    return customers.filter((c) => c.name.toLowerCase().includes(q) || (c.tax_id && c.tax_id.includes(q)));
-  }, [customers, customerSearch]);
 
   const lineItemsWithTotals = useMemo(() => {
     return lineItems.map((lineItem) => ({
@@ -331,27 +320,6 @@ export default function NewDealPage() {
         };
       }),
     );
-  };
-
-  const handleAddNewCustomer = async () => {
-    if (!newCustomer.name.trim()) return;
-    setSavingCustomer(true);
-    try {
-      const customer = await addCustomer({
-        name: newCustomer.name,
-        tax_id: newCustomer.tax_id || null,
-        address: newCustomer.address || null,
-      });
-      setSelectedCustomer(customer);
-      setShowNewCustomerForm(false);
-      setNewCustomer({ name: "", tax_id: "", address: "" });
-      setCustomerSearch(customer.name);
-      setShowCustomerDropdown(false);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
-    } finally {
-      setSavingCustomer(false);
-    }
   };
 
   const handleSave = async () => {
@@ -540,114 +508,50 @@ export default function NewDealPage() {
         <Card>
           <h3 className="text-sm font-medium mb-3">ลูกค้า</h3>
           {selectedCustomer ? (
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-[#FAF8F3] p-3">
+              <div className="min-w-0">
                 <p className="text-sm font-medium">{selectedCustomer.name}</p>
                 {selectedCustomer.tax_id && (
                   <p className="text-xs text-gray-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</p>
                 )}
                 {selectedCustomer.address && (
-                  <p className="text-xs text-gray-500">{selectedCustomer.address}</p>
+                  <p className="line-clamp-2 text-xs text-gray-500">{selectedCustomer.address}</p>
+                )}
+                {type !== "delivery_note" && (!selectedCustomer.tax_id || !selectedCustomer.address) && (
+                  <p className="mt-1 text-xs text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</p>
                 )}
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setSelectedCustomer(null);
-                  setCustomerSearch("");
-                }}
+                onClick={() => setCustomerPickerOpen(true)}
               >
                 เปลี่ยน
               </Button>
             </div>
           ) : (
-            <div className="relative">
-              <Input
-                placeholder="ค้นหาหรือเพิ่มลูกค้าใหม่..."
-                value={customerSearch}
-                onFocus={() => setShowCustomerDropdown(true)}
-                onChange={(e) => {
-                  setCustomerSearch(e.target.value);
-                  setShowCustomerDropdown(true);
-                }}
-              />
-              {showCustomerDropdown && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-card-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {filteredCustomers.map((customer) => (
-                    <button
-                      key={customer.id}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setSelectedCustomer(customer);
-                        setCustomerSearch(customer.name);
-                        setShowCustomerDropdown(false);
-                      }}
-                    >
-                      <span className="font-medium">{customer.name}</span>
-                      {customer.tax_id && (
-                        <span className="text-gray-400 ml-2 text-xs">{customer.tax_id}</span>
-                      )}
-                    </button>
-                  ))}
-                  {customerSearch && !filteredCustomers.length && (
-                    <button
-                      className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-blue-50"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setNewCustomer((prev) => ({ ...prev, name: customerSearch }));
-                        setShowNewCustomerForm(true);
-                        setShowCustomerDropdown(false);
-                      }}
-                    >
-                      + {`เพิ่ม "${customerSearch}" เป็นลูกค้าใหม่`}
-                    </button>
-                  )}
-                </div>
-              )}
-                            {showNewCustomerForm && (
-                <div className="mt-3 border-t pt-3 space-y-2">
-                  <Input
-                    label="ชื่อลูกค้า"
-                    value={newCustomer.name}
-                    onChange={(e) =>
-                      setNewCustomer((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                    placeholder="ชื่อบริษัทหรือชื่อลูกค้า"
-                  />
-                  <Input
-                    label="เลขผู้เสียภาษี"
-                    value={newCustomer.tax_id}
-                    onChange={(e) =>
-                      setNewCustomer((prev) => ({ ...prev, tax_id: e.target.value }))
-                    }
-                    placeholder="13 หลัก (ถ้ามี)"
-                  />
-                  <Input
-                    label="ที่อยู่"
-                    value={newCustomer.address}
-                    onChange={(e) =>
-                      setNewCustomer((prev) => ({ ...prev, address: e.target.value }))
-                    }
-                    placeholder="ที่อยู่"
-                  />
-                  <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => setShowNewCustomerForm(false)}>
-                      ยกเลิก
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleAddNewCustomer}
-                      disabled={!newCustomer.name.trim() || savingCustomer}
-                    >
-                      {savingCustomer ? "กำลังบันทึก..." : "บันทึก"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <Button variant="secondary" className="w-full justify-center" onClick={() => setCustomerPickerOpen(true)}>
+              เลือกลูกค้า
+            </Button>
           )}
+          <CustomerPickerModal
+            open={customerPickerOpen}
+            customers={customers}
+            selectedCustomerId={selectedCustomer?.id}
+            taxSensitive={type !== "delivery_note"}
+            onClose={() => setCustomerPickerOpen(false)}
+            onSelect={(customer) => {
+              setSelectedCustomer(customer);
+            }}
+            onCreate={async (customer) => {
+              try {
+                return await addCustomer(customer);
+              } catch (err: unknown) {
+                setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+                throw err;
+              }
+            }}
+          />
         </Card>
 
         {!isBillingNote && (
@@ -1139,5 +1043,3 @@ export default function NewDealPage() {
     </AppShell>
   );
 }
-
-

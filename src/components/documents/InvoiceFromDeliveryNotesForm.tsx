@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
+import { CustomerPickerModal } from "../customers/CustomerPickerModal";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
 import { useToast } from "../../hooks/useToast";
@@ -53,10 +54,11 @@ export function InvoiceFromDeliveryNotesForm() {
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
-  const { customers, loading: customersLoading } = useCustomers(userId);
+  const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const toast = useToast();
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState(monthStartString());
   const [dateTo, setDateTo] = useState(todayString());
   const [issueDate, setIssueDate] = useState(todayString());
@@ -425,18 +427,35 @@ export function InvoiceFromDeliveryNotesForm() {
             <Spinner />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              <Select
-                label="ลูกค้า"
-                value={selectedCustomerId}
-                onChange={(event) => setSelectedCustomerId(event.target.value)}
-              >
-                <option value="">เลือกลูกค้า</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </Select>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-gray-600">ลูกค้า</label>
+                {selectedCustomer ? (
+                  <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-[#FAF8F3] p-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-[#1A1A18]">{selectedCustomer.name}</div>
+                      {selectedCustomer.tax_id && <div className="mt-1 text-xs text-gray-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</div>}
+                      {selectedCustomer.address && <div className="mt-1 line-clamp-2 text-xs text-gray-500">{selectedCustomer.address}</div>}
+                      {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
+                        <div className="mt-1 text-xs text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</div>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setCustomerPickerOpen(true)}>เปลี่ยน</Button>
+                  </div>
+                ) : (
+                  <Button variant="secondary" className="w-full justify-center" onClick={() => setCustomerPickerOpen(true)}>
+                    เลือกลูกค้า
+                  </Button>
+                )}
+                <CustomerPickerModal
+                  open={customerPickerOpen}
+                  customers={customers}
+                  selectedCustomerId={selectedCustomerId}
+                  taxSensitive
+                  onClose={() => setCustomerPickerOpen(false)}
+                  onSelect={(customer) => setSelectedCustomerId(customer.id)}
+                  onCreate={async (customer) => addCustomer(customer)}
+                />
+              </div>
               <Input label="วันที่ใบแจ้งหนี้" type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} />
               <Input label="ตั้งแต่วันที่ส่งของ" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
               <Input label="ถึงวันที่ส่งของ" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
@@ -505,6 +524,58 @@ export function InvoiceFromDeliveryNotesForm() {
                   </div>
                 </button>
               ))}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-medium">รายการที่จะออกบิล</h3>
+              <p className="mt-1 text-xs text-gray-500">แสดงทุกรายการจากใบส่งของที่เลือกก่อนสร้างใบแจ้งหนี้</p>
+            </div>
+            <div className="rounded-full bg-[#F3F0E8] px-2.5 py-1 text-xs text-[#5F5A52]">
+              {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการ
+            </div>
+          </div>
+
+          {selectedLines.length === 0 ? (
+            <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบส่งของด้านบนเพื่อดูรายการทั้งหมดก่อนสร้างใบแจ้งหนี้" />
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-[#E8E6DF]">
+              <div className="hidden bg-[#FAF8F3] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:gap-3">
+                <div>ใบส่งของ</div>
+                <div>รายการ</div>
+                <div className="text-right">จำนวน</div>
+                <div className="text-right">ยอด</div>
+              </div>
+              <div className="divide-y divide-[#E8E6DF]">
+                {selectedLines.map(({ doc, line }) => (
+                  <div
+                    key={`${doc.id}-${line.id}`}
+                    className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:items-center sm:gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-[#1A1A18]">{doc.doc_number || "ไม่มีเลขเอกสาร"}</div>
+                      <div className="mt-0.5 text-xs text-gray-500">{formatBuddhistDate(doc.issue_date)}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="break-words text-[#1A1A18]">{line.item_name}</div>
+                      {line.item_sku && <div className="mt-0.5 text-xs text-gray-500">SKU {line.item_sku}</div>}
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-sm sm:block sm:text-right">
+                      <span className="text-xs text-gray-500 sm:hidden">จำนวน</span>
+                      <span>
+                        {line.quantity} {line.unit || ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 font-medium text-[#1A1A18] sm:block sm:text-right">
+                      <span className="text-xs font-normal text-gray-500 sm:hidden">ยอด</span>
+                      <span>฿{formatCurrency(line.line_total)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </Card>
