@@ -31,8 +31,8 @@ const GROUPS: {
   {
     title: "ส่งของก่อน ออกบิลทีหลัง",
     options: [
-      { icon: Truck, title: "ออกใบส่งของ", subtitle: "ส่งสินค้าก่อน แล้วรอรวมออกใบแจ้งหนี้", type: "delivery_note" },
-      { icon: FileStack, title: "รวมใบส่งของเพื่อออกใบแจ้งหนี้", subtitle: "เลือก DN หลายใบเพื่อออกบิลรวม", type: "invoice_from_delivery_notes" },
+      { icon: Truck, title: "สร้างใบส่งของฉบับร่าง", subtitle: "เตรียมส่งสินค้า แล้วกดยืนยันเมื่อส่งจริง", type: "delivery_note" },
+      { icon: FileStack, title: "รวมใบส่งของเพื่อออกใบแจ้งหนี้", subtitle: "ใช้สำหรับออกบิลรายรอบ เช่น สิ้นเดือน", type: "invoice_from_delivery_notes" },
     ],
   },
   {

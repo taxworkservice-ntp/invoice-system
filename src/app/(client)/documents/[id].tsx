@@ -96,6 +96,7 @@ export default function DocumentDetailPage() {
 
   const [convertModal, setConvertModal] = useState(false);
   const [hasQuotationDnActivity, setHasQuotationDnActivity] = useState(false);
+  const [dnInvoiceRef, setDnInvoiceRef] = useState<{ id: string; doc_number: string | null } | null>(null);
 
   const fetchDoc = async () => {
     if (!id) return;
@@ -103,6 +104,18 @@ export default function DocumentDetailPage() {
     try {
       const data = await getDocumentDetail(id);
       setDoc(data);
+      if (data.doc_type === "delivery_note") {
+        const { data: link } = await supabase
+          .from("invoice_delivery_notes")
+          .select("invoice:invoice_id(id, doc_number)")
+          .eq("delivery_note_id", data.id)
+          .is("released_at", null)
+          .maybeSingle();
+        const invoice = (link as any)?.invoice;
+        setDnInvoiceRef(invoice ? { id: invoice.id, doc_number: invoice.doc_number } : null);
+      } else {
+        setDnInvoiceRef(null);
+      }
       if (data.doc_type === "quotation") {
         const [{ data: dnDocs }, { data: dnLines }] = await Promise.all([
           supabase
@@ -567,6 +580,7 @@ export default function DocumentDetailPage() {
   const customer = doc.customer as unknown as Customer | undefined;
   const isDraft = doc.status === "draft";
   const isSent = doc.status === "sent";
+  const isConverted = doc.status === "converted";
   const isIssued = doc.status === "issued";
   const isPaid = doc.status === "paid" || doc.status === "generated" || doc.status === "issued";
   const isVoided = doc.status === "voided";
@@ -581,13 +595,17 @@ export default function DocumentDetailPage() {
   const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
   const statusMessage = isVoided
     ? "ยกเลิกแล้ว เก็บไว้เป็นประวัติ"
-    : isPaid
-      ? "ปิดงานแล้วและมีข้อมูลรับเงินครบ"
-      : isOverdue
-        ? "เกินกำหนดแล้ว ควรติดตามการชำระ"
-        : isSent || isIssued
-          ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
-          : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
+    : doc.doc_type === "delivery_note" && isConverted
+      ? "ออกบิลแล้ว ใบส่งของนี้ถูกใช้สร้างใบแจ้งหนี้แล้ว"
+      : doc.doc_type === "delivery_note" && isSent
+        ? "ส่งของแล้ว / รอออกบิล เอกสารถูกล็อกหลังยืนยันส่งของแล้ว"
+        : isPaid
+          ? "ปิดงานแล้วและมีข้อมูลรับเงินครบ"
+          : isOverdue
+            ? "เกินกำหนดแล้ว ควรติดตามการชำระ"
+            : isSent || isIssued
+              ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
+              : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
 
   return (
     <AppShell
@@ -919,7 +937,7 @@ export default function DocumentDetailPage() {
 
           {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (
             <Button
-              variant="secondary"
+              variant={doc.doc_type === "delivery_note" ? "primary" : "secondary"}
               size="md"
               className="w-full"
               onClick={async () => {
@@ -944,7 +962,7 @@ export default function DocumentDetailPage() {
               }}
               loading={actionLoading === "send"}
             >
-              📤 ทำเครื่องหมายว่าส่งแล้ว
+              {doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "📤 ทำเครื่องหมายว่าส่งแล้ว"}
             </Button>
           )}
 
@@ -974,12 +992,78 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
+          {isSent && doc.doc_type === "delivery_note" && (
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+              เอกสารถูกล็อกหลังยืนยันส่งของแล้ว หากผิดให้ยกเลิกและสร้างใหม่
+            </div>
+          )}
+
           {(isDraft || (isSent && doc.doc_type === "invoice")) && (
             <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-5 text-stone-700">
               {isDraft
-                ? "Drafts can be deleted permanently."
+                ? doc.doc_type === "delivery_note"
+                  ? "ใบส่งของฉบับร่างยังแก้ไขหรือลบได้ก่อนยืนยันส่งของ"
+                  : "Drafts can be deleted permanently."
                 : "Sent invoices should be voided to preserve history. Use the void actions below instead of deleting."}
             </div>
+          )}
+
+          {isSent && doc.doc_type === "delivery_note" && (
+            <div className="space-y-2">
+              <Button
+                variant="primary"
+                size="md"
+                className="w-full"
+                onClick={() => navigate(`/documents/new?type=invoice_from_delivery_notes&dnId=${doc.id}`)}
+              >
+                ออกใบแจ้งหนี้จากใบนี้
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                className="w-full"
+                onClick={() => navigate(`/documents/new?type=invoice_from_delivery_notes&dnId=${doc.id}`)}
+              >
+                รวมกับใบส่งของอื่น
+              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="ghost"
+                  size="md"
+                  className="w-full"
+                  onClick={() => {
+                    setVoidReason("");
+                    setVoidAndRecreate(false);
+                    setVoidModal(true);
+                  }}
+                >
+                  ยกเลิกอย่างเดียว
+                </Button>
+                <Button
+                  variant="danger"
+                  size="md"
+                  className="w-full"
+                  onClick={() => {
+                    setVoidReason("");
+                    setVoidAndRecreate(true);
+                    setVoidModal(true);
+                  }}
+                >
+                  ยกเลิกและสร้างใหม่
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {isConverted && doc.doc_type === "delivery_note" && dnInvoiceRef && (
+            <Button
+              variant="secondary"
+              size="md"
+              className="w-full"
+              onClick={() => navigate(`/documents/${dnInvoiceRef.id}`)}
+            >
+              เปิดใบแจ้งหนี้ {dnInvoiceRef.doc_number || ""}
+            </Button>
           )}
 
           {isSent && doc.doc_type === "invoice" && (
@@ -1062,7 +1146,7 @@ export default function DocumentDetailPage() {
             </div>
           )}
 
-          {(isSent || (isIssued && doc.doc_type === "tax_invoice_receipt")) && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && (
+          {(isSent || (isIssued && doc.doc_type === "tax_invoice_receipt")) && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && (
             <Button
               variant="danger"
               size="md"
@@ -1088,7 +1172,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && !isPaid && !isVoided && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && (
+          {isSent && !isPaid && !isVoided && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && (
             <Button
               variant="ghost"
               size="sm"

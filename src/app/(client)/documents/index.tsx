@@ -352,7 +352,7 @@ function DocumentCard({
                 <>
                   <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("send")}>
                     <Send size={14} />
-                    <span>ทำเครื่องหมายว่าส่งแล้ว</span>
+                    <span>{doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว"}</span>
                   </button>
                   <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
                     <Edit3 size={14} />
@@ -438,7 +438,20 @@ function DocumentCard({
                 </>
               )}
 
-              {isSent && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && (
+              {isSent && doc.doc_type === "delivery_note" && (
+                <>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("invoice_from_dn")}>
+                    <FileStack size={14} />
+                    <span>ออกใบแจ้งหนี้จากใบนี้</span>
+                  </button>
+                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
+                    <Ban size={14} />
+                    <span>ยกเลิก</span>
+                  </button>
+                </>
+              )}
+
+              {isSent && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && (
                 <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
                   <Ban size={14} />
                   <span>ยกเลิก</span>
@@ -756,7 +769,7 @@ export default function DocumentsPage() {
           const { warnings } = await deductStockOnDocumentSent(doc.id, profile.id);
           warnings.forEach((warning) => toast.info(`⚠ ${warning.itemName} สต็อกไม่พอ`));
         }
-        toast.success("ทำเครื่องหมายว่าส่งแล้ว");
+        toast.success(doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว");
       } else if (action === "void") {
         await supabase.from("documents").update({ status: "voided" as DocumentStatus, voided_at: new Date().toISOString() }).eq("id", doc.id);
         if (
@@ -827,6 +840,11 @@ export default function DocumentsPage() {
     if (action === "billing") {
       setOpenMenuId(null);
       navigate(`/documents/new?type=billing_note&dealId=${doc.deal_id || ""}`);
+      return;
+    }
+    if (action === "invoice_from_dn") {
+      setOpenMenuId(null);
+      navigate(`/documents/new?type=invoice_from_delivery_notes&dnId=${doc.id}`);
       return;
     }
     handleInlineAction(doc, action);

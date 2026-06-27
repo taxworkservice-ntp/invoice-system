@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, FileStack } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
@@ -48,6 +48,8 @@ function lineTaxInput(line: DocumentLineItem) {
 
 export function InvoiceFromDeliveryNotesForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedDnId = searchParams.get("dnId");
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
@@ -72,6 +74,31 @@ export function InvoiceFromDeliveryNotesForm() {
       setWhtRate(clientProfile.default_wht_rate);
     }
   }, [clientProfile]);
+
+  useEffect(() => {
+    if (!preselectedDnId || !userId) return;
+
+    let cancelled = false;
+    async function loadPreselectedDeliveryNote() {
+      const { data: dn } = await supabase
+        .from("documents")
+        .select("id, customer_id")
+        .eq("id", preselectedDnId)
+        .eq("user_id", userId)
+        .eq("doc_type", "delivery_note")
+        .eq("status", "sent")
+        .maybeSingle();
+
+      if (!cancelled && dn?.customer_id) {
+        setSelectedCustomerId(dn.customer_id);
+      }
+    }
+
+    loadPreselectedDeliveryNote();
+    return () => {
+      cancelled = true;
+    };
+  }, [preselectedDnId, userId]);
 
   const selectedCustomer = useMemo(
     () => customers.find((customer) => customer.id === selectedCustomerId) || null,
@@ -107,7 +134,23 @@ export function InvoiceFromDeliveryNotesForm() {
         return;
       }
 
-      const docList = (docs || []) as DeliveryNoteOption[];
+      let docList = (docs || []) as DeliveryNoteOption[];
+      if (preselectedDnId && !docList.some((doc) => doc.id === preselectedDnId)) {
+        const { data: preselectedDoc } = await supabase
+          .from("documents")
+          .select("*")
+          .eq("id", preselectedDnId)
+          .eq("user_id", userId)
+          .eq("customer_id", selectedCustomerId)
+          .eq("doc_type", "delivery_note")
+          .eq("status", "sent")
+          .maybeSingle();
+        if (preselectedDoc) {
+          docList = [...docList, preselectedDoc as DeliveryNoteOption].sort((a, b) =>
+            (a.issue_date || "").localeCompare(b.issue_date || ""),
+          );
+        }
+      }
       const docIds = docList.map((doc) => doc.id);
 
       const [{ data: lineItems }, { data: activeLinks }] = await Promise.all([
@@ -142,7 +185,11 @@ export function InvoiceFromDeliveryNotesForm() {
         .filter((doc) => !doc.active_invoice_id);
 
       setDeliveryNotes(options);
-      setSelectedIds(new Set(options.map((doc) => doc.id)));
+      setSelectedIds(
+        preselectedDnId && options.some((doc) => doc.id === preselectedDnId)
+          ? new Set([preselectedDnId])
+          : new Set(options.map((doc) => doc.id)),
+      );
       setLoadingDns(false);
     }
 
@@ -150,7 +197,7 @@ export function InvoiceFromDeliveryNotesForm() {
     return () => {
       cancelled = true;
     };
-  }, [dateFrom, dateTo, selectedCustomerId, userId]);
+  }, [dateFrom, dateTo, preselectedDnId, selectedCustomerId, userId]);
 
   const selectedDeliveryNotes = useMemo(
     () => deliveryNotes.filter((doc) => selectedIds.has(doc.id)),
@@ -166,6 +213,13 @@ export function InvoiceFromDeliveryNotesForm() {
     const dealIds = Array.from(new Set(selectedDeliveryNotes.map((doc) => doc.deal_id).filter(Boolean)));
     return dealIds.length === 1 ? dealIds[0] : null;
   }, [selectedDeliveryNotes]);
+
+  const selectedDealIds = useMemo(
+    () => Array.from(new Set(selectedDeliveryNotes.map((doc) => doc.deal_id).filter(Boolean))),
+    [selectedDeliveryNotes],
+  );
+
+  const hasMixedDeals = selectedDealIds.length > 1;
 
   const taxSnapshot = useMemo(() => {
     if (selectedDeliveryNotes.length === 0) {
@@ -216,14 +270,31 @@ export function InvoiceFromDeliveryNotesForm() {
     setSaving(true);
     setError("");
     let invoiceId: string | null = null;
+    let createdDealId: string | null = null;
 
     try {
+      let invoiceDealId = selectedDealId || selectedDealIds[0] || null;
+      if (!invoiceDealId) {
+        const { data: deal, error: dealError } = await supabase
+          .from("deals")
+          .insert({
+            user_id: userId,
+            customer_id: selectedCustomer.id,
+            title: selectedCustomer.name,
+          })
+          .select("id")
+          .single();
+        if (dealError || !deal) throw dealError || new Error("ไม่สามารถสร้างดีลสำหรับใบแจ้งหนี้ได้");
+        invoiceDealId = deal.id;
+        createdDealId = deal.id;
+      }
+
       const docNumber = await generateDocNumberBE(userId, "invoice", issueDate);
       const { data: invoice, error: invoiceError } = await supabase
         .from("documents")
         .insert({
           user_id: userId,
-          deal_id: selectedDealId,
+          deal_id: invoiceDealId,
           customer_id: selectedCustomer.id,
           doc_type: "invoice",
           doc_number: docNumber,
@@ -287,7 +358,7 @@ export function InvoiceFromDeliveryNotesForm() {
 
       const { error: updateError } = await supabase
         .from("documents")
-        .update({ status: "converted" as DocumentStatus })
+        .update({ status: "converted" as DocumentStatus, deal_id: invoiceDealId })
         .in("id", selectedDeliveryNotes.map((dn) => dn.id));
       if (updateError) throw updateError;
 
@@ -296,6 +367,9 @@ export function InvoiceFromDeliveryNotesForm() {
     } catch (err: any) {
       if (invoiceId) {
         await supabase.from("documents").delete().eq("id", invoiceId);
+      }
+      if (createdDealId) {
+        await supabase.from("deals").delete().eq("id", createdDealId);
       }
       setError(err.message || "เกิดข้อผิดพลาดในการสร้างใบแจ้งหนี้");
       toast.error(err.message || "เกิดข้อผิดพลาด");
@@ -330,6 +404,16 @@ export function InvoiceFromDeliveryNotesForm() {
           <div>
             <p className="font-medium">ใบส่งของที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน</p>
             <p className="mt-0.5 text-xs leading-5">ระบบจะใช้การตั้งค่าภาษีจากใบส่งของใบแรกในรายการ โปรดตรวจสอบก่อนสร้างใบแจ้งหนี้</p>
+          </div>
+        </div>
+      )}
+
+      {hasMixedDeals && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">ใบส่งของที่เลือกมาจากหลายดีล</p>
+            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบส่งของทั้งหมดไว้ในดีลเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็น workflow ต่อเนื่องบนหน้าหลัก</p>
           </div>
         </div>
       )}
