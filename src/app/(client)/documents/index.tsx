@@ -49,6 +49,10 @@ const STATUS_FILTERS: { label: string; value: DocumentStatus | "all" }[] = [
 
 type QuickView = "all" | "attention" | "draft" | "dn_invoice" | "collect" | "paid" | "voided";
 
+function getDisplayAmount(doc: Document): number {
+  return doc.doc_type === "delivery_note" ? doc.total_amount : doc.net_payable;
+}
+
 const DOC_TYPE_BORDER: Record<DocumentType, string> = {
   quotation: "border-l-purple-400",
   invoice: "border-l-blue-400",
@@ -302,7 +306,7 @@ function DocumentCard({
             <div className={`shrink-0 pl-2 text-right ml-auto ${isTerminal ? "opacity-60" : ""}`}>
               <div className="text-[11px] uppercase tracking-[0.12em] text-[#888780]">ยอดสุทธิ</div>
               <div className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-[#1A1A18]"}`}>
-                ฿{formatCurrency(doc.net_payable)}
+                ฿{formatCurrency(getDisplayAmount(doc))}
               </div>
             <button
               type="button"
@@ -529,7 +533,7 @@ function QuickDetailModal({
 
           <div className="mt-4">
             <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">ยอดสุทธิ</div>
-            <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</div>
+            <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</div>
           </div>
         </div>
 
@@ -641,7 +645,7 @@ function QuickDetailModal({
             )}
             <div className="flex items-start justify-between gap-4 border-t border-[#F0ECE5] pt-2">
               <span className="font-medium text-[#1A1A18]">ยอดสุทธิ</span>
-              <span className="text-right text-base font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</span>
+              <span className="text-right text-base font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</span>
             </div>
           </div>
         </div>
@@ -1260,7 +1264,7 @@ export default function DocumentsPage() {
                     </div>
                     <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
                       <span className="text-[11px] text-[#888780]">{formatBuddhistDate(doc.issue_date)}</span>
-                      <span className="text-[12px] font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable || 0)}</span>
+                      <span className="text-[12px] font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc) || 0)}</span>
                     </div>
                   </Card>
                 );
@@ -1305,7 +1309,7 @@ export default function DocumentsPage() {
                             {formatBuddhistDate(doc.issue_date)}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <span className="font-medium text-[#1A1A18]">฿ {formatCurrency(doc.net_payable || 0)}</span>
+                            <span className="font-medium text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc) || 0)}</span>
                           </td>
                           <td className="px-3 py-2 hidden md:table-cell">
                             <Badge status={doc.status} />

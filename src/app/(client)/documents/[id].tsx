@@ -33,6 +33,10 @@ function formatDate(date: string): string {
   return formatBuddhistDate(date);
 }
 
+function getDisplayAmount(doc: Document): number {
+  return doc.doc_type === "delivery_note" ? doc.total_amount : doc.net_payable;
+}
+
 function DocTypeBadge({ docType, vatRegistered }: { docType: Document["doc_type"]; vatRegistered: boolean }) {
   const color = DOC_TYPE_COLORS[docType];
   const label = documentTypeLabel(docType, vatRegistered);
@@ -636,7 +640,7 @@ export default function DocumentDetailPage() {
               <CircleDollarSign className="h-4 w-4" />
               ยอดสำคัญ
             </div>
-            <div className="mt-3 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(doc.net_payable)}</div>
+            <div className="mt-3 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</div>
             <p className="mt-1 text-sm text-[#6B655C]">{doc.wht_rate > 0 ? "ยอดสุทธิหลังหัก ณ ที่จ่าย" : "ยอดรวมเอกสารนี้"}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {canEditDocument && (
@@ -808,7 +812,7 @@ export default function DocumentDetailPage() {
               </div>
               <div className="flex justify-between font-semibold text-base pt-1 border-t border-gray-100">
                 <span className="text-gray-800">ยอดที่ต้องชำระ</span>
-                <span className="text-gray-900">฿{formatCurrency(doc.net_payable)}</span>
+                <span className="text-gray-900">฿{formatCurrency(getDisplayAmount(doc))}</span>
               </div>
             </>
           )}
@@ -1268,7 +1272,7 @@ export default function DocumentDetailPage() {
             คุณต้องการแปลงใบเสนอราคาเป็นใบแจ้งหนี้ใช่หรือไม่?
           </p>
           <p className="text-sm">
-            ยอดรวม: <span className="font-semibold">฿{formatCurrency(doc.net_payable)}</span>
+            ยอดรวม: <span className="font-semibold">฿{formatCurrency(getDisplayAmount(doc))}</span>
           </p>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setConvertModal(false)}>ยกเลิก</Button>

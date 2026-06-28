@@ -80,7 +80,35 @@ export function PrintDocument({ data, copyType = "original" }: { data: PrintDocu
       )}
       <PrintTotals data={data} />
 
-      <footer className="print-block mt-4 grid grid-cols-2 gap-4">
+      {isDeliveryNote && (
+        <footer className="print-block mt-4 grid grid-cols-3 gap-4 text-[11px] text-[#475467]">
+          <div className="border-t-[0.5px] border-[#D3DAE6] pt-4">
+            <div className="mt-10 border-b-[0.5px] border-[#98A2B3] pb-6" />
+            <div className="mt-1 text-center">ผู้ส่งสินค้า</div>
+            <div className="mt-1 text-center text-[10px] text-[#667085]">วันที่</div>
+          </div>
+          <div className="border-t-[0.5px] border-[#D3DAE6] pt-4">
+            <div className="mt-10 border-b-[0.5px] border-[#98A2B3] pb-6" />
+            <div className="mt-1 text-center">ผู้รับสินค้า</div>
+            <div className="mt-1 text-center text-[10px] text-[#667085]">วันที่</div>
+          </div>
+          <div className="border-t-[0.5px] border-[#D3DAE6] pt-4">
+            <div className="relative mt-10 border-b-[0.5px] border-[#98A2B3] pb-6">
+              {signatureUrl && (
+                <img
+                  src={signatureUrl}
+                  alt="ลายเซ็น"
+                  className="absolute left-1/2 bottom-0 h-[56px] -translate-x-1/2 object-contain"
+                />
+              )}
+            </div>
+            <div className="mt-1 text-center">ผู้มีอำนาจลงนาม</div>
+            <div className="mt-1 text-center text-[10px] text-[#667085]">วันที่</div>
+          </div>
+        </footer>
+      )}
+
+      <footer className={isDeliveryNote ? "hidden" : "print-block mt-4 grid grid-cols-2 gap-4"}>
         <div className="border-t-[0.5px] border-[#D3DAE6] pt-4">
           <div className="text-[10px] tracking-[0.12em] text-[#667085]">
             {isDeliveryNote ? "ผู้รับสินค้า" : "ข้อมูลการชำระเงิน"}

@@ -82,7 +82,7 @@ function isOverdueDocument(doc: Document) {
 }
 
 function getDocumentAmount(doc: Document) {
-  if (doc.doc_type === "quotation" || doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") return doc.total_amount;
+  if (doc.doc_type === "quotation" || doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt" || doc.doc_type === "delivery_note") return doc.total_amount;
   return doc.net_payable;
 }
 
