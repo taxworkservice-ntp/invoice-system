@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { isLowStock, isOutOfStock, formatMixedStock } from "../../lib/stock";
+import { formatCurrency } from "../../lib/format";
 import type { Item } from "../../types";
 
 interface Props {
@@ -9,8 +10,9 @@ interface Props {
 
 function StockRow({ item, index }: { item: Item; index: number }) {
   const navigate = useNavigate();
-  const low = isLowStock(item.stock_count, item.low_stock_threshold);
-  const out = isOutOfStock(item.stock_count);
+  const isProduct = item.item_type === "product";
+  const low = isProduct && isLowStock(item.stock_count, item.low_stock_threshold);
+  const out = isProduct && isOutOfStock(item.stock_count);
   const value = item.stock_value;
 
   let rowBg = "";
@@ -40,22 +42,22 @@ function StockRow({ item, index }: { item: Item; index: number }) {
         )}
       </td>
       <td className={`px-3 py-2 text-[13px] text-right tabular-nums font-medium ${textColor || "text-[#1A1A18]"}`}>
-        {item.stock_count}
+        {isProduct ? item.stock_count : "—"}
       </td>
       <td className="px-3 py-2 text-[11px] text-[#888780] text-center">
-        {item.base_unit}
+        {isProduct ? item.base_unit : "—"}
       </td>
       <td className="px-3 py-2 text-[11px] text-right text-[#888780]">
-        {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
+        {isProduct ? formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton) : "—"}
       </td>
       <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#888780]">
-        {item.low_stock_threshold}
+        {isProduct ? item.low_stock_threshold : "—"}
       </td>
       <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#444441] hidden sm:table-cell">
-        {item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+        {isProduct ? item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : "—"}
       </td>
       <td className="px-3 py-2 text-[12px] text-right tabular-nums font-medium text-[#1A1A18] hidden sm:table-cell">
-        {value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+        {isProduct ? value.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : formatCurrency(item.unit_price)}
       </td>
     </tr>
   );
@@ -63,8 +65,9 @@ function StockRow({ item, index }: { item: Item; index: number }) {
 
 function StockRowMobile({ item, index }: { item: Item; index: number }) {
   const navigate = useNavigate();
-  const low = isLowStock(item.stock_count, item.low_stock_threshold);
-  const out = isOutOfStock(item.stock_count);
+  const isProduct = item.item_type === "product";
+  const low = isProduct && isLowStock(item.stock_count, item.low_stock_threshold);
+  const out = isProduct && isOutOfStock(item.stock_count);
   const value = item.stock_value;
 
   let rowBg = "";
@@ -85,14 +88,24 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
           {item.sku && <span className="text-[10px] text-[#888780] ml-1">{item.sku}</span>}
         </div>
         <div className={`shrink-0 text-[14px] font-medium tabular-nums text-right ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#1A1A18]"}`}>
-          {item.stock_count} <span className="text-[10px] font-normal text-[#888780]">{item.base_unit}</span>
+          {isProduct ? (
+            <>{item.stock_count} <span className="text-[10px] font-normal text-[#888780]">{item.base_unit}</span></>
+          ) : (
+            <span className="text-[#1A1A18]">฿ {formatCurrency(item.unit_price)}</span>
+          )}
         </div>
       </div>
       <div className="mt-1 flex items-center gap-4 text-[11px] text-[#888780] flex-wrap">
-        <span>นับรวม: {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}</span>
-        <span>แจ้งเตือน: {item.low_stock_threshold}</span>
-        <span>ทุน ฿{item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-        <span className="font-medium text-[#444441]">= ฿{value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+        {isProduct ? (
+          <>
+            <span>นับรวม: {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}</span>
+            <span>แจ้งเตือน: {item.low_stock_threshold}</span>
+            <span>ทุน ฿{item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+            <span className="font-medium text-[#444441]">= ฿{value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+          </>
+        ) : (
+          <span>{item.base_unit}</span>
+        )}
       </div>
     </div>
   );

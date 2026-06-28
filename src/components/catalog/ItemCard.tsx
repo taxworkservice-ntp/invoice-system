@@ -17,9 +17,7 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
   const hasCarton = !!(item.carton_unit && item.qty_per_carton && item.qty_per_carton > 0);
 
   if (variant === "grid") {
-    const dotColor = !isProduct
-      ? "bg-[#AAAAAA]"
-      : isOut
+    const dotColor = isOut
       ? "bg-[#C0392B]"
       : isLow
       ? "bg-[#F59E0B]"
@@ -45,18 +43,22 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
           </button>
         )}
         <div className="flex items-start gap-2 pr-7">
-          <span
-            className={`shrink-0 w-2 h-2 mt-1.5 rounded-full ${dotColor}`}
-            aria-label={
-              !isProduct
-                ? "บริการ"
-                : isOut
-                ? "สต็อกหมด"
-                : isLow
-                ? "สต็อกใกล้หมด"
-                : "สต็อกปกติ"
-            }
-          />
+          {isProduct ? (
+            <span
+              className={`shrink-0 w-2 h-2 mt-1.5 rounded-full ${dotColor}`}
+              aria-label={
+                isOut
+                  ? "สต็อกหมด"
+                  : isLow
+                  ? "สต็อกใกล้หมด"
+                  : "สต็อกปกติ"
+              }
+            />
+          ) : (
+            <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#F1EFE8] text-[#888780] shrink-0">
+              บริการ
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             {item.sku && (
               <div className="text-[10px] font-mono text-[#888780] mb-0.5 truncate">
