@@ -22,7 +22,7 @@ export function TopBar({ title, showBack, action }: TopBarProps) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
-      <div className="flex items-center justify-between px-4 h-14 max-w-4xl mx-auto">
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 sm:px-5 lg:px-8">
         <div className="flex items-center gap-2">
           {showBack && (
             <button

@@ -90,7 +90,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
         )}
         <TopBar title={title} showBack={showBack} action={action} />
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <div className="max-w-4xl mx-auto px-4 pt-2">
+          <div className="mx-auto w-full max-w-7xl px-4 pt-2 sm:px-5 lg:px-8">
             <nav className="flex items-center gap-1 text-xs text-gray-500">
               {breadcrumbs.map((item, i) => (
                 <React.Fragment key={i}>
@@ -105,7 +105,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
             </nav>
           </div>
         )}
-        <main className="max-w-4xl mx-auto px-4 py-4 pb-24 md:pb-6">
+        <main className="mx-auto w-full max-w-7xl px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8">
           {children}
         </main>
       </div>

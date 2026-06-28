@@ -886,7 +886,7 @@ export default function DocumentDetailPage() {
       )}
 
       <div className="bg-white border-t border-card-border px-4 py-3 md:static md:border-0 md:bg-transparent md:p-0">
-        <div className="max-w-4xl mx-auto space-y-2 rounded-[24px] border border-[#E8E6DF] bg-white p-3 shadow-[0_12px_30px_rgba(26,26,24,0.08)] md:p-4">
+        <div className="mx-auto w-full max-w-7xl space-y-2 rounded-[24px] border border-[#E8E6DF] bg-white p-3 shadow-[0_12px_30px_rgba(26,26,24,0.08)] md:p-4">
           <div className="pb-1">
             <h3 className="text-sm font-semibold text-[#1A1A18]">การดำเนินการถัดไป</h3>
             <p className="mt-1 text-xs leading-5 text-[#6F6A61]">{statusMessage}</p>

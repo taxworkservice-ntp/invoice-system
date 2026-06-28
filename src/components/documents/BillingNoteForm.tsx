@@ -913,7 +913,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
         {isDraft && !readOnly && (
           <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-card-border bg-white px-4 py-3 md:bottom-0">
-            <div className="mx-auto flex max-w-4xl items-center gap-2">
+            <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-0 sm:px-1 lg:px-4">
               <Button variant="secondary" className="flex-1" onClick={handleSaveDraft} loading={saving === "draft"}>
                 บันทึกร่าง
               </Button>
@@ -921,7 +921,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 บันทึกและดูรายละเอียด
               </Button>
             </div>
-            <div className="mx-auto mt-2 max-w-4xl text-center text-[11px] text-gray-500">
+            <div className="mx-auto mt-2 w-full max-w-7xl px-0 text-center text-[11px] text-gray-500 sm:px-1 lg:px-4">
               {autoSaveState === "saving" && "กำลังบันทึกอัตโนมัติ..."}
               {autoSaveState === "saved" && "บันทึกอัตโนมัติแล้ว"}
               {autoSaveState === "error" && "บันทึกอัตโนมัติไม่สำเร็จ"}
