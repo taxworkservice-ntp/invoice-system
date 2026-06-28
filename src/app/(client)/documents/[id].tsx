@@ -609,6 +609,9 @@ export default function DocumentDetailPage() {
             <div>
               <h2 className="text-2xl font-semibold tracking-tight text-[#1A1A18] sm:text-3xl">{doc.doc_number || "-"}</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#625C52]">{statusMessage}</p>
+              {isVoided && doc.voided_reason && (
+                <p className="mt-1 text-xs text-[#9A9690] italic">เหตุผลการยกเลิก: {doc.voided_reason}</p>
+              )}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">

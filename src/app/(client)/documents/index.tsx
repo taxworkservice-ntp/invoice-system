@@ -231,7 +231,7 @@ function DocumentCard({
   const remainingItems = itemNames.length - previewItems.length;
 
   return (
-    <Card onClick={selectMode ? onToggleSelect : onOpen} className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${isVoided ? "border-l-gray-300" : DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""} ${isSelected ? "ring-2 ring-primary bg-primary/5" : ""}`}>
+    <Card onClick={selectMode ? onToggleSelect : onOpen} className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${isVoided ? "border-l-gray-300 opacity-50" : DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""} ${isSelected ? "ring-2 ring-primary bg-primary/5" : ""}`}>
       <div className="p-3.5 sm:p-4">
         <div className="flex items-start gap-3">
           {selectMode && (
@@ -260,6 +260,9 @@ function DocumentCard({
               </span>
               <p className="truncate text-sm text-[#444441]">{customerName}</p>
               <p className="text-xs text-[#7D776D]">{getNextStepText(doc)}</p>
+              {isVoided && doc.voided_reason && (
+                <p className="text-xs text-[#9A9690] italic">เหตุผล: {doc.voided_reason}</p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1 text-xs text-[#888780] sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
@@ -695,6 +698,7 @@ export default function DocumentsPage() {
   const [docTypeFilter, setDocTypeFilter] = useState<DocumentType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "all">("all");
   const [quickView, setQuickView] = useState<QuickView>("all");
+  const [hideVoided, setHideVoided] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -940,6 +944,8 @@ export default function DocumentsPage() {
       if (quickView === "paid" && !(doc.doc_type === "billing_note" && doc.status === "paid")) return false;
       if (quickView === "voided" && doc.status !== "voided") return false;
 
+      if (hideVoided && quickView === "all" && doc.status === "voided") return false;
+
       if (preset === "paid_this_month") {
         if (doc.doc_type !== "billing_note" || doc.status !== "paid" || !doc.paid_at) return false;
         const paidAt = new Date(doc.paid_at);
@@ -1134,6 +1140,21 @@ export default function DocumentsPage() {
             </div>
           </div>
 
+          {summary.voided > 0 && (
+            <div className="hidden md:flex items-center gap-2 pt-1">
+              <input
+                id="hideVoided"
+                type="checkbox"
+                checked={hideVoided}
+                onChange={(e) => setHideVoided(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary rounded"
+              />
+              <label htmlFor="hideVoided" className="text-[11px] text-[#888780] select-none cursor-pointer">
+                ซ่อนเอกสารที่ยกเลิก ({summary.voided})
+              </label>
+            </div>
+          )}
+
           {searchDebouncing && (
             <div className="-mt-1 flex justify-end">
               <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1183,6 +1204,21 @@ export default function DocumentsPage() {
                 ))}
               </div>
             </div>
+
+            {summary.voided > 0 && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  id="hideVoidedMobile"
+                  type="checkbox"
+                  checked={hideVoided}
+                  onChange={(e) => setHideVoided(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-primary rounded"
+                />
+                <label htmlFor="hideVoidedMobile" className="text-[11px] text-[#888780] select-none cursor-pointer">
+                  ซ่อนเอกสารที่ยกเลิก ({summary.voided})
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="hidden flex-wrap items-center justify-between gap-3 border-t border-[#F0ECE5] pt-3 md:flex">

@@ -135,6 +135,7 @@ export default function DealDetailPage() {
   const [voidModalOpen, setVoidModalOpen] = useState(false);
   const [voidDocument, setVoidDocument] = useState<Document | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [voidAndRecreate, setVoidAndRecreate] = useState(true);
   const [voiding, setVoiding] = useState(false);
 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -584,9 +585,10 @@ export default function DealDetailPage() {
     navigate(`/documents/new?type=credit_note&dealId=${dealId}`);
   };
 
-  const handleOpenVoidModal = (doc: Document) => {
+  const handleOpenVoidModal = (doc: Document, recreate: boolean) => {
     setVoidDocument(doc);
     setVoidReason("");
+    setVoidAndRecreate(recreate);
     setVoidModalOpen(true);
   };
 
@@ -594,82 +596,83 @@ export default function DealDetailPage() {
     if (!voidDocument || !userId || !dealId) return;
     setVoiding(true);
     try {
-      const issueDate = voidDocument.issue_date || new Date().toISOString().slice(0, 10);
-
       await voidDocumentWithSideEffects(voidDocument, userId, voidReason);
 
-      const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type, issueDate);
+      if (voidAndRecreate) {
+        const issueDate = voidDocument.issue_date || new Date().toISOString().slice(0, 10);
+        const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type, issueDate);
 
-      const { data: newDoc } = await supabase
-        .from("documents")
-        .insert({
-          user_id: userId,
-          deal_id: dealId,
-          customer_id: voidDocument.customer_id,
-          doc_type: voidDocument.doc_type,
-          doc_number: newDocNumber,
-          status: "draft" as DocumentStatus,
-          issue_date: issueDate,
-          vat_registered: voidDocument.vat_registered,
-          vat_rate: voidDocument.vat_rate,
-          wht_rate: voidDocument.wht_rate,
-          discount_percent: voidDocument.discount_percent,
-          discount_amount: voidDocument.discount_amount,
-          subtotal: voidDocument.subtotal,
-          vat_amount: voidDocument.vat_amount,
-          total_amount: voidDocument.total_amount,
-          wht_amount: voidDocument.wht_amount,
-          net_payable: voidDocument.net_payable,
-          copied_from_id: voidDocument.id,
-        })
-        .select("*")
-        .single();
+        const { data: newDoc } = await supabase
+          .from("documents")
+          .insert({
+            user_id: userId,
+            deal_id: dealId,
+            customer_id: voidDocument.customer_id,
+            doc_type: voidDocument.doc_type,
+            doc_number: newDocNumber,
+            status: "draft" as DocumentStatus,
+            issue_date: issueDate,
+            vat_registered: voidDocument.vat_registered,
+            vat_rate: voidDocument.vat_rate,
+            wht_rate: voidDocument.wht_rate,
+            discount_percent: voidDocument.discount_percent,
+            discount_amount: voidDocument.discount_amount,
+            subtotal: voidDocument.subtotal,
+            vat_amount: voidDocument.vat_amount,
+            total_amount: voidDocument.total_amount,
+            wht_amount: voidDocument.wht_amount,
+            net_payable: voidDocument.net_payable,
+            copied_from_id: voidDocument.id,
+          })
+          .select("*")
+          .single();
 
-      if (newDoc) {
-        const sourceDoc = docsWithMeta.find((item) => item.document.id === voidDocument.id);
+        if (newDoc) {
+          const sourceDoc = docsWithMeta.find((item) => item.document.id === voidDocument.id);
 
-        if (sourceDoc && sourceDoc.line_items.length > 0) {
-          await supabase.from("document_line_items").insert(
-            sourceDoc.line_items.map((li, idx) => ({
-              document_id: newDoc.id,
-              user_id: userId,
-              item_id: li.item_id,
-              item_name: li.item_name,
-              item_sku: li.item_sku,
-              item_type: li.item_type,
-              unit: li.unit,
-              unit_price: li.unit_price,
-              quantity: li.quantity,
-              base_quantity: li.base_quantity,
-              discount_percent: li.discount_percent,
-              discount_amount: li.discount_amount,
-              qty_carton: li.qty_carton,
-              carton_unit: li.carton_unit,
-              source_document_id: li.source_document_id,
-              source_line_item_id: li.source_line_item_id,
-              line_total: li.line_total,
-              sort_order: idx,
-            }))
-          );
-        }
+          if (sourceDoc && sourceDoc.line_items.length > 0) {
+            await supabase.from("document_line_items").insert(
+              sourceDoc.line_items.map((li, idx) => ({
+                document_id: newDoc.id,
+                user_id: userId,
+                item_id: li.item_id,
+                item_name: li.item_name,
+                item_sku: li.item_sku,
+                item_type: li.item_type,
+                unit: li.unit,
+                unit_price: li.unit_price,
+                quantity: li.quantity,
+                base_quantity: li.base_quantity,
+                discount_percent: li.discount_percent,
+                discount_amount: li.discount_amount,
+                qty_carton: li.qty_carton,
+                carton_unit: li.carton_unit,
+                source_document_id: li.source_document_id,
+                source_line_item_id: li.source_line_item_id,
+                line_total: li.line_total,
+                sort_order: idx,
+              }))
+            );
+          }
 
-        if (voidDocument.doc_type === "billing_note" && sourceDoc && sourceDoc.billing_invoices.length > 0) {
-          await supabase.from("billing_note_invoices").insert(
-            sourceDoc.billing_invoices.map((bn) => ({
-              billing_note_id: newDoc.id,
-              invoice_id: bn.invoice_id,
-              user_id: userId,
-              invoice_number: bn.invoice_number,
-              issue_date: bn.issue_date || null,
-              subtotal: bn.subtotal,
-              vat_amount: bn.vat_amount,
-              total_amount: bn.total_amount,
-            }))
-          );
+          if (voidDocument.doc_type === "billing_note" && sourceDoc && sourceDoc.billing_invoices.length > 0) {
+            await supabase.from("billing_note_invoices").insert(
+              sourceDoc.billing_invoices.map((bn) => ({
+                billing_note_id: newDoc.id,
+                invoice_id: bn.invoice_id,
+                user_id: userId,
+                invoice_number: bn.invoice_number,
+                issue_date: bn.issue_date || null,
+                subtotal: bn.subtotal,
+                vat_amount: bn.vat_amount,
+                total_amount: bn.total_amount,
+              }))
+            );
+          }
         }
       }
 
-      toast.success("ยกเลิกและสร้างสำเนาใหม่สำเร็จ");
+      toast.success(voidAndRecreate ? "ยกเลิกและสร้างสำเนาใหม่สำเร็จ" : "ยกเลิกเอกสารสำเร็จ");
       setVoidModalOpen(false);
       setVoidDocument(null);
       fetchDealData();
@@ -686,7 +689,7 @@ export default function DealDetailPage() {
       navigate(`/documents/${activeDoc.document.id}/edit`);
       return;
     }
-    handleOpenVoidModal(activeDoc.document);
+    handleOpenVoidModal(activeDoc.document, true);
   };
 
   const handleCopyDeal = async () => {
@@ -1392,6 +1395,9 @@ export default function DealDetailPage() {
                           <div className="text-xs font-semibold text-gray-700">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</div>
                           <div className="mt-0.5 text-[11px] text-gray-500 line-through">{doc.doc_number || "ยังไม่มีเลขเอกสาร"}</div>
                           <div className="mt-1 text-[10px] text-gray-400">{formatBuddhistDate(doc.issue_date)}</div>
+                          {doc.voided_reason && (
+                            <div className="mt-0.5 text-[10px] text-gray-400 italic">เหตุผล: {doc.voided_reason}</div>
+                          )}
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <div className="text-[13px] font-semibold text-gray-800">฿{formatCurrency(getDocumentAmount(doc))}</div>
@@ -1492,10 +1498,12 @@ export default function DealDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={voidModalOpen} onClose={() => setVoidModalOpen(false)} title="ยกเลิกและสร้างใหม่">
+      <Modal open={voidModalOpen} onClose={() => setVoidModalOpen(false)} title={voidAndRecreate ? "ยกเลิกและสร้างใหม่" : "ยกเลิกเอกสาร"}>
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            การยกเลิกจะเปลี่ยนสถานะเอกสารเป็น <b>ยกเลิก</b> และสร้างสำเนาใหม่ในสถานะ <b>ร่าง</b>
+            {voidAndRecreate
+              ? "การยกเลิกจะเปลี่ยนสถานะเป็นยกเลิก และสร้างสำเนาใหม่ในสถานะร่าง"
+              : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้? สินค้าจะถูกคืนสต็อก"}
           </p>
           <Input
             label="เหตุผลการยกเลิก"
@@ -1503,13 +1511,26 @@ export default function DealDetailPage() {
             onChange={(e) => setVoidReason(e.target.value)}
             placeholder="ไม่บังคับ"
           />
-          <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setVoidModalOpen(false)}>
-              ปิด
-            </Button>
-            <Button variant="danger" onClick={handleConfirmVoid} disabled={voiding}>
-              {voiding ? "กำลังยกเลิก..." : "ยืนยันการยกเลิก"}
-            </Button>
+          <div className="flex gap-2">
+            {voidAndRecreate ? (
+              <>
+                <Button variant="secondary" className="flex-1" onClick={() => setVoidAndRecreate(false)}>
+                  ยกเลิกอย่างเดียว
+                </Button>
+                <Button variant="danger" className="flex-1" onClick={handleConfirmVoid} loading={voiding}>
+                  {voiding ? "กำลังยกเลิก..." : "ยกเลิกและสร้างใหม่"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="secondary" className="flex-1" onClick={() => { setVoidModalOpen(false); }}>
+                  ปิด
+                </Button>
+                <Button variant="danger" className="flex-1" onClick={handleConfirmVoid} loading={voiding}>
+                  {voiding ? "กำลังยกเลิก..." : "ยืนยันการยกเลิก"}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </Modal>
