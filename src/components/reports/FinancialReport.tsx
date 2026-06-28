@@ -7,7 +7,6 @@ import { Skeleton } from "../ui/Skeleton";
 import { EmptyState } from "../ui/EmptyState";
 import { useFinancialReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
-import { formatBuddhistDate } from "../../lib/dates";
 import { TransactionTable } from "./TransactionTable";
 import { buildFinancialReportXlsx } from "../../lib/financialReportXlsx";
 
@@ -96,7 +95,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const { summary, monthly, arByCustomer, inactiveCustomers, cogs, collectionRate, revenueDelta, transactions, loading, error } = useFinancialReport(userId, year, month);
+  const { summary, monthly, arByCustomer, cogs, collectionRate, revenueDelta, transactions, loading, error } = useFinancialReport(userId, year, month);
 
   const today = new Date();
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
@@ -110,7 +109,6 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         summary,
         transactions,
         arByCustomer,
-        inactiveCustomers,
         cogs,
         collectionRate,
         dateFrom: `${String(month).padStart(2, "0")}/${year}`,
@@ -254,36 +252,11 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         </Card>
       )}
 
-      {inactiveCustomers.length > 0 && (
-        <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าที่หายไป (ไม่มีดีล 90+ วัน)</h3>
-          <div className="space-y-1">
-            {inactiveCustomers.map((c) => (
-              <div
-                key={c.customerId}
-                className="flex items-center justify-between text-sm cursor-pointer hover:bg-[#FAFAF8] rounded px-2 py-1.5 -mx-2 transition-colors"
-                onClick={() => navigate(`/customers/${c.customerId}`)}
-              >
-                <div className="min-w-0 flex-1">
-                  <span className="text-gray-700 truncate block">{c.name}</span>
-                  <span className="text-[11px] text-gray-400">
-                    {c.lastDealDate ? `ดีลล่าสุด ${formatBuddhistDate(c.lastDealDate)}` : "ยังไม่มีดีล"}
-                  </span>
-                </div>
-                <div className="text-right tabular-nums shrink-0 ml-3">
-                  <span className="text-sm text-[#888780]">{c.daysSinceLastDeal >= 999 ? "—" : `${c.daysSinceLastDeal} วัน`}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
       <div className="space-y-4">
         <TransactionTable transactions={transactions} />
       </div>
 
-      {summary && summary.revenue === 0 && transactions.length === 0 && arByCustomer.length === 0 && inactiveCustomers.length === 0 && (
+      {summary && summary.revenue === 0 && transactions.length === 0 && arByCustomer.length === 0 && (
         <EmptyState title="ไม่มีข้อมูล" description="ยังไม่มีรายการที่ชำระเงินในเดือนนี้" />
       )}
     </div>

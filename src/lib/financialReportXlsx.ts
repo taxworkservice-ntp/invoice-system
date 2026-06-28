@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import type { FinancialSummary, RevenueByType, MonthlyRevenue, TopCustomer, ARByCustomer, InactiveCustomer, Transaction } from "../hooks/useReports";
+import type { FinancialSummary, ARByCustomer, Transaction } from "../hooks/useReports";
 import { formatCurrency } from "./format";
 
 // ============ Styling ============
@@ -210,44 +210,12 @@ function buildARSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   return ws;
 }
 
-function buildInactiveSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
-  const ws = wb.addWorksheet("ลูกค้าหายไป");
-  const { inactiveCustomers } = opts;
-
-  applyTitle(ws.getCell("A1"));
-  ws.getCell("A1").value = "ลูกค้าที่หายไป (ไม่มีดีล 90+ วัน)";
-
-  const headers = ["ชื่อ", "ดีลล่าสุด", "วันตั้งแต่ดีลล่าสุด"];
-  let row = 3;
-  headers.forEach((h, i) => {
-    const cell = ws.getCell(row, i + 1);
-    applyHeader(cell);
-    cell.value = h;
-  });
-
-  row = 4;
-  for (const c of inactiveCustomers) {
-    applyBody(ws.getCell(row, 1));
-    ws.getCell(row, 1).value = c.name;
-    applyBody(ws.getCell(row, 2));
-    ws.getCell(row, 2).value = c.lastDealDate || "—";
-    applyBody(ws.getCell(row, 3), { right: true });
-    ws.getCell(row, 3).value = c.daysSinceLastDeal >= 999 ? "—" : `${c.daysSinceLastDeal} วัน`;
-    row++;
-  }
-
-  setColumnWidths(ws, [30, 18, 18]);
-  applyPageSetup(ws);
-  return ws;
-}
-
 // ============ Build Opts & Export ============
 
 interface BuildOpts {
   summary: FinancialSummary | null;
   transactions: Transaction[];
   arByCustomer: ARByCustomer[];
-  inactiveCustomers: InactiveCustomer[];
   cogs: number;
   collectionRate: number;
   dateFrom: string;
@@ -261,7 +229,6 @@ export async function buildFinancialReportXlsx(opts: BuildOpts): Promise<Uint8Ar
   buildSummarySheet(wb, opts);
   buildTransactionsSheet(wb, opts);
   buildARSheet(wb, opts);
-  buildInactiveSheet(wb, opts);
 
   const buffer = await wb.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);

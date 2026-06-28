@@ -45,12 +45,6 @@ export interface ARByCustomer {
   daysOverdue: number;
 }
 
-export interface InactiveCustomer {
-  customerId: string;
-  name: string;
-  lastDealDate: string | null;
-  daysSinceLastDeal: number;
-}
 
 export interface Transaction {
   id: string;
@@ -117,7 +111,6 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
   const [arAging, setArAging] = useState<ARAgingBucket[]>([]);
   const [arByCustomer, setArByCustomer] = useState<ARByCustomer[]>([]);
-  const [inactiveCustomers, setInactiveCustomers] = useState<InactiveCustomer[]>([]);
   const [cogs, setCogs] = useState(0);
   const [collectionRate, setCollectionRate] = useState(0);
   const [revenueDelta, setRevenueDelta] = useState<number | null>(null);
@@ -336,49 +329,6 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       // Collection rate
       const rate = collected + outstanding > 0 ? collected / (collected + outstanding) : 0;
       setCollectionRate(rate);
-
-      // Inactive customers (90-day threshold)
-      const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      const { data: allDeals } = await supabase
-        .from("deals")
-        .select("customer_id, created_at, customer:customer_id(id, name)")
-        .eq("user_id", userId)
-        .eq("is_active", true);
-
-      const lastDealMap = new Map<string, { name: string; lastDate: string | null }>();
-      for (const deal of (allDeals || []) as any[]) {
-        if (!deal.customer_id) continue;
-        const cid = deal.customer_id as string;
-        const cname = deal.customer?.name || "ไม่ระบุ";
-        const existing = lastDealMap.get(cid);
-        if (!existing || (deal.created_at && deal.created_at > (existing.lastDate || ""))) {
-          lastDealMap.set(cid, { name: cname, lastDate: deal.created_at?.slice(0, 10) || null });
-        }
-      }
-
-      const { data: allCustomers } = await supabase
-        .from("customers")
-        .select("id, name")
-        .eq("user_id", userId)
-        .eq("is_active", true);
-
-      const inactive: InactiveCustomer[] = [];
-      for (const c of (allCustomers || []) as any[]) {
-        const dealInfo = lastDealMap.get(c.id);
-        const lastDealDate = dealInfo?.lastDate || null;
-        if (!lastDealDate || lastDealDate < ninetyDaysAgo) {
-          const daysSince = lastDealDate
-            ? Math.floor((today.getTime() - new Date(lastDealDate).getTime()) / (1000 * 60 * 60 * 24))
-            : 999;
-          inactive.push({
-            customerId: c.id,
-            name: c.name,
-            lastDealDate,
-            daysSinceLastDeal: daysSince,
-          });
-        }
-      }
-      setInactiveCustomers(inactive.sort((a, b) => b.daysSinceLastDeal - a.daysSinceLastDeal).slice(0, 10));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -390,7 +340,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
     fetchData();
   }, [fetchData]);
 
-  return { summary, byType, monthly, topCustomers, arAging, arByCustomer, inactiveCustomers, cogs, collectionRate, revenueDelta, transactions, loading, error, refetch: fetchData };
+  return { summary, byType, monthly, topCustomers, arAging, arByCustomer, cogs, collectionRate, revenueDelta, transactions, loading, error, refetch: fetchData };
 }
 
 export function useStockReport(userId: string | undefined, dateFrom: string, dateTo: string) {
