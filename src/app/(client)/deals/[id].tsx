@@ -1254,7 +1254,7 @@ export default function DealDetailPage() {
                     });
                     navigate(`/documents/new?${params.toString()}`);
                   }
-                  if (mainAction.type === "invoice_from_dns") navigate("/documents/new?type=invoice_from_delivery_notes");
+                  if (mainAction.type === "invoice_from_dns") navigate(`/documents/new?type=invoice_from_delivery_notes&dnId=${mainAction.doc.id}`);
                   if (mainAction.type === "billing") navigate(`/documents/new?type=billing_note&dealId=${dealId}`);
                   if (mainAction.type === "collect") handleOpenPaymentModal(mainAction.doc);
                 }}
