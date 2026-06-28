@@ -55,6 +55,15 @@ type DashboardDeal = {
 type HomeQueue = "wait_send" | "wait_invoice" | "wait_collect" | "overdue" | "progress" | "done";
 type HomeFilter = "all" | "wait_send" | "wait_invoice" | "wait_collect" | "overdue";
 
+const QUEUE_COLORS: Record<HomeQueue, { bg: string; text: string; dot: string }> = {
+  wait_send: { bg: "bg-[#FFF8EB]", text: "text-[#8B6914]", dot: "bg-amber-500" },
+  wait_invoice: { bg: "bg-[#F5F0FF]", text: "text-[#5B21B6]", dot: "bg-violet-500" },
+  wait_collect: { bg: "bg-[#ECFDF5]", text: "text-[#065F46]", dot: "bg-emerald-500" },
+  overdue: { bg: "bg-[#FEF2F2]", text: "text-[#C0392B]", dot: "bg-[#C0392B]" },
+  progress: { bg: "bg-[#EEF6FF]", text: "text-[#0C447C]", dot: "bg-primary" },
+  done: { bg: "bg-gray-100", text: "text-gray-500", dot: "bg-gray-400" },
+};
+
 function firstNameFromCompanyName(name: string | null | undefined) {
   if (!name) return "";
   return name.trim() || "";
@@ -630,12 +639,10 @@ export default function HomePage() {
                         {deal.customerName}
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex rounded-md bg-[#EEF6FF] px-2 py-0.5 text-[10px] font-medium text-[#0C447C]">
+                        <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}>
                           {deal.stageLabel}
                         </span>
-                        <span className={`inline-flex items-center justify-center w-2 h-2 rounded-full ${
-                          deal.isOverdue ? "bg-[#C0392B]" : deal.status === "sent" ? "bg-primary" : "bg-[#888780]"
-                        }`} />
+                        <span className={`inline-flex items-center justify-center w-2 h-2 rounded-full ${QUEUE_COLORS[deal.queue].dot}`} />
                       </div>
                       <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
                         <span className="text-[11px] text-[#888780] truncate max-w-[60%]">{deal.nextActionLabel}</span>
@@ -670,7 +677,7 @@ export default function HomePage() {
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1.5">
-                                {deal.isOverdue && <span className="w-2 h-2 rounded-full bg-[#C0392B] shrink-0" />}
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`} />
                                 <span className="text-[12px] text-[#444441]">{deal.stageLabel}</span>
                               </div>
                             </td>
@@ -686,7 +693,7 @@ export default function HomePage() {
                               <span className="font-medium text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</span>
                             </td>
                             <td className="px-3 py-2 hidden md:table-cell">
-                              <span className={`text-[11px] ${deal.isOverdue ? "text-[#C0392B] font-medium" : "text-[#888780]"}`}>
+                              <span className={`text-[11px] font-medium ${QUEUE_COLORS[deal.queue].text}`}>
                                 {deal.nextActionLabel}
                               </span>
                             </td>
@@ -711,6 +718,7 @@ export default function HomePage() {
                       nextActionLabel={deal.nextActionLabel}
                       isOverdue={deal.isOverdue}
                       createdAt={deal.createdAt}
+                      queue={deal.queue}
                       onTap={() => navigate(`/deals/${deal.dealId}`)}
                     />
                   ))}
