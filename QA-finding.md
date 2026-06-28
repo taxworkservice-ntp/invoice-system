@@ -22,6 +22,7 @@
 |---|---|
 | F-001 Stock warning visibility | Document detail now shows the same low-stock toast warnings as deal/document list send actions instead of logging only to console. |
 | F-002 Manual send transition mitigation | Manual send/issue actions now run stock side effects before status update and restore stock if the status update fails after stock movement creation. |
+| F-011 Delivery note action gating | Deal detail no longer offers delivery-note creation after the deal is complete; it only appears for open sent quotation/invoice delivery workflows. |
 
 ### Keep as hardening / V1 limitations
 
@@ -230,6 +231,7 @@ These are the thresholds to push until something breaks.
 
 | ID | Date | Severity | Area | Finding | Status |
 |---|---|---|---|---|---|
+| F-011 | 2026-06-28 | S3 | Deal / Workflow | Deal detail showed `บันทึกการส่งของ` whenever any product item existed, even after receipt generation or issued tax-invoice-receipt. The action is now gated to open delivery workflows only and relabeled `ออกใบส่งของ`. (`src/app/(client)/deals/[id].tsx`) | Fixed |
 | F-001 | 2026-06-28 | S3 | Stock / UX | `deductStockOnDocumentSent` returns `StockWarning[]` on negative-stock sale. Document detail previously logged warnings only; it now shows toast warnings consistent with deal and document list send actions. (`src/lib/stock.ts`, `src/app/(client)/documents/[id].tsx`) | Fixed |
 | F-002 | 2026-06-28 | S2 | Atomicity | Manual send/issue paths now use `sendDocumentWithSideEffects`, which deducts stock before status update and compensates with stock restore if the status update fails. Remaining risk: create/convert flows and true transactionality still need a Supabase RPC/migration. (`src/lib/documentSend.ts`, `src/lib/stock.ts`, document/deal send actions) | Mitigated |
 | F-003 | — | S2 | Numbering | `documents.doc_number` has **no UNIQUE constraint**. Concurrency safety relies entirely on `SELECT … FOR UPDATE` inside `generate_doc_number`. A direct SQL insert bypassing the RPC could create collisions. (`schema.sql:537-593`, `documents` table definition) | Open |

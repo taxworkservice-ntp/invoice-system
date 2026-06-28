@@ -493,7 +493,7 @@ export default function DealDetailPage() {
   };
 
   const handleCreateDeliveryNote = async () => {
-    if (!userId || !dealId || !customer) return;
+    if (!userId || !dealId || !customer || !canCreateDeliveryNote) return;
     setActionLoadingId("delivery");
     try {
       const now = new Date().toISOString().slice(0, 10);
@@ -884,6 +884,16 @@ export default function DealDetailPage() {
   const hasPaidDocs = nonVoidedDocs.some(
     (item) => item.document.status === "paid" || (item.document.doc_type === "tax_invoice_receipt" && item.document.status === "issued")
   );
+  const latestSentInvoice = useMemo(
+    () => [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "invoice" && item.document.status === "sent") || null,
+    [nonVoidedDocs]
+  );
+  const canCreateDeliveryNote = useMemo(() => {
+    if (!hasProductItems || allDone) return false;
+    if (activeDoc?.stage === "done") return false;
+    if (latestQuotation?.document.status === "sent" && (!deliveryProgress || !deliveryProgress.allDelivered)) return true;
+    return Boolean(latestSentInvoice);
+  }, [activeDoc?.stage, allDone, deliveryProgress, hasProductItems, latestQuotation, latestSentInvoice]);
   const statusDoc = useMemo(() => {
     if (!allDone) return activeDoc?.document || null;
 
@@ -1417,19 +1427,19 @@ export default function DealDetailPage() {
                 {bulkDownloading ? `กำลังสร้าง ZIP (${nonVoidedDocs.length})` : "ดาวน์โหลดเอกสารทั้งหมด (ZIP)"}
               </Button>
             )}
-            {hasProductItems && (
+            {canCreateDeliveryNote && (
               <Button
                 variant="secondary"
                 className="justify-center !bg-page-bg"
                 loading={actionLoadingId === "delivery"}
                 onClick={handleCreateDeliveryNote}
               >
-                บันทึกการส่งของ
+                ออกใบส่งของ
               </Button>
             )}
             <Button
               variant="secondary"
-              className={`justify-center ${activeDoc?.document.status !== "draft" ? "!bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100" : "!bg-page-bg"} ${hasProductItems ? "" : "col-span-2"}`}
+              className={`justify-center ${activeDoc?.document.status !== "draft" ? "!bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100" : "!bg-page-bg"} ${canCreateDeliveryNote ? "" : "col-span-2"}`}
               onClick={handleCurrentDocAction}
             >
               {activeDoc?.document.status === "draft" ? "แก้ไขฉบับร่าง" : "ยกเลิก / แก้ไข"}
@@ -1437,7 +1447,7 @@ export default function DealDetailPage() {
             {allDone && hasPaidDocs && (
               <Button
                 variant="secondary"
-                className={`justify-center !bg-page-bg ${hasProductItems ? "" : "col-span-2"}`}
+                className={`justify-center !bg-page-bg ${canCreateDeliveryNote ? "" : "col-span-2"}`}
                 onClick={handleCreateCreditNote}
               >
                 ออกใบลดหนี้
