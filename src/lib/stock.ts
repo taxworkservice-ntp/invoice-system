@@ -120,6 +120,7 @@ export interface StockWarning {
 
 export interface DeductStockResult {
   warnings: StockWarning[];
+  movementCreated: boolean;
 }
 
 function nextAverageCost(stockCount: number, stockValue: number): number {
@@ -145,7 +146,7 @@ export async function deductStockOnDocumentSent(
     .eq("id", documentId)
     .single();
 
-  if (!document) return { warnings: [] };
+  if (!document) return { warnings: [], movementCreated: false };
 
   const shouldDeduct =
     (trigger === "invoice" &&
@@ -153,7 +154,7 @@ export async function deductStockOnDocumentSent(
         document.doc_type === "tax_invoice_receipt")) ||
     (trigger === "delivery_note" && document.doc_type === "delivery_note");
 
-  if (!shouldDeduct) return { warnings: [] };
+  if (!shouldDeduct) return { warnings: [], movementCreated: false };
 
   const { data: existingMovement } = await supabase
     .from("stock_movements")
@@ -163,16 +164,17 @@ export async function deductStockOnDocumentSent(
     .limit(1)
     .maybeSingle();
 
-  if (existingMovement) return { warnings: [] };
+  if (existingMovement) return { warnings: [], movementCreated: false };
 
   const { data: lineItems } = await supabase
     .from("document_line_items")
     .select("*")
     .eq("document_id", documentId);
 
-  if (!lineItems) return { warnings: [] };
+  if (!lineItems) return { warnings: [], movementCreated: false };
 
   const warnings: StockWarning[] = [];
+  let movementCreated = false;
 
   for (const li of lineItems) {
     if (li.item_type !== "product" || !li.item_id) continue;
@@ -215,7 +217,7 @@ export async function deductStockOnDocumentSent(
       });
     }
 
-    await supabase
+    const { error: itemUpdateError } = await supabase
       .from("items")
       .update({
         stock_count: finalStock,
@@ -223,6 +225,7 @@ export async function deductStockOnDocumentSent(
         avg_cost: nextAverageCost(finalStock, finalStockValue),
       })
       .eq("id", li.item_id);
+    if (itemUpdateError) throw itemUpdateError;
 
     const reasonLabel =
       document.doc_type === "delivery_note"
@@ -231,7 +234,7 @@ export async function deductStockOnDocumentSent(
           ? "ใบกำกับภาษี/ใบเสร็จรับเงิน"
           : "ใบแจ้งหนี้";
 
-    await supabase.from("stock_movements").insert({
+    const { error: movementError } = await supabase.from("stock_movements").insert({
       item_id: li.item_id,
       user_id: userId,
       movement_type: "auto_out",
@@ -245,9 +248,11 @@ export async function deductStockOnDocumentSent(
       reason: `ตัดสต็อกจาก${reasonLabel} ${document.doc_number}`,
       document_id: documentId,
     });
+    if (movementError) throw movementError;
+    movementCreated = true;
   }
 
-  return { warnings };
+  return { warnings, movementCreated };
 }
 
 export async function restoreStockOnVoid(

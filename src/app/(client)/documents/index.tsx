@@ -16,12 +16,12 @@ import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS, CHIP_COLORS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
-import { deductStockOnDocumentSent } from "../../../lib/stock";
 import type { Document, DocumentStatus, DocumentType } from "../../../types";
 
 const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
@@ -768,12 +768,8 @@ export default function DocumentsPage() {
     setInlineLoading(doc.id);
     try {
       if (action === "send") {
-        const newStatus: DocumentStatus = doc.doc_type === "tax_invoice_receipt" ? "issued" : "sent";
-        await supabase.from("documents").update({ status: newStatus }).eq("id", doc.id);
-        if (doc.doc_type === "invoice" || doc.doc_type === "delivery_note" || doc.doc_type === "tax_invoice_receipt") {
-          const { warnings } = await deductStockOnDocumentSent(doc.id, profile.id);
+        const { warnings } = await sendDocumentWithSideEffects(doc, profile.id);
           warnings.forEach((warning) => toast.info(`⚠ ${warning.itemName} สต็อกไม่พอ`));
-        }
         toast.success(doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว");
       } else if (action === "void") {
         await voidDocumentWithSideEffects(doc, profile.id);

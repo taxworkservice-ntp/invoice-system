@@ -15,6 +15,7 @@ import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import {
   buildReceiptBackdateFields,
@@ -297,10 +298,10 @@ export default function DealDetailPage() {
     if (!userId) return;
     setActionLoadingId(doc.id);
     try {
-      await supabase
-        .from("documents")
-        .update({ status: "sent" as DocumentStatus })
-        .eq("id", doc.id);
+      const { warnings } = await sendDocumentWithSideEffects(doc, userId);
+      warnings.forEach((w) =>
+        toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+      );
 
       if (doc.doc_type === "invoice") {
         const { warnings } = await deductStockOnDocumentSent(doc.id, userId);

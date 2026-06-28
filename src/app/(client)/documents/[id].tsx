@@ -12,6 +12,7 @@ import { getDocumentDetail, saveLineItems } from "../../../hooks/useDocuments";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { deductStockOnDocumentSent } from "../../../lib/stock";
@@ -912,16 +913,10 @@ export default function DocumentDetailPage() {
               onClick={async () => {
                 setActionLoading("send");
                 try {
-                  await supabase
-                    .from("documents")
-                    .update({ status: (doc.doc_type === "tax_invoice_receipt" ? "issued" : "sent") as DocumentStatus })
-                    .eq("id", doc.id);
-                  if (doc.doc_type === "invoice" || doc.doc_type === "delivery_note" || doc.doc_type === "tax_invoice_receipt") {
-                    const { warnings } = await deductStockOnDocumentSent(doc.id, userId!);
-                    warnings.forEach((w) =>
-                      console.warn(`Stock warning: ${w.itemName} insufficient (have ${w.available} ${w.unit}, used ${w.requested})`)
-                    );
-                  }
+                  const { warnings } = await sendDocumentWithSideEffects(doc, userId!);
+                  warnings.forEach((w) =>
+                    toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+                  );
                   await fetchDoc();
                 } catch (err: any) {
                   setError(err.message);
