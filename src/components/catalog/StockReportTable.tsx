@@ -16,45 +16,45 @@ function StockRow({ item, index }: { item: Item; index: number }) {
   let rowBg = "";
   let textColor = "";
   if (out) {
-    rowBg = "bg-red-50/60";
-    textColor = "text-red-700";
+    rowBg = "bg-[#FCEBEB]";
+    textColor = "text-[#791F1F]";
   } else if (low) {
-    rowBg = "bg-amber-50/60";
-    textColor = "text-amber-800";
+    rowBg = "bg-[#FAEEDA]";
+    textColor = "text-[#633806]";
   }
 
   return (
     <tr
-      className={`cursor-pointer border-b border-[#F0EDE6] transition-colors hover:bg-gray-50/60 ${rowBg}`}
+      className={`cursor-pointer border-b border-[#F0EFE9] last:border-0 transition-colors hover:bg-[#FAFAF7] ${rowBg}`}
       onClick={() => navigate(`/catalog/${item.id}`)}
     >
-      <td className="px-2 py-2.5 text-[11px] text-gray-400 w-8 text-right tabular-nums">
+      <td className="px-3 py-2 text-[11px] text-[#888780] w-8 text-right tabular-nums">
         {index}
       </td>
-      <td className="px-2 py-2.5 min-w-0">
-        <div className={`text-sm leading-tight ${out ? "text-red-700" : low ? "text-amber-900" : "text-gray-800"}`}>
+      <td className="px-3 py-2 min-w-0">
+        <div className={`text-[13px] leading-tight ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#1A1A18]"}`}>
           {item.name}
         </div>
         {item.sku && (
-          <div className="text-[10px] text-gray-400">{item.sku}</div>
+          <div className="text-[10px] text-[#888780]">{item.sku}</div>
         )}
       </td>
-      <td className={`px-2 py-2.5 text-sm text-right tabular-nums ${textColor}`}>
+      <td className={`px-3 py-2 text-[13px] text-right tabular-nums font-medium ${textColor || "text-[#1A1A18]"}`}>
         {item.stock_count}
       </td>
-      <td className="px-2 py-2.5 text-[11px] text-gray-500 text-center">
+      <td className="px-3 py-2 text-[11px] text-[#888780] text-center">
         {item.base_unit}
       </td>
-      <td className="px-2 py-2.5 text-[11px] text-right text-gray-500">
+      <td className="px-3 py-2 text-[11px] text-right text-[#888780]">
         {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
       </td>
-      <td className="px-2 py-2.5 text-xs text-right tabular-nums text-gray-500">
+      <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#888780]">
         {item.low_stock_threshold}
       </td>
-      <td className="px-2 py-2.5 text-xs text-right tabular-nums text-gray-600 hidden sm:table-cell">
+      <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#444441] hidden sm:table-cell">
         {item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
       </td>
-      <td className="px-2 py-2.5 text-xs text-right tabular-nums font-medium text-gray-700 hidden sm:table-cell">
+      <td className="px-3 py-2 text-[12px] text-right tabular-nums font-medium text-[#1A1A18] hidden sm:table-cell">
         {value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
       </td>
     </tr>
@@ -68,31 +68,31 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
   const value = item.stock_value;
 
   let rowBg = "";
-  if (out) rowBg = "bg-red-50/60";
-  else if (low) rowBg = "bg-amber-50/60";
+  if (out) rowBg = "bg-[#FCEBEB]";
+  else if (low) rowBg = "bg-[#FAEEDA]";
 
   return (
     <div
-      className={`cursor-pointer border-b border-[#F0EDE6] px-3 py-2.5 transition-colors hover:bg-gray-50/60 ${rowBg}`}
+      className={`cursor-pointer border-b border-[#F0EFE9] last:border-0 px-3 py-2.5 transition-colors hover:bg-[#FAFAF7] ${rowBg}`}
       onClick={() => navigate(`/catalog/${item.id}`)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <span className="text-[10px] text-gray-400 mr-1">{index}.</span>
-          <span className={`text-sm ${out ? "text-red-700" : low ? "text-amber-900" : "text-gray-800"}`}>
+          <span className="text-[10px] text-[#888780] mr-1">{index}.</span>
+          <span className={`text-[14px] ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#1A1A18]"}`}>
             {item.name}
           </span>
-          {item.sku && <span className="text-[10px] text-gray-400 ml-1">{item.sku}</span>}
+          {item.sku && <span className="text-[10px] text-[#888780] ml-1">{item.sku}</span>}
         </div>
-        <div className={`shrink-0 text-sm font-medium tabular-nums text-right ${out ? "text-red-700" : low ? "text-amber-800" : "text-gray-800"}`}>
-          {item.stock_count} <span className="text-[10px] font-normal text-gray-400">{item.base_unit}</span>
+        <div className={`shrink-0 text-[14px] font-medium tabular-nums text-right ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#1A1A18]"}`}>
+          {item.stock_count} <span className="text-[10px] font-normal text-[#888780]">{item.base_unit}</span>
         </div>
       </div>
-      <div className="mt-1 flex items-center gap-4 text-[11px] text-gray-500">
+      <div className="mt-1 flex items-center gap-4 text-[11px] text-[#888780] flex-wrap">
         <span>นับรวม: {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}</span>
         <span>แจ้งเตือน: {item.low_stock_threshold}</span>
         <span>ทุน ฿{item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-        <span className="font-medium text-gray-600">= ฿{value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+        <span className="font-medium text-[#444441]">= ฿{value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
       </div>
     </div>
   );
@@ -103,29 +103,31 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
 
   return (
     <div>
-      <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[#E8E6DF]">
-              <th className="px-2 py-2 text-left text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium w-8">#</th>
-              <th className="px-2 py-2 text-left text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">รายการ</th>
-              <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">สต็อก</th>
-              <th className="px-2 py-2 text-center text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">หน่วย</th>
-              <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">นับรวม</th>
-              <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">แจ้งเตือน</th>
-              <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">ต้นทุนเฉลี่ย</th>
-              <th className="px-2 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-[#888780] font-medium">มูลค่า</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, i) => (
-              <StockRow key={item.id} item={item} index={startIndex + i + 1} />
-            ))}
-          </tbody>
-        </table>
+      <div className="hidden sm:block bg-white border border-card-border rounded-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                <th className="px-3 py-2 font-semibold w-8 text-right">#</th>
+                <th className="px-3 py-2 font-semibold">รายการ</th>
+                <th className="px-3 py-2 font-semibold text-right">สต็อก</th>
+                <th className="px-3 py-2 font-semibold text-center">หน่วย</th>
+                <th className="px-3 py-2 font-semibold text-right">นับรวม</th>
+                <th className="px-3 py-2 font-semibold text-right">แจ้งเตือน</th>
+                <th className="px-3 py-2 font-semibold text-right hidden sm:table-cell">ต้นทุนเฉลี่ย</th>
+                <th className="px-3 py-2 font-semibold text-right hidden sm:table-cell">มูลค่า</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, i) => (
+                <StockRow key={item.id} item={item} index={startIndex + i + 1} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="sm:hidden">
+      <div className="sm:hidden bg-white border border-card-border rounded-card overflow-hidden">
         {items.map((item, i) => (
           <StockRowMobile key={item.id} item={item} index={startIndex + i + 1} />
         ))}
