@@ -41,6 +41,7 @@ type DashboardDeal = {
   stageLabel: string;
   workflowHint: string;
   queue: HomeQueue;
+  createdAt: string;
   updatedAt: string;
   dueDate: string | null;
   paidAt: string | null;
@@ -234,6 +235,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     stageLabel: stageInfo.stageLabel,
     workflowHint: stageInfo.workflowHint,
     queue: stageInfo.queue,
+    createdAt: deal.created_at,
     updatedAt: latestDocument?.updated_at || deal.updated_at,
     dueDate: latestDocument?.due_date || null,
     paidAt,
@@ -650,6 +652,7 @@ export default function HomePage() {
                         <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
                           <th className="px-3 py-2 font-semibold">ลูกค้า</th>
                           <th className="px-3 py-2 font-semibold">สถานะ</th>
+                          <th className="px-3 py-2 font-semibold hidden lg:table-cell">สร้างเมื่อ</th>
                           <th className="px-3 py-2 font-semibold hidden sm:table-cell">รายการ</th>
                           <th className="px-3 py-2 font-semibold text-right">จำนวนเงิน</th>
                           <th className="px-3 py-2 font-semibold hidden md:table-cell">ขั้นตอนถัดไป</th>
@@ -670,6 +673,9 @@ export default function HomePage() {
                                 {deal.isOverdue && <span className="w-2 h-2 rounded-full bg-[#C0392B] shrink-0" />}
                                 <span className="text-[12px] text-[#444441]">{deal.stageLabel}</span>
                               </div>
+                            </td>
+                            <td className="px-3 py-2 hidden lg:table-cell">
+                              <span className="text-[11px] text-[#888780] tabular-nums">{formatBuddhistDate(deal.createdAt)}</span>
                             </td>
                             <td className="px-3 py-2 hidden sm:table-cell">
                               <span className="text-[12px] text-[#888780] truncate block max-w-[200px]">
@@ -704,6 +710,7 @@ export default function HomePage() {
                       workflowHint={deal.workflowHint}
                       nextActionLabel={deal.nextActionLabel}
                       isOverdue={deal.isOverdue}
+                      createdAt={deal.createdAt}
                       onTap={() => navigate(`/deals/${deal.dealId}`)}
                     />
                   ))}

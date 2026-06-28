@@ -1,6 +1,7 @@
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { CHIP_COLORS } from "../../constants";
+import { formatBuddhistDate } from "../../lib/dates";
 import type { DocumentStatus } from "../../types";
 
 interface DealCardProps {
@@ -13,6 +14,7 @@ interface DealCardProps {
   workflowHint?: string;
   nextActionLabel: string;
   isOverdue?: boolean;
+  createdAt: string;
   onTap: () => void;
 }
 
@@ -26,6 +28,7 @@ export function DealCard({
   workflowHint,
   nextActionLabel,
   isOverdue,
+  createdAt,
   onTap,
 }: DealCardProps) {
   const previewItems = itemNames.slice(0, 3);
@@ -39,6 +42,7 @@ export function DealCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-[#1A1A18] truncate">{customerName}</div>
+          <div className="mt-0.5 text-[10px] text-[#888780]">{formatBuddhistDate(createdAt)}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="inline-flex rounded-md bg-[#EEF6FF] px-2 py-0.5 text-[11px] font-medium text-[#0C447C]">
               {stageLabel}
