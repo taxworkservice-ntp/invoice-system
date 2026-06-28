@@ -721,7 +721,7 @@ export default function HomePage() {
             {recentlyDone.length > 0 && (
               <>
                 <div className="border-t border-card-border pt-1" />
-                <section className="opacity-60">
+                <section>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">เสร็จสิ้นล่าสุด</div>
                     <div className="flex items-center gap-3">

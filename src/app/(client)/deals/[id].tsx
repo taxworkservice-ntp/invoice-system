@@ -1310,7 +1310,7 @@ export default function DealDetailPage() {
                 const overdue = isOverdueDocument(doc);
                 const isDoneStage = item.stage === "done" && !isCurrent;
                 return (
-                  <div key={doc.id} className={`flex gap-3 ${isDoneStage ? "opacity-60" : ""}`}>
+                  <div key={doc.id} className={`flex gap-3 ${isDoneStage ? "opacity-80" : ""}`}>
                     <div className="w-7 flex flex-col items-center shrink-0">
                       <div
                         className={[
