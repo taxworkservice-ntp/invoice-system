@@ -12,8 +12,9 @@ import { getDocumentDetail, saveLineItems } from "../../../hooks/useDocuments";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { generateDocNumberBE } from "../../../lib/docNumber";
-import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
+import { deductStockOnDocumentSent } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
@@ -169,43 +170,7 @@ export default function DocumentDetailPage() {
     if (!doc || !userId) return;
     setVoiding(true);
     try {
-      await supabase
-        .from("documents")
-        .update({
-          status: "voided" as DocumentStatus,
-          voided_at: new Date().toISOString(),
-          voided_reason: voidReason || null,
-        })
-        .eq("id", doc.id);
-
-      if (
-        (doc.doc_type === "invoice" && doc.status === "sent") ||
-        (doc.doc_type === "delivery_note" && doc.status === "sent") ||
-        (doc.doc_type === "tax_invoice_receipt" && doc.status === "issued")
-      ) {
-        await restoreStockOnVoid(doc.id, userId);
-      }
-
-      if (doc.doc_type === "invoice") {
-        const { data: linkedDns } = await supabase
-          .from("invoice_delivery_notes")
-          .select("delivery_note_id")
-          .eq("invoice_id", doc.id)
-          .is("released_at", null);
-
-        if (linkedDns?.length) {
-          await supabase
-            .from("invoice_delivery_notes")
-            .update({ released_at: new Date().toISOString() })
-            .eq("invoice_id", doc.id)
-            .is("released_at", null);
-
-          await supabase
-            .from("documents")
-            .update({ status: "sent" as DocumentStatus })
-            .in("id", linkedDns.map((link: any) => link.delivery_note_id));
-        }
-      }
+      await voidDocumentWithSideEffects(doc, userId, voidReason);
 
       if (voidAndRecreate) {
         const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);

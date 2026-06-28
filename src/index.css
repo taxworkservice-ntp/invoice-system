@@ -154,6 +154,19 @@ body {
   page-break-inside: avoid;
 }
 
+.print-delivery-note .print-table th:nth-child(n + 5),
+.print-delivery-note .print-table td:nth-child(n + 5) {
+  display: none;
+}
+
+.print-delivery-note .print-totals > div:nth-child(2) {
+  display: none;
+}
+
+.print-delivery-note .print-totals {
+  display: block;
+}
+
 @page {
   size: A4;
   margin: 12mm;

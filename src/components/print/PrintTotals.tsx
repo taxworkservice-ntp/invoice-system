@@ -17,7 +17,7 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
   }
 
   return (
-    <section className="print-block mt-4 grid grid-cols-[1fr_68mm] gap-4">
+    <section className="print-block print-totals mt-4 grid grid-cols-[1fr_68mm] gap-4">
       <div className="bg-transparent p-0">
         <div className="text-[10px] tracking-[0.12em] text-[#667085]">หมายเหตุ</div>
         <div className="mt-2 min-h-[24mm] whitespace-pre-line text-[11px] leading-[18px] text-[#475467]">

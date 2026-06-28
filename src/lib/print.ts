@@ -56,9 +56,9 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
   let referenceDoc: Document | undefined;
   const referenceId =
-    document.doc_type === "credit_note" || document.doc_type === "delivery_note"
-      ? document.converted_from_id || document.copied_from_id || undefined
-      : undefined;
+    document.doc_type === "billing_note" || document.doc_type === "receipt"
+      ? undefined
+      : document.converted_from_id || document.copied_from_id || undefined;
 
   if (referenceId) {
     const { data: referenceData } = await supabase

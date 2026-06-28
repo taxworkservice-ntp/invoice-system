@@ -117,7 +117,10 @@ export default function CustomersPage() {
       list = list.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
-          (c.tax_id && c.tax_id.includes(q)),
+          (c.tax_id && c.tax_id.includes(q)) ||
+          (c.address && c.address.toLowerCase().includes(q)) ||
+          (c.phone && c.phone.toLowerCase().includes(q)) ||
+          (c.contact_name && c.contact_name.toLowerCase().includes(q)),
       );
     }
     return list;

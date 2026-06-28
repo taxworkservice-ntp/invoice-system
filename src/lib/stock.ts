@@ -127,23 +127,6 @@ function nextAverageCost(stockCount: number, stockValue: number): number {
   return round2(stockValue / stockCount);
 }
 
-async function findDocumentMovementValue(
-  documentId: string,
-  itemId: string,
-): Promise<number | null> {
-  const { data } = await supabase
-    .from("stock_movements")
-    .select("movement_value")
-    .eq("document_id", documentId)
-    .eq("item_id", itemId)
-    .eq("movement_type", "auto_out")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return data?.movement_value ?? null;
-}
-
 export async function deductStockOnDocumentSent(
   documentId: string,
   userId: string,
@@ -279,54 +262,73 @@ export async function restoreStockOnVoid(
 
   const docNumber = document?.doc_number || voidedDocumentId;
 
-  const { data: lineItems } = await supabase
-    .from("document_line_items")
-    .select("*")
-    .eq("document_id", voidedDocumentId);
+  const { data: outboundMovements } = await supabase
+    .from("stock_movements")
+    .select("id, item_id, qty_base, qty_carton, carton_unit, movement_value, unit_cost")
+    .eq("document_id", voidedDocumentId)
+    .eq("movement_type", "auto_out");
 
-  if (!lineItems) return;
+  if (!outboundMovements || outboundMovements.length === 0) return;
 
-  for (const li of lineItems) {
-    if (li.item_type !== "product" || !li.item_id) continue;
+  const movementIds = outboundMovements.map((movement) => movement.id);
+  const { data: existingRestores } = await supabase
+    .from("stock_movements")
+    .select("parent_movement_id")
+    .in("parent_movement_id", movementIds)
+    .eq("movement_type", "return_in");
+
+  const restoredMovementIds = new Set(
+    (existingRestores || [])
+      .map((movement) => movement.parent_movement_id)
+      .filter(Boolean),
+  );
+
+  for (const movement of outboundMovements) {
+    if (!movement.item_id || restoredMovementIds.has(movement.id)) continue;
 
     const { data: item } = await supabase
       .from("items")
       .select("stock_count, avg_cost, stock_value")
-      .eq("id", li.item_id)
+      .eq("id", movement.item_id)
       .single();
 
     if (!item) continue;
 
-    const baseQuantity = round3(Number(li.base_quantity ?? li.quantity ?? 0));
-    const priorMovementValue = await findDocumentMovementValue(voidedDocumentId, li.item_id);
-    if (priorMovementValue == null) continue;
+    const baseQuantity = round3(Math.abs(Number(movement.qty_base || 0)));
+    if (baseQuantity <= 0) continue;
 
     const newStock = round3(item.stock_count + baseQuantity);
     const unitCost = round2(
-      baseQuantity > 0 ? priorMovementValue / baseQuantity : Number(item.avg_cost || 0),
+      movement.unit_cost != null
+        ? Number(movement.unit_cost)
+        : Number(item.avg_cost || 0),
     );
-    const movementValue = round2(priorMovementValue);
+    const movementValue =
+      movement.movement_value != null
+        ? round2(Math.abs(Number(movement.movement_value)))
+        : round2(baseQuantity * unitCost);
     const newStockValue = round2(Number(item.stock_value || 0) + movementValue);
     const avgCost = nextAverageCost(newStock, newStockValue);
 
     await supabase
       .from("items")
       .update({ stock_count: newStock, stock_value: newStockValue, avg_cost: avgCost })
-      .eq("id", li.item_id);
+      .eq("id", movement.item_id);
 
     await supabase.from("stock_movements").insert({
-      item_id: li.item_id,
+      item_id: movement.item_id,
       user_id: userId,
       movement_type: "return_in",
       qty_base: baseQuantity,
-      qty_carton: li.qty_carton || null,
-      carton_unit: li.carton_unit || null,
+      qty_carton: movement.qty_carton != null ? Math.abs(Number(movement.qty_carton)) : null,
+      carton_unit: movement.carton_unit || null,
       balance_after: newStock,
       unit_cost: unitCost,
       movement_value: movementValue,
       balance_value_after: newStockValue,
-      reason: `คืนสต็อกจากการยกเลิกเอกสาร ${docNumber}`,
+      reason: `Restore stock from voided document ${docNumber}`,
       document_id: voidedDocumentId,
+      parent_movement_id: movement.id,
     });
   }
 }

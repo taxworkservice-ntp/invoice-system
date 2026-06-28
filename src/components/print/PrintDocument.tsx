@@ -44,10 +44,11 @@ export function PrintDocument({ data, copyType = "original" }: { data: PrintDocu
   const accentColor = DOC_ACCENT_COLORS[data.document.doc_type];
   const isCopy = copyType === "copy";
   const isDeliveryNote = data.document.doc_type === "delivery_note";
+  const documentClass = isDeliveryNote ? " print-delivery-note" : "";
 
   return (
     <article
-      className={isCopy ? "print-sheet print-theme-modern print-copy" : "print-sheet print-theme-modern"}
+      className={isCopy ? `print-sheet print-theme-modern print-copy${documentClass}` : `print-sheet print-theme-modern${documentClass}`}
       style={{ "--doc-accent": accentColor } as React.CSSProperties}
     >
       <PrintHeader data={data} copyType={copyType} />

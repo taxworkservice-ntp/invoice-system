@@ -15,6 +15,7 @@ import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import {
   buildReceiptBackdateFields,
   composeReceiptBackdateReason,
@@ -23,7 +24,7 @@ import {
   toLocalMiddayIso,
   todayString,
 } from "../../../lib/receiptBackdating";
-import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
+import { deductStockOnDocumentSent } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import type {
@@ -594,39 +595,7 @@ export default function DealDetailPage() {
     try {
       const issueDate = voidDocument.issue_date || new Date().toISOString().slice(0, 10);
 
-      await supabase
-        .from("documents")
-        .update({
-          status: "voided" as DocumentStatus,
-          voided_at: new Date().toISOString(),
-          voided_reason: voidReason || null,
-        })
-        .eq("id", voidDocument.id);
-
-      if (voidDocument.doc_type === "delivery_note" && voidDocument.status === "sent") {
-        await restoreStockOnVoid(voidDocument.id, userId);
-      }
-
-      if (voidDocument.doc_type === "invoice") {
-        const { data: linkedDns } = await supabase
-          .from("invoice_delivery_notes")
-          .select("delivery_note_id")
-          .eq("invoice_id", voidDocument.id)
-          .is("released_at", null);
-
-        if (linkedDns?.length) {
-          await supabase
-            .from("invoice_delivery_notes")
-            .update({ released_at: new Date().toISOString() })
-            .eq("invoice_id", voidDocument.id)
-            .is("released_at", null);
-
-          await supabase
-            .from("documents")
-            .update({ status: "sent" as DocumentStatus })
-            .in("id", linkedDns.map((link: any) => link.delivery_note_id));
-        }
-      }
+      await voidDocumentWithSideEffects(voidDocument, userId, voidReason);
 
       const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type, issueDate);
 
