@@ -156,7 +156,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   }, [selectedInvoices, whtRate]);
 
   const pastDueDate = dueDate ? new Date(dueDate) < new Date(todayString()) : false;
-  const canAutoSave = Boolean(selectedCustomerId && selectedInvoiceIds.size > 0 && dueDate && isDraft && !readOnly);
+  const canAutoSave = Boolean(selectedCustomerId && selectedInvoiceIds.size > 0 && dueDate && dueDate >= issueDate && isDraft && !readOnly);
 
   const loadInvoiceOptions = useCallback(async (customerId: string, currentDocId?: string, currentDealId?: string) => {
     if (!userId) return;
@@ -371,10 +371,11 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     const nextErrors: FormErrors = {};
     if (!selectedCustomerId) nextErrors.customer = "กรุณาเลือกลูกค้า";
     if (!dueDate) nextErrors.dueDate = "กรุณาระบุวันครบกำหนด";
+    else if (dueDate < issueDate) nextErrors.dueDate = "วันครบกำหนดต้องไม่ก่อนวันที่ออกใบวางบิล";
     if (selectedInvoiceIds.size === 0) nextErrors.invoices = "กรุณาเลือกอย่างน้อย 1 ใบแจ้งหนี้";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
-  }, [dueDate, selectedCustomerId, selectedInvoiceIds.size]);
+  }, [dueDate, issueDate, selectedCustomerId, selectedInvoiceIds.size]);
 
   const handleSelectCustomer = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
@@ -390,7 +391,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
   const persistBillingNote = useCallback(async (options?: { assignDocNumber?: boolean; showToast?: boolean; navigateToDetail?: boolean; silent?: boolean }) => {
     if (!userId || !selectedCustomerId) return null;
-    if (!options?.silent && !validate()) return null;
+    if (!validate()) return null;
 
     const previouslySavedIds = [...savedInvoiceIds];
     const currentlySelectedIds = [...selectedInvoiceIds];

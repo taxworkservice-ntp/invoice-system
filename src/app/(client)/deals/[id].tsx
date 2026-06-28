@@ -25,7 +25,7 @@ import {
   toLocalMiddayIso,
   todayString,
 } from "../../../lib/receiptBackdating";
-import { deductStockOnDocumentSent } from "../../../lib/stock";
+import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import type {
@@ -304,19 +304,6 @@ export default function DealDetailPage() {
         toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
       );
 
-      if (doc.doc_type === "invoice") {
-        const { warnings } = await deductStockOnDocumentSent(doc.id, userId);
-        warnings.forEach((w) =>
-          toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
-        );
-      }
-      if (doc.doc_type === "delivery_note") {
-        const { warnings } = await deductStockOnDocumentSent(doc.id, userId);
-        warnings.forEach((w) =>
-          toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
-        );
-      }
-
       toast.success("อัปเดตสถานะเอกสารแล้ว");
       fetchDealData();
     } catch (err: unknown) {
@@ -329,7 +316,36 @@ export default function DealDetailPage() {
   const handleConvertToInvoice = async (quotation: Document) => {
     if (!userId || !dealId || !customer) return;
     setActionLoadingId(quotation.id);
+    let createdInvoiceId: string | null = null;
     try {
+      if (quotation.status !== "sent") {
+        throw new Error("แปลงได้เฉพาะใบเสนอราคาที่ส่งแล้วเท่านั้น");
+      }
+
+      const existingInvoice = docsWithMeta.find(
+        (item) =>
+          item.document.doc_type === "invoice" &&
+          item.document.converted_from_id === quotation.id &&
+          item.document.status !== "voided",
+      );
+      if (existingInvoice) {
+        throw new Error("ใบเสนอราคานี้ถูกแปลงเป็นใบแจ้งหนี้แล้ว");
+      }
+
+      const { data: persistedInvoice, error: existingInvoiceError } = await supabase
+        .from("documents")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("converted_from_id", quotation.id)
+        .eq("doc_type", "invoice")
+        .neq("status", "voided")
+        .limit(1)
+        .maybeSingle();
+      if (existingInvoiceError) throw existingInvoiceError;
+      if (persistedInvoice) {
+        throw new Error("ใบเสนอราคานี้ถูกแปลงเป็นใบแจ้งหนี้แล้ว");
+      }
+
       const issueDate = quotation.issue_date || new Date().toISOString().slice(0, 10);
       const docNumber = await generateDocNumberBE(userId, "invoice", issueDate);
 
@@ -360,9 +376,10 @@ export default function DealDetailPage() {
         .select("*")
         .single();
       if (error) throw error;
+      createdInvoiceId = invoiceDoc.id;
 
       if (lineItems.length > 0) {
-        await supabase.from("document_line_items").insert(
+        const { error: lineError } = await supabase.from("document_line_items").insert(
           lineItems.map((li, idx) => ({
             document_id: invoiceDoc.id,
             user_id: userId,
@@ -384,18 +401,25 @@ export default function DealDetailPage() {
             sort_order: idx,
           }))
         );
+        if (lineError) throw lineError;
       }
 
       await deductStockOnDocumentSent(invoiceDoc.id, userId);
 
-      await supabase
+      const { error: quotationUpdateError } = await supabase
         .from("documents")
         .update({ status: "converted" as DocumentStatus })
         .eq("id", quotation.id);
+      if (quotationUpdateError) throw quotationUpdateError;
 
       toast.success("แปลงเป็นใบแจ้งหนี้สำเร็จ");
       fetchDealData();
     } catch (err: unknown) {
+      if (createdInvoiceId) {
+        await restoreStockOnVoid(createdInvoiceId, userId).catch(() => undefined);
+        await supabase.from("document_line_items").delete().eq("document_id", createdInvoiceId);
+        await supabase.from("documents").delete().eq("id", createdInvoiceId);
+      }
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setActionLoadingId(null);

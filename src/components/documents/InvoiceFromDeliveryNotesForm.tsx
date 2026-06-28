@@ -28,9 +28,10 @@ function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function monthStartString() {
+function defaultDeliveryNoteStartString() {
   const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+  date.setDate(date.getDate() - 90);
+  return date.toISOString().slice(0, 10);
 }
 
 function buildItemSummary(items: DocumentLineItem[]) {
@@ -59,7 +60,7 @@ export function InvoiceFromDeliveryNotesForm() {
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
-  const [dateFrom, setDateFrom] = useState(monthStartString());
+  const [dateFrom, setDateFrom] = useState(defaultDeliveryNoteStartString());
   const [dateTo, setDateTo] = useState(todayString());
   const [issueDate, setIssueDate] = useState(todayString());
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
@@ -459,6 +460,9 @@ export function InvoiceFromDeliveryNotesForm() {
               <Input label="วันที่ใบแจ้งหนี้" type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} />
               <Input label="ตั้งแต่วันที่ส่งของ" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
               <Input label="ถึงวันที่ส่งของ" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+              <p className="text-xs leading-5 text-gray-500 sm:col-span-2">
+                ระบบแสดงใบส่งของที่ยืนยันแล้วในช่วงวันที่นี้ ค่าเริ่มต้นย้อนหลัง 90 วัน และจะรวมใบที่เลือกจากปุ่มลัดไว้เสมอ
+              </p>
             </div>
           )}
         </Card>

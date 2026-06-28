@@ -15,7 +15,7 @@ import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
-import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, round3 } from "../../../lib/stock";
+import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import type { DocumentType, Customer, WhtRate, PaymentMethod, Item } from "../../../types";
 
@@ -346,6 +346,7 @@ export default function NewDealPage() {
 
     setSaving(true);
     let createdDealId: string | null = null;
+    let createdDocumentId: string | null = null;
     try {
       let dealId: string | null = null;
       if (!isBillingNote) {
@@ -398,6 +399,7 @@ export default function NewDealPage() {
         .single();
 
       if (docError) throw docError;
+      createdDocumentId = document.id;
 
       if (isLineItemDocument) {
         const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
@@ -460,6 +462,12 @@ export default function NewDealPage() {
         navigate("/home");
       }
     } catch (err: unknown) {
+      if (createdDocumentId) {
+        await restoreStockOnVoid(createdDocumentId, userId).catch(() => undefined);
+        await supabase.from("billing_note_invoices").delete().eq("billing_note_id", createdDocumentId);
+        await supabase.from("document_line_items").delete().eq("document_id", createdDocumentId);
+        await supabase.from("documents").delete().eq("id", createdDocumentId);
+      }
       if (createdDealId) {
         await supabase.from("deals").delete().eq("id", createdDealId);
       }
