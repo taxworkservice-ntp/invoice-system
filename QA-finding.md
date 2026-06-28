@@ -3,6 +3,7 @@
 > Status: **TRIAGED — confirmed findings separated from backlog candidates**
 > Scope: end-to-end invoice workflow (quotation → invoice → billing → receipt), side flows (delivery note, credit note, tax-invoice-receipt, void + recreate), and the limits/edges of the flow.
 > Stack: React + Vite + Supabase + Vercel + R2 (per `invoice-system-master-prompt.md`).
+> Last updated: 2026-06-28 — added F-012 → F-022 (pipeline test pass: create / convert / from-DN / billing flows).
 
 ---
 
@@ -13,8 +14,19 @@
 | Priority | Finding | Why |
 |---|---|---|
 | P1 | F-002 Atomic status + stock transitions | Manual send paths now use safer ordering + compensation, but full coverage still needs a transaction/RPC for create/convert flows. |
+| P1 | F-012 Double stock call in `handleSendDraft` | `deals/[id].tsx:298-327` calls `deductStockOnDocumentSent` again after `sendDocumentWithSideEffects` already deducted. Idempotent but causes duplicate warnings and unnecessary DB queries. |
+| P1 | F-013 No rollback on `NewDealPage.handleSave` failure | `deals/new.tsx:325-471` — document insert can succeed while line items / stock deduction fail, leaving orphaned document with no line items. |
+| P1 | F-014 No rollback on `handleConvertToInvoice` failure | `deals/[id].tsx:329-403` — converting quotation can partially complete (invoice + line items inserted but quotation status not updated, or stock not deducted). User could double-convert. |
 | P2 | F-003 Document number uniqueness | Direct inserts can bypass RPC sequencing. Add a DB uniqueness guard after checking existing data. |
+| P2 | F-015 Customer prefill race condition | `deals/new.tsx:163-170` — `useEffect` returns early if `customersLoading=true` but `customersLoading` is not in deps. Customer may never auto-prefill. |
+| P2 | F-016 Billing note `dueDate` has no minimum validation | `BillingNoteForm.tsx:370-377` — user can set `dueDate` in the past, creating an immediately-overdue billing note. |
+| P2 | F-017 `InvoiceFromDeliveryNotesForm` `dateFrom` defaults to month start | `InvoiceFromDeliveryNotesForm.tsx:62-64` — DNs from previous months are hidden by default. Users must manually widen the date range. |
+| P2 | F-018 Friendlier error on missing `doc_number_sequences` | All save handlers surface raw Postgres exception when the doc-number sequence row is missing. Not user-actionable. |
 | P3 | F-004 Pagination / large lists | Current list hooks fetch all rows. This will hurt real customers once documents/items grow. |
+| P3 | F-019 `unit_price` allows 0 or negative | `deals/new.tsx` line items — no `min={0}` validation. User can create ฿0 invoice or use negative prices as a discount workaround. |
+| P3 | F-020 No `sort_order` preservation on void+recreate | `deals/[id].tsx:595-684` — recreates line items with fresh `idx` from `.map()`, not original `sort_order`. |
+| P3 | F-021 No stock summary before quotation convert | `deals/[id].tsx:329-403` — convert confirms with no preview of which items will have stock deducted. |
+| P3 | F-022 "Send" action on draft invoice is buried | Draft invoice shows "ยกเลิก / แก้ไข" as primary action; send requires multi-step navigation. |
 
 ### Fixed in app code
 
@@ -122,8 +134,10 @@
 |---|---|---|
 | invoice | true | ใบกำกับภาษี / Tax Invoice |
 | invoice | false | ใบแจ้งหนี้ / Invoice |
-| tax_invoice_receipt | * | ใบกำกับภาษี/ใบเสร็จรับเงิน (two lines) |
+| tax_invoice_receipt | * | ใบกำกับภาษี/ใบเส็จรับเงิน (two lines) |
 | quotation, billing_note, receipt, delivery_note, credit_note | * | fixed labels |
+- **TX-9** `unit_price = 0` with `quantity > 0` → line is accepted, line total ฿0, no warning. Should warn or block. (See F-019.)
+- **TX-10** `unit_price < 0` with `quantity > 0` → line is accepted, acts as a hidden discount. Should be blocked at input. (See F-019.)
 
 ### Stock (ST)
 - **ST-1** Negative stock sale → clamp to 0, `StockWarning[]` returned; **verify whether the warning is surfaced to the user on the document detail page** (explore agent flagged it is only logged, not shown — UX bug to confirm).
@@ -149,6 +163,9 @@
 - **LS-10** `payDate > today` → blocked or defaulted to today.
 - **LS-11** Void+Recreate mid-failure: line items insert fails after doc insert → draft with no lines; check retry/UX.
 - **LS-12** Stock deduction only on `draft→sent`: no `auto_out` on initial draft save.
+- **LS-13** `NewDealPage.handleSave` partial failure: line items insert fails after doc insert → orphaned document with no lines; no rollback. Verify retry path / user UX. (See F-013.)
+- **LS-14** `handleConvertToInvoice` partial failure: invoice + line items inserted but stock-deduct or quotation-status-update fails → live invoice + still-sent quotation → user can re-convert. Verify guard / rollback. (See F-014.)
+- **LS-15** Switch customer mid-form: select customer A, add 5 line items, switch to customer B → all 5 lines persist against customer B with no confirmation. (See F-019-adjacent.)
 
 ### Billing note (BN)
 - **BN-1** Cross-BN locking: invoice A in BN-1 → BN-2 shows A as already taken.
@@ -157,6 +174,7 @@
 - **BN-4** BN without customer → blocked.
 - **BN-5** Empty BN (no invoices) → validation fail.
 - **BN-6** BN with WHT cert → flows into auto-receipt.
+- **BN-7** `dueDate < issueDate` (past due date) → currently accepted, creates immediately-overdue BN. Validate `dueDate >= issueDate`. (See F-016.)
 
 ### Payment / receipt (PM)
 - **PM-1** `amount_received <= 0` → button disabled.
@@ -231,6 +249,17 @@ These are the thresholds to push until something breaks.
 
 | ID | Date | Severity | Area | Finding | Status |
 |---|---|---|---|---|---|
+| F-022 | 2026-06-28 | S3 | UX / Send | Draft invoice primary action on the deal page reads "ยกเลิก / แก้ไข" — sending a draft is a multi-step detour (open detail → menu → "ทำเครื่องหมายว่าส่งแล้ว"). For drafts, replace the action label with "ดูฉบับร่าง" and surface a primary "ส่ง →" CTA. (`src/app/(client)/deals/[id].tsx:1440-1446`) | Open |
+| F-021 | 2026-06-28 | S3 | Convert | `handleConvertToInvoice` confirmation modal does not show a preview of which line items will trigger stock deduction, leaving users surprised when stock counts drop. (`src/app/(client)/deals/[id].tsx:1468-1499`) | Open |
+| F-020 | 2026-06-28 | S3 | Void | Void+recreate regenerates line items with a fresh `idx` from `.map()` rather than copying `source.sort_order`. User-chosen line ordering is lost on recreate. (`src/app/(client)/deals/[id].tsx:632-653`, `src/app/(client)/documents/[id].tsx:200-220`) | Open |
+| F-019 | 2026-06-28 | S3 | Tax / Forms | `NewDealPage` line items accept `unit_price < 0` and `unit_price = 0` with no validation. Negative prices act as a hidden discount bypassing the document-level discount calculation; ฿0 prices silently zero out line totals. (`src/app/(client)/deals/new.tsx`) | Open |
+| F-018 | 2026-06-28 | S3 | Numbering | All document save handlers call `generateDocNumberBE` and surface the raw Postgres exception when `doc_number_sequences` has no row for `(user_id, doc_type)`. Replace with a friendly Thai error: "ยังไม่ได้ตั้งค่าเลขเอกสาร กรุณาติดต่อผู้ดูแลระบบ". (`src/lib/docNumber.ts`, all save handlers) | Open |
+| F-017 | 2026-06-28 | S3 | Invoice from DN | `InvoiceFromDeliveryNotesForm` defaults `dateFrom` to the 1st of the current month, so DNs from previous months are hidden by default. Users must manually widen the date range to find them. Default to a 90-day window or "all time" with a clear UI. (`src/components/documents/InvoiceFromDeliveryNotesForm.tsx:62-64`) | Open |
+| F-016 | 2026-06-28 | S2 | Billing | `BillingNoteForm.validate()` only checks `dueDate` is non-empty; past dates are accepted and immediately mark the BN overdue. Validate `dueDate >= issueDate` and surface an error otherwise. (`src/components/documents/BillingNoteForm.tsx:370-377`) | Open |
+| F-015 | 2026-06-28 | S2 | New Deal | `NewDealPage` customer prefill `useEffect` returns early when `customersLoading=true` but `customersLoading` is not in the dep array. If customer list is loading when the effect first runs, the customer is never pre-filled and the effect never re-fires. Add `customersLoading` to deps. (`src/app/(client)/deals/new.tsx:163-170`) | Open |
+| F-014 | 2026-06-28 | S1 | Convert | `handleConvertToInvoice` has no rollback logic. If the document insert succeeds and the line items insert or `deductStockOnDocumentSent` or quotation-status update fails, the user is left in a half-converted state (live invoice but still-sent quotation) and can convert again, creating duplicates. (`src/app/(client)/deals/[id].tsx:329-403`) | Open |
+| F-013 | 2026-06-28 | S1 | New Deal | `NewDealPage.handleSave` has no rollback. The deal row is created first; if document or line-item insert fails, the deal remains in the deals list with no documents. Stock deduction failure (TIR path) leaves a paid-looking doc with stock not deducted. (`src/app/(client)/deals/new.tsx:325-471`) | Open |
+| F-012 | 2026-06-28 | S1 | Send | `deals/[id].tsx:298-327 handleSendDraft` calls `deductStockOnDocumentSent` again after `sendDocumentWithSideEffects` has already done so. `deductStockOnDocumentSent` is idempotent so no double-deduct, but duplicate toasts and extra DB roundtrips occur. Remove the second call. | Open |
 | F-011 | 2026-06-28 | S3 | Deal / Workflow | Deal detail showed `บันทึกการส่งของ` whenever any product item existed, even after receipt generation or issued tax-invoice-receipt. The action is now gated to open delivery workflows only and relabeled `ออกใบส่งของ`. (`src/app/(client)/deals/[id].tsx`) | Fixed |
 | F-001 | 2026-06-28 | S3 | Stock / UX | `deductStockOnDocumentSent` returns `StockWarning[]` on negative-stock sale. Document detail previously logged warnings only; it now shows toast warnings consistent with deal and document list send actions. (`src/lib/stock.ts`, `src/app/(client)/documents/[id].tsx`) | Fixed |
 | F-002 | 2026-06-28 | S2 | Atomicity | Manual send/issue paths now use `sendDocumentWithSideEffects`, which deducts stock before status update and compensates with stock restore if the status update fails. Remaining risk: create/convert flows and true transactionality still need a Supabase RPC/migration. (`src/lib/documentSend.ts`, `src/lib/stock.ts`, document/deal send actions) | Mitigated |
