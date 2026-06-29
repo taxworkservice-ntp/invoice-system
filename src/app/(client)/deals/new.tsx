@@ -144,6 +144,7 @@ export default function NewDealPage() {
   const [paymentDate, setPaymentDate] = useState(todayString());
   const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
   const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
+  const [note, setNote] = useState("");
 
   const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
@@ -391,6 +392,7 @@ export default function NewDealPage() {
         payment_method: isTaxInvoiceReceipt ? paymentMethod : null,
         paid_at: isTaxInvoiceReceipt ? new Date(`${paymentDate}T00:00:00`).toISOString() : null,
         amount_received: isTaxInvoiceReceipt ? tax.netPayable : null,
+        note: note.trim() ? note : null,
       };
 
       const { data: document, error: docError } = await supabase
@@ -1048,6 +1050,18 @@ export default function NewDealPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="border-t border-card-border pt-3">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  หมายเหตุ
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  rows={3}
+                  placeholder="เช่น ชำระภายใน 30 วัน โอนก่อนส่งของ"
+                  className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary whitespace-pre-line"
+                />
               </div>
             </div>
           )}
