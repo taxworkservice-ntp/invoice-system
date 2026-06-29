@@ -626,7 +626,7 @@ export default function HomePage() {
               </div>
 
               {activeDeals.length === 0 ? (
-                <EmptyState title="ยังไม่มีรายการในคิวนี้" description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างใหม่” เพื่อเริ่มงาน" />
+                <EmptyState title="ยังไม่มีรายการในคิวนี้" description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างงานขายใหม่” เพื่อเริ่มงาน" />
               ) : viewMode === "grid" ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {activeDeals.map((deal) => (
@@ -693,7 +693,7 @@ export default function HomePage() {
                               <span className="font-medium text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</span>
                             </td>
                             <td className="px-3 py-2 hidden md:table-cell">
-                              <span className={`text-[11px] font-medium ${QUEUE_COLORS[deal.queue].text}`}>
+                              <span className="text-[11px] font-medium text-[#777166]">
                                 {deal.nextActionLabel}
                               </span>
                             </td>

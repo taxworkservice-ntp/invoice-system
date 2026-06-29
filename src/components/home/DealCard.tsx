@@ -17,13 +17,13 @@ interface DealCardProps {
   onTap: () => void;
 }
 
-const STAGE_COLORS: Record<string, { bg: string; text: string; banner: string }> = {
-  wait_send: { bg: "bg-[#FFF8EB]", text: "text-[#8B6914]", banner: "bg-amber-50 text-[#8B6914]" },
-  wait_invoice: { bg: "bg-[#F5F0FF]", text: "text-[#5B21B6]", banner: "bg-violet-50 text-[#5B21B6]" },
-  wait_collect: { bg: "bg-[#ECFDF5]", text: "text-[#065F46]", banner: "bg-emerald-50 text-[#065F46]" },
-  overdue: { bg: "bg-[#FEF2F2]", text: "text-[#C0392B]", banner: "bg-red-50 text-[#C0392B]" },
-  progress: { bg: "bg-[#EEF6FF]", text: "text-[#0C447C]", banner: "bg-blue-50 text-primary" },
-  done: { bg: "bg-gray-100", text: "text-gray-500", banner: "bg-gray-50 text-gray-500" },
+const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
+  wait_send: { bg: "bg-[#FFF8EB]", text: "text-[#8B6914]" },
+  wait_invoice: { bg: "bg-[#F5F0FF]", text: "text-[#5B21B6]" },
+  wait_collect: { bg: "bg-[#ECFDF5]", text: "text-[#065F46]" },
+  overdue: { bg: "bg-[#FEF2F2]", text: "text-[#C0392B]" },
+  progress: { bg: "bg-[#EEF6FF]", text: "text-[#0C447C]" },
+  done: { bg: "bg-gray-100", text: "text-gray-500" },
 };
 
 const ITEM_CHIP_CLASS = "bg-[#F7F6F3] text-[#62605A]";
@@ -86,7 +86,7 @@ export function DealCard({
           {workflowHint && <div className="mt-1 max-w-[120px] text-[10px] leading-4 text-gray-400">{workflowHint}</div>}
         </div>
       </div>
-      <div className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold leading-4 ${colors.banner}`}>
+      <div className="mt-3 border-t border-[#F0EFE9] pt-2 text-xs font-medium leading-4 text-[#777166]">
         {nextActionLabel}
       </div>
     </Card>

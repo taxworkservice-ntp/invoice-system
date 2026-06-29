@@ -19,7 +19,7 @@ export function HomeTopBar({ greeting, subtitle, isAllClear, onNewDeal }: HomeTo
         <div className="shrink-0">
           <Button size="sm" variant="primary" onClick={onNewDeal}>
             <Plus className="w-4 h-4 mr-1" />
-            สร้างใหม่
+            สร้างงานขายใหม่
           </Button>
         </div>
       </div>

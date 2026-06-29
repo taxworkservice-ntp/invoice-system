@@ -237,7 +237,7 @@ export default function CustomersPage() {
             }`}
           >
             <Briefcase size={12} />
-            มี deal {hasDealsCount > 0 && <span className="ml-1 opacity-70">{hasDealsCount}</span>}
+            มีงานขาย {hasDealsCount > 0 && <span className="ml-1 opacity-70">{hasDealsCount}</span>}
           </button>
         </div>
 
@@ -273,7 +273,7 @@ export default function CustomersPage() {
           customers.length === 0 ? (
             <EmptyState
               title="ยังไม่มีลูกค้า"
-              description="ลูกค้าจะปรากฏที่นี่เมื่อคุณสร้าง deal แรก หรือเพิ่มลูกค้าได้เลย"
+              description="ลูกค้าจะปรากฏที่นี่เมื่อคุณเริ่มงานขายแรก หรือเพิ่มลูกค้าได้เลย"
               action={<Button onClick={() => setShowAddSheet(true)}>+ เพิ่มลูกค้า</Button>}
             />
           ) : (
@@ -287,8 +287,8 @@ export default function CustomersPage() {
               ) : filterMode === "hasDeals" && hasDealsCount === 0 ? (
                 <>
                   <Briefcase size={28} className="mx-auto mb-2 text-[#AAAAAA]" />
-                  <p>ยังไม่มีลูกค้าที่มี deal</p>
-                  <p className="mt-1">สร้าง deal กับลูกค้าก่อน แล้วจะปรากฏที่นี่</p>
+                  <p>ยังไม่มีลูกค้าที่มีงานขาย</p>
+                  <p className="mt-1">สร้างงานขายกับลูกค้าก่อน แล้วจะปรากฏที่นี่</p>
                 </>
               ) : filterMode === "favorites" ? (
                 <>
@@ -297,7 +297,7 @@ export default function CustomersPage() {
                 </>
               ) : filterMode === "hasDeals" ? (
                 <>
-                  <p>ไม่พบ "{search}" ในลูกค้าที่มี deal</p>
+                  <p>ไม่พบ "{search}" ในลูกค้าที่มีงานขาย</p>
                   <p className="mt-1">ลองค้นหาด้วยชื่อหรือเลขผู้เสียภาษี</p>
                 </>
               ) : (
@@ -355,10 +355,10 @@ export default function CustomersPage() {
                     )}
                     {count > 0 ? (
                       <span className="text-[11px] text-[#378ADD] font-medium">
-                        {count} deals →
+                        {count} งานขาย →
                       </span>
                     ) : (
-                      <span className="text-[11px] text-[#AAAAAA]">ยังไม่มี deal</span>
+                      <span className="text-[11px] text-[#AAAAAA]">ยังไม่มีงานขาย</span>
                     )}
                   </div>
                 </Card>
@@ -375,7 +375,7 @@ export default function CustomersPage() {
                     <th className="px-3 py-2 font-semibold">ชื่อลูกค้า</th>
                     <th className="px-3 py-2 font-semibold hidden sm:table-cell">เลขผู้เสียภาษี</th>
                     <th className="px-3 py-2 font-semibold hidden md:table-cell">เบอร์โทร</th>
-                    <th className="px-3 py-2 font-semibold text-right">Deals</th>
+                    <th className="px-3 py-2 font-semibold text-right">งานขาย</th>
                     <th className="px-3 py-2 font-semibold hidden sm:table-cell">สถานะ</th>
                   </tr>
                 </thead>
@@ -482,9 +482,9 @@ export default function CustomersPage() {
                     </div>
                     <div className="text-right shrink-0">
                       {count > 0 ? (
-                        <span className="text-[12px] text-[#378ADD]">{count} deals →</span>
+                        <span className="text-[12px] text-[#378ADD]">{count} งานขาย →</span>
                       ) : (
-                        <span className="text-[12px] text-[#AAAAAA]">ยังไม่มี deal</span>
+                        <span className="text-[12px] text-[#AAAAAA]">ยังไม่มีงานขาย</span>
                       )}
                     </div>
                   </div>

@@ -304,7 +304,7 @@ export default function CustomerDetailPage() {
       action={
         <div className="flex items-center gap-1">
           <Button size="sm" onClick={() => setNewSheetOpen(true)} className="!text-[12px]">
-            + สร้าง deal
+            + สร้างงานขาย
           </Button>
           <div className="relative">
             <button
@@ -528,7 +528,7 @@ export default function CustomerDetailPage() {
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="text-[20px] font-bold text-[#1A1A18]">{deals.length}</div>
-              <div className="text-[11px] text-[#888780]">deal ทั้งหมด</div>
+              <div className="text-[11px] text-[#888780]">งานขายทั้งหมด</div>
             </div>
             <div>
               <div className="text-[20px] font-bold text-[#1A1A18]">฿ {formatCurrency(totalReceived)}</div>
@@ -547,7 +547,7 @@ export default function CustomerDetailPage() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-[11px] uppercase font-semibold text-[#888780]">
-                ประวัติ deal
+                ประวัติงานขาย
               </div>
               <div className="mt-0.5 text-[11px] text-[#AAA49A]">
                 กำลังดำเนินการ {activeDealItems.length} · เสร็จสิ้น {doneDealItems.length}
@@ -583,7 +583,7 @@ export default function CustomerDetailPage() {
 
           {filteredDealItems.length === 0 ? (
             <div className="text-center py-8 text-[13px] text-[#888780]">
-              ยังไม่มี deal — กด + สร้าง deal ด้านบนเพื่อเริ่ม
+              ยังไม่มีงานขาย — กด + สร้างงานขาย ด้านบนเพื่อเริ่ม
             </div>
           ) : dealHistoryView === "table" ? (
             <>
@@ -597,7 +597,7 @@ export default function CustomerDetailPage() {
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
                         <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
-                          {item.deal.title || "Deal"}
+                          {item.deal.title || "งานขาย"}
                         </div>
                         <div className="mt-0.5 text-[11px] text-[#888780]">
                           {item.latestDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
@@ -622,7 +622,7 @@ export default function CustomerDetailPage() {
                 <table className="w-full text-[13px]">
                   <thead>
                     <tr className="border-b border-card-border bg-[#F7F6F3] text-left text-[11px] uppercase tracking-wide text-[#888780]">
-                      <th className="px-3 py-2 font-semibold">Deal / เอกสารล่าสุด</th>
+                      <th className="px-3 py-2 font-semibold">งานขาย / เอกสารล่าสุด</th>
                       <th className="px-3 py-2 font-semibold">วันที่</th>
                       <th className="px-3 py-2 font-semibold">สถานะ</th>
                       <th className="px-3 py-2 text-right font-semibold">ยอด</th>
@@ -640,7 +640,7 @@ export default function CustomerDetailPage() {
                       >
                         <td className="px-3 py-2">
                           <div className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
-                            {item.deal.title || "Deal"}
+                            {item.deal.title || "งานขาย"}
                           </div>
                           <div className="mt-0.5 truncate text-[11px] text-[#888780]">
                             {item.latestDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
@@ -689,7 +689,7 @@ export default function CustomerDetailPage() {
                         <div className="flex items-start justify-between">
                           <div className="min-w-0 flex-1">
                             <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
-                              {item.deal.title || "Deal"}
+                              {item.deal.title || "งานขาย"}
                             </div>
                             {item.latestDoc && (
                               <div className="text-[11px] text-[#888780] mt-0.5">
@@ -723,7 +723,7 @@ export default function CustomerDetailPage() {
           <div className="absolute inset-0 bg-black/30" onClick={() => setDeleteConfirm(false)} />
           <div className="relative bg-white rounded-t-xl md:rounded-xl w-full max-w-sm p-5 shadow-xl">
             <h3 className="text-base font-semibold mb-1">ลบ {customer.name}?</h3>
-            <p className="text-sm text-[#888780] mb-4">ข้อมูล deal และเอกสารทั้งหมดจะยังคงอยู่</p>
+            <p className="text-sm text-[#888780] mb-4">ข้อมูลงานขายและเอกสารทั้งหมดจะยังคงอยู่</p>
             <div className="flex gap-2">
               <Button variant="danger" onClick={handleDeactivate} disabled={deleting} loading={deleting} className="flex-1">
                 ลบลูกค้า

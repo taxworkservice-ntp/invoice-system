@@ -386,7 +386,7 @@ export default function SetupPage() {
 
               <div className="space-y-2 mb-4">
                 {([
-                  { icon: "🧾", title: "สร้าง deal แรก", desc: "เริ่มออกใบเสนอราคาหรือใบแจ้งหนี้", to: "/deals/new" },
+                  { icon: "🧾", title: "เริ่มงานขายแรก", desc: "เริ่มออกใบเสนอราคาหรือใบแจ้งหนี้", to: "/deals/new" },
                   { icon: "👥", title: "เพิ่มลูกค้าก่อน", desc: "บันทึกข้อมูลลูกค้าที่คุณทำงานด้วย", to: "/customers" },
                   { icon: "⚙️", title: "ตั้งค่าเพิ่มเติม", desc: "แก้ไขที่อยู่, prefix เอกสาร, และอื่นๆ", to: "/settings" },
                 ] as const).map((opt) => (
