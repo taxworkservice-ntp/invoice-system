@@ -61,3 +61,11 @@ begin
         check (pdf_template in ('modern', 'classic'));
   end if;
 end $$;
+
+-- 4. Force PostgREST to reload its schema cache. After changing a
+--    column's constraints (NOT NULL, default, CHECK), the PostgREST
+--    layer can serve a stale schema description that mismatches the
+--    actual table — causing read queries like
+--    /rest/v1/client_profiles?user_id=eq.<uuid> to return 400.
+--    NOTIFY pgrst, 'reload schema' asks PostgREST to refresh.
+NOTIFY pgrst, 'reload schema';
