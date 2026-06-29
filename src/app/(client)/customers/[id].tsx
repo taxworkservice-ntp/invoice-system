@@ -14,7 +14,7 @@ import { useTableSort } from "../../../components/ui/useTableSort";
 import { NewDealSheet } from "../../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { supabase } from "../../../lib/supabase";
-import { useAuth } from "../../../hooks/useAuth";
+import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
@@ -75,6 +75,7 @@ export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { clientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -89,6 +90,7 @@ export default function CustomerDetailPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editContact, setEditContact] = useState("");
+  const [editCreditTerm, setEditCreditTerm] = useState<string>("");
   const [editAvatarInitials, setEditAvatarInitials] = useState("");
   const [editAvatarColor, setEditAvatarColor] = useState("");
   const [saving, setSaving] = useState(false);
@@ -145,6 +147,7 @@ export default function CustomerDetailPage() {
         setEditPhone(custRes.data.phone || "");
         setEditEmail(custRes.data.email || "");
         setEditContact(custRes.data.contact_name || "");
+        setEditCreditTerm(custRes.data.credit_term_days != null ? String(custRes.data.credit_term_days) : "");
         setEditAvatarInitials(custRes.data.avatar_initials || "");
         setEditAvatarColor(custRes.data.avatar_color || "");
         setUseCustomAvatar(Boolean(custRes.data.avatar_initials || custRes.data.avatar_color));
@@ -495,6 +498,28 @@ export default function CustomerDetailPage() {
                 onChange={(e) => setEditContact(e.target.value)}
                 placeholder="ชื่อคนที่ติดต่อด้วย"
               />
+              <div>
+                <label className="block text-[13px] text-[#1A1A18] mb-1">
+                  ระยะเวลาเครดิต (วัน)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={editCreditTerm}
+                    onChange={(e) => setEditCreditTerm(e.target.value)}
+                    placeholder={`ใช้ค่าเริ่มต้น (${clientProfile?.credit_term_days ?? 7} วัน)`}
+                    className="w-24 px-2 py-1.5 text-sm text-right border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD]"
+                  />
+                  <span className="text-sm text-[#888780]">วัน</span>
+                  {editCreditTerm.trim() === "" && (
+                    <span className="text-[11px] text-[#888780]">
+                      เว้นว่างไว้เพื่อใช้ค่าเริ่มต้นของบริษัท
+                    </span>
+                  )}
+                </div>
+              </div>
               <div className="flex gap-2">
                 <Button onClick={handleSave} disabled={saving} loading={saving} className="!text-[12px]">
                   บันทึก
@@ -796,6 +821,7 @@ export default function CustomerDetailPage() {
       <NewDealSheet
         open={newSheetOpen}
         onClose={() => setNewSheetOpen(false)}
+        vatRegistered={clientProfile?.vat_registered}
         onSelect={(type) => {
           setNewSheetOpen(false);
           navigate(`/deals/new?type=${type}&customer_id=${customer.id}`);

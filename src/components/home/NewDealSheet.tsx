@@ -6,6 +6,7 @@ interface NewDealSheetProps {
   open: boolean;
   onClose: () => void;
   onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes") => void;
+  vatRegistered?: boolean;
 }
 
 type NewDealType = "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes";
@@ -43,7 +44,7 @@ const GROUPS: {
   },
 ];
 
-export function NewDealSheet({ open, onClose, onSelect }: NewDealSheetProps) {
+export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: NewDealSheetProps) {
   return (
     <Modal open={open} onClose={onClose}>
       <div className="pb-1">
@@ -58,6 +59,14 @@ export function NewDealSheet({ open, onClose, onSelect }: NewDealSheetProps) {
               <div className="divide-y divide-card-border rounded-xl border border-card-border bg-white">
                 {group.options.map((option) => {
                   const Icon = option.icon;
+                  const title =
+                    option.type === "tax_invoice_receipt" && !vatRegistered
+                      ? "รับเงินแล้ว ออกใบเสร็จรับเงิน"
+                      : option.title;
+                  const subtitle =
+                    option.type === "tax_invoice_receipt" && !vatRegistered
+                      ? "ชำระทันที ปิดงานในเอกสารเดียว และไม่มี VAT"
+                      : option.subtitle;
                   return (
                     <button
                       key={option.type}
@@ -70,12 +79,12 @@ export function NewDealSheet({ open, onClose, onSelect }: NewDealSheetProps) {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <div className="truncate text-sm font-semibold text-[#1A1A18]">{option.title}</div>
+                            <div className="truncate text-sm font-semibold text-[#1A1A18]">{title}</div>
                             {option.recommended && (
                               <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">แนะนำ</span>
                             )}
                           </div>
-                          <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">{option.subtitle}</div>
+                          <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">{subtitle}</div>
                         </div>
                         <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
                       </div>

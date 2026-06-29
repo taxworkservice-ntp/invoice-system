@@ -830,6 +830,7 @@ export default function HomePage() {
       <NewDealSheet
         open={newSheetOpen}
         onClose={() => setNewSheetOpen(false)}
+        vatRegistered={clientProfile?.vat_registered}
         onSelect={(type) => {
           setNewSheetOpen(false);
           if (type === "billing_note") {

@@ -52,7 +52,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
 
         <div className="shrink-0 text-right text-[#111827] w-[64mm] p-0 px-2">
           <div className="text-[9px] tracking-[0.18em] text-[#7A8699]">{copyLabel}</div>
-          {document.doc_type === "tax_invoice_receipt" ? (
+          {document.doc_type === "tax_invoice_receipt" && document.vat_registered ? (
             <div className="mt-1 font-semibold tracking-[-0.02em] leading-tight text-[#111827]">
               <div className="text-[26px]">ใบกำกับภาษี /</div>
               <div className="text-[26px]">ใบเสร็จรับเงิน</div>
@@ -83,7 +83,9 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
                 <span className="text-[#6B7280]">{(() => {
                   if (document.doc_type === "receipt") {
                     if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
-                    if (referenceDoc.doc_type === "tax_invoice_receipt") return "อ้างอิงใบกำกับภาษี";
+                    if (referenceDoc.doc_type === "tax_invoice_receipt") {
+                      return referenceDoc.vat_registered ? "อ้างอิงใบกำกับภาษี" : "อ้างอิงใบเสร็จรับเงิน";
+                    }
                     if (referenceDoc.doc_type === "billing_note") return "อ้างอิงใบวางบิล";
                   }
                   return "เอกสารอ้างอิง";

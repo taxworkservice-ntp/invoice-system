@@ -173,11 +173,11 @@ export default function NewDealPage() {
 
   useEffect(() => {
     if (!isTaxInvoiceReceipt) return;
-    setVatRegistered(true);
+    setVatRegistered(clientProfile?.vat_registered ?? false);
     if (clientProfile?.vat_rate) {
       setVatRate(clientProfile.vat_rate);
     }
-  }, [clientProfile?.vat_rate, isTaxInvoiceReceipt]);
+  }, [clientProfile?.vat_rate, clientProfile?.vat_registered, isTaxInvoiceReceipt]);
 
   useEffect(() => {
     if (isBillingNote && selectedCustomer && userId) {
@@ -341,11 +341,6 @@ export default function NewDealPage() {
       return;
     }
 
-    if (isTaxInvoiceReceipt && !clientProfile?.vat_registered) {
-      setError("เอกสารประเภทนี้ใช้ได้สำหรับกิจการที่จด VAT แล้วเท่านั้น");
-      return;
-    }
-
     setSaving(true);
     let createdDealId: string | null = null;
     let createdDocumentId: string | null = null;
@@ -379,7 +374,7 @@ export default function NewDealPage() {
         doc_number: docNumber,
         status: isTaxInvoiceReceipt ? "issued" : "draft",
         issue_date: documentIssueDate,
-        vat_registered: isTaxInvoiceReceipt ? true : vatRegistered,
+        vat_registered: vatRegistered,
         vat_rate: vatRate,
         wht_rate: parseFloat(whtRate),
         discount_percent: documentDiscountPercent,
@@ -510,8 +505,14 @@ export default function NewDealPage() {
       )}
 
       {isTaxInvoiceReceipt && (
-        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          เอกสารนี้จะออกเป็นใบกำกับภาษี/ใบเสร็จรับเงินทันที และถือว่ารับชำระแล้วในขั้นตอนเดียว
+        <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+          vatRegistered
+            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+            : "border-blue-200 bg-blue-50 text-blue-900"
+        }`}>
+          {vatRegistered
+            ? "เอกสารนี้จะออกเป็นใบกำกับภาษี/ใบเสร็จรับเงินทันที และถือว่ารับชำระแล้วในขั้นตอนเดียว"
+            : "บัญชีนี้ไม่ได้จด VAT ระบบจะออกเป็นใบเสร็จรับเงินทันที ไม่มีรายการ VAT และถือว่ารับชำระแล้วในขั้นตอนเดียว"}
         </div>
       )}
 
@@ -1023,7 +1024,9 @@ export default function NewDealPage() {
               </label>
               {isTaxInvoiceReceipt && (
                 <p className="text-xs text-gray-500">
-                  เอกสารประเภทนี้ใช้ VAT เสมอ เพราะเป็นใบกำกับภาษี/ใบเสร็จรับเงิน
+                  {vatRegistered
+                    ? "บัญชีนี้จด VAT เอกสารจึงเป็นใบกำกับภาษี/ใบเสร็จรับเงินและคำนวณ VAT ตามอัตราที่ตั้งไว้"
+                    : "บัญชีนี้ไม่ได้จด VAT เอกสารจึงเป็นใบเสร็จรับเงินและไม่คำนวณ VAT"}
                 </p>
               )}
               {vatRegistered && (
