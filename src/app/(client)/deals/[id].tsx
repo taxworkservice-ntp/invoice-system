@@ -26,7 +26,7 @@ import {
   todayString,
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
-import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT } from "../../../constants";
+import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT, DOC_TYPE_SHORT } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import type {
   Document,
@@ -156,6 +156,7 @@ export default function DealDetailPage() {
   const toast = useToast();
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
   const fetchDealData = useCallback(async () => {
     if (!dealId || !userId) {
@@ -246,11 +247,6 @@ export default function DealDetailPage() {
     fetchDealData();
   }, [fetchDealData]);
 
-  const handleViewPDF = async (doc: Document) => {
-    const previewUrl = `/documents/${doc.id}/print`;
-    window.open(previewUrl, "_blank", "noopener,noreferrer");
-  };
-
   const handleDownloadAll = async () => {
     if (!clientProfile || !customer) return;
     const toDownload = nonVoidedDocs.filter((item) => !(item.document.status === "voided"));
@@ -292,6 +288,32 @@ export default function DealDetailPage() {
       toast.error(err.message || "เกิดข้อผิดพลาด");
     } finally {
       setBulkDownloading(false);
+    }
+  };
+
+  const handleDownloadDoc = async (doc: Document) => {
+    if (downloadingDocId) return;
+    setDownloadingDocId(doc.id);
+    try {
+      const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
+      const data = await getPrintableDocumentDataBase(doc.id);
+      const blob = await generateModernPDFBlob(data);
+      const short = (DOC_TYPE_SHORT[doc.doc_type] || "doc").toUpperCase();
+      const datePart = doc.issue_date ? doc.issue_date.replace(/-/g, "") : "";
+      const filename = `${short}-${doc.doc_number || doc.id}-${datePart}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`ดาวน์โหลด ${filename}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "ไม่สามารถสร้าง PDF ได้");
+    } finally {
+      setDownloadingDocId(null);
     }
   };
 
@@ -1350,7 +1372,7 @@ export default function DealDetailPage() {
                       {index < nonVoidedDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
                     </div>
                     <Card
-                      className={`mb-2 flex-1 border-[0.5px] ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-[#FAFAF8]" : ""}`}
+                      className={`relative mb-2 flex-1 border-[0.5px] pr-14 ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-[#FAFAF8]" : ""}`}
                       onClick={() => navigate(`/documents/${doc.id}`)}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1380,17 +1402,25 @@ export default function DealDetailPage() {
                         <div className="flex flex-col items-end gap-1 shrink-0">
                           <div className="text-[13px] font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
                           <Badge status={overdue ? "overdue" : doc.status} />
-                          <button
-                            className="text-[10px] text-primary hover:underline"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleViewPDF(doc);
-                            }}
-                          >
-                            ดาวน์โหลดเอกสาร
-                          </button>
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDownloadDoc(doc);
+                        }}
+                        disabled={downloadingDocId === doc.id}
+                        title="ดาวน์โหลด PDF"
+                        aria-label={`ดาวน์โหลด ${doc.doc_number || "เอกสาร"} เป็น PDF`}
+                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-[#378ADD] transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#378ADD]/40 disabled:cursor-not-allowed disabled:opacity-60 md:h-9 md:w-9"
+                      >
+                        {downloadingDocId === doc.id ? (
+                          <Spinner inline className="!w-3.5 !h-3.5 !border-[#378ADD] !border-t-transparent" />
+                        ) : (
+                          <Download size={15} />
+                        )}
+                      </button>
                     </Card>
                   </div>
                 );
@@ -1413,7 +1443,7 @@ export default function DealDetailPage() {
                     <div className="w-7 flex flex-col items-center shrink-0">
                       <div className="mt-1 w-2.5 h-2.5 rounded-full bg-stone-300" />
                     </div>
-                    <Card className="mb-2 flex-1 border-[0.5px]">
+                    <Card className="relative mb-2 flex-1 border-[0.5px] pr-14">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="text-xs font-semibold text-gray-700">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</div>
@@ -1428,6 +1458,23 @@ export default function DealDetailPage() {
                           <Badge status="voided" />
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDownloadDoc(doc);
+                        }}
+                        disabled={downloadingDocId === doc.id}
+                        title="ดาวน์โหลด PDF"
+                        aria-label={`ดาวน์โหลด ${doc.doc_number || "เอกสาร"} เป็น PDF`}
+                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 md:h-9 md:w-9"
+                      >
+                        {downloadingDocId === doc.id ? (
+                          <Spinner inline className="!w-3.5 !h-3.5 !border-gray-400 !border-t-transparent" />
+                        ) : (
+                          <Download size={15} />
+                        )}
+                      </button>
                     </Card>
                   </div>
                 );
