@@ -1386,8 +1386,8 @@ export default function DealDetailPage() {
                           event.stopPropagation();
                           handleOpenPreview(doc);
                         }}
-                        title="เปิดหน้าตัวอย่างเอกสาร"
-                        aria-label={`เปิดหน้าตัวอย่าง ${doc.doc_number || "เอกสาร"}`}
+                        title="Download"
+                        aria-label={`Download ${doc.doc_number || "document"}`}
                         className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-[#378ADD] transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#378ADD]/40 md:h-9 md:w-9"
                       >
                         <ExternalLink size={15} />
@@ -1435,8 +1435,8 @@ export default function DealDetailPage() {
                           event.stopPropagation();
                           handleOpenPreview(doc);
                         }}
-                        title="เปิดหน้าตัวอย่างเอกสาร"
-                        aria-label={`เปิดหน้าตัวอย่าง ${doc.doc_number || "เอกสาร"}`}
+                        title="Download"
+                        aria-label={`Download ${doc.doc_number || "document"}`}
                         className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 md:h-9 md:w-9"
                       >
                         <ExternalLink size={15} />
