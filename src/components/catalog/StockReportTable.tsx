@@ -14,8 +14,9 @@ type SortKey = "name" | "stock_count" | "base_unit" | "low_stock_threshold" | "a
 
 function StockRow({ item, index }: { item: Item; index: number }) {
   const navigate = useNavigate();
-  const low = isLowStock(item.stock_count, item.low_stock_threshold);
-  const out = isOutOfStock(item.stock_count);
+  const isProduct = item.item_type === "product";
+  const low = isProduct && isLowStock(item.stock_count, item.low_stock_threshold);
+  const out = isProduct && isOutOfStock(item.stock_count);
   const value = item.stock_value;
 
   let rowBg = "";
