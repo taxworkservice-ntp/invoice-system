@@ -529,6 +529,12 @@ body {
   margin-top: 0.5mm;
   line-height: 1.2;
 }
+.print-classic-dn-note {
+  font-size: 6.5pt;
+  color: #6b7280;
+  margin-top: 0.5mm;
+  line-height: 1.2;
+}
 
 /* TERMS + TOTALS */
 .print-classic-bottom-row {

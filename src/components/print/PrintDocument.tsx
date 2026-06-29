@@ -58,7 +58,7 @@ export function PrintDocument({ data, copyType = "original" }: { data: PrintDocu
     >
       <PrintHeader data={data} copyType={copyType} />
       <PrintLineItemsTable data={data} />
-      {data.invoiceDeliveryNotes.length > 0 && (
+      {data.invoiceDeliveryNotes.length > 0 && !data.showInlineDeliveryNotes && (
         <section className="print-block mt-3">
           <div className="mb-0.5">
             <span className="text-[9px] tracking-[0.12em] text-[#667085]">อ้างอิงใบส่งของ</span>
