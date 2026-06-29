@@ -61,16 +61,18 @@ begin
 end $$;
 
 -- 3. Constrain the allowed values. Idempotent.
+--    Important: the original table definition already created a
+--    CHECK constraint for "pdf_template = 'modern'", normally named
+--    client_profiles_pdf_template_check. We must replace it, not skip
+--    it, otherwise saving "classic" will keep failing with HTTP 400.
 do $$
 begin
-  if not exists (
-    select 1 from pg_constraint
-     where conname = 'client_profiles_pdf_template_check'
-  ) then
-    alter table client_profiles
-      add constraint client_profiles_pdf_template_check
-        check (pdf_template in ('modern', 'classic'));
-  end if;
+  alter table client_profiles
+    drop constraint if exists client_profiles_pdf_template_check;
+
+  alter table client_profiles
+    add constraint client_profiles_pdf_template_check
+      check (pdf_template in ('modern', 'classic'));
 end $$;
 
 -- 4. Force PostgREST to reload its schema cache. After changing a

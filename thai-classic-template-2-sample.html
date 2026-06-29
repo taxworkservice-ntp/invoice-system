@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<title>Thai Classic (Template 2) — sample</title>
+<style>
+  :root {
+    --ink: #1f2937;
+    --ink-strong: #0f172a;
+    --ink-soft: #4b5563;
+    --muted: #6b7280;
+    --rule: #9ca3af;
+    --rule-soft: #d1d5db;
+    --tint: #e5e7eb;
+    --tint-soft: #f1f3f5;
+    --paper: #ffffff;
+    --frame-radius: 10px;
+  }
+  html, body { margin: 0; padding: 0; background: #ecebe7; }
+  body {
+    font-family: "Inter", "Sarabun", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .toolbar {
+    position: sticky; top: 0; z-index: 5;
+    background: #111827; color: #fff; padding: 10px 18px;
+    display: flex; align-items: center; gap: 12px; font-size: 13px;
+  }
+  .toolbar strong { font-weight: 600; }
+  .stage { padding: 24px 0 60px; display: flex; justify-content: center; }
+
+  /* Outer rounded frame on the whole sheet */
+  .print-sheet {
+    position: relative;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 12mm 14mm;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 10pt;
+    line-height: 1.4;
+    box-sizing: border-box;
+    border: 0.5pt solid var(--rule);
+    border-radius: var(--frame-radius);
+  }
+
+  /* Crop marks (decorative, in the four corners) */
+  .crop { position: absolute; width: 8mm; height: 8mm; }
+  .crop.tl { top: 4mm; left: 4mm; border-top: 0.5pt solid var(--rule); border-left: 0.5pt solid var(--rule); }
+  .crop.tr { top: 4mm; right: 4mm; border-top: 0.5pt solid var(--rule); border-right: 0.5pt solid var(--rule); }
+  .crop.bl { bottom: 4mm; left: 4mm; border-bottom: 0.5pt solid var(--rule); border-left: 0.5pt solid var(--rule); }
+  .crop.br { bottom: 4mm; right: 4mm; border-bottom: 0.5pt solid var(--rule); border-right: 0.5pt solid var(--rule); }
+
+  /* Side vertical text (decorative — would be print shop info) */
+  .side-text {
+    position: absolute; right: 1mm; top: 50%;
+    transform: translateY(-50%) rotate(180deg);
+    writing-mode: vertical-rl;
+    font-size: 6.5pt; color: var(--muted); letter-spacing: 0.05em;
+  }
+  .side-text.left {
+    right: auto; left: 1mm; transform: translateY(-50%);
+  }
+
+  /* ============== TOP HEADER ============== */
+  .top {
+    display: grid;
+    grid-template-columns: 30mm 1fr 36mm;
+    gap: 5mm;
+    align-items: start;
+    padding-bottom: 3mm;
+  }
+  .logo {
+    width: 30mm; height: 30mm;
+    border: 0.5pt solid var(--rule);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: #f8fafc;
+    color: var(--ink-strong);
+    font-weight: 800; font-size: 9pt;
+    text-align: center;
+  }
+  .company .th {
+    font-size: 17pt; font-weight: 800; color: var(--ink-strong);
+    line-height: 1.15;
+  }
+  .company .en {
+    font-size: 14pt; font-weight: 800; color: var(--ink-strong);
+    line-height: 1.15; margin-top: 1mm;
+  }
+  .company .meta {
+    font-size: 9pt; color: var(--ink-soft);
+    line-height: 1.55; margin-top: 2.5mm;
+  }
+  .top-right {
+    display: flex; flex-direction: column; align-items: stretch; gap: 2mm;
+  }
+  .copy-badge {
+    border: 0.5pt solid var(--rule);
+    border-radius: var(--frame-radius);
+    padding: 2mm 3mm;
+    text-align: center;
+    background: var(--tint-soft);
+  }
+  .copy-badge .th { font-weight: 700; font-size: 10pt; }
+  .copy-badge .en { font-size: 8pt; color: var(--ink-soft); letter-spacing: 0.05em; }
+  .tax-id {
+    font-size: 8pt; color: var(--ink-soft); line-height: 1.5;
+    text-align: left; margin-top: 1mm;
+  }
+  .tax-id .num { color: var(--ink-strong); letter-spacing: 0.04em; font-weight: 600; }
+
+  /* ============== DOCUMENT TITLE ============== */
+  .doc-title {
+    text-align: center;
+    margin: 2mm 0 4mm 0;
+  }
+  .doc-title .th {
+    font-size: 15pt; font-weight: 800; color: var(--ink-strong);
+  }
+  .doc-title .en {
+    font-size: 11pt; font-weight: 700; color: var(--ink-strong);
+    letter-spacing: 0.02em;
+    margin-top: 1mm;
+  }
+
+  /* ============== CUSTOMER / META BAND ============== */
+  .info-band {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5mm;
+  }
+  .panel {
+    border: 0.5pt solid var(--rule);
+    border-radius: var(--frame-radius);
+    padding: 2mm 3mm;
+  }
+  .customer-panel .row {
+    display: grid;
+    grid-template-columns: 20mm 1fr;
+    row-gap: 0.45mm;
+    column-gap: 2mm;
+    font-size: 7.6pt;
+    align-items: start;
+  }
+  .customer-panel .lab .th { font-weight: 600; font-size: 7.2pt; }
+  .customer-panel .lab .en { color: var(--ink-soft); font-size: 5.4pt; display: block; line-height: 1.05; }
+  .customer-panel .val {
+    padding-top: 0;
+    line-height: 1.25;
+  }
+
+  .meta-table { width: 100%; border-collapse: collapse; font-size: 7.6pt; }
+  .meta-table th, .meta-table td {
+    border: 0;
+    padding: 0.65mm 2mm;
+    vertical-align: top;
+    line-height: 1.1;
+    background: transparent;
+  }
+  .meta-table th {
+    font-weight: 400;
+    text-align: left;
+    width: 50%;
+  }
+  .meta-table th .th-th { font-weight: 600; font-size: 7.2pt; }
+  .meta-table th .th-en { color: var(--ink-soft); font-size: 5.4pt; display: block; line-height: 1.05; }
+  .meta-table td.val { font-size: 7.6pt; font-weight: 600; }
+
+  /* ============== ITEMS TABLE ============== */
+  .items-wrap { margin-top: 3mm; }
+  .items-table {
+    width: 100%;
+    table-layout: fixed;
+    /* Use border-collapse: separate so the header's bottom border
+       stays visible regardless of how many rows are in the body
+       (with collapse, the header bottom and first-row top merge).
+       overflow: hidden + border-radius gives the table rounded
+       corners. Only the TOP corners are rounded — the bottom
+       corners are flat so the items table and the totals block
+       below form one continuous rounded block. Borders use
+       0.5px (sub-pixel) for a thin, refined look. */
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 9.5pt;
+    border: 0.5px solid var(--rule);
+    border-bottom: 0;
+    border-radius: var(--frame-radius) var(--frame-radius) 0 0;
+    overflow: hidden;
+  }
+  .items-table thead th {
+    background: var(--tint);
+    color: var(--ink-strong);
+    border: 0;
+    border-right: 0.5px solid var(--rule);
+    border-bottom: 0.5px solid var(--rule);
+    padding: 1.5mm 1.5mm;
+    font-weight: 600;
+    text-align: left;
+    line-height: 1.2;
+    font-size: 6.5pt;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    vertical-align: bottom;
+  }
+  .items-table thead th:first-child { border-top-left-radius: var(--frame-radius); }
+  .items-table thead th:last-child  { border-top-right-radius: var(--frame-radius); border-right: 0; }
+  .items-table thead .en {
+    color: var(--ink-soft);
+    font-size: 4.5pt;
+    display: block;
+    line-height: 1.15;
+    margin-top: 0.5mm;
+    font-weight: 400;
+  }
+  .items-table tbody tr.line-row td {
+    border: 0;
+    border-right: 0.35px solid var(--rule-soft);
+    border-bottom: 0.35px solid var(--rule-soft);
+    padding: 1.5mm 2.5mm;
+    vertical-align: top;
+    font-size: 7.5pt;
+    line-height: 1.3;
+  }
+  .items-table tbody tr.line-row td:last-child { border-right: 0; }
+  /* Numeric / unit cells stay on a single line so columns align cleanly. */
+  .items-table tbody tr.line-row td.center,
+  .items-table tbody tr.line-row td.right,
+  .items-table tbody tr.line-row td.unit-cell {
+    white-space: nowrap;
+  }
+  /* Description cell wraps freely so long item names are fully visible
+     (legally required on a tax invoice — truncating with ellipsis
+     would hide what the customer is paying for). */
+  .items-table tbody tr.line-row td.description {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+  .items-table td.center { text-align: center; }
+  .items-table td.right  { text-align: right; }
+  /* The table grows to fit any number of line items.
+     The totals block sits right below the last row,
+     so the design works whether the invoice has 1 item or 50. */
+
+  /* ============== TERMS + TOTALS ============== */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 68mm;
+    border: 0.5px solid var(--rule);
+    border-top: 0;
+    /* Only the BOTTOM corners are rounded — the top corners are
+       flat so this block joins the items table above into one
+       continuous rounded block. */
+    border-radius: 0 0 var(--frame-radius) var(--frame-radius);
+    overflow: hidden;
+  }
+  .terms-col {
+    padding: 2.5mm 4mm;
+    border-right: 0.35px solid var(--rule-soft);
+    font-size: 8pt;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  .terms-col ol { margin: 0; padding-left: 5mm; }
+  .terms-col li { margin-bottom: 0.5mm; }
+
+  .totals-col {
+    display: flex;
+    flex-direction: column;
+    font-size: 8.2pt;
+  }
+  .totals-row {
+    display: grid;
+    grid-template-columns: 1fr 22mm;
+    gap: 2mm;
+    align-items: center;
+    min-height: 8mm;
+    padding: 1.1mm 2.5mm;
+    background: var(--tint-soft);
+    border-bottom: 0.35px solid var(--rule-soft);
+  }
+  .totals-row:last-child { border-bottom: 0; }
+  .totals-row .lab .th { font-weight: 600; }
+  .totals-row .lab .en { color: var(--ink-soft); font-size: 6pt; display: block; line-height: 1.1; }
+  .totals-row .val {
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .totals-row.total {
+    background: var(--tint);
+    font-weight: 700;
+    font-size: 8.8pt;
+  }
+
+  /* ============== BOTTOM BAND ============== */
+  .bottom-band {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border: 0.5pt solid var(--rule);
+    border-radius: var(--frame-radius);
+    overflow: hidden;
+    margin-top: 5mm;
+  }
+  .bottom-band .cell {
+    border-right: 0.5pt solid var(--rule);
+    padding: 1.5mm 3mm;
+  }
+  .bottom-band .cell:last-child { border-right: 0; }
+  .bottom-band .cell .th { font-weight: 600; font-size: 7.5pt; }
+  .bottom-band .cell .en { color: var(--ink-soft); font-size: 6.5pt; display: block; line-height: 1.1; }
+  .bottom-band .cell .line {
+    border-bottom: 0.5pt dotted var(--rule);
+    height: 8mm;
+    margin: 3mm 4mm 1mm 4mm;
+  }
+  /* Middle cell: signature line centered vertically, not aligned
+     with the header text in the other two cells. */
+  .bottom-band .cell.cell--sig {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .bottom-band .cell.cell--sig .line {
+    margin-top: auto;
+  }
+  .bottom-band .cell .dt { font-size: 6.5pt; color: var(--muted); text-align: center; }
+  .bottom-band .cell .role {
+    text-align: center; font-weight: 600; font-size: 7.5pt;
+    margin-top: 0.5mm;
+  }
+  .bottom-band .cell .role .en { color: var(--ink-soft); font-size: 6.5pt; display: block; line-height: 1.1; }
+
+  /* ============== FOOTER ============== */
+  .footer {
+    margin-top: 2mm;
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 1mm 4mm;
+    font-size: 7.5pt;
+    color: var(--ink-soft);
+    text-align: center;
+    line-height: 1.3;
+  }
+  .footer .red { color: #dc2626; font-weight: 700; }
+
+  /* Side text */
+  .side-press {
+    position: absolute; right: 2mm; top: 30mm;
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    font-size: 6pt; color: var(--muted); letter-spacing: 0.05em;
+    text-align: right; line-height: 1.4;
+  }
+
+  /* Corner print-shop codes (decorative) */
+  .corner-code {
+    position: absolute; left: 6mm; bottom: 12mm;
+    font-size: 7pt; color: var(--muted); writing-mode: vertical-rl;
+    letter-spacing: 0.05em;
+  }
+
+  @page { size: A4; margin: 12mm; }
+  @media print {
+    body { background: #ffffff; }
+    .toolbar, .stage { padding: 0; }
+    .stage { display: block; }
+    .print-sheet { width: 100%; min-height: auto; margin: 0; padding: 12mm 14mm; border: 0; border-radius: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <strong>Thai Classic (Template 2) — sample preview</strong>
+    <span style="opacity:.7;">A4 210mm × 297mm</span>
+  </div>
+
+  <div class="stage">
+    <article class="print-sheet">
+
+      <!-- crop marks -->
+      <div class="crop tl"></div>
+      <div class="crop tr"></div>
+      <div class="crop bl"></div>
+      <div class="crop br"></div>
+
+      <div class="side-press">[print shop info]</div>
+      <div class="corner-code">A4-01</div>
+
+      <!-- ============== TOP HEADER ============== -->
+      <header class="top">
+        <div class="logo">[logo]</div>
+        <div class="company">
+          <div class="th">[ชื่อบริษัท (ภาษาไทย)]</div>
+          <div class="en">[COMPANY NAME IN ENGLISH] CO., LTD.</div>
+          <div class="meta">
+            สำนักงานใหญ่ : [ที่อยู่บรรทัด 1]<br />
+            Head Office : [address in English]<br />
+            Tel. XXX-XXX-XXXX&nbsp;&nbsp;Fax. XXX-XXX-XXXX&nbsp;&nbsp;E-mail : info@example.com
+          </div>
+        </div>
+        <div class="top-right">
+          <div class="copy-badge">
+            <div class="th">ต้นฉบับลูกค้า</div>
+            <div class="en">CUSTOMER ORIGINAL</div>
+          </div>
+          <div class="tax-id">
+            เลขประจำตัวผู้เสียภาษีอากร<br />
+            <span class="num">XXXXXXXXXXXXXXX</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ============== DOCUMENT TITLE ============== -->
+      <div class="doc-title">
+        <div class="th">ใบกำกับภาษี / ใบส่งสินค้า</div>
+        <div class="en">TAX INVOICE ORIGINAL / DELIVERY ORDER</div>
+      </div>
+
+      <!-- ============== INFO BAND ============== -->
+      <section class="info-band">
+        <div class="panel customer-panel">
+          <div class="row">
+            <div class="lab"><span class="th">ชื่อลูกค้า :</span><span class="en">CUSTOMER NAME</span></div>
+            <div class="val">[ชื่อลูกค้า]</div>
+
+            <div class="lab"><span class="th">ที่อยู่ :</span><span class="en">ADDRESS</span></div>
+            <div class="val">[ที่อยู่ลูกค้า<br/>บรรทัดที่ 2<br/>บรรทัดที่ 3]</div>
+
+            <div class="lab"><span class="th">โทรศัพท์ :</span><span class="en">TELEPHONE</span></div>
+            <div class="val">[xxx-xxx-xxxx]</div>
+
+            <div class="lab"><span class="th">โทรสาร :</span><span class="en">FAX</span></div>
+            <div class="val">[xxx-xxx-xxxx]</div>
+
+            <div class="lab"><span class="th">เลขประจำตัวผู้เสียภาษีอากร :</span><span class="en">TAX ID NO.</span></div>
+            <div class="val">[xxxxxxxxxxxxx]</div>
+
+            <div class="lab"><span class="th">ชื่อผู้ติดต่อ :</span><span class="en">CONTACT PERSON</span></div>
+            <div class="val">[ชื่อผู้ติดต่อ]</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <table class="meta-table">
+            <tr>
+              <th><span class="th-th">วันที่</span><span class="th-en">DATE</span></th>
+              <td class="val">29/06/2026</td>
+            </tr>
+            <tr>
+              <th><span class="th-th">เลขที่</span><span class="th-en">NO.</span></th>
+              <td class="val">INV-2026-06-001</td>
+            </tr>
+            <tr>
+              <th><span class="th-th">เลขที่ใบสั่งซื้อ</span><span class="th-en">PO. NO.</span></th>
+              <td class="val">PO-2026-118</td>
+            </tr>
+            <tr>
+              <th><span class="th-th">เงื่อนไขการชำระเงิน</span><span class="th-en">PAYMENT TERM</span></th>
+              <td class="val">เงินสด</td>
+            </tr>
+            <tr>
+              <th><span class="th-th">วันครบกำหนดชำระเงิน</span><span class="th-en">DUB DATE</span></th>
+              <td class="val">13/07/2026</td>
+            </tr>
+            <tr>
+              <th><span class="th-th">พนักงานขาย</span><span class="th-en">SALE MAN</span></th>
+              <td class="val">[ชื่อพนักงานขาย]</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============== ITEMS TABLE ============== -->
+      <section class="items-wrap">
+        <table class="items-table">
+          <colgroup>
+            <col style="width:9mm" />
+            <col />
+            <col style="width:11mm" />
+            <col style="width:13mm" />
+            <col style="width:20mm" />
+            <col style="width:11mm" />
+            <col style="width:24mm" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>ที่<span class="en">ITEM</span></th>
+              <th>รายการ<span class="en">DESCRIPTION</span></th>
+              <th style="text-align:right">จำนวน<span class="en">QUANTITY</span></th>
+              <th>หน่วย<span class="en">UNIT</span></th>
+              <th style="text-align:right">ราคาต่อหน่วย<span class="en">UNIT PRICE</span></th>
+              <th style="text-align:right">ส่วนลด<span class="en">DISCOUNT</span></th>
+              <th style="text-align:right">จำนวนเงิน<span class="en">AMOUNT</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="line-row">
+              <td class="center">1</td>
+              <td class="description">กระดาษ A4 80 แกรม (500 แผ่น)</td>
+              <td class="right">10</td>
+              <td class="unit-cell">รีม</td>
+              <td class="right">125.00</td>
+              <td class="right">-</td>
+              <td class="right">1,250.00</td>
+            </tr>
+            <tr class="line-row">
+              <td class="center">2</td>
+              <td class="description">ปากกาลูกลื่นสีน้ำเงิน 0.5mm</td>
+              <td class="right">50</td>
+              <td class="unit-cell">ด้าม</td>
+              <td class="right">15.00</td>
+              <td class="right">5%</td>
+              <td class="right">712.50</td>
+            </tr>
+            <tr class="line-row">
+              <td class="center">3</td>
+              <td class="description">ค่าบริการจัดส่ง</td>
+              <td class="right">1</td>
+              <td class="unit-cell">ครั้ง</td>
+              <td class="right">200.00</td>
+              <td class="right">-</td>
+              <td class="right">200.00</td>
+            </tr>
+            <tr class="line-row">
+              <td class="center">4</td>
+              <td class="description">น้ำยาลบคำผิด</td>
+              <td class="right">12</td>
+              <td class="unit-cell">ชิ้น</td>
+              <td class="right">45.00</td>
+              <td class="right">-</td>
+              <td class="right">540.00</td>
+            </tr>
+            <tr class="line-row">
+              <td class="center">5</td>
+              <td class="description">ที่เย็บกระดาษ</td>
+              <td class="right">5</td>
+              <td class="unit-cell">กล่อง</td>
+              <td class="right">80.00</td>
+              <td class="right">-</td>
+              <td class="right">400.00</td>
+            </tr>
+            <tr class="line-row blank-row">
+              <td class="center">6</td>
+              <td class="description">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="unit-cell">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+            </tr>
+            <tr class="line-row blank-row">
+              <td class="center">7</td>
+              <td class="description">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="unit-cell">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+            </tr>
+            <tr class="line-row blank-row">
+              <td class="center">8</td>
+              <td class="description">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="unit-cell">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+            </tr>
+            <tr class="line-row blank-row">
+              <td class="center">9</td>
+              <td class="description">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="unit-cell">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+            </tr>
+            <tr class="line-row blank-row">
+              <td class="center">10</td>
+              <td class="description">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="unit-cell">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+              <td class="right">&nbsp;</td>
+            </tr>
+            <!-- Add more <tr class="line-row">...</tr> rows for additional items -->
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============== TERMS + TOTALS ============== -->
+      <div class="bottom-row">
+        <div class="terms-col">
+          <ol>
+            <li>ได้รับสินค้าตามรายการข้างบนนี้ไว้ในสภาพดีและถูกต้องเรียบร้อยแล้ว</li>
+            <li>สินค้าตามรายการข้างบนนี้ หากมีการเสียหายหรือชำรุด โปรดแจ้งกลับให้ทราบภายใน 3 วัน</li>
+            <li>สินค้าซื้อแล้ว จะไม่รับคืน ยกเว้นแต่จะตกลงเป็นอย่างอื่น</li>
+            <li>โปรดสั่งจ่ายเช็คขีดคร่อมในนาม "[ชื่อบริษัท]"</li>
+          </ol>
+        </div>
+        <div class="totals-col">
+          <div class="totals-row">
+            <div class="lab"><div class="th">รวมเงิน</div><div class="en">SUB TOTAL</div></div>
+            <div class="val">2,665.00</div>
+          </div>
+          <div class="totals-row">
+            <div class="lab"><div class="th">ภาษีมูลค่าเพิ่ม</div><div class="en">VAT</div></div>
+            <div class="val">186.55</div>
+          </div>
+          <div class="totals-row total">
+            <div class="lab"><div class="th">จำนวนเงินรวมทั้งสิ้น</div><div class="en">TOTAL AMOUNT</div></div>
+            <div class="val">2,851.55</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============== BOTTOM BAND ============== -->
+      <div class="bottom-band">
+        <div class="cell">
+          <div class="th">ได้รับสินค้าตามรายการข้างบนนี้ถูกต้องแล้ว</div>
+          <div class="line"></div>
+          <div class="dt">วันที่ / DATE</div>
+          <div class="role">ผู้รับของ / RECEIVED BY</div>
+        </div>
+        <div class="cell cell--sig">
+          <div class="line"></div>
+          <div class="dt">วันที่ / DATE</div>
+          <div class="role">ผู้ส่งของ / DELIVERED BY</div>
+        </div>
+        <div class="cell">
+          <div class="th">ในนาม&nbsp;[ชื่อบริษัท]</div>
+          <div class="line"></div>
+          <div class="dt">วันที่ / DATE</div>
+          <div class="role">ผู้อนุมัติ / AUTHORIZED BY</div>
+        </div>
+      </div>
+
+      <!-- ============== FOOTER ============== -->
+      <div class="footer">
+        <div class="red">[Footer contact line / website / phone]</div>
+      </div>
+
+    </article>
+  </div>
+</body>
+</html>

@@ -4,6 +4,7 @@ import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { PrintDocument } from "../../../components/print/PrintDocument";
 import type { CopyType } from "../../../components/print/PrintDocument";
+import { PrintDocumentClassic } from "../../../components/print/PrintDocumentClassic";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { generatePDFDocument, getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { DOC_TYPE_SHORT } from "../../../constants";
@@ -287,7 +288,11 @@ return (
             }}
           >
             <PrintErrorBoundary onError={() => {}}>
-              <PrintDocument data={data} copyType={copyType} />
+              {data.template === "classic" ? (
+                <PrintDocumentClassic data={data} copyType={copyType} />
+              ) : (
+                <PrintDocument data={data} copyType={copyType} />
+              )}
             </PrintErrorBoundary>
           </div>
         </div>
