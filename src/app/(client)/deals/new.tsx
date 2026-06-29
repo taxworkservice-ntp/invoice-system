@@ -136,7 +136,6 @@ export default function NewDealPage() {
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([createEmptyLine()]);
-  const [showMore, setShowMore] = useState(false);
   const [vatRegistered, setVatRegistered] = useState(clientProfile?.vat_registered ?? false);
   const [vatRate, setVatRate] = useState<number>(clientProfile?.vat_rate ?? VAT_DEFAULT);
   const [whtRate, setWhtRate] = useState<WhtRate>(clientProfile?.default_wht_rate ?? "0");
@@ -1013,71 +1012,53 @@ export default function NewDealPage() {
         )}
 
         <Card>
-          <button
-            className="w-full flex items-center justify-between text-sm font-medium"
-            onClick={() => setShowMore(!showMore)}
-          >
-            <span>รายละเอียดเพิ่มเติม</span>
-            <span className="text-gray-400">{showMore ? "▾" : "▸"}</span>
-          </button>
-          {showMore && (
-            <div className="mt-3 space-y-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={vatRegistered}
-                  disabled={isTaxInvoiceReceipt}
-                  onChange={(e) => setVatRegistered(e.target.checked)}
-                  className="rounded"
-                />
-                จดทะเบียน VAT
+          <h3 className="text-sm font-medium">รายละเอียดเพิ่มเติม</h3>
+          <div className="mt-3 space-y-3">
+            {isTaxInvoiceReceipt && (
+              <p className="rounded-lg bg-[#FAF8F3] px-3 py-2 text-xs text-gray-600">
+                {vatRegistered
+                  ? "บัญชีนี้จด VAT เอกสารจึงเป็นใบกำกับภาษี/ใบเสร็จรับเงินและคำนวณ VAT ตามอัตราที่ตั้งไว้"
+                  : "บัญชีนี้ไม่ได้จด VAT เอกสารจึงเป็นใบเสร็จรับเงินและไม่คำนวณ VAT"}
+              </p>
+            )}
+            {vatRegistered && (
+              <Input
+                label="อัตรา VAT (%)"
+                type="number"
+                step="0.01"
+                value={vatRate}
+                onChange={(e) => setVatRate(parseFloat(e.target.value) || 0)}
+              />
+            )}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                หัก ณ ที่จ่าย
               </label>
-              {isTaxInvoiceReceipt && (
-                <p className="text-xs text-gray-500">
-                  {vatRegistered
-                    ? "บัญชีนี้จด VAT เอกสารจึงเป็นใบกำกับภาษี/ใบเสร็จรับเงินและคำนวณ VAT ตามอัตราที่ตั้งไว้"
-                    : "บัญชีนี้ไม่ได้จด VAT เอกสารจึงเป็นใบเสร็จรับเงินและไม่คำนวณ VAT"}
-                </p>
-              )}
-              {vatRegistered && (
-                <Input
-                  label="อัตรา VAT (%)"
-                  type="number"
-                  step="0.01"
-                  value={vatRate}
-                  onChange={(e) => setVatRate(parseFloat(e.target.value) || 0)}
-                />
-              )}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  หัก ณ ที่จ่าย
-                </label>
-                <select
-                  className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
-                  value={whtRate}
-                  onChange={(e) => setWhtRate(e.target.value as WhtRate)}
-                >
-                  {WHT_RATE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="border-t border-card-border pt-3">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  หมายเหตุ
-                </label>
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  rows={3}
-                  placeholder="เช่น ชำระภายใน 30 วัน โอนก่อนส่งของ"
-                  className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary whitespace-pre-line"
-                />
-              </div>
+              <select
+                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
+                value={whtRate}
+                onChange={(e) => setWhtRate(e.target.value as WhtRate)}
+              >
+                {WHT_RATE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
+            <div className="border-t border-card-border pt-3">
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                หมายเหตุ
+              </label>
+              <textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                rows={3}
+                placeholder="เช่น ชำระภายใน 30 วัน โอนก่อนส่งของ"
+                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary whitespace-pre-line"
+              />
+            </div>
+          </div>
         </Card>
 
         <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
