@@ -1,9 +1,11 @@
 import { Card } from "../ui/Card";
 import { formatBuddhistDate } from "../../lib/dates";
-import type { DocumentStatus } from "../../types";
+import { CustomerAvatar } from "../customer/CustomerAvatar";
+import type { Customer, DocumentStatus } from "../../types";
 
 interface DealCardProps {
   customerName: string;
+  customerAvatar?: Pick<Customer, "name" | "avatar_initials" | "avatar_color"> | null;
   itemSummary: string;
   itemNames?: string[];
   amountText: string;
@@ -30,6 +32,7 @@ const ITEM_CHIP_CLASS = "bg-[#F7F6F3] text-[#62605A]";
 
 export function DealCard({
   customerName,
+  customerAvatar,
   itemSummary,
   itemNames = [],
   amountText,
@@ -46,20 +49,30 @@ export function DealCard({
   const remainingItems = itemNames.length - previewItems.length;
   const colors = STAGE_COLORS[queue] || STAGE_COLORS.progress;
   void status;
+  const avatarCustomer = customerAvatar ?? { name: customerName, avatar_initials: null, avatar_color: null };
 
   return (
     <Card
       className={`rounded-xl border-[0.5px] p-4 shadow-sm hover:shadow-md ${isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
       onClick={onTap}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <CustomerAvatar customer={avatarCustomer} size="md" className="mt-0.5" />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-[#1A1A18] truncate">{customerName}</div>
-          <div className="mt-0.5 text-[10px] text-[#888780]">{formatBuddhistDate(createdAt)}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
-              {stageLabel}
-            </span>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-[#1A1A18] truncate">{customerName}</div>
+              <div className="mt-0.5 text-[10px] text-[#888780]">{formatBuddhistDate(createdAt)}</div>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
+                  {stageLabel}
+                </span>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-sm font-semibold text-[#1A1A18]">{amountText}</div>
+              {stageHint && <div className="mt-1 max-w-[120px] text-[10px] leading-4 text-gray-400">{stageHint}</div>}
+            </div>
           </div>
           {previewItems.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -80,10 +93,6 @@ export function DealCard({
           ) : (
             <div className="mt-1 text-xs text-gray-500 truncate">{itemSummary}</div>
           )}
-        </div>
-        <div className="text-right shrink-0">
-          <div className="text-sm font-semibold text-[#1A1A18]">{amountText}</div>
-          {stageHint && <div className="mt-1 max-w-[120px] text-[10px] leading-4 text-gray-400">{stageHint}</div>}
         </div>
       </div>
       <div className="mt-3 border-t border-[#F0EFE9] pt-2 text-xs font-medium leading-4 text-[#777166]">

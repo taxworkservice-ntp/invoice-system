@@ -16,6 +16,7 @@ import { SummaryRow } from "../../components/home/SummaryRow";
 import { DealCard } from "../../components/home/DealCard";
 import { DoneDealCard } from "../../components/home/DoneDealCard";
 import { NewDealSheet } from "../../components/home/NewDealSheet";
+import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
 import { formatCurrency } from "../../lib/format";
 import { formatBuddhistDate } from "../../lib/dates";
@@ -29,13 +30,14 @@ type DealDoc = Pick<
 >;
 
 type DealWithRelations = Deal & {
-  customers: Pick<Customer, "id" | "name"> | null;
+  customers: Pick<Customer, "id" | "name" | "avatar_initials" | "avatar_color"> | null;
   documents: DealDoc[];
 };
 
 type DashboardDeal = {
   dealId: string;
   customerName: string;
+  customerAvatar: Pick<Customer, "name" | "avatar_initials" | "avatar_color"> | null;
   itemSummary: string;
   itemNames: string[];
   amount: number;
@@ -239,6 +241,13 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   return {
     dealId: deal.id,
     customerName: deal.customers?.name || "ลูกค้า",
+    customerAvatar: deal.customers
+      ? {
+          name: deal.customers.name,
+          avatar_initials: deal.customers.avatar_initials,
+          avatar_color: deal.customers.avatar_color,
+        }
+      : null,
     itemSummary: deal.title || latestDocument?.doc_number || "",
     itemNames: getItemPreview(deal.documents || []),
     amount: amountDocument?.total_amount || amountDocument?.net_payable || 0,
@@ -296,7 +305,7 @@ export default function HomePage() {
       .from("deals")
       .select(`
         *,
-        customers(id, name),
+        customers(id, name, avatar_initials, avatar_color),
         documents(
           id, doc_type, doc_number, status,
           total_amount, net_payable, due_date, paid_at,
@@ -634,27 +643,35 @@ export default function HomePage() {
                 <EmptyState title="ยังไม่มีรายการในคิวนี้" description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างงานขายใหม่” เพื่อเริ่มงาน" />
               ) : viewMode === "grid" ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {activeDeals.map((deal) => (
-                    <Card
-                      key={deal.dealId}
-                      className={`rounded-xl border-[0.5px] p-3.5 shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-2.5 min-h-[130px] ${deal.isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
-                      onClick={() => navigate(`/deals/${deal.dealId}`)}
-                    >
-                      <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
-                        {deal.customerName}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}>
-                          {deal.stageLabel}
-                        </span>
-                        <span className={`inline-flex items-center justify-center w-2 h-2 rounded-full ${QUEUE_COLORS[deal.queue].dot}`} />
-                      </div>
-                      <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
-                        <span className="text-[11px] text-[#888780] truncate max-w-[60%]">{deal.nextActionLabel}</span>
-                        <span className="text-[13px] font-semibold text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</span>
-                      </div>
-                    </Card>
-                  ))}
+                  {activeDeals.map((deal) => {
+                    const gridAvatar = deal.customerAvatar ?? { name: deal.customerName, avatar_initials: null, avatar_color: null };
+                    return (
+                      <Card
+                        key={deal.dealId}
+                        className={`rounded-xl border-[0.5px] p-3.5 shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-2.5 min-h-[130px] ${deal.isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
+                        onClick={() => navigate(`/deals/${deal.dealId}`)}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <CustomerAvatar customer={gridAvatar} size="md" className="mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
+                              {deal.customerName}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}>
+                                {deal.stageLabel}
+                              </span>
+                              <span className={`inline-flex items-center justify-center w-2 h-2 rounded-full ${QUEUE_COLORS[deal.queue].dot}`} />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
+                          <span className="text-[11px] text-[#888780] truncate max-w-[60%]">{deal.nextActionLabel}</span>
+                          <span className="text-[13px] font-semibold text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</span>
+                        </div>
+                      </Card>
+                    );
+                  })}
                 </div>
               ) : viewMode === "table" ? (
                 <div className="bg-white border border-card-border rounded-card overflow-hidden">
@@ -706,14 +723,19 @@ export default function HomePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {dealSort.sorted.map((deal) => (
+                        {dealSort.sorted.map((deal) => {
+                          const rowAvatar = deal.customerAvatar ?? { name: deal.customerName, avatar_initials: null, avatar_color: null };
+                          return (
                           <tr
                             key={deal.dealId}
                             onClick={() => navigate(`/deals/${deal.dealId}`)}
                             className="border-b border-[#F0EFE9] last:border-0 hover:bg-[#FAFAF7] cursor-pointer transition-colors"
                           >
                             <td className="px-3 py-2">
-                              <span className="font-semibold text-[#1A1A18] truncate block max-w-[180px]">{deal.customerName}</span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <CustomerAvatar customer={rowAvatar} size="sm" />
+                                <span className="font-semibold text-[#1A1A18] truncate">{deal.customerName}</span>
+                              </div>
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1.5">
@@ -738,7 +760,8 @@ export default function HomePage() {
                               </span>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -749,6 +772,7 @@ export default function HomePage() {
                     <DealCard
                       key={deal.dealId}
                       customerName={deal.customerName}
+                      customerAvatar={deal.customerAvatar}
                       itemSummary={deal.itemSummary || deal.latestDocument?.doc_number || DOC_TYPE_LABELS[deal.latestDocument?.doc_type || "quotation"].th}
                       itemNames={deal.itemNames}
                       amountText={`฿ ${formatCurrency(deal.amount)}`}
@@ -787,6 +811,7 @@ export default function HomePage() {
                       <DoneDealCard
                         key={deal.dealId}
                         customerName={deal.customerName}
+                        customerAvatar={deal.customerAvatar}
                         itemSummary={deal.itemSummary || deal.latestDocument?.doc_number || "ชำระเรียบร้อย"}
                         itemNames={deal.itemNames}
                         amountText={`฿ ${formatCurrency(deal.amount)}`}
