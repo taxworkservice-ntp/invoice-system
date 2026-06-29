@@ -190,6 +190,7 @@ export interface DocumentLineItem {
   user_id: string;
   item_id: string | null;
   item_name: string;
+  line_note: string | null;
   item_sku: string | null;
   item_type: ItemType;
   unit: string;

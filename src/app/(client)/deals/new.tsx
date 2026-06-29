@@ -25,6 +25,7 @@ interface LineItemForm {
   item_id: string | null;
   item_sku?: string | null;
   item_name: string;
+  line_note: string;
   item_type: string;
   unit_price: number;
   quantity: number;
@@ -42,6 +43,7 @@ function createEmptyLine(): LineItemForm {
     item_id: null,
     item_sku: null,
     item_name: "",
+    line_note: "",
     item_type: "product",
     unit_price: 0,
     quantity: 1,
@@ -411,6 +413,7 @@ export default function NewDealPage() {
               user_id: userId,
               item_id: lineItem.item_id,
               item_name: lineItem.item_name,
+              line_note: lineItem.line_note.trim() || null,
               item_sku: lineItem.item_sku || null,
               item_type: lineItem.item_type,
               unit: lineItem.unit,
@@ -701,6 +704,13 @@ export default function NewDealPage() {
                       }}
                     />
                   </div>
+                  <textarea
+                    value={item.line_note}
+                    onChange={(e) => updateLineItem(item.id, "line_note", e.target.value)}
+                    placeholder="หมายเหตุของรายการนี้ (ถ้ามี)"
+                    rows={2}
+                    className="mb-2 w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                  />
                   <div className="flex gap-1 items-start">
                     <label className="w-[100px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">ราคา</span>

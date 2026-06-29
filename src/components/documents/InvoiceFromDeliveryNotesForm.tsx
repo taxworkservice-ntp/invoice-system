@@ -326,6 +326,7 @@ export function InvoiceFromDeliveryNotesForm() {
         user_id: userId,
         item_id: line.item_id,
         item_name: line.item_name,
+        line_note: line.line_note || null,
         item_sku: line.item_sku,
         item_type: line.item_type,
         unit: line.unit,

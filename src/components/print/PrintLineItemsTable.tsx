@@ -79,6 +79,9 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                 <td className="px-2 py-2 text-[11px] text-[#667085] border-t-[0.5px] border-[#E6EBF2]">{index + 1}</td>
                 <td className="px-2 py-2 text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   <div className="leading-[16px]">{item.item_name}</div>
+                  {item.line_note ? (
+                    <div className="mt-0.5 text-[10px] leading-[13px] text-[#667085]">หมายเหตุ: {item.line_note}</div>
+                  ) : null}
                   {hasLineDiscount && !isDeliveryNote ? (
                     <div className="mt-0.5 text-[10px] text-[#B54708]">
                       ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | ฿${formatCurrency(item.discount_amount)}` : ""}

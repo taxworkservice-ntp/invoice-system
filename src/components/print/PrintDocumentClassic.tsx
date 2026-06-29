@@ -305,6 +305,9 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                     <td className="center">{index + 1}</td>
                     <td className="print-classic-item-name">
                       {item.item_name}
+                      {item.line_note ? (
+                        <div className="print-classic-item-note">หมายเหตุ: {item.line_note}</div>
+                      ) : null}
                       {hasLineDiscount ? (
                         <div className="print-classic-discount-note">
                           ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | -${formatCurrency(item.discount_amount)}` : ""}

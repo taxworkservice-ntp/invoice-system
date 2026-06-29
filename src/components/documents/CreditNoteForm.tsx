@@ -26,6 +26,7 @@ interface CreditItem {
   itemId: string;
   itemSku?: string | null;
   itemName: string;
+  lineNote: string;
   itemType: "product" | "service";
   unit: string;
   unitPrice: number;
@@ -161,6 +162,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
           itemId: l.item_id || "",
           itemSku: l.item_sku || null,
           itemName: l.item_name,
+          lineNote: l.line_note || "",
           itemType: l.item_type,
           unit: l.unit,
           unitPrice: l.unit_price,
@@ -196,6 +198,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
           itemId: l.item_id || "",
           itemSku: l.item_sku || null,
           itemName: l.item_name,
+          lineNote: l.line_note || "",
           itemType: l.item_type,
           unit: l.unit,
           unitPrice: l.unit_price,
@@ -249,6 +252,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         itemId: cat.id,
         itemSku: cat.sku,
         itemName: cat.name,
+        lineNote: "",
         itemType: cat.item_type,
         unit: cat.base_unit,
         unitPrice: cat.unit_price,
@@ -357,6 +361,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
               user_id: userId,
               item_id: it.itemId || null,
               item_name: it.itemName,
+              line_note: it.lineNote.trim() || null,
               item_sku: it.itemSku || null,
               item_type: it.itemType,
               unit: it.unit,
@@ -520,6 +525,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
                         <div className="text-[13px] font-medium truncate max-w-[160px]">
                           {it.itemName}
                         </div>
+                        {it.lineNote ? <div className="mt-0.5 text-[10px] text-[#888780]">{it.lineNote}</div> : null}
                         <div className="text-[10px] text-[#888780]">{it.unit}</div>
                       </td>
                       <td className="py-2 pr-2">

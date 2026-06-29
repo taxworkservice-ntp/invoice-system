@@ -232,6 +232,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
           user_id: userId,
           item_id: line.source.item_id,
           item_name: line.source.item_name,
+          line_note: line.source.line_note || null,
           item_sku: line.source.item_sku,
           item_type: line.source.item_type,
           unit: line.source.unit,

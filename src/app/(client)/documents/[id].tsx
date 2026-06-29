@@ -220,6 +220,7 @@ export default function DocumentDetailPage() {
               user_id: userId,
               item_id: lineItem.item_id,
               item_name: lineItem.item_name,
+              line_note: lineItem.line_note || null,
               item_sku: lineItem.item_sku,
               item_type: lineItem.item_type,
               unit: lineItem.unit,
@@ -390,6 +391,7 @@ export default function DocumentDetailPage() {
             user_id: userId,
             item_id: lineItem.item_id,
             item_name: lineItem.item_name,
+            line_note: lineItem.line_note || null,
             item_sku: lineItem.item_sku,
             item_type: lineItem.item_type,
             unit: lineItem.unit,
@@ -467,6 +469,7 @@ export default function DocumentDetailPage() {
             user_id: userId,
             item_id: lineItem.item_id,
             item_name: lineItem.item_name,
+            line_note: lineItem.line_note || null,
             item_sku: lineItem.item_sku,
             item_type: lineItem.item_type,
             unit: lineItem.unit,
@@ -735,6 +738,7 @@ export default function DocumentDetailPage() {
                   <td className="px-4 py-2 text-gray-500">{index + 1}</td>
                   <td className="px-4 py-2 text-gray-700">
                     <div>{item.item_name}</div>
+                    {item.line_note ? <div className="mt-1 text-xs text-gray-500">{item.line_note}</div> : null}
                     {item.discount_amount > 0 && (
                       <div className="text-xs text-red-500">
                         ส่วนลด {item.discount_percent}% (-฿{formatCurrency(item.discount_amount)})

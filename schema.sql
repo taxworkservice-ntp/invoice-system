@@ -427,6 +427,7 @@ create table document_line_items (
 
   -- Snapshot of item at time of save (do not rely on item table for history)
   item_name       text not null,
+  line_note       text,
   item_sku        text,
   item_type       item_type not null default 'service',
   unit            text not null default 'ชิ้น',
