@@ -591,7 +591,7 @@ body {
 }
 .print-classic-totals-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   min-height: 8mm;
   padding: 1.1mm 2.5mm;
@@ -603,6 +603,9 @@ body {
 .print-classic-totals-lab {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
+  flex: 1;
+  text-align: right;
   line-height: 1.1;
 }
 .print-classic-totals-th {
@@ -621,6 +624,7 @@ body {
   white-space: nowrap;
   color: #1f2937;
   font-size: 8pt;
+  flex: 0 0 31mm;
 }
 .print-classic-totals-row-grand {
   background: #e5e7eb;
