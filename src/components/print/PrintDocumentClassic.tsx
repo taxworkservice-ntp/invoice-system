@@ -1,6 +1,6 @@
 import { formatCurrency } from "../../lib/format";
 import { documentTypeLabel } from "../../lib/docLabels";
-import { LOGO_SIZE_OPTIONS } from "../../constants";
+import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type { Customer } from "../../types";
 
@@ -37,7 +37,7 @@ function formatDateBuddhist(date: string | null | undefined): string {
 
 const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note"]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
-const MIN_CLASSIC_ITEM_ROWS = 10;
+const MIN_CLASSIC_ITEM_ROWS = 6;
 
 function defaultClassicTerms(companyName: string): string[] {
   return [
@@ -69,13 +69,20 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
   const documentClass = isDeliveryNote ? " print-delivery-note" : "";
   const showBank = SHOW_BANK_TYPES.has(document.doc_type);
   const showPaymentMethod = SHOW_PAYMENT_METHOD_TYPES.has(document.doc_type);
-  const hasPayment = (showPaymentMethod && document.payment_method) || document.wht_certificate_no || document.amount_received != null;
   const signatureUrl = clientProfile.signature_url;
   const stampUrl = clientProfile.stamp_url;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = splitClassicTerms(clientProfile.classic_terms, clientProfile.company_name_th);
   const blankLineCount = Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length);
+  const noteText = document.note?.trim();
+  const paymentLines = [
+    clientProfile.bank_name && showBank ? `ธนาคาร: ${clientProfile.bank_name}` : null,
+    clientProfile.bank_account && showBank ? `เลขที่บัญชี: ${clientProfile.bank_account}` : null,
+    showPaymentMethod && document.payment_method ? `วิธีชำระเงิน: ${PAYMENT_METHOD_LABELS[document.payment_method] || document.payment_method}` : null,
+    document.amount_received != null ? `จำนวนเงินที่รับ: ${formatCurrency(document.amount_received)}` : null,
+    document.wht_certificate_no ? `เลขที่หนังสือรับรองหัก ณ ที่จ่าย: ${document.wht_certificate_no}` : null,
+  ].filter(Boolean) as string[];
 
   // doc title (Thai + English)
   const titleTh =
@@ -221,18 +228,6 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                   <td className="print-classic-meta-val">{formatDate(document.due_date)}</td>
                 </tr>
               ) : null}
-              {clientProfile.bank_name && showBank ? (
-                <tr>
-                  <th><span className="print-classic-meta-th-th">ธนาคาร</span><span className="print-classic-meta-th-en">BANK</span></th>
-                  <td className="print-classic-meta-val">{clientProfile.bank_name}</td>
-                </tr>
-              ) : null}
-              {clientProfile.bank_account && showBank ? (
-                <tr>
-                  <th><span className="print-classic-meta-th-th">เลขที่บัญชี</span><span className="print-classic-meta-th-en">ACCOUNT NO.</span></th>
-                  <td className="print-classic-meta-val">{clientProfile.bank_account}</td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
@@ -376,15 +371,34 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           {isDeliveryNote ? (
             <>
               <div className="print-classic-terms-title">หมายเหตุการส่งของ (REMARKS)</div>
-              <div className="print-classic-terms-body">{document.note?.trim() || "-"}</div>
+              <div className="print-classic-terms-body">{noteText || "-"}</div>
             </>
           ) : (
             <>
-              <ol>
-                {classicTerms.map((term, index) => (
-                  <li key={`${index}-${term}`}>{term}</li>
-                ))}
-              </ol>
+              {noteText ? (
+                <section className="print-classic-terms-section">
+                  <div className="print-classic-terms-title">หมายเหตุ (NOTE)</div>
+                  <div className="print-classic-terms-body">{noteText}</div>
+                </section>
+              ) : null}
+              {paymentLines.length > 0 ? (
+                <section className="print-classic-terms-section">
+                  <div className="print-classic-terms-title">ข้อมูลการชำระเงิน (PAYMENT)</div>
+                  <ul className="print-classic-payment-list">
+                    {paymentLines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              <section className="print-classic-terms-section">
+                <div className="print-classic-terms-title">เงื่อนไข (TERMS)</div>
+                <ol>
+                  {classicTerms.map((term, index) => (
+                    <li key={`${index}-${term}`}>{term}</li>
+                  ))}
+                </ol>
+              </section>
             </>
           )}
         </div>
@@ -475,15 +489,6 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           <div className="print-classic-stamp">
             <img src={stampUrl} alt="ตราประทับ" className="print-classic-stamp-img" />
           </div>
-        ) : null}
-        {showPaymentMethod && document.payment_method ? (
-          <div className="print-classic-footer-row">วิธีชำระเงิน: {document.payment_method}</div>
-        ) : null}
-        {hasPayment && document.amount_received != null ? (
-          <div className="print-classic-footer-row">จำนวนเงินที่รับ: {formatCurrency(document.amount_received)}</div>
-        ) : null}
-        {document.wht_certificate_no ? (
-          <div className="print-classic-footer-row">เลขที่หนังสือรับรองหัก ณ ที่จ่าย: {document.wht_certificate_no}</div>
         ) : null}
       </div>
     </article>

@@ -538,6 +538,11 @@ body {
   padding-left: 5mm;
 }
 .print-classic-terms-col li { margin-bottom: 0.5mm; }
+.print-classic-terms-section + .print-classic-terms-section {
+  margin-top: 1.8mm;
+  padding-top: 1.5mm;
+  border-top: 0.35px solid #e5e7eb;
+}
 .print-classic-terms-title {
   font-size: 8pt;
   font-weight: 700;
@@ -550,6 +555,14 @@ body {
   white-space: pre-line;
   color: #1f2937;
   line-height: 1.5;
+}
+.print-classic-payment-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.print-classic-payment-list li {
+  margin-bottom: 0.6mm;
 }
 .print-classic-totals-col {
   display: flex;
