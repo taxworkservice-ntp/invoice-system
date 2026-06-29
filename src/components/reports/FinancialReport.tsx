@@ -8,7 +8,6 @@ import { EmptyState } from "../ui/EmptyState";
 import { useFinancialReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
 import { TransactionTable } from "./TransactionTable";
-import { buildFinancialReportXlsx } from "../../lib/financialReportXlsx";
 
 const MONTH_NAMES_TH = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -105,6 +104,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
 
   async function handleExportExcel() {
     try {
+      const { buildFinancialReportXlsx } = await import("../../lib/financialReportXlsx");
       const data = await buildFinancialReportXlsx({
         summary,
         transactions,

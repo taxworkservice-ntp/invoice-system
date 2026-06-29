@@ -76,10 +76,6 @@ function relativeDueLabel(dueDate: string): { text: string; urgent: boolean } {
   return { text: "", urgent: false };
 }
 
-function isResolvedStatus(status: DocumentStatus) {
-  return status === "paid" || status === "generated" || status === "issued" || status === "voided" || status === "converted";
-}
-
 function isCollectingStatus(doc: Document) {
   return doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue" || doc.status === "paid");
 }
@@ -87,14 +83,6 @@ function isCollectingStatus(doc: Document) {
 function isActuallyOverdue(doc: Document) {
   if (!doc.due_date) return false;
   return (doc.status === "sent" || doc.status === "overdue") && new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10));
-}
-
-function needsAttention(doc: Document) {
-  if (doc.status === "draft") return true;
-  if (doc.status === "overdue") return true;
-  if (isActuallyOverdue(doc)) return true;
-  if (doc.doc_type === "billing_note" && doc.status === "sent") return true;
-  return false;
 }
 
 function getNextStepText(doc: Document) {
@@ -133,23 +121,23 @@ function SummaryCard({
   onClick: () => void;
 }) {
   const tones = {
-    blue: active ? "border-[#378ADD] bg-[#EAF4FF] text-[#0C447C]" : "border-[#D9E7F7] bg-white text-[#0C447C]",
-    amber: active ? "border-[#D89A1D] bg-[#FFF4DE] text-[#7A4A00]" : "border-[#F2E2BE] bg-white text-[#7A4A00]",
-    red: active ? "border-[#D14343] bg-[#FFF0F0] text-[#8A2020]" : "border-[#F0D0D0] bg-white text-[#8A2020]",
-    green: active ? "border-[#3E8D5D] bg-[#EDF8F1] text-[#1E5A38]" : "border-[#D1E9DB] bg-white text-[#1E5A38]",
-    gray: active ? "border-[#5E5A52] bg-[#F3F1ED] text-[#3F3B34]" : "border-[#E5E1D9] bg-white text-[#3F3B34]",
+    blue: active ? "border-[#378ADD] bg-[#F2F8FF] text-[#0C447C]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    amber: active ? "border-[#D89A1D] bg-[#FFF8EA] text-[#7A4A00]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    red: active ? "border-[#D14343] bg-[#FFF5F5] text-[#8A2020]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    green: active ? "border-[#3E8D5D] bg-[#F1FAF4] text-[#1E5A38]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    gray: active ? "border-[#5E5A52] bg-[#F5F3EF] text-[#3F3B34]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
   };
 
   return (
-    <button type="button" onClick={onClick} className={`rounded-[18px] border p-4 text-left transition-colors ${tones[tone]}`}>
+    <button type="button" onClick={onClick} className={`rounded-xl border px-3 py-3 text-left shadow-sm transition-colors hover:border-[#B9B2A6] ${tones[tone]}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-[0.12em] opacity-70">{title}</div>
-          <div className="text-2xl font-semibold leading-none">{count}</div>
+          <div className="text-xs font-medium leading-5 opacity-75">{title}</div>
+          <div className="text-xl font-semibold leading-none tabular-nums">{count}</div>
         </div>
         <div className="shrink-0 opacity-80">{icon}</div>
       </div>
-      <p className="mt-3 text-xs leading-5 opacity-80">{hint}</p>
+      <p className="mt-2 text-xs leading-5 opacity-70">{hint}</p>
     </button>
   );
 }
@@ -937,7 +925,7 @@ export default function DocumentsPage() {
       if (docTypeFilter !== "all" && doc.doc_type !== docTypeFilter) return false;
       if (statusFilter !== "all" && doc.status !== statusFilter) return false;
 
-      if (quickView === "attention" && !needsAttention(doc)) return false;
+      if (quickView === "attention" && !(doc.status === "overdue" || isActuallyOverdue(doc))) return false;
       if (quickView === "draft" && doc.status !== "draft") return false;
       if (quickView === "dn_invoice" && !(doc.doc_type === "delivery_note" && doc.status === "sent")) return false;
       if (quickView === "collect" && !(doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue" || doc.status === "paid"))) return false;
@@ -965,14 +953,13 @@ export default function DocumentsPage() {
       if (dateTo && doc.issue_date > dateTo) return false;
       return true;
     });
-  }, [documents, docTypeFilter, statusFilter, quickView, preset, debouncedSearch, dateFrom, dateTo]);
+  }, [documents, docTypeFilter, statusFilter, quickView, hideVoided, preset, debouncedSearch, dateFrom, dateTo]);
 
   const grouped = useMemo(() => {
-    const attention = filtered.filter((doc) => needsAttention(doc));
-    const active = filtered.filter((doc) => !needsAttention(doc) && !isResolvedStatus(doc.status));
+    const active = filtered.filter((doc) => doc.status !== "voided" && !["paid", "generated", "issued"].includes(doc.status));
     const completed = filtered.filter((doc) => ["paid", "generated", "issued"].includes(doc.status));
     const voided = filtered.filter((doc) => doc.status === "voided");
-    return { attention, active, completed, voided };
+    return { active, completed, voided };
   }, [filtered]);
 
   const hasFilters =
@@ -1035,19 +1022,18 @@ export default function DocumentsPage() {
   }
 
   const sections = [
-    { key: "attention", title: "ต้องดูตอนนี้", hint: "ร่างค้าง เอกสารเกินกำหนด และงานที่ยังรอเก็บเงิน", tone: "attention" as const, docs: grouped.attention },
-    { key: "active", title: "กำลังดำเนินการ", hint: "เอกสารที่ยังอยู่ใน workflow แต่ยังไม่ใช่งานเร่งด่วน", tone: "active" as const, docs: grouped.active },
-    { key: "completed", title: "เสร็จแล้ว", hint: "ประวัติเอกสารที่ปิดงานแล้วหรือรับเงินแล้ว", tone: "muted" as const, docs: grouped.completed },
-    { key: "voided", title: "ยกเลิก", hint: "เก็บไว้เป็นประวัติอ้างอิงภายหลัง", tone: "muted" as const, docs: grouped.voided },
+    { key: "active", title: "เอกสารที่ยังใช้งานอยู่", hint: "ร่าง เอกสารที่ส่งแล้ว และเอกสารที่ยังต้องอ้างอิงใน workflow", tone: "active" as const, docs: grouped.active },
+    { key: "completed", title: "เอกสารเสร็จแล้ว", hint: "เอกสารที่ออกแล้ว รับเงินแล้ว หรือปิดงานแล้ว", tone: "muted" as const, docs: grouped.completed },
+    { key: "voided", title: "เอกสารยกเลิก", hint: "ประวัติเอกสารที่ยกเลิกไว้สำหรับตรวจสอบย้อนหลัง", tone: "muted" as const, docs: grouped.voided },
   ].filter((section) => section.docs.length > 0);
 
   const mobileQuickFilters: { label: string; value: QuickView; count: number }[] = [
     { label: "ทั้งหมด", value: "all", count: documents.length },
-    { label: "ต้องตาม", value: "attention", count: summary.overdue },
+    { label: "เกินกำหนด", value: "attention", count: summary.overdue },
     { label: "ร่าง", value: "draft", count: summary.draft },
-    { label: "รอออกบิล", value: "dn_invoice", count: summary.dnReady },
-    { label: "รอเก็บเงิน", value: "collect", count: summary.collect },
-    { label: "รับเงินแล้ว", value: "paid", count: summary.paidThisMonth },
+    { label: "DN รอออกบิล", value: "dn_invoice", count: summary.dnReady },
+    { label: "BN รอรับเงิน", value: "collect", count: summary.collect },
+    { label: "รับเงินเดือนนี้", value: "paid", count: summary.paidThisMonth },
   ];
 
   return (
@@ -1060,11 +1046,11 @@ export default function DocumentsPage() {
       }
     >
       <div className="space-y-4 sm:space-y-5">
-        <section className="rounded-[22px] border border-[#E8E6DF] bg-[linear-gradient(135deg,#FFFDF8_0%,#F7F4EC_100%)] p-4">
+        <section className="rounded-2xl border border-[#E8E6DF] bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-[#1A1A18]">ศูนย์ควบคุมเอกสาร</h2>
-              <p className="mt-1 text-sm leading-6 text-[#6F6A61]">ดูว่าเอกสารไหนต้องตามต่อ เอกสารไหนเสร็จแล้ว และเปิดรายละเอียดได้เร็วขึ้นจากหน้าเดียว</p>
+              <h2 className="text-base font-semibold text-[#1A1A18]">คลังเอกสาร</h2>
+              <p className="mt-1 text-sm leading-6 text-[#6F6A61]">ค้นหา พิมพ์ ส่งออก และตรวจสอบเอกสารย้อนหลัง</p>
             </div>
             <div className="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[#7D776D] sm:block">
               {filtered.length} จาก {documents.length} รายการ
@@ -1076,12 +1062,12 @@ export default function DocumentsPage() {
               Array.from({ length: 6 }).map((_, index) => <SkeletonCard key={index} className="p-0" />)
             ) : (
               <>
-                <SummaryCard title="ร่าง" count={summary.draft} hint="ยังไม่ได้ส่งลูกค้า" active={quickView === "draft"} tone="blue" icon={<FileText className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "draft" ? "all" : "draft"))} />
-                <SummaryCard title="รอออกบิล" count={summary.dnReady} hint="ใบส่งของที่ยังไม่ได้ออกใบแจ้งหนี้" active={quickView === "dn_invoice"} tone="blue" icon={<FileStack className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "dn_invoice" ? "all" : "dn_invoice"))} />
-                <SummaryCard title="รอเก็บเงิน" count={summary.collect} hint="ใบวางบิลที่ยังต้องตาม" active={quickView === "collect"} tone="amber" icon={<Clock3 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "collect" ? "all" : "collect"))} />
-                <SummaryCard title="เกินกำหนด" count={summary.overdue} hint="ควรขึ้นมาก่อนบนมือถือ" active={quickView === "attention" || (quickView === "all" && statusFilter === "overdue")} tone="red" icon={<AlertTriangle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "attention" ? "all" : "attention"))} />
-                <SummaryCard title="รับเงินเดือนนี้" count={summary.paidThisMonth} hint="ไว้เช็กของที่ปิดงานแล้ว" active={quickView === "paid"} tone="green" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "paid" ? "all" : "paid"))} />
-                <SummaryCard title="ยกเลิก" count={summary.voided} hint="เก็บแยกจากเอกสารที่ยังใช้งาน" active={quickView === "voided"} tone="gray" icon={<XCircle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "voided" ? "all" : "voided"))} />
+                <SummaryCard title="ร่าง" count={summary.draft} hint="ยังไม่ออกใช้งาน" active={quickView === "draft"} tone="blue" icon={<FileText className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "draft" ? "all" : "draft"))} />
+                <SummaryCard title="ใบส่งของรอออกบิล" count={summary.dnReady} hint="กรอง DN ที่ยังไม่รวมบิล" active={quickView === "dn_invoice"} tone="blue" icon={<FileStack className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "dn_invoice" ? "all" : "dn_invoice"))} />
+                <SummaryCard title="ใบวางบิลรอรับเงิน" count={summary.collect} hint="กรองใบวางบิลที่ยังเปิดอยู่" active={quickView === "collect"} tone="amber" icon={<Clock3 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "collect" ? "all" : "collect"))} />
+                <SummaryCard title="เกินกำหนด" count={summary.overdue} hint="เอกสารที่ควรตรวจสอบ" active={quickView === "attention" || (quickView === "all" && statusFilter === "overdue")} tone="red" icon={<AlertTriangle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "attention" ? "all" : "attention"))} />
+                <SummaryCard title="รับเงินเดือนนี้" count={summary.paidThisMonth} hint="เอกสารที่ปิดยอดในเดือนนี้" active={quickView === "paid"} tone="green" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "paid" ? "all" : "paid"))} />
+                <SummaryCard title="ยกเลิก" count={summary.voided} hint="ประวัติที่แยกเก็บไว้" active={quickView === "voided"} tone="gray" icon={<XCircle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "voided" ? "all" : "voided"))} />
               </>
             )}
           </div>

@@ -1,14 +1,30 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { BarChart3, Package } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
-import { FinancialReport } from "../../../components/reports/FinancialReport";
-import { StockReport } from "../../../components/reports/StockReport";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { useAuth } from "../../../hooks/useAuth";
+
+const FinancialReport = lazy(() => import("../../../components/reports/FinancialReport").then((module) => ({ default: module.FinancialReport })));
+const StockReport = lazy(() => import("../../../components/reports/StockReport").then((module) => ({ default: module.StockReport })));
 
 const TABS = [
   { key: "financial", label: "รายงานการเงิน", icon: <BarChart3 className="h-4 w-4" /> },
   { key: "stock", label: "รายงานสต็อก", icon: <Package className="h-4 w-4" /> },
 ];
+
+function ReportFallback() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-20 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-48 rounded-xl" />
+      <Skeleton className="h-64 rounded-xl" />
+    </div>
+  );
+}
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("financial");
@@ -35,8 +51,10 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        {activeTab === "financial" && <FinancialReport userId={userId} />}
-        {activeTab === "stock" && <StockReport userId={userId} />}
+        <Suspense fallback={<ReportFallback />}>
+          {activeTab === "financial" && <FinancialReport userId={userId} />}
+          {activeTab === "stock" && <StockReport userId={userId} />}
+        </Suspense>
       </div>
     </AppShell>
   );
