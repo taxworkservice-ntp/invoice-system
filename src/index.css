@@ -504,6 +504,7 @@ body {
 .print-classic-items-table td.center { text-align: center; }
 .print-classic-items-table td.right  { text-align: right; }
 .print-classic-items-table td.bold   { font-weight: 600; }
+.print-classic-blank-row td { height: 7.5mm; }
 .print-classic-item-name {
   word-wrap: break-word;
   overflow-wrap: break-word;

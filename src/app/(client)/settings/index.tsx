@@ -76,6 +76,7 @@ export default function SettingsPage() {
   const [stockError, setStockError] = useState("");
 
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic">("modern");
+  const [classicTerms, setClassicTerms] = useState("");
 
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -132,6 +133,7 @@ export default function SettingsPage() {
       setSignatureKey((clientProfile as any).signature_url || null);
       setStampKey((clientProfile as any).stamp_url || null);
       setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
+      setClassicTerms(clientProfile.classic_terms || "");
     }
   }, [clientProfile]);
 
@@ -182,6 +184,7 @@ export default function SettingsPage() {
       logo_url: logoKey,
       logo_size: logoSize,
       pdf_template: pdfTemplate,
+      classic_terms: classicTerms.trim() || null,
       bank_name: bankName.trim() || null,
       bank_account: bankAccount.trim() || null,
       signature_url: signatureKey,
@@ -219,6 +222,8 @@ export default function SettingsPage() {
         contact_name: contactName.trim() || null,
         logo_url: logoKey,
         logo_size: logoSize,
+        pdf_template: pdfTemplate,
+        classic_terms: classicTerms.trim() || null,
         bank_name: bankName.trim() || null,
         bank_account: bankAccount.trim() || null,
         signature_url: signatureKey,
@@ -546,6 +551,23 @@ export default function SettingsPage() {
               <p className="text-[11px] text-[#888780] mt-1">
                 เทมเพลตเริ่มต้นสำหรับเอกสารทุกประเภท มีผลกับเอกสารใหม่เท่านั้น
               </p>
+              {pdfTemplate === "classic" && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    ข้อความเงื่อนไขท้ายฟอร์มคลาสสิก
+                  </label>
+                  <textarea
+                    value={classicTerms}
+                    onChange={(e) => { setClassicTerms(e.target.value); setProfileSaved(false); }}
+                    placeholder={`ได้รับสินค้าตามรายการข้างบนนี้ไว้ในสภาพดีและถูกต้องเรียบร้อยแล้ว\nสินค้าตามรายการข้างบนนี้ หากมีการเสียหายหรือชำรุด โปรดแจ้งกลับให้ทราบภายใน 3 วัน\nสินค้าซื้อแล้ว จะไม่รับคืน ยกเว้นแต่จะตกลงเป็นอย่างอื่น\nโปรดสั่งจ่ายเช็คขีดคร่อมในนาม "ชื่อบริษัท"`}
+                    rows={4}
+                    className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 placeholder:text-gray-400 resize-none"
+                  />
+                  <p className="text-[11px] text-[#888780] mt-1">
+                    หนึ่งบรรทัดต่อหนึ่งข้อ ถ้าเว้นว่างระบบจะใช้ข้อความมาตรฐานและชื่อบริษัทปัจจุบัน
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="border-t border-[#E8E6DF] pt-3">
@@ -582,7 +604,8 @@ export default function SettingsPage() {
                 address !== (clientProfile.address || "") ||
                 phone !== (clientProfile.phone || "") ||
                 contactName !== ((clientProfile as any).contact_name || "") ||
-                pdfTemplate !== (clientProfile.pdf_template === "classic" ? "classic" : "modern")) && (
+                pdfTemplate !== (clientProfile.pdf_template === "classic" ? "classic" : "modern") ||
+                classicTerms !== (clientProfile.classic_terms || "")) && (
                 <div className="absolute top-1 right-1 w-[6px] h-[6px] rounded-full bg-[#378ADD]" />
               )}
             </div>

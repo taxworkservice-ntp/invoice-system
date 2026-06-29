@@ -125,6 +125,7 @@ create table client_profiles (
   -- PDF template preference
   pdf_template          text not null default 'modern'
                          check (pdf_template in ('modern', 'classic')),
+  classic_terms         text,
 
   -- Bank info for perforated template
   bank_name             text,

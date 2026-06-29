@@ -37,6 +37,24 @@ function formatDateBuddhist(date: string | null | undefined): string {
 
 const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note"]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
+const MIN_CLASSIC_ITEM_ROWS = 10;
+
+function defaultClassicTerms(companyName: string): string[] {
+  return [
+    "ได้รับสินค้าตามรายการข้างบนนี้ไว้ในสภาพดีและถูกต้องเรียบร้อยแล้ว",
+    "สินค้าตามรายการข้างบนนี้ หากมีการเสียหายหรือชำรุด โปรดแจ้งกลับให้ทราบภายใน 3 วัน",
+    "สินค้าซื้อแล้ว จะไม่รับคืน ยกเว้นแต่จะตกลงเป็นอย่างอื่น",
+    `โปรดสั่งจ่ายเช็คขีดคร่อมในนาม "${companyName}"`,
+  ];
+}
+
+function splitClassicTerms(value: string | null | undefined, companyName: string): string[] {
+  const customTerms = value
+    ?.split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return customTerms && customTerms.length > 0 ? customTerms : defaultClassicTerms(companyName);
+}
 
 interface PrintDocumentClassicProps {
   data: PrintDocumentData;
@@ -56,6 +74,8 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
   const stampUrl = clientProfile.stamp_url;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
+  const classicTerms = splitClassicTerms(clientProfile.classic_terms, clientProfile.company_name_th);
+  const blankLineCount = Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length);
 
   // doc title (Thai + English)
   const titleTh =
@@ -123,7 +143,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                 <div>{clientProfile.address}</div>
               </>
             ) : null}
-            {clientProfile.tax_id ? <div>เลขประจำตัวผู้เสียภาษีอากร : {clientProfile.tax_id}</div> : null}
+            {clientProfile.tax_id ? <div>เลขภาษี : {clientProfile.tax_id}</div> : null}
             {clientProfile.phone ? <div>โทร: {clientProfile.phone}</div> : null}
           </div>
         </div>
@@ -164,7 +184,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
 
             {customer.tax_id ? (
               <>
-                <div className="print-classic-label"><span className="print-classic-label-th">เลขประจำตัวผู้เสียภาษีอากร :</span><span className="print-classic-label-en">TAX ID NO.</span></div>
+                <div className="print-classic-label"><span className="print-classic-label-th">เลขภาษี :</span><span className="print-classic-label-en">TAX ID NO.</span></div>
                 <div className="print-classic-val">{customer.tax_id}</div>
               </>
             ) : null}
@@ -233,7 +253,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
             </colgroup>
             <thead>
               <tr>
-                <th>ที่<span className="en">NO.</span></th>
+                <th>เลขที่<span className="en">NO.</span></th>
                 <th>เลขที่ใบแจ้งหนี้<span className="en">INVOICE NO.</span></th>
                 <th>วันที่ออก<span className="en">ISSUE DATE</span></th>
                 <th>มูลค่า<span className="en">SUBTOTAL</span></th>
@@ -273,12 +293,12 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
             </colgroup>
             <thead>
               <tr>
-                <th>ที่<span className="en">ITEM</span></th>
+                <th>เลขที่<span className="en">ITEM</span></th>
                 <th>รายการ<span className="en">DESCRIPTION</span></th>
                 <th style={{ textAlign: "right" }}>จำนวน<span className="en">QTY</span></th>
-                <th>หน่วย<span className="en">UNIT</span></th>
+                <th style={{ textAlign: "center" }}>หน่วย<span className="en">UNIT</span></th>
                 <th style={{ textAlign: "right" }}>ราคา/หน่วย<span className="en">UNIT PRICE</span></th>
-                <th style={{ textAlign: "right" }}>ส่วนลด<span className="en">DISC.</span></th>
+                <th style={{ textAlign: "center" }}>ส่วนลด<span className="en">DISC.</span></th>
                 <th style={{ textAlign: "right" }}>จำนวนเงิน<span className="en">AMOUNT</span></th>
               </tr>
             </thead>
@@ -297,13 +317,24 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                       ) : null}
                     </td>
                     <td className="right">{item.quantity}</td>
-                    <td>{item.unit}</td>
+                    <td className="center">{item.unit}</td>
                     <td className="right">{formatCurrency(item.unit_price)}</td>
-                    <td className="right">{hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}</td>
+                    <td className="center">{hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}</td>
                     <td className="right bold">{formatCurrency(item.line_total)}</td>
                   </tr>
                 );
               })}
+              {Array.from({ length: blankLineCount }).map((_, index) => (
+                <tr key={`blank-${index}`} className="print-classic-blank-row">
+                  <td className="center">&nbsp;</td>
+                  <td className="print-classic-item-name">&nbsp;</td>
+                  <td className="right">&nbsp;</td>
+                  <td className="center">&nbsp;</td>
+                  <td className="right">&nbsp;</td>
+                  <td className="center">&nbsp;</td>
+                  <td className="right">&nbsp;</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </section>
@@ -321,7 +352,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
             </colgroup>
             <thead>
               <tr>
-                <th>ที่<span className="en">NO.</span></th>
+                <th>เลขที่<span className="en">NO.</span></th>
                 <th>เลขที่ใบส่งของ<span className="en">DELIVERY NO.</span></th>
                 <th>วันที่ส่งของ<span className="en">DELIVERY DATE</span></th>
               </tr>
@@ -350,10 +381,9 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           ) : (
             <>
               <ol>
-                <li>ได้รับสินค้าตามรายการข้างบนนี้ไว้ในสภาพดีและถูกต้องเรียบร้อยแล้ว</li>
-                <li>สินค้าตามรายการข้างบนนี้ หากมีการเสียหายหรือชำรุด โปรดแจ้งกลับให้ทราบภายใน 3 วัน</li>
-                <li>สินค้าซื้อแล้ว จะไม่รับคืน ยกเว้นแต่จะตกลงเป็นอย่างอื่น</li>
-                <li>โปรดสั่งจ่ายเช็คขีดคร่อมในนาม &quot;{clientProfile.company_name_th}&quot;</li>
+                {classicTerms.map((term, index) => (
+                  <li key={`${index}-${term}`}>{term}</li>
+                ))}
               </ol>
             </>
           )}
