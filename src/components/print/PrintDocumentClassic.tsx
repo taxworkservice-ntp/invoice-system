@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../lib/format";
 import { documentTypeLabel } from "../../lib/docLabels";
+import { splitTerms } from "../../lib/terms";
 import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type { Customer } from "../../types";
@@ -37,24 +38,9 @@ function formatDateBuddhist(date: string | null | undefined): string {
 
 const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note"]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
-const MIN_CLASSIC_ITEM_ROWS = 6;
+const MIN_CLASSIC_ITEM_ROWS = 8;
 
-function defaultClassicTerms(companyName: string): string[] {
-  return [
-    "ได้รับสินค้าตามรายการข้างบนนี้ไว้ในสภาพดีและถูกต้องเรียบร้อยแล้ว",
-    "สินค้าตามรายการข้างบนนี้ หากมีการเสียหายหรือชำรุด โปรดแจ้งกลับให้ทราบภายใน 3 วัน",
-    "สินค้าซื้อแล้ว จะไม่รับคืน ยกเว้นแต่จะตกลงเป็นอย่างอื่น",
-    `โปรดสั่งจ่ายเช็คขีดคร่อมในนาม "${companyName}"`,
-  ];
-}
 
-function splitClassicTerms(value: string | null | undefined, companyName: string): string[] {
-  const customTerms = value
-    ?.split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  return customTerms && customTerms.length > 0 ? customTerms : defaultClassicTerms(companyName);
-}
 
 interface PrintDocumentClassicProps {
   data: PrintDocumentData;
@@ -73,7 +59,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
   const stampUrl = clientProfile.stamp_url;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
-  const classicTerms = splitClassicTerms(clientProfile.classic_terms, clientProfile.company_name_th);
+  const classicTerms = splitTerms(clientProfile.classic_terms, clientProfile.company_name_th);
   const blankLineCount = Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length);
   const noteText = document.note?.trim();
   const paymentLines = [

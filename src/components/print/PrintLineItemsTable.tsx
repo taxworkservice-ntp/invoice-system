@@ -22,15 +22,18 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
   if (document.doc_type === "billing_note") {
     return (
       <section className="print-block mt-4">
-        <div className="mb-1 text-[10px] tracking-[0.12em] text-[#667085]">รายการใบแจ้งหนี้</div>
+        <div className="mb-1">
+          <span className="text-[10px] tracking-[0.12em] text-[#667085]">รายการใบแจ้งหนี้</span>
+          <span className="text-[7px] text-[#94a3b8] ml-2">INVOICES</span>
+        </div>
         <table className="print-table w-full border-separate border-spacing-0">
           <thead className="bg-[#F4F7FB] text-[#344054]">
             <tr>
-              <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">เลขที่ใบแจ้งหนี้</th>
-              <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">วันที่ออก</th>
-              <th className="px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">มูลค่า</th>
-              <th className="px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ภาษีมูลค่าเพิ่ม</th>
-              <th className="px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">รวม</th>
+              <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">เลขที่ใบแจ้งหนี้<div className="text-[7px] font-normal text-[#94a3b8]">INVOICE NO.</div></th>
+              <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">วันที่ออก<div className="text-[7px] font-normal text-[#94a3b8]">ISSUE DATE</div></th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">มูลค่า<div className="text-[7px] font-normal text-[#94a3b8]">SUBTOTAL</div></th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ภาษีมูลค่าเพิ่ม<div className="text-[7px] font-normal text-[#94a3b8]">VAT</div></th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">รวม<div className="text-[7px] font-normal text-[#94a3b8]">TOTAL</div></th>
             </tr>
           </thead>
           <tbody>
@@ -61,21 +64,24 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
 
   return (
     <section className="print-block mt-4">
-      <div className="mb-1 text-[10px] tracking-[0.12em] text-[#667085]">
-        {document.doc_type === "receipt" ? "รายการที่ชำระ" : "รายการสินค้าและบริการ"}
+      <div className="mb-1">
+        <span className="text-[10px] tracking-[0.12em] text-[#667085]">
+          {document.doc_type === "receipt" ? "รายการที่ชำระ" : "รายการสินค้าและบริการ"}
+        </span>
+        <span className="text-[7px] text-[#94a3b8] ml-2">ITEMS</span>
       </div>
       <table className="print-table w-full border-separate border-spacing-0">
         <thead className="bg-[#F4F7FB] text-[#344054]">
           <tr>
-            <th className="w-[8mm] px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">ลำดับ</th>
-            <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">รายละเอียด</th>
-            <th className="w-[16mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">จำนวน</th>
-            <th className="w-[16mm] px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">หน่วย</th>
+            <th className="w-[8mm] px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">ลำดับ<div className="text-[7px] font-normal text-[#94a3b8]">NO.</div></th>
+            <th className="px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">รายละเอียด<div className="text-[7px] font-normal text-[#94a3b8]">DESCRIPTION</div></th>
+            <th className="w-[16mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">จำนวน<div className="text-[7px] font-normal text-[#94a3b8]">QTY</div></th>
+            <th className="w-[16mm] px-2 py-2 text-left text-[10px] font-semibold tracking-[0.06em]">หน่วย<div className="text-[7px] font-normal text-[#94a3b8]">UNIT</div></th>
             {!isDeliveryNote && (
               <>
-                <th className="w-[22mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ราคา/หน่วย</th>
-                <th className="w-[14mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ส่วนลด</th>
-                <th className="w-[24mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">จำนวนเงิน</th>
+                <th className="w-[22mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ราคา/หน่วย<div className="text-[7px] font-normal text-[#94a3b8]">UNIT PRICE</div></th>
+                <th className="w-[14mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">ส่วนลด<div className="text-[7px] font-normal text-[#94a3b8]">DISC.</div></th>
+                <th className="w-[24mm] px-2 py-2 text-right text-[10px] font-semibold tracking-[0.06em]">จำนวนเงิน<div className="text-[7px] font-normal text-[#94a3b8]">AMOUNT</div></th>
               </>
             )}
           </tr>
