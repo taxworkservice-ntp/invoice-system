@@ -528,8 +528,8 @@ function QuickDetailModal({
               <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</div>
             </div>
             {doc.deal_id && (
-              <Button variant="secondary" onClick={onOpenDeal} className="w-full sm:w-auto !border-amber-200 !bg-amber-50 !text-amber-700 hover:!bg-amber-100">
-                เปิดงานขาย
+              <Button onClick={onOpenDeal} className="w-full sm:w-auto !border-amber-500 !bg-amber-500 !text-white shadow-sm hover:!bg-amber-600">
+                ดูเอกสารในงานขายนี้
               </Button>
             )}
           </div>
