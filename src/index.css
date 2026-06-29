@@ -177,6 +177,8 @@ body {
   display: block;
 }
 
+.print-modern-blank-row td { height: 6mm; }
+
 @page {
   size: A4;
   margin: 8mm;

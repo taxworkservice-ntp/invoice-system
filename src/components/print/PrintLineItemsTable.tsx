@@ -1,6 +1,8 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 
+const MIN_MODERN_ITEM_ROWS = 3;
+
 function formatDate(date: string | null | undefined) {
   if (!date) return "-";
   const parsed = new Date(date);
@@ -18,6 +20,7 @@ function getRowClass() {
 export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
   const { document, lineItems, billingNoteInvoices } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
+  const blankLineCount = Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length);
 
   if (document.doc_type === "billing_note") {
     return (
@@ -120,6 +123,21 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
               </tr>
             );
           })}
+          {Array.from({ length: blankLineCount }).map((_, index) => (
+            <tr key={`blank-${index}`} className="print-modern-blank-row break-inside-avoid align-top bg-white">
+              <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+              <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+              {!isDeliveryNote && (
+                <>
+                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                </>
+              )}
+            </tr>
+          ))}
         </tbody>
       </table>
     </section>

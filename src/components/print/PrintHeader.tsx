@@ -54,7 +54,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
             {clientProfile.phone ? <div>โทร: {clientProfile.phone}</div> : null}
           </div>
 
-          <div className="mt-3 border-l-2 pl-3" style={{ borderColor: "var(--doc-accent, #2f6fed)" }}>
+          <div className="mt-5 border-l-2 pl-3" style={{ borderColor: "var(--doc-accent, #2f6fed)" }}>
             <div>
               <div className="text-[9px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
               <div className="text-[6.5px] text-[#94a3b8]">BILL TO</div>
