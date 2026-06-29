@@ -522,9 +522,16 @@ function QuickDetailModal({
             )}
           </div>
 
-          <div className="mt-4">
-            <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">ยอดสุทธิ</div>
-            <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">ยอดสุทธิ</div>
+              <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</div>
+            </div>
+            {doc.deal_id && (
+              <Button variant="secondary" onClick={onOpenDeal} className="w-full sm:w-auto !border-amber-200 !bg-amber-50 !text-amber-700 hover:!bg-amber-100">
+                เปิดดีล
+              </Button>
+            )}
           </div>
         </div>
 
@@ -660,11 +667,6 @@ function QuickDetailModal({
               <Button variant="secondary" onClick={onOpenFull} className="w-full sm:w-auto">
                 ดูรายละเอียด
               </Button>
-              {doc.deal_id && (
-                <Button variant="secondary" onClick={onOpenDeal} className="w-full sm:w-auto !bg-amber-50 !text-amber-700 !border-amber-200 hover:!bg-amber-100">
-                  เปิดดีล
-                </Button>
-              )}
             </div>
           </div>
         </div>
@@ -932,7 +934,7 @@ export default function DocumentsPage() {
       if (quickView === "paid" && !(doc.doc_type === "billing_note" && doc.status === "paid")) return false;
       if (quickView === "voided" && doc.status !== "voided") return false;
 
-      if (hideVoided && quickView === "all" && doc.status === "voided") return false;
+      if (hideVoided && doc.status === "voided" && quickView !== "voided" && statusFilter !== "voided") return false;
 
       if (preset === "paid_this_month") {
         if (doc.doc_type !== "billing_note" || doc.status !== "paid" || !doc.paid_at) return false;
@@ -1037,14 +1039,7 @@ export default function DocumentsPage() {
   ];
 
   return (
-    <AppShell
-      title="เอกสาร"
-      action={
-        <Button size="sm" onClick={() => navigate("/deals/new")}>
-          เริ่มงานใหม่
-        </Button>
-      }
-    >
+    <AppShell title="เอกสาร">
       <div className="space-y-4 sm:space-y-5">
         <section className="rounded-2xl border border-[#E8E6DF] bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
