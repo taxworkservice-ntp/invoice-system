@@ -4,6 +4,7 @@ import { Home, FileText, BarChart3, Package, Settings, Users, ChevronRight, Arro
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
+import { useAuth, useClientProfile } from "../../hooks/useAuth";
 
 const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
@@ -30,6 +31,9 @@ interface AppShellProps {
 export function AppShell({ title, showBack, action, breadcrumbs, children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const { clientProfile } = useClientProfile(profile?.id);
+  const companyName = clientProfile?.company_name_th?.trim() || "Invoice System";
 
   const impersonatedUserId = sessionStorage.getItem("impersonate_user_id");
   const impersonatedName = sessionStorage.getItem("impersonate_name");
@@ -51,7 +55,9 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
     <div className="md:flex min-h-screen bg-page-bg">
       <aside className="hidden md:flex md:flex-col md:w-56 md:h-screen md:sticky md:top-0 bg-white border-r border-card-border shrink-0">
         <div className="px-4 py-4 border-b border-card-border">
-          <h1 className="text-base font-semibold text-gray-800">Invoice System</h1>
+          <h1 className="text-base font-semibold text-gray-800 truncate" title={companyName}>
+            {companyName}
+          </h1>
         </div>
         <nav className="flex-1 px-2 py-3 space-y-1">
           {BOTTOM_NAV_ITEMS.map((item) => (
