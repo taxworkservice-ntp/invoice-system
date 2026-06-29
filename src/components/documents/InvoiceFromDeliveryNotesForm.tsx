@@ -287,7 +287,7 @@ export function InvoiceFromDeliveryNotesForm() {
           })
           .select("id")
           .single();
-        if (dealError || !deal) throw dealError || new Error("ไม่สามารถสร้างดีลสำหรับใบแจ้งหนี้ได้");
+        if (dealError || !deal) throw dealError || new Error("ไม่สามารถสร้างงานขายสำหรับใบแจ้งหนี้ได้");
         invoiceDealId = deal.id;
         createdDealId = deal.id;
       }
@@ -415,8 +415,8 @@ export function InvoiceFromDeliveryNotesForm() {
         <div className="mb-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
           <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="font-medium">ใบส่งของที่เลือกมาจากหลายดีล</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบส่งของทั้งหมดไว้ในดีลเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็น workflow ต่อเนื่องบนหน้าหลัก</p>
+            <p className="font-medium">ใบส่งของที่เลือกมาจากหลายงานขาย</p>
+            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบส่งของทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็น workflow ต่อเนื่องบนหน้าหลัก</p>
           </div>
         </div>
       )}

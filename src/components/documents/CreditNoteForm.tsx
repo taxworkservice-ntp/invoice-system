@@ -95,7 +95,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       .single();
 
     if (!deal) {
-      setError("ไม่พบดีล");
+      setError("ไม่พบงานขาย");
       setLoading(false);
       return;
     }
@@ -485,7 +485,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         {paidInvoices.length === 0 && !isEditing && (
           <Card>
             <p className="text-sm text-[#888780] text-center py-4">
-              ไม่มีเอกสารที่ชำระแล้วในดีลนี้
+              ไม่มีเอกสารที่ชำระแล้วในงานขายนี้
             </p>
           </Card>
         )}

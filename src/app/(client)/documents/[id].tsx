@@ -654,7 +654,7 @@ export default function DocumentDetailPage() {
               )}
               {doc.deal_id && (
                 <Button variant="secondary" size="sm" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
-              ไปที่หน้าดีล
+              ไปที่หน้างานขาย
                 </Button>
               )}
             </div>
@@ -1135,7 +1135,7 @@ export default function DocumentDetailPage() {
               className="w-full"
               onClick={() => navigate(`/deals/${doc.deal_id}`)}
             >
-              ไปที่หน้าดีล
+              ไปที่หน้างานขาย
             </Button>
           )}
 

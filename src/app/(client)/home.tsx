@@ -587,8 +587,8 @@ export default function HomePage() {
         ) : deals.length === 0 ? (
           <EmptyState
             title="ยินดีต้อนรับ!"
-            description="เริ่มต้นด้วยการสร้างดีลแรกของคุณ"
-            action={<Button onClick={() => setNewSheetOpen(true)}>สร้างดีลแรก</Button>}
+            description="เริ่มต้นด้วยงานขายแรกของคุณ"
+            action={<Button onClick={() => setNewSheetOpen(true)}>เริ่มงานขายแรก</Button>}
           />
         ) : (
           <>

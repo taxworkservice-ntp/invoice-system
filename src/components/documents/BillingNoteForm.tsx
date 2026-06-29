@@ -131,7 +131,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     const grouped = new Map<string, { dealId: string; label: string; invoices: InvoiceOption[] }>();
     for (const invoice of otherDealInvoices) {
       const key = invoice.deal_id || `no-deal-${invoice.id}`;
-      const label = invoice.deal?.title || selectedCustomer?.name || "ดีลไม่มีชื่อ";
+      const label = invoice.deal?.title || selectedCustomer?.name || "งานขายไม่มีชื่อ";
       const group = grouped.get(key) || { dealId: key, label, invoices: [] };
       group.invoices.push(invoice);
       grouped.set(key, group);
@@ -780,7 +780,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             <div className="space-y-3">
               {dealId && availableCurrentDealInvoices.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-[11px] text-gray-400">จากดีลนี้</div>
+                  <div className="text-[11px] text-gray-400">จากงานขายนี้</div>
                   {availableCurrentDealInvoices.map((invoice) => (
                     <InvoiceRow
                       key={invoice.id}
@@ -800,7 +800,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                     onClick={() => setOtherDealsExpanded((prev) => !prev)}
                     type="button"
                   >
-                    <span>เพิ่มใบแจ้งหนี้จากดีลอื่น ({otherDealInvoices.length} รายการ)</span>
+                    <span>เพิ่มใบแจ้งหนี้จากงานขายอื่น ({otherDealInvoices.length} รายการ)</span>
                     <ChevronDown className={`h-4 w-4 transition-transform ${otherDealsExpanded ? "rotate-180" : ""}`} />
                   </button>
                   {otherDealsExpanded && (
@@ -808,7 +808,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                       <div className="space-y-3">
                         {otherDealInvoiceGroups.map((group) => (
                           <div key={group.dealId} className="space-y-1">
-                            <div className="text-[11px] text-gray-400">Deal: {group.label}</div>
+                            <div className="text-[11px] text-gray-400">งานขาย: {group.label}</div>
                             {group.invoices.map((invoice) => (
                               <InvoiceRow
                                 key={invoice.id}

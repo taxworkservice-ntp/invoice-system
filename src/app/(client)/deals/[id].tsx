@@ -733,7 +733,7 @@ export default function DealDetailPage() {
         })
         .select("*")
         .single();
-      if (dealError || !newDeal) throw dealError || new Error("ไม่สามารถสร้างดีลใหม่ได้");
+      if (dealError || !newDeal) throw dealError || new Error("ไม่สามารถเริ่มงานขายใหม่ได้");
 
       if (sourceDoc) {
         const issueDate = new Date().toISOString().slice(0, 10);
@@ -788,7 +788,7 @@ export default function DealDetailPage() {
       }
 
       setMenuOpen(false);
-      toast.success("สร้างดีลใหม่จากรายการเดิมแล้ว");
+      toast.success("เริ่มงานขายใหม่จากรายการเดิมแล้ว");
       navigate(`/deals/${newDeal.id}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -941,7 +941,7 @@ export default function DealDetailPage() {
 
     return activeDoc?.document || nonVoidedDocs[nonVoidedDocs.length - 1]?.document || null;
   }, [activeDoc, allDone, nonVoidedDocs]);
-  const title = deal?.title || customer?.name || "ดีล";
+  const title = deal?.title || customer?.name || "งานขาย";
   const statusPill = getStatusPill(statusDoc);
   const isOverdue = statusDoc ? isOverdueDocument(statusDoc) : false;
   const amountLabel =
@@ -1068,7 +1068,7 @@ export default function DealDetailPage() {
 
   if (authLoading || loading) {
     return (
-      <AppShell title="ดีล" showBack>
+      <AppShell title="งานขาย" showBack>
         <div className="space-y-3 animate-pulse">
           <div className="h-16 rounded-card bg-stone-200" />
           <div className="h-44 rounded-card bg-stone-200" />
@@ -1081,8 +1081,8 @@ export default function DealDetailPage() {
 
   if (!deal) {
     return (
-      <AppShell title="ดีล" showBack>
-        <EmptyState title="ไม่พบข้อมูลดีลนี้" description="ดีลนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง" />
+      <AppShell title="งานขาย" showBack>
+        <EmptyState title="ไม่พบข้อมูลงานขายนี้" description="งานขายนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง" />
       </AppShell>
     );
   }
@@ -1302,7 +1302,7 @@ export default function DealDetailPage() {
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-green-800">ดีลเสร็จสิ้น</div>
+                <div className="text-sm font-semibold text-green-800">งานขายเสร็จสิ้น</div>
                 <div className="mt-1 space-y-0.5 text-xs leading-5 text-green-700">
                   <div>รับเงินแล้ว ฿{formatCurrency(summaryStats.totalCollected)}</div>
                   {summaryStats.lastPaid && (
@@ -1324,7 +1324,7 @@ export default function DealDetailPage() {
           <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
           {nonVoidedDocs.length === 0 ? (
             <Card className="border-[0.5px]">
-              <EmptyState title="ยังไม่มีเอกสาร" description="กดปุ่มด้านบนเพื่อเริ่มต้นขั้นตอนของดีลนี้" />
+              <EmptyState title="ยังไม่มีเอกสาร" description="กดปุ่มด้านบนเพื่อเริ่มต้นขั้นตอนของงานขายนี้" />
             </Card>
           ) : (
             <div className="space-y-0">
@@ -1490,7 +1490,7 @@ export default function DealDetailPage() {
       <Modal open={menuOpen} onClose={() => setMenuOpen(false)} title="ตัวเลือกเพิ่มเติม">
         <div className="space-y-2">
           <Button variant="secondary" className="w-full justify-center" loading={copyingDeal} onClick={handleCopyDeal}>
-            สร้างดีลใหม่จากรายการนี้
+            เริ่มงานขายใหม่จากรายการนี้
           </Button>
         </div>
       </Modal>

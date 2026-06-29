@@ -269,7 +269,7 @@ function DocumentCard({
                   onClick={(e) => { e.stopPropagation(); onOpenDeal(); }}
                   className="text-primary hover:underline"
                 >
-                  &middot; ดูดีล
+                  &middot; ดูงานขาย
                 </button>
               )}
             </div>
@@ -529,7 +529,7 @@ function QuickDetailModal({
             </div>
             {doc.deal_id && (
               <Button variant="secondary" onClick={onOpenDeal} className="w-full sm:w-auto !border-amber-200 !bg-amber-50 !text-amber-700 hover:!bg-amber-100">
-                เปิดดีล
+                เปิดงานขาย
               </Button>
             )}
           </div>

@@ -409,7 +409,7 @@ export default function AdminClientDetailPage() {
             <div className="pt-1">
               <span className="text-[11px] text-[#888780]">สร้างบัญชีเมื่อ: {formatBuddhistDate(clientProfile.created_at)}</span>
               <span className="text-[11px] text-[#888780] ml-4">เอกสารทั้งหมด: {documents.length >= 10 ? "10+" : documents.length}</span>
-              <span className="text-[11px] text-[#888780] ml-4">Deal: {dealCount}</span>
+              <span className="text-[11px] text-[#888780] ml-4">งานขาย: {dealCount}</span>
             </div>
           </div>
         </Card>

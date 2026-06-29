@@ -455,7 +455,7 @@ export default function NewDealPage() {
       }
 
       if (dealId) {
-        toast.success("บันทึกดีลสำเร็จ");
+        toast.success("บันทึกงานขายสำเร็จ");
         navigate(`/deals/${dealId}`);
       } else {
         toast.success("สร้างเอกสารสำเร็จ");
