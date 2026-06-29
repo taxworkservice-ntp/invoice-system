@@ -634,12 +634,12 @@ body {
   border: 0.5pt solid #9ca3af;
   border-radius: 8px;
   overflow: hidden;
-  margin-top: 4mm;
+  margin-top: 2.5mm;
   background: #ffffff;
 }
 .print-classic-sig-cell {
   border-right: 0.5pt solid #9ca3af;
-  padding: 2mm 3mm;
+  padding: 1.5mm 3mm;
   font-size: 7.5pt;
   display: flex;
   flex-direction: column;
@@ -667,14 +667,14 @@ body {
 .print-classic-sig-line {
   position: relative;
   border-bottom: 0.5pt dotted #9ca3af;
-  height: 10mm;
-  margin: 4mm 4mm 1mm 4mm;
+  height: 8mm;
+  margin: 2.8mm 4mm 0.8mm 4mm;
 }
 .print-classic-sig-img {
   position: absolute;
   left: 50%;
   bottom: 0;
-  height: 14mm;
+  height: 12mm;
   transform: translateX(-50%);
   object-fit: contain;
 }
@@ -689,6 +689,27 @@ body {
   font-size: 7.5pt;
   color: #1f2937;
   margin-top: 0.5mm;
+}
+.print-classic-fine-terms {
+  margin-top: 1.8mm;
+  padding: 1.5mm 2mm 0;
+  border-top: 0.35px solid #e5e7eb;
+  color: #4b5563;
+  font-size: 6.2pt;
+  line-height: 1.25;
+}
+.print-classic-fine-terms-title {
+  margin-bottom: 0.6mm;
+  color: #374151;
+  font-size: 6.5pt;
+  font-weight: 700;
+}
+.print-classic-fine-terms ol {
+  margin: 0;
+  padding-left: 4mm;
+}
+.print-classic-fine-terms li {
+  margin-bottom: 0.25mm;
 }
 
 /* FOOTER (stamp + payment lines) */

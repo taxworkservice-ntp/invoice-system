@@ -350,7 +350,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
         </section>
       ) : null}
 
-      {/* ============== TERMS + TOTALS ============== */}
+      {/* ============== NOTE / PAYMENT + TOTALS ============== */}
       <div className="print-classic-bottom-row">
         <div className="print-classic-terms-col">
           {isDeliveryNote ? (
@@ -376,14 +376,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                   </ul>
                 </section>
               ) : null}
-              <section className="print-classic-terms-section">
-                <div className="print-classic-terms-title">เงื่อนไข (TERMS)</div>
-                <ol>
-                  {classicTerms.map((term, index) => (
-                    <li key={`${index}-${term}`}>{term}</li>
-                  ))}
-                </ol>
-              </section>
+              {!noteText && paymentLines.length === 0 ? <div className="print-classic-terms-body">-</div> : null}
             </>
           )}
         </div>
@@ -467,6 +460,17 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           <div className="print-classic-sig-role">ผู้มีอำนาจลงนาม / AUTHORIZED BY</div>
         </div>
       </div>
+
+      {!isDeliveryNote ? (
+        <div className="print-classic-fine-terms">
+          <div className="print-classic-fine-terms-title">เงื่อนไข (TERMS)</div>
+          <ol>
+            {classicTerms.map((term, index) => (
+              <li key={`${index}-${term}`}>{term}</li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
 
       {/* ============== FOOTER ============== */}
       <div className="print-classic-footer">
