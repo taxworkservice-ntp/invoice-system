@@ -283,7 +283,10 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                         </div>
                       ) : null}
                       {showInlineDeliveryNotes && deliveryNoteRef ? (
-                        <div className="print-classic-dn-note">อ้างอิง {deliveryNoteRef}</div>
+                        <div className="print-classic-dn-note">
+                          อ้างอิง {deliveryNoteRef.number}
+                          {deliveryNoteRef.issue_date ? ` (${formatDateBuddhist(deliveryNoteRef.issue_date)})` : ""}
+                        </div>
                       ) : null}
                     </td>
                     <td className="right">{item.quantity}</td>

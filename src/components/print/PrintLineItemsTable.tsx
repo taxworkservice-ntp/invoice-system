@@ -108,7 +108,8 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                   ) : null}
                   {showInlineDeliveryNotes && lineDeliveryNoteMap[item.id] ? (
                     <div className="mt-0.5 text-[9px] text-[#6B7280]">
-                      อ้างอิง {lineDeliveryNoteMap[item.id]}
+                      อ้างอิง {lineDeliveryNoteMap[item.id].number}
+                      {lineDeliveryNoteMap[item.id].issue_date ? ` (${formatDate(lineDeliveryNoteMap[item.id].issue_date)})` : ""}
                     </div>
                   ) : null}
                 </td>

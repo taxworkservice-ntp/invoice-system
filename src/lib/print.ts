@@ -16,7 +16,7 @@ export interface PrintDocumentData {
   template: HtmlPrintTemplate;
   lineDiscountTotal: number;
   grossSubtotal: number;
-  lineDeliveryNoteMap: Record<string, string>;
+  lineDeliveryNoteMap: Record<string, { number: string; issue_date: string | null }>;
   showInlineDeliveryNotes: boolean;
 }
 
@@ -30,7 +30,7 @@ export interface PrintableDocumentDataBase {
   referenceDoc?: Document;
   lineDiscountTotal: number;
   grossSubtotal: number;
-  lineDeliveryNoteMap: Record<string, string>;
+  lineDeliveryNoteMap: Record<string, { number: string; issue_date: string | null }>;
   showInlineDeliveryNotes: boolean;
 }
 
@@ -176,17 +176,20 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     }
   }
 
-  const dnNumberById = new Map<string, string>();
+  const dnBySourceId = new Map<string, InvoiceDeliveryNote>();
   for (const dn of invoiceDeliveryNotes) {
-    dnNumberById.set(dn.delivery_note_id, dn.delivery_note_number);
+    dnBySourceId.set(dn.delivery_note_id, dn);
   }
-  const lineDeliveryNoteMap: Record<string, string> = {};
+  const lineDeliveryNoteMap: Record<string, { number: string; issue_date: string | null }> = {};
   for (const item of lineItems) {
-    if (item.source_document_id && dnNumberById.has(item.source_document_id)) {
-      lineDeliveryNoteMap[item.id] = dnNumberById.get(item.source_document_id)!;
+    const dn = item.source_document_id ? dnBySourceId.get(item.source_document_id) : undefined;
+    if (dn) {
+      lineDeliveryNoteMap[item.id] = { number: dn.delivery_note_number, issue_date: dn.issue_date };
     }
   }
-  const showInlineDeliveryNotes = new Set(Object.values(lineDeliveryNoteMap)).size >= 2;
+  const showInlineDeliveryNotes = new Set(
+    Object.values(lineDeliveryNoteMap).map((ref) => ref.number),
+  ).size >= 2;
 
   return {
     document,
