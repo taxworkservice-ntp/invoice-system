@@ -544,9 +544,13 @@ export default function NewDealPage() {
               </Button>
             </div>
           ) : (
-            <Button variant="secondary" className="w-full justify-center" onClick={() => setCustomerPickerOpen(true)}>
-              เลือกลูกค้า
-            </Button>
+            <div className="rounded-xl border border-[#B8D7F4] bg-[#F3F8FE] px-4 py-4 text-center">
+              <p className="text-sm font-medium text-[#1A1A18]">เลือกลูกค้าก่อนสร้างเอกสาร</p>
+              <p className="mt-1 text-xs text-[#5B6B7A]">ระบบจะใช้ข้อมูลลูกค้าในเอกสารและการคำนวณภาษี</p>
+              <Button className="mt-3 w-full justify-center shadow-md" onClick={() => setCustomerPickerOpen(true)}>
+                เลือกลูกค้า
+              </Button>
+            </div>
           )}
           <CustomerPickerModal
             open={customerPickerOpen}
