@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, ExternalLink, PackageCheck } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, PackageCheck } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -1348,7 +1348,7 @@ export default function DealDetailPage() {
                       {index < nonVoidedDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
                     </div>
                     <Card
-                      className={`relative mb-2 flex-1 border-[0.5px] pr-14 ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-[#FAFAF8]" : ""}`}
+                      className={`mb-2 flex-1 border-[0.5px] ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-[#FAFAF8]" : ""}`}
                       onClick={() => navigate(`/documents/${doc.id}`)}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1375,23 +1375,21 @@ export default function DealDetailPage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <div className="text-[13px] font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
                           <Badge status={overdue ? "overdue" : doc.status} />
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleOpenPreview(doc);
+                            }}
+                            className="mt-0.5 inline-flex items-center justify-center rounded-md border border-[#378ADD] bg-white px-2.5 py-1 text-[11px] font-medium text-[#378ADD] transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#378ADD]/40"
+                          >
+                            Download
+                          </button>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleOpenPreview(doc);
-                        }}
-                        title="Download"
-                        aria-label={`Download ${doc.doc_number || "document"}`}
-                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-[#378ADD] transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#378ADD]/40 md:h-9 md:w-9"
-                      >
-                        <ExternalLink size={15} />
-                      </button>
                     </Card>
                   </div>
                 );
@@ -1414,7 +1412,7 @@ export default function DealDetailPage() {
                     <div className="w-7 flex flex-col items-center shrink-0">
                       <div className="mt-1 w-2.5 h-2.5 rounded-full bg-stone-300" />
                     </div>
-                    <Card className="relative mb-2 flex-1 border-[0.5px] pr-14">
+                    <Card className="mb-2 flex-1 border-[0.5px]">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="text-xs font-semibold text-gray-700">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</div>
@@ -1424,23 +1422,21 @@ export default function DealDetailPage() {
                             <div className="mt-0.5 text-[10px] text-gray-400 italic">เหตุผล: {doc.voided_reason}</div>
                           )}
                         </div>
-                        <div className="flex flex-col items-end gap-1">
+                        <div className="flex flex-col items-end gap-1.5">
                           <div className="text-[13px] font-semibold text-gray-800">฿{formatCurrency(getDocumentAmount(doc))}</div>
                           <Badge status="voided" />
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleOpenPreview(doc);
+                            }}
+                            className="mt-0.5 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+                          >
+                            Download
+                          </button>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleOpenPreview(doc);
-                        }}
-                        title="Download"
-                        aria-label={`Download ${doc.doc_number || "document"}`}
-                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 md:h-9 md:w-9"
-                      >
-                        <ExternalLink size={15} />
-                      </button>
                     </Card>
                   </div>
                 );
