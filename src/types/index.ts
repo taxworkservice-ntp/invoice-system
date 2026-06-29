@@ -89,6 +89,7 @@ export interface Customer {
   is_favorite: boolean;
   avatar_initials: string | null;
   avatar_color: string | null;
+  credit_term_days: number | null;
   created_at: string;
   updated_at: string;
 }

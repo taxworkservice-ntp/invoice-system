@@ -168,6 +168,13 @@ export default function CustomerDetailPage() {
     setSaving(true);
     const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 2) : null;
     const avatarColor = useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor) ? editAvatarColor : null;
+    const creditTermTrimmed = editCreditTerm.trim();
+    const creditTermValue = creditTermTrimmed === "" ? null : parseInt(creditTermTrimmed, 10);
+    if (creditTermValue != null && (!Number.isFinite(creditTermValue) || creditTermValue < 0 || creditTermValue > 365)) {
+      toast.error("ระยะเวลาเครดิตต้องอยู่ระหว่าง 0 ถึง 365 วัน");
+      setSaving(false);
+      return;
+    }
     const { error: err } = await supabase
       .from("customers")
       .update({
@@ -177,6 +184,7 @@ export default function CustomerDetailPage() {
         phone: editPhone || null,
         email: editEmail || null,
         contact_name: editContact || null,
+        credit_term_days: creditTermValue,
         avatar_initials: avatarInitials,
         avatar_color: avatarColor,
       })
@@ -192,6 +200,7 @@ export default function CustomerDetailPage() {
         phone: editPhone || null,
         email: editEmail || null,
         contact_name: editContact || null,
+        credit_term_days: creditTermValue,
         avatar_initials: avatarInitials,
         avatar_color: avatarColor,
       });
@@ -563,6 +572,16 @@ export default function CustomerDetailPage() {
                   <span className="text-[13px] text-[#444441]">{customer.contact_name}</span>
                 </div>
               )}
+              <div>
+                <span className="text-[11px] text-[#888780]">ระยะเวลาเครดิต: </span>
+                {customer.credit_term_days != null ? (
+                  <span className="text-[13px] text-[#444441]">{customer.credit_term_days} วัน</span>
+                ) : (
+                  <span className="text-[13px] text-[#888780] italic">
+                    ใช้ค่าเริ่มต้นของบริษัท ({clientProfile?.credit_term_days ?? 7} วัน)
+                  </span>
+                )}
+              </div>
               {!customer.tax_id && !customer.address && !customer.phone && !customer.email && !customer.contact_name && (
                 <div className="text-[12px] text-[#AAAAAA] italic">
                   ยังไม่มีข้อมูลติดต่อ — กด แก้ไข เพื่อเพิ่ม

@@ -42,6 +42,10 @@ function addDays(dateString: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function resolveCreditTermDays(customer: Customer | null | undefined, clientProfileDays: number | null | undefined): number {
+  return customer?.credit_term_days ?? clientProfileDays ?? 7;
+}
+
 function buildItemSummary(items: DocumentLineItem[]) {
   if (!items.length) return "ไม่มีรายการ";
   const summary = items.slice(0, 2).map((item) => `${item.item_name} × ${item.quantity}`).join(", ");
@@ -85,11 +89,11 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
   useEffect(() => {
     if (clientProfile && !documentId) {
-      const days = clientProfile.credit_term_days ?? 7;
+      const days = resolveCreditTermDays(selectedCustomer, clientProfile.credit_term_days);
       setDueDate(addDays(issueDate, days));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientProfile]);
+  }, [clientProfile, selectedCustomer]);
 
   const [note, setNote] = useState("");
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
@@ -310,7 +314,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         setCurrentDocumentId(document.id);
         setSelectedCustomer(document.customer || null);
         setIssueDate(document.issue_date);
-        setDueDate(document.due_date || addDays(document.issue_date, clientProfile?.credit_term_days ?? 7));
+        setDueDate(document.due_date || addDays(document.issue_date, resolveCreditTermDays(document.customer, clientProfile?.credit_term_days)));
         setNote(document.note || "");
         setWhtRate(String(document.wht_rate || clientProfile?.default_wht_rate || "0") as WhtRate);
         setCurrentDeal(
@@ -717,7 +721,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 onChange={(event) => {
                   const nextValue = event.target.value;
                   setIssueDate(nextValue);
-                  if (!dueDate) setDueDate(addDays(nextValue, clientProfile?.credit_term_days ?? 7));
+                  if (!dueDate) setDueDate(addDays(nextValue, resolveCreditTermDays(selectedCustomer, clientProfile?.credit_term_days)));
                 }}
                 disabled={readOnly}
               />
