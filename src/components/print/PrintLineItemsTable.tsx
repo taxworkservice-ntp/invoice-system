@@ -1,7 +1,7 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 
-const MIN_MODERN_ITEM_ROWS = 3;
+const MIN_MODERN_ITEM_ROWS = 6;
 
 function formatDate(date: string | null | undefined) {
   if (!date) return "-";
@@ -18,7 +18,7 @@ function getRowClass() {
 }
 
 export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
-  const { document, lineItems, billingNoteInvoices } = data;
+  const { document, lineItems, billingNoteInvoices, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
   const blankLineCount = Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length);
 
@@ -104,6 +104,11 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                   {hasLineDiscount && !isDeliveryNote ? (
                     <div className="mt-0.5 text-[9px] text-[#B54708]">
                       ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | -${formatCurrency(item.discount_amount)}` : ""}
+                    </div>
+                  ) : null}
+                  {showInlineDeliveryNotes && lineDeliveryNoteMap[item.id] ? (
+                    <div className="mt-0.5 text-[9px] text-[#6B7280]">
+                      อ้างอิง {lineDeliveryNoteMap[item.id]}
                     </div>
                   ) : null}
                 </td>
