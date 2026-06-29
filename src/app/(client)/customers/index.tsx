@@ -508,8 +508,9 @@ export default function CustomersPage() {
                           {c.name}
                         </div>
                         {isIncomplete(c) && (
-                          <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
-                            ⚠ ข้อมูลไม่ครบ
+                          <span className="inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
+                            <AlertTriangle size={10} />
+                            ข้อมูลไม่ครบ
                           </span>
                         )}
                       </div>

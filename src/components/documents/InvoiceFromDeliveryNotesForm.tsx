@@ -416,7 +416,7 @@ export function InvoiceFromDeliveryNotesForm() {
           <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">ใบส่งของที่เลือกมาจากหลายงานขาย</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบส่งของทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็น workflow ต่อเนื่องบนหน้าหลัก</p>
+            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบส่งของทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็นขั้นตอนเอกสารต่อเนื่องบนหน้าหลัก</p>
           </div>
         </div>
       )}

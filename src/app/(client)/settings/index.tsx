@@ -398,7 +398,7 @@ export default function SettingsPage() {
       <div className="space-y-4">
         {isProfileIncomplete && (
           <div className="bg-[#FAEEDA] border border-[#E8D5B2] rounded-[8px] px-4 py-3 text-sm text-[#633806]">
-            <span className="font-medium">⚠ ข้อมูลบริษัทยังไม่ครบ</span>
+            <span className="font-medium">ข้อมูลบริษัทยังไม่ครบ</span>
             <p className="text-xs mt-0.5">
               เพิ่มชื่อบริษัทและที่อยู่เพื่อให้เอกสาร PDF แสดงถูกต้อง
             </p>
@@ -517,7 +517,7 @@ export default function SettingsPage() {
             </div>
 
             {profileError && <p className="text-xs text-red-500">{profileError}</p>}
-            {profileSaved && <p className="text-xs text-green-600">บันทึกแล้ว ✓</p>}
+            {profileSaved && <p className="text-xs text-green-600">บันทึกแล้ว</p>}
 
             <div className="relative">
               <Button onClick={handleSaveProfile} disabled={savingProfile} className="w-full">
@@ -618,12 +618,12 @@ export default function SettingsPage() {
             </p>
 
             <div className="bg-[#E6F1FB] text-[#0C447C] rounded-[8px] px-3 py-2.5 text-[12px]">
-              <span className="font-medium">ℹ</span> การเปลี่ยนแปลงการตั้งค่าภาษีจะมีผลกับเอกสารใหม่เท่านั้น
+              การเปลี่ยนแปลงการตั้งค่าภาษีจะมีผลกับเอกสารใหม่เท่านั้น
               เอกสารที่สร้างไปแล้วจะไม่เปลี่ยนแปลง
             </div>
 
             {taxError && <p className="text-xs text-red-500">{taxError}</p>}
-            {taxSaved && <p className="text-xs text-green-600">บันทึกแล้ว ✓</p>}
+            {taxSaved && <p className="text-xs text-green-600">บันทึกแล้ว</p>}
 
             <Button onClick={handleSaveTax} disabled={savingTax} className="w-full">
               {savingTax ? "กำลังบันทึก..." : "บันทึกการตั้งค่าภาษี"}
@@ -681,13 +681,13 @@ export default function SettingsPage() {
 
             {prefixesChanged && (
               <div className="bg-[#FAEEDA] text-[#633806] rounded-[8px] px-3 py-2.5 text-[12px]">
-                <span className="font-medium">⚠</span> การเปลี่ยน prefix จะมีผลกับเอกสารใหม่เท่านั้น
+                การเปลี่ยน prefix จะมีผลกับเอกสารใหม่เท่านั้น
                 เลขที่เดิมจะยังคงอยู่ในระบบ
               </div>
             )}
 
             {numberError && <p className="text-xs text-red-500">{numberError}</p>}
-            {numbersSaved && <p className="text-xs text-green-600">บันทึกแล้ว ✓</p>}
+            {numbersSaved && <p className="text-xs text-green-600">บันทึกแล้ว</p>}
 
             <Button onClick={handleSaveNumbering} disabled={savingNumbers} className="w-full">
               {savingNumbers ? "กำลังบันทึก..." : "บันทึกการตั้งค่าเลขที่"}
@@ -775,7 +775,7 @@ export default function SettingsPage() {
               />
 
               {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
-              {passwordSaved && <p className="text-xs text-green-600">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว ✓</p>}
+              {passwordSaved && <p className="text-xs text-green-600">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว</p>}
 
               <Button onClick={handleChangePassword} disabled={changingPassword} className="w-full">
                 {changingPassword ? "กำลังเปลี่ยน..." : "เปลี่ยนรหัสผ่าน"}

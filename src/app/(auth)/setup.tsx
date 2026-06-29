@@ -167,7 +167,7 @@ export default function SetupPage() {
             <div className="bg-white border border-[#E8E6DF] rounded-[10px] p-6 shadow-sm">
               <div className="text-center mb-5">
                 <h2 className="text-[22px] font-bold text-[#1A1A18]">
-                  ยินดีต้อนรับ! 👋
+                  เริ่มต้นใช้งาน
                 </h2>
                 <p className="text-[14px] text-[#888780] mt-1.5">
                   เริ่มต้นด้วยการตั้งค่าข้อมูลบริษัทของคุณ
@@ -366,36 +366,36 @@ export default function SetupPage() {
             <div className="bg-white border border-[#E8E6DF] rounded-[10px] p-6 shadow-sm">
               <div className="text-center mb-6">
                 <h2 className="text-[24px] font-bold text-[#1A1A18]">
-                  พร้อมแล้ว! 🎉
+                  ตั้งค่าเริ่มต้นเรียบร้อยแล้ว
                 </h2>
               </div>
 
               <div className="bg-[#F7F6F3] rounded-lg p-4 mb-6 space-y-1">
                 <p className="text-[14px] text-[#27500A]">
-                  ✓ ข้อมูลบริษัท: {companyName}
+                  ข้อมูลบริษัท: {companyName}
                 </p>
                 <p className="text-[14px] text-[#27500A]">
-                  ✓ VAT: {vatRegistered ? "จดทะเบียน" : "ไม่ได้จด"}
+                  VAT: {vatRegistered ? "จดทะเบียน" : "ไม่ได้จด"}
                 </p>
                 {itemAdded && (
                   <p className="text-[14px] text-[#27500A]">
-                    ✓ สินค้า: {savedItemName}
+                    สินค้า: {savedItemName}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2 mb-4">
                 {([
-                  { icon: "🧾", title: "เริ่มงานขายแรก", desc: "เริ่มออกใบเสนอราคาหรือใบแจ้งหนี้", to: "/deals/new" },
-                  { icon: "👥", title: "เพิ่มลูกค้าก่อน", desc: "บันทึกข้อมูลลูกค้าที่คุณทำงานด้วย", to: "/customers" },
-                  { icon: "⚙️", title: "ตั้งค่าเพิ่มเติม", desc: "แก้ไขที่อยู่, prefix เอกสาร, และอื่นๆ", to: "/settings" },
+                  { icon: "01", title: "เริ่มงานขายแรก", desc: "เริ่มออกใบเสนอราคาหรือใบแจ้งหนี้", to: "/deals/new" },
+                  { icon: "02", title: "เพิ่มลูกค้าก่อน", desc: "บันทึกข้อมูลลูกค้าที่คุณทำงานด้วย", to: "/customers" },
+                  { icon: "03", title: "ตั้งค่าเพิ่มเติม", desc: "แก้ไขที่อยู่, prefix เอกสาร, และอื่นๆ", to: "/settings" },
                 ] as const).map((opt) => (
                   <div
                     key={opt.to}
                     onClick={() => handleNavigateAndComplete(opt.to)}
                     className="flex items-center gap-3 bg-white border border-[#E8E6DF] rounded-[10px] px-4 py-3.5 cursor-pointer hover:shadow-sm hover:border-gray-300 transition-all active:translate-y-[1px]"
                   >
-                    <span className="text-xl">{opt.icon}</span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F7F6F3] text-xs font-semibold text-[#888780]">{opt.icon}</span>
                     <div>
                       <div className="text-[14px] font-medium text-[#1A1A18]">
                         {opt.title}

@@ -765,7 +765,7 @@ export default function DocumentsPage() {
     try {
       if (action === "send") {
         const { warnings } = await sendDocumentWithSideEffects(doc, profile.id);
-          warnings.forEach((warning) => toast.info(`⚠ ${warning.itemName} สต็อกไม่พอ`));
+          warnings.forEach((warning) => toast.info(`${warning.itemName} สต็อกไม่พอ`));
         toast.success(doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว");
       } else if (action === "void") {
         await voidDocumentWithSideEffects(doc, profile.id);
@@ -1029,7 +1029,7 @@ export default function DocumentsPage() {
   }
 
   const sections = [
-    { key: "active", title: "เอกสารที่ยังใช้งานอยู่", hint: "ร่าง เอกสารที่ส่งแล้ว และเอกสารที่ยังต้องอ้างอิงใน workflow", tone: "active" as const, docs: grouped.active },
+    { key: "active", title: "เอกสารที่ยังใช้งานอยู่", hint: "ร่าง เอกสารที่ส่งแล้ว และเอกสารที่ยังต้องอ้างอิงในขั้นตอนเอกสาร", tone: "active" as const, docs: grouped.active },
     { key: "completed", title: "เอกสารเสร็จแล้ว", hint: "เอกสารที่ออกแล้ว รับเงินแล้ว หรือปิดงานแล้ว", tone: "muted" as const, docs: grouped.completed },
     { key: "voided", title: "เอกสารยกเลิก", hint: "ประวัติเอกสารที่ยกเลิกไว้สำหรับตรวจสอบย้อนหลัง", tone: "muted" as const, docs: grouped.voided },
   ].filter((section) => section.docs.length > 0);

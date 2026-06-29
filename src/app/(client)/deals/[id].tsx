@@ -301,7 +301,7 @@ export default function DealDetailPage() {
     try {
       const { warnings } = await sendDocumentWithSideEffects(doc, userId);
       warnings.forEach((w) =>
-        toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+        toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
       );
 
       toast.success("อัปเดตสถานะเอกสารแล้ว");
@@ -593,7 +593,7 @@ export default function DealDetailPage() {
 
       const { warnings } = await deductStockOnDocumentSent(dnDoc.id, userId);
       warnings.forEach((w) =>
-        toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+        toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
       );
 
       toast.success("สร้างใบส่งของสำเร็จ");
@@ -968,7 +968,7 @@ export default function DealDetailPage() {
   const mainAction: MainAction = useMemo(() => {
     if (!activeDoc) return null;
     const doc = activeDoc.document;
-    if (allDone) return { type: "done", label: "เสร็จสิ้น ✓" };
+    if (allDone) return { type: "done", label: "เสร็จสิ้น" };
     if (doc.status === "draft") {
       return {
         type: "send_draft",
@@ -1245,7 +1245,7 @@ export default function DealDetailPage() {
                         !isDone && !isActive && !isSkipped ? "bg-stone-100 text-stone-400" : "",
                       ].join(" ")}
                     >
-                      {isSkipped ? "–" : isDone ? "✓" : stage.step}
+                      {isSkipped ? "–" : isDone ? <CheckCircle2 className="h-4 w-4" /> : stage.step}
                     </div>
                     <div className={`mt-1.5 text-[10px] leading-4 text-center ${isDone ? "text-paid-text" : isActive ? "text-primary font-semibold" : "text-gray-500"}`}>
                       {stage.top}

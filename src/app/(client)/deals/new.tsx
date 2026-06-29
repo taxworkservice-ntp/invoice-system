@@ -17,6 +17,7 @@ import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
+import { AlertTriangle } from "lucide-react";
 import type { DocumentType, Customer, WhtRate, PaymentMethod, Item } from "../../../types";
 
 interface LineItemForm {
@@ -492,7 +493,7 @@ export default function NewDealPage() {
 
       {(type === "invoice" || isTaxInvoiceReceipt) && clientProfile?.vat_registered && !clientProfile?.tax_id && (
         <div className="mb-4 p-3 bg-[#FAEEDA] border-[0.5px] border-[#E6C776] rounded-lg text-sm text-[#633806] flex items-center gap-3">
-          <span>⚠</span>
+          <AlertTriangle className="h-4 w-4 shrink-0" />
           <div className="flex-1">
             <p className="font-medium">คุณเป็นผู้ประกอบการจดทะเบียน VAT แต่ยังไม่ได้ตั้งค่าเลขผู้เสียภาษี</p>
             <p className="text-[12px] mt-0.5">เลขผู้เสียภาษีจำเป็นสำหรับใบกำกับภาษี</p>

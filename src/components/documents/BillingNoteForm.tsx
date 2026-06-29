@@ -737,7 +737,12 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 disabled={readOnly}
               />
               <div className="mt-1 text-xs text-gray-500">{dueDate ? formatBuddhistDate(dueDate) : "-"}</div>
-              {pastDueDate && <div className="mt-1 text-xs text-amber-600">⚠ วันครบกำหนดผ่านมาแล้ว</div>}
+              {pastDueDate && (
+                <div className="mt-1 flex items-center gap-1 text-xs text-amber-600">
+                  <TriangleAlert className="h-3.5 w-3.5" />
+                  <span>วันครบกำหนดผ่านมาแล้ว</span>
+                </div>
+              )}
             </div>
           </div>
         </Card>

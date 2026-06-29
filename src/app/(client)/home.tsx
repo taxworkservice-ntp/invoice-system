@@ -41,7 +41,7 @@ type DashboardDeal = {
   amount: number;
   status: Document["status"];
   stageLabel: string;
-  workflowHint: string;
+  stageHint: string;
   queue: HomeQueue;
   createdAt: string;
   updatedAt: string;
@@ -149,7 +149,7 @@ function isDealDone(documents: DealDoc[]) {
 
 function getNextActionLabel(doc: DealDoc | null) {
   if (!doc) return "";
-  if (isOverdueDocument(doc)) return "⚠ เกินกำหนด — รับเงินแล้วใช่ไหม →";
+  if (isOverdueDocument(doc)) return "เกินกำหนด — รับเงินแล้วใช่ไหม →";
   if (doc.doc_type === "quotation" && doc.status === "draft") return "ส่งใบเสนอราคาแล้วหรือยัง →";
   if (doc.doc_type === "quotation" && doc.status === "sent") return "ลูกค้าตกลงแล้วใช่ไหม →";
   if (doc.doc_type === "invoice" && doc.status === "draft") return "ส่งใบแจ้งหนี้แล้วหรือยัง →";
@@ -195,16 +195,16 @@ function getStageInfo(documents: DealDoc[], latestDocument: DealDoc | null, isDo
   const billingWaiting = getBillingWaitingForPayment(documents);
   const quoteProgress = getQuotationDeliveryProgress(documents);
 
-  if (isDone) return { stageLabel: "เสร็จแล้ว", workflowHint: "ปิดงานแล้ว", queue: "done" as HomeQueue };
-  if (isOverdue) return { stageLabel: "เกินกำหนด", workflowHint: "ต้องติดตาม", queue: "overdue" as HomeQueue };
+  if (isDone) return { stageLabel: "เสร็จแล้ว", stageHint: "ปิดงานแล้ว", queue: "done" as HomeQueue };
+  if (isOverdue) return { stageLabel: "เกินกำหนด", stageHint: "ต้องติดตาม", queue: "overdue" as HomeQueue };
   if (dnWaiting.length > 0) {
     return {
       stageLabel: "รอออกใบแจ้งหนี้",
-      workflowHint: `ส่งของแล้ว ${dnWaiting.length} ใบ`,
+      stageHint: `ส่งของแล้ว ${dnWaiting.length} ใบ`,
       queue: "wait_invoice" as HomeQueue,
     };
   }
-  if (billingWaiting.length > 0) return { stageLabel: "รอรับเงิน", workflowHint: "ใบวางบิลส่งแล้ว", queue: "wait_collect" as HomeQueue };
+  if (billingWaiting.length > 0) return { stageLabel: "รอรับเงิน", stageHint: "ใบวางบิลส่งแล้ว", queue: "wait_collect" as HomeQueue };
   if (latestDocument?.status === "draft") {
     const label = latestDocument.doc_type === "quotation"
       ? "รอส่งใบเสนอราคา"
@@ -213,19 +213,19 @@ function getStageInfo(documents: DealDoc[], latestDocument: DealDoc | null, isDo
         : latestDocument.doc_type === "invoice"
           ? "รอส่งใบแจ้งหนี้"
           : "รอส่งเอกสาร";
-    return { stageLabel: label, workflowHint: "ฉบับร่าง", queue: "wait_send" as HomeQueue };
+    return { stageLabel: label, stageHint: "ฉบับร่าง", queue: "wait_send" as HomeQueue };
   }
   if (quoteProgress) {
     return {
       stageLabel: "กำลังส่งของ",
-      workflowHint: `ส่งแล้ว ${quoteProgress.delivered.toLocaleString("th-TH")} / ${quoteProgress.quoted.toLocaleString("th-TH")}`,
+      stageHint: `ส่งแล้ว ${quoteProgress.delivered.toLocaleString("th-TH")} / ${quoteProgress.quoted.toLocaleString("th-TH")}`,
       queue: "progress" as HomeQueue,
     };
   }
-  if (latestDocument?.doc_type === "quotation") return { stageLabel: "ใบเสนอราคา", workflowHint: "รอลูกค้าตอบ", queue: "progress" as HomeQueue };
-  if (latestDocument?.doc_type === "invoice") return { stageLabel: "รอวางบิล", workflowHint: "ใบแจ้งหนี้ส่งแล้ว", queue: "progress" as HomeQueue };
-  if (latestDocument?.doc_type === "delivery_note") return { stageLabel: "ใบส่งของ", workflowHint: "รอดำเนินการต่อ", queue: "progress" as HomeQueue };
-  return { stageLabel: "กำลังดำเนินการ", workflowHint: latestDocument?.doc_number || "", queue: "progress" as HomeQueue };
+  if (latestDocument?.doc_type === "quotation") return { stageLabel: "ใบเสนอราคา", stageHint: "รอลูกค้าตอบ", queue: "progress" as HomeQueue };
+  if (latestDocument?.doc_type === "invoice") return { stageLabel: "รอวางบิล", stageHint: "ใบแจ้งหนี้ส่งแล้ว", queue: "progress" as HomeQueue };
+  if (latestDocument?.doc_type === "delivery_note") return { stageLabel: "ใบส่งของ", stageHint: "รอดำเนินการต่อ", queue: "progress" as HomeQueue };
+  return { stageLabel: "กำลังดำเนินการ", stageHint: latestDocument?.doc_number || "", queue: "progress" as HomeQueue };
 }
 
 function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
@@ -244,7 +244,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     amount: amountDocument?.total_amount || amountDocument?.net_payable || 0,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     stageLabel: stageInfo.stageLabel,
-    workflowHint: stageInfo.workflowHint,
+    stageHint: stageInfo.stageHint,
     queue: stageInfo.queue,
     createdAt: deal.created_at,
     updatedAt: latestDocument?.updated_at || deal.updated_at,
@@ -493,7 +493,7 @@ export default function HomePage() {
     [deals]
   );
 
-  const greetingName = clientProfile?.contact_name ? clientProfile.contact_name.trim() : "";
+  const homeTitle = clientProfile?.company_name_th?.trim() || "หน้าหลัก";
   const actionCount = activeDealsAll.length;
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -565,8 +565,8 @@ export default function HomePage() {
         </div>
 
         <HomeTopBar
-          greeting={greetingName ? `สวัสดี, ${greetingName} 👋` : "สวัสดี 👋"}
-          subtitle={actionCount === 0 ? "ทุกรายการเรียบร้อย ✓" : `วันนี้มี ${actionCount} รายการรอดำเนินการ`}
+          greeting={homeTitle}
+          subtitle={actionCount === 0 ? "ไม่มีงานค้างในวันนี้" : `วันนี้มี ${actionCount} รายการรอดำเนินการ`}
           isAllClear={actionCount === 0}
           onNewDeal={() => setNewSheetOpen(true)}
         />
@@ -591,7 +591,7 @@ export default function HomePage() {
           </Card>
         ) : deals.length === 0 ? (
           <EmptyState
-            title="ยินดีต้อนรับ!"
+            title="เริ่มต้นใช้งาน"
             description="เริ่มต้นด้วยงานขายแรกของคุณ"
             action={<Button onClick={() => setNewSheetOpen(true)}>เริ่มงานขายแรก</Button>}
           />
@@ -754,7 +754,7 @@ export default function HomePage() {
                       amountText={`฿ ${formatCurrency(deal.amount)}`}
                       status={deal.status}
                       stageLabel={deal.stageLabel}
-                      workflowHint={deal.workflowHint}
+                      stageHint={deal.stageHint}
                       nextActionLabel={deal.nextActionLabel}
                       isOverdue={deal.isOverdue}
                       createdAt={deal.createdAt}

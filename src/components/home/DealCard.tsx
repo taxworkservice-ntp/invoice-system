@@ -9,7 +9,7 @@ interface DealCardProps {
   amountText: string;
   status: DocumentStatus;
   stageLabel: string;
-  workflowHint?: string;
+  stageHint?: string;
   nextActionLabel: string;
   isOverdue?: boolean;
   createdAt: string;
@@ -35,7 +35,7 @@ export function DealCard({
   amountText,
   status,
   stageLabel,
-  workflowHint,
+  stageHint,
   nextActionLabel,
   isOverdue,
   createdAt,
@@ -83,7 +83,7 @@ export function DealCard({
         </div>
         <div className="text-right shrink-0">
           <div className="text-sm font-semibold text-[#1A1A18]">{amountText}</div>
-          {workflowHint && <div className="mt-1 max-w-[120px] text-[10px] leading-4 text-gray-400">{workflowHint}</div>}
+          {stageHint && <div className="mt-1 max-w-[120px] text-[10px] leading-4 text-gray-400">{stageHint}</div>}
         </div>
       </div>
       <div className="mt-3 border-t border-[#F0EFE9] pt-2 text-xs font-medium leading-4 text-[#777166]">

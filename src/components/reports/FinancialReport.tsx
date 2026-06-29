@@ -248,7 +248,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       {arByCustomer.length === 0 && summary && summary.outstanding > 0 && (
         <Card className="border-[0.5px] p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ</h3>
-          <p className="text-center py-6 text-[13px] text-[#888780]">ไม่มีลูกค้าค้างชำระ 🎉</p>
+          <p className="text-center py-6 text-[13px] text-[#888780]">ไม่มีลูกค้าค้างชำระ</p>
         </Card>
       )}
 

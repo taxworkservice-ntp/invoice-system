@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, MoreVertical, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowRight, MoreVertical, RotateCcw } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -531,8 +531,9 @@ export default function CustomerDetailPage() {
               )}
             </div>
             {showIncomplete && (
-              <div className="mt-3 bg-[#FAEEDA] text-[#633806] text-[11px] rounded-md px-2.5 py-2">
-                ⚠ ข้อมูลไม่ครบ — กรอกให้ครบเพื่อให้เอกสาร PDF แสดงถูกต้อง
+              <div className="mt-3 flex items-start gap-2 bg-[#FAEEDA] text-[#633806] text-[11px] rounded-md px-2.5 py-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>ข้อมูลไม่ครบ — กรอกให้ครบเพื่อให้เอกสาร PDF แสดงถูกต้อง</span>
               </div>
             )}
           </Card>

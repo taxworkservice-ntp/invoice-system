@@ -1005,7 +1005,7 @@ export default function DocumentDetailPage() {
                 try {
                   const { warnings } = await sendDocumentWithSideEffects(doc, userId!);
                   warnings.forEach((w) =>
-                    toast.info(`⚠ ${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+                    toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
                   );
                   await fetchDoc();
                 } catch (err: any) {
