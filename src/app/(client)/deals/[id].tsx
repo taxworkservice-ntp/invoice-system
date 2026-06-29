@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, PackageCheck } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, ExternalLink, PackageCheck } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -9,7 +9,6 @@ import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
-import { Spinner } from "../../../components/ui/Spinner";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
@@ -26,7 +25,7 @@ import {
   todayString,
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
-import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT, DOC_TYPE_SHORT } from "../../../constants";
+import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import type {
   Document,
@@ -156,7 +155,6 @@ export default function DealDetailPage() {
   const toast = useToast();
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [bulkDownloading, setBulkDownloading] = useState(false);
-  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
   const fetchDealData = useCallback(async () => {
     if (!dealId || !userId) {
@@ -291,30 +289,8 @@ export default function DealDetailPage() {
     }
   };
 
-  const handleDownloadDoc = async (doc: Document) => {
-    if (downloadingDocId) return;
-    setDownloadingDocId(doc.id);
-    try {
-      const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
-      const data = await getPrintableDocumentDataBase(doc.id);
-      const blob = await generateModernPDFBlob(data);
-      const short = (DOC_TYPE_SHORT[doc.doc_type] || "doc").toUpperCase();
-      const datePart = doc.issue_date ? doc.issue_date.replace(/-/g, "") : "";
-      const filename = `${short}-${doc.doc_number || doc.id}-${datePart}.pdf`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`ดาวน์โหลด ${filename}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "ไม่สามารถสร้าง PDF ได้");
-    } finally {
-      setDownloadingDocId(null);
-    }
+  const handleOpenPreview = (doc: Document) => {
+    window.open(`/documents/${doc.id}/print`, "_blank", "noopener,noreferrer");
   };
 
   const handleSendDraft = async (doc: Document) => {
@@ -1408,18 +1384,13 @@ export default function DealDetailPage() {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          handleDownloadDoc(doc);
+                          handleOpenPreview(doc);
                         }}
-                        disabled={downloadingDocId === doc.id}
-                        title="ดาวน์โหลด PDF"
-                        aria-label={`ดาวน์โหลด ${doc.doc_number || "เอกสาร"} เป็น PDF`}
-                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-[#378ADD] transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#378ADD]/40 disabled:cursor-not-allowed disabled:opacity-60 md:h-9 md:w-9"
+                        title="เปิดหน้าตัวอย่างเอกสาร"
+                        aria-label={`เปิดหน้าตัวอย่าง ${doc.doc_number || "เอกสาร"}`}
+                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-[#378ADD] transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#378ADD]/40 md:h-9 md:w-9"
                       >
-                        {downloadingDocId === doc.id ? (
-                          <Spinner inline className="!w-3.5 !h-3.5 !border-[#378ADD] !border-t-transparent" />
-                        ) : (
-                          <Download size={15} />
-                        )}
+                        <ExternalLink size={15} />
                       </button>
                     </Card>
                   </div>
@@ -1462,18 +1433,13 @@ export default function DealDetailPage() {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          handleDownloadDoc(doc);
+                          handleOpenPreview(doc);
                         }}
-                        disabled={downloadingDocId === doc.id}
-                        title="ดาวน์โหลด PDF"
-                        aria-label={`ดาวน์โหลด ${doc.doc_number || "เอกสาร"} เป็น PDF`}
-                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 md:h-9 md:w-9"
+                        title="เปิดหน้าตัวอย่างเอกสาร"
+                        aria-label={`เปิดหน้าตัวอย่าง ${doc.doc_number || "เอกสาร"}`}
+                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-card-border bg-white text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 md:h-9 md:w-9"
                       >
-                        {downloadingDocId === doc.id ? (
-                          <Spinner inline className="!w-3.5 !h-3.5 !border-gray-400 !border-t-transparent" />
-                        ) : (
-                          <Download size={15} />
-                        )}
+                        <ExternalLink size={15} />
                       </button>
                     </Card>
                   </div>
