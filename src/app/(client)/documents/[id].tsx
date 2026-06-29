@@ -30,7 +30,7 @@ import {
   toLocalMiddayIso,
   todayString,
 } from "../../../lib/receiptBackdating";
-import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile } from "../../../types";
+import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote } from "../../../types";
 
 function formatDate(date: string): string {
   return formatBuddhistDate(date);
