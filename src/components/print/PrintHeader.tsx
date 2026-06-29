@@ -24,7 +24,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
 
   return (
     <header className="print-header bg-white text-[#1F2937] border-transparent print-modern-header px-0 pb-3 pt-2">
-      <div className="flex justify-between gap-4 items-start">
+      <div className="flex gap-4 items-start">
         <div className="min-w-0 flex-1 px-2">
           {clientProfile.logo_url ? (
             <img
@@ -44,7 +44,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
           ) : null}
 
           {clientProfile.address ? (
-            <p className="mt-1 max-w-[90mm] whitespace-pre-line text-[10px] leading-[15px] text-[#4F5B6E]">
+            <p className="mt-1 max-w-full whitespace-pre-line text-[10px] leading-[15px] text-[#4F5B6E]">
               {clientProfile.address}
             </p>
           ) : null}
@@ -53,9 +53,22 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
             {clientProfile.tax_id ? <div>เลขประจำตัวผู้เสียภาษี: {clientProfile.tax_id}</div> : null}
             {clientProfile.phone ? <div>โทร: {clientProfile.phone}</div> : null}
           </div>
+
+          <div className="mt-3 border-l-2 pl-3" style={{ borderColor: "var(--doc-accent, #2f6fed)" }}>
+            <div>
+              <div className="text-[9px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
+              <div className="text-[6.5px] text-[#94a3b8]">BILL TO</div>
+            </div>
+            <div className="mt-0.5 font-semibold text-[12px]">{customer.name}</div>
+            <div className="mt-0.5 space-y-0.5 text-[9.5px] text-[#475467]">
+              {customer.tax_id ? <div>เลขประจำตัวผู้เสียภาษี: {customer.tax_id}</div> : null}
+              {customer.address ? <div className="whitespace-pre-line leading-[15px]">{customer.address}</div> : null}
+              {customer.phone ? <div>โทร: {customer.phone}</div> : null}
+            </div>
+          </div>
         </div>
 
-        <div className="shrink-0 text-right text-[#111827] w-[64mm] p-0 px-2">
+        <div className="shrink-0 text-right text-[#111827] w-[64mm] px-2">
           <div className="text-[9px] tracking-[0.18em] text-[#7A8699]">{copyLabel}</div>
           {document.doc_type === "tax_invoice_receipt" && document.vat_registered ? (
             <>
@@ -78,54 +91,49 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
             </>
           )}
 
-          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] text-left">
-            <div className="flex flex-col items-start">
-              <span className="text-[#6B7280]">เลขที่เอกสาร</span>
-              <span className="text-[6.5px] text-[#94a3b8]">DOCUMENT NO.</span>
-              <span className="font-medium text-[#111827]">{document.doc_number || "-"}</span>
+          <div className="mt-2 space-y-1 text-[10px] text-left">
+            <div className="flex justify-between gap-2">
+              <div className="flex flex-col">
+                <span className="text-[#6B7280]">เลขที่เอกสาร</span>
+                <span className="text-[6.5px] text-[#94a3b8]">DOCUMENT NO.</span>
+              </div>
+              <span className="text-right font-medium text-[#111827] self-center">{document.doc_number || "-"}</span>
             </div>
-            <div className="flex flex-col items-start">
-              <span className="text-[#6B7280]">วันที่</span>
-              <span className="text-[6.5px] text-[#94a3b8]">DATE</span>
-              <span className="text-[#111827]">{formatDate(document.issue_date)}</span>
+            <div className="flex justify-between gap-2">
+              <div className="flex flex-col">
+                <span className="text-[#6B7280]">วันที่</span>
+                <span className="text-[6.5px] text-[#94a3b8]">DATE</span>
+              </div>
+              <span className="text-right text-[#111827] self-center">{formatDate(document.issue_date)}</span>
             </div>
             {document.due_date ? (
-              <div className="flex flex-col items-start">
-                <span className="text-[#6B7280]">ครบกำหนด</span>
-                <span className="text-[6.5px] text-[#94a3b8]">DUE DATE</span>
-                <span className="text-[#111827]">{formatDate(document.due_date)}</span>
+              <div className="flex justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="text-[#6B7280]">ครบกำหนด</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">DUE DATE</span>
+                </div>
+                <span className="text-right text-[#111827] self-center">{formatDate(document.due_date)}</span>
               </div>
             ) : null}
             {referenceDoc?.doc_number ? (
-              <div className="flex flex-col items-start">
-                <span className="text-[#6B7280]">{(() => {
-                  if (document.doc_type === "receipt") {
-                    if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
-                    if (referenceDoc.doc_type === "tax_invoice_receipt") {
-                      return referenceDoc.vat_registered ? "อ้างอิงใบกำกับภาษี" : "อ้างอิงใบเสร็จรับเงิน";
+              <div className="flex justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="text-[#6B7280]">{(() => {
+                    if (document.doc_type === "receipt") {
+                      if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
+                      if (referenceDoc.doc_type === "tax_invoice_receipt") {
+                        return referenceDoc.vat_registered ? "อ้างอิงใบกำกับภาษี" : "อ้างอิงใบเสร็จรับเงิน";
+                      }
+                      if (referenceDoc.doc_type === "billing_note") return "อ้างอิงใบวางบิล";
                     }
-                    if (referenceDoc.doc_type === "billing_note") return "อ้างอิงใบวางบิล";
-                  }
-                  return "เอกสารอ้างอิง";
-                })()}</span>
-                <span className="text-[6.5px] text-[#94a3b8]">REFERENCE</span>
-                <span className="text-[#111827]">{referenceDoc.doc_number}</span>
+                    return "เอกสารอ้างอิง";
+                  })()}</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">REFERENCE</span>
+                </div>
+                <span className="text-right text-[#111827] self-center">{referenceDoc.doc_number}</span>
               </div>
             ) : null}
           </div>
-        </div>
-      </div>
-
-      <div className="mt-3 border-l-2 pl-3" style={{ borderColor: "var(--doc-accent, #2f6fed)" }}>
-        <div>
-          <div className="text-[9px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
-          <div className="text-[6.5px] text-[#94a3b8]">BILL TO</div>
-        </div>
-        <div className="mt-0.5 font-semibold text-[12px]">{customer.name}</div>
-        <div className="mt-0.5 space-y-0.5 text-[9.5px] text-[#475467]">
-          {customer.tax_id ? <div>เลขประจำตัวผู้เสียภาษี: {customer.tax_id}</div> : null}
-          {customer.address ? <div className="whitespace-pre-line leading-[15px]">{customer.address}</div> : null}
-          {customer.phone ? <div>โทร: {customer.phone}</div> : null}
         </div>
       </div>
     </header>
