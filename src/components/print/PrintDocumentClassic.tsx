@@ -239,7 +239,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           <div className="print-classic-items-title">รายการใบแจ้งหนี้ (INVOICES)</div>
           <table className="print-classic-items-table">
             <colgroup>
-              <col style={{ width: "9mm" }} />
+              <col style={{ width: "12mm" }} />
               <col style={{ width: "32mm" }} />
               <col style={{ width: "20mm" }} />
               <col style={{ width: "24mm" }} />
@@ -278,7 +278,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           </div>
           <table className="print-classic-items-table">
             <colgroup>
-              <col style={{ width: "9mm" }} />
+              <col style={{ width: "12mm" }} />
               <col />
               <col style={{ width: "11mm" }} />
               <col style={{ width: "13mm" }} />
@@ -341,7 +341,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           <div className="print-classic-items-title">อ้างอิงใบส่งของ<span className="en">DELIVERY NOTES</span></div>
           <table className="print-classic-items-table">
             <colgroup>
-              <col style={{ width: "9mm" }} />
+              <col style={{ width: "12mm" }} />
               <col />
               <col style={{ width: "24mm" }} />
             </colgroup>
