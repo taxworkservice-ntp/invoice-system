@@ -48,7 +48,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
-  const { items: catalogItems } = useItems(userId);
+  const { items: catalogItems, addItem } = useItems(userId);
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -581,6 +581,12 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
                   setAddItemInput("");
                 }}
                 placeholder="+ เพิ่มรายการจากแค็ตตาล็อก"
+                onCreate={async (input) => {
+                  const created = await addItem(input);
+                  handleAddCatalogItem(created.id);
+                  setAddItemInput("");
+                  return created;
+                }}
               />
             </div>
           )}

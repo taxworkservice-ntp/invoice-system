@@ -30,7 +30,28 @@ export function useItems(userId: string | undefined) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   }
 
-  return { items, loading, refetch: fetch, updateItemLocal };
+  async function addItem(item: Partial<Item>): Promise<Item> {
+    const payload = {
+      ...item,
+      user_id: userId,
+      stock_count: 0,
+      avg_cost: 0,
+      stock_value: 0,
+      is_active: true,
+    };
+    const { data, error } = await supabase
+      .from("items")
+      .insert(payload)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    const created = data as Item;
+    setItems((prev) => [...prev, created]);
+    return created;
+  }
+
+  return { items, loading, refetch: fetch, updateItemLocal, addItem };
 }
 
 export function useStockMovements(itemId: string | undefined) {

@@ -11,6 +11,12 @@ interface CatalogAutocompleteProps {
   matched?: boolean;
   placeholder?: string;
   className?: string;
+  onCreate?: (input: {
+    name: string;
+    unit_price: number;
+    base_unit: string;
+    item_type: "product" | "service";
+  }) => Promise<Item>;
 }
 
 const INITIAL_RESULT_LIMIT = 12;
@@ -24,6 +30,7 @@ export function CatalogAutocomplete({
   matched = false,
   placeholder = "ชื่อรายการ",
   className = "",
+  onCreate,
 }: CatalogAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -220,6 +227,7 @@ export function CatalogAutocomplete({
           setPickerOpen(false);
           close();
         }}
+        onCreate={onCreate}
       />
     </div>
   );

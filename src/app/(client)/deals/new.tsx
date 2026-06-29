@@ -128,7 +128,7 @@ export default function NewDealPage() {
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
-  const { items } = useItems(userId);
+  const { items, addItem } = useItems(userId);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
@@ -688,6 +688,14 @@ export default function NewDealPage() {
                       onSelect={(catalogItem) => selectCatalogItem(item.id, catalogItem)}
                       matched={!!item.item_id}
                       placeholder="ชื่อรายการ"
+                      onCreate={async (input) => {
+                        try {
+                          return await addItem(input);
+                        } catch (err: unknown) {
+                          setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+                          throw err;
+                        }
+                      }}
                     />
                   </div>
                   <div className="flex gap-1 items-start">

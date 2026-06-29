@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Package, Search, Star, Wrench } from "lucide-react";
+import { Package, Plus, Search, Star, Wrench } from "lucide-react";
 import { Modal } from "../ui/Modal";
+import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { formatCurrency } from "../../lib/format";
 import { formatMixedStock } from "../../lib/stock";
@@ -12,18 +13,45 @@ interface CatalogItemPickerModalProps {
   onSelect: (item: Item) => void;
   onClose: () => void;
   initialSearch?: string;
+  onCreate?: (input: {
+    name: string;
+    unit_price: number;
+    base_unit: string;
+    item_type: "product" | "service";
+  }) => Promise<Item>;
 }
 
 function itemSearchText(item: Item) {
   return [item.name, item.sku || "", item.base_unit, item.carton_unit || ""].join(" ").toLowerCase();
 }
 
-export function CatalogItemPickerModal({ open, items, onSelect, onClose, initialSearch = "" }: CatalogItemPickerModalProps) {
+export function CatalogItemPickerModal({
+  open,
+  items,
+  onSelect,
+  onClose,
+  initialSearch = "",
+  onCreate,
+}: CatalogItemPickerModalProps) {
   const [search, setSearch] = useState(initialSearch);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newItem, setNewItem] = useState({
+    name: "",
+    unit_price: "",
+    base_unit: "ชิ้น",
+  });
 
   useEffect(() => {
     if (open) setSearch(initialSearch);
   }, [initialSearch, open]);
+
+  useEffect(() => {
+    if (!open) {
+      setAdding(false);
+      setNewItem({ name: "", unit_price: "", base_unit: "ชิ้น" });
+    }
+  }, [open]);
 
   const sortedItems = useMemo(
     () => [...items].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th")),
@@ -35,6 +63,29 @@ export function CatalogItemPickerModal({ open, items, onSelect, onClose, initial
     if (!query) return sortedItems;
     return sortedItems.filter((item) => itemSearchText(item).includes(query));
   }, [search, sortedItems]);
+
+  const handleCreate = async () => {
+    if (!onCreate) return;
+    const name = newItem.name.trim();
+    const price = parseFloat(newItem.unit_price);
+    if (!name || isNaN(price) || price < 0) return;
+    setSaving(true);
+    try {
+      const created = await onCreate({
+        name,
+        unit_price: price,
+        base_unit: newItem.base_unit.trim() || "ชิ้น",
+        item_type: "product",
+      });
+      setNewItem({ name: "", unit_price: "", base_unit: "ชิ้น" });
+      setAdding(false);
+      setSearch("");
+      onSelect(created);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Modal open={open} onClose={onClose} title="เลือกรายการ" className="md:max-w-2xl">
@@ -49,6 +100,70 @@ export function CatalogItemPickerModal({ open, items, onSelect, onClose, initial
             autoFocus
           />
         </div>
+
+        {adding ? (
+          <div className="rounded-xl border border-card-border bg-[#FAF8F3] p-3">
+            <div className="mb-3 text-sm font-medium text-[#1A1A18]">เพิ่มรายการใหม่</div>
+            <div className="space-y-2">
+              <Input
+                label="ชื่อรายการ"
+                value={newItem.name}
+                onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <label className="flex-1 block">
+                  <span className="block text-[13px] text-[#1A1A18] mb-1">ราคาต่อหน่วย</span>
+                  <div className="flex items-center gap-1 border border-card-border rounded-lg bg-white px-2">
+                    <span className="text-[15px] text-[#1A1A18]">฿</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newItem.unit_price}
+                      onChange={(event) => setNewItem((prev) => ({ ...prev, unit_price: event.target.value }))}
+                      placeholder="0.00"
+                      className="flex-1 py-2 text-sm focus:outline-none bg-transparent"
+                    />
+                  </div>
+                </label>
+                <label className="w-28 block">
+                  <span className="block text-[13px] text-[#1A1A18] mb-1">หน่วย</span>
+                  <input
+                    type="text"
+                    value={newItem.base_unit}
+                    onChange={(event) => setNewItem((prev) => ({ ...prev, base_unit: event.target.value }))}
+                    placeholder="ชิ้น"
+                    className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>ยกเลิก</Button>
+                <Button
+                  size="sm"
+                  disabled={!newItem.name.trim() || newItem.unit_price === "" || isNaN(parseFloat(newItem.unit_price)) || saving}
+                  loading={saving}
+                  onClick={handleCreate}
+                >
+                  บันทึกและเลือก
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : onCreate ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setNewItem((prev) => ({ ...prev, name: search.trim() || prev.name }));
+              setAdding(true);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            เพิ่มรายการใหม่
+          </Button>
+        ) : null}
 
         <div className="max-h-[58vh] overflow-y-auto rounded-xl border border-card-border">
           {filteredItems.length === 0 ? (
