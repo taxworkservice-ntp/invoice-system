@@ -250,6 +250,20 @@ async function renderModernPrintCanvas(
       height: sheet.scrollHeight,
       windowWidth: sheet.scrollWidth,
       windowHeight: sheet.scrollHeight,
+      onclone: (clonedDoc) => {
+        const clonedSheet = clonedDoc.querySelector<HTMLElement>(".print-sheet");
+        if (clonedSheet) {
+          clonedSheet.style.border = "none";
+          clonedSheet.style.borderRadius = "0";
+          clonedSheet.style.boxShadow = "none";
+        }
+        const clonedTheme = clonedDoc.querySelector<HTMLElement>(".print-theme-modern");
+        if (clonedTheme) {
+          clonedTheme.style.border = "none";
+          clonedTheme.style.borderRadius = "0";
+          clonedTheme.style.boxShadow = "none";
+        }
+      },
     });
   } finally {
     root?.unmount();
