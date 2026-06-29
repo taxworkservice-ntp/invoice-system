@@ -8,6 +8,8 @@ import { Badge } from "../../../components/ui/Badge";
 import { Input, Select } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { Spinner } from "../../../components/ui/Spinner";
+import { SortableTh } from "../../../components/ui/SortableTh";
+import { useTableSort } from "../../../components/ui/useTableSort";
 import { getDocumentDetail, saveLineItems } from "../../../hooks/useDocuments";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
@@ -531,6 +533,14 @@ export default function DocumentDetailPage() {
     setPayModal(true);
   };
 
+  type LineItemSortKey = "item_name" | "quantity" | "unit_price" | "line_total";
+  type BillingInvoiceSortKey = "invoice_number" | "subtotal" | "vat_amount" | "total_amount";
+  type DeliveryNoteSortKey = "delivery_note_number" | "issue_date" | "total_amount";
+
+  const lineItemSort = useTableSort<DocumentLineItem, LineItemSortKey>(doc?.line_items || [], { key: "item_name", dir: "asc" });
+  const billingInvoiceSort = useTableSort<BillingNoteInvoice, BillingInvoiceSortKey>(doc?.billing_invoices || [], { key: "invoice_number", dir: "asc" });
+  const deliveryNoteSort = useTableSort<InvoiceDeliveryNote, DeliveryNoteSortKey>(doc?.invoice_delivery_notes || [], { key: "delivery_note_number", dir: "asc" });
+
   if (loading) {
     return (
       <AppShell title="เอกสาร" showBack>
@@ -685,14 +695,42 @@ export default function DocumentDetailPage() {
             <thead>
               <tr className="border-b border-card-border bg-[#FAF8F3]">
                 <th className="w-8 px-4 py-3 text-left text-xs font-medium text-gray-500">#</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">รายการ</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">จำนวน</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">ราคา/หน่วย</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">รวม</th>
+                <SortableTh
+                  label="รายการ"
+                  align="left"
+                  active={lineItemSort.sort.key === "item_name"}
+                  dir={lineItemSort.sort.dir}
+                  onClick={() => lineItemSort.handleSort("item_name")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="จำนวน"
+                  align="right"
+                  active={lineItemSort.sort.key === "quantity"}
+                  dir={lineItemSort.sort.dir}
+                  onClick={() => lineItemSort.handleSort("quantity")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="ราคา/หน่วย"
+                  align="right"
+                  active={lineItemSort.sort.key === "unit_price"}
+                  dir={lineItemSort.sort.dir}
+                  onClick={() => lineItemSort.handleSort("unit_price")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="รวม"
+                  align="right"
+                  active={lineItemSort.sort.key === "line_total"}
+                  dir={lineItemSort.sort.dir}
+                  onClick={() => lineItemSort.handleSort("line_total")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
               </tr>
             </thead>
             <tbody>
-              {doc.line_items.map((item, index) => (
+              {lineItemSort.sorted.map((item, index) => (
                 <tr key={item.id} className="border-b border-card-border last:border-0">
                   <td className="px-4 py-2 text-gray-500">{index + 1}</td>
                   <td className="px-4 py-2 text-gray-700">
@@ -720,14 +758,42 @@ export default function DocumentDetailPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border bg-[#FAF8F3]">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">เลขที่ใบแจ้งหนี้</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">ยอดก่อน VAT</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">VAT</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">รวม</th>
+                <SortableTh
+                  label="เลขที่ใบแจ้งหนี้"
+                  align="left"
+                  active={billingInvoiceSort.sort.key === "invoice_number"}
+                  dir={billingInvoiceSort.sort.dir}
+                  onClick={() => billingInvoiceSort.handleSort("invoice_number")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="ยอดก่อน VAT"
+                  align="right"
+                  active={billingInvoiceSort.sort.key === "subtotal"}
+                  dir={billingInvoiceSort.sort.dir}
+                  onClick={() => billingInvoiceSort.handleSort("subtotal")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="VAT"
+                  align="right"
+                  active={billingInvoiceSort.sort.key === "vat_amount"}
+                  dir={billingInvoiceSort.sort.dir}
+                  onClick={() => billingInvoiceSort.handleSort("vat_amount")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="รวม"
+                  align="right"
+                  active={billingInvoiceSort.sort.key === "total_amount"}
+                  dir={billingInvoiceSort.sort.dir}
+                  onClick={() => billingInvoiceSort.handleSort("total_amount")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
               </tr>
             </thead>
             <tbody>
-              {doc.billing_invoices.map((invoice) => (
+              {billingInvoiceSort.sorted.map((invoice) => (
                 <tr key={invoice.id} className="border-b border-card-border last:border-0">
                   <td className="px-4 py-2 text-gray-700">{invoice.invoice_number}</td>
                   <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.subtotal)}</td>
@@ -747,13 +813,34 @@ export default function DocumentDetailPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border bg-[#FAF8F3]">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">เลขที่ใบส่งของ</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">วันที่ส่งของ</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">มูลค่าอ้างอิง</th>
+                <SortableTh
+                  label="เลขที่ใบส่งของ"
+                  align="left"
+                  active={deliveryNoteSort.sort.key === "delivery_note_number"}
+                  dir={deliveryNoteSort.sort.dir}
+                  onClick={() => deliveryNoteSort.handleSort("delivery_note_number")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="วันที่ส่งของ"
+                  align="left"
+                  active={deliveryNoteSort.sort.key === "issue_date"}
+                  dir={deliveryNoteSort.sort.dir}
+                  onClick={() => deliveryNoteSort.handleSort("issue_date")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="มูลค่าอ้างอิง"
+                  align="right"
+                  active={deliveryNoteSort.sort.key === "total_amount"}
+                  dir={deliveryNoteSort.sort.dir}
+                  onClick={() => deliveryNoteSort.handleSort("total_amount")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
               </tr>
             </thead>
             <tbody>
-              {doc.invoice_delivery_notes.map((deliveryNote) => (
+              {deliveryNoteSort.sorted.map((deliveryNote) => (
                 <tr key={deliveryNote.id} className="border-b border-card-border last:border-0">
                   <td className="px-4 py-2 text-gray-700">{deliveryNote.delivery_note_number}</td>
                   <td className="px-4 py-2 text-gray-700">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>

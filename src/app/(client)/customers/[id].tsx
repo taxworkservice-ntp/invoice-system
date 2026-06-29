@@ -9,6 +9,8 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { Badge } from "../../../components/ui/Badge";
 import { ViewToggle } from "../../../components/ui/ViewToggle";
 import type { ViewMode } from "../../../components/ui/ViewToggle";
+import { SortableTh } from "../../../components/ui/SortableTh";
+import { useTableSort } from "../../../components/ui/useTableSort";
 import { NewDealSheet } from "../../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { supabase } from "../../../lib/supabase";
@@ -268,6 +270,18 @@ export default function CustomerDetailPage() {
     if (dealFilter === "done") return doneDealItems;
     return [...activeDealItems, ...doneDealItems];
   }, [activeDealItems, dealFilter, doneDealItems]);
+
+  const dealRows = useMemo(
+    () =>
+      filteredDealItems.map((item) => ({
+        ...item,
+        title: item.deal.title || "งานขาย",
+        status: item.latestDoc?.status || "",
+      })),
+    [filteredDealItems],
+  );
+  type DealSortKey = "title" | "latestDate" | "status" | "amount";
+  const dealSort = useTableSort<(typeof dealRows)[number], DealSortKey>(dealRows, { key: "latestDate", dir: "desc" });
 
   const totalReceived = deals.reduce((sum, d) => {
     const paidDoc = d.documents?.find((doc) => doc.status === "paid" && doc.doc_type === "billing_note");
@@ -622,15 +636,43 @@ export default function CustomerDetailPage() {
                 <table className="w-full text-[13px]">
                   <thead>
                     <tr className="border-b border-card-border bg-[#F7F6F3] text-left text-[11px] uppercase tracking-wide text-[#888780]">
-                      <th className="px-3 py-2 font-semibold">งานขาย / เอกสารล่าสุด</th>
-                      <th className="px-3 py-2 font-semibold">วันที่</th>
-                      <th className="px-3 py-2 font-semibold">สถานะ</th>
-                      <th className="px-3 py-2 text-right font-semibold">ยอด</th>
+                      <SortableTh
+                        label="งานขาย / เอกสารล่าสุด"
+                        align="left"
+                        active={dealSort.sort.key === "title"}
+                        dir={dealSort.sort.dir}
+                        onClick={() => dealSort.handleSort("title")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      />
+                      <SortableTh
+                        label="วันที่"
+                        align="left"
+                        active={dealSort.sort.key === "latestDate"}
+                        dir={dealSort.sort.dir}
+                        onClick={() => dealSort.handleSort("latestDate")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      />
+                      <SortableTh
+                        label="สถานะ"
+                        align="left"
+                        active={dealSort.sort.key === "status"}
+                        dir={dealSort.sort.dir}
+                        onClick={() => dealSort.handleSort("status")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      />
+                      <SortableTh
+                        label="ยอด"
+                        align="right"
+                        active={dealSort.sort.key === "amount"}
+                        dir={dealSort.sort.dir}
+                        onClick={() => dealSort.handleSort("amount")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      />
                       <th className="px-3 py-2 text-right font-semibold">เปิด</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-card-border">
-                    {filteredDealItems.map((item) => (
+                    {dealSort.sorted.map((item) => (
                       <tr
                         key={item.deal.id}
                         onClick={() => navigate(`/deals/${item.deal.id}`)}

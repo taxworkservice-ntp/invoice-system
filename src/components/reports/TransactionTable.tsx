@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatCurrency } from "../../lib/format";
 import { Card } from "../ui/Card";
 import { EmptyState } from "../ui/EmptyState";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { SortableTh } from "../ui/SortableTh";
+import { useTableSort } from "../ui/useTableSort";
 import type { Transaction } from "../../hooks/useReports";
 
 type SortKey = "date" | "doc_number" | "doc_type" | "customer_name" | "subtotal" | "vat_amount" | "total_amount" | "wht_amount" | "net_payable" | "status";
@@ -31,33 +32,12 @@ function formatDateThai(iso: string) {
   return `${d}/${m}/${Number(y) + 543}`;
 }
 
-function SortIcon({ column, current }: { column: SortKey; current: { key: SortKey; dir: "asc" | "desc" } | null }) {
-  if (!current || current.key !== column) {
-    return <span className="ml-1 text-[#C9D5E3]"><ChevronUp className="h-3 w-3 inline" /></span>;
-  }
-  return current.dir === "asc"
-    ? <ChevronUp className="ml-1 h-3 w-3 inline text-primary" />
-    : <ChevronDown className="ml-1 h-3 w-3 inline text-primary" />;
-}
-
 export function TransactionTable({ transactions }: Props) {
   const navigate = useNavigate();
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "date", dir: "desc" });
-
-  const sorted = useMemo(() => {
-    const copy = [...transactions];
-    copy.sort((a, b) => {
-      const aVal = a[sort.key];
-      const bVal = b[sort.key];
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sort.dir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      }
-      const aN = Number(aVal) || 0;
-      const bN = Number(bVal) || 0;
-      return sort.dir === "asc" ? aN - bN : bN - aN;
-    });
-    return copy;
-  }, [transactions, sort]);
+  const { sort, handleSort, sorted } = useTableSort<Transaction, SortKey>(transactions, {
+    key: "date",
+    dir: "desc",
+  });
 
   const totals = useMemo(() => ({
     subtotal: sorted.reduce((s, t) => s + t.subtotal, 0),
@@ -73,21 +53,13 @@ export function TransactionTable({ transactions }: Props) {
     );
   }
 
-  function handleSort(key: SortKey) {
-    setSort((prev) =>
-      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" }
-    );
-  }
-
   function getCellValue(t: Transaction, key: SortKey): string {
     switch (key) {
       case "date": return formatDateThai(t.date);
       case "subtotal": case "vat_amount": case "total_amount": case "wht_amount": case "net_payable":
         return formatCurrency(Number(t[key]));
       case "status":
-        return t.is_paid
-          ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-green-50 text-green-700">${t.status}</span>`
-          : `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700">${t.status}</span>`;
+        return t.is_paid ? "ชำระแล้ว" : t.status;
       default:
         return String(t[key] || "-");
     }
@@ -103,14 +75,15 @@ export function TransactionTable({ transactions }: Props) {
         <thead>
           <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
             {COLUMNS.map((col) => (
-              <th
+              <SortableTh
                 key={col.key}
+                label={col.label}
+                align={col.align}
+                active={sort.key === col.key}
+                dir={sort.dir}
                 onClick={() => handleSort(col.key)}
-                className={`px-3 py-2 text-${col.align} text-[10px] font-semibold text-[#344054] tracking-[0.04em] cursor-pointer select-none whitespace-nowrap hover:text-[#111827] transition-colors ${col.className || ""}`}
-              >
-                {col.label}
-                <SortIcon column={col.key} current={sort} />
-              </th>
+                className={col.className || ""}
+              />
             ))}
           </tr>
         </thead>
@@ -124,7 +97,7 @@ export function TransactionTable({ transactions }: Props) {
               {COLUMNS.map((col) => {
                 if (col.key === "status") {
                   return (
-                    <td key={col.key} className={`px-3 py-2 text-left whitespace-nowrap`}>
+                    <td key={col.key} className="px-3 py-2 text-left whitespace-nowrap">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${t.is_paid ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
                         {t.status}
                       </span>

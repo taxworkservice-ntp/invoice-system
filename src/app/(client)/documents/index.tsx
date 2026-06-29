@@ -12,6 +12,8 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { SkeletonCard, SkeletonTable } from "../../../components/ui/Skeleton";
 import { ViewToggle } from "../../../components/ui/ViewToggle";
 import type { ViewMode } from "../../../components/ui/ViewToggle";
+import { SortableTh } from "../../../components/ui/SortableTh";
+import { useTableSort } from "../../../components/ui/useTableSort";
 import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
@@ -964,6 +966,9 @@ export default function DocumentsPage() {
     return { active, completed, voided };
   }, [filtered]);
 
+  type DocSortKey = "doc_number" | "doc_type" | "issue_date" | "net_payable" | "status";
+  const docSort = useTableSort<Document, DocSortKey>(filtered, { key: "issue_date", dir: "desc" });
+
   const hasFilters =
     quickView !== "all" ||
     docTypeFilter !== "all" ||
@@ -1289,16 +1294,51 @@ export default function DocumentsPage() {
                 <table className="w-full text-[13px]">
                   <thead>
                     <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
-                      <th className="px-3 py-2 font-semibold">เลขที่</th>
-                      <th className="px-3 py-2 font-semibold">ประเภท</th>
+                      <SortableTh
+                        label="เลขที่"
+                        align="left"
+                        active={docSort.sort.key === "doc_number"}
+                        dir={docSort.sort.dir}
+                        onClick={() => docSort.handleSort("doc_number")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      />
+                      <SortableTh
+                        label="ประเภท"
+                        align="left"
+                        active={docSort.sort.key === "doc_type"}
+                        dir={docSort.sort.dir}
+                        onClick={() => docSort.handleSort("doc_type")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      />
                       <th className="px-3 py-2 font-semibold">ลูกค้า</th>
-                      <th className="px-3 py-2 font-semibold hidden sm:table-cell">วันที่</th>
-                      <th className="px-3 py-2 font-semibold text-right">จำนวนเงิน</th>
-                      <th className="px-3 py-2 font-semibold hidden md:table-cell">สถานะ</th>
+                      <SortableTh
+                        label="วันที่"
+                        align="left"
+                        active={docSort.sort.key === "issue_date"}
+                        dir={docSort.sort.dir}
+                        onClick={() => docSort.handleSort("issue_date")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                      />
+                      <SortableTh
+                        label="จำนวนเงิน"
+                        align="right"
+                        active={docSort.sort.key === "net_payable"}
+                        dir={docSort.sort.dir}
+                        onClick={() => docSort.handleSort("net_payable")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      />
+                      <SortableTh
+                        label="สถานะ"
+                        align="left"
+                        active={docSort.sort.key === "status"}
+                        dir={docSort.sort.dir}
+                        onClick={() => docSort.handleSort("status")}
+                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden md:table-cell"
+                      />
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((doc) => {
+                    {docSort.sorted.map((doc) => {
                       const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
                       const isVoided = doc.status === "voided";
                       const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";

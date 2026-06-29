@@ -9,6 +9,8 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ViewToggle } from "../../components/ui/ViewToggle";
 import type { ViewMode } from "../../components/ui/ViewToggle";
+import { SortableTh } from "../../components/ui/SortableTh";
+import { useTableSort } from "../../components/ui/useTableSort";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
 import { SummaryRow } from "../../components/home/SummaryRow";
 import { DealCard } from "../../components/home/DealCard";
@@ -479,6 +481,9 @@ export default function HomePage() {
     [activeDealsAll, homeFilter]
   );
 
+  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount" | "nextActionLabel";
+  const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, { key: "createdAt", dir: "desc" });
+
   const recentlyDone = useMemo(
     () =>
       deals
@@ -657,16 +662,51 @@ export default function HomePage() {
                     <table className="w-full text-[13px]">
                       <thead>
                         <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
-                          <th className="px-3 py-2 font-semibold">ลูกค้า</th>
-                          <th className="px-3 py-2 font-semibold">สถานะ</th>
-                          <th className="px-3 py-2 font-semibold hidden lg:table-cell">สร้างเมื่อ</th>
+                          <SortableTh
+                            label="ลูกค้า"
+                            align="left"
+                            active={dealSort.sort.key === "customerName"}
+                            dir={dealSort.sort.dir}
+                            onClick={() => dealSort.handleSort("customerName")}
+                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                          />
+                          <SortableTh
+                            label="สถานะ"
+                            align="left"
+                            active={dealSort.sort.key === "stageLabel"}
+                            dir={dealSort.sort.dir}
+                            onClick={() => dealSort.handleSort("stageLabel")}
+                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                          />
+                          <SortableTh
+                            label="สร้างเมื่อ"
+                            align="left"
+                            active={dealSort.sort.key === "createdAt"}
+                            dir={dealSort.sort.dir}
+                            onClick={() => dealSort.handleSort("createdAt")}
+                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden lg:table-cell"
+                          />
                           <th className="px-3 py-2 font-semibold hidden sm:table-cell">รายการ</th>
-                          <th className="px-3 py-2 font-semibold text-right">จำนวนเงิน</th>
-                          <th className="px-3 py-2 font-semibold hidden md:table-cell">ขั้นตอนถัดไป</th>
+                          <SortableTh
+                            label="จำนวนเงิน"
+                            align="right"
+                            active={dealSort.sort.key === "amount"}
+                            dir={dealSort.sort.dir}
+                            onClick={() => dealSort.handleSort("amount")}
+                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                          />
+                          <SortableTh
+                            label="ขั้นตอนถัดไป"
+                            align="left"
+                            active={dealSort.sort.key === "nextActionLabel"}
+                            dir={dealSort.sort.dir}
+                            onClick={() => dealSort.handleSort("nextActionLabel")}
+                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden md:table-cell"
+                          />
                         </tr>
                       </thead>
                       <tbody>
-                        {activeDeals.map((deal) => (
+                        {dealSort.sorted.map((deal) => (
                           <tr
                             key={deal.dealId}
                             onClick={() => navigate(`/deals/${deal.dealId}`)}

@@ -15,6 +15,8 @@ import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Modal } from "../../../components/ui/Modal";
 import { Input } from "../../../components/ui/Input";
+import { SortableTh } from "../../../components/ui/SortableTh";
+import { useTableSort } from "../../../components/ui/useTableSort";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { DOC_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from "../../../constants";
@@ -249,6 +251,9 @@ export default function AdminClientDetailPage() {
       setDeleting(false);
     }
   }
+
+  type AdminDocSortKey = "doc_number" | "doc_type" | "total_amount" | "status";
+  const adminDocSort = useTableSort<Document, AdminDocSortKey>(documents, { key: "doc_number", dir: "asc" });
 
   if (loading) {
     return (
@@ -519,15 +524,43 @@ export default function AdminClientDetailPage() {
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className="border-b border-[#E8E6DF] text-[#888780]">
-                    <th className="text-left py-2 pr-2">เลขที่</th>
-                    <th className="text-left py-2 pr-2">ประเภท</th>
+                    <SortableTh
+                      label="เลขที่"
+                      align="left"
+                      active={adminDocSort.sort.key === "doc_number"}
+                      dir={adminDocSort.sort.dir}
+                      onClick={() => adminDocSort.handleSort("doc_number")}
+                      className="!text-[#888780] !text-[12px] !font-normal !py-2 !pr-2 !pl-0"
+                    />
+                    <SortableTh
+                      label="ประเภท"
+                      align="left"
+                      active={adminDocSort.sort.key === "doc_type"}
+                      dir={adminDocSort.sort.dir}
+                      onClick={() => adminDocSort.handleSort("doc_type")}
+                      className="!text-[#888780] !text-[12px] !font-normal !py-2 !pr-2 !pl-0"
+                    />
                     <th className="text-left py-2 pr-2">ลูกค้า</th>
-                    <th className="text-right py-2 pr-2">ยอดรวม</th>
-                    <th className="text-left py-2">สถานะ</th>
+                    <SortableTh
+                      label="ยอดรวม"
+                      align="right"
+                      active={adminDocSort.sort.key === "total_amount"}
+                      dir={adminDocSort.sort.dir}
+                      onClick={() => adminDocSort.handleSort("total_amount")}
+                      className="!text-[#888780] !text-[12px] !font-normal !py-2 !pr-2 !pl-0"
+                    />
+                    <SortableTh
+                      label="สถานะ"
+                      align="left"
+                      active={adminDocSort.sort.key === "status"}
+                      dir={adminDocSort.sort.dir}
+                      onClick={() => adminDocSort.handleSort("status")}
+                      className="!text-[#888780] !text-[12px] !font-normal !py-2 !pl-0"
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {documents.map((document) => (
+                  {adminDocSort.sorted.map((document) => (
                     <tr key={document.id} className="border-b border-[#E8E6DF]/50 hover:bg-gray-50 cursor-pointer">
                       <td className="py-2 pr-2 font-medium">{document.doc_number || "-"}</td>
                       <td className="py-2 pr-2">{DOC_TYPE_LABELS[document.doc_type]?.th || document.doc_type}</td>

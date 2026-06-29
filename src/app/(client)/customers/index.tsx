@@ -8,6 +8,8 @@ import { Input } from "../../../components/ui/Input";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ViewToggle } from "../../../components/ui/ViewToggle";
 import type { ViewMode } from "../../../components/ui/ViewToggle";
+import { SortableTh } from "../../../components/ui/SortableTh";
+import { useTableSort } from "../../../components/ui/useTableSort";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { useCustomers } from "../../../hooks/useCustomers";
 import { useAuth } from "../../../hooks/useAuth";
@@ -125,6 +127,13 @@ export default function CustomersPage() {
     }
     return list;
   }, [customers, search, filterMode, dealCounts]);
+
+  const customerRows = useMemo(
+    () => filtered.map((c) => ({ ...c, dealCount: dealCounts[c.id] || 0 })),
+    [filtered, dealCounts],
+  );
+  type CustomerSortKey = "name" | "tax_id" | "phone" | "dealCount" | "is_active";
+  const customerSort = useTableSort<(typeof customerRows)[number], CustomerSortKey>(customerRows, { key: "name", dir: "asc" });
 
   const favoriteCount = useMemo(() => customers.filter((c) => c.is_favorite).length, [customers]);
   const hasDealsCount = useMemo(
@@ -372,16 +381,51 @@ export default function CustomersPage() {
                 <thead>
                   <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
                     <th className="px-3 py-2 w-10"></th>
-                    <th className="px-3 py-2 font-semibold">ชื่อลูกค้า</th>
-                    <th className="px-3 py-2 font-semibold hidden sm:table-cell">เลขผู้เสียภาษี</th>
-                    <th className="px-3 py-2 font-semibold hidden md:table-cell">เบอร์โทร</th>
-                    <th className="px-3 py-2 font-semibold text-right">งานขาย</th>
-                    <th className="px-3 py-2 font-semibold hidden sm:table-cell">สถานะ</th>
+                    <SortableTh
+                      label="ชื่อลูกค้า"
+                      align="left"
+                      active={customerSort.sort.key === "name"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("name")}
+                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                    />
+                    <SortableTh
+                      label="เลขผู้เสียภาษี"
+                      align="left"
+                      active={customerSort.sort.key === "tax_id"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("tax_id")}
+                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                    />
+                    <SortableTh
+                      label="เบอร์โทร"
+                      align="left"
+                      active={customerSort.sort.key === "phone"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("phone")}
+                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden md:table-cell"
+                    />
+                    <SortableTh
+                      label="งานขาย"
+                      align="right"
+                      active={customerSort.sort.key === "dealCount"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("dealCount")}
+                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                    />
+                    <SortableTh
+                      label="สถานะ"
+                      align="left"
+                      active={customerSort.sort.key === "is_active"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("is_active")}
+                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((c) => {
-                    const count = dealCounts[c.id] || 0;
+                  {customerSort.sorted.map((c) => {
+                    const count = c.dealCount;
                     const incomplete = isIncomplete(c);
                     return (
                       <tr

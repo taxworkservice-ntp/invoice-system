@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { isLowStock, isOutOfStock, formatMixedStock } from "../../lib/stock";
 import { formatCurrency } from "../../lib/format";
+import { SortableTh } from "../ui/SortableTh";
+import { useTableSort } from "../ui/useTableSort";
 import type { Item } from "../../types";
 
 interface Props {
@@ -8,11 +10,12 @@ interface Props {
   startIndex?: number;
 }
 
+type SortKey = "name" | "stock_count" | "base_unit" | "low_stock_threshold" | "avg_cost" | "stock_value";
+
 function StockRow({ item, index }: { item: Item; index: number }) {
   const navigate = useNavigate();
-  const isProduct = item.item_type === "product";
-  const low = isProduct && isLowStock(item.stock_count, item.low_stock_threshold);
-  const out = isProduct && isOutOfStock(item.stock_count);
+  const low = isLowStock(item.stock_count, item.low_stock_threshold);
+  const out = isOutOfStock(item.stock_count);
   const value = item.stock_value;
 
   let rowBg = "";
@@ -42,22 +45,22 @@ function StockRow({ item, index }: { item: Item; index: number }) {
         )}
       </td>
       <td className={`px-3 py-2 text-[13px] text-right tabular-nums font-medium ${textColor || "text-[#1A1A18]"}`}>
-        {isProduct ? item.stock_count : "—"}
+        {item.item_type === "product" ? item.stock_count : "—"}
       </td>
       <td className="px-3 py-2 text-[11px] text-[#888780] text-center">
-        {isProduct ? item.base_unit : "—"}
+        {item.item_type === "product" ? item.base_unit : "—"}
       </td>
       <td className="px-3 py-2 text-[11px] text-right text-[#888780]">
-        {isProduct ? formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton) : "—"}
+        {item.item_type === "product" ? formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton) : "—"}
       </td>
       <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#888780]">
-        {isProduct ? item.low_stock_threshold : "—"}
+        {item.item_type === "product" ? item.low_stock_threshold : "—"}
       </td>
       <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#444441] hidden sm:table-cell">
-        {isProduct ? item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : "—"}
+        {item.item_type === "product" ? item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : "—"}
       </td>
       <td className="px-3 py-2 text-[12px] text-right tabular-nums font-medium text-[#1A1A18] hidden sm:table-cell">
-        {isProduct ? value.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : formatCurrency(item.unit_price)}
+        {item.item_type === "product" ? value.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : formatCurrency(item.unit_price)}
       </td>
     </tr>
   );
@@ -112,6 +115,8 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
 }
 
 export function StockReportTable({ items, startIndex = 0 }: Props) {
+  const { sort, handleSort, sorted } = useTableSort<Item, SortKey>(items, { key: "name", dir: "asc" });
+
   if (items.length === 0) return null;
 
   return (
@@ -122,17 +127,59 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
             <thead>
               <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
                 <th className="px-3 py-2 font-semibold w-8 text-right">#</th>
-                <th className="px-3 py-2 font-semibold">รายการ</th>
-                <th className="px-3 py-2 font-semibold text-right">สต็อก</th>
-                <th className="px-3 py-2 font-semibold text-center">หน่วย</th>
+                <SortableTh
+                  label="รายการ"
+                  align="left"
+                  active={sort.key === "name"}
+                  dir={sort.dir}
+                  onClick={() => handleSort("name")}
+                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                />
+                <SortableTh
+                  label="สต็อก"
+                  align="right"
+                  active={sort.key === "stock_count"}
+                  dir={sort.dir}
+                  onClick={() => handleSort("stock_count")}
+                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                />
+                <SortableTh
+                  label="หน่วย"
+                  align="right"
+                  active={sort.key === "base_unit"}
+                  dir={sort.dir}
+                  onClick={() => handleSort("base_unit")}
+                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                />
                 <th className="px-3 py-2 font-semibold text-right">นับรวม</th>
-                <th className="px-3 py-2 font-semibold text-right">แจ้งเตือน</th>
-                <th className="px-3 py-2 font-semibold text-right hidden sm:table-cell">ต้นทุนเฉลี่ย</th>
-                <th className="px-3 py-2 font-semibold text-right hidden sm:table-cell">มูลค่า</th>
+                <SortableTh
+                  label="แจ้งเตือน"
+                  align="right"
+                  active={sort.key === "low_stock_threshold"}
+                  dir={sort.dir}
+                  onClick={() => handleSort("low_stock_threshold")}
+                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                />
+                <SortableTh
+                  label="ต้นทุนเฉลี่ย"
+                  align="right"
+                  active={sort.key === "avg_cost"}
+                  dir={sort.dir}
+                  onClick={() => handleSort("avg_cost")}
+                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                />
+                <SortableTh
+                  label="มูลค่า"
+                  align="right"
+                  active={sort.key === "stock_value"}
+                  dir={sort.dir}
+                  onClick={() => handleSort("stock_value")}
+                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                />
               </tr>
             </thead>
             <tbody>
-              {items.map((item, i) => (
+              {sorted.map((item, i) => (
                 <StockRow key={item.id} item={item} index={startIndex + i + 1} />
               ))}
             </tbody>
@@ -141,7 +188,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
       </div>
 
       <div className="sm:hidden bg-white border border-card-border rounded-card overflow-hidden">
-        {items.map((item, i) => (
+        {sorted.map((item, i) => (
           <StockRowMobile key={item.id} item={item} index={startIndex + i + 1} />
         ))}
       </div>
