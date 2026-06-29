@@ -1,6 +1,4 @@
 import { Card } from "../ui/Card";
-import { Badge } from "../ui/Badge";
-import { CHIP_COLORS } from "../../constants";
 import { formatBuddhistDate } from "../../lib/dates";
 import type { DocumentStatus } from "../../types";
 
@@ -28,6 +26,8 @@ const STAGE_COLORS: Record<string, { bg: string; text: string; banner: string }>
   done: { bg: "bg-gray-100", text: "text-gray-500", banner: "bg-gray-50 text-gray-500" },
 };
 
+const ITEM_CHIP_CLASS = "bg-[#F7F6F3] text-[#62605A]";
+
 export function DealCard({
   customerName,
   itemSummary,
@@ -45,6 +45,7 @@ export function DealCard({
   const previewItems = itemNames.slice(0, 3);
   const remainingItems = itemNames.length - previewItems.length;
   const colors = STAGE_COLORS[queue] || STAGE_COLORS.progress;
+  void status;
 
   return (
     <Card
@@ -59,20 +60,19 @@ export function DealCard({
             <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
               {stageLabel}
             </span>
-            <Badge status={status} />
           </div>
           {previewItems.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {previewItems.map((itemName, index) => (
                 <span
                   key={`${customerName}-item-${index}-${itemName}`}
-                  className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs ${CHIP_COLORS[index % CHIP_COLORS.length]}`}
+                  className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs ${ITEM_CHIP_CLASS}`}
                 >
                   <span className="truncate">{itemName}</span>
                 </span>
               ))}
               {remainingItems > 0 && (
-                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${CHIP_COLORS[previewItems.length % CHIP_COLORS.length]} opacity-80`}>
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${ITEM_CHIP_CLASS} opacity-80`}>
                   +{remainingItems} more
                 </span>
               )}
