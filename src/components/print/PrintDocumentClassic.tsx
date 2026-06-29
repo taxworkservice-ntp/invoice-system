@@ -48,7 +48,7 @@ interface PrintDocumentClassicProps {
 }
 
 export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocumentClassicProps) {
-  const { document, clientProfile, customer, referenceDoc, lineItems, billingNoteInvoices, invoiceDeliveryNotes, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
+  const { document, clientProfile, customer, referenceDoc, lineItems, billingNoteInvoices, invoiceDeliveryNotes } = data;
   const isCopy = copyType === "copy";
   const isDeliveryNote = document.doc_type === "delivery_note";
   const isBillingNote = document.doc_type === "billing_note";
@@ -268,7 +268,6 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
             <tbody>
               {lineItems.map((item, index) => {
                 const hasLineDiscount = item.discount_amount > 0 || item.discount_percent > 0;
-                const deliveryNoteRef = lineDeliveryNoteMap[item.id];
                 return (
                   <tr key={item.id}>
                     <td className="center">{index + 1}</td>
@@ -281,9 +280,6 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                         <div className="print-classic-discount-note">
                           ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | -${formatCurrency(item.discount_amount)}` : ""}
                         </div>
-                      ) : null}
-                      {showInlineDeliveryNotes && deliveryNoteRef ? (
-                        <div className="print-classic-dn-note">อ้างอิง {deliveryNoteRef}</div>
                       ) : null}
                     </td>
                     <td className="right">{item.quantity}</td>
@@ -311,7 +307,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
       )}
 
       {/* ============== INVOICE DELIVERY NOTES ============== */}
-      {invoiceDeliveryNotes.length > 0 && !isDeliveryNote && !data.showInlineDeliveryNotes ? (
+      {invoiceDeliveryNotes.length > 0 && !isDeliveryNote ? (
         <section className="print-classic-items-wrap">
           <div className="print-classic-items-title">อ้างอิงใบส่งของ<span className="en">DELIVERY NOTES</span></div>
           <table className="print-classic-items-table">

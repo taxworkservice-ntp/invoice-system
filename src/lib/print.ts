@@ -16,8 +16,6 @@ export interface PrintDocumentData {
   template: HtmlPrintTemplate;
   lineDiscountTotal: number;
   grossSubtotal: number;
-  lineDeliveryNoteMap: Record<string, string>;
-  showInlineDeliveryNotes: boolean;
 }
 
 export interface PrintableDocumentDataBase {
@@ -30,8 +28,6 @@ export interface PrintableDocumentDataBase {
   referenceDoc?: Document;
   lineDiscountTotal: number;
   grossSubtotal: number;
-  lineDeliveryNoteMap: Record<string, string>;
-  showInlineDeliveryNotes: boolean;
 }
 
 export function isHtmlPrintTemplate(template: string | null | undefined): template is HtmlPrintTemplate {
@@ -176,18 +172,6 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     }
   }
 
-  const dnNumberById = new Map<string, string>();
-  for (const dn of invoiceDeliveryNotes) {
-    dnNumberById.set(dn.delivery_note_id, dn.delivery_note_number);
-  }
-  const lineDeliveryNoteMap: Record<string, string> = {};
-  for (const item of lineItems) {
-    if (item.source_document_id && dnNumberById.has(item.source_document_id)) {
-      lineDeliveryNoteMap[item.id] = dnNumberById.get(item.source_document_id)!;
-    }
-  }
-  const showInlineDeliveryNotes = new Set(Object.values(lineDeliveryNoteMap)).size >= 2;
-
   return {
     document,
     lineItems,
@@ -198,8 +182,6 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     referenceDoc,
     lineDiscountTotal,
     grossSubtotal,
-    lineDeliveryNoteMap,
-    showInlineDeliveryNotes,
   };
 }
 
