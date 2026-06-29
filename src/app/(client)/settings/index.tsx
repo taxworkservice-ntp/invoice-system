@@ -75,6 +75,8 @@ export default function SettingsPage() {
   const [savingStock, setSavingStock] = useState(false);
   const [stockError, setStockError] = useState("");
 
+  const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic">("modern");
+
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -129,6 +131,7 @@ export default function SettingsPage() {
       setBankAccount((clientProfile as any).bank_account || "");
       setSignatureKey((clientProfile as any).signature_url || null);
       setStampKey((clientProfile as any).stamp_url || null);
+      setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
     }
   }, [clientProfile]);
 
@@ -178,7 +181,7 @@ export default function SettingsPage() {
       phone: phone || null,
       logo_url: logoKey,
       logo_size: logoSize,
-      pdf_template: "modern",
+      pdf_template: pdfTemplate,
       bank_name: bankName.trim() || null,
       bank_account: bankAccount.trim() || null,
       signature_url: signatureKey,
@@ -532,6 +535,20 @@ export default function SettingsPage() {
             </div>
 
             <div className="border-t border-[#E8E6DF] pt-3">
+              <p className="text-[11px] font-semibold text-[#888780] mb-2">เทมเพลตใบ PDF</p>
+              <Select
+                value={pdfTemplate}
+                onChange={(e) => { setPdfTemplate(e.target.value as "modern" | "classic"); setProfileSaved(false); }}
+              >
+                <option value="modern">โมเดิร์น (Modern)</option>
+                <option value="classic">คลาสสิก (Thai Classic)</option>
+              </Select>
+              <p className="text-[11px] text-[#888780] mt-1">
+                เทมเพลตเริ่มต้นสำหรับเอกสารทุกประเภท มีผลกับเอกสารใหม่เท่านั้น
+              </p>
+            </div>
+
+            <div className="border-t border-[#E8E6DF] pt-3">
               <p className="text-[11px] font-semibold text-[#888780] mb-2">ลายเซ็นและตราประทับ</p>
               <div className="grid grid-cols-2 gap-3">
                 <ImageUpload
@@ -564,7 +581,8 @@ export default function SettingsPage() {
               {!profileSaved && (companyNameTh !== clientProfile.company_name_th ||
                 address !== (clientProfile.address || "") ||
                 phone !== (clientProfile.phone || "") ||
-                contactName !== ((clientProfile as any).contact_name || "")) && (
+                contactName !== ((clientProfile as any).contact_name || "") ||
+                pdfTemplate !== (clientProfile.pdf_template === "classic" ? "classic" : "modern")) && (
                 <div className="absolute top-1 right-1 w-[6px] h-[6px] rounded-full bg-[#378ADD]" />
               )}
             </div>

@@ -55,7 +55,7 @@ export interface ClientProfile {
   default_wht_rate: WhtRate;
   credit_term_days: number;
   stock_deduct_trigger: string;
-  pdf_template: string;
+  pdf_template: "modern" | "classic";
   bank_name: string | null;
   bank_account: string | null;
   signature_url: string | null;

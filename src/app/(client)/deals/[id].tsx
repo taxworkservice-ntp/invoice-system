@@ -256,7 +256,7 @@ export default function DealDetailPage() {
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
-      const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
+      const { getPrintableDocumentDataBase, generatePDFBlob } = await import("../../../lib/print");
 
       for (let i = 0; i < toDownload.length; i++) {
         const item = toDownload[i];
@@ -264,7 +264,10 @@ export default function DealDetailPage() {
 
         try {
           const data = await getPrintableDocumentDataBase(doc.id);
-          const blob = await generateModernPDFBlob(data);
+          // Stamp the template from the deal's customer/client profile
+          // so the dispatcher picks the right generator.
+          const template = clientProfile?.pdf_template === "classic" ? "classic" : "modern";
+          const blob = await generatePDFBlob({ ...data, template } as Parameters<typeof generatePDFBlob>[0]);
           const name = `${doc.doc_number || `doc_${i + 1}`}.pdf`;
           if (blob) zip.file(name, blob, { binary: true });
         } catch {

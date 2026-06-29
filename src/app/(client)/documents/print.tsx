@@ -5,7 +5,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { PrintDocument } from "../../../components/print/PrintDocument";
 import type { CopyType } from "../../../components/print/PrintDocument";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
-import { generateModernPDFDocument, getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
+import { generatePDFDocument, getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { DOC_TYPE_SHORT } from "../../../constants";
 
 export default function DocumentPrintPreviewPage() {
@@ -164,7 +164,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     if (savingPdf || !data) return;
     setSavingPdf(true);
     try {
-      const pdf = await generateModernPDFDocument(data, ["original"]);
+      const pdf = await generatePDFDocument(data, ["original"]);
       const short = DOC_TYPE_SHORT[data.document.doc_type];
       const datePart = data.document.issue_date
         ? data.document.issue_date.replace(/-/g, "")
@@ -184,7 +184,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     if (savingPdf || !data) return;
     setSavingPdf(true);
     try {
-      const pdf = await generateModernPDFDocument(data, ["original", "copy"]);
+      const pdf = await generatePDFDocument(data, ["original", "copy"]);
       const short = DOC_TYPE_SHORT[data.document.doc_type];
       const datePart = data.document.issue_date
         ? data.document.issue_date.replace(/-/g, "")

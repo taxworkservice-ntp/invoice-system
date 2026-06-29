@@ -865,13 +865,15 @@ export default function DocumentsPage() {
         return;
       }
 
-      const isModern = clientProfile.pdf_template === "modern";
       const JSZip = (await import("jszip")).default;
 
-      const { getPrintableDocumentDataBase, generateModernPDFBlob } = await import("../../../lib/print");
+      const { getPrintableDocumentDataBase, generatePDFBlob } = await import("../../../lib/print");
       const generateBlob = async (docId: string) => {
         const data = await getPrintableDocumentDataBase(docId);
-        return generateModernPDFBlob(data);
+        // Stamp the template from the client profile so the dispatcher
+        // picks the right generator for each document.
+        const template = clientProfile.pdf_template === "classic" ? "classic" : "modern";
+        return generatePDFBlob({ ...data, template } as Parameters<typeof generatePDFBlob>[0]);
       };
 
       const zip = new JSZip();

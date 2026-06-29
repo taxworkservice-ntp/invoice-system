@@ -3,7 +3,7 @@ import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
 import { getR2PresignedUrl, getProxiedImageUrl } from "./r2";
 
-export type HtmlPrintTemplate = "modern";
+export type HtmlPrintTemplate = "modern" | "classic";
 
 export interface PrintDocumentData {
   document: Document;
@@ -31,7 +31,7 @@ export interface PrintableDocumentDataBase {
 }
 
 export function isHtmlPrintTemplate(template: string | null | undefined): template is HtmlPrintTemplate {
-  return template === "modern";
+  return template === "modern" || template === "classic";
 }
 
 export async function getPrintableDocumentDataBase(documentId: string): Promise<PrintableDocumentDataBase> {
@@ -187,7 +187,9 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
 export async function getPrintDocumentData(documentId: string): Promise<PrintDocumentData> {
   const baseData = await getPrintableDocumentDataBase(documentId);
-  return { ...baseData, template: "modern" };
+  const rawTemplate = baseData.clientProfile.pdf_template;
+  const template: HtmlPrintTemplate = rawTemplate === "classic" ? "classic" : "modern";
+  return { ...baseData, template };
 }
 
 async function renderModernPrintCanvas(
@@ -294,4 +296,127 @@ export async function generateModernPDFDocument(
 export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
   const pdf = await generateModernPDFDocument(data, ["original"]);
   return pdf.output("blob");
+}
+
+async function renderClassicPrintCanvas(
+  data: PrintableDocumentDataBase,
+  copyType: "original" | "copy" = "original",
+): Promise<HTMLCanvasElement> {
+  const { default: html2canvas } = await import("html2canvas");
+  const container = document.createElement("div");
+  container.style.cssText = "position:fixed;top:0;left:0;width:210mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;";
+  document.body.appendChild(container);
+  let root: { render: (...args: any[]) => void; unmount: () => void } | null = null;
+
+  try {
+    const { createRoot } = await import("react-dom/client");
+    const { PrintDocumentClassic } = await import("../components/print/PrintDocumentClassic");
+    const React = await import("react");
+
+    const printData: PrintDocumentData = {
+      ...data,
+      template: "classic",
+    };
+
+    root = createRoot(container);
+
+    await new Promise<void>((resolve) => {
+      root?.render(React.createElement(PrintDocumentClassic, { data: printData, copyType }));
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const sheet = container.querySelector<HTMLElement>(".print-sheet");
+    if (!sheet) {
+      throw new Error("Print sheet not found");
+    }
+
+    const images = sheet.querySelectorAll("img");
+    await Promise.all(
+      Array.from(images).map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) resolve();
+            else {
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            }
+          }),
+      ),
+    );
+
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    return await html2canvas(sheet, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      width: sheet.scrollWidth,
+      height: sheet.scrollHeight,
+      windowWidth: sheet.scrollWidth,
+      windowHeight: sheet.scrollHeight,
+      onclone: (clonedDoc) => {
+        const clonedSheet = clonedDoc.querySelector<HTMLElement>(".print-sheet");
+        if (clonedSheet) {
+          clonedSheet.style.border = "none";
+          clonedSheet.style.borderRadius = "0";
+          clonedSheet.style.boxShadow = "none";
+        }
+        const clonedTheme = clonedDoc.querySelector<HTMLElement>(".print-theme-classic");
+        if (clonedTheme) {
+          clonedTheme.style.border = "none";
+          clonedTheme.style.borderRadius = "0";
+          clonedTheme.style.boxShadow = "none";
+        }
+      },
+    });
+  } finally {
+    root?.unmount();
+    document.body.removeChild(container);
+  }
+}
+
+export async function generateClassicPDFDocument(
+  data: PrintableDocumentDataBase,
+  copyTypes: Array<"original" | "copy"> = ["original"],
+) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  for (const [index, copyType] of copyTypes.entries()) {
+    const canvas = await renderClassicPrintCanvas(data, copyType);
+    if (index > 0) {
+      pdf.addPage();
+    }
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
+  }
+
+  return pdf;
+}
+
+export async function generateClassicPDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
+  const pdf = await generateClassicPDFDocument(data, ["original"]);
+  return pdf.output("blob");
+}
+
+export async function generatePDFDocument(
+  data: PrintableDocumentDataBase,
+  copyTypes: Array<"original" | "copy"> = ["original"],
+) {
+  if ((data as PrintDocumentData).template === "classic") {
+    return generateClassicPDFDocument(data, copyTypes);
+  }
+  return generateModernPDFDocument(data, copyTypes);
+}
+
+export async function generatePDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
+  if ((data as PrintDocumentData).template === "classic") {
+    return generateClassicPDFBlob(data);
+  }
+  return generateModernPDFBlob(data);
 }
