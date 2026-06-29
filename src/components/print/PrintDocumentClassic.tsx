@@ -84,26 +84,8 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
     document.wht_certificate_no ? `เลขที่หนังสือรับรองหัก ณ ที่จ่าย: ${document.wht_certificate_no}` : null,
   ].filter(Boolean) as string[];
 
-  // doc title (Thai + English)
-  const titleTh =
-    document.doc_type === "tax_invoice_receipt"
-      ? "ใบกำกับภาษี / ใบส่งสินค้า"
-      : label.thai;
-  const titleEn = isBillingNote
-    ? "BILLING NOTE"
-    : document.doc_type === "tax_invoice_receipt"
-      ? "TAX INVOICE ORIGINAL / DELIVERY ORDER"
-      : document.doc_type === "invoice"
-        ? "TAX INVOICE"
-        : document.doc_type === "quotation"
-          ? "QUOTATION"
-          : document.doc_type === "receipt"
-            ? "RECEIPT"
-            : document.doc_type === "delivery_note"
-              ? "DELIVERY ORDER"
-              : document.doc_type === "credit_note"
-                ? "CREDIT NOTE"
-                : "";
+  const titleTh = label.thai;
+  const titleEn = label.en.toUpperCase();
 
   // Reference doc label
   const refLabel = (() => {

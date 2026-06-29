@@ -1,6 +1,16 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 
+function formatDate(date: string | null | undefined) {
+  if (!date) return "-";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  const d = parsed.getDate().toString().padStart(2, "0");
+  const m = (parsed.getMonth() + 1).toString().padStart(2, "0");
+  const y = parsed.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
 function getRowClass() {
   return "break-inside-avoid align-top bg-white";
 }
@@ -30,7 +40,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                   {invoice.invoice_number}
                 </td>
                 <td className="px-2 py-2 text-[11px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
-                  {invoice.issue_date || "-"}
+                  {formatDate(invoice.issue_date)}
                 </td>
                 <td className="px-2 py-2 text-right text-[11px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {formatCurrency(invoice.subtotal)}
@@ -84,7 +94,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                   ) : null}
                   {hasLineDiscount && !isDeliveryNote ? (
                     <div className="mt-0.5 text-[10px] text-[#B54708]">
-                      ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | ฿${formatCurrency(item.discount_amount)}` : ""}
+                      ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | -${formatCurrency(item.discount_amount)}` : ""}
                     </div>
                   ) : null}
                 </td>

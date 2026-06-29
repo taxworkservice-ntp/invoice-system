@@ -1,6 +1,7 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 import type { DocumentType } from "../../types";
+import { PAYMENT_METHOD_LABELS } from "../../constants";
 import { PrintHeader } from "./PrintHeader";
 import { PrintLineItemsTable } from "./PrintLineItemsTable";
 import { PrintTotals } from "./PrintTotals";
@@ -124,7 +125,7 @@ export function PrintDocument({ data, copyType = "original" }: { data: PrintDocu
                 {showBank && data.clientProfile.bank_name ? <div>ธนาคาร: {data.clientProfile.bank_name}</div> : null}
                 {showBank && data.clientProfile.bank_account ? <div>เลขที่บัญชี: {data.clientProfile.bank_account}</div> : null}
                 {hasPayment ? <div className="border-t-[0.5px] border-[#E8ECF2] my-1" /> : null}
-                {showPaymentMethod && data.document.payment_method ? <div>วิธีชำระเงิน: {data.document.payment_method}</div> : null}
+                {showPaymentMethod && data.document.payment_method ? <div>วิธีชำระเงิน: {PAYMENT_METHOD_LABELS[data.document.payment_method] || data.document.payment_method}</div> : null}
                 {data.document.wht_certificate_no ? <div>เลขที่หนังสือรับรองหัก ณ ที่จ่าย: {data.document.wht_certificate_no}</div> : null}
                 {data.document.amount_received != null ? <div>จำนวนเงินที่รับ: {formatCurrency(data.document.amount_received)}</div> : null}
               </>
