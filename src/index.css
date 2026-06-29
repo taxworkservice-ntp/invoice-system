@@ -106,7 +106,7 @@ body {
   width: 210mm;
   min-height: 297mm;
   margin: 0 auto;
-  padding: 16mm 18mm;
+  padding: 10mm 14mm;
   background: #ffffff;
   border: none;
   border-radius: 0;
@@ -115,6 +115,10 @@ body {
 }
 
 .print-theme-modern {
+  font-size: 10px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: #1F2937;
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -175,7 +179,7 @@ body {
 
 @page {
   size: A4;
-  margin: 12mm;
+  margin: 8mm;
 }
 
 @media print {
