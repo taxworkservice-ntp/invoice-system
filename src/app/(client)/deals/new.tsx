@@ -385,7 +385,7 @@ export default function NewDealPage() {
       `รอบบิล: ${utilityPeriodStart || "-"} - ${utilityPeriodEnd || "-"}`,
       `เลขก่อนหน้า: ${utilityPreviousReading || "0"}`,
       `เลขปัจจุบัน: ${utilityCurrentReading || "0"}`,
-      `ใช้ไป: ${usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${unit}`,
+      ...(utilityCurrentReading ? [`ใช้ไป: ${usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${unit}`] : []),
     ].join("\n");
 
     setLineItems((prev) => {
@@ -433,6 +433,8 @@ export default function NewDealPage() {
       return;
     }
     setUtilityServiceItemId(null);
+    setUtilityRate("");
+    setUtilityUnit("หน่วย");
   };
 
   const selectUtilityService = (catalogItem: Item) => {
@@ -1105,22 +1107,29 @@ export default function NewDealPage() {
 
                 if (isUtilityBill && idx === 0) {
                   const amounts = calculateLineAmounts(item);
+                  const hasData = utilityServiceName.trim() || parseAmount(utilityRate) > 0;
                   return (
                     <div key={item.id} className="pb-3 border-b border-gray-100">
-                      <div className="rounded-lg border border-[#E8E6DF] bg-[#FAF8F3] px-3 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-medium text-[#1A1A18]">{item.item_name}</span>
-                          <span className="text-sm font-semibold text-[#1A1A18]">
-                            ฿{amounts.lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                          </span>
+                      {hasData ? (
+                        <div className="rounded-lg border border-[#E8E6DF] bg-[#FAF8F3] px-3 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-medium text-[#1A1A18]">{item.item_name}</span>
+                            <span className="text-sm font-semibold text-[#1A1A18]">
+                              ฿{amounts.lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 whitespace-pre-line text-xs leading-5 text-[#5F5A52]">
+                            {getUtilityDisplayNote(item.line_note)}
+                          </div>
+                          <div className="mt-1.5 text-[11px] text-gray-500">
+                            {item.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {item.unit} × ฿{item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}/หน่วย
+                          </div>
                         </div>
-                        <div className="mt-1.5 whitespace-pre-line text-xs leading-5 text-[#5F5A52]">
-                          {getUtilityDisplayNote(item.line_note)}
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-[#E8E6DF] bg-[#FBFAF7] px-3 py-3 text-center text-xs text-gray-400">
+                          กรุณากรอกข้อมูลรอบบิลด้านบน ระบบจะแสดงตัวอย่างรายการที่นี่
                         </div>
-                        <div className="mt-1.5 text-[11px] text-gray-500">
-                          {item.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {item.unit} × ฿{item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}/หน่วย
-                        </div>
-                      </div>
+                      )}
                     </div>
                   );
                 }
