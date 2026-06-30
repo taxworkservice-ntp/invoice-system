@@ -663,11 +663,15 @@ body {
   font-size: 7.5pt;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 .print-classic-sig-cell:last-child { border-right: 0; }
 .print-classic-sig-cell-mid {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   justify-content: flex-end;
 }
 .print-classic-sig-th {
