@@ -189,7 +189,7 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
   }
   const showInlineDeliveryNotes = new Set(
     Object.values(lineDeliveryNoteMap).map((ref) => ref.number),
-  ).size >= 2;
+  ).size >= 1;
 
   return {
     document,
