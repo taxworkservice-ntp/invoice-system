@@ -1,5 +1,5 @@
 import type { ElementType } from "react";
-import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, GripHorizontal, ReceiptText, Truck } from "lucide-react";
+import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Truck } from "lucide-react";
 import { Modal } from "../ui/Modal";
 
 interface NewDealSheetProps {
@@ -37,9 +37,9 @@ const GROUPS: {
     ],
   },
   {
-    title: "เก็บเงิน",
+    title: "ออกบิลตามรอบ",
     options: [
-      { icon: ReceiptText, title: "ออกบิลประจำรอบ", subtitle: "ค่าน้ำ ค่าไฟ ค่าเช่า หรือค่าบริการรายเดือน", type: "utility_bill" },
+      { icon: Gauge, title: "ออกบิลประจำรอบ", subtitle: "ค่าน้ำ ค่าไฟ ค่าเช่า หรือค่าบริการรายเดือน", type: "utility_bill" },
       { icon: ReceiptText, title: "รวมใบแจ้งหนี้เพื่อออกใบวางบิล", subtitle: "วางบิลหลายใบพร้อมกัน", type: "billing_note" },
     ],
   },

@@ -484,6 +484,21 @@ export default function NewDealPage() {
     );
   }, [lineItemsWithTotals, vatRegistered, vatRate, whtRate, isBillingNote, billingNoteSummary, documentDiscountPercent]);
 
+  const utilityValidation = useMemo(() => {
+    if (!isUtilityBill) return { readingError: undefined, rateError: undefined, periodError: undefined };
+    const previous = parseAmount(utilityPreviousReading);
+    const current = parseAmount(utilityCurrentReading);
+    const rate = parseAmount(utilityRate);
+    return {
+      readingError: utilityPreviousReading !== "" && utilityCurrentReading !== "" && current <= previous
+        ? "เลขปัจจุบันต้องมากกว่าเลขก่อนหน้า" : undefined,
+      rateError: utilityRate !== "" && rate <= 0
+        ? "กรุณาระบุราคา/หน่วยที่มากกว่า 0" : undefined,
+      periodError: utilityPeriodStart && utilityPeriodEnd && utilityPeriodEnd < utilityPeriodStart
+        ? "วันสิ้นสุดต้องมาหลังวันเริ่มต้น" : undefined,
+    };
+  }, [isUtilityBill, utilityPreviousReading, utilityCurrentReading, utilityRate, utilityPeriodStart, utilityPeriodEnd]);
+
   const updateLineItem = (id: string, field: keyof LineItemForm, value: string | number) => {
     setLineItems((prev) =>
       prev.map((lineItem) => {
@@ -562,6 +577,10 @@ export default function NewDealPage() {
       }
       if (!utilityPeriodStart || !utilityPeriodEnd) {
         setError("กรุณาระบุรอบบิล");
+        return;
+      }
+      if (utilityPeriodEnd < utilityPeriodStart) {
+        setError("วันสิ้นสุดรอบบิลต้องมาหลังวันเริ่มต้น");
         return;
       }
       if (current <= previous) {
@@ -937,7 +956,14 @@ export default function NewDealPage() {
               ) : null}
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {utilityLastHint && utilityLastHint.includes("ดึงเลขครั้งก่อน") && (
+              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 flex items-center gap-1.5">
+                <span className="text-emerald-600 font-bold">&#10003;</span>
+                {utilityLastHint}
+              </div>
+            )}
+
+            <div className="mt-4 space-y-4">
               <label className="block">
                 <span className="mb-1 block text-[13px] text-[#1A1A18]">ค่าบริการ</span>
                 <CatalogAutocomplete
@@ -962,71 +988,92 @@ export default function NewDealPage() {
                   เลือกบริการเดิมเพื่อดึงราคา หน่วย เลขครั้งก่อน และรอบบิลถัดไปของลูกค้ารายนี้
                 </span>
               </label>
-              <Input
-                label="ราคา/หน่วย"
-                type="number"
-                min="0"
-                value={utilityRate}
-                onChange={(e) => setUtilityRate(e.target.value)}
-                placeholder="0.00"
-              />
-              <Input
-                label="หน่วย"
-                value={utilityUnit}
-                onChange={(e) => setUtilityUnit(e.target.value)}
-                placeholder="หน่วย"
-              />
-              <Input
-                label="รอบบิลเริ่ม"
-                type="date"
-                value={utilityPeriodStart}
-                onChange={(e) => setUtilityPeriodStart(e.target.value)}
-              />
-              <Input
-                label="รอบบิลสิ้นสุด"
-                type="date"
-                value={utilityPeriodEnd}
-                onChange={(e) => setUtilityPeriodEnd(e.target.value)}
-              />
-              <Input
-                label="เลขก่อนหน้า"
-                type="number"
-                min="0"
-                value={utilityPreviousReading}
-                onChange={(e) => setUtilityPreviousReading(e.target.value)}
-                placeholder="0"
-              />
-              <Input
-                label="เลขปัจจุบัน"
-                type="number"
-                min="0"
-                value={utilityCurrentReading}
-                onChange={(e) => setUtilityCurrentReading(e.target.value)}
-                placeholder="0"
-              />
+
+              <div>
+                <span className="mb-1.5 block text-[13px] text-[#1A1A18]">รอบบิล</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="เริ่ม"
+                    type="date"
+                    value={utilityPeriodStart}
+                    onChange={(e) => setUtilityPeriodStart(e.target.value)}
+                    error={utilityValidation.periodError}
+                  />
+                  <Input
+                    label="สิ้นสุด"
+                    type="date"
+                    value={utilityPeriodEnd}
+                    onChange={(e) => setUtilityPeriodEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <span className="mb-1.5 block text-[13px] text-[#1A1A18]">มาตรวัด</span>
+                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+                  <Input
+                    label="เลขก่อนหน้า"
+                    type="number"
+                    min="0"
+                    value={utilityPreviousReading}
+                    onChange={(e) => setUtilityPreviousReading(e.target.value)}
+                    placeholder="0"
+                  />
+                  <span className="pb-2 text-gray-400 text-sm">→</span>
+                  <Input
+                    label="เลขปัจจุบัน"
+                    type="number"
+                    min="0"
+                    value={utilityCurrentReading}
+                    onChange={(e) => setUtilityCurrentReading(e.target.value)}
+                    placeholder="0"
+                    error={utilityValidation.readingError}
+                  />
+                </div>
+                {(parseAmount(utilityCurrentReading) > 0 || parseAmount(utilityPreviousReading) > 0) && parseAmount(utilityCurrentReading) > parseAmount(utilityPreviousReading) && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    ใช้ไป {Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000).toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {utilityUnit || "หน่วย"}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="ราคา/หน่วย (บาท)"
+                  type="number"
+                  min="0"
+                  value={utilityRate}
+                  onChange={(e) => setUtilityRate(e.target.value)}
+                  placeholder="0.00"
+                  error={utilityValidation.rateError}
+                />
+                <Input
+                  label="หน่วย"
+                  value={utilityUnit}
+                  onChange={(e) => setUtilityUnit(e.target.value)}
+                  placeholder="หน่วย"
+                />
+              </div>
             </div>
 
-            <div className="mt-4 rounded-xl border border-[#E7E5DE] bg-[#FBFAF7] px-4 py-3 text-sm">
+            <div className="mt-4 rounded-xl border border-[#E7E5DE] bg-[#FAF8F3] px-4 py-3">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-gray-500">ใช้ไป</span>
-                <span className="font-semibold text-[#1A1A18]">
-                  {Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000).toLocaleString("th-TH", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 3,
-                  })}{" "}
-                  {utilityUnit || "หน่วย"}
-                </span>
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-3 text-xs">
-                <span className="text-gray-500">ยอดก่อนภาษี</span>
-                <span className="font-medium text-[#1A1A18]">
+                <span className="text-sm text-gray-600">ยอดก่อนภาษี</span>
+                <span className="text-base font-semibold text-[#1A1A18]">
                   ฿{(
                     Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000) *
                     parseAmount(utilityRate)
                   ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
               </div>
-              {utilityLastHint ? <p className="mt-2 text-xs text-gray-500">{utilityLastHint}</p> : null}
+              {parseAmount(utilityCurrentReading) > parseAmount(utilityPreviousReading) && parseAmount(utilityRate) > 0 && (
+                <div className="mt-1 text-xs text-gray-500">
+                  {Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000).toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {utilityUnit || "หน่วย"} × ฿{parseAmount(utilityRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}/หน่วย
+                </div>
+              )}
+              {utilityLastHint && !utilityLastHint.includes("ดึงเลขครั้งก่อน") && (
+                <p className="mt-2 text-xs text-gray-500">{utilityLastHint}</p>
+              )}
             </div>
           </Card>
         )}
@@ -1035,10 +1082,32 @@ export default function NewDealPage() {
           <Card>
             <h3 className="text-sm font-medium mb-3">{isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการ"}</h3>
             <div className="space-y-2">
-              {lineItems.map((item) => {
+              {lineItems.map((item, idx) => {
                 const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
                 const soldByCarton = isCartonUnitSelected(item);
                 const baseQuantity = getLineBaseQuantity(item);
+
+                if (isUtilityBill && idx === 0) {
+                  const amounts = calculateLineAmounts(item);
+                  return (
+                    <div key={item.id} className="pb-3 border-b border-gray-100">
+                      <div className="rounded-lg border border-[#E8E6DF] bg-[#FAF8F3] px-3 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-medium text-[#1A1A18]">{item.item_name}</span>
+                          <span className="text-sm font-semibold text-[#1A1A18]">
+                            ฿{amounts.lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 whitespace-pre-line text-xs leading-5 text-[#5F5A52]">
+                          {getUtilityDisplayNote(item.line_note)}
+                        </div>
+                        <div className="mt-1.5 text-[11px] text-gray-500">
+                          {item.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {item.unit} × ฿{item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}/หน่วย
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                 <div key={item.id} className="pb-3 border-b border-gray-100 last:border-0">
@@ -1060,7 +1129,7 @@ export default function NewDealPage() {
                       }}
                     />
                   </div>
-                  {isUtilityBill ? (
+                  {isUtilityBill && item.line_note.includes("[USAGE_BILL]") ? (
                     <div className="mb-2 whitespace-pre-line rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2 text-xs leading-5 text-[#5F5A52]">
                       {getUtilityDisplayNote(item.line_note)}
                     </div>
