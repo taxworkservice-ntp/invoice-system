@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, PackageCheck } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
@@ -63,6 +63,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
   const [quotation, setQuotation] = useState<QuotationWithCustomer | null>(null);
   const [quotationLines, setQuotationLines] = useState<DocumentLineItem[]>([]);
   const [lines, setLines] = useState<DeliveryLine[]>([]);
+  const [existingDraft, setExistingDraft] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [issueDate, setIssueDate] = useState(todayString());
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
@@ -130,10 +131,23 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
           };
         });
 
+        const { data: draftDoc, error: draftError } = await supabase
+          .from("documents")
+          .select("id, doc_number")
+          .eq("user_id", userId)
+          .eq("converted_from_id", quotationId)
+          .eq("doc_type", "delivery_note")
+          .eq("status", "draft")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (draftError) throw draftError;
+
         if (cancelled) return;
         setQuotation(quote);
         setQuotationLines(qLines);
         setLines(initialLines);
+        setExistingDraft(draftDoc ? { id: draftDoc.id, doc_number: draftDoc.doc_number } : null);
       } catch (err: any) {
         if (!cancelled) setError(err.message || "โหลดข้อมูลไม่สำเร็จ");
       } finally {
@@ -145,6 +159,22 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
     return () => {
       cancelled = true;
     };
+  }, [quotationId, userId]);
+
+  const refetchExistingDraft = useCallback(async () => {
+    if (!userId || !quotationId) return;
+    const { data: draftDoc, error: draftError } = await supabase
+      .from("documents")
+      .select("id, doc_number")
+      .eq("user_id", userId)
+      .eq("converted_from_id", quotationId)
+      .eq("doc_type", "delivery_note")
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (draftError) return;
+    setExistingDraft(draftDoc ? { id: draftDoc.id, doc_number: draftDoc.doc_number } : null);
   }, [quotationId, userId]);
 
   const selectedLines = useMemo(
@@ -259,6 +289,13 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
       if (createdDocId) {
         await supabase.from("documents").delete().eq("id", createdDocId);
       }
+      if (err?.code === "23505") {
+        const message = "มีร่างใบส่งของสำหรับใบเสนอราคานี้อยู่แล้ว";
+        setError(message);
+        toast.error(message);
+        refetchExistingDraft();
+        return;
+      }
       setError(err.message || "เกิดข้อผิดพลาด");
       toast.error(err.message || "เกิดข้อผิดพลาด");
     } finally {
@@ -295,6 +332,26 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
           {error}
+        </div>
+      )}
+
+      {existingDraft && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">
+              มีร่างใบส่งของที่ยังไม่ได้ส่ง
+              {existingDraft.doc_number ? ` (${existingDraft.doc_number})` : ""}
+            </p>
+            <p className="mt-0.5 text-xs leading-5">เปิดร่างเดิมเพื่อแก้ไขหรือยืนยันส่งของ ก่อนสร้างร่างใหม่</p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(`/documents/${existingDraft.id}`)}
+          >
+            เปิดร่าง
+          </Button>
         </div>
       )}
 

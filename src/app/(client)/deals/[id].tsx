@@ -25,7 +25,7 @@ import {
   todayString,
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
-import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS, VAT_DEFAULT } from "../../../constants";
+import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import type {
   Document,
@@ -519,95 +519,6 @@ export default function DealDetailPage() {
     }
   };
 
-  const handleCreateDeliveryNote = async () => {
-    if (!userId || !dealId || !customer || !canCreateDeliveryNote) return;
-    setActionLoadingId("delivery");
-    try {
-      const now = new Date().toISOString().slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId, "delivery_note", now);
-
-      const sourceCandidates = docsWithMeta.filter(
-        (d) => d.document.status !== "voided" && (d.document.doc_type === "quotation" || d.document.doc_type === "invoice")
-      );
-      const quotationOrInvoice =
-        [...sourceCandidates].reverse().find((d) => d.document.doc_type === "invoice") ||
-        [...sourceCandidates].reverse().find((d) => d.document.doc_type === "quotation");
-      const sourceDoc = quotationOrInvoice?.document;
-      if (sourceDoc?.doc_type === "quotation") {
-        const params = new URLSearchParams({
-          type: "delivery_note_from_quotation",
-          quotationId: sourceDoc.id,
-        });
-        navigate(`/documents/new?${params.toString()}`);
-        return;
-      }
-
-      const { data: dnDoc, error } = await supabase
-        .from("documents")
-        .insert({
-          user_id: userId,
-          deal_id: dealId,
-          customer_id: customer.id,
-          doc_type: "delivery_note",
-          doc_number: docNumber,
-          status: "sent" as DocumentStatus,
-          issue_date: now,
-          vat_registered: sourceDoc?.vat_registered ?? false,
-          vat_rate: sourceDoc?.vat_rate ?? VAT_DEFAULT,
-          wht_rate: sourceDoc?.wht_rate ?? 0,
-          discount_percent: sourceDoc?.discount_percent ?? 0,
-          discount_amount: sourceDoc?.discount_amount ?? 0,
-          subtotal: sourceDoc?.subtotal ?? 0,
-          vat_amount: sourceDoc?.vat_amount ?? 0,
-          total_amount: sourceDoc?.total_amount ?? 0,
-          wht_amount: sourceDoc?.wht_amount ?? 0,
-          net_payable: sourceDoc?.net_payable ?? 0,
-          converted_from_id: sourceDoc?.id ?? null,
-        })
-        .select("*")
-        .single();
-      if (error) throw error;
-
-      if (quotationOrInvoice && quotationOrInvoice.line_items.length > 0) {
-        await supabase.from("document_line_items").insert(
-          quotationOrInvoice.line_items.map((li, idx) => ({
-            document_id: dnDoc.id,
-            user_id: userId,
-            item_id: li.item_id,
-            item_name: li.item_name,
-            line_note: li.line_note || null,
-            item_sku: li.item_sku,
-            item_type: li.item_type,
-            unit: li.unit,
-            unit_price: li.unit_price,
-            quantity: li.quantity,
-            base_quantity: li.base_quantity,
-            discount_percent: li.discount_percent,
-            discount_amount: li.discount_amount,
-            qty_carton: li.qty_carton,
-            carton_unit: li.carton_unit,
-            source_document_id: sourceDoc?.id ?? null,
-            source_line_item_id: li.id,
-            line_total: li.line_total,
-            sort_order: idx,
-          }))
-        );
-      }
-
-      const { warnings } = await deductStockOnDocumentSent(dnDoc.id, userId);
-      warnings.forEach((w) =>
-        toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
-      );
-
-      toast.success("สร้างใบส่งของสำเร็จ");
-      fetchDealData();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
   const handleCreateCreditNote = () => {
     navigate(`/documents/new?type=credit_note&dealId=${dealId}`);
   };
@@ -837,11 +748,6 @@ export default function DealDetailPage() {
     [firstItemDoc]
   );
 
-  const hasProductItems = useMemo(
-    () => docsWithMeta.some((item) => item.line_items.some((line) => line.item_type === "product")),
-    [docsWithMeta]
-  );
-
   const latestQuotation = useMemo(
     () => [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "quotation") || null,
     [nonVoidedDocs]
@@ -916,16 +822,46 @@ export default function DealDetailPage() {
   const hasPaidDocs = nonVoidedDocs.some(
     (item) => item.document.status === "paid" || (item.document.doc_type === "tax_invoice_receipt" && item.document.status === "issued")
   );
-  const latestSentInvoice = useMemo(
-    () => [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "invoice" && item.document.status === "sent") || null,
+  const deliveryNotes = useMemo(
+    () => nonVoidedDocs.filter((item) => item.document.doc_type === "delivery_note"),
     [nonVoidedDocs]
   );
-  const canCreateDeliveryNote = useMemo(() => {
-    if (!hasProductItems || allDone) return false;
-    if (activeDoc?.stage === "done") return false;
-    if (latestQuotation?.document.status === "sent" && (!deliveryProgress || !deliveryProgress.allDelivered)) return true;
-    return Boolean(latestSentInvoice);
-  }, [activeDoc?.stage, allDone, deliveryProgress, hasProductItems, latestQuotation, latestSentInvoice]);
+  const dnAction = useMemo(() => {
+    if (!latestQuotation || latestQuotation.document.status !== "sent") return null;
+    const draftDn = nonVoidedDocs.find(
+      (item) => item.document.doc_type === "delivery_note" && item.document.status === "draft",
+    );
+    const sentCount = nonVoidedDocs.filter(
+      (item) => item.document.doc_type === "delivery_note" && item.document.status === "sent",
+    ).length;
+    const allDelivered = deliveryProgress?.allDelivered ?? false;
+
+    if (draftDn) {
+      return {
+        kind: "draft" as const,
+        label: `แก้ไขร่าง ${draftDn.document.doc_number || ""}`.trim(),
+        badge: "ร่างค้าง",
+        disabled: false,
+        target: { type: "document" as const, id: draftDn.document.id },
+      };
+    }
+    if (allDelivered) {
+      return {
+        kind: "done" as const,
+        label: "ส่งครบแล้ว",
+        badge: sentCount > 0 ? `· มี ${sentCount} ฉบับ` : null,
+        disabled: true,
+        target: null,
+      };
+    }
+    return {
+      kind: "open_form" as const,
+      label: "ออกใบส่งของ",
+      badge: sentCount > 0 ? `· มี ${sentCount} ฉบับ` : null,
+      disabled: false,
+      target: { type: "form" as const, quotationId: latestQuotation.document.id },
+    };
+  }, [latestQuotation, nonVoidedDocs, deliveryProgress]);
   const statusDoc = useMemo(() => {
     if (!allDone) return activeDoc?.document || null;
 
@@ -1201,20 +1137,84 @@ export default function DealDetailPage() {
               )}
             </div>
 
-            {deliveryProgress.quotation.status === "sent" && (
+            {dnAction && (
               <Button
                 variant="secondary"
-                className="mt-3 w-full justify-center !bg-teal-50 !text-teal-700 !border-teal-200 hover:!bg-teal-100"
+                disabled={dnAction.disabled}
+                className={`mt-3 w-full justify-center ${
+                  dnAction.disabled
+                    ? "!bg-gray-50 !text-gray-500 !border-gray-200 hover:!bg-gray-50"
+                    : "!bg-teal-50 !text-teal-700 !border-teal-200 hover:!bg-teal-100"
+                }`}
                 onClick={() => {
-                  const params = new URLSearchParams({
-                    type: "delivery_note_from_quotation",
-                    quotationId: deliveryProgress.quotation.id,
-                  });
-                  navigate(`/documents/new?${params.toString()}`);
+                  if (dnAction.disabled || !dnAction.target) return;
+                  if (dnAction.target.type === "form") {
+                    const params = new URLSearchParams({
+                      type: "delivery_note_from_quotation",
+                      quotationId: dnAction.target.quotationId,
+                    });
+                    navigate(`/documents/new?${params.toString()}`);
+                  } else {
+                    navigate(`/documents/${dnAction.target.id}`);
+                  }
                 }}
               >
-                ออกใบส่งของจากใบเสนอราคา
+                {dnAction.label}
+                {dnAction.badge && (
+                  <span
+                    className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      dnAction.disabled
+                        ? "bg-white/70 text-gray-500"
+                        : "bg-white/70 text-[#0F9AA8]"
+                    }`}
+                  >
+                    {dnAction.badge}
+                  </span>
+                )}
               </Button>
+            )}
+
+            {deliveryNotes.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
+                  ใบส่งของในดีลนี้ ({deliveryNotes.length})
+                </div>
+                {deliveryNotes.map((item) => {
+                  const doc = item.document;
+                  const isDraft = doc.status === "draft";
+                  const isConverted = doc.status === "converted";
+                  return (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => navigate(`/documents/${doc.id}`)}
+                      className="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-left transition-colors hover:bg-white"
+                    >
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium text-[#1A1A18]">
+                            {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
+                          </div>
+                          <div className="mt-0.5 text-gray-500">
+                            {formatBuddhistDate(doc.issue_date)}
+                          </div>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium ${
+                            isDraft
+                              ? "bg-amber-100 text-amber-700"
+                              : isConverted
+                                ? "bg-stone-100 text-stone-600"
+                                : "bg-paid-bg text-paid-text"
+                          }`}
+                        >
+                          {isDraft ? "ร่าง" : isConverted ? "รวมในบิลแล้ว" : "ส่งแล้ว"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </Card>
         )}
@@ -1473,19 +1473,9 @@ export default function DealDetailPage() {
                 {bulkDownloading ? `กำลังสร้าง ZIP (${nonVoidedDocs.length})` : "ดาวน์โหลดเอกสารทั้งหมด (ZIP)"}
               </Button>
             )}
-            {canCreateDeliveryNote && (
-              <Button
-                variant="secondary"
-                className="justify-center !bg-page-bg"
-                loading={actionLoadingId === "delivery"}
-                onClick={handleCreateDeliveryNote}
-              >
-                ออกใบส่งของ
-              </Button>
-            )}
             <Button
               variant="secondary"
-              className={`justify-center ${activeDoc?.document.status !== "draft" ? "!bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100" : "!bg-page-bg"} ${canCreateDeliveryNote ? "" : "col-span-2"}`}
+              className={`col-span-2 justify-center ${activeDoc?.document.status !== "draft" ? "!bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100" : "!bg-page-bg"}`}
               onClick={handleCurrentDocAction}
             >
               {activeDoc?.document.status === "draft" ? "แก้ไขฉบับร่าง" : "ยกเลิก / แก้ไข"}
@@ -1493,7 +1483,7 @@ export default function DealDetailPage() {
             {allDone && hasPaidDocs && (
               <Button
                 variant="secondary"
-                className={`justify-center !bg-page-bg ${canCreateDeliveryNote ? "" : "col-span-2"}`}
+                className="col-span-2 justify-center !bg-page-bg"
                 onClick={handleCreateCreditNote}
               >
                 ออกใบลดหนี้

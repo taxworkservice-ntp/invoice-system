@@ -410,6 +410,12 @@ create index idx_documents_deal          on documents(deal_id);
 create index idx_documents_customer      on documents(customer_id);
 create index idx_documents_due_date      on documents(due_date) where status = 'sent';
 
+-- At most one in-progress (draft) delivery note per source quotation, per user.
+-- Sent delivery notes remain unrestricted so partial deliveries still work.
+create unique index uq_documents_dn_draft_per_source
+  on documents (user_id, converted_from_id)
+  where doc_type = 'delivery_note' and status = 'draft';
+
 
 -- ============================================================
 -- DOCUMENT LINE ITEMS

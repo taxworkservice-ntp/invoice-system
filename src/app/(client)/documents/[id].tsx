@@ -1141,23 +1141,6 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && doc.doc_type === "quotation" && hasQuotationDnActivity && (
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full"
-              onClick={() => {
-                const params = new URLSearchParams({
-                  type: "delivery_note_from_quotation",
-                  quotationId: doc.id,
-                });
-                navigate(`/documents/new?${params.toString()}`);
-              }}
-            >
-              ออกใบส่งของจากใบเสนอราคา
-            </Button>
-          )}
-
           {isSent && doc.doc_type === "quotation" && !hasQuotationDnActivity && (
             <Button
               variant="primary"
