@@ -88,6 +88,25 @@ function getUtilityDisplayNote(note: string) {
     .trim();
 }
 
+function addDaysString(value: string, days: number) {
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return "";
+  parsed.setDate(parsed.getDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function getUsageBillDetail(note: string) {
+  const currentReading = note.match(/เลขปัจจุบัน:\s*([\d,.]+)/)?.[1]?.replace(/,/g, "") || "";
+  const periodMatch = note.match(/รอบบิล:\s*([0-9-]+)\s*-\s*([0-9-]+)/);
+  const usageMatch = note.match(/ใช้ไป:\s*[\d,.]+\s*(.+)$/m);
+  return {
+    currentReading,
+    periodStart: periodMatch?.[1] || "",
+    periodEnd: periodMatch?.[2] || "",
+    unit: usageMatch?.[1]?.trim() || "",
+  };
+}
+
 function hasCartonOption(lineItem: LineItemForm) {
   return Boolean(lineItem.carton_unit && lineItem.qty_per_carton && lineItem.qty_per_carton > 0);
 }
@@ -246,6 +265,11 @@ export default function NewDealPage() {
       setUtilityLastHint(null);
       return;
     }
+    const service = utilityServiceName.trim().toLowerCase();
+    if (!utilityServiceItemId && !service) {
+      setUtilityLastHint("เลือกค่าบริการเพื่อดึงเลขรอบก่อนของลูกค้ารายนี้");
+      return;
+    }
 
     let cancelled = false;
     const customerId = selectedCustomer.id;
@@ -271,7 +295,7 @@ export default function NewDealPage() {
         const docIds = docs.map((doc) => doc.id);
         const { data: lines, error: linesError } = await supabase
           .from("document_line_items")
-          .select("document_id, item_id, item_name, line_note, unit_price")
+          .select("document_id, item_id, item_name, line_note, unit, unit_price")
           .in("document_id", docIds)
           .order("created_at", { ascending: false });
 
@@ -281,13 +305,12 @@ export default function NewDealPage() {
           return;
         }
 
-        const service = utilityServiceName.trim().toLowerCase();
         const matchedLine = lines.find((line) => {
           const note = String(line.line_note || "");
           const itemName = String(line.item_name || "").trim().toLowerCase();
           const itemId = String(line.item_id || "");
           const sameCatalogService = utilityServiceItemId ? itemId === utilityServiceItemId : false;
-          const sameNamedService = !utilityServiceItemId && (!service || itemName === service);
+          const sameNamedService = !utilityServiceItemId && itemName === service;
           return note.includes("[USAGE_BILL]") && (sameCatalogService || sameNamedService);
         });
 
@@ -297,19 +320,26 @@ export default function NewDealPage() {
         }
 
         const note = String(matchedLine.line_note || "");
-        const currentMatch = note.match(/เลขปัจจุบัน:\s*([\d,.]+)/);
-        const currentReading = currentMatch?.[1]?.replace(/,/g, "");
-        if (currentReading && !utilityPreviousReading) {
-          setUtilityPreviousReading(currentReading);
+        const detail = getUsageBillDetail(note);
+        if (detail.currentReading) {
+          setUtilityPreviousReading(detail.currentReading);
         }
-        if (matchedLine.unit_price != null && !utilityRate) {
+        if (matchedLine.unit_price != null) {
           setUtilityRate(String(matchedLine.unit_price));
+        }
+        const rememberedUnit = String(matchedLine.unit || detail.unit || "").trim();
+        if (rememberedUnit) {
+          setUtilityUnit(rememberedUnit);
+        }
+        if (detail.periodEnd) {
+          const nextStart = addDaysString(detail.periodEnd, 1);
+          if (nextStart) setUtilityPeriodStart(nextStart);
         }
 
         const sourceDoc = docs.find((doc) => doc.id === matchedLine.document_id);
         setUtilityLastHint(
-          currentReading
-            ? `ดึงเลขครั้งก่อน ${currentReading} จาก ${sourceDoc?.doc_number || "บิลก่อนหน้า"}`
+          detail.currentReading
+            ? `ดึงเลขครั้งก่อน ${detail.currentReading} จาก ${sourceDoc?.doc_number || "บิลก่อนหน้า"}`
             : `พบประวัติจาก ${sourceDoc?.doc_number || "บิลก่อนหน้า"} แต่ไม่พบเลขปัจจุบัน`,
         );
       } finally {
@@ -322,7 +352,7 @@ export default function NewDealPage() {
     return () => {
       cancelled = true;
     };
-  }, [isUtilityBill, selectedCustomer, userId, utilityServiceItemId, utilityServiceName, utilityPreviousReading, utilityRate]);
+  }, [isUtilityBill, selectedCustomer, userId, utilityServiceItemId, utilityServiceName, selectedUtilityService]);
 
   useEffect(() => {
     if (!isUtilityBill) return;
@@ -377,6 +407,8 @@ export default function NewDealPage() {
 
   const handleUtilityServiceChange = (value: string) => {
     setUtilityServiceName(value);
+    setUtilityPreviousReading("");
+    setUtilityCurrentReading("");
     const matched = serviceItems.find((item) => item.name.trim().toLowerCase() === value.trim().toLowerCase());
     if (matched) {
       setUtilityServiceItemId(matched.id);
@@ -392,6 +424,8 @@ export default function NewDealPage() {
     setUtilityServiceName(catalogItem.name);
     setUtilityRate(String(catalogItem.unit_price));
     setUtilityUnit(catalogItem.base_unit || "หน่วย");
+    setUtilityPreviousReading("");
+    setUtilityCurrentReading("");
   };
 
   const toggleInvoice = (id: string) => {
@@ -925,7 +959,7 @@ export default function NewDealPage() {
                   }}
                 />
                 <span className="mt-1 block text-[11px] text-gray-500">
-                  แนะนำให้บันทึกบริการใน Catalog เพื่อดึงราคา หน่วย และเลขรอบก่อนหน้าได้แม่นขึ้น
+                  เลือกบริการเดิมเพื่อดึงราคา หน่วย เลขครั้งก่อน และรอบบิลถัดไปของลูกค้ารายนี้
                 </span>
               </label>
               <Input
