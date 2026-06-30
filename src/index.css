@@ -511,6 +511,10 @@ body {
 .print-classic-items-table td.center { text-align: center; }
 .print-classic-items-table td.right  { text-align: right; }
 .print-classic-items-table td.bold   { font-weight: 600; }
+.print-classic-items-table td.center,
+.print-classic-items-table td.right {
+  white-space: nowrap;
+}
 .print-classic-blank-row td { height: 7.5mm; }
 .print-classic-item-name {
   word-wrap: break-word;
@@ -757,7 +761,7 @@ body {
 }
 
 /* Print preview frame border (matches modern template treatment) */
-.print-preview-frame > .print-sheet.print-theme-classic {
+.print-preview-frame .print-sheet.print-theme-classic {
   border: 1px solid #cfd8e3;
   border-radius: 8px;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
