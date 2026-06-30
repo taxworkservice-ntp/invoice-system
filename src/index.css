@@ -443,6 +443,30 @@ body {
   margin-top: 3mm;
   break-inside: avoid;
 }
+.print-classic-table-frame {
+  border: 0.5px solid #9ca3af;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.print-classic-frame-section {
+  border-top: 0;
+}
+.print-classic-frame-section-title {
+  padding: 1.5mm 2.5mm;
+  border-bottom: 0.35px solid #d1d5db;
+  background: #f8fafc;
+  color: #1f2937;
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.print-classic-frame-section-title .en {
+  color: #4b5563;
+  font-size: 5pt;
+  font-weight: 400;
+  margin-left: 2mm;
+  letter-spacing: 0.04em;
+}
 .print-classic-items-title {
   font-size: 8pt;
   font-weight: 700;
@@ -463,9 +487,8 @@ body {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 7.5pt;
-  border: 0.5px solid #9ca3af;
-  border-bottom: 0;
-  border-radius: 8px 8px 0 0;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
 }
 .print-classic-items-table thead th {
@@ -484,8 +507,6 @@ body {
   vertical-align: bottom;
 }
 .print-classic-items-table thead th:last-child { border-right: 0; }
-.print-classic-items-table thead th:first-child { border-top-left-radius: 8px; }
-.print-classic-items-table thead th:last-child { border-top-right-radius: 8px; }
 .print-classic-items-table thead th:first-child { white-space: nowrap; text-align: center; }
 .print-classic-items-table thead th .en {
   color: #4b5563;
@@ -544,10 +565,9 @@ body {
 .print-classic-bottom-row {
   display: grid;
   grid-template-columns: 1fr 64mm;
-  width: calc(100% + 0.5px);
-  border: 0.5px solid #9ca3af;
+  border: 0;
   border-top: 0;
-  border-radius: 0 0 8px 8px;
+  border-radius: 0;
   overflow: hidden;
 }
 .print-classic-terms-col {

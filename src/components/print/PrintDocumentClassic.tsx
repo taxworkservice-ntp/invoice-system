@@ -202,9 +202,18 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
       </section>
 
       {/* ============== ITEMS TABLE ============== */}
-      {isBillingNote ? (
-        <section className="print-classic-items-wrap">
+      <section className="print-classic-items-wrap">
+        {isBillingNote ? (
           <div className="print-classic-items-title">รายการใบแจ้งหนี้ (INVOICES)</div>
+        ) : (
+          <div className="print-classic-items-title">
+            {document.doc_type === "receipt" ? "รายการที่ชำระ" : "รายการสินค้าและบริการ"}
+            <span className="en">ITEMS</span>
+          </div>
+        )}
+
+        <div className="print-classic-table-frame">
+          {isBillingNote ? (
           <table className="print-classic-items-table">
             <colgroup>
               <col style={{ width: "12mm" }} />
@@ -237,13 +246,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
               ))}
             </tbody>
           </table>
-        </section>
-      ) : (
-        <section className="print-classic-items-wrap">
-          <div className="print-classic-items-title">
-            {document.doc_type === "receipt" ? "รายการที่ชำระ" : "รายการสินค้าและบริการ"}
-            <span className="en">ITEMS</span>
-          </div>
+          ) : (
           <table className="print-classic-items-table">
             <colgroup>
               <col style={{ width: "12mm" }} />
@@ -310,13 +313,12 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
               ))}
             </tbody>
           </table>
-        </section>
-      )}
+          )}
 
-      {/* ============== INVOICE DELIVERY NOTES ============== */}
-      {invoiceDeliveryNotes.length > 0 && !isDeliveryNote && !data.showInlineDeliveryNotes ? (
-        <section className="print-classic-items-wrap">
-          <div className="print-classic-items-title">อ้างอิงใบส่งของ<span className="en">DELIVERY NOTES</span></div>
+          {/* ============== INVOICE DELIVERY NOTES ============== */}
+          {invoiceDeliveryNotes.length > 0 && !isDeliveryNote && !data.showInlineDeliveryNotes ? (
+            <div className="print-classic-frame-section">
+              <div className="print-classic-frame-section-title">อ้างอิงใบส่งของ<span className="en">DELIVERY NOTES</span></div>
           <table className="print-classic-items-table">
             <colgroup>
               <col style={{ width: "12mm" }} />
@@ -340,48 +342,48 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
               ))}
             </tbody>
           </table>
-        </section>
-      ) : null}
-
-      {/* ============== NOTE / PAYMENT + TOTALS ============== */}
-      <div className="print-classic-bottom-row">
-        <div className="print-classic-terms-col">
-          {isDeliveryNote ? (
-            <>
-              <div className="print-classic-terms-title">หมายเหตุการส่งของ (REMARKS)</div>
-              <div className="print-classic-terms-body">{noteText || "-"}</div>
-            </>
-          ) : (
-            <>
-              {noteText ? (
-                <section className="print-classic-terms-section">
-                  <div className="print-classic-terms-title">หมายเหตุ (NOTE)</div>
-                  <div className="print-classic-terms-body">{noteText}</div>
-                </section>
-              ) : null}
-              {paymentLines.length > 0 ? (
-                <section className="print-classic-terms-section">
-                  <div className="print-classic-terms-title">ข้อมูลการชำระเงิน (PAYMENT)</div>
-                  <ul className="print-classic-payment-list">
-                    {paymentLines.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-              {!noteText && paymentLines.length === 0 ? <div className="print-classic-terms-body">-</div> : null}
-            </>
-          )}
-        </div>
-        <div className="print-classic-totals-col">
-          <div className="print-classic-totals-row">
-            <div className="print-classic-totals-lab">
-              <div className="print-classic-totals-th">รวมเงิน</div>
-              <div className="print-classic-totals-en">SUB TOTAL</div>
             </div>
-            <div className="print-classic-totals-val">{formatCurrency(document.subtotal)}</div>
-          </div>
-          {document.discount_amount > 0 ? (
+          ) : null}
+
+          {/* ============== NOTE / PAYMENT + TOTALS ============== */}
+          <div className="print-classic-bottom-row">
+            <div className="print-classic-terms-col">
+              {isDeliveryNote ? (
+                <>
+                  <div className="print-classic-terms-title">หมายเหตุการส่งของ (REMARKS)</div>
+                  <div className="print-classic-terms-body">{noteText || "-"}</div>
+                </>
+              ) : (
+                <>
+                  {noteText ? (
+                    <section className="print-classic-terms-section">
+                      <div className="print-classic-terms-title">หมายเหตุ (NOTE)</div>
+                      <div className="print-classic-terms-body">{noteText}</div>
+                    </section>
+                  ) : null}
+                  {paymentLines.length > 0 ? (
+                    <section className="print-classic-terms-section">
+                      <div className="print-classic-terms-title">ข้อมูลการชำระเงิน (PAYMENT)</div>
+                      <ul className="print-classic-payment-list">
+                        {paymentLines.map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                  {!noteText && paymentLines.length === 0 ? <div className="print-classic-terms-body">-</div> : null}
+                </>
+              )}
+            </div>
+            <div className="print-classic-totals-col">
+              <div className="print-classic-totals-row">
+                <div className="print-classic-totals-lab">
+                  <div className="print-classic-totals-th">รวมเงิน</div>
+                  <div className="print-classic-totals-en">SUB TOTAL</div>
+                </div>
+                <div className="print-classic-totals-val">{formatCurrency(document.subtotal)}</div>
+              </div>
+              {document.discount_amount > 0 ? (
             <div className="print-classic-totals-row">
               <div className="print-classic-totals-lab">
                 <div className="print-classic-totals-th">ส่วนลดท้ายบิล{document.discount_percent ? ` (${document.discount_percent}%)` : ""}</div>
@@ -389,8 +391,8 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
               </div>
               <div className="print-classic-totals-val">-{formatCurrency(document.discount_amount)}</div>
             </div>
-          ) : null}
-          {document.vat_registered && document.vat_amount > 0 ? (
+              ) : null}
+              {document.vat_registered && document.vat_amount > 0 ? (
             <div className="print-classic-totals-row">
               <div className="print-classic-totals-lab">
                 <div className="print-classic-totals-th">ภาษีมูลค่าเพิ่ม {document.vat_rate}%</div>
@@ -398,34 +400,36 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
               </div>
               <div className="print-classic-totals-val">{formatCurrency(document.vat_amount)}</div>
             </div>
-          ) : null}
-          <div className="print-classic-totals-row print-classic-totals-row-grand">
-            <div className="print-classic-totals-lab">
-              <div className="print-classic-totals-th">จำนวนเงินรวมทั้งสิ้น</div>
-              <div className="print-classic-totals-en">GRAND TOTAL</div>
+              ) : null}
+              <div className="print-classic-totals-row print-classic-totals-row-grand">
+                <div className="print-classic-totals-lab">
+                  <div className="print-classic-totals-th">จำนวนเงินรวมทั้งสิ้น</div>
+                  <div className="print-classic-totals-en">GRAND TOTAL</div>
+                </div>
+                <div className="print-classic-totals-val">{formatCurrency(document.total_amount)}</div>
+              </div>
+              {document.wht_amount > 0 ? (
+                <>
+                  <div className="print-classic-totals-row">
+                    <div className="print-classic-totals-lab">
+                      <div className="print-classic-totals-th">หัก ณ ที่จ่าย {document.wht_rate}%</div>
+                      <div className="print-classic-totals-en">WHT {document.wht_rate}%</div>
+                    </div>
+                    <div className="print-classic-totals-val">-{formatCurrency(document.wht_amount)}</div>
+                  </div>
+                  <div className="print-classic-totals-row print-classic-totals-row-net">
+                    <div className="print-classic-totals-lab">
+                      <div className="print-classic-totals-th">ยอดชำระสุทธิ</div>
+                      <div className="print-classic-totals-en">NET PAYABLE</div>
+                    </div>
+                    <div className="print-classic-totals-val">{formatCurrency(document.net_payable)}</div>
+                  </div>
+                </>
+              ) : null}
             </div>
-            <div className="print-classic-totals-val">{formatCurrency(document.total_amount)}</div>
           </div>
-          {document.wht_amount > 0 ? (
-            <>
-              <div className="print-classic-totals-row">
-                <div className="print-classic-totals-lab">
-                  <div className="print-classic-totals-th">หัก ณ ที่จ่าย {document.wht_rate}%</div>
-                  <div className="print-classic-totals-en">WHT {document.wht_rate}%</div>
-                </div>
-                <div className="print-classic-totals-val">-{formatCurrency(document.wht_amount)}</div>
-              </div>
-              <div className="print-classic-totals-row print-classic-totals-row-net">
-                <div className="print-classic-totals-lab">
-                  <div className="print-classic-totals-th">ยอดชำระสุทธิ</div>
-                  <div className="print-classic-totals-en">NET PAYABLE</div>
-                </div>
-                <div className="print-classic-totals-val">{formatCurrency(document.net_payable)}</div>
-              </div>
-            </>
-          ) : null}
         </div>
-      </div>
+      </section>
 
       {/* ============== BOTTOM BAND (signatures) ============== */}
       <div className="print-classic-bottom-band">
