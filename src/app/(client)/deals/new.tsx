@@ -80,6 +80,14 @@ function parseAmount(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function getUtilityDisplayNote(note: string) {
+  return note
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== "[USAGE_BILL]")
+    .join("\n")
+    .trim();
+}
+
 function hasCartonOption(lineItem: LineItemForm) {
   return Boolean(lineItem.carton_unit && lineItem.qty_per_carton && lineItem.qty_per_carton > 0);
 }
@@ -158,7 +166,9 @@ export default function NewDealPage() {
   const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
   const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
   const [note, setNote] = useState("");
-  const [utilityServiceName, setUtilityServiceName] = useState("ค่าน้ำประปา");
+  const [utilityServiceItemId, setUtilityServiceItemId] = useState<string | null>(null);
+  const [utilityServiceName, setUtilityServiceName] = useState("");
+  const [utilityUnit, setUtilityUnit] = useState("หน่วย");
   const [utilityPeriodStart, setUtilityPeriodStart] = useState(monthStartString());
   const [utilityPeriodEnd, setUtilityPeriodEnd] = useState(todayString());
   const [utilityPreviousReading, setUtilityPreviousReading] = useState("");
@@ -174,6 +184,12 @@ export default function NewDealPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+
+  const serviceItems = useMemo(() => items.filter((item) => item.item_type === "service"), [items]);
+  const selectedUtilityService = useMemo(
+    () => serviceItems.find((item) => item.id === utilityServiceItemId) || null,
+    [serviceItems, utilityServiceItemId],
+  );
 
   useEffect(() => {
     if (clientProfile) {
@@ -255,7 +271,7 @@ export default function NewDealPage() {
         const docIds = docs.map((doc) => doc.id);
         const { data: lines, error: linesError } = await supabase
           .from("document_line_items")
-          .select("document_id, item_name, line_note, unit_price")
+          .select("document_id, item_id, item_name, line_note, unit_price")
           .in("document_id", docIds)
           .order("created_at", { ascending: false });
 
@@ -269,7 +285,10 @@ export default function NewDealPage() {
         const matchedLine = lines.find((line) => {
           const note = String(line.line_note || "");
           const itemName = String(line.item_name || "").trim().toLowerCase();
-          return note.includes("[USAGE_BILL]") && (!service || itemName === service);
+          const itemId = String(line.item_id || "");
+          const sameCatalogService = utilityServiceItemId ? itemId === utilityServiceItemId : false;
+          const sameNamedService = !utilityServiceItemId && (!service || itemName === service);
+          return note.includes("[USAGE_BILL]") && (sameCatalogService || sameNamedService);
         });
 
         if (!matchedLine) {
@@ -303,7 +322,7 @@ export default function NewDealPage() {
     return () => {
       cancelled = true;
     };
-  }, [isUtilityBill, selectedCustomer, userId, utilityServiceName, utilityPreviousReading, utilityRate]);
+  }, [isUtilityBill, selectedCustomer, userId, utilityServiceItemId, utilityServiceName, utilityPreviousReading, utilityRate]);
 
   useEffect(() => {
     if (!isUtilityBill) return;
@@ -313,25 +332,27 @@ export default function NewDealPage() {
     const rate = parseAmount(utilityRate);
     const usage = Math.max(0, Math.round((current - previous) * 1000) / 1000);
     const serviceName = utilityServiceName.trim() || "ค่าบริการประจำรอบ";
+    const catalogService = selectedUtilityService || serviceItems.find((item) => item.name.trim().toLowerCase() === serviceName.toLowerCase()) || null;
+    const unit = utilityUnit.trim() || catalogService?.base_unit || "หน่วย";
     const lineNote = [
       "[USAGE_BILL]",
       `รอบบิล: ${utilityPeriodStart || "-"} - ${utilityPeriodEnd || "-"}`,
       `เลขก่อนหน้า: ${utilityPreviousReading || "0"}`,
       `เลขปัจจุบัน: ${utilityCurrentReading || "0"}`,
-      `ใช้ไป: ${usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} หน่วย`,
+      `ใช้ไป: ${usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${unit}`,
     ].join("\n");
 
     setLineItems((prev) => {
       const currentLine = prev[0] || createEmptyLine();
       const utilityLine: LineItemForm = {
         ...currentLine,
-        item_id: null,
-        item_sku: null,
+        item_id: catalogService?.id || null,
+        item_sku: catalogService?.sku || null,
         item_name: serviceName,
         item_type: "service",
         line_note: lineNote,
-        unit: "หน่วย",
-        base_unit: "หน่วย",
+        unit,
+        base_unit: unit,
         carton_unit: null,
         qty_per_carton: null,
         base_unit_price: null,
@@ -349,7 +370,29 @@ export default function NewDealPage() {
     utilityPreviousReading,
     utilityRate,
     utilityServiceName,
+    utilityUnit,
+    selectedUtilityService,
+    serviceItems,
   ]);
+
+  const handleUtilityServiceChange = (value: string) => {
+    setUtilityServiceName(value);
+    const matched = serviceItems.find((item) => item.name.trim().toLowerCase() === value.trim().toLowerCase());
+    if (matched) {
+      setUtilityServiceItemId(matched.id);
+      setUtilityRate(String(matched.unit_price));
+      setUtilityUnit(matched.base_unit || "หน่วย");
+      return;
+    }
+    setUtilityServiceItemId(null);
+  };
+
+  const selectUtilityService = (catalogItem: Item) => {
+    setUtilityServiceItemId(catalogItem.id);
+    setUtilityServiceName(catalogItem.name);
+    setUtilityRate(String(catalogItem.unit_price));
+    setUtilityUnit(catalogItem.base_unit || "หน่วย");
+  };
 
   const toggleInvoice = (id: string) => {
     setSelectedInvoiceIds((prev) => {
@@ -861,12 +904,30 @@ export default function NewDealPage() {
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Input
-                label="ชื่อค่าบริการ"
-                value={utilityServiceName}
-                onChange={(e) => setUtilityServiceName(e.target.value)}
-                placeholder="เช่น ค่าน้ำประปา"
-              />
+              <label className="block">
+                <span className="mb-1 block text-[13px] text-[#1A1A18]">ค่าบริการ</span>
+                <CatalogAutocomplete
+                  items={serviceItems}
+                  value={utilityServiceName}
+                  onChange={handleUtilityServiceChange}
+                  onSelect={selectUtilityService}
+                  matched={!!selectedUtilityService}
+                  placeholder="เลือกจาก Catalog หรือพิมพ์ชื่อใหม่"
+                  createItemType="service"
+                  createDefaultUnit="หน่วย"
+                  onCreate={async (input) => {
+                    try {
+                      return await addItem(input);
+                    } catch (err: unknown) {
+                      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+                      throw err;
+                    }
+                  }}
+                />
+                <span className="mt-1 block text-[11px] text-gray-500">
+                  แนะนำให้บันทึกบริการใน Catalog เพื่อดึงราคา หน่วย และเลขรอบก่อนหน้าได้แม่นขึ้น
+                </span>
+              </label>
               <Input
                 label="ราคา/หน่วย"
                 type="number"
@@ -874,6 +935,12 @@ export default function NewDealPage() {
                 value={utilityRate}
                 onChange={(e) => setUtilityRate(e.target.value)}
                 placeholder="0.00"
+              />
+              <Input
+                label="หน่วย"
+                value={utilityUnit}
+                onChange={(e) => setUtilityUnit(e.target.value)}
+                placeholder="หน่วย"
               />
               <Input
                 label="รอบบิลเริ่ม"
@@ -913,7 +980,7 @@ export default function NewDealPage() {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 3,
                   })}{" "}
-                  หน่วย
+                  {utilityUnit || "หน่วย"}
                 </span>
               </div>
               <div className="mt-1 flex items-center justify-between gap-3 text-xs">
@@ -959,13 +1026,19 @@ export default function NewDealPage() {
                       }}
                     />
                   </div>
-                  <textarea
-                    value={item.line_note}
-                    onChange={(e) => updateLineItem(item.id, "line_note", e.target.value)}
-                    placeholder="หมายเหตุของรายการนี้ (ถ้ามี)"
-                    rows={2}
-                    className="mb-2 w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
-                  />
+                  {isUtilityBill ? (
+                    <div className="mb-2 whitespace-pre-line rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2 text-xs leading-5 text-[#5F5A52]">
+                      {getUtilityDisplayNote(item.line_note)}
+                    </div>
+                  ) : (
+                    <textarea
+                      value={item.line_note}
+                      onChange={(e) => updateLineItem(item.id, "line_note", e.target.value)}
+                      placeholder="หมายเหตุของรายการนี้ (ถ้ามี)"
+                      rows={2}
+                      className="mb-2 w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                    />
+                  )}
                   <div className="flex gap-1 items-start">
                     <label className="w-[100px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">ราคา</span>

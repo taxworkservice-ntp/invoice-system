@@ -11,6 +11,8 @@ interface CatalogAutocompleteProps {
   matched?: boolean;
   placeholder?: string;
   className?: string;
+  createItemType?: "product" | "service";
+  createDefaultUnit?: string;
   onCreate?: (input: {
     name: string;
     unit_price: number;
@@ -30,6 +32,8 @@ export function CatalogAutocomplete({
   matched = false,
   placeholder = "ชื่อรายการ",
   className = "",
+  createItemType = "product",
+  createDefaultUnit = "ชิ้น",
   onCreate,
 }: CatalogAutocompleteProps) {
   const [open, setOpen] = useState(false);
@@ -227,6 +231,8 @@ export function CatalogAutocomplete({
           setPickerOpen(false);
           close();
         }}
+        createItemType={createItemType}
+        createDefaultUnit={createDefaultUnit}
         onCreate={onCreate}
       />
     </div>

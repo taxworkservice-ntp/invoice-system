@@ -48,6 +48,14 @@ interface PrintDocumentClassicProps {
   copyType?: CopyType;
 }
 
+function getPrintableLineNote(note: string | null | undefined) {
+  return String(note || "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== "[USAGE_BILL]")
+    .join("\n")
+    .trim();
+}
+
 export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocumentClassicProps) {
   const { document, clientProfile, customer, referenceDoc, lineItems, billingNoteInvoices, invoiceDeliveryNotes, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
   const isCopy = copyType === "copy";
@@ -284,13 +292,14 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
               {lineItems.map((item, index) => {
                 const hasLineDiscount = item.discount_amount > 0 || item.discount_percent > 0;
                 const deliveryNoteRef = lineDeliveryNoteMap[item.id];
+                const printableNote = getPrintableLineNote(item.line_note);
                 return (
                   <tr key={item.id}>
                     <td className="center">{index + 1}</td>
                     <td className="print-classic-item-name">
                       {item.item_name}
-                      {item.line_note ? (
-                        <div className="print-classic-item-note">หมายเหตุ: {item.line_note}</div>
+                      {printableNote ? (
+                        <div className="print-classic-item-note">หมายเหตุ: {printableNote}</div>
                       ) : null}
                       {hasLineDiscount ? (
                         <div className="print-classic-discount-note">

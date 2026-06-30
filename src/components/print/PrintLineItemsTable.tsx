@@ -18,6 +18,14 @@ function getRowClass() {
   return "break-inside-avoid align-top bg-white";
 }
 
+function getPrintableLineNote(note: string | null | undefined) {
+  return String(note || "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== "[USAGE_BILL]")
+    .join("\n")
+    .trim();
+}
+
 export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
   const { document, lineItems, billingNoteInvoices, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
@@ -103,14 +111,15 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
         <tbody>
           {lineItems.map((item, index) => {
             const hasLineDiscount = item.discount_amount > 0 || item.discount_percent > 0;
+            const printableNote = getPrintableLineNote(item.line_note);
 
             return (
               <tr key={item.id} className={getRowClass()}>
                 <td className="px-2 py-1.5 text-[10px] text-[#667085] border-t-[0.5px] border-[#E6EBF2]">{index + 1}</td>
                 <td className="px-2 py-1.5 text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   <div className="leading-[14px]">{item.item_name}</div>
-                  {item.line_note ? (
-                    <div className="mt-0.5 text-[9px] leading-[12px] text-[#667085]">หมายเหตุ: {item.line_note}</div>
+                  {printableNote ? (
+                    <div className="mt-0.5 whitespace-pre-line text-[9px] leading-[12px] text-[#667085]">หมายเหตุ: {printableNote}</div>
                   ) : null}
                   {hasLineDiscount && !isDeliveryNote ? (
                     <div className="mt-0.5 text-[9px] text-[#B54708]">
@@ -144,10 +153,10 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
             <tr key={`blank-${index}`} className="print-modern-blank-row break-inside-avoid align-top bg-white">
               <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
               <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+              <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+              <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
               {!isDeliveryNote && (
                 <>
-                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
-                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
                   <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
                   <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
                   <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>

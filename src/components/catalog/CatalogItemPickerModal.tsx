@@ -13,6 +13,8 @@ interface CatalogItemPickerModalProps {
   onSelect: (item: Item) => void;
   onClose: () => void;
   initialSearch?: string;
+  createItemType?: "product" | "service";
+  createDefaultUnit?: string;
   onCreate?: (input: {
     name: string;
     unit_price: number;
@@ -31,6 +33,8 @@ export function CatalogItemPickerModal({
   onSelect,
   onClose,
   initialSearch = "",
+  createItemType = "product",
+  createDefaultUnit = "ชิ้น",
   onCreate,
 }: CatalogItemPickerModalProps) {
   const [search, setSearch] = useState(initialSearch);
@@ -39,7 +43,7 @@ export function CatalogItemPickerModal({
   const [newItem, setNewItem] = useState({
     name: "",
     unit_price: "",
-    base_unit: "ชิ้น",
+    base_unit: createDefaultUnit,
   });
 
   useEffect(() => {
@@ -49,9 +53,9 @@ export function CatalogItemPickerModal({
   useEffect(() => {
     if (!open) {
       setAdding(false);
-      setNewItem({ name: "", unit_price: "", base_unit: "ชิ้น" });
+      setNewItem({ name: "", unit_price: "", base_unit: createDefaultUnit });
     }
-  }, [open]);
+  }, [createDefaultUnit, open]);
 
   const sortedItems = useMemo(
     () => [...items].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th")),
@@ -74,10 +78,10 @@ export function CatalogItemPickerModal({
       const created = await onCreate({
         name,
         unit_price: price,
-        base_unit: newItem.base_unit.trim() || "ชิ้น",
-        item_type: "product",
+        base_unit: newItem.base_unit.trim() || createDefaultUnit,
+        item_type: createItemType,
       });
-      setNewItem({ name: "", unit_price: "", base_unit: "ชิ้น" });
+      setNewItem({ name: "", unit_price: "", base_unit: createDefaultUnit });
       setAdding(false);
       setSearch("");
       onSelect(created);
