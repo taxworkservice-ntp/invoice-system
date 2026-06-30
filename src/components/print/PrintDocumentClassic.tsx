@@ -39,6 +39,7 @@ function formatDateBuddhist(date: string | null | undefined): string {
 const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note"]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
 const MIN_CLASSIC_ITEM_ROWS = 8;
+const MIN_CLASSIC_BILLING_NOTE_ROWS = 8;
 
 
 
@@ -61,6 +62,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = splitTerms(clientProfile.classic_terms, clientProfile.company_name_th);
   const blankLineCount = Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length);
+  const billingBlankCount = Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - billingNoteInvoices.length);
   const noteText = document.note?.trim();
   const paymentLines = [
     clientProfile.bank_name && showBank ? `ธนาคาร: ${clientProfile.bank_name}` : null,
@@ -242,6 +244,16 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                   <td className="right">{formatCurrency(inv.subtotal)}</td>
                   <td className="right">{formatCurrency(inv.vat_amount)}</td>
                   <td className="right bold">{formatCurrency(inv.total_amount)}</td>
+                </tr>
+              ))}
+              {Array.from({ length: billingBlankCount }).map((_, index) => (
+                <tr key={`billing-blank-${index}`} className="print-classic-blank-row">
+                  <td className="center">&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td className="center">&nbsp;</td>
+                  <td className="right">&nbsp;</td>
+                  <td className="right">&nbsp;</td>
+                  <td className="right bold">&nbsp;</td>
                 </tr>
               ))}
             </tbody>
