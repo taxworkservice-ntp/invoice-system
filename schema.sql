@@ -418,6 +418,39 @@ create unique index uq_documents_dn_draft_per_source
 
 
 -- ============================================================
+-- FILE METADATA
+-- R2 object metadata only. File bytes live in Cloudflare R2.
+-- ============================================================
+
+create table files (
+  id            uuid primary key default uuid_generate_v4(),
+  user_id       uuid not null references profiles(id) on delete cascade,
+  document_id   uuid references documents(id) on delete cascade,
+  r2_key        text not null unique,
+  purpose       text not null check (purpose in ('logos', 'signatures', 'stamps', 'pdfs', 'exports', 'attachments')),
+  filename      text not null,
+  content_type  text not null,
+  size_bytes    bigint not null default 0 check (size_bytes >= 0),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+alter table files enable row level security;
+
+create policy "Client manages own file metadata"
+  on files for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Admin reads all file metadata"
+  on files for select
+  using (public.is_admin());
+
+create index idx_files_user_purpose on files(user_id, purpose);
+create index idx_files_document on files(document_id);
+
+
+-- ============================================================
 -- DOCUMENT LINE ITEMS
 -- Line items on quotation, invoice, delivery note, credit note
 -- (Billing note uses billing_note_invoices instead)
@@ -584,6 +617,10 @@ create trigger trg_deals_updated_at
 
 create trigger trg_documents_updated_at
   before update on documents
+  for each row execute function handle_updated_at();
+
+create trigger trg_files_updated_at
+  before update on files
   for each row execute function handle_updated_at();
 
 
@@ -872,13 +909,14 @@ create trigger trg_create_default_sequences
 
 
 -- ============================================================
--- STORAGE BUCKETS (run via Supabase dashboard or API)
+-- R2 STORAGE
 -- ============================================================
 
--- Bucket: client-logos
--- Policy: authenticated users can upload/read their own logo only
--- Path convention: {user_id}/logo.{ext}
-
--- Bucket: document-pdfs (optional cache)
--- Policy: authenticated users can read their own PDFs only
--- Path convention: {user_id}/{document_id}.pdf
+-- Supabase stores file metadata only. File bytes live in Cloudflare R2.
+-- Supported private path prefixes:
+-- logos/{user_id}/...
+-- signatures/{user_id}/...
+-- stamps/{user_id}/...
+-- pdfs/{user_id}/{document_id}/...
+-- exports/{user_id}/...
+-- attachments/{user_id}/...

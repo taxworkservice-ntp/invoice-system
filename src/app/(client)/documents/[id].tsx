@@ -16,6 +16,7 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
+import { deleteDocumentFiles } from "../../../lib/r2";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { deductStockOnDocumentSent } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../../constants";
@@ -162,6 +163,7 @@ export default function DocumentDetailPage() {
     setDeleting(true);
     try {
       await supabase.from("document_line_items").delete().eq("document_id", doc.id);
+      await deleteDocumentFiles(doc.id);
       await supabase.from("documents").delete().eq("id", doc.id);
       setDeleteModal(false);
       if (doc.deal_id) navigate(`/deals/${doc.deal_id}`);

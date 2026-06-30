@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getR2PresignedUrl, uploadToR2 } from "../../lib/r2";
+import { deleteFromR2, getR2PresignedUrl, uploadToR2 } from "../../lib/r2";
 
 interface ImageUploadProps {
   userId: string;
@@ -18,6 +18,36 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
   const fileRef = useRef<HTMLInputElement>(null);
 
   const displayLabel = placeholder || label;
+
+  async function compressImageIfNeeded(file: File): Promise<File> {
+    if (file.size <= 2 * 1024 * 1024) return file;
+
+    const imageUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = imageUrl;
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("ไม่สามารถอ่านรูปภาพได้"));
+      });
+
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return file;
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+      if (!blob || blob.size >= file.size) return file;
+
+      return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+    } finally {
+      URL.revokeObjectURL(imageUrl);
+    }
+  }
 
   useEffect(() => {
     if (!currentKey) {
@@ -41,9 +71,13 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
     setUploadError("");
 
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const uploadFile = await compressImageIfNeeded(file);
+      const ext = uploadFile.name.split(".").pop() || "png";
       const key = storageKeyFn(userId, ext);
-      await uploadToR2(key, file);
+      await uploadToR2(key, uploadFile);
+      if (currentKey && currentKey !== key) {
+        await deleteFromR2(currentKey).catch(() => undefined);
+      }
       onKeyChange(key);
       setPreview(await getR2PresignedUrl(key));
     } catch (err: unknown) {

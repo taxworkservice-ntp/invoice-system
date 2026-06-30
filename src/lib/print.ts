@@ -1,7 +1,7 @@
 import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLineItem, InvoiceDeliveryNote } from "../types";
 import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
-import { getR2PresignedUrl, getProxiedImageUrl } from "./r2";
+import { getR2PresignedUrl } from "./r2";
 
 export type HtmlPrintTemplate = "modern" | "classic";
 
@@ -154,7 +154,7 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
   if (clientProfile.logo_url) {
     try {
-      clientProfile.logo_url = getProxiedImageUrl(clientProfile.logo_url);
+      clientProfile.logo_url = await getR2PresignedUrl(clientProfile.logo_url);
     } catch {
       clientProfile.logo_url = null;
     }
@@ -162,7 +162,7 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
   if (clientProfile.signature_url) {
     try {
-      clientProfile.signature_url = getProxiedImageUrl(clientProfile.signature_url);
+      clientProfile.signature_url = await getR2PresignedUrl(clientProfile.signature_url);
     } catch {
       clientProfile.signature_url = null;
     }
@@ -170,7 +170,7 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
   if (clientProfile.stamp_url) {
     try {
-      clientProfile.stamp_url = getProxiedImageUrl(clientProfile.stamp_url);
+      clientProfile.stamp_url = await getR2PresignedUrl(clientProfile.stamp_url);
     } catch {
       clientProfile.stamp_url = null;
     }

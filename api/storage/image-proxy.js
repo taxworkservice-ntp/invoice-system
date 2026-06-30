@@ -1,3 +1,4 @@
+import { requireStorageAccess } from "../_lib/auth.js";
 import { ApiError, sendError, sendJson } from "../_lib/http.js";
 import { getDownloadSignedUrl } from "../_lib/r2.js";
 
@@ -18,6 +19,8 @@ export default async function handler(req, res) {
 
     const key = typeof req.query.key === "string" ? req.query.key : "";
     if (!key) throw new ApiError(400, "Missing key");
+
+    await requireStorageAccess(req, key);
 
     const signedUrl = await getDownloadSignedUrl(key);
 

@@ -16,6 +16,7 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { formatBuddhistDate } from "../../lib/dates";
 import { generateDocNumberBE } from "../../lib/docNumber";
+import { deleteDocumentFiles } from "../../lib/r2";
 import { WHT_RATE_OPTIONS } from "../../constants";
 import type { BillingNoteInvoice, Customer, Deal, Document, DocumentLineItem, DocumentStatus, WhtRate } from "../../types";
 
@@ -564,6 +565,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         await supabase.from("documents").update({ status: "sent" as DocumentStatus }).in("id", selectedIds);
       }
       await supabase.from("billing_note_invoices").delete().eq("billing_note_id", currentDocumentId);
+      await deleteDocumentFiles(currentDocumentId);
       await supabase.from("documents").delete().eq("id", currentDocumentId);
       toast.success("ลบร่างใบวางบิลแล้ว");
       if (dealId) navigate(`/deals/${dealId}`);

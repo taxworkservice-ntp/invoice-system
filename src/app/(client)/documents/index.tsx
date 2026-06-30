@@ -20,6 +20,7 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
+import { deleteDocumentFiles } from "../../../lib/r2";
 import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS, CHIP_COLORS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
@@ -772,6 +773,7 @@ export default function DocumentsPage() {
         toast.success("ยกเลิกเอกสารแล้ว");
       } else if (action === "delete") {
         await supabase.from("document_line_items").delete().eq("document_id", doc.id);
+        await deleteDocumentFiles(doc.id);
         await supabase.from("documents").delete().eq("id", doc.id);
         toast.success("ลบเอกสารแล้ว");
       } else if (action === "issue_cn") {

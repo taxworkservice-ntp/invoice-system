@@ -33,6 +33,8 @@ export type PaymentMethod = "cash" | "bank_transfer" | "cheque";
 
 export type WhtRate = "0" | "1" | "2" | "3" | "5";
 
+export type StoragePurpose = "logos" | "signatures" | "stamps" | "pdfs" | "exports" | "attachments";
+
 export interface Profile {
   id: string;
   role: UserRole;
@@ -182,6 +184,19 @@ export interface Document {
   line_items?: DocumentLineItem[];
   billing_invoices?: BillingNoteInvoice[];
   invoice_delivery_notes?: InvoiceDeliveryNote[];
+}
+
+export interface StorageFile {
+  id: string;
+  user_id: string;
+  document_id: string | null;
+  r2_key: string;
+  purpose: StoragePurpose;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DocumentLineItem {

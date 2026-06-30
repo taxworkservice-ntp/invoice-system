@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getEnv } from "./env.js";
 
@@ -36,5 +36,14 @@ export function getDownloadSignedUrl(key, expiresIn = 3600) {
       Key: key,
     }),
     { expiresIn }
+  );
+}
+
+export function deleteR2Object(key) {
+  return r2.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    })
   );
 }

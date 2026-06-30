@@ -7,6 +7,7 @@ import type { CopyType } from "../../../components/print/PrintDocument";
 import { PrintDocumentClassic } from "../../../components/print/PrintDocumentClassic";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { generatePDFDocument, getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
+import { downloadR2Blob, getCachedPdfFile, pdfKey, uploadToR2 } from "../../../lib/r2";
 import { DOC_TYPE_SHORT } from "../../../constants";
 
 export default function DocumentPrintPreviewPage() {
@@ -161,18 +162,34 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     }
   }
 
+  function pdfFilename(data: PrintDocumentData) {
+    const short = DOC_TYPE_SHORT[data.document.doc_type];
+    const datePart = data.document.issue_date
+      ? data.document.issue_date.replace(/-/g, "")
+      : new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    return `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
+  }
+
+  async function getOrCreatePdfBlob(data: PrintDocumentData, copyTypes: Array<"original" | "copy">) {
+    const variant = copyTypes.length === 1 ? "original" : "original-copy";
+    const cachedFile = await getCachedPdfFile(data.document, variant);
+    if (cachedFile) {
+      return downloadR2Blob(cachedFile.r2_key);
+    }
+
+    const pdf = await generatePDFDocument(data, copyTypes);
+    const blob = pdf.output("blob");
+    const filename = pdfFilename(data);
+    const file = new File([blob], filename, { type: "application/pdf" });
+    await uploadToR2(pdfKey(data.document.user_id, data.document.id, variant), file, data.document.id);
+    return blob;
+  }
+
   async function handleSavePdf() {
     if (savingPdf || !data) return;
     setSavingPdf(true);
     try {
-      const pdf = await generatePDFDocument(data, ["original"]);
-      const short = DOC_TYPE_SHORT[data.document.doc_type];
-      const datePart = data.document.issue_date
-        ? data.document.issue_date.replace(/-/g, "")
-        : new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const filename = `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
-      const blob = pdf.output("blob");
-      await triggerDownload(blob, filename);
+      await triggerDownload(await getOrCreatePdfBlob(data, ["original"]), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       void openBrowserPrintDialog();
@@ -185,14 +202,7 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
     if (savingPdf || !data) return;
     setSavingPdf(true);
     try {
-      const pdf = await generatePDFDocument(data, ["original", "copy"]);
-      const short = DOC_TYPE_SHORT[data.document.doc_type];
-      const datePart = data.document.issue_date
-        ? data.document.issue_date.replace(/-/g, "")
-        : new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const filename = `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
-      const blob = pdf.output("blob");
-      await triggerDownload(blob, filename);
+      await triggerDownload(await getOrCreatePdfBlob(data, ["original", "copy"]), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       void openBrowserPrintDialog();
