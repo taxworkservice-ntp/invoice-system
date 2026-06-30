@@ -576,16 +576,26 @@ body {
 
 /* TERMS + TOTALS */
 .print-classic-bottom-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr 64mm;
+  grid-template-columns: 118mm 64mm;
   border: 0;
   border-top: 0;
   border-radius: 0;
   overflow: hidden;
 }
+.print-classic-bottom-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 118mm;
+  z-index: 2;
+  pointer-events: none;
+  border-left: 0.35px solid #d1d5db;
+}
 .print-classic-terms-col {
   padding: 2.5mm 4mm;
-  border-right: 0.35px solid #d1d5db;
   font-size: 7.5pt;
   color: #1f2937;
   line-height: 1.45;
