@@ -95,6 +95,13 @@ function addDaysString(value: string, days: number) {
   return parsed.toISOString().slice(0, 10);
 }
 
+function daysBetween(start: string, end: string) {
+  const s = new Date(`${start}T00:00:00`);
+  const e = new Date(`${end}T00:00:00`);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 0;
+  return Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 function getUsageBillDetail(note: string) {
   const currentReading = note.match(/เลขปัจจุบัน:\s*([\d,.]+)/)?.[1]?.replace(/,/g, "") || "";
   const periodMatch = note.match(/รอบบิล:\s*([0-9-]+)\s*-\s*([0-9-]+)/);
@@ -333,7 +340,16 @@ export default function NewDealPage() {
         }
         if (detail.periodEnd) {
           const nextStart = addDaysString(detail.periodEnd, 1);
-          if (nextStart) setUtilityPeriodStart(nextStart);
+          if (nextStart) {
+            setUtilityPeriodStart(nextStart);
+            if (detail.periodStart) {
+              const spanDays = daysBetween(detail.periodStart, detail.periodEnd);
+              if (spanDays > 0) {
+                const nextEnd = addDaysString(nextStart, spanDays);
+                if (nextEnd) setUtilityPeriodEnd(nextEnd);
+              }
+            }
+          }
         }
 
         const sourceDoc = docs.find((doc) => doc.id === matchedLine.document_id);
