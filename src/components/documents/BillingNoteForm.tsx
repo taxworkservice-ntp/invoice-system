@@ -404,10 +404,33 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     const selectedInvoicesNow = invoiceOptions.filter((invoice) => selectedInvoiceIds.has(invoice.id));
     if (!selectedInvoicesNow.length) return null;
 
+    let resolvedDealId = dealId || currentDeal?.id || null;
+    if (!resolvedDealId) {
+      const { data: createdDeal, error: dealError } = await supabase
+        .from("deals")
+        .insert({
+          user_id: userId,
+          customer_id: selectedCustomerId,
+          title: null,
+        })
+        .select("id, title")
+        .single();
+
+      if (dealError || !createdDeal) {
+        const message = dealError?.message || "ไม่สามารถสร้างดีลสำหรับใบวางบิลได้";
+        setErrors((prev) => ({ ...prev, general: message }));
+        if (!options?.silent) toast.error(message);
+        return null;
+      }
+
+      resolvedDealId = createdDeal.id;
+      setCurrentDeal({ id: createdDeal.id, title: createdDeal.title });
+    }
+
     const payload: Partial<Document> = {
       id: currentDocumentId,
       user_id: userId,
-      deal_id: dealId || currentDeal?.id || null,
+      deal_id: resolvedDealId,
       customer_id: selectedCustomerId,
       doc_type: "billing_note",
       doc_number: existingDocument?.doc_number || null,
@@ -486,7 +509,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       }
 
       if (options?.navigateToDetail) {
-        const targetDealId = savedDoc.deal_id || dealId || currentDeal?.id;
+        const targetDealId = savedDoc.deal_id || resolvedDealId;
         if (targetDealId) navigate(`/deals/${targetDealId}`);
         else navigate(`/documents/${savedDoc.id}`);
       }

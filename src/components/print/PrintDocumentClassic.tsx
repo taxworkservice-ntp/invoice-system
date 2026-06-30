@@ -270,12 +270,12 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           <table className="print-classic-items-table">
             <colgroup>
               <col style={{ width: "12mm" }} />
-              <col style={{ width: "75mm" }} />
+              <col style={{ width: "80mm" }} />
               <col style={{ width: "13mm" }} />
               <col style={{ width: "18mm" }} />
               <col style={{ width: "22mm" }} />
               <col style={{ width: "11mm" }} />
-              <col style={{ width: "31mm" }} />
+              <col style={{ width: "26mm" }} />
             </colgroup>
             <thead>
               <tr>
