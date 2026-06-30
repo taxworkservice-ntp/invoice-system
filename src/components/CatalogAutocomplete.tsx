@@ -224,7 +224,7 @@ export function CatalogAutocomplete({
       <CatalogItemPickerModal
         open={pickerOpen}
         items={items}
-        initialSearch={value}
+        initialSearch=""
         onClose={() => setPickerOpen(false)}
         onSelect={(item) => {
           onSelect(item);
