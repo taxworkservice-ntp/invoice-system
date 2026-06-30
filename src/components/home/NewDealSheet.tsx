@@ -5,11 +5,11 @@ import { Modal } from "../ui/Modal";
 interface NewDealSheetProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes") => void;
+  onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill") => void;
   vatRegistered?: boolean;
 }
 
-type NewDealType = "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes";
+type NewDealType = "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill";
 
 const GROUPS: {
   title: string;
@@ -39,6 +39,7 @@ const GROUPS: {
   {
     title: "เก็บเงิน",
     options: [
+      { icon: ReceiptText, title: "ออกบิลประจำรอบ", subtitle: "ค่าน้ำ ค่าไฟ ค่าเช่า หรือค่าบริการรายเดือน", type: "utility_bill" },
       { icon: ReceiptText, title: "รวมใบแจ้งหนี้เพื่อออกใบวางบิล", subtitle: "วางบิลหลายใบพร้อมกัน", type: "billing_note" },
     ],
   },

@@ -70,6 +70,16 @@ function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function monthStartString() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+}
+
+function parseAmount(value: string) {
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function hasCartonOption(lineItem: LineItemForm) {
   return Boolean(lineItem.carton_unit && lineItem.qty_per_carton && lineItem.qty_per_carton > 0);
 }
@@ -119,8 +129,10 @@ function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item): Line
 export default function NewDealPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const type = (searchParams.get("type") || "quotation") as DocumentType;
-  const label = DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
+  const requestedType = searchParams.get("type") || "quotation";
+  const isUtilityBill = requestedType === "utility_bill";
+  const type = (isUtilityBill ? "invoice" : requestedType) as DocumentType;
+  const label = isUtilityBill ? "ออกบิลประจำรอบ" : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
   const isBillingNote = type === "billing_note";
   const isTaxInvoiceReceipt = type === "tax_invoice_receipt";
   const isDeliveryNote = type === "delivery_note";
@@ -146,6 +158,14 @@ export default function NewDealPage() {
   const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
   const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
   const [note, setNote] = useState("");
+  const [utilityServiceName, setUtilityServiceName] = useState("ค่าน้ำประปา");
+  const [utilityPeriodStart, setUtilityPeriodStart] = useState(monthStartString());
+  const [utilityPeriodEnd, setUtilityPeriodEnd] = useState(todayString());
+  const [utilityPreviousReading, setUtilityPreviousReading] = useState("");
+  const [utilityCurrentReading, setUtilityCurrentReading] = useState("");
+  const [utilityRate, setUtilityRate] = useState("");
+  const [utilityLastHint, setUtilityLastHint] = useState<string | null>(null);
+  const [loadingUtilityLast, setLoadingUtilityLast] = useState(false);
 
   const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
@@ -204,6 +224,132 @@ export default function NewDealPage() {
       setSelectedInvoiceIds(new Set());
     }
   }, [isBillingNote, selectedCustomer, userId]);
+
+  useEffect(() => {
+    if (!isUtilityBill || !selectedCustomer || !userId) {
+      setUtilityLastHint(null);
+      return;
+    }
+
+    let cancelled = false;
+    const customerId = selectedCustomer.id;
+    async function loadLastUsageBill() {
+      setLoadingUtilityLast(true);
+      try {
+        const { data: docs, error: docsError } = await supabase
+          .from("documents")
+          .select("id, doc_number, issue_date")
+          .eq("user_id", userId)
+          .eq("customer_id", customerId)
+          .eq("doc_type", "invoice")
+          .neq("status", "voided")
+          .order("issue_date", { ascending: false })
+          .limit(12);
+
+        if (cancelled) return;
+        if (docsError || !docs?.length) {
+          setUtilityLastHint("ยังไม่พบประวัติรอบก่อนของลูกค้ารายนี้");
+          return;
+        }
+
+        const docIds = docs.map((doc) => doc.id);
+        const { data: lines, error: linesError } = await supabase
+          .from("document_line_items")
+          .select("document_id, item_name, line_note, unit_price")
+          .in("document_id", docIds)
+          .order("created_at", { ascending: false });
+
+        if (cancelled) return;
+        if (linesError || !lines?.length) {
+          setUtilityLastHint("ยังไม่พบรายการบิลประจำรอบก่อนหน้า");
+          return;
+        }
+
+        const service = utilityServiceName.trim().toLowerCase();
+        const matchedLine = lines.find((line) => {
+          const note = String(line.line_note || "");
+          const itemName = String(line.item_name || "").trim().toLowerCase();
+          return note.includes("[USAGE_BILL]") && (!service || itemName === service);
+        });
+
+        if (!matchedLine) {
+          setUtilityLastHint("ยังไม่พบรายการบิลประจำรอบก่อนหน้าของบริการนี้");
+          return;
+        }
+
+        const note = String(matchedLine.line_note || "");
+        const currentMatch = note.match(/เลขปัจจุบัน:\s*([\d,.]+)/);
+        const currentReading = currentMatch?.[1]?.replace(/,/g, "");
+        if (currentReading && !utilityPreviousReading) {
+          setUtilityPreviousReading(currentReading);
+        }
+        if (matchedLine.unit_price != null && !utilityRate) {
+          setUtilityRate(String(matchedLine.unit_price));
+        }
+
+        const sourceDoc = docs.find((doc) => doc.id === matchedLine.document_id);
+        setUtilityLastHint(
+          currentReading
+            ? `ดึงเลขครั้งก่อน ${currentReading} จาก ${sourceDoc?.doc_number || "บิลก่อนหน้า"}`
+            : `พบประวัติจาก ${sourceDoc?.doc_number || "บิลก่อนหน้า"} แต่ไม่พบเลขปัจจุบัน`,
+        );
+      } finally {
+        if (!cancelled) setLoadingUtilityLast(false);
+      }
+    }
+
+    void loadLastUsageBill();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isUtilityBill, selectedCustomer, userId, utilityServiceName, utilityPreviousReading, utilityRate]);
+
+  useEffect(() => {
+    if (!isUtilityBill) return;
+
+    const previous = parseAmount(utilityPreviousReading);
+    const current = parseAmount(utilityCurrentReading);
+    const rate = parseAmount(utilityRate);
+    const usage = Math.max(0, Math.round((current - previous) * 1000) / 1000);
+    const serviceName = utilityServiceName.trim() || "ค่าบริการประจำรอบ";
+    const lineNote = [
+      "[USAGE_BILL]",
+      `รอบบิล: ${utilityPeriodStart || "-"} - ${utilityPeriodEnd || "-"}`,
+      `เลขก่อนหน้า: ${utilityPreviousReading || "0"}`,
+      `เลขปัจจุบัน: ${utilityCurrentReading || "0"}`,
+      `ใช้ไป: ${usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} หน่วย`,
+    ].join("\n");
+
+    setLineItems((prev) => {
+      const currentLine = prev[0] || createEmptyLine();
+      const utilityLine: LineItemForm = {
+        ...currentLine,
+        item_id: null,
+        item_sku: null,
+        item_name: serviceName,
+        item_type: "service",
+        line_note: lineNote,
+        unit: "หน่วย",
+        base_unit: "หน่วย",
+        carton_unit: null,
+        qty_per_carton: null,
+        base_unit_price: null,
+        unit_price: rate,
+        quantity: usage,
+        discount_percent: 0,
+      };
+      return [utilityLine, ...prev.slice(1)];
+    });
+  }, [
+    isUtilityBill,
+    utilityCurrentReading,
+    utilityPeriodEnd,
+    utilityPeriodStart,
+    utilityPreviousReading,
+    utilityRate,
+    utilityServiceName,
+  ]);
 
   const toggleInvoice = (id: string) => {
     setSelectedInvoiceIds((prev) => {
@@ -328,6 +474,28 @@ export default function NewDealPage() {
   const handleSave = async () => {
     if (!selectedCustomer || !userId) return;
     setError(null);
+
+    if (isUtilityBill) {
+      const previous = parseAmount(utilityPreviousReading);
+      const current = parseAmount(utilityCurrentReading);
+      const rate = parseAmount(utilityRate);
+      if (!utilityServiceName.trim()) {
+        setError("กรุณาระบุชื่อค่าบริการ");
+        return;
+      }
+      if (!utilityPeriodStart || !utilityPeriodEnd) {
+        setError("กรุณาระบุรอบบิล");
+        return;
+      }
+      if (current <= previous) {
+        setError("เลขปัจจุบันต้องมากกว่าเลขก่อนหน้า");
+        return;
+      }
+      if (rate <= 0) {
+        setError("กรุณาระบุราคา/หน่วย");
+        return;
+      }
+    }
 
     if (isLineItemDocument) {
       const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
@@ -678,9 +846,93 @@ export default function NewDealPage() {
           </Card>
         )}
 
+        {isUtilityBill && (
+          <Card>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-medium text-[#1A1A18]">ข้อมูลรอบบิล</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  ระบบจะคำนวณจำนวนหน่วย และบันทึกรายละเอียดไว้ในหมายเหตุรายการ
+                </p>
+              </div>
+              {loadingUtilityLast ? (
+                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">กำลังดูรอบก่อน</span>
+              ) : null}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                label="ชื่อค่าบริการ"
+                value={utilityServiceName}
+                onChange={(e) => setUtilityServiceName(e.target.value)}
+                placeholder="เช่น ค่าน้ำประปา"
+              />
+              <Input
+                label="ราคา/หน่วย"
+                type="number"
+                min="0"
+                value={utilityRate}
+                onChange={(e) => setUtilityRate(e.target.value)}
+                placeholder="0.00"
+              />
+              <Input
+                label="รอบบิลเริ่ม"
+                type="date"
+                value={utilityPeriodStart}
+                onChange={(e) => setUtilityPeriodStart(e.target.value)}
+              />
+              <Input
+                label="รอบบิลสิ้นสุด"
+                type="date"
+                value={utilityPeriodEnd}
+                onChange={(e) => setUtilityPeriodEnd(e.target.value)}
+              />
+              <Input
+                label="เลขก่อนหน้า"
+                type="number"
+                min="0"
+                value={utilityPreviousReading}
+                onChange={(e) => setUtilityPreviousReading(e.target.value)}
+                placeholder="0"
+              />
+              <Input
+                label="เลขปัจจุบัน"
+                type="number"
+                min="0"
+                value={utilityCurrentReading}
+                onChange={(e) => setUtilityCurrentReading(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="mt-4 rounded-xl border border-[#E7E5DE] bg-[#FBFAF7] px-4 py-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-500">ใช้ไป</span>
+                <span className="font-semibold text-[#1A1A18]">
+                  {Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000).toLocaleString("th-TH", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 3,
+                  })}{" "}
+                  หน่วย
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3 text-xs">
+                <span className="text-gray-500">ยอดก่อนภาษี</span>
+                <span className="font-medium text-[#1A1A18]">
+                  ฿{(
+                    Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000) *
+                    parseAmount(utilityRate)
+                  ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              {utilityLastHint ? <p className="mt-2 text-xs text-gray-500">{utilityLastHint}</p> : null}
+            </div>
+          </Card>
+        )}
+
         {isLineItemDocument && (
           <Card>
-            <h3 className="text-sm font-medium mb-3">รายการ</h3>
+            <h3 className="text-sm font-medium mb-3">{isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการ"}</h3>
             <div className="space-y-2">
               {lineItems.map((item) => {
                 const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
