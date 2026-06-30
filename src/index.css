@@ -589,7 +589,7 @@ body {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 118mm;
+  left: calc(118mm - 0.35px);
   z-index: 2;
   pointer-events: none;
   border-left: 0.35px solid #d1d5db;
