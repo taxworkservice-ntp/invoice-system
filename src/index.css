@@ -543,7 +543,7 @@ body {
 /* TERMS + TOTALS */
 .print-classic-bottom-row {
   display: grid;
-  grid-template-columns: 1fr 68mm;
+  grid-template-columns: 1fr 64mm;
   border: 0.5px solid #9ca3af;
   border-top: 0;
   border-radius: 0 0 8px 8px;
