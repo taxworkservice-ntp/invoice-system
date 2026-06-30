@@ -444,12 +444,25 @@ body {
   break-inside: avoid;
 }
 .print-classic-table-frame {
+  position: relative;
   border-radius: 8px;
-  box-shadow: inset 0 0 0 0.5px #9ca3af;
   overflow: hidden;
 }
+.print-classic-table-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border: 0.5px solid #9ca3af;
+  border-radius: 8px;
+}
+.print-classic-table-frame > * {
+  position: relative;
+  z-index: 1;
+}
 .print-classic-frame-section {
-  border-top: 0;
+  border-top: 0.35px solid #d1d5db;
 }
 .print-classic-frame-section-title {
   padding: 1.5mm 2.5mm;
