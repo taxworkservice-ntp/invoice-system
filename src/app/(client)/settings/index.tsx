@@ -14,6 +14,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useToast } from "../../../hooks/useToast";
 import { WHT_RATE_OPTIONS, DOC_TYPE_LABELS, LOGO_SIZE_OPTIONS } from "../../../constants";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
+import { defaultTerms } from "../../../lib/terms";
 import type { ClientProfile, DocNumberSequence, DocumentType } from "../../../types";
 
 const DOC_TYPES: DocumentType[] = [
@@ -551,23 +552,32 @@ export default function SettingsPage() {
               <p className="text-[11px] text-[#888780] mt-1">
                 เทมเพลตเริ่มต้นสำหรับเอกสารทุกประเภท มีผลกับเอกสารใหม่เท่านั้น
               </p>
-              {pdfTemplate === "classic" && (
-                <div className="mt-3">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    ข้อความเงื่อนไขท้ายฟอร์มคลาสสิก
-                  </label>
-                  <textarea
-                    value={classicTerms}
-                    onChange={(e) => { setClassicTerms(e.target.value); setProfileSaved(false); }}
-                    placeholder={`ได้รับสินค้าตามรายการข้างบนนี้ไว้ในสภาพดีและถูกต้องเรียบร้อยแล้ว\nสินค้าตามรายการข้างบนนี้ หากมีการเสียหายหรือชำรุด โปรดแจ้งกลับให้ทราบภายใน 3 วัน\nสินค้าซื้อแล้ว จะไม่รับคืน ยกเว้นแต่จะตกลงเป็นอย่างอื่น\nโปรดสั่งจ่ายเช็คขีดคร่อมในนาม "ชื่อบริษัท"`}
-                    rows={4}
-                    className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 placeholder:text-gray-400 resize-none"
-                  />
-                  <p className="text-[11px] text-[#888780] mt-1">
-                    หนึ่งบรรทัดต่อหนึ่งข้อ ถ้าเว้นว่างระบบจะใช้ข้อความมาตรฐานและชื่อบริษัทปัจจุบัน
-                  </p>
-                </div>
-              )}
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  ข้อความเงื่อนไขท้ายเอกสาร
+                </label>
+                <textarea
+                  value={classicTerms}
+                  onChange={(e) => { setClassicTerms(e.target.value); setProfileSaved(false); }}
+                  rows={4}
+                  className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 resize-none"
+                />
+                {!classicTerms.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClassicTerms(defaultTerms("").join("\n"));
+                      setProfileSaved(false);
+                    }}
+                    className="mt-2 text-xs text-[#378ADD] hover:underline"
+                  >
+                    + ใช้ข้อความเริ่มต้น
+                  </button>
+                )}
+                <p className="text-[11px] text-[#888780] mt-1">
+                  หนึ่งบรรทัดต่อหนึ่งข้อ ถ้าเว้นว่างระบบจะใช้ข้อความมาตรฐานและชื่อบริษัทปัจจุบัน
+                </p>
+              </div>
             </div>
 
             <div className="border-t border-[#E8E6DF] pt-3">

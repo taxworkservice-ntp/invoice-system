@@ -54,6 +54,12 @@ export async function resetAllClientData(id: string) {
   });
 }
 
+export async function resetClientDocuments(id: string) {
+  return apiFetch(`/api/admin/clients/${id}/reset-documents`, {
+    method: "POST",
+  });
+}
+
 export async function deleteAdminClient(id: string) {
   return apiFetch(`/api/admin/clients/${id}/delete`, {
     method: "DELETE",

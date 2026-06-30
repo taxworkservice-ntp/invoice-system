@@ -6,6 +6,7 @@ import {
   getAdminClientUser,
   resetAdminClientWorkspace,
   resetAllClientData,
+  resetClientDocuments,
   updateAdminClientPassword,
   updateAdminClientStatus,
 } from "../../../lib/adminApi";
@@ -53,6 +54,9 @@ export default function AdminClientDetailPage() {
   const [showResetAllModal, setShowResetAllModal] = useState(false);
   const [resetAllConfirm, setResetAllConfirm] = useState("");
   const [resettingAll, setResettingAll] = useState(false);
+  const [showResetDocsModal, setShowResetDocsModal] = useState(false);
+  const [resetDocsConfirm, setResetDocsConfirm] = useState("");
+  const [resettingDocs, setResettingDocs] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -227,6 +231,29 @@ export default function AdminClientDetailPage() {
       toast.error(error.message || "Reset all data failed");
     } finally {
       setResettingAll(false);
+    }
+  }
+
+  async function handleResetDocuments() {
+    if (!id || !clientProfile) return;
+
+    const expected = clientProfile.company_name_th?.trim() || email.trim();
+    if (resetDocsConfirm.trim() !== expected) {
+      toast.error("ชื่อยืนยันไม่ตรงกัน");
+      return;
+    }
+
+    setResettingDocs(true);
+    try {
+      await resetClientDocuments(id);
+      setShowResetDocsModal(false);
+      setResetDocsConfirm("");
+      toast.success("ล้างเอกสารและตั้งเลขใหม่เรียบร้อยแล้ว");
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Reset documents failed");
+    } finally {
+      setResettingDocs(false);
     }
   }
 
@@ -476,6 +503,25 @@ export default function AdminClientDetailPage() {
             </div>
 
             <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-orange-800">Clear Documents &amp; Numbering</div>
+              <p className="mt-1 text-sm leading-6 text-orange-900">
+                Delete all documents, deals, and stock movements for this client.
+                Document numbering will be reset to 1. Customers, catalog items, and
+                profile settings are preserved. This action cannot be undone.
+              </p>
+              <Button
+                variant="danger"
+                className="mt-3 w-full justify-center"
+                onClick={() => {
+                  setResetDocsConfirm("");
+                  setShowResetDocsModal(true);
+                }}
+              >
+                Clear all documents and numbering
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-orange-800">Reset All Data</div>
               <p className="mt-1 text-sm leading-6 text-orange-900">
                 Permanently delete all documents, deals, customers, catalog items, and stock history.
@@ -624,6 +670,55 @@ export default function AdminClientDetailPage() {
             </Button>
             <Button variant="danger" onClick={handleArchiveAndResetWorkspace} loading={resetting} disabled={workspaceResetConfirm.trim() !== confirmName}>
               Confirm reset
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showResetDocsModal}
+        onClose={() => {
+          if (!resettingDocs) {
+            setShowResetDocsModal(false);
+            setResetDocsConfirm("");
+          }
+        }}
+        title="Clear documents and numbering"
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-6 text-gray-700">
+            This will permanently delete all documents, deals, and stock movements for
+            this client. Document numbering will be reset to start from 1.
+          </p>
+          <p className="text-sm leading-6 text-gray-700 font-medium">
+            The following will be preserved:
+          </p>
+          <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
+            <li>Customers ({activeCustomerCount} active)</li>
+            <li>Catalog items ({activeItemCount} active)</li>
+            <li>Profile settings (company name, tax ID, logo, etc.)</li>
+          </ul>
+          <p className="text-sm font-semibold text-amber-700">This action cannot be undone. The documents will be permanently deleted.</p>
+          <Input
+            id="reset-docs-confirm"
+            label={`Type "${confirmName}" to confirm`}
+            value={resetDocsConfirm}
+            onChange={(event) => setResetDocsConfirm(event.target.value)}
+            placeholder={confirmName}
+          />
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowResetDocsModal(false);
+                setResetDocsConfirm("");
+              }}
+              disabled={resettingDocs}
+            >
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleResetDocuments} loading={resettingDocs} disabled={resetDocsConfirm.trim() !== confirmName}>
+              Clear all documents
             </Button>
           </div>
         </div>
