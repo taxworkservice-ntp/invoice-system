@@ -181,6 +181,9 @@ export default function DocumentDetailPage() {
     try {
       await voidDocumentWithSideEffects(doc, userId, voidReason);
 
+      let recreatedDocId: string | null = null;
+      let recreatedIsUtility = false;
+
       if (voidAndRecreate) {
         const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
         const newDocNumber = await generateDocNumberBE(userId, doc.doc_type, issueDate);
@@ -215,30 +218,35 @@ export default function DocumentDetailPage() {
           .select("*")
           .single();
 
-        if (newDoc && doc.line_items?.length) {
-          await saveLineItems(
-            doc.line_items.map((lineItem, index) => ({
-              document_id: newDoc.id,
-              user_id: userId,
-              item_id: lineItem.item_id,
-              item_name: lineItem.item_name,
-              line_note: lineItem.line_note || null,
-              item_sku: lineItem.item_sku,
-              item_type: lineItem.item_type,
-              unit: lineItem.unit,
-              unit_price: lineItem.unit_price,
-              quantity: lineItem.quantity,
-              base_quantity: lineItem.base_quantity,
-              discount_percent: lineItem.discount_percent,
-              discount_amount: lineItem.discount_amount,
-              qty_carton: lineItem.qty_carton,
-              carton_unit: lineItem.carton_unit,
-              source_document_id: lineItem.source_document_id,
-              source_line_item_id: lineItem.source_line_item_id,
-              line_total: lineItem.line_total,
-              sort_order: index,
-            }))
-          );
+        if (newDoc) {
+          recreatedDocId = newDoc.id;
+          recreatedIsUtility = isUtilityBill;
+
+          if (doc.line_items?.length) {
+            await saveLineItems(
+              doc.line_items.map((lineItem, index) => ({
+                document_id: newDoc.id,
+                user_id: userId,
+                item_id: lineItem.item_id,
+                item_name: lineItem.item_name,
+                line_note: lineItem.line_note || null,
+                item_sku: lineItem.item_sku,
+                item_type: lineItem.item_type,
+                unit: lineItem.unit,
+                unit_price: lineItem.unit_price,
+                quantity: lineItem.quantity,
+                base_quantity: lineItem.base_quantity,
+                discount_percent: lineItem.discount_percent,
+                discount_amount: lineItem.discount_amount,
+                qty_carton: lineItem.qty_carton,
+                carton_unit: lineItem.carton_unit,
+                source_document_id: lineItem.source_document_id,
+                source_line_item_id: lineItem.source_line_item_id,
+                line_total: lineItem.line_total,
+                sort_order: index,
+              }))
+            );
+          }
         }
 
         if (doc.doc_type === "billing_note") {
@@ -267,6 +275,12 @@ export default function DocumentDetailPage() {
       setVoidModal(false);
       setVoidReason("");
       setVoidAndRecreate(false);
+
+      if (recreatedDocId && recreatedIsUtility) {
+        navigate(`/documents/${recreatedDocId}/edit-utility`);
+        return;
+      }
+
       await fetchDoc();
     } catch (err: any) {
       setError(err.message);
@@ -578,6 +592,7 @@ export default function DocumentDetailPage() {
   const dueDateLabel = doc.due_date ? formatDate(doc.due_date) : "ไม่มีกำหนด";
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
   const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
+  const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
   const statusMessage = isVoided
     ? "ยกเลิกแล้ว เก็บไว้เป็นประวัติ"
     : doc.doc_type === "delivery_note" && isConverted
@@ -999,6 +1014,17 @@ export default function DocumentDetailPage() {
                 ดาวน์โหลดเอกสาร
               </Button>
             </div>
+          )}
+
+          {isDraft && isUtilityBill && (
+            <Button
+              variant="secondary"
+              size="md"
+              className="w-full"
+              onClick={() => navigate(`/documents/${doc.id}/edit-utility`)}
+            >
+              ✏️ แก้ไข
+            </Button>
           )}
 
           {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (

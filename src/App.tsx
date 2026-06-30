@@ -14,6 +14,7 @@ const DealDetailPage = lazy(() => import("./app/(client)/deals/[id]"));
 const DocumentsPage = lazy(() => import("./app/(client)/documents/index"));
 const NewDocumentPage = lazy(() => import("./app/(client)/documents/new"));
 const EditDocumentPage = lazy(() => import("./app/(client)/documents/edit"));
+const EditUtilityBillPage = lazy(() => import("./app/(client)/documents/edit-utility"));
 const DocumentDetailPage = lazy(() => import("./app/(client)/documents/[id]"));
 const DocumentPrintPreviewPage = lazy(() => import("./app/(client)/documents/print"));
 const CatalogPage = lazy(() => import("./app/(client)/catalog/index"));
@@ -84,6 +85,7 @@ export default function App() {
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/documents/new" element={<NewDocumentPage />} />
             <Route path="/documents/:id/edit" element={<EditDocumentPage />} />
+            <Route path="/documents/:id/edit-utility" element={<EditUtilityBillPage />} />
             <Route path="/documents/:id/print" element={<DocumentPrintPreviewPage />} />
             <Route path="/documents/:id" element={<DocumentDetailPage />} />
             <Route path="/catalog" element={<CatalogPage />} />

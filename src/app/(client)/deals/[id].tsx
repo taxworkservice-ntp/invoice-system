@@ -532,6 +532,8 @@ export default function DealDetailPage() {
 
   const handleConfirmVoid = async () => {
     if (!voidDocument || !userId || !dealId) return;
+    let recreatedId: string | null = null;
+    let recreatedIsUtility = false;
     setVoiding(true);
     try {
       await voidDocumentWithSideEffects(voidDocument, userId, voidReason);
@@ -566,7 +568,9 @@ export default function DealDetailPage() {
           .single();
 
         if (newDoc) {
+          recreatedId = newDoc.id;
           const sourceDoc = docsWithMeta.find((item) => item.document.id === voidDocument.id);
+          recreatedIsUtility = sourceDoc?.line_items.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
 
           if (sourceDoc && sourceDoc.line_items.length > 0) {
             await supabase.from("document_line_items").insert(
@@ -614,6 +618,12 @@ export default function DealDetailPage() {
       toast.success(voidAndRecreate ? "ยกเลิกและสร้างสำเนาใหม่สำเร็จ" : "ยกเลิกเอกสารสำเร็จ");
       setVoidModalOpen(false);
       setVoidDocument(null);
+
+      if (recreatedId && recreatedIsUtility) {
+        navigate(`/documents/${recreatedId}/edit-utility`);
+        return;
+      }
+
       fetchDealData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -625,6 +635,11 @@ export default function DealDetailPage() {
   const handleCurrentDocAction = () => {
     if (!activeDoc) return;
     if (activeDoc.document.status === "draft") {
+      const isUtilityBill = activeDoc.line_items.some((li) => (li.line_note || "").includes("[USAGE_BILL]"));
+      if (isUtilityBill) {
+        navigate(`/documents/${activeDoc.document.id}/edit-utility`);
+        return;
+      }
       navigate(`/documents/${activeDoc.document.id}/edit`);
       return;
     }
