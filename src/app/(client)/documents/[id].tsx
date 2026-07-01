@@ -19,6 +19,7 @@ import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { deleteDocumentFiles } from "../../../lib/r2";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { deductStockOnDocumentSent } from "../../../lib/stock";
+import { EditableDocNumber, EditableDocNumberInline } from "../../../components/documents/EditableDocNumber";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
@@ -104,6 +105,7 @@ export default function DocumentDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   const [convertModal, setConvertModal] = useState(false);
+  const [docNumberOverride, setDocNumberOverride] = useState("");
   const [hasQuotationDnActivity, setHasQuotationDnActivity] = useState(false);
   const [dnInvoiceRef, setDnInvoiceRef] = useState<{ id: string; doc_number: string | null } | null>(null);
 
@@ -186,7 +188,7 @@ export default function DocumentDetailPage() {
 
       if (voidAndRecreate) {
         const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
-        const newDocNumber = await generateDocNumberBE(userId, doc.doc_type, issueDate);
+        const newDocNumber = docNumberOverride || await generateDocNumberBE(userId, doc.doc_type, issueDate);
         const { data: newDoc } = await supabase
           .from("documents")
           .insert({
@@ -330,7 +332,7 @@ export default function DocumentDetailPage() {
         }
       }
 
-      const recNumber = await generateDocNumberBE(userId, "receipt", payDate);
+      const recNumber = docNumberOverride || await generateDocNumberBE(userId, "receipt", payDate);
       await supabase.from("documents").insert({
         user_id: userId,
         deal_id: doc.deal_id,
@@ -372,7 +374,7 @@ export default function DocumentDetailPage() {
     setActionLoading("convert");
     try {
       const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId, "invoice", issueDate);
+      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "invoice", issueDate);
       const { data: invoice } = await supabase
         .from("documents")
         .insert({
@@ -446,7 +448,7 @@ export default function DocumentDetailPage() {
     setActionLoading("copy");
     try {
       const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId, doc.doc_type, issueDate);
+      const docNumber = docNumberOverride || await generateDocNumberBE(userId, doc.doc_type, issueDate);
       const { data: copy } = await supabase
         .from("documents")
         .insert({
@@ -637,7 +639,27 @@ export default function DocumentDetailPage() {
             </div>
 
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-[#1A1A18] sm:text-3xl">{doc.doc_number || "-"}</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-[#1A1A18] sm:text-3xl">
+                <EditableDocNumberInline
+                  value={doc.doc_number || "-"}
+                  onSave={async (newValue) => {
+                    if (!id) return;
+                    const { error } = await supabase.from("documents").update({ doc_number: newValue }).eq("id", id);
+                    if (!error) {
+                      setDoc((prev) => prev ? { ...prev, doc_number: newValue } : prev);
+                      toast.success("เปลี่ยนเลขที่เอกสารแล้ว");
+                    } else {
+                      toast.error("ไม่สามารถเปลี่ยนเลขที่เอกสารได้");
+                    }
+                  }}
+                />
+              </h2>
+              <EditableDocNumber
+                value={docNumberOverride}
+                onChange={setDocNumberOverride}
+                placeholder="ตั้งเลขที่เอง (เว้นว่าง = อัตโนมัติ)"
+                className="mt-2 max-w-xs"
+              />
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#625C52]">{statusMessage}</p>
               {isVoided && doc.voided_reason && (
                 <p className="mt-1 text-xs text-[#9A9690] italic">เหตุผลการยกเลิก: {doc.voided_reason}</p>

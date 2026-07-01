@@ -19,6 +19,7 @@ import { generateDocNumberBE } from "../../lib/docNumber";
 import { deleteDocumentFiles } from "../../lib/r2";
 import { WHT_RATE_OPTIONS } from "../../constants";
 import type { BillingNoteInvoice, Customer, Deal, Document, DocumentLineItem, DocumentStatus, WhtRate } from "../../types";
+import { EditableDocNumber, EditableDocNumberInline } from "./EditableDocNumber";
 
 type InvoiceOption = Document & {
   line_items: DocumentLineItem[];
@@ -78,6 +79,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   const [saving, setSaving] = useState<"draft" | "preview" | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [docNumberOverride, setDocNumberOverride] = useState("");
 
   const [existingDocument, setExistingDocument] = useState<Document | null>(null);
   const [currentDocumentId, setCurrentDocumentId] = useState<string | undefined>(documentId);
@@ -433,7 +435,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       deal_id: resolvedDealId,
       customer_id: selectedCustomerId,
       doc_type: "billing_note",
-      doc_number: existingDocument?.doc_number || null,
+      doc_number: docNumberOverride || existingDocument?.doc_number || null,
       status: existingDocument?.status === "paid" ? "paid" : "draft",
       issue_date: issueDate,
       due_date: dueDate,
@@ -686,7 +688,15 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             </div>
             <div className="flex items-center gap-2">
               <Badge status={existingDocument?.status || "draft"} />
-              <span className="text-xs text-gray-500">{existingDocument?.doc_number || "ร่าง — ยังไม่มีเลขที่"}</span>
+              <EditableDocNumberInline
+                value={existingDocument?.doc_number || "-"}
+                onSave={async (newValue) => {
+                  if (!currentDocumentId) return;
+                  await supabase.from("documents").update({ doc_number: newValue }).eq("id", currentDocumentId);
+                  setExistingDocument((prev) => prev ? { ...prev, doc_number: newValue } : prev);
+                }}
+              />
+              {!existingDocument?.doc_number && <span className="text-xs text-gray-500">ร่าง — ยังไม่มีเลขที่</span>}
             </div>
           </div>
         </Card>
@@ -945,6 +955,14 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             className="w-full rounded-xl border border-card-border bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </Card>
+
+        <EditableDocNumber
+          value={docNumberOverride}
+          onChange={setDocNumberOverride}
+          placeholder="เลขที่ใบวางบิล (เว้นว่าง = สร้างอัตโนมัติ)"
+          autoGenerate={async () => userId ? await generateDocNumberBE(userId, "billing_note", issueDate) : ""}
+          className="mb-3 px-4 md:px-0"
+        />
 
         {isDraft && !readOnly && (
           <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-card-border bg-white px-4 py-3 md:bottom-0">

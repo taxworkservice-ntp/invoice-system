@@ -18,6 +18,7 @@ import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle } from "lucide-react";
+import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { DocumentType, Customer, WhtRate, PaymentMethod, Item } from "../../../types";
 
 interface LineItemForm {
@@ -208,6 +209,7 @@ export default function NewDealPage() {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
 
@@ -647,7 +649,7 @@ export default function NewDealPage() {
 
       const now = todayString();
       const documentIssueDate = isTaxInvoiceReceipt ? paymentDate : issueDate;
-      const docNumber = await generateDocNumberBE(userId, type, documentIssueDate);
+      const docNumber = docNumberOverride || await generateDocNumberBE(userId, type, documentIssueDate);
 
       const docPayload: Record<string, unknown> = {
         user_id: userId,
@@ -1517,6 +1519,14 @@ export default function NewDealPage() {
             </div>
           </div>
         </Card>
+
+        <EditableDocNumber
+          value={docNumberOverride}
+          onChange={setDocNumberOverride}
+          placeholder="เลขที่เอกสาร (เว้นว่าง = สร้างอัตโนมัติ)"
+          autoGenerate={async () => await generateDocNumberBE(userId!, type, isTaxInvoiceReceipt ? paymentDate : issueDate)}
+          className="mb-3"
+        />
 
         <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
           {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "บันทึกและออกเอกสาร" : "บันทึก"}

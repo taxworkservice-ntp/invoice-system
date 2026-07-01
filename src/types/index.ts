@@ -63,6 +63,7 @@ export interface ClientProfile {
   bank_account: string | null;
   signature_url: string | null;
   stamp_url: string | null;
+  dev_mode_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

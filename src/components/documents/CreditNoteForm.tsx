@@ -15,6 +15,7 @@ import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
 import { DOC_TYPE_LABELS } from "../../constants";
 import type { Document, DocumentLineItem, Customer, Deal } from "../../types";
+import { EditableDocNumber } from "./EditableDocNumber";
 
 interface CreditNoteFormProps {
   dealId?: string;
@@ -54,6 +55,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState("");
 
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -290,7 +292,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       let targetDocId = docId;
 
       if (!isEditing) {
-        const docNumber = await generateDocNumberBE(userId, "credit_note", effectiveIssueDate);
+        const docNumber = docNumberOverride || await generateDocNumberBE(userId, "credit_note", effectiveIssueDate);
         const { data: newDoc, error: insertErr } = await supabase
           .from("documents")
           .insert({
@@ -641,6 +643,14 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         </div>
 
         {error && <p className="text-xs text-red-500">{error}</p>}
+
+        <EditableDocNumber
+          value={docNumberOverride}
+          onChange={setDocNumberOverride}
+          placeholder="เลขที่ใบลดหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
+          autoGenerate={async () => userId && !isEditing ? await generateDocNumberBE(userId, "credit_note", issueDate || new Date().toISOString().slice(0, 10)) : ""}
+          className="mb-3"
+        />
 
         {!isReadOnly && (
           <div className="flex gap-2">

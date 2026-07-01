@@ -141,6 +141,9 @@ create table client_profiles (
   -- Onboarding / account state
   password_changed      boolean not null default true,
 
+  -- Dev mode flag (admin-granted per client)
+  dev_mode_enabled      boolean not null default false,
+
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );
@@ -906,6 +909,23 @@ $$ language plpgsql security definer;
 create trigger trg_create_default_sequences
   after insert on client_profiles
   for each row execute function create_default_sequences();
+
+
+-- ============================================================
+-- DEV MODE (admin-granted per-client toggle)
+-- ============================================================
+create or replace function toggle_dev_mode(p_user_id uuid, p_enabled boolean)
+returns void
+language plpgsql security definer
+as $$
+begin
+  update client_profiles set dev_mode_enabled = p_enabled where user_id = p_user_id;
+end;
+$$;
+
+create policy "Admin toggles client dev mode"
+  on client_profiles for update
+  using (public.is_admin());
 
 
 -- ============================================================

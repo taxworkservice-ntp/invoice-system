@@ -18,6 +18,7 @@ import { formatBuddhistDate } from "../../lib/dates";
 import { formatCurrency } from "../../lib/format";
 import { WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../constants";
 import type { Customer, Document, DocumentLineItem, DocumentStatus, WhtRate } from "../../types";
+import { EditableDocNumber } from "./EditableDocNumber";
 
 type DeliveryNoteOption = Document & {
   line_items: DocumentLineItem[];
@@ -70,6 +71,7 @@ export function InvoiceFromDeliveryNotesForm() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingDns, setLoadingDns] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -292,7 +294,7 @@ export function InvoiceFromDeliveryNotesForm() {
         createdDealId = deal.id;
       }
 
-      const docNumber = await generateDocNumberBE(userId, "invoice", issueDate);
+      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "invoice", issueDate);
       const { data: invoice, error: invoiceError } = await supabase
         .from("documents")
         .insert({
@@ -609,6 +611,13 @@ export function InvoiceFromDeliveryNotesForm() {
                 <div className="flex justify-between border-t border-[#E1DDD3] pt-2 text-base font-semibold"><span>ยอดชำระสุทธิ</span><span>฿{formatCurrency(tax.netPayable)}</span></div>
               </div>
             </div>
+            <EditableDocNumber
+              value={docNumberOverride}
+              onChange={setDocNumberOverride}
+              placeholder="เลขที่ใบแจ้งหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
+              autoGenerate={async () => userId ? await generateDocNumberBE(userId, "invoice", issueDate) : ""}
+              className="mb-3"
+            />
             <Button className="w-full justify-center" disabled={!canSave || saving} loading={saving} onClick={handleSave}>
               สร้างใบแจ้งหนี้จากใบส่งของ
             </Button>

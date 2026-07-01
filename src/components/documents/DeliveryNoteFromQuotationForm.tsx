@@ -15,6 +15,7 @@ import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
 import { formatCurrency } from "../../lib/format";
 import type { Customer, Document, DocumentLineItem, DocumentStatus } from "../../types";
+import { EditableDocNumber } from "./EditableDocNumber";
 
 type QuotationWithCustomer = Document & { customer?: Customer };
 
@@ -68,6 +69,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -220,7 +222,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
     let createdDocId: string | null = null;
 
     try {
-      const docNumber = await generateDocNumberBE(userId, "delivery_note", issueDate);
+      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "delivery_note", issueDate);
       const { data: deliveryNote, error: docError } = await supabase
         .from("documents")
         .insert({
@@ -480,6 +482,13 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
               </div>
               <p className="mt-2 text-xs leading-5 text-gray-500">มูลค่านี้ใช้สำหรับรวมออกใบแจ้งหนี้ภายหลัง แต่ PDF ใบส่งของจะไม่แสดงราคา</p>
             </div>
+            <EditableDocNumber
+              value={docNumberOverride}
+              onChange={setDocNumberOverride}
+              placeholder="เลขที่ใบส่งของ (เว้นว่าง = สร้างอัตโนมัติ)"
+              autoGenerate={async () => userId ? await generateDocNumberBE(userId, "delivery_note", issueDate) : ""}
+              className="mb-3"
+            />
             <Button className="w-full justify-center" disabled={selectedLines.length === 0 || saving} loading={saving} onClick={handleSave}>
               สร้างใบส่งของฉบับร่าง
             </Button>

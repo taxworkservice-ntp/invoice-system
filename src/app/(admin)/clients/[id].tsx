@@ -41,6 +41,7 @@ export default function AdminClientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [togglingDev, setTogglingDev] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showWorkspaceResetModal, setShowWorkspaceResetModal] = useState(false);
   const [workspaceResetConfirm, setWorkspaceResetConfirm] = useState("");
@@ -180,6 +181,21 @@ export default function AdminClientDetailPage() {
       toast.error(error.message || "Unable to update account status");
     } finally {
       setToggling(false);
+    }
+  }
+
+  async function handleToggleDevMode() {
+    if (!id) return;
+    setTogglingDev(true);
+    try {
+      const newValue = !clientProfile?.dev_mode_enabled;
+      await supabase.rpc("toggle_dev_mode", { p_user_id: id, p_enabled: newValue });
+      setClientProfile((prev) => prev ? { ...prev, dev_mode_enabled: newValue } : prev);
+      toast.success(newValue ? "เปิด Dev Mode แล้ว" : "ปิด Dev Mode แล้ว");
+    } catch (error: any) {
+      toast.error(error.message || "Unable to toggle dev mode");
+    } finally {
+      setTogglingDev(false);
     }
   }
 
@@ -478,6 +494,22 @@ export default function AdminClientDetailPage() {
             <Button variant="secondary" className="w-full text-[#C0392B] border-[#C0392B]/20 hover:bg-red-50" onClick={handleToggleActive} disabled={toggling}>
               {toggling ? "กำลังดำเนินการ..." : isActive ? "ปิดการใช้งานบัญชี" : "เปิดใช้งานบัญชี"}
             </Button>
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">Dev Mode</div>
+              <p className="mt-1 text-sm leading-6 text-amber-900">
+                Allow client to freely edit document numbers (invoice number, receipt number, etc.).
+                Currently: <strong>{clientProfile?.dev_mode_enabled ? "ON" : "OFF"}</strong>
+              </p>
+              <Button
+                variant={clientProfile?.dev_mode_enabled ? "danger" : "secondary"}
+                className="mt-3 w-full justify-center"
+                onClick={handleToggleDevMode}
+                disabled={togglingDev}
+              >
+                {togglingDev ? "..." : clientProfile?.dev_mode_enabled ? "Disable Dev Mode" : "Enable Dev Mode"}
+              </Button>
+            </div>
 
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">Start New Workspace</div>

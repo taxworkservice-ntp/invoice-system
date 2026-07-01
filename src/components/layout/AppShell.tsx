@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
+import { DevBadge } from "../ui/DevBadge";
 
 const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
@@ -55,8 +56,8 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
     <div className="md:flex min-h-screen bg-page-bg">
       <aside className="hidden md:flex md:flex-col md:w-56 md:h-screen md:sticky md:top-0 bg-white border-r border-card-border shrink-0">
         <div className="px-4 py-4 border-b border-card-border">
-          <h1 className="text-base font-semibold text-gray-800 truncate" title={companyName}>
-            {companyName}
+          <h1 className="text-base font-semibold text-gray-800 truncate flex items-center" title={companyName}>
+            {companyName}<DevBadge />
           </h1>
         </div>
         <nav className="flex-1 px-2 py-3 space-y-1">

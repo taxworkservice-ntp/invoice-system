@@ -25,6 +25,7 @@ import {
   todayString,
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
+import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import type {
@@ -151,6 +152,7 @@ export default function DealDetailPage() {
   const [showVoided, setShowVoided] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copyingDeal, setCopyingDeal] = useState(false);
+  const [docNumberOverride, setDocNumberOverride] = useState("");
 
   const toast = useToast();
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -348,7 +350,7 @@ export default function DealDetailPage() {
       }
 
       const issueDate = quotation.issue_date || new Date().toISOString().slice(0, 10);
-      const docNumber = await generateDocNumberBE(userId, "invoice", issueDate);
+      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "invoice", issueDate);
 
       const lineItems = docsWithMeta.find((item) => item.document.id === quotation.id)?.line_items || [];
 
@@ -479,7 +481,7 @@ export default function DealDetailPage() {
       }
 
       const issueDate = paymentDate;
-      const docNumber = await generateDocNumberBE(userId, "receipt", issueDate);
+      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "receipt", issueDate);
 
       await supabase.from("documents").insert({
         user_id: userId,
@@ -540,7 +542,7 @@ export default function DealDetailPage() {
 
       if (voidAndRecreate) {
         const issueDate = voidDocument.issue_date || new Date().toISOString().slice(0, 10);
-        const newDocNumber = await generateDocNumberBE(userId, voidDocument.doc_type, issueDate);
+        const newDocNumber = docNumberOverride || await generateDocNumberBE(userId, voidDocument.doc_type, issueDate);
 
         const { data: newDoc } = await supabase
           .from("documents")
@@ -667,7 +669,7 @@ export default function DealDetailPage() {
 
       if (sourceDoc) {
         const issueDate = new Date().toISOString().slice(0, 10);
-        const docNumber = await generateDocNumberBE(userId, "quotation", issueDate);
+        const docNumber = docNumberOverride || await generateDocNumberBE(userId, "quotation", issueDate);
         const { data: quotationDoc, error: docError } = await supabase
           .from("documents")
           .insert({
@@ -1105,6 +1107,13 @@ export default function DealDetailPage() {
             </div>
           )}
         </Card>
+
+        <EditableDocNumber
+          value={docNumberOverride}
+          onChange={setDocNumberOverride}
+          placeholder="ตั้งเลขที่เอกสารเอง (เว้นว่าง = อัตโนมัติ)"
+          className="mb-3"
+        />
 
         {deliveryProgress && (
           <Card className={`border-[0.5px] ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
