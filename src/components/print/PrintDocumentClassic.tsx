@@ -104,12 +104,6 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           : `print-sheet print-theme-classic${documentClass}`
       }
     >
-      {/* Crop marks */}
-      <div className="print-classic-crop print-classic-crop-tl" />
-      <div className="print-classic-crop print-classic-crop-tr" />
-      <div className="print-classic-crop print-classic-crop-bl" />
-      <div className="print-classic-crop print-classic-crop-br" />
-
       {/* ============== TOP HEADER ============== */}
       <header className="print-classic-top">
         <div className="print-classic-logo">
@@ -424,7 +418,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
               ) : null}
               <div className="print-classic-totals-row print-classic-totals-row-grand">
                 <div className="print-classic-totals-lab">
-                  <div className="print-classic-totals-th">จำนวนเงินรวมทั้งสิ้น</div>
+                  <div className="print-classic-totals-th">ยอดรวมทั้งสิ้น</div>
                   <div className="print-classic-totals-en">GRAND TOTAL</div>
                 </div>
                 <div className="print-classic-totals-val">{formatCurrency(document.total_amount)}</div>
