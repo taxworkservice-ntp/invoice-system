@@ -703,7 +703,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-bottom-row {
   position: relative;
   display: grid;
-  grid-template-columns: 118fr 64fr;
+  grid-template-columns: 123fr 59fr;
   border: 0;
   border-top: 0;
   border-radius: 0;
@@ -714,7 +714,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(64.835% - 0.35px);
+  left: calc(67.582% - 0.35px);
   z-index: 2;
   pointer-events: none;
   border-left: 0.35px solid #d1d5db;
