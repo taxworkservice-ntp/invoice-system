@@ -19,7 +19,7 @@ import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStoc
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle, Copy, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
-import type { DocumentType, Customer, WhtRate, PaymentMethod, Item } from "../../../types";
+import type { DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailPreset } from "../../../types";
 
 interface LineItemForm {
   id: string;
@@ -263,6 +263,15 @@ function parseJobDetailSuggestions(notes: string[]): JobDetailSuggestions {
   };
 }
 
+function mergeJobDetailSuggestions(...groups: Partial<JobDetailSuggestions>[]) {
+  return {
+    colors: uniqueStrings(groups.flatMap((group) => group.colors || [])).slice(0, 20),
+    positions: uniqueStrings(groups.flatMap((group) => group.positions || [])).slice(0, 20),
+    materials: uniqueStrings(groups.flatMap((group) => group.materials || [])).slice(0, 20),
+    remarks: uniqueStrings(groups.flatMap((group) => group.remarks || [])).slice(0, 20),
+  };
+}
+
 export default function NewDealPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -286,6 +295,7 @@ export default function NewDealPage() {
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([createEmptyLine()]);
   const [jobDetailSuggestions, setJobDetailSuggestions] = useState<JobDetailSuggestions>(DEFAULT_JOB_DETAIL_SUGGESTIONS);
+  const [serviceJobDetailPresets, setServiceJobDetailPresets] = useState<Record<string, JobDetailSuggestions>>({});
   const [vatRegistered, setVatRegistered] = useState(clientProfile?.vat_registered ?? false);
   const [vatRate, setVatRate] = useState<number>(clientProfile?.vat_rate ?? VAT_DEFAULT);
   const [whtRate, setWhtRate] = useState<WhtRate>(clientProfile?.default_wht_rate ?? "0");
@@ -317,6 +327,10 @@ export default function NewDealPage() {
   const toast = useToast();
 
   const serviceItems = useMemo(() => items.filter((item) => item.item_type === "service"), [items]);
+  const jobDetailServiceItems = useMemo(
+    () => serviceItems.filter((item) => item.has_job_details),
+    [serviceItems],
+  );
   const selectedUtilityService = useMemo(
     () => serviceItems.find((item) => item.id === utilityServiceItemId) || null,
     [serviceItems, utilityServiceItemId],
@@ -397,6 +411,47 @@ export default function NewDealPage() {
       cancelled = true;
     };
   }, [userId]);
+
+  useEffect(() => {
+    const itemIds = jobDetailServiceItems.map((item) => item.id);
+    if (!userId || itemIds.length === 0) {
+      setServiceJobDetailPresets({});
+      return;
+    }
+
+    let cancelled = false;
+    async function loadServicePresets() {
+      const { data } = await supabase
+        .from("item_job_detail_presets")
+        .select("*")
+        .eq("user_id", userId)
+        .in("item_id", itemIds)
+        .order("sort_order", { ascending: true });
+
+      if (cancelled) return;
+      const next: Record<string, JobDetailSuggestions> = {};
+      itemIds.forEach((itemId) => {
+        next[itemId] = { colors: [], positions: [], materials: [], remarks: [] };
+      });
+
+      ((data || []) as ItemJobDetailPreset[]).forEach((preset) => {
+        if (!next[preset.item_id]) {
+          next[preset.item_id] = { colors: [], positions: [], materials: [], remarks: [] };
+        }
+        if (preset.field_key === "color") next[preset.item_id].colors.push(preset.value);
+        if (preset.field_key === "position") next[preset.item_id].positions.push(preset.value);
+        if (preset.field_key === "material") next[preset.item_id].materials.push(preset.value);
+        if (preset.field_key === "remark") next[preset.item_id].remarks.push(preset.value);
+      });
+
+      setServiceJobDetailPresets(next);
+    }
+
+    void loadServicePresets();
+    return () => {
+      cancelled = true;
+    };
+  }, [jobDetailServiceItems, userId]);
 
   useEffect(() => {
     if (!isUtilityBill || !selectedCustomer || !userId) {
@@ -602,12 +657,12 @@ export default function NewDealPage() {
     };
   }, [unpaidInvoices, selectedInvoiceIds]);
 
-  const activeJobDetailSuggestions = useMemo<JobDetailSuggestions>(() => ({
-    colors: uniqueStrings([...jobDetailSuggestions.colors, ...lineItems.map((item) => item.job_color)]).slice(0, 20),
-    positions: uniqueStrings([...jobDetailSuggestions.positions, ...lineItems.map((item) => item.job_position)]).slice(0, 20),
-    materials: uniqueStrings([...jobDetailSuggestions.materials, ...lineItems.map((item) => item.job_material)]).slice(0, 20),
-    remarks: uniqueStrings([...jobDetailSuggestions.remarks, ...lineItems.map((item) => item.job_remark)]).slice(0, 20),
-  }), [jobDetailSuggestions, lineItems]);
+  const currentDocumentJobDetailSuggestions = useMemo<JobDetailSuggestions>(() => ({
+    colors: uniqueStrings(lineItems.map((item) => item.job_color)).slice(0, 20),
+    positions: uniqueStrings(lineItems.map((item) => item.job_position)).slice(0, 20),
+    materials: uniqueStrings(lineItems.map((item) => item.job_material)).slice(0, 20),
+    remarks: uniqueStrings(lineItems.map((item) => item.job_remark)).slice(0, 20),
+  }), [lineItems]);
 
   const tax = useMemo(() => {
     if (isBillingNote) {
@@ -1288,6 +1343,11 @@ export default function NewDealPage() {
                 const baseQuantity = getLineBaseQuantity(item);
                 const jobDetailsEnabled = matchedItem?.item_type === "service" && matchedItem.has_job_details;
                 const jobDetailsSummary = getJobDetailsSummary(item);
+                const lineJobDetailSuggestions = mergeJobDetailSuggestions(
+                  matchedItem?.id ? serviceJobDetailPresets[matchedItem.id] : {},
+                  currentDocumentJobDetailSuggestions,
+                  jobDetailSuggestions,
+                );
 
                 if (isUtilityBill && idx === 0) {
                   const amounts = calculateLineAmounts(item);
@@ -1362,22 +1422,22 @@ export default function NewDealPage() {
                       {item.job_details_open && (
                         <div className="mt-3 grid gap-2 md:grid-cols-2">
                           <datalist id={`${item.id}-job-colors`}>
-                            {activeJobDetailSuggestions.colors.map((value) => (
+                            {lineJobDetailSuggestions.colors.map((value) => (
                               <option key={value} value={value} />
                             ))}
                           </datalist>
                           <datalist id={`${item.id}-job-positions`}>
-                            {activeJobDetailSuggestions.positions.map((value) => (
+                            {lineJobDetailSuggestions.positions.map((value) => (
                               <option key={value} value={value} />
                             ))}
                           </datalist>
                           <datalist id={`${item.id}-job-materials`}>
-                            {activeJobDetailSuggestions.materials.map((value) => (
+                            {lineJobDetailSuggestions.materials.map((value) => (
                               <option key={value} value={value} />
                             ))}
                           </datalist>
                           <datalist id={`${item.id}-job-remarks`}>
-                            {activeJobDetailSuggestions.remarks.map((value) => (
+                            {lineJobDetailSuggestions.remarks.map((value) => (
                               <option key={value} value={value} />
                             ))}
                           </datalist>

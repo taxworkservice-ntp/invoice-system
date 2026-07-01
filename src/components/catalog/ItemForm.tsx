@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TypeSelector } from "./TypeSelector";
 import { UnitSelector } from "./UnitSelector";
 import { CartonUnitSection } from "./CartonUnitSection";
@@ -8,7 +8,36 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
 import { isDuplicateSkuError, normalizeSku, validateSku } from "../../lib/sku";
-import type { Item } from "../../types";
+import type { Item, JobDetailPresetField, ItemJobDetailPreset } from "../../types";
+
+type PresetState = Record<JobDetailPresetField, string[]>;
+
+const JOB_DETAIL_FIELDS: { key: JobDetailPresetField; label: string; placeholder: string }[] = [
+  { key: "color", label: "สี / ฟอยล์", placeholder: "เช่น ฟอยล์ทอง" },
+  { key: "position", label: "ตำแหน่ง", placeholder: "เช่น ด้านหน้า" },
+  { key: "material", label: "วัสดุ", placeholder: "เช่น กล่องกระดาษ" },
+  { key: "remark", label: "หมายเหตุ", placeholder: "เช่น ตามแบบลูกค้า" },
+];
+
+const EMPTY_PRESETS: PresetState = {
+  color: [],
+  position: [],
+  material: [],
+  remark: [],
+};
+
+function uniquePresetValues(values: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  values.forEach((value) => {
+    const trimmed = value.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) return;
+    seen.add(key);
+    result.push(trimmed);
+  });
+  return result;
+}
 
 interface Props {
   item?: Item | null;
@@ -32,6 +61,13 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [hasJobDetails, setHasJobDetails] = useState(
     item?.has_job_details || false,
   );
+  const [jobDetailPresets, setJobDetailPresets] = useState<PresetState>(EMPTY_PRESETS);
+  const [newPresetValues, setNewPresetValues] = useState<Record<JobDetailPresetField, string>>({
+    color: "",
+    position: "",
+    material: "",
+    remark: "",
+  });
   const [baseUnit, setBaseUnit] = useState(item?.base_unit || "ชิ้น");
   const [cartonEnabled, setCartonEnabled] = useState(!!item?.carton_unit);
   const [cartonUnit, setCartonUnit] = useState(item?.carton_unit || "");
@@ -47,6 +83,70 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   );
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!item?.id || item.item_type !== "service") return;
+
+    let cancelled = false;
+    async function loadPresets() {
+      const { data } = await supabase
+        .from("item_job_detail_presets")
+        .select("*")
+        .eq("item_id", item!.id)
+        .order("field_key", { ascending: true })
+        .order("sort_order", { ascending: true });
+
+      if (cancelled) return;
+      const next: PresetState = { color: [], position: [], material: [], remark: [] };
+      ((data || []) as ItemJobDetailPreset[]).forEach((preset) => {
+        next[preset.field_key].push(preset.value);
+      });
+      setJobDetailPresets(next);
+    }
+
+    void loadPresets();
+    return () => {
+      cancelled = true;
+    };
+  }, [item]);
+
+  function addPreset(field: JobDetailPresetField) {
+    const value = newPresetValues[field].trim();
+    if (!value) return;
+    setJobDetailPresets((prev) => ({
+      ...prev,
+      [field]: uniquePresetValues([...prev[field], value]),
+    }));
+    setNewPresetValues((prev) => ({ ...prev, [field]: "" }));
+  }
+
+  function removePreset(field: JobDetailPresetField, value: string) {
+    setJobDetailPresets((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((presetValue) => presetValue !== value),
+    }));
+  }
+
+  async function saveJobDetailPresets(itemId: string) {
+    if (!profile) return;
+    await supabase.from("item_job_detail_presets").delete().eq("item_id", itemId);
+    if (itemType !== "service" || !hasJobDetails) return;
+
+    const records = JOB_DETAIL_FIELDS.flatMap(({ key }) =>
+      uniquePresetValues(jobDetailPresets[key]).map((value, index) => ({
+        user_id: profile.id,
+        item_id: itemId,
+        field_key: key,
+        value,
+        sort_order: index,
+      })),
+    );
+
+    if (records.length > 0) {
+      const { error } = await supabase.from("item_job_detail_presets").insert(records);
+      if (error) throw error;
+    }
+  }
 
   function validate(): boolean {
     const fieldErrors: Record<string, string> = {};
@@ -120,6 +220,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
           .update(payload)
           .eq("id", item!.id);
         if (error) throw error;
+        await saveJobDetailPresets(item!.id);
         toast.success("บันทึกการเปลี่ยนแปลงแล้ว");
         onSave(item!.id);
       } else {
@@ -138,6 +239,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
           .single();
         if (error) throw error;
         const newItem = data as Item;
+        await saveJobDetailPresets(newItem.id);
 
         const stockQty = parseFloat(initialStock) || 0;
         const costPerUnit = parseFloat(initialCost) || 0;
@@ -321,7 +423,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       </div>
 
       {itemType === "service" && (
-        <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
+        <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4 space-y-4">
           <label className="flex items-start gap-3">
             <input
               type="checkbox"
@@ -338,6 +440,69 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
               </span>
             </span>
           </label>
+
+          {hasJobDetails && (
+            <div className="border-t border-[#ECE8DE] pt-4">
+              <div className="mb-3">
+                <div className="text-sm font-medium text-[#1A1A18]">ตัวเลือกเริ่มต้น</div>
+                <p className="mt-1 text-xs leading-5 text-[#888780]">
+                  เพิ่มค่าที่ใช้บ่อยเพื่อให้เลือกได้เร็วตอนสร้างใบเสนอราคา/ใบแจ้งหนี้ ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {JOB_DETAIL_FIELDS.map((field) => (
+                  <div key={field.key}>
+                    <div className="mb-2 text-[13px] font-medium text-[#1A1A18]">{field.label}</div>
+                    {jobDetailPresets[field.key].length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-1.5">
+                        {jobDetailPresets[field.key].map((value) => (
+                          <span
+                            key={value}
+                            className="inline-flex items-center gap-1 rounded-full border border-[#D7DEE7] bg-white px-2.5 py-1 text-xs text-[#5F5A52]"
+                          >
+                            {value}
+                            <button
+                              type="button"
+                              onClick={() => removePreset(field.key, value)}
+                              className="text-gray-400 transition-colors hover:text-red-500"
+                              aria-label={`ลบ ${value}`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newPresetValues[field.key]}
+                        onChange={(event) =>
+                          setNewPresetValues((prev) => ({ ...prev, [field.key]: event.target.value }))
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addPreset(field.key);
+                          }
+                        }}
+                        placeholder={field.placeholder}
+                        className="min-w-0 flex-1 rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-sm focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addPreset(field.key)}
+                        className="shrink-0 rounded-lg border border-card-border bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        เพิ่ม
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

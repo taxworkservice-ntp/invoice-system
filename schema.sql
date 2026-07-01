@@ -269,6 +269,31 @@ create unique index idx_items_user_sku_unique
   on items (user_id, lower(sku))
   where sku is not null;
 
+create table item_job_detail_presets (
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid not null references profiles(id) on delete cascade,
+  item_id     uuid not null references items(id) on delete cascade,
+  field_key   text not null check (field_key in ('color', 'position', 'material', 'remark')),
+  value       text not null,
+  sort_order  integer not null default 0,
+  created_at  timestamptz not null default now(),
+  unique (item_id, field_key, value)
+);
+
+alter table item_job_detail_presets enable row level security;
+
+create policy "Client manages own job detail presets"
+  on item_job_detail_presets for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Admin reads job detail presets"
+  on item_job_detail_presets for select
+  using (public.is_admin());
+
+create index idx_item_job_detail_presets_item
+  on item_job_detail_presets (item_id, field_key, sort_order);
+
 
 -- ============================================================
 -- STOCK MOVEMENTS
