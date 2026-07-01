@@ -1,0 +1,250 @@
+import React from "react";
+import { createRoot } from "react-dom/client";
+import "../src/index.css";
+import { PrintDocument } from "../src/components/print/PrintDocument";
+import { PrintDocumentClassic } from "../src/components/print/PrintDocumentClassic";
+import type { CopyType } from "../src/components/print/PrintDocument";
+import type { HtmlPrintTemplate, PrintDocumentData } from "../src/lib/print";
+import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLineItem, InvoiceDeliveryNote } from "../src/types";
+
+const image = (label: string, color: string) =>
+  `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="90" viewBox="0 0 220 90">
+      <rect width="220" height="90" rx="10" fill="${color}"/>
+      <text x="110" y="55" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="white" text-anchor="middle">${label}</text>
+    </svg>`,
+  )}`;
+
+const now = "2026-07-01T00:00:00.000Z";
+
+const customer: Customer = {
+  id: "customer-layout-baseline",
+  user_id: "user-layout-baseline",
+  name: "Siam Retail Group Co., Ltd.",
+  tax_id: "0105559998888",
+  address: "88 Test Road, Khlong Toei, Bangkok 10110",
+  contact_name: "Accounts Payable",
+  phone: "02-555-0188",
+  email: "ap@example.test",
+  note: null,
+  is_active: true,
+  is_favorite: false,
+  avatar_initials: "SR",
+  avatar_color: "#378ADD",
+  credit_term_days: 30,
+  created_at: now,
+  updated_at: now,
+};
+
+const clientProfile: ClientProfile = {
+  id: "profile-layout-baseline",
+  user_id: "user-layout-baseline",
+  company_name_th: "Layout Baseline Company Limited",
+  company_name_en: "Layout Baseline Co., Ltd.",
+  tax_id: "0105566778899",
+  address: "123 Fixed Template Avenue, Bang Rak, Bangkok 10500",
+  phone: "02-123-4567",
+  contact_name: "Finance Team",
+  logo_url: image("LOGO", "#1f6feb"),
+  logo_size: "rectangle",
+  vat_registered: true,
+  vat_rate: 7,
+  default_wht_rate: "3",
+  credit_term_days: 30,
+  stock_deduct_trigger: "invoice",
+  pdf_template: "modern",
+  classic_terms: "Payment is due within the stated credit term.\nPlease quote invoice number with payment.\nGoods remain company property until paid in full.",
+  bank_name: "Baseline Bank",
+  bank_account: "123-4-56789-0",
+  signature_url: image("SIGN", "#475467"),
+  stamp_url: image("PAID", "#dc2626"),
+  dev_mode_enabled: false,
+  created_at: now,
+  updated_at: now,
+};
+
+const documentData: Document = {
+  id: "document-layout-baseline",
+  user_id: "user-layout-baseline",
+  deal_id: "deal-layout-baseline",
+  customer_id: customer.id,
+  doc_type: "invoice",
+  doc_number: "INV-2026-07-001",
+  status: "sent",
+  issue_date: "2026-07-01",
+  due_date: "2026-07-31",
+  vat_registered: true,
+  vat_rate: 7,
+  wht_rate: 3,
+  discount_percent: 5,
+  discount_amount: 475,
+  subtotal: 9025,
+  vat_amount: 631.75,
+  total_amount: 9656.75,
+  wht_amount: 270.75,
+  net_payable: 9386,
+  note: "Deliver during business hours only.\nContact accounting before collection.",
+  payment_method: "bank_transfer",
+  wht_certificate_no: "WHT-2026-001",
+  paid_at: null,
+  amount_received: null,
+  backdated_at: null,
+  backdated_by_user_id: null,
+  backdated_reason: null,
+  voided_at: null,
+  voided_reason: null,
+  copied_from_id: null,
+  converted_from_id: null,
+  created_at: now,
+  updated_at: now,
+  customer,
+};
+
+const lineItems: DocumentLineItem[] = [
+  {
+    id: "line-1",
+    document_id: documentData.id,
+    user_id: documentData.user_id,
+    item_id: "item-1",
+    item_name: "Monthly platform subscription",
+    line_note: "Includes standard support and reporting.",
+    item_sku: "SUB-001",
+    item_type: "service",
+    unit: "month",
+    unit_price: 4500,
+    quantity: 1,
+    base_quantity: 1,
+    discount_percent: 0,
+    discount_amount: 0,
+    qty_carton: null,
+    carton_unit: null,
+    source_document_id: null,
+    source_line_item_id: null,
+    line_total: 4500,
+    sort_order: 1,
+    created_at: now,
+  },
+  {
+    id: "line-2",
+    document_id: documentData.id,
+    user_id: documentData.user_id,
+    item_id: "item-2",
+    item_name: "Implementation and onboarding package",
+    line_note: "Two setup sessions\nOne migration checklist",
+    item_sku: "SERV-ONB",
+    item_type: "service",
+    unit: "package",
+    unit_price: 3200,
+    quantity: 1,
+    base_quantity: 1,
+    discount_percent: 10,
+    discount_amount: 320,
+    qty_carton: null,
+    carton_unit: null,
+    source_document_id: null,
+    source_line_item_id: null,
+    line_total: 2880,
+    sort_order: 2,
+    created_at: now,
+  },
+  {
+    id: "line-3",
+    document_id: documentData.id,
+    user_id: documentData.user_id,
+    item_id: "item-3",
+    item_name: "Warehouse label rolls",
+    line_note: null,
+    item_sku: "LBL-ROLL",
+    item_type: "product",
+    unit: "roll",
+    unit_price: 550,
+    quantity: 4,
+    base_quantity: 4,
+    discount_percent: 0,
+    discount_amount: 0,
+    qty_carton: null,
+    carton_unit: null,
+    source_document_id: "delivery-note-1",
+    source_line_item_id: null,
+    line_total: 2200,
+    sort_order: 3,
+    created_at: now,
+  },
+  {
+    id: "line-4",
+    document_id: documentData.id,
+    user_id: documentData.user_id,
+    item_id: "item-4",
+    item_name: "Adjustment credit for prior service window",
+    line_note: null,
+    item_sku: "ADJ",
+    item_type: "service",
+    unit: "item",
+    unit_price: -80,
+    quantity: 1,
+    base_quantity: 1,
+    discount_percent: 0,
+    discount_amount: 0,
+    qty_carton: null,
+    carton_unit: null,
+    source_document_id: null,
+    source_line_item_id: null,
+    line_total: -80,
+    sort_order: 4,
+    created_at: now,
+  },
+];
+
+const invoiceDeliveryNotes: InvoiceDeliveryNote[] = [
+  {
+    id: "invoice-delivery-note-1",
+    invoice_id: documentData.id,
+    delivery_note_id: "delivery-note-1",
+    user_id: documentData.user_id,
+    delivery_note_number: "DN-2026-07-001",
+    issue_date: "2026-06-28",
+    subtotal: 2200,
+    vat_amount: 154,
+    total_amount: 2354,
+    released_at: null,
+    created_at: now,
+  },
+];
+
+const data = (template: HtmlPrintTemplate): PrintDocumentData => ({
+  document: documentData,
+  lineItems,
+  billingNoteInvoices: [] as BillingNoteInvoice[],
+  invoiceDeliveryNotes,
+  clientProfile: { ...clientProfile, pdf_template: template },
+  customer,
+  template,
+  lineDiscountTotal: 320,
+  grossSubtotal: 9820,
+  lineDeliveryNoteMap: {
+    "line-3": { number: "DN-2026-07-001", issue_date: "2026-06-28" },
+  },
+  showInlineDeliveryNotes: true,
+});
+
+const params = new URLSearchParams(window.location.search);
+const template = params.get("template") === "classic" ? "classic" : "modern";
+const copyType: CopyType = params.get("copyType") === "copy" ? "copy" : "original";
+
+document.documentElement.classList.add("print-export-document");
+document.body.classList.add("print-export-document");
+document.documentElement.dataset.accentMode = "element";
+
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <div className="print-export-stack">
+      <div className="print-export-page">
+        {template === "classic" ? (
+          <PrintDocumentClassic data={data(template)} copyType={copyType} />
+        ) : (
+          <PrintDocument data={data(template)} copyType={copyType} />
+        )}
+      </div>
+    </div>
+  </React.StrictMode>,
+);

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:print-layout": "node scripts/print-layout-regression.mjs",
+    "test:print-layout:update": "node scripts/print-layout-regression.mjs --update"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",
