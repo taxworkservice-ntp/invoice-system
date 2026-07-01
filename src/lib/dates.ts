@@ -60,7 +60,7 @@ export function formatBuddhistDateTime(isoDate: string): string {
     minute: "2-digit",
     hour12: false,
   });
-  return `${day} ${month} ${year} ${time}`;
+  return `${day} ${month} ${year} เวลา ${time}`;
 }
 
 export function formatBuddhistDateFull(isoDate: string): string {
