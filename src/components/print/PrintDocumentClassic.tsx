@@ -293,7 +293,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                     <td className="print-classic-item-name">
                       {item.item_name}
                       {printableNote ? (
-                        <div className="print-classic-item-note">หมายเหตุ: {printableNote}</div>
+                        <div className="print-classic-item-note">{printableNote}</div>
                       ) : null}
                       {hasLineDiscount ? (
                         <div className="print-classic-discount-note">

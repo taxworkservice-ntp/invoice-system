@@ -119,7 +119,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
                 <td className="px-2 py-1.5 text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   <div className="leading-[14px]">{item.item_name}</div>
                   {printableNote ? (
-                    <div className="mt-0.5 whitespace-pre-line text-[9px] leading-[12px] text-[#667085]">หมายเหตุ: {printableNote}</div>
+                    <div className="mt-0.5 whitespace-pre-line text-[9px] leading-[12px] text-[#667085]">{printableNote}</div>
                   ) : null}
                   {hasLineDiscount && !isDeliveryNote ? (
                     <div className="mt-0.5 text-[9px] text-[#B54708]">
