@@ -331,10 +331,10 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
             />
             <span>
               <span className="block text-sm font-medium text-[#1A1A18]">
-                This service has job details
+                บริการนี้มีรายละเอียดงาน
               </span>
               <span className="mt-1 block text-xs leading-5 text-[#888780]">
-                Show structured fields on document lines for details like color, size, position, material, and remarks.
+                แสดงช่องกรอกรายละเอียดบนรายการเอกสาร เช่น สี/ฟอยล์ ขนาด ตำแหน่ง วัสดุ และหมายเหตุ
               </span>
             </span>
           </label>

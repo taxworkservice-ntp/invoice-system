@@ -45,6 +45,20 @@ interface LineItemForm {
   job_remark: string;
 }
 
+type JobDetailSuggestions = {
+  colors: string[];
+  positions: string[];
+  materials: string[];
+  remarks: string[];
+};
+
+const DEFAULT_JOB_DETAIL_SUGGESTIONS: JobDetailSuggestions = {
+  colors: ["ฟอยล์ทอง", "ฟอยล์เงิน", "ฟอยล์แดง", "ฟอยล์ดำ", "ปั๊มนูน", "Spot UV"],
+  positions: ["ด้านหน้า", "ด้านหลัง", "ด้านซ้าย", "ด้านขวา", "กลางชิ้นงาน", "มุมขวาล่าง", "ตามแบบ"],
+  materials: ["กล่องกระดาษ", "ปกหนังสือ", "การ์ด", "สติกเกอร์", "ซอง", "ถุงกระดาษ"],
+  remarks: ["ตามแบบลูกค้า", "จัดตำแหน่งตามไฟล์อาร์ตเวิร์ก", "ตรวจแบบก่อนผลิตจริง"],
+};
+
 function createEmptyLine(): LineItemForm {
   return {
     id: crypto.randomUUID(),
@@ -187,11 +201,11 @@ function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item): Line
 function buildJobDetailsNote(lineItem: LineItemForm) {
   const size = [lineItem.job_width.trim(), lineItem.job_height.trim()].filter(Boolean).join(" x ");
   return [
-    lineItem.job_color.trim() ? `Color/Foil: ${lineItem.job_color.trim()}` : "",
-    size ? `Size: ${size} mm` : "",
-    lineItem.job_position.trim() ? `Position: ${lineItem.job_position.trim()}` : "",
-    lineItem.job_material.trim() ? `Material: ${lineItem.job_material.trim()}` : "",
-    lineItem.job_remark.trim() ? `Remark: ${lineItem.job_remark.trim()}` : "",
+    lineItem.job_color.trim() ? `สี/ฟอยล์: ${lineItem.job_color.trim()}` : "",
+    size ? `ขนาด: ${size} มม.` : "",
+    lineItem.job_position.trim() ? `ตำแหน่ง: ${lineItem.job_position.trim()}` : "",
+    lineItem.job_material.trim() ? `วัสดุ: ${lineItem.job_material.trim()}` : "",
+    lineItem.job_remark.trim() ? `หมายเหตุ: ${lineItem.job_remark.trim()}` : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -202,6 +216,51 @@ function getJobDetailsSummary(lineItem: LineItemForm) {
     size ? `${size} mm` : "",
     lineItem.job_position.trim(),
   ].filter(Boolean).join(" · ");
+}
+
+function uniqueStrings(values: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  values.forEach((value) => {
+    const trimmed = value.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) return;
+    seen.add(key);
+    result.push(trimmed);
+  });
+  return result;
+}
+
+function getNoteValue(note: string, labels: string[]) {
+  for (const label of labels) {
+    const match = note.match(new RegExp(`^${label}\\s*:\\s*(.+)$`, "im"));
+    const value = match?.[1]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function parseJobDetailSuggestions(notes: string[]): JobDetailSuggestions {
+  const parsed: JobDetailSuggestions = {
+    colors: [],
+    positions: [],
+    materials: [],
+    remarks: [],
+  };
+
+  notes.forEach((note) => {
+    parsed.colors.push(getNoteValue(note, ["สี/ฟอยล์", "สี", "ฟอยล์", "Color/Foil"]));
+    parsed.positions.push(getNoteValue(note, ["ตำแหน่ง", "Position"]));
+    parsed.materials.push(getNoteValue(note, ["วัสดุ", "Material"]));
+    parsed.remarks.push(getNoteValue(note, ["หมายเหตุ", "Remark"]));
+  });
+
+  return {
+    colors: uniqueStrings([...DEFAULT_JOB_DETAIL_SUGGESTIONS.colors, ...parsed.colors]).slice(0, 20),
+    positions: uniqueStrings([...DEFAULT_JOB_DETAIL_SUGGESTIONS.positions, ...parsed.positions]).slice(0, 20),
+    materials: uniqueStrings([...DEFAULT_JOB_DETAIL_SUGGESTIONS.materials, ...parsed.materials]).slice(0, 20),
+    remarks: uniqueStrings([...DEFAULT_JOB_DETAIL_SUGGESTIONS.remarks, ...parsed.remarks]).slice(0, 20),
+  };
 }
 
 export default function NewDealPage() {
@@ -226,6 +285,7 @@ export default function NewDealPage() {
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([createEmptyLine()]);
+  const [jobDetailSuggestions, setJobDetailSuggestions] = useState<JobDetailSuggestions>(DEFAULT_JOB_DETAIL_SUGGESTIONS);
   const [vatRegistered, setVatRegistered] = useState(clientProfile?.vat_registered ?? false);
   const [vatRate, setVatRate] = useState<number>(clientProfile?.vat_rate ?? VAT_DEFAULT);
   const [whtRate, setWhtRate] = useState<WhtRate>(clientProfile?.default_wht_rate ?? "0");
@@ -311,6 +371,32 @@ export default function NewDealPage() {
       setSelectedInvoiceIds(new Set());
     }
   }, [isBillingNote, selectedCustomer, userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
+    async function loadJobDetailSuggestions() {
+      const { data } = await supabase
+        .from("document_line_items")
+        .select("line_note")
+        .eq("user_id", userId)
+        .not("line_note", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(300);
+
+      if (cancelled) return;
+      const notes = (data || [])
+        .map((row: { line_note: string | null }) => row.line_note || "")
+        .filter((note) => note.trim());
+      setJobDetailSuggestions(parseJobDetailSuggestions(notes));
+    }
+
+    void loadJobDetailSuggestions();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!isUtilityBill || !selectedCustomer || !userId) {
@@ -515,6 +601,13 @@ export default function NewDealPage() {
       totalAmount: selected.reduce((sum, inv) => sum + inv.total_amount, 0),
     };
   }, [unpaidInvoices, selectedInvoiceIds]);
+
+  const activeJobDetailSuggestions = useMemo<JobDetailSuggestions>(() => ({
+    colors: uniqueStrings([...jobDetailSuggestions.colors, ...lineItems.map((item) => item.job_color)]).slice(0, 20),
+    positions: uniqueStrings([...jobDetailSuggestions.positions, ...lineItems.map((item) => item.job_position)]).slice(0, 20),
+    materials: uniqueStrings([...jobDetailSuggestions.materials, ...lineItems.map((item) => item.job_material)]).slice(0, 20),
+    remarks: uniqueStrings([...jobDetailSuggestions.remarks, ...lineItems.map((item) => item.job_remark)]).slice(0, 20),
+  }), [jobDetailSuggestions, lineItems]);
 
   const tax = useMemo(() => {
     if (isBillingNote) {
@@ -1258,7 +1351,7 @@ export default function NewDealPage() {
                           className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1A1A18] transition-colors hover:text-primary"
                         >
                           <SlidersHorizontal className="h-3.5 w-3.5" />
-                          {jobDetailsSummary ? "Job details" : "Add details"}
+                          {jobDetailsSummary ? "รายละเอียดงาน" : "เพิ่มรายละเอียด"}
                         </button>
                         {jobDetailsSummary ? (
                           <span className="max-w-full truncate text-[11px] text-[#5F5A52]">
@@ -1268,8 +1361,28 @@ export default function NewDealPage() {
                       </div>
                       {item.job_details_open && (
                         <div className="mt-3 grid gap-2 md:grid-cols-2">
+                          <datalist id={`${item.id}-job-colors`}>
+                            {activeJobDetailSuggestions.colors.map((value) => (
+                              <option key={value} value={value} />
+                            ))}
+                          </datalist>
+                          <datalist id={`${item.id}-job-positions`}>
+                            {activeJobDetailSuggestions.positions.map((value) => (
+                              <option key={value} value={value} />
+                            ))}
+                          </datalist>
+                          <datalist id={`${item.id}-job-materials`}>
+                            {activeJobDetailSuggestions.materials.map((value) => (
+                              <option key={value} value={value} />
+                            ))}
+                          </datalist>
+                          <datalist id={`${item.id}-job-remarks`}>
+                            {activeJobDetailSuggestions.remarks.map((value) => (
+                              <option key={value} value={value} />
+                            ))}
+                          </datalist>
                           <label className="block">
-                            <span className="mb-1 block text-[10px] text-gray-400">Technique</span>
+                            <span className="mb-1 block text-[10px] text-gray-400">เทคนิค</span>
                             <input
                               value={item.item_name}
                               readOnly
@@ -1277,16 +1390,17 @@ export default function NewDealPage() {
                             />
                           </label>
                           <label className="block">
-                            <span className="mb-1 block text-[10px] text-gray-400">Color / foil</span>
+                            <span className="mb-1 block text-[10px] text-gray-400">สี / ฟอยล์</span>
                             <input
+                              list={`${item.id}-job-colors`}
                               value={item.job_color}
                               onChange={(event) => updateJobDetail(item.id, "job_color", event.target.value)}
-                              placeholder="Red foil"
+                              placeholder="เช่น ฟอยล์แดง"
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
                           </label>
                           <div>
-                            <span className="mb-1 block text-[10px] text-gray-400">Size (mm)</span>
+                            <span className="mb-1 block text-[10px] text-gray-400">ขนาด กว้าง x สูง (มม.)</span>
                             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                               <input
                                 type="number"
@@ -1308,29 +1422,32 @@ export default function NewDealPage() {
                             </div>
                           </div>
                           <label className="block">
-                            <span className="mb-1 block text-[10px] text-gray-400">Position</span>
+                            <span className="mb-1 block text-[10px] text-gray-400">ตำแหน่ง</span>
                             <input
+                              list={`${item.id}-job-positions`}
                               value={item.job_position}
                               onChange={(event) => updateJobDetail(item.id, "job_position", event.target.value)}
-                              placeholder="Left side"
+                              placeholder="เช่น ด้านซ้าย"
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
                           </label>
                           <label className="block">
-                            <span className="mb-1 block text-[10px] text-gray-400">Material</span>
+                            <span className="mb-1 block text-[10px] text-gray-400">วัสดุ</span>
                             <input
+                              list={`${item.id}-job-materials`}
                               value={item.job_material}
                               onChange={(event) => updateJobDetail(item.id, "job_material", event.target.value)}
-                              placeholder="Paper, box, cover"
+                              placeholder="เช่น กล่องกระดาษ"
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
                           </label>
                           <label className="block md:col-span-2">
-                            <span className="mb-1 block text-[10px] text-gray-400">Remark</span>
+                            <span className="mb-1 block text-[10px] text-gray-400">หมายเหตุ</span>
                             <input
+                              list={`${item.id}-job-remarks`}
                               value={item.job_remark}
                               onChange={(event) => updateJobDetail(item.id, "job_remark", event.target.value)}
-                              placeholder="Optional production note"
+                              placeholder="หมายเหตุเพิ่มเติม"
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
                           </label>
@@ -1404,8 +1521,8 @@ export default function NewDealPage() {
                       type="button"
                       className="px-1 pt-[22px] text-gray-400 transition-colors hover:text-primary"
                       onClick={() => duplicateLineItem(item.id)}
-                      aria-label="Duplicate line"
-                      title="Duplicate line"
+                      aria-label="ทำซ้ำรายการ"
+                      title="ทำซ้ำรายการ"
                     >
                       <Copy className="h-4 w-4" />
                     </button>
