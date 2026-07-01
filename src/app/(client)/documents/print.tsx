@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { PrintDocument } from "../../../components/print/PrintDocument";
@@ -9,11 +9,13 @@ import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary
 import { generatePDFDocument, getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { downloadR2Blob, getCachedPdfFile, pdfKey, uploadToR2 } from "../../../lib/r2";
 import { DOC_TYPE_SHORT } from "../../../constants";
+import { supabase } from "../../../lib/supabase";
 
 const PDF_RENDER_VERSION = "a4-v1";
 
 export default function DocumentPrintPreviewPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [data, setData] = useState<PrintDocumentData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,11 @@ export default function DocumentPrintPreviewPage() {
   const [previewViewportWidth, setPreviewViewportWidth] = useState<number | null>(null);
   const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
-  const [copyType, setCopyType] = useState<CopyType>("original");
+  const exportMode = searchParams.get("export") === "pdf";
+  const exportCopyTypes = searchParams.get("copyTypes") === "original,copy"
+    ? ["original", "copy"] as CopyType[]
+    : [searchParams.get("copyType") === "copy" ? "copy" : "original"] as CopyType[];
+  const [copyType, setCopyType] = useState<CopyType>(exportCopyTypes[0] || "original");
 
   useEffect(() => {
     let cancelled = false;
@@ -195,12 +201,45 @@ export default function DocumentPrintPreviewPage() {
     return blob;
   }
 
+  async function getServerPdfBlob(copyTypes: Array<"original" | "copy">) {
+    if (!id) throw new Error("Missing document id");
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("No active session");
+
+    const response = await fetch(`/api/documents/${encodeURIComponent(id)}/pdf`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({ copyTypes }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `PDF export failed (${response.status})`);
+    }
+
+    return response.blob();
+  }
+
+  async function getProfessionalPdfBlob(data: PrintDocumentData, copyTypes: Array<"original" | "copy">) {
+    try {
+      return await getServerPdfBlob(copyTypes);
+    } catch (err) {
+      console.warn("Server PDF renderer unavailable, falling back to client export:", err);
+      return getOrCreatePdfBlob(data, copyTypes);
+    }
+  }
+
   async function handleSavePdf() {
     if (savingPdf || !data) return;
     setSavingPdf(true);
     setPdfError("");
     try {
-      await triggerDownload(await getOrCreatePdfBlob(data, ["original"]), pdfFilename(data));
+      await triggerDownload(await getProfessionalPdfBlob(data, ["original"]), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -214,7 +253,7 @@ export default function DocumentPrintPreviewPage() {
     setSavingPdf(true);
     setPdfError("");
     try {
-      await triggerDownload(await getOrCreatePdfBlob(data, ["original", "copy"]), pdfFilename(data));
+      await triggerDownload(await getProfessionalPdfBlob(data, ["original", "copy"]), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -243,6 +282,24 @@ export default function DocumentPrintPreviewPage() {
             </Button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (exportMode) {
+    return (
+      <div className="print-export-stack">
+        <PrintErrorBoundary onError={() => {}}>
+          {exportCopyTypes.map((type) => (
+            <div className="print-export-page" key={type}>
+              {data.template === "classic" ? (
+                <PrintDocumentClassic data={data} copyType={type} />
+              ) : (
+                <PrintDocument data={data} copyType={type} />
+              )}
+            </div>
+          ))}
+        </PrintErrorBoundary>
       </div>
     );
   }

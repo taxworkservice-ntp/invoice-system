@@ -101,6 +101,33 @@ body {
   transform-origin: top center;
 }
 
+.print-export-stack {
+  width: 210mm;
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+}
+
+.print-export-page {
+  width: 210mm;
+  height: 297mm;
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+  break-after: page;
+  page-break-after: always;
+  overflow: hidden;
+}
+
+.print-export-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
+.print-export-page .print-sheet {
+  margin: 0;
+}
+
 .print-sheet {
   position: relative;
   width: 210mm;
