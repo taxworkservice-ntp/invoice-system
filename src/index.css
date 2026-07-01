@@ -195,10 +195,46 @@ body.print-export-document #root {
   border: none;
   border-radius: 0;
   box-shadow: none;
+  background: #ffffff;
+  position: relative;
+}
+
+/*
+ * Feature flag: --print-modern-accent-mode
+ *   gradient (default, backup) - legacy CSS linear-gradient on .print-theme-modern
+ *   element (new)               - real <div class="print-theme-modern-accent" /> painted on top
+ * Set the var on <html> or <body> (e.g. via document.body.style) to switch.
+ * To roll back, set:  document.documentElement.style.setProperty('--print-modern-accent-mode', 'gradient');
+ */
+.print-theme-modern-accent {
+  display: none;
+}
+
+html[data-accent-mode="element"] .print-theme-modern-accent,
+html[data-accent-mode="element"] body .print-theme-modern-accent {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background-color: var(--doc-accent, #2f6fed);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  z-index: 1;
+}
+
+html[data-accent-mode="element"] .print-theme-modern {
   background:
     linear-gradient(180deg, var(--doc-accent, #2f6fed) 0 5px, transparent 5px 100%),
     #ffffff;
-  position: relative;
+}
+
+html:not([data-accent-mode]) .print-theme-modern,
+html[data-accent-mode="gradient"] .print-theme-modern {
+  background:
+    linear-gradient(180deg, var(--doc-accent, #2f6fed) 0 5px, transparent 5px 100%),
+    #ffffff;
 }
 
 .print-preview-frame > .print-sheet {

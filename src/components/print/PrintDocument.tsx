@@ -55,7 +55,9 @@ export function PrintDocument({ data, copyType = "original" }: { data: PrintDocu
     <article
       className={isCopy ? `print-sheet print-theme-modern print-copy${documentClass}` : `print-sheet print-theme-modern${documentClass}`}
       style={{ "--doc-accent": accentColor } as React.CSSProperties}
+      data-accent-element="true"
     >
+      <div className="print-theme-modern-accent" aria-hidden="true" />
       <PrintHeader data={data} copyType={copyType} />
       <PrintLineItemsTable data={data} />
       {data.invoiceDeliveryNotes.length > 0 && !data.showInlineDeliveryNotes && (

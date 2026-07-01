@@ -36,10 +36,12 @@ export default function DocumentPrintPreviewPage() {
 
     document.documentElement.classList.add("print-export-document");
     document.body.classList.add("print-export-document");
+    document.documentElement.dataset.accentMode = "element";
 
     return () => {
       document.documentElement.classList.remove("print-export-document");
       document.body.classList.remove("print-export-document");
+      delete document.documentElement.dataset.accentMode;
     };
   }, [exportMode]);
 
