@@ -236,6 +236,7 @@ create table items (
   sku                 text,
   item_type           item_type not null default 'product',
   unit_price          numeric(15,2) not null default 0,
+  has_job_details     boolean not null default false,
 
   -- Units
   base_unit           text not null default 'ชิ้น',   -- e.g. ream, piece, hour

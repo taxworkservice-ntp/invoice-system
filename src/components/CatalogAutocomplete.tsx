@@ -18,6 +18,7 @@ interface CatalogAutocompleteProps {
     unit_price: number;
     base_unit: string;
     item_type: "product" | "service";
+    has_job_details?: boolean;
   }) => Promise<Item>;
 }
 

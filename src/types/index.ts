@@ -105,6 +105,7 @@ export interface Item {
   sku: string | null;
   item_type: ItemType;
   unit_price: number;
+  has_job_details: boolean;
   base_unit: string;
   carton_unit: string | null;
   qty_per_carton: number | null;

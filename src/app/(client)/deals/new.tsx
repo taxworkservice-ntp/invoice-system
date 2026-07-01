@@ -17,7 +17,7 @@ import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Copy, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { DocumentType, Customer, WhtRate, PaymentMethod, Item } from "../../../types";
 
@@ -36,6 +36,13 @@ interface LineItemForm {
   carton_unit: string | null;
   qty_per_carton: number | null;
   base_unit_price: number | null;
+  job_details_open: boolean;
+  job_color: string;
+  job_width: string;
+  job_height: string;
+  job_position: string;
+  job_material: string;
+  job_remark: string;
 }
 
 function createEmptyLine(): LineItemForm {
@@ -54,6 +61,13 @@ function createEmptyLine(): LineItemForm {
     carton_unit: null,
     qty_per_carton: null,
     base_unit_price: null,
+    job_details_open: false,
+    job_color: "",
+    job_width: "",
+    job_height: "",
+    job_position: "",
+    job_material: "",
+    job_remark: "",
   };
 }
 
@@ -141,6 +155,7 @@ function getSuggestedUnitPrice(baseUnitPrice: number, unit: string, cartonUnit?:
 
 function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item): LineItemForm {
   const unit = catalogItem.base_unit;
+  const hasJobDetails = catalogItem.item_type === "service" && catalogItem.has_job_details;
   return {
     ...lineItem,
     item_name: catalogItem.name,
@@ -152,6 +167,14 @@ function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item): Line
     carton_unit: catalogItem.carton_unit,
     qty_per_carton: catalogItem.qty_per_carton,
     base_unit_price: catalogItem.unit_price,
+    job_details_open: hasJobDetails ? lineItem.job_details_open : false,
+    job_color: hasJobDetails ? lineItem.job_color : "",
+    job_width: hasJobDetails ? lineItem.job_width : "",
+    job_height: hasJobDetails ? lineItem.job_height : "",
+    job_position: hasJobDetails ? lineItem.job_position : "",
+    job_material: hasJobDetails ? lineItem.job_material : "",
+    job_remark: hasJobDetails ? lineItem.job_remark : "",
+    line_note: hasJobDetails ? buildJobDetailsNote(lineItem) : "",
     unit_price: getSuggestedUnitPrice(
       catalogItem.unit_price,
       unit,
@@ -159,6 +182,26 @@ function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item): Line
       catalogItem.qty_per_carton,
     ),
   };
+}
+
+function buildJobDetailsNote(lineItem: LineItemForm) {
+  const size = [lineItem.job_width.trim(), lineItem.job_height.trim()].filter(Boolean).join(" x ");
+  return [
+    lineItem.job_color.trim() ? `Color/Foil: ${lineItem.job_color.trim()}` : "",
+    size ? `Size: ${size} mm` : "",
+    lineItem.job_position.trim() ? `Position: ${lineItem.job_position.trim()}` : "",
+    lineItem.job_material.trim() ? `Material: ${lineItem.job_material.trim()}` : "",
+    lineItem.job_remark.trim() ? `Remark: ${lineItem.job_remark.trim()}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function getJobDetailsSummary(lineItem: LineItemForm) {
+  const size = [lineItem.job_width.trim(), lineItem.job_height.trim()].filter(Boolean).join("x");
+  return [
+    lineItem.job_color.trim(),
+    size ? `${size} mm` : "",
+    lineItem.job_position.trim(),
+  ].filter(Boolean).join(" · ");
 }
 
 export default function NewDealPage() {
@@ -540,6 +583,13 @@ export default function NewDealPage() {
             updated.carton_unit = null;
             updated.qty_per_carton = null;
             updated.base_unit_price = null;
+            updated.job_details_open = false;
+            updated.job_color = "";
+            updated.job_width = "";
+            updated.job_height = "";
+            updated.job_position = "";
+            updated.job_material = "";
+            updated.job_remark = "";
           }
         }
 
@@ -554,6 +604,43 @@ export default function NewDealPage() {
 
   const removeLineItem = (id: string) => {
     setLineItems((prev) => prev.filter((lineItem) => lineItem.id !== id));
+  };
+
+  const duplicateLineItem = (id: string) => {
+    setLineItems((prev) => {
+      const sourceIndex = prev.findIndex((lineItem) => lineItem.id === id);
+      if (sourceIndex < 0) return prev;
+      const copy = { ...prev[sourceIndex], id: crypto.randomUUID(), job_details_open: false };
+      return [
+        ...prev.slice(0, sourceIndex + 1),
+        copy,
+        ...prev.slice(sourceIndex + 1),
+      ];
+    });
+  };
+
+  const updateJobDetail = (
+    id: string,
+    field: "job_color" | "job_width" | "job_height" | "job_position" | "job_material" | "job_remark",
+    value: string,
+  ) => {
+    setLineItems((prev) =>
+      prev.map((lineItem) => {
+        if (lineItem.id !== id) return lineItem;
+        const updated = { ...lineItem, [field]: value } as LineItemForm;
+        return { ...updated, line_note: buildJobDetailsNote(updated) };
+      }),
+    );
+  };
+
+  const toggleJobDetails = (id: string) => {
+    setLineItems((prev) =>
+      prev.map((lineItem) =>
+        lineItem.id === id
+          ? { ...lineItem, job_details_open: !lineItem.job_details_open }
+          : lineItem,
+      ),
+    );
   };
 
   const selectCatalogItem = (lineItemId: string, catalogItem: Item) => {
@@ -1106,6 +1193,8 @@ export default function NewDealPage() {
                 const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
                 const soldByCarton = isCartonUnitSelected(item);
                 const baseQuantity = getLineBaseQuantity(item);
+                const jobDetailsEnabled = matchedItem?.item_type === "service" && matchedItem.has_job_details;
+                const jobDetailsSummary = getJobDetailsSummary(item);
 
                 if (isUtilityBill && idx === 0) {
                   const amounts = calculateLineAmounts(item);
@@ -1159,6 +1248,94 @@ export default function NewDealPage() {
                   {isUtilityBill && item.line_note.includes("[USAGE_BILL]") ? (
                     <div className="mb-2 whitespace-pre-line rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2 text-xs leading-5 text-[#5F5A52]">
                       {getUtilityDisplayNote(item.line_note)}
+                    </div>
+                  ) : jobDetailsEnabled ? (
+                    <div className="mb-2 rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleJobDetails(item.id)}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1A1A18] transition-colors hover:text-primary"
+                        >
+                          <SlidersHorizontal className="h-3.5 w-3.5" />
+                          {jobDetailsSummary ? "Job details" : "Add details"}
+                        </button>
+                        {jobDetailsSummary ? (
+                          <span className="max-w-full truncate text-[11px] text-[#5F5A52]">
+                            {jobDetailsSummary}
+                          </span>
+                        ) : null}
+                      </div>
+                      {item.job_details_open && (
+                        <div className="mt-3 grid gap-2 md:grid-cols-2">
+                          <label className="block">
+                            <span className="mb-1 block text-[10px] text-gray-400">Technique</span>
+                            <input
+                              value={item.item_name}
+                              readOnly
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#5F5A52]"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-[10px] text-gray-400">Color / foil</span>
+                            <input
+                              value={item.job_color}
+                              onChange={(event) => updateJobDetail(item.id, "job_color", event.target.value)}
+                              placeholder="Red foil"
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                            />
+                          </label>
+                          <div>
+                            <span className="mb-1 block text-[10px] text-gray-400">Size (mm)</span>
+                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                value={item.job_width}
+                                onChange={(event) => updateJobDetail(item.id, "job_width", event.target.value)}
+                                placeholder="24"
+                                className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                              />
+                              <span className="text-xs text-gray-400">x</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={item.job_height}
+                                onChange={(event) => updateJobDetail(item.id, "job_height", event.target.value)}
+                                placeholder="35"
+                                className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                              />
+                            </div>
+                          </div>
+                          <label className="block">
+                            <span className="mb-1 block text-[10px] text-gray-400">Position</span>
+                            <input
+                              value={item.job_position}
+                              onChange={(event) => updateJobDetail(item.id, "job_position", event.target.value)}
+                              placeholder="Left side"
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-[10px] text-gray-400">Material</span>
+                            <input
+                              value={item.job_material}
+                              onChange={(event) => updateJobDetail(item.id, "job_material", event.target.value)}
+                              placeholder="Paper, box, cover"
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                            />
+                          </label>
+                          <label className="block md:col-span-2">
+                            <span className="mb-1 block text-[10px] text-gray-400">Remark</span>
+                            <input
+                              value={item.job_remark}
+                              onChange={(event) => updateJobDetail(item.id, "job_remark", event.target.value)}
+                              placeholder="Optional production note"
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                            />
+                          </label>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <textarea
@@ -1223,10 +1400,21 @@ export default function NewDealPage() {
                         minimumFractionDigits: 2,
                       })}
                     </div>
+                    <button
+                      type="button"
+                      className="px-1 pt-[22px] text-gray-400 transition-colors hover:text-primary"
+                      onClick={() => duplicateLineItem(item.id)}
+                      aria-label="Duplicate line"
+                      title="Duplicate line"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
                     {lineItems.length > 1 && (
                       <button
+                        type="button"
                         className="text-gray-400 hover:text-red-500 px-1 text-sm pt-[22px]"
                         onClick={() => removeLineItem(item.id)}
+                        aria-label="Remove line"
                       >
                         ×
                       </button>

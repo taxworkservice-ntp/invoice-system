@@ -29,6 +29,9 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [unitPrice, setUnitPrice] = useState(
     item ? String(item.unit_price) : "",
   );
+  const [hasJobDetails, setHasJobDetails] = useState(
+    item?.has_job_details || false,
+  );
   const [baseUnit, setBaseUnit] = useState(item?.base_unit || "ชิ้น");
   const [cartonEnabled, setCartonEnabled] = useState(!!item?.carton_unit);
   const [cartonUnit, setCartonUnit] = useState(item?.carton_unit || "");
@@ -99,6 +102,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       sku: normalizeSku(sku),
       item_type: itemType,
       unit_price: isNaN(price) ? 0 : price,
+      has_job_details: itemType === "service" ? hasJobDetails : false,
       base_unit: baseUnit || "ชิ้น",
       carton_unit:
         cartonEnabled && itemType === "product" ? cartonUnit : null,
@@ -315,6 +319,27 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
           </>
         )}
       </div>
+
+      {itemType === "service" && (
+        <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={hasJobDetails}
+              onChange={(event) => setHasJobDetails(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[#D7DEE7] text-primary focus:ring-primary"
+            />
+            <span>
+              <span className="block text-sm font-medium text-[#1A1A18]">
+                This service has job details
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-[#888780]">
+                Show structured fields on document lines for details like color, size, position, material, and remarks.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
 
       {itemType === "product" && (
         <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4 space-y-4">
