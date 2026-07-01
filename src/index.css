@@ -619,8 +619,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   letter-spacing: 0.04em;
 }
 .print-classic-items-table {
-  width: 182mm;
-  max-width: 100%;
+  width: 100%;
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
@@ -628,7 +627,6 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   border: 0;
   border-radius: 0;
   overflow: hidden;
-  margin: 0 auto;
 }
 .print-classic-items-table thead th {
   background: #e5e7eb;
@@ -701,14 +699,11 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   line-height: 1.2;
 }
 
-/* TERMS + TOTALS
-   - Items table cols: ITEM(12) + DESC(80) + QTY(13) + UNIT(18) + PRICE(22) + DISC(11) + AMOUNT(26) = 182mm
-   - Terms-col = ITEM+DESC+QTY+UNIT = 123mm. Totals-col = PRICE+DISC+AMOUNT = 59mm.
-   - Table and grid must stay in sync (both fixed 182mm). */
+/* TERMS + TOTALS */
 .print-classic-bottom-row {
   position: relative;
   display: grid;
-  grid-template-columns: 123mm 59mm;
+  grid-template-columns: 123fr 59fr;
   border: 0;
   border-top: 0;
   border-radius: 0;
@@ -719,7 +714,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(123mm - 0.35px);
+  left: calc(67.582% - 0.35px);
   z-index: 2;
   pointer-events: none;
   border-left: 0.35px solid #d1d5db;
