@@ -1,5 +1,5 @@
 import { Card } from "../ui/Card";
-import { formatBuddhistDate } from "../../lib/dates";
+import { formatBuddhistDateTime } from "../../lib/dates";
 import { CustomerAvatar } from "../customer/CustomerAvatar";
 import type { Customer, DocumentStatus } from "../../types";
 
@@ -62,7 +62,7 @@ export function DealCard({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-[#1A1A18] truncate">{customerName}</div>
-              <div className="mt-0.5 text-[10px] text-[#888780]">{formatBuddhistDate(createdAt)}</div>
+              <div className="mt-0.5 text-[10px] text-[#888780] tabular-nums">สร้าง {formatBuddhistDateTime(createdAt)}</div>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
                   {stageLabel}

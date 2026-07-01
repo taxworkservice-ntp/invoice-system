@@ -19,7 +19,7 @@ import { NewDealSheet } from "../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
 import { formatCurrency } from "../../lib/format";
-import { formatBuddhistDate } from "../../lib/dates";
+import { formatBuddhistDate, formatBuddhistDateTime } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS } from "../../constants";
 import type { Deal, Document, Customer, DocumentLineItem } from "../../types";
@@ -472,12 +472,7 @@ export default function HomePage() {
     () =>
       deals
         .filter((deal) => !deal.isDone)
-        .sort((a, b) => {
-          if (a.isOverdue && !b.isOverdue) return -1;
-          if (!a.isOverdue && b.isOverdue) return 1;
-          if (a.isOverdue && b.isOverdue) return (a.dueDate || "").localeCompare(b.dueDate || "");
-          return b.updatedAt.localeCompare(a.updatedAt);
-        }),
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [deals]
   );
 
@@ -657,6 +652,9 @@ export default function HomePage() {
                             <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
                               {deal.customerName}
                             </div>
+                            <div className="mt-0.5 text-[10px] text-[#888780] tabular-nums">
+                              สร้าง {formatBuddhistDateTime(deal.createdAt)}
+                            </div>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}>
                                 {deal.stageLabel}
@@ -701,7 +699,7 @@ export default function HomePage() {
                             active={dealSort.sort.key === "createdAt"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("createdAt")}
-                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden lg:table-cell"
+                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
                           />
                           <th className="px-3 py-2 font-semibold hidden sm:table-cell">รายการ</th>
                           <SortableTh
@@ -743,8 +741,8 @@ export default function HomePage() {
                                 <span className="text-[12px] text-[#444441]">{deal.stageLabel}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-2 hidden lg:table-cell">
-                              <span className="text-[11px] text-[#888780] tabular-nums">{formatBuddhistDate(deal.createdAt)}</span>
+                            <td className="px-3 py-2">
+                              <span className="whitespace-nowrap text-[11px] text-[#888780] tabular-nums">{formatBuddhistDateTime(deal.createdAt)}</span>
                             </td>
                             <td className="px-3 py-2 hidden sm:table-cell">
                               <span className="text-[12px] text-[#888780] truncate block max-w-[200px]">
