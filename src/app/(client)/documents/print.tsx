@@ -6,12 +6,9 @@ import { PrintDocument } from "../../../components/print/PrintDocument";
 import type { CopyType } from "../../../components/print/PrintDocument";
 import { PrintDocumentClassic } from "../../../components/print/PrintDocumentClassic";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
-import { generatePDFDocument, getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
-import { downloadR2Blob, getCachedPdfFile, pdfKey, uploadToR2 } from "../../../lib/r2";
+import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { DOC_TYPE_SHORT } from "../../../constants";
 import { supabase } from "../../../lib/supabase";
-
-const PDF_RENDER_VERSION = "a4-v1";
 
 export default function DocumentPrintPreviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -179,28 +176,6 @@ export default function DocumentPrintPreviewPage() {
     return `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
   }
 
-  async function getOrCreatePdfBlob(data: PrintDocumentData, copyTypes: Array<"original" | "copy">) {
-    const baseVariant = copyTypes.length === 1 ? "original" : "original-copy";
-    const variant = `${baseVariant}-${PDF_RENDER_VERSION}`;
-    try {
-      const cachedFile = await getCachedPdfFile(data.document, variant);
-      if (cachedFile) {
-        return await downloadR2Blob(cachedFile.r2_key);
-      }
-    } catch (err) {
-      console.warn("PDF cache unavailable, generating a fresh PDF:", err);
-    }
-
-    const pdf = await generatePDFDocument(data, copyTypes);
-    const blob = pdf.output("blob");
-    const filename = pdfFilename(data);
-    const file = new File([blob], filename, { type: "application/pdf" });
-    uploadToR2(pdfKey(data.document.user_id, data.document.id, variant), file, data.document.id).catch((err) => {
-      console.warn("PDF cache upload failed; downloaded generated PDF without caching:", err);
-    });
-    return blob;
-  }
-
   async function getServerPdfBlob(copyTypes: Array<"original" | "copy">) {
     if (!id) throw new Error("Missing document id");
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -225,21 +200,12 @@ export default function DocumentPrintPreviewPage() {
     return response.blob();
   }
 
-  async function getProfessionalPdfBlob(data: PrintDocumentData, copyTypes: Array<"original" | "copy">) {
-    try {
-      return await getServerPdfBlob(copyTypes);
-    } catch (err) {
-      console.warn("Server PDF renderer unavailable, falling back to client export:", err);
-      return getOrCreatePdfBlob(data, copyTypes);
-    }
-  }
-
   async function handleSavePdf() {
     if (savingPdf || !data) return;
     setSavingPdf(true);
     setPdfError("");
     try {
-      await triggerDownload(await getProfessionalPdfBlob(data, ["original"]), pdfFilename(data));
+      await triggerDownload(await getServerPdfBlob(["original"]), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -253,7 +219,7 @@ export default function DocumentPrintPreviewPage() {
     setSavingPdf(true);
     setPdfError("");
     try {
-      await triggerDownload(await getProfessionalPdfBlob(data, ["original", "copy"]), pdfFilename(data));
+      await triggerDownload(await getServerPdfBlob(["original", "copy"]), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");

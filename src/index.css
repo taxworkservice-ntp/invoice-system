@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Sarabun";
+  src: url("/fonts/Sarabun-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sarabun";
+  src: url("/fonts/Sarabun-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sarabun";
+  src: url("/fonts/Sarabun-Bold.ttf") format("truetype");
+  font-weight: 700 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 body {
   margin: 0;
   font-family: "Inter", system-ui, -apple-system, sans-serif;
@@ -140,6 +164,7 @@ body {
   box-shadow: none;
   box-sizing: border-box;
   overflow: hidden;
+  font-family: "Sarabun", "Inter", system-ui, -apple-system, sans-serif;
 }
 
 .print-theme-modern {
@@ -273,7 +298,7 @@ body {
    ===================================================================== */
 
 .print-theme-classic {
-  font-family: "Inter", "Sarabun", system-ui, -apple-system, sans-serif;
+  font-family: "Sarabun", "Inter", system-ui, -apple-system, sans-serif;
   color: #1f2937;
   font-size: 9pt;
   line-height: 1.4;
