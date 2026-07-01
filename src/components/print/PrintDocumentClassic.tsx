@@ -275,7 +275,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
               <tr>
                 <th>เลขที่<span className="en">ITEM</span></th>
                 <th>รายการ<span className="en">DESCRIPTION</span></th>
-                <th style={{ textAlign: "right" }}>จำนวน<span className="en">QTY</span></th>
+                <th style={{ textAlign: "center" }}>จำนวน<span className="en">QTY</span></th>
                 <th style={{ textAlign: "center" }}>หน่วย<span className="en">UNIT</span></th>
                 <th style={{ textAlign: "right" }}>ราคา/หน่วย<span className="en">UNIT PRICE</span></th>
                 <th style={{ textAlign: "center" }}>ส่วนลด<span className="en">DISC.</span></th>
@@ -307,7 +307,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                         </div>
                       ) : null}
                     </td>
-                    <td className="right">{item.quantity}</td>
+                    <td className="center">{item.quantity}</td>
                     <td className="center">{item.unit}</td>
                     <td className="right">{formatCurrency(item.unit_price)}</td>
                     <td className="center">{hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}</td>
@@ -319,7 +319,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                 <tr key={`blank-${index}`} className="print-classic-blank-row">
                   <td className="center">&nbsp;</td>
                   <td className="print-classic-item-name">&nbsp;</td>
-                  <td className="right">&nbsp;</td>
+                  <td className="center">&nbsp;</td>
                   <td className="center">&nbsp;</td>
                   <td className="right">&nbsp;</td>
                   <td className="center">&nbsp;</td>
@@ -449,8 +449,8 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
       {/* ============== BOTTOM BAND (signatures) ============== */}
       <div className="print-classic-bottom-band">
         <div className="print-classic-sig-cell">
-          <div className="print-classic-sig-th">ได้รับสินค้าตามรายการข้างบนนี้ถูกต้องแล้ว</div>
-          <div className="print-classic-sig-th-en">RECEIVED IN GOOD CONDITION AND ORDER</div>
+          <div className="print-classic-sig-th">ได้รับสินค้า/บริการถูกต้องแล้ว</div>
+          <div className="print-classic-sig-th-en">GOODS/SERVICES RECEIVED</div>
           <div className="print-classic-sig-line"></div>
           <div className="print-classic-sig-dt">วันที่ / DATE</div>
           <div className="print-classic-sig-role">ผู้รับของ / RECEIVED BY</div>
