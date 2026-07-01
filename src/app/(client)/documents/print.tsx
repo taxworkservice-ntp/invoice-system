@@ -32,6 +32,18 @@ export default function DocumentPrintPreviewPage() {
   const [copyType, setCopyType] = useState<CopyType>(exportCopyTypes[0] || "original");
 
   useEffect(() => {
+    if (!exportMode) return;
+
+    document.documentElement.classList.add("print-export-document");
+    document.body.classList.add("print-export-document");
+
+    return () => {
+      document.documentElement.classList.remove("print-export-document");
+      document.body.classList.remove("print-export-document");
+    };
+  }, [exportMode]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function load() {
@@ -143,8 +155,15 @@ export default function DocumentPrintPreviewPage() {
       if (isMobile && typeof navigator.share === "function") {
         const shareData = { files: [file], title: filename };
         if (typeof navigator.canShare !== "function" || navigator.canShare(shareData)) {
-          await navigator.share(shareData);
-          return;
+          try {
+            await navigator.share(shareData);
+            return;
+          } catch (err) {
+            if (err instanceof DOMException && err.name === "AbortError") {
+              return;
+            }
+            console.warn("Native PDF share failed; falling back to browser download:", err);
+          }
         }
       }
 

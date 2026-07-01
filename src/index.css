@@ -125,8 +125,28 @@ body {
   transform-origin: top center;
 }
 
+html.print-export-document,
+body.print-export-document {
+  width: 210mm;
+  min-width: 210mm;
+  min-height: 297mm;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #ffffff !important;
+}
+
+body.print-export-document #root {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+}
+
 .print-export-stack {
   width: 210mm;
+  min-height: 297mm;
   margin: 0;
   padding: 0;
   background: #ffffff;
