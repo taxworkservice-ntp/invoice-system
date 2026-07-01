@@ -3,6 +3,10 @@ import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
 import { getR2PresignedUrl } from "./r2";
 
+const A4_WIDTH_MM = 210;
+const A4_HEIGHT_MM = 297;
+const PDF_CANVAS_SCALE = 3;
+
 export type HtmlPrintTemplate = "modern" | "classic";
 
 export interface PrintDocumentData {
@@ -219,7 +223,7 @@ async function renderModernPrintCanvas(
 ): Promise<HTMLCanvasElement> {
   const { default: html2canvas } = await import("html2canvas");
   const container = document.createElement("div");
-  container.style.cssText = "position:fixed;top:0;left:0;width:210mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;";
+  container.style.cssText = `position:fixed;top:0;left:0;width:${A4_WIDTH_MM}mm;height:${A4_HEIGHT_MM}mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;overflow:hidden;`;
   document.body.appendChild(container);
   let root: { render: (...args: any[]) => void; unmount: () => void } | null = null;
 
@@ -265,17 +269,23 @@ async function renderModernPrintCanvas(
 
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+    const captureRect = sheet.getBoundingClientRect();
+
     return await html2canvas(sheet, {
-      scale: 3,
+      scale: PDF_CANVAS_SCALE,
       useCORS: true,
       backgroundColor: "#ffffff",
-      width: sheet.scrollWidth,
-      height: sheet.scrollHeight,
-      windowWidth: sheet.scrollWidth,
-      windowHeight: sheet.scrollHeight,
+      width: captureRect.width,
+      height: captureRect.height,
+      windowWidth: captureRect.width,
+      windowHeight: captureRect.height,
       onclone: (clonedDoc) => {
         const clonedSheet = clonedDoc.querySelector<HTMLElement>(".print-sheet");
         if (clonedSheet) {
+          clonedSheet.style.width = `${A4_WIDTH_MM}mm`;
+          clonedSheet.style.height = `${A4_HEIGHT_MM}mm`;
+          clonedSheet.style.minHeight = `${A4_HEIGHT_MM}mm`;
+          clonedSheet.style.overflow = "hidden";
           clonedSheet.style.border = "none";
           clonedSheet.style.borderRadius = "0";
           clonedSheet.style.boxShadow = "none";
@@ -299,16 +309,14 @@ export async function generateModernPDFDocument(
   copyTypes: Array<"original" | "copy"> = ["original"],
 ) {
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [A4_WIDTH_MM, A4_HEIGHT_MM] });
 
   for (const [index, copyType] of copyTypes.entries()) {
     const canvas = await renderModernPrintCanvas(data, copyType);
     if (index > 0) {
       pdf.addPage();
     }
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
   }
 
   return pdf;
@@ -325,7 +333,7 @@ async function renderClassicPrintCanvas(
 ): Promise<HTMLCanvasElement> {
   const { default: html2canvas } = await import("html2canvas");
   const container = document.createElement("div");
-  container.style.cssText = "position:fixed;top:0;left:0;width:210mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;";
+  container.style.cssText = `position:fixed;top:0;left:0;width:${A4_WIDTH_MM}mm;height:${A4_HEIGHT_MM}mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;overflow:hidden;`;
   document.body.appendChild(container);
   let root: { render: (...args: any[]) => void; unmount: () => void } | null = null;
 
@@ -371,17 +379,23 @@ async function renderClassicPrintCanvas(
 
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+    const captureRect = sheet.getBoundingClientRect();
+
     return await html2canvas(sheet, {
-      scale: 3,
+      scale: PDF_CANVAS_SCALE,
       useCORS: true,
       backgroundColor: "#ffffff",
-      width: sheet.scrollWidth,
-      height: sheet.scrollHeight,
-      windowWidth: sheet.scrollWidth,
-      windowHeight: sheet.scrollHeight,
+      width: captureRect.width,
+      height: captureRect.height,
+      windowWidth: captureRect.width,
+      windowHeight: captureRect.height,
       onclone: (clonedDoc) => {
         const clonedSheet = clonedDoc.querySelector<HTMLElement>(".print-sheet");
         if (clonedSheet) {
+          clonedSheet.style.width = `${A4_WIDTH_MM}mm`;
+          clonedSheet.style.height = `${A4_HEIGHT_MM}mm`;
+          clonedSheet.style.minHeight = `${A4_HEIGHT_MM}mm`;
+          clonedSheet.style.overflow = "hidden";
           clonedSheet.style.border = "none";
           clonedSheet.style.borderRadius = "0";
           clonedSheet.style.boxShadow = "none";
@@ -405,16 +419,14 @@ export async function generateClassicPDFDocument(
   copyTypes: Array<"original" | "copy"> = ["original"],
 ) {
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [A4_WIDTH_MM, A4_HEIGHT_MM] });
 
   for (const [index, copyType] of copyTypes.entries()) {
     const canvas = await renderClassicPrintCanvas(data, copyType);
     if (index > 0) {
       pdf.addPage();
     }
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageW, pageH);
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
   }
 
   return pdf;

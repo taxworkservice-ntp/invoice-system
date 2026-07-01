@@ -10,6 +10,8 @@ import { generatePDFDocument, getPrintDocumentData, type PrintDocumentData } fro
 import { downloadR2Blob, getCachedPdfFile, pdfKey, uploadToR2 } from "../../../lib/r2";
 import { DOC_TYPE_SHORT } from "../../../constants";
 
+const PDF_RENDER_VERSION = "a4-v1";
+
 export default function DocumentPrintPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -171,7 +173,8 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
   }
 
   async function getOrCreatePdfBlob(data: PrintDocumentData, copyTypes: Array<"original" | "copy">) {
-    const variant = copyTypes.length === 1 ? "original" : "original-copy";
+    const baseVariant = copyTypes.length === 1 ? "original" : "original-copy";
+    const variant = `${baseVariant}-${PDF_RENDER_VERSION}`;
     const cachedFile = await getCachedPdfFile(data.document, variant);
     if (cachedFile) {
       return downloadR2Blob(cachedFile.r2_key);
