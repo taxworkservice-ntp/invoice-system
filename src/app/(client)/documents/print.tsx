@@ -18,7 +18,8 @@ export default function DocumentPrintPreviewPage() {
   const [data, setData] = useState<PrintDocumentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-const previewFrameRef = useRef<HTMLDivElement | null>(null);
+  const [pdfError, setPdfError] = useState("");
+  const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const previewSheetRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [previewHeight, setPreviewHeight] = useState<number | null>(null);
@@ -175,27 +176,34 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
   async function getOrCreatePdfBlob(data: PrintDocumentData, copyTypes: Array<"original" | "copy">) {
     const baseVariant = copyTypes.length === 1 ? "original" : "original-copy";
     const variant = `${baseVariant}-${PDF_RENDER_VERSION}`;
-    const cachedFile = await getCachedPdfFile(data.document, variant);
-    if (cachedFile) {
-      return downloadR2Blob(cachedFile.r2_key);
+    try {
+      const cachedFile = await getCachedPdfFile(data.document, variant);
+      if (cachedFile) {
+        return await downloadR2Blob(cachedFile.r2_key);
+      }
+    } catch (err) {
+      console.warn("PDF cache unavailable, generating a fresh PDF:", err);
     }
 
     const pdf = await generatePDFDocument(data, copyTypes);
     const blob = pdf.output("blob");
     const filename = pdfFilename(data);
     const file = new File([blob], filename, { type: "application/pdf" });
-    await uploadToR2(pdfKey(data.document.user_id, data.document.id, variant), file, data.document.id);
+    uploadToR2(pdfKey(data.document.user_id, data.document.id, variant), file, data.document.id).catch((err) => {
+      console.warn("PDF cache upload failed; downloaded generated PDF without caching:", err);
+    });
     return blob;
   }
 
   async function handleSavePdf() {
     if (savingPdf || !data) return;
     setSavingPdf(true);
+    setPdfError("");
     try {
       await triggerDownload(await getOrCreatePdfBlob(data, ["original"]), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
-      void openBrowserPrintDialog();
+      setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setSavingPdf(false);
     }
@@ -204,11 +212,12 @@ const previewFrameRef = useRef<HTMLDivElement | null>(null);
   async function handleSaveBothPdf() {
     if (savingPdf || !data) return;
     setSavingPdf(true);
+    setPdfError("");
     try {
       await triggerDownload(await getOrCreatePdfBlob(data, ["original", "copy"]), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
-      void openBrowserPrintDialog();
+      setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setSavingPdf(false);
     }
@@ -280,6 +289,11 @@ return (
           <Button onClick={handleSaveBothPdf} disabled={savingPdf} variant="secondary" className="flex-1 sm:flex-none">
             {savingPdf ? "กำลังบันทึก..." : "ต้นฉบับ+สำเนา"}
           </Button>
+          {pdfError ? (
+            <div className="w-full text-right text-[11px] text-red-600">
+              {pdfError}
+            </div>
+          ) : null}
         </div>
       </div>
 
