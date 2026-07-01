@@ -225,9 +225,7 @@ html[data-accent-mode="element"] body .print-theme-modern-accent {
 }
 
 html[data-accent-mode="element"] .print-theme-modern {
-  background:
-    linear-gradient(180deg, var(--doc-accent, #2f6fed) 0 5px, transparent 5px 100%),
-    #ffffff;
+  background: #ffffff;
 }
 
 html:not([data-accent-mode]) .print-theme-modern,
