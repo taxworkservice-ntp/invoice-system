@@ -20,7 +20,7 @@ import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStoc
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle, Copy, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
-import type { DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailPreset } from "../../../types";
+import type { DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
 interface LineItemForm {
   id: string;
@@ -53,11 +53,18 @@ type JobDetailSuggestions = {
   remarks: string[];
 };
 
-const DEFAULT_JOB_DETAIL_SUGGESTIONS: JobDetailSuggestions = {
-  colors: ["ฟอยล์ทอง", "ฟอยล์เงิน", "ฟอยล์แดง", "ฟอยล์ดำ", "ปั๊มนูน", "Spot UV"],
-  positions: ["ด้านหน้า", "ด้านหลัง", "ด้านซ้าย", "ด้านขวา", "กลางชิ้นงาน", "มุมขวาล่าง", "ตามแบบ"],
-  materials: ["กล่องกระดาษ", "ปกหนังสือ", "การ์ด", "สติกเกอร์", "ซอง", "ถุงกระดาษ"],
-  remarks: ["ตามแบบลูกค้า", "จัดตำแหน่งตามไฟล์อาร์ตเวิร์ก", "ตรวจแบบก่อนผลิตจริง"],
+const PRESET_FIELD_TO_SUGGESTION_KEY: Record<JobDetailPresetField, keyof JobDetailSuggestions> = {
+  color: "colors",
+  position: "positions",
+  material: "materials",
+  remark: "remarks",
+};
+
+const PRESET_FIELD_LABELS: Record<JobDetailPresetField, string> = {
+  color: "สี/ฟอยล์",
+  position: "ตำแหน่ง",
+  material: "วัสดุ",
+  remark: "หมายเหตุ",
 };
 
 function createEmptyLine(): LineItemForm {
@@ -232,38 +239,6 @@ function uniqueStrings(values: string[]) {
   return result;
 }
 
-function getNoteValue(note: string, labels: string[]) {
-  for (const label of labels) {
-    const match = note.match(new RegExp(`^${label}\\s*:\\s*(.+)$`, "im"));
-    const value = match?.[1]?.trim();
-    if (value) return value;
-  }
-  return "";
-}
-
-function parseJobDetailSuggestions(notes: string[]): JobDetailSuggestions {
-  const parsed: JobDetailSuggestions = {
-    colors: [],
-    positions: [],
-    materials: [],
-    remarks: [],
-  };
-
-  notes.forEach((note) => {
-    parsed.colors.push(getNoteValue(note, ["สี/ฟอยล์", "สี", "ฟอยล์", "Color/Foil"]));
-    parsed.positions.push(getNoteValue(note, ["ตำแหน่ง", "Position"]));
-    parsed.materials.push(getNoteValue(note, ["วัสดุ", "Material"]));
-    parsed.remarks.push(getNoteValue(note, ["หมายเหตุ", "Remark"]));
-  });
-
-  return {
-    colors: uniqueStrings([...DEFAULT_JOB_DETAIL_SUGGESTIONS.colors, ...parsed.colors]).slice(0, 20),
-    positions: uniqueStrings([...DEFAULT_JOB_DETAIL_SUGGESTIONS.positions, ...parsed.positions]).slice(0, 20),
-    materials: uniqueStrings([...DEFAULT_JOB_DETAIL_SUGGESTIONS.materials, ...parsed.materials]).slice(0, 20),
-    remarks: uniqueStrings([...DEFAULT_JOB_DETAIL_SUGGESTIONS.remarks, ...parsed.remarks]).slice(0, 20),
-  };
-}
-
 function mergeJobDetailSuggestions(...groups: Partial<JobDetailSuggestions>[]) {
   return {
     colors: uniqueStrings(groups.flatMap((group) => group.colors || [])).slice(0, 20),
@@ -297,7 +272,6 @@ export default function NewDealPage() {
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([createEmptyLine()]);
-  const [jobDetailSuggestions, setJobDetailSuggestions] = useState<JobDetailSuggestions>(DEFAULT_JOB_DETAIL_SUGGESTIONS);
   const [serviceJobDetailPresets, setServiceJobDetailPresets] = useState<Record<string, JobDetailSuggestions>>({});
   const [vatRegistered, setVatRegistered] = useState(clientProfile?.vat_registered ?? false);
   const [vatRate, setVatRate] = useState<number>(clientProfile?.vat_rate ?? VAT_DEFAULT);
@@ -390,32 +364,6 @@ export default function NewDealPage() {
   }, [isBillingNote, selectedCustomer, userId]);
 
   useEffect(() => {
-    if (!userId) return;
-
-    let cancelled = false;
-    async function loadJobDetailSuggestions() {
-      const { data } = await supabase
-        .from("document_line_items")
-        .select("line_note")
-        .eq("user_id", userId)
-        .not("line_note", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(300);
-
-      if (cancelled) return;
-      const notes = (data || [])
-        .map((row: { line_note: string | null }) => row.line_note || "")
-        .filter((note) => note.trim());
-      setJobDetailSuggestions(parseJobDetailSuggestions(notes));
-    }
-
-    void loadJobDetailSuggestions();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  useEffect(() => {
     const itemIds = jobDetailServiceItems.map((item) => item.id);
     if (!userId || itemIds.length === 0) {
       setServiceJobDetailPresets({});
@@ -455,6 +403,39 @@ export default function NewDealPage() {
       cancelled = true;
     };
   }, [jobDetailServiceItems, userId]);
+
+  async function removeServiceJobDetailPreset(itemId: string, fieldKey: JobDetailPresetField, value: string) {
+    if (!userId) return;
+    const label = PRESET_FIELD_LABELS[fieldKey];
+    const confirmed = window.confirm(`ลบ "${value}" ออกจากตัวเลือก${label}ของบริการนี้?`);
+    if (!confirmed) return;
+
+    const { error: deleteError } = await supabase
+      .from("item_job_detail_presets")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", itemId)
+      .eq("field_key", fieldKey)
+      .eq("value", value);
+
+    if (deleteError) {
+      toast.error(deleteError.message);
+      return;
+    }
+
+    const suggestionKey = PRESET_FIELD_TO_SUGGESTION_KEY[fieldKey];
+    setServiceJobDetailPresets((prev) => ({
+      ...prev,
+      [itemId]: {
+        colors: prev[itemId]?.colors || [],
+        positions: prev[itemId]?.positions || [],
+        materials: prev[itemId]?.materials || [],
+        remarks: prev[itemId]?.remarks || [],
+        [suggestionKey]: (prev[itemId]?.[suggestionKey] || []).filter((presetValue) => presetValue !== value),
+      },
+    }));
+    toast.success("ลบตัวเลือกแล้ว");
+  }
 
   useEffect(() => {
     if (!isUtilityBill || !selectedCustomer || !userId) {
@@ -800,6 +781,33 @@ export default function NewDealPage() {
         if (lineItem.id !== lineItemId) return lineItem;
         return applyCatalogItemToLine(lineItem, catalogItem, jobDetailsFeatureEnabled);
       }),
+    );
+  };
+
+  const renderServicePresetChips = (itemId: string, fieldKey: JobDetailPresetField) => {
+    const suggestionKey = PRESET_FIELD_TO_SUGGESTION_KEY[fieldKey];
+    const presets = serviceJobDetailPresets[itemId]?.[suggestionKey] || [];
+    if (presets.length === 0) return null;
+
+    return (
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {presets.map((value) => (
+          <span
+            key={value}
+            className="inline-flex items-center gap-1 rounded-full border border-[#D7DEE7] bg-white px-2 py-0.5 text-[10px] text-[#5F5A52]"
+          >
+            {value}
+            <button
+              type="button"
+              onClick={() => void removeServiceJobDetailPreset(itemId, fieldKey, value)}
+              className="text-gray-400 transition-colors hover:text-red-500"
+              aria-label={`ลบ ${value}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
     );
   };
 
@@ -1349,7 +1357,6 @@ export default function NewDealPage() {
                 const lineJobDetailSuggestions = mergeJobDetailSuggestions(
                   matchedItem?.id ? serviceJobDetailPresets[matchedItem.id] : {},
                   currentDocumentJobDetailSuggestions,
-                  jobDetailSuggestions,
                 );
 
                 if (isUtilityBill && idx === 0) {
@@ -1461,6 +1468,7 @@ export default function NewDealPage() {
                               placeholder="เช่น ฟอยล์แดง"
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
+                            {matchedItem?.id ? renderServicePresetChips(matchedItem.id, "color") : null}
                           </label>
                           <div>
                             <span className="mb-1 block text-[10px] text-gray-400">ขนาด กว้าง x สูง (มม.)</span>
@@ -1493,6 +1501,7 @@ export default function NewDealPage() {
                               placeholder="เช่น ด้านซ้าย"
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
+                            {matchedItem?.id ? renderServicePresetChips(matchedItem.id, "position") : null}
                           </label>
                           <label className="block">
                             <span className="mb-1 block text-[10px] text-gray-400">วัสดุ</span>
@@ -1503,6 +1512,7 @@ export default function NewDealPage() {
                               placeholder="เช่น กล่องกระดาษ"
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
+                            {matchedItem?.id ? renderServicePresetChips(matchedItem.id, "material") : null}
                           </label>
                           <label className="block md:col-span-2">
                             <span className="mb-1 block text-[10px] text-gray-400">หมายเหตุ</span>
@@ -1513,6 +1523,7 @@ export default function NewDealPage() {
                               placeholder="หมายเหตุเพิ่มเติม"
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
+                            {matchedItem?.id ? renderServicePresetChips(matchedItem.id, "remark") : null}
                           </label>
                         </div>
                       )}
