@@ -22,6 +22,7 @@ export type DocumentStatus =
 
 export type ItemType = "product" | "service";
 export type JobDetailPresetField = "color" | "position" | "material" | "remark";
+export type ClientFeatureKey = "service_job_details";
 
 export type StockMovementType =
   | "manual_in"
@@ -65,6 +66,15 @@ export interface ClientProfile {
   signature_url: string | null;
   stamp_url: string | null;
   dev_mode_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientFeature {
+  id: string;
+  user_id: string;
+  feature_key: ClientFeatureKey;
+  enabled: boolean;
   created_at: string;
   updated_at: string;
 }

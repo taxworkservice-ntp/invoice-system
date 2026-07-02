@@ -20,8 +20,9 @@ import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
+import { CLIENT_FEATURES } from "../../../lib/features";
 import { DOC_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from "../../../constants";
-import type { ClientProfile, Document } from "../../../types";
+import type { ClientFeature, ClientFeatureKey, ClientProfile, Document } from "../../../types";
 
 const CARD_LABEL = "text-[11px] uppercase font-semibold text-[#888780] tracking-wide";
 
@@ -34,6 +35,7 @@ export default function AdminClientDetailPage() {
   const [email, setEmail] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [features, setFeatures] = useState<ClientFeature[]>([]);
   const [dealCount, setDealCount] = useState(0);
   const [activeCustomerCount, setActiveCustomerCount] = useState(0);
   const [activeItemCount, setActiveItemCount] = useState(0);
@@ -42,6 +44,7 @@ export default function AdminClientDetailPage() {
   const [resetting, setResetting] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [togglingDev, setTogglingDev] = useState(false);
+  const [togglingFeature, setTogglingFeature] = useState<ClientFeatureKey | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [showWorkspaceResetModal, setShowWorkspaceResetModal] = useState(false);
   const [workspaceResetConfirm, setWorkspaceResetConfirm] = useState("");
@@ -69,7 +72,7 @@ export default function AdminClientDetailPage() {
 
     setLoading(true);
 
-    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes] = await Promise.all([
+    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes] = await Promise.all([
       supabase.from("client_profiles").select("*").eq("user_id", id).single(),
       supabase
         .from("documents")
@@ -82,6 +85,7 @@ export default function AdminClientDetailPage() {
       supabase.from("customers").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
       supabase.from("items").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
       supabase.from("deals").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
+      supabase.from("client_features").select("*").eq("user_id", id),
     ]);
 
     if (!cpRes.error && cpRes.data) {
@@ -101,6 +105,9 @@ export default function AdminClientDetailPage() {
     }
     if (!activeDealRes.error) {
       setActiveDealCount(activeDealRes.count || 0);
+    }
+    if (!featureRes.error && featureRes.data) {
+      setFeatures(featureRes.data as ClientFeature[]);
     }
 
     setEmail(userRes.email || "");
@@ -196,6 +203,40 @@ export default function AdminClientDetailPage() {
       toast.error(error.message || "Unable to toggle dev mode");
     } finally {
       setTogglingDev(false);
+    }
+  }
+
+  async function handleToggleFeature(featureKey: ClientFeatureKey) {
+    if (!id) return;
+    const current = features.find((feature) => feature.feature_key === featureKey);
+    const nextEnabled = !current?.enabled;
+    setTogglingFeature(featureKey);
+
+    try {
+      const { data, error } = await supabase
+        .from("client_features")
+        .upsert(
+          {
+            user_id: id,
+            feature_key: featureKey,
+            enabled: nextEnabled,
+          },
+          { onConflict: "user_id,feature_key" },
+        )
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setFeatures((prev) => {
+        const next = prev.filter((feature) => feature.feature_key !== featureKey);
+        return [...next, data as ClientFeature];
+      });
+      toast.success(nextEnabled ? "เปิด Business Feature แล้ว" : "ปิด Business Feature แล้ว");
+    } catch (error: any) {
+      toast.error(error.message || "Unable to toggle business feature");
+    } finally {
+      setTogglingFeature(null);
     }
   }
 
@@ -336,6 +377,9 @@ export default function AdminClientDetailPage() {
 
   const isImpersonating = sessionStorage.getItem("impersonate_user_id") === id;
   const confirmName = clientProfile.company_name_th?.trim() || email.trim();
+  const enabledFeatureKeys = new Set(
+    features.filter((feature) => feature.enabled).map((feature) => feature.feature_key),
+  );
 
   return (
     <div className="min-h-screen bg-[#F7F6F3]">
@@ -459,6 +503,38 @@ export default function AdminClientDetailPage() {
               <span className="text-[11px] text-[#888780] ml-4">เอกสารทั้งหมด: {documents.length >= 10 ? "10+" : documents.length}</span>
               <span className="text-[11px] text-[#888780] ml-4">งานขาย: {dealCount}</span>
             </div>
+          </div>
+        </Card>
+
+        <div className={CARD_LABEL}>Business Features</div>
+
+        <Card>
+          <div className="space-y-3">
+            {CLIENT_FEATURES.map((feature) => {
+              const enabled = enabledFeatureKeys.has(feature.key);
+              return (
+                <div key={feature.key} className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-[#1A1A18]">{feature.label}</div>
+                      <p className="mt-1 text-xs leading-5 text-[#888780]">{feature.description}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFeature(feature.key)}
+                      disabled={togglingFeature === feature.key}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        enabled
+                          ? "bg-[#E7F6EC] text-[#1E5A38] hover:bg-[#D8F0E0]"
+                          : "bg-[#F1F2F4] text-[#5F5A52] hover:bg-[#E8E6DF]"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {togglingFeature === feature.key ? "..." : enabled ? "ON" : "OFF"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
 

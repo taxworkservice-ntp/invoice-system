@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useCustomers } from "../../../hooks/useCustomers";
 import { useItems } from "../../../hooks/useItems";
+import { useClientFeatures } from "../../../hooks/useClientFeatures";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -167,9 +168,9 @@ function getSuggestedUnitPrice(baseUnitPrice: number, unit: string, cartonUnit?:
   return baseUnitPrice;
 }
 
-function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item): LineItemForm {
+function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item, jobDetailsFeatureEnabled: boolean): LineItemForm {
   const unit = catalogItem.base_unit;
-  const hasJobDetails = catalogItem.item_type === "service" && catalogItem.has_job_details;
+  const hasJobDetails = jobDetailsFeatureEnabled && catalogItem.item_type === "service" && catalogItem.has_job_details;
   return {
     ...lineItem,
     item_name: catalogItem.name,
@@ -287,8 +288,10 @@ export default function NewDealPage() {
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
+  const { hasFeature } = useClientFeatures(userId);
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const { items, addItem } = useItems(userId);
+  const jobDetailsFeatureEnabled = hasFeature("service_job_details");
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
@@ -328,8 +331,8 @@ export default function NewDealPage() {
 
   const serviceItems = useMemo(() => items.filter((item) => item.item_type === "service"), [items]);
   const jobDetailServiceItems = useMemo(
-    () => serviceItems.filter((item) => item.has_job_details),
-    [serviceItems],
+    () => jobDetailsFeatureEnabled ? serviceItems.filter((item) => item.has_job_details) : [],
+    [jobDetailsFeatureEnabled, serviceItems],
   );
   const selectedUtilityService = useMemo(
     () => serviceItems.find((item) => item.id === utilityServiceItemId) || null,
@@ -722,7 +725,7 @@ export default function NewDealPage() {
             (c) => c.name.toLowerCase() === name.toLowerCase(),
           );
           if (catalogItem) {
-            return applyCatalogItemToLine(updated, catalogItem);
+            return applyCatalogItemToLine(updated, catalogItem, jobDetailsFeatureEnabled);
           } else {
             updated.item_id = null;
             updated.item_sku = null;
@@ -795,7 +798,7 @@ export default function NewDealPage() {
     setLineItems((prev) =>
       prev.map((lineItem) => {
         if (lineItem.id !== lineItemId) return lineItem;
-        return applyCatalogItemToLine(lineItem, catalogItem);
+        return applyCatalogItemToLine(lineItem, catalogItem, jobDetailsFeatureEnabled);
       }),
     );
   };
@@ -1341,7 +1344,7 @@ export default function NewDealPage() {
                 const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
                 const soldByCarton = isCartonUnitSelected(item);
                 const baseQuantity = getLineBaseQuantity(item);
-                const jobDetailsEnabled = matchedItem?.item_type === "service" && matchedItem.has_job_details;
+                const jobDetailsEnabled = jobDetailsFeatureEnabled && matchedItem?.item_type === "service" && matchedItem.has_job_details;
                 const jobDetailsSummary = getJobDetailsSummary(item);
                 const lineJobDetailSuggestions = mergeJobDetailSuggestions(
                   matchedItem?.id ? serviceJobDetailPresets[matchedItem.id] : {},

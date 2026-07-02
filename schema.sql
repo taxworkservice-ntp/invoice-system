@@ -159,6 +159,30 @@ create policy "Admin reads all client profiles"
   on client_profiles for select
   using (public.is_admin());
 
+create table client_features (
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid not null references profiles(id) on delete cascade,
+  feature_key text not null check (feature_key in ('service_job_details')),
+  enabled     boolean not null default false,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique (user_id, feature_key)
+);
+
+alter table client_features enable row level security;
+
+create policy "Client reads own features"
+  on client_features for select
+  using (auth.uid() = user_id);
+
+create policy "Admin manages client features"
+  on client_features for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create index idx_client_features_user_enabled
+  on client_features (user_id, enabled);
+
 
 -- ============================================================
 -- DOCUMENT NUMBER SEQUENCES
@@ -630,6 +654,10 @@ $$ language plpgsql;
 
 create trigger trg_client_profiles_updated_at
   before update on client_profiles
+  for each row execute function handle_updated_at();
+
+create trigger trg_client_features_updated_at
+  before update on client_features
   for each row execute function handle_updated_at();
 
 create trigger trg_customers_updated_at

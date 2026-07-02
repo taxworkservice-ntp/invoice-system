@@ -6,6 +6,7 @@ import { StockInitialField } from "./StockInitialField";
 import { Button } from "../ui/Button";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
+import { useClientFeatures } from "../../hooks/useClientFeatures";
 import { useToast } from "../../hooks/useToast";
 import { isDuplicateSkuError, normalizeSku, validateSku } from "../../lib/sku";
 import type { Item, JobDetailPresetField, ItemJobDetailPreset } from "../../types";
@@ -47,8 +48,10 @@ interface Props {
 
 export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const { profile } = useAuth();
+  const { hasFeature } = useClientFeatures(profile?.id);
   const toast = useToast();
   const isEdit = !!item;
+  const jobDetailsFeatureEnabled = hasFeature("service_job_details");
 
   const [name, setName] = useState(item?.name || "");
   const [sku, setSku] = useState(item?.sku || "");
@@ -85,7 +88,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!item?.id || item.item_type !== "service") return;
+    if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service") return;
 
     let cancelled = false;
     async function loadPresets() {
@@ -108,7 +111,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [item]);
+  }, [item, jobDetailsFeatureEnabled]);
 
   function addPreset(field: JobDetailPresetField) {
     const value = newPresetValues[field].trim();
@@ -128,7 +131,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   }
 
   async function saveJobDetailPresets(itemId: string) {
-    if (!profile) return;
+    if (!profile || !jobDetailsFeatureEnabled) return;
     await supabase.from("item_job_detail_presets").delete().eq("item_id", itemId);
     if (itemType !== "service" || !hasJobDetails) return;
 
@@ -202,7 +205,12 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       sku: normalizeSku(sku),
       item_type: itemType,
       unit_price: isNaN(price) ? 0 : price,
-      has_job_details: itemType === "service" ? hasJobDetails : false,
+      has_job_details:
+        itemType === "product"
+          ? false
+          : jobDetailsFeatureEnabled
+            ? hasJobDetails
+            : item?.has_job_details || false,
       base_unit: baseUnit || "ชิ้น",
       carton_unit:
         cartonEnabled && itemType === "product" ? cartonUnit : null,
@@ -422,7 +430,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
         )}
       </div>
 
-      {itemType === "service" && (
+      {itemType === "service" && jobDetailsFeatureEnabled && (
         <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4 space-y-4">
           <label className="flex items-start gap-3">
             <input
