@@ -18,7 +18,7 @@ import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
-import { AlertTriangle, Copy, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ChevronDown, Copy, X, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
@@ -66,6 +66,106 @@ const PRESET_FIELD_LABELS: Record<JobDetailPresetField, string> = {
   material: "วัสดุ",
   remark: "หมายเหตุ",
 };
+
+type JobDetailLineField = "job_color" | "job_position" | "job_material" | "job_remark";
+
+interface JobDetailPresetInputProps {
+  label: string;
+  value: string;
+  placeholder: string;
+  presets: string[];
+  onChange: (value: string) => void;
+  onDeletePreset: (value: string) => void;
+}
+
+function JobDetailPresetInput({
+  label,
+  value,
+  placeholder,
+  presets,
+  onChange,
+  onDeletePreset,
+}: JobDetailPresetInputProps) {
+  const [open, setOpen] = useState(false);
+  const normalizedValue = value.trim().toLowerCase();
+  const filteredPresets = presets.filter((preset) =>
+    normalizedValue ? preset.toLowerCase().includes(normalizedValue) : true,
+  );
+  const showPanel = open && filteredPresets.length > 0;
+
+  return (
+    <label className="relative block">
+      <span className="mb-1 block text-[10px] text-gray-400">{label}</span>
+      <div className="relative">
+        <input
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          placeholder={placeholder}
+          role="combobox"
+          aria-expanded={showPanel}
+          className="w-full rounded-lg border border-[#E8E6DF] bg-white py-2 pl-3 pr-8 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+        />
+        {presets.length > 0 && (
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setOpen((current) => !current)}
+            className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-gray-400 transition-colors hover:bg-[#F1F5F9] hover:text-[#1A1A18]"
+            aria-label={`แสดงตัวเลือก${label}`}
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {showPanel && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-[#D7DEE7] bg-white shadow-lg">
+          <div className="max-h-44 overflow-y-auto py-1">
+            {filteredPresets.map((preset) => {
+              const selected = preset === value;
+              return (
+                <div
+                  key={preset}
+                  className={`group flex items-center justify-between gap-2 px-2 py-1.5 text-xs ${
+                    selected
+                      ? "bg-[#EAF4FF] text-[#0C447C]"
+                      : "bg-white text-[#1A1A18] hover:bg-[#F8FAFC]"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      onChange(preset);
+                      setOpen(false);
+                    }}
+                    className="min-w-0 flex-1 truncate text-left"
+                  >
+                    {preset}
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => onDeletePreset(preset)}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    aria-label={`ลบ ${preset}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </label>
+  );
+}
 
 function createEmptyLine(): LineItemForm {
   return {
@@ -755,46 +855,27 @@ export default function NewDealPage() {
     );
   };
 
-  const renderServicePresetChips = (
+  const renderJobDetailPresetInput = (
     lineItemId: string,
     itemId: string,
     fieldKey: JobDetailPresetField,
-    lineField: "job_color" | "job_position" | "job_material" | "job_remark",
-    selectedValue: string,
+    lineField: JobDetailLineField,
+    value: string,
+    label: string,
+    placeholder: string,
   ) => {
     const suggestionKey = PRESET_FIELD_TO_SUGGESTION_KEY[fieldKey];
     const presets = serviceJobDetailPresets[itemId]?.[suggestionKey] || [];
-    if (presets.length === 0) return null;
 
     return (
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {presets.map((value) => (
-          <span
-            key={value}
-            className={`inline-flex items-center overflow-hidden rounded-full border text-[10px] ${
-              selectedValue === value
-                ? "border-[#378ADD] bg-[#EAF4FF] text-[#0C447C]"
-                : "border-[#D7DEE7] bg-white text-[#5F5A52]"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => updateJobDetail(lineItemId, lineField, value)}
-              className="px-2 py-0.5 text-left transition-colors hover:bg-[#EAF4FF]"
-            >
-              {value}
-            </button>
-            <button
-              type="button"
-              onClick={() => void removeServiceJobDetailPreset(itemId, fieldKey, value)}
-              className="border-l border-current/10 px-1.5 py-0.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-              aria-label={`ลบ ${value}`}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
+      <JobDetailPresetInput
+        label={label}
+        value={value}
+        placeholder={placeholder}
+        presets={presets}
+        onChange={(nextValue) => updateJobDetail(lineItemId, lineField, nextValue)}
+        onDeletePreset={(presetValue) => void removeServiceJobDetailPreset(itemId, fieldKey, presetValue)}
+      />
     );
   };
 
@@ -1422,16 +1503,9 @@ export default function NewDealPage() {
                               className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#5F5A52]"
                             />
                           </label>
-                          <label className="block">
-                            <span className="mb-1 block text-[10px] text-gray-400">สี / ฟอยล์</span>
-                            <input
-                              value={item.job_color}
-                              onChange={(event) => updateJobDetail(item.id, "job_color", event.target.value)}
-                              placeholder="เช่น ฟอยล์แดง"
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
-                            />
-                            {matchedItem?.id ? renderServicePresetChips(item.id, matchedItem.id, "color", "job_color", item.job_color) : null}
-                          </label>
+                          {matchedItem?.id ? (
+                            renderJobDetailPresetInput(item.id, matchedItem.id, "color", "job_color", item.job_color, "สี / ฟอยล์", "เช่น ฟอยล์แดง")
+                          ) : null}
                           <div>
                             <span className="mb-1 block text-[10px] text-gray-400">ขนาด กว้าง x สูง (มม.)</span>
                             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -1454,36 +1528,17 @@ export default function NewDealPage() {
                               />
                             </div>
                           </div>
-                          <label className="block">
-                            <span className="mb-1 block text-[10px] text-gray-400">ตำแหน่ง</span>
-                            <input
-                              value={item.job_position}
-                              onChange={(event) => updateJobDetail(item.id, "job_position", event.target.value)}
-                              placeholder="เช่น ด้านซ้าย"
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
-                            />
-                            {matchedItem?.id ? renderServicePresetChips(item.id, matchedItem.id, "position", "job_position", item.job_position) : null}
-                          </label>
-                          <label className="block">
-                            <span className="mb-1 block text-[10px] text-gray-400">วัสดุ</span>
-                            <input
-                              value={item.job_material}
-                              onChange={(event) => updateJobDetail(item.id, "job_material", event.target.value)}
-                              placeholder="เช่น กล่องกระดาษ"
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
-                            />
-                            {matchedItem?.id ? renderServicePresetChips(item.id, matchedItem.id, "material", "job_material", item.job_material) : null}
-                          </label>
-                          <label className="block md:col-span-2">
-                            <span className="mb-1 block text-[10px] text-gray-400">หมายเหตุ</span>
-                            <input
-                              value={item.job_remark}
-                              onChange={(event) => updateJobDetail(item.id, "job_remark", event.target.value)}
-                              placeholder="หมายเหตุเพิ่มเติม"
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
-                            />
-                            {matchedItem?.id ? renderServicePresetChips(item.id, matchedItem.id, "remark", "job_remark", item.job_remark) : null}
-                          </label>
+                          {matchedItem?.id ? (
+                            renderJobDetailPresetInput(item.id, matchedItem.id, "position", "job_position", item.job_position, "ตำแหน่ง", "เช่น ด้านซ้าย")
+                          ) : null}
+                          {matchedItem?.id ? (
+                            renderJobDetailPresetInput(item.id, matchedItem.id, "material", "job_material", item.job_material, "วัสดุ", "เช่น กล่องกระดาษ")
+                          ) : null}
+                          <div className="md:col-span-2">
+                            {matchedItem?.id ? (
+                              renderJobDetailPresetInput(item.id, matchedItem.id, "remark", "job_remark", item.job_remark, "หมายเหตุ", "หมายเหตุเพิ่มเติม")
+                            ) : null}
+                          </div>
                         </div>
                       )}
                     </div>
