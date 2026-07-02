@@ -440,11 +440,17 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
               className="mt-1 h-4 w-4 rounded border-[#D7DEE7] text-primary focus:ring-primary"
             />
             <span>
-              <span className="block text-sm font-medium text-[#1A1A18]">
-                บริการนี้มีรายละเอียดงาน
+              <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#1A1A18]">
+                <span>บริการนี้มีรายละเอียดงาน</span>
+                <span className="inline-flex items-center rounded-full border border-[#B8D7F1] bg-[#EAF4FF] px-2 py-0.5 text-[10px] font-medium text-[#0C447C]">
+                  Business Feature
+                </span>
               </span>
               <span className="mt-1 block text-xs leading-5 text-[#888780]">
                 แสดงช่องกรอกรายละเอียดบนรายการเอกสาร เช่น สี/ฟอยล์ ขนาด ตำแหน่ง วัสดุ และหมายเหตุ
+              </span>
+              <span className="mt-2 block rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2 text-xs leading-5 text-[#5F5A52]">
+                เหมาะกับบริการงานผลิต/งานพิมพ์ที่ต้องระบุสเปกต่อรายการ หากเป็นบริการทั่วไปให้ปิดไว้เพื่อให้ฟอร์มเอกสารสั้นและใช้งานเร็ว
               </span>
             </span>
           </label>
