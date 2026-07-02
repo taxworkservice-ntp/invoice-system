@@ -84,34 +84,45 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [lowStockThreshold, setLowStockThreshold] = useState(
     item ? String(item.low_stock_threshold) : "5",
   );
+  const [loadingJobDetailPresets, setLoadingJobDetailPresets] = useState(false);
+  const [jobDetailPresetError, setJobDetailPresetError] = useState("");
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service") return;
+    if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service" || !profile?.id) return;
 
     let cancelled = false;
     async function loadPresets() {
-      const { data } = await supabase
+      setLoadingJobDetailPresets(true);
+      setJobDetailPresetError("");
+      const { data, error } = await supabase
         .from("item_job_detail_presets")
         .select("*")
+        .eq("user_id", profile!.id)
         .eq("item_id", item!.id)
         .order("field_key", { ascending: true })
         .order("sort_order", { ascending: true });
 
       if (cancelled) return;
+      if (error) {
+        setJobDetailPresetError(error.message);
+        setLoadingJobDetailPresets(false);
+        return;
+      }
       const next: PresetState = { color: [], position: [], material: [], remark: [] };
       ((data || []) as ItemJobDetailPreset[]).forEach((preset) => {
         next[preset.field_key].push(preset.value);
       });
       setJobDetailPresets(next);
+      setLoadingJobDetailPresets(false);
     }
 
     void loadPresets();
     return () => {
       cancelled = true;
     };
-  }, [item, jobDetailsFeatureEnabled]);
+  }, [item, jobDetailsFeatureEnabled, profile?.id]);
 
   function addPreset(field: JobDetailPresetField) {
     const value = newPresetValues[field].trim();
@@ -298,6 +309,10 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     cartonUnit &&
     parseFloat(String(qtyPerCarton)) > 0 &&
     unitPrice;
+  const presetCount = JOB_DETAIL_FIELDS.reduce(
+    (sum, field) => sum + jobDetailPresets[field.key].length,
+    0,
+  );
 
   return (
     <div className="space-y-4">
@@ -462,6 +477,21 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                 <p className="mt-1 text-xs leading-5 text-[#888780]">
                   เพิ่มค่าที่ใช้บ่อยเพื่อให้เลือกได้เร็วตอนสร้างใบเสนอราคา/ใบแจ้งหนี้ ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
                 </p>
+                {loadingJobDetailPresets && (
+                  <p className="mt-2 rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#888780]">
+                    กำลังโหลดตัวเลือกที่บันทึกไว้...
+                  </p>
+                )}
+                {jobDetailPresetError && (
+                  <p className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
+                    โหลดตัวเลือกที่บันทึกไว้ไม่สำเร็จ: {jobDetailPresetError}
+                  </p>
+                )}
+                {!loadingJobDetailPresets && !jobDetailPresetError && presetCount === 0 && (
+                  <p className="mt-2 rounded-lg border border-dashed border-[#E8E6DF] bg-white px-3 py-2 text-xs leading-5 text-[#888780]">
+                    ยังไม่มีตัวเลือกที่บันทึกไว้ เพิ่มค่าด้านล่างแล้วกดบันทึก รายการจะกลับมาเป็นปุ่มให้ลบ/แก้ไขครั้งต่อไป
+                  </p>
+                )}
               </div>
 
               <div className="space-y-4">
