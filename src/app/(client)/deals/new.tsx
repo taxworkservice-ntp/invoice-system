@@ -226,28 +226,6 @@ function getJobDetailsSummary(lineItem: LineItemForm) {
   ].filter(Boolean).join(" · ");
 }
 
-function uniqueStrings(values: string[]) {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  values.forEach((value) => {
-    const trimmed = value.trim();
-    const key = trimmed.toLowerCase();
-    if (!trimmed || seen.has(key)) return;
-    seen.add(key);
-    result.push(trimmed);
-  });
-  return result;
-}
-
-function mergeJobDetailSuggestions(...groups: Partial<JobDetailSuggestions>[]) {
-  return {
-    colors: uniqueStrings(groups.flatMap((group) => group.colors || [])).slice(0, 20),
-    positions: uniqueStrings(groups.flatMap((group) => group.positions || [])).slice(0, 20),
-    materials: uniqueStrings(groups.flatMap((group) => group.materials || [])).slice(0, 20),
-    remarks: uniqueStrings(groups.flatMap((group) => group.remarks || [])).slice(0, 20),
-  };
-}
-
 export default function NewDealPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -641,13 +619,6 @@ export default function NewDealPage() {
     };
   }, [unpaidInvoices, selectedInvoiceIds]);
 
-  const currentDocumentJobDetailSuggestions = useMemo<JobDetailSuggestions>(() => ({
-    colors: uniqueStrings(lineItems.map((item) => item.job_color)).slice(0, 20),
-    positions: uniqueStrings(lineItems.map((item) => item.job_position)).slice(0, 20),
-    materials: uniqueStrings(lineItems.map((item) => item.job_material)).slice(0, 20),
-    remarks: uniqueStrings(lineItems.map((item) => item.job_remark)).slice(0, 20),
-  }), [lineItems]);
-
   const tax = useMemo(() => {
     if (isBillingNote) {
       const { subtotal, vatAmount, totalAmount } = billingNoteSummary;
@@ -784,7 +755,13 @@ export default function NewDealPage() {
     );
   };
 
-  const renderServicePresetChips = (itemId: string, fieldKey: JobDetailPresetField) => {
+  const renderServicePresetChips = (
+    lineItemId: string,
+    itemId: string,
+    fieldKey: JobDetailPresetField,
+    lineField: "job_color" | "job_position" | "job_material" | "job_remark",
+    selectedValue: string,
+  ) => {
     const suggestionKey = PRESET_FIELD_TO_SUGGESTION_KEY[fieldKey];
     const presets = serviceJobDetailPresets[itemId]?.[suggestionKey] || [];
     if (presets.length === 0) return null;
@@ -794,13 +771,23 @@ export default function NewDealPage() {
         {presets.map((value) => (
           <span
             key={value}
-            className="inline-flex items-center gap-1 rounded-full border border-[#D7DEE7] bg-white px-2 py-0.5 text-[10px] text-[#5F5A52]"
+            className={`inline-flex items-center overflow-hidden rounded-full border text-[10px] ${
+              selectedValue === value
+                ? "border-[#378ADD] bg-[#EAF4FF] text-[#0C447C]"
+                : "border-[#D7DEE7] bg-white text-[#5F5A52]"
+            }`}
           >
-            {value}
+            <button
+              type="button"
+              onClick={() => updateJobDetail(lineItemId, lineField, value)}
+              className="px-2 py-0.5 text-left transition-colors hover:bg-[#EAF4FF]"
+            >
+              {value}
+            </button>
             <button
               type="button"
               onClick={() => void removeServiceJobDetailPreset(itemId, fieldKey, value)}
-              className="text-gray-400 transition-colors hover:text-red-500"
+              className="border-l border-current/10 px-1.5 py-0.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
               aria-label={`ลบ ${value}`}
             >
               ×
@@ -1354,10 +1341,6 @@ export default function NewDealPage() {
                 const baseQuantity = getLineBaseQuantity(item);
                 const jobDetailsEnabled = jobDetailsFeatureEnabled && matchedItem?.item_type === "service" && matchedItem.has_job_details;
                 const jobDetailsSummary = getJobDetailsSummary(item);
-                const lineJobDetailSuggestions = mergeJobDetailSuggestions(
-                  matchedItem?.id ? serviceJobDetailPresets[matchedItem.id] : {},
-                  currentDocumentJobDetailSuggestions,
-                );
 
                 if (isUtilityBill && idx === 0) {
                   const amounts = calculateLineAmounts(item);
@@ -1431,26 +1414,6 @@ export default function NewDealPage() {
                       </div>
                       {item.job_details_open && (
                         <div className="mt-3 grid gap-2 md:grid-cols-2">
-                          <datalist id={`${item.id}-job-colors`}>
-                            {lineJobDetailSuggestions.colors.map((value) => (
-                              <option key={value} value={value} />
-                            ))}
-                          </datalist>
-                          <datalist id={`${item.id}-job-positions`}>
-                            {lineJobDetailSuggestions.positions.map((value) => (
-                              <option key={value} value={value} />
-                            ))}
-                          </datalist>
-                          <datalist id={`${item.id}-job-materials`}>
-                            {lineJobDetailSuggestions.materials.map((value) => (
-                              <option key={value} value={value} />
-                            ))}
-                          </datalist>
-                          <datalist id={`${item.id}-job-remarks`}>
-                            {lineJobDetailSuggestions.remarks.map((value) => (
-                              <option key={value} value={value} />
-                            ))}
-                          </datalist>
                           <label className="block">
                             <span className="mb-1 block text-[10px] text-gray-400">เทคนิค</span>
                             <input
@@ -1462,13 +1425,12 @@ export default function NewDealPage() {
                           <label className="block">
                             <span className="mb-1 block text-[10px] text-gray-400">สี / ฟอยล์</span>
                             <input
-                              list={`${item.id}-job-colors`}
                               value={item.job_color}
                               onChange={(event) => updateJobDetail(item.id, "job_color", event.target.value)}
                               placeholder="เช่น ฟอยล์แดง"
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
-                            {matchedItem?.id ? renderServicePresetChips(matchedItem.id, "color") : null}
+                            {matchedItem?.id ? renderServicePresetChips(item.id, matchedItem.id, "color", "job_color", item.job_color) : null}
                           </label>
                           <div>
                             <span className="mb-1 block text-[10px] text-gray-400">ขนาด กว้าง x สูง (มม.)</span>
@@ -1495,35 +1457,32 @@ export default function NewDealPage() {
                           <label className="block">
                             <span className="mb-1 block text-[10px] text-gray-400">ตำแหน่ง</span>
                             <input
-                              list={`${item.id}-job-positions`}
                               value={item.job_position}
                               onChange={(event) => updateJobDetail(item.id, "job_position", event.target.value)}
                               placeholder="เช่น ด้านซ้าย"
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
-                            {matchedItem?.id ? renderServicePresetChips(matchedItem.id, "position") : null}
+                            {matchedItem?.id ? renderServicePresetChips(item.id, matchedItem.id, "position", "job_position", item.job_position) : null}
                           </label>
                           <label className="block">
                             <span className="mb-1 block text-[10px] text-gray-400">วัสดุ</span>
                             <input
-                              list={`${item.id}-job-materials`}
                               value={item.job_material}
                               onChange={(event) => updateJobDetail(item.id, "job_material", event.target.value)}
                               placeholder="เช่น กล่องกระดาษ"
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
-                            {matchedItem?.id ? renderServicePresetChips(matchedItem.id, "material") : null}
+                            {matchedItem?.id ? renderServicePresetChips(item.id, matchedItem.id, "material", "job_material", item.job_material) : null}
                           </label>
                           <label className="block md:col-span-2">
                             <span className="mb-1 block text-[10px] text-gray-400">หมายเหตุ</span>
                             <input
-                              list={`${item.id}-job-remarks`}
                               value={item.job_remark}
                               onChange={(event) => updateJobDetail(item.id, "job_remark", event.target.value)}
                               placeholder="หมายเหตุเพิ่มเติม"
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                             />
-                            {matchedItem?.id ? renderServicePresetChips(matchedItem.id, "remark") : null}
+                            {matchedItem?.id ? renderServicePresetChips(item.id, matchedItem.id, "remark", "job_remark", item.job_remark) : null}
                           </label>
                         </div>
                       )}
