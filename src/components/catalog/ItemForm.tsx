@@ -11,6 +11,7 @@ import { useToast } from "../../hooks/useToast";
 import { isDuplicateSkuError, normalizeSku, validateSku } from "../../lib/sku";
 import { createCustomJobDetailField, DEFAULT_JOB_DETAIL_FIELDS, normalizeJobDetailFields } from "../../lib/jobDetails";
 import type { Item, JobDetailPresetField, ItemJobDetailField, ItemJobDetailPreset } from "../../types";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 type PresetState = Record<string, string[]>;
 
@@ -143,6 +144,19 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       ...prev,
       [field]: (prev[field] || []).filter((presetValue) => presetValue !== value),
     }));
+  }
+
+  function moveJobDetailField(fieldKey: JobDetailPresetField, direction: -1 | 1) {
+    setJobDetailFields((prev) => {
+      const index = prev.findIndex((field) => field.field_key === fieldKey);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= prev.length) return prev;
+
+      const next = [...prev];
+      const [field] = next.splice(index, 1);
+      next.splice(nextIndex, 0, field);
+      return next.map((item, sortOrder) => ({ ...item, sort_order: sortOrder }));
+    });
   }
 
   async function saveJobDetailPresets(itemId: string) {
@@ -526,7 +540,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
               </div>
 
               <div className="space-y-4">
-                {jobDetailFields.map((field) => (
+                {jobDetailFields.map((field, index) => (
                   <div key={field.field_key} className="rounded-lg border border-[#ECE8DE] bg-white p-3">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <label className="flex min-w-0 flex-1 items-center gap-2">
@@ -563,6 +577,29 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                       <span className="rounded-full border border-[#E8E6DF] bg-[#FBFAF7] px-2 py-1 text-[10px] text-[#888780]">
                         {field.field_type === "dimension" ? "ขนาด" : "ข้อความ"}
                       </span>
+                      <div className="flex items-center rounded-lg border border-[#E8E6DF] bg-white">
+                        <button
+                          type="button"
+                          onClick={() => moveJobDetailField(field.field_key, -1)}
+                          disabled={index === 0}
+                          className="flex h-8 w-8 items-center justify-center rounded-l-lg text-[#5F5A52] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
+                          aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ขึ้น`}
+                          title="เลื่อนขึ้น"
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </button>
+                        <div className="h-5 w-px bg-[#E8E6DF]" />
+                        <button
+                          type="button"
+                          onClick={() => moveJobDetailField(field.field_key, 1)}
+                          disabled={index === jobDetailFields.length - 1}
+                          className="flex h-8 w-8 items-center justify-center rounded-r-lg text-[#5F5A52] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
+                          aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ลง`}
+                          title="เลื่อนลง"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      </div>
                       {field.is_custom && (
                         <button
                           type="button"
