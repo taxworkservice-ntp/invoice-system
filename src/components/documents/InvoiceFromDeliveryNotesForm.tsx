@@ -41,12 +41,31 @@ function buildItemSummary(items: DocumentLineItem[]) {
   return items.length > 2 ? `${summary} และอีก ${items.length - 2} รายการ` : summary;
 }
 
-function lineTaxInput(line: DocumentLineItem) {
+function getDeliveryNoteSubtotal(dn: DeliveryNoteOption) {
+  const subtotal = Number(dn.subtotal);
+  if (Number.isFinite(subtotal) && subtotal > 0) return subtotal;
+  return dn.line_items.reduce((sum, line) => sum + Number(line.line_total || 0), 0);
+}
+
+function getDeliveryNoteTotal(dn: DeliveryNoteOption) {
+  const total = Number(dn.total_amount);
+  if (Number.isFinite(total) && total > 0) return total;
+  return getDeliveryNoteSubtotal(dn);
+}
+
+function dnTaxInput(dn: DeliveryNoteOption) {
   return {
-    unit_price: line.unit_price,
-    quantity: line.quantity,
-    discount_percent: line.discount_percent || 0,
+    unit_price: getDeliveryNoteSubtotal(dn),
+    quantity: 1,
+    discount_percent: 0,
   };
+}
+
+function buildDeliveryNoteLineNote(dn: DeliveryNoteOption) {
+  return [
+    `วันที่ส่งของ: ${formatBuddhistDate(dn.issue_date)}`,
+    `${dn.line_items.length} รายการในใบส่งของ`,
+  ].join("\n");
 }
 
 export function InvoiceFromDeliveryNotesForm() {
@@ -249,12 +268,12 @@ export function InvoiceFromDeliveryNotesForm() {
 
   const tax = useMemo(() => {
     return calculateTax(
-      selectedLines.map(({ line }) => lineTaxInput(line)),
+      selectedDeliveryNotes.map((dn) => dnTaxInput(dn)),
       taxSnapshot.vatRegistered,
       taxSnapshot.vatRate,
       parseFloat(whtRate),
     );
-  }, [selectedLines, taxSnapshot.vatRate, taxSnapshot.vatRegistered, whtRate]);
+  }, [selectedDeliveryNotes, taxSnapshot.vatRate, taxSnapshot.vatRegistered, whtRate]);
 
   const toggleDn = (id: string) => {
     setSelectedIds((prev) => {
@@ -323,27 +342,31 @@ export function InvoiceFromDeliveryNotesForm() {
       if (invoiceError || !invoice) throw invoiceError || new Error("ไม่สามารถสร้างใบแจ้งหนี้ได้");
       invoiceId = invoice.id;
 
-      const lineRecords = selectedLines.map(({ doc, line }, index) => ({
+      const lineRecords = selectedDeliveryNotes.map((dn, index) => {
+        const dnNumber = dn.doc_number || dn.id.slice(0, 8);
+        const subtotal = getDeliveryNoteSubtotal(dn);
+        return {
         document_id: invoice.id,
         user_id: userId,
-        item_id: line.item_id,
-        item_name: line.item_name,
-        line_note: line.line_note || null,
-        item_sku: line.item_sku,
-        item_type: line.item_type,
-        unit: line.unit,
-        unit_price: line.unit_price,
-        quantity: line.quantity,
-        base_quantity: line.base_quantity,
-        discount_percent: line.discount_percent,
-        discount_amount: line.discount_amount,
-        qty_carton: line.qty_carton,
-        carton_unit: line.carton_unit,
-        line_total: line.line_total,
-        source_document_id: doc.id,
-        source_line_item_id: line.id,
+        item_id: null,
+        item_name: `ใบส่งของ ${dnNumber}`,
+        line_note: buildDeliveryNoteLineNote(dn),
+        item_sku: null,
+        item_type: "service",
+        unit: "ใบ",
+        unit_price: subtotal,
+        quantity: 1,
+        base_quantity: null,
+        discount_percent: 0,
+        discount_amount: 0,
+        qty_carton: null,
+        carton_unit: null,
+        line_total: subtotal,
+        source_document_id: dn.id,
+        source_line_item_id: null,
         sort_order: index,
-      }));
+        };
+      });
 
       const { error: lineError } = await supabase.from("document_line_items").insert(lineRecords);
       if (lineError) throw lineError;
@@ -354,9 +377,9 @@ export function InvoiceFromDeliveryNotesForm() {
         user_id: userId,
         delivery_note_number: dn.doc_number || dn.id.slice(0, 8),
         issue_date: dn.issue_date || null,
-        subtotal: dn.subtotal || dn.line_items.reduce((sum, line) => sum + line.line_total, 0),
+        subtotal: getDeliveryNoteSubtotal(dn),
         vat_amount: dn.vat_amount || 0,
-        total_amount: dn.total_amount || dn.line_items.reduce((sum, line) => sum + line.line_total, 0),
+        total_amount: getDeliveryNoteTotal(dn),
       }));
 
       const { error: linkError } = await supabase.from("invoice_delivery_notes").insert(linkRecords);
@@ -539,10 +562,10 @@ export function InvoiceFromDeliveryNotesForm() {
           <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 className="text-sm font-medium">รายการที่จะออกบิล</h3>
-              <p className="mt-1 text-xs text-gray-500">แสดงทุกรายการจากใบส่งของที่เลือกก่อนสร้างใบแจ้งหนี้</p>
+              <p className="mt-1 text-xs text-gray-500">แสดงสรุปยอดตามใบส่งของที่เลือกก่อนสร้างใบแจ้งหนี้</p>
             </div>
             <div className="rounded-full bg-[#F3F0E8] px-2.5 py-1 text-xs text-[#5F5A52]">
-              {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการ
+              {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการต้นทาง
             </div>
           </div>
 
@@ -552,33 +575,33 @@ export function InvoiceFromDeliveryNotesForm() {
             <div className="overflow-hidden rounded-xl border border-[#E8E6DF]">
               <div className="hidden bg-[#FAF8F3] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:gap-3">
                 <div>ใบส่งของ</div>
-                <div>รายการ</div>
+                <div>รายละเอียด</div>
                 <div className="text-right">จำนวน</div>
                 <div className="text-right">ยอด</div>
               </div>
               <div className="divide-y divide-[#E8E6DF]">
-                {selectedLines.map(({ doc, line }) => (
+                {selectedDeliveryNotes.map((dn) => (
                   <div
-                    key={`${doc.id}-${line.id}`}
+                    key={dn.id}
                     className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:items-center sm:gap-3"
                   >
                     <div className="min-w-0">
-                      <div className="truncate font-medium text-[#1A1A18]">{doc.doc_number || "ไม่มีเลขเอกสาร"}</div>
-                      <div className="mt-0.5 text-xs text-gray-500">{formatBuddhistDate(doc.issue_date)}</div>
+                      <div className="truncate font-medium text-[#1A1A18]">{dn.doc_number || "ไม่มีเลขเอกสาร"}</div>
+                      <div className="mt-0.5 text-xs text-gray-500">{formatBuddhistDate(dn.issue_date)}</div>
                     </div>
                     <div className="min-w-0">
-                      <div className="break-words text-[#1A1A18]">{line.item_name}</div>
-                      {line.item_sku && <div className="mt-0.5 text-xs text-gray-500">SKU {line.item_sku}</div>}
+                      <div className="break-words text-[#1A1A18]">ใบส่งของ {dn.doc_number || dn.id.slice(0, 8)}</div>
+                      <div className="mt-0.5 text-xs text-gray-500">{buildItemSummary(dn.line_items)}</div>
                     </div>
                     <div className="flex items-center justify-between gap-3 text-sm sm:block sm:text-right">
                       <span className="text-xs text-gray-500 sm:hidden">จำนวน</span>
                       <span>
-                        {line.quantity} {line.unit || ""}
+                        1 ใบ
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-3 font-medium text-[#1A1A18] sm:block sm:text-right">
                       <span className="text-xs font-normal text-gray-500 sm:hidden">ยอด</span>
-                      <span>฿{formatCurrency(line.line_total)}</span>
+                      <span>฿{formatCurrency(getDeliveryNoteSubtotal(dn))}</span>
                     </div>
                   </div>
                 ))}
@@ -601,7 +624,7 @@ export function InvoiceFromDeliveryNotesForm() {
             <div className="rounded-xl border border-[#E8E6DF] bg-[#FAF8F3] p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
                 <FileStack className="h-3.5 w-3.5" />
-                รวม {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการ
+                รวม {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการต้นทาง
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between"><span>รวมก่อนภาษี</span><span>฿{formatCurrency(tax.subtotal)}</span></div>

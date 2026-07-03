@@ -381,6 +381,18 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 
 /* =====================================================================
+   MULTI-PAGE CONTINUATION HEADER
+   ===================================================================== */
+.print-theme-modern .print-continuation-header {
+  margin-top: -4mm;
+}
+
+.print-continuation-header {
+  margin-bottom: 3mm;
+  min-height: 10mm;
+}
+
+/* =====================================================================
    THAI CLASSIC TEMPLATE (added alongside the modern template; the
    modern template's rules above are unchanged).
    Layout-critical: visual regression baselines must be updated with any

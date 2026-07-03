@@ -2,6 +2,7 @@ import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLin
 import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
 import { getR2PresignedUrl } from "./r2";
+import { paginateLineItems } from "./pagination";
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -22,6 +23,7 @@ export interface PrintDocumentData {
   grossSubtotal: number;
   lineDeliveryNoteMap: Record<string, { number: string; issue_date: string | null }>;
   showInlineDeliveryNotes: boolean;
+  isDeliveryNoteSummaryInvoice: boolean;
 }
 
 export interface PrintableDocumentDataBase {
@@ -36,6 +38,7 @@ export interface PrintableDocumentDataBase {
   grossSubtotal: number;
   lineDeliveryNoteMap: Record<string, { number: string; issue_date: string | null }>;
   showInlineDeliveryNotes: boolean;
+  isDeliveryNoteSummaryInvoice: boolean;
 }
 
 export function isHtmlPrintTemplate(template: string | null | undefined): template is HtmlPrintTemplate {
@@ -191,7 +194,17 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
       lineDeliveryNoteMap[item.id] = { number: dn.delivery_note_number, issue_date: dn.issue_date };
     }
   }
-  const showInlineDeliveryNotes = new Set(
+  const summarySourceIds = new Set(invoiceDeliveryNotes.map((dn) => dn.delivery_note_id));
+  const isDeliveryNoteSummaryInvoice =
+    (document.doc_type === "invoice" || document.doc_type === "tax_invoice_receipt") &&
+    invoiceDeliveryNotes.length > 0 &&
+    lineItems.length === invoiceDeliveryNotes.length &&
+    lineItems.every((item) =>
+      item.source_document_id &&
+      summarySourceIds.has(item.source_document_id) &&
+      !item.source_line_item_id,
+    );
+  const showInlineDeliveryNotes = !isDeliveryNoteSummaryInvoice && new Set(
     Object.values(lineDeliveryNoteMap).map((ref) => ref.number),
   ).size >= 1;
 
@@ -207,6 +220,7 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     grossSubtotal,
     lineDeliveryNoteMap,
     showInlineDeliveryNotes,
+    isDeliveryNoteSummaryInvoice,
   };
 }
 
@@ -220,6 +234,10 @@ export async function getPrintDocumentData(documentId: string): Promise<PrintDoc
 async function renderModernPrintCanvas(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
+  batchLineItems?: DocumentLineItem[],
+  pageMode?: "single" | "first" | "continuation" | "last",
+  pageIndex?: number,
+  totalPages?: number,
 ): Promise<HTMLCanvasElement> {
   const { default: html2canvas } = await import("html2canvas");
   const container = document.createElement("div");
@@ -240,7 +258,14 @@ async function renderModernPrintCanvas(
     root = createRoot(container);
 
     await new Promise<void>((resolve) => {
-      root?.render(React.createElement(PrintDocument, { data: printData, copyType }));
+      root?.render(React.createElement(PrintDocument, {
+        data: printData,
+        copyType,
+        pageMode: pageMode ?? "single",
+        pageIndex: pageIndex ?? 1,
+        totalPages: totalPages ?? 1,
+        batchLineItems,
+      }));
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
 
@@ -304,6 +329,21 @@ async function renderModernPrintCanvas(
   }
 }
 
+async function renderModernPrintPages(
+  data: PrintableDocumentDataBase,
+  copyType: "original" | "copy" = "original",
+): Promise<HTMLCanvasElement[]> {
+  const batches = paginateLineItems(data.lineItems, "modern");
+  if (batches.length <= 1) {
+    return [await renderModernPrintCanvas(data, copyType)];
+  }
+  return Promise.all(
+    batches.map((batch, i) =>
+      renderModernPrintCanvas(data, copyType, batch.items, batch.mode, i + 1, batches.length),
+    ),
+  );
+}
+
 export async function generateModernPDFDocument(
   data: PrintableDocumentDataBase,
   copyTypes: Array<"original" | "copy"> = ["original"],
@@ -311,12 +351,16 @@ export async function generateModernPDFDocument(
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [A4_WIDTH_MM, A4_HEIGHT_MM] });
 
-  for (const [index, copyType] of copyTypes.entries()) {
-    const canvas = await renderModernPrintCanvas(data, copyType);
-    if (index > 0) {
-      pdf.addPage();
+  let firstPage = true;
+  for (const copyType of copyTypes) {
+    const pages = await renderModernPrintPages(data, copyType);
+    for (const canvas of pages) {
+      if (!firstPage) {
+        pdf.addPage();
+      }
+      firstPage = false;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
     }
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
   }
 
   return pdf;
@@ -330,6 +374,10 @@ export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Pr
 async function renderClassicPrintCanvas(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
+  batchLineItems?: DocumentLineItem[],
+  pageMode?: "single" | "first" | "continuation" | "last",
+  pageIndex?: number,
+  totalPages?: number,
 ): Promise<HTMLCanvasElement> {
   const { default: html2canvas } = await import("html2canvas");
   const container = document.createElement("div");
@@ -350,7 +398,14 @@ async function renderClassicPrintCanvas(
     root = createRoot(container);
 
     await new Promise<void>((resolve) => {
-      root?.render(React.createElement(PrintDocumentClassic, { data: printData, copyType }));
+      root?.render(React.createElement(PrintDocumentClassic, {
+        data: printData,
+        copyType,
+        pageMode: pageMode ?? "single",
+        pageIndex: pageIndex ?? 1,
+        totalPages: totalPages ?? 1,
+        batchLineItems,
+      }));
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
 
@@ -414,6 +469,21 @@ async function renderClassicPrintCanvas(
   }
 }
 
+async function renderClassicPrintPages(
+  data: PrintableDocumentDataBase,
+  copyType: "original" | "copy" = "original",
+): Promise<HTMLCanvasElement[]> {
+  const batches = paginateLineItems(data.lineItems, "classic");
+  if (batches.length <= 1) {
+    return [await renderClassicPrintCanvas(data, copyType)];
+  }
+  return Promise.all(
+    batches.map((batch, i) =>
+      renderClassicPrintCanvas(data, copyType, batch.items, batch.mode, i + 1, batches.length),
+    ),
+  );
+}
+
 export async function generateClassicPDFDocument(
   data: PrintableDocumentDataBase,
   copyTypes: Array<"original" | "copy"> = ["original"],
@@ -421,12 +491,16 @@ export async function generateClassicPDFDocument(
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [A4_WIDTH_MM, A4_HEIGHT_MM] });
 
-  for (const [index, copyType] of copyTypes.entries()) {
-    const canvas = await renderClassicPrintCanvas(data, copyType);
-    if (index > 0) {
-      pdf.addPage();
+  let firstPage = true;
+  for (const copyType of copyTypes) {
+    const pages = await renderClassicPrintPages(data, copyType);
+    for (const canvas of pages) {
+      if (!firstPage) {
+        pdf.addPage();
+      }
+      firstPage = false;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
     }
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
   }
 
   return pdf;

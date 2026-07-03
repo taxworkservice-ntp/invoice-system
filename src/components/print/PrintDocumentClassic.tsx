@@ -3,7 +3,9 @@ import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
 import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
-import type { Customer } from "../../types";
+import type { Customer, DocumentLineItem } from "../../types";
+import type { PageMode } from "../../lib/pagination";
+import { PrintContinuationHeader } from "./PrintContinuationHeader";
 
 export type CopyType = "original" | "copy";
 
@@ -56,11 +58,25 @@ function getPrintableLineNote(note: string | null | undefined) {
     .trim();
 }
 
-export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocumentClassicProps) {
-  const { document, clientProfile, customer, referenceDoc, lineItems, billingNoteInvoices, invoiceDeliveryNotes, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
+interface PrintDocumentClassicProps {
+  data: PrintDocumentData;
+  copyType?: CopyType;
+  pageMode?: PageMode;
+  pageIndex?: number;
+  totalPages?: number;
+  batchLineItems?: DocumentLineItem[];
+}
+
+export function PrintDocumentClassic({ data, copyType = "original", pageMode = "single", pageIndex = 1, totalPages = 1, batchLineItems }: PrintDocumentClassicProps) {
+  const { document, clientProfile, customer, referenceDoc, billingNoteInvoices, invoiceDeliveryNotes, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
+  const lineItems = batchLineItems ?? data.lineItems;
+  const startIndex = batchLineItems ? data.lineItems.indexOf(batchLineItems[0]) + 1 : 1;
   const isCopy = copyType === "copy";
   const isDeliveryNote = document.doc_type === "delivery_note";
   const isBillingNote = document.doc_type === "billing_note";
+  const showFooter = pageMode === "single" || pageMode === "last";
+  const showHeader = pageMode === "single" || pageMode === "first";
+  const showContinuationHeader = pageMode === "continuation" || pageMode === "last";
   const documentClass = isDeliveryNote ? " print-delivery-note" : "";
   const showBank = SHOW_BANK_TYPES.has(document.doc_type);
   const showPaymentMethod = SHOW_PAYMENT_METHOD_TYPES.has(document.doc_type);
@@ -69,7 +85,8 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = splitTerms(clientProfile.classic_terms, clientProfile.company_name_th);
-  const blankLineCount = Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length);
+  const isLastOrSingle = pageMode === "last" || pageMode === "single";
+  const blankLineCount = isLastOrSingle ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length) : 0;
   const billingBlankCount = Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - billingNoteInvoices.length);
   const noteText = document.note?.trim();
   const paymentLines = [
@@ -105,7 +122,12 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
       }
     >
       {/* ============== TOP HEADER ============== */}
-      <header className="print-classic-top">
+      {showContinuationHeader && (
+        <PrintContinuationHeader data={data} pageIndex={pageIndex} totalPages={totalPages} />
+      )}
+      {showHeader && (
+        <>
+          <header className="print-classic-top">
         <div className="print-classic-logo">
           {clientProfile.logo_url ? (
             <img src={clientProfile.logo_url} alt={clientProfile.company_name_th} style={{ width: getLogoPx(clientProfile.logo_size) }} className="print-classic-logo-img" />
@@ -204,6 +226,8 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           </table>
         </div>
       </section>
+        </>
+      )}
 
       {/* ============== ITEMS TABLE ============== */}
       <section className="print-classic-items-wrap">
@@ -289,7 +313,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
                 const printableNote = getPrintableLineNote(item.line_note);
                 return (
                   <tr key={item.id}>
-                    <td className="center">{index + 1}</td>
+                    <td className="center">{startIndex + index}</td>
                     <td className="print-classic-item-name">
                       {item.item_name}
                       {printableNote ? (
@@ -331,7 +355,7 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           )}
 
           {/* ============== INVOICE DELIVERY NOTES ============== */}
-          {invoiceDeliveryNotes.length > 0 && !isDeliveryNote && !data.showInlineDeliveryNotes ? (
+          {invoiceDeliveryNotes.length > 0 && !isDeliveryNote && !data.showInlineDeliveryNotes && !data.isDeliveryNoteSummaryInvoice ? (
             <div className="print-classic-frame-section">
               <div className="print-classic-frame-section-title">อ้างอิงใบส่งของ<span className="en">DELIVERY NOTES</span></div>
           <table className="print-classic-items-table">
@@ -446,6 +470,15 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
         </div>
       </section>
 
+      {lineItems.length > 0 && pageMode !== "single" && pageMode !== "last" && (
+        <div className="mt-1.5 text-center text-[8.5px] text-[#94a3b8] tracking-[0.08em] border-b-[0.5px] border-[#D3DAE6] pb-1">
+          รายการต่อไป… (CONTINUED)
+        </div>
+      )}
+
+      {showFooter && (
+        <>
+
       {/* ============== BOTTOM BAND (signatures) ============== */}
       <div className="print-classic-bottom-band">
         <div className="print-classic-sig-cell">
@@ -492,6 +525,9 @@ export function PrintDocumentClassic({ data, copyType = "original" }: PrintDocum
           </div>
         ) : null}
       </div>
+
+        </>
+      )}
     </article>
   );
 }

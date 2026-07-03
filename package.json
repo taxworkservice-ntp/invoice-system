@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test:print-layout": "node scripts/print-layout-regression.mjs",
-    "test:print-layout:update": "node scripts/print-layout-regression.mjs --update"
+    "test:print-layout:update": "node scripts/print-layout-regression.mjs --update",
+    "seed:testcompany": "node scripts/seed-testcompany.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",

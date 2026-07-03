@@ -1,5 +1,7 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
+import type { DocumentLineItem } from "../../types";
+import type { PageMode } from "../../lib/pagination";
 
 const MIN_MODERN_ITEM_ROWS = 6;
 const MIN_MODERN_BILLING_NOTE_ROWS = 6;
@@ -26,10 +28,22 @@ function getPrintableLineNote(note: string | null | undefined) {
     .trim();
 }
 
-export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
-  const { document, lineItems, billingNoteInvoices, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
+export function PrintLineItemsTable({
+  data,
+  lineItems: lineItemsOverride,
+  startIndex = 1,
+  pageMode = "single",
+}: {
+  data: PrintDocumentData;
+  lineItems?: DocumentLineItem[];
+  startIndex?: number;
+  pageMode?: PageMode;
+}) {
+  const { document, billingNoteInvoices, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
+  const lineItems = lineItemsOverride ?? data.lineItems;
   const isDeliveryNote = document.doc_type === "delivery_note";
-  const blankLineCount = Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length);
+  const isLastOrSingle = pageMode === "last" || pageMode === "single";
+  const blankLineCount = isLastOrSingle ? Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length) : 0;
   const billingBlankCount = Math.max(0, MIN_MODERN_BILLING_NOTE_ROWS - billingNoteInvoices.length);
 
   if (document.doc_type === "billing_note") {
@@ -115,7 +129,7 @@ export function PrintLineItemsTable({ data }: { data: PrintDocumentData }) {
 
             return (
               <tr key={item.id} className={getRowClass()}>
-                <td className="px-2 py-1.5 text-[10px] text-[#667085] border-t-[0.5px] border-[#E6EBF2]">{index + 1}</td>
+                <td className="px-2 py-1.5 text-[10px] text-[#667085] border-t-[0.5px] border-[#E6EBF2]">{startIndex + index}</td>
                 <td className="px-2 py-1.5 text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   <div className="leading-[14px]">{item.item_name}</div>
                   {printableNote ? (

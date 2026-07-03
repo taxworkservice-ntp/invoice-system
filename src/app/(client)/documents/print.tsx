@@ -7,6 +7,7 @@ import type { CopyType } from "../../../components/print/PrintDocument";
 import { PrintDocumentClassic } from "../../../components/print/PrintDocumentClassic";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
+import { paginateLineItems } from "../../../lib/pagination";
 import { DOC_TYPE_SHORT } from "../../../constants";
 import { supabase } from "../../../lib/supabase";
 
@@ -274,18 +275,35 @@ export default function DocumentPrintPreviewPage() {
   }
 
   if (exportMode) {
+    const batches = paginateLineItems(data.lineItems, data.template);
     return (
       <div className="print-export-stack">
         <PrintErrorBoundary onError={() => {}}>
-          {exportCopyTypes.map((type) => (
-            <div className="print-export-page" key={type}>
-              {data.template === "classic" ? (
-                <PrintDocumentClassic data={data} copyType={type} />
-              ) : (
-                <PrintDocument data={data} copyType={type} />
-              )}
-            </div>
-          ))}
+          {exportCopyTypes.flatMap((type) =>
+            batches.map((batch, i) => (
+              <div className="print-export-page" key={`${type}-p${i}`}>
+                {data.template === "classic" ? (
+                  <PrintDocumentClassic
+                    data={data}
+                    copyType={type}
+                    pageMode={batch.mode}
+                    pageIndex={i + 1}
+                    totalPages={batches.length}
+                    batchLineItems={batch.items}
+                  />
+                ) : (
+                  <PrintDocument
+                    data={data}
+                    copyType={type}
+                    pageMode={batch.mode}
+                    pageIndex={i + 1}
+                    totalPages={batches.length}
+                    batchLineItems={batch.items}
+                  />
+                )}
+              </div>
+            )),
+          )}
         </PrintErrorBoundary>
       </div>
     );
@@ -359,11 +377,25 @@ return (
             }}
           >
             <PrintErrorBoundary onError={() => {}}>
-              {data.template === "classic" ? (
-                <PrintDocumentClassic data={data} copyType={copyType} />
-              ) : (
-                <PrintDocument data={data} copyType={copyType} />
-              )}
+              {(() => {
+                const batches = paginateLineItems(data.lineItems, data.template);
+                return batches.map((batch, i) => {
+                  const props = {
+                    key: `p${i}`,
+                    data,
+                    copyType,
+                    pageMode: batch.mode,
+                    pageIndex: i + 1,
+                    totalPages: batches.length,
+                    batchLineItems: batch.items,
+                  };
+                  return data.template === "classic" ? (
+                    <PrintDocumentClassic {...props} />
+                  ) : (
+                    <PrintDocument {...props} />
+                  );
+                });
+              })()}
             </PrintErrorBoundary>
           </div>
         </div>
