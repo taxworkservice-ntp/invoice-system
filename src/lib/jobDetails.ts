@@ -1,0 +1,97 @@
+import type { ItemJobDetailField, JobDetailFieldType, JobDetailPresetField } from "../types";
+
+export interface JobDetailFieldConfig {
+  field_key: JobDetailPresetField;
+  label: string;
+  placeholder: string;
+  field_type: JobDetailFieldType;
+  sort_order: number;
+  is_enabled: boolean;
+  is_custom: boolean;
+}
+
+export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
+  {
+    field_key: "color",
+    label: "สี / ฟอยล์",
+    placeholder: "เช่น ฟอยล์ทอง",
+    field_type: "text",
+    sort_order: 0,
+    is_enabled: true,
+    is_custom: false,
+  },
+  {
+    field_key: "size",
+    label: "ขนาด กว้าง x สูง (มม.)",
+    placeholder: "24 x 35",
+    field_type: "dimension",
+    sort_order: 1,
+    is_enabled: true,
+    is_custom: false,
+  },
+  {
+    field_key: "position",
+    label: "ตำแหน่ง",
+    placeholder: "เช่น ด้านหน้า",
+    field_type: "text",
+    sort_order: 2,
+    is_enabled: true,
+    is_custom: false,
+  },
+  {
+    field_key: "material",
+    label: "วัสดุ",
+    placeholder: "เช่น กล่องกระดาษ",
+    field_type: "text",
+    sort_order: 3,
+    is_enabled: true,
+    is_custom: false,
+  },
+  {
+    field_key: "remark",
+    label: "หมายเหตุ",
+    placeholder: "เช่น ตามแบบลูกค้า",
+    field_type: "text",
+    sort_order: 4,
+    is_enabled: true,
+    is_custom: false,
+  },
+];
+
+export function normalizeJobDetailFields(fields?: ItemJobDetailField[] | null): JobDetailFieldConfig[] {
+  if (!fields || fields.length === 0) {
+    return DEFAULT_JOB_DETAIL_FIELDS.map((field) => ({ ...field }));
+  }
+
+  const defaultsByKey = new Map(DEFAULT_JOB_DETAIL_FIELDS.map((field) => [field.field_key, field]));
+  return fields
+    .map((field) => {
+      const defaultField = defaultsByKey.get(field.field_key);
+      return {
+        field_key: field.field_key,
+        label: field.label || defaultField?.label || "รายละเอียด",
+        placeholder: defaultField?.placeholder || "กรอกรายละเอียด",
+        field_type: field.field_type,
+        sort_order: field.sort_order,
+        is_enabled: field.is_enabled,
+        is_custom: field.is_custom,
+      };
+    })
+    .sort((a, b) => a.sort_order - b.sort_order);
+}
+
+export function createCustomJobDetailField(label = ""): JobDetailFieldConfig {
+  return {
+    field_key: `custom_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
+    label,
+    placeholder: "กรอกรายละเอียด",
+    field_type: "text",
+    sort_order: DEFAULT_JOB_DETAIL_FIELDS.length,
+    is_enabled: true,
+    is_custom: true,
+  };
+}
+
+export function getJobDetailFieldLabel(fields: JobDetailFieldConfig[], fieldKey: JobDetailPresetField) {
+  return fields.find((field) => field.field_key === fieldKey)?.label || "รายละเอียด";
+}

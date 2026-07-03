@@ -21,7 +21,8 @@ export type DocumentStatus =
   | "issued";
 
 export type ItemType = "product" | "service";
-export type JobDetailPresetField = "color" | "position" | "material" | "remark";
+export type JobDetailPresetField = string;
+export type JobDetailFieldType = "text" | "dimension";
 export type ClientFeatureKey = "service_job_details";
 
 export type StockMovementType =
@@ -138,6 +139,20 @@ export interface ItemJobDetailPreset {
   value: string;
   sort_order: number;
   created_at: string;
+}
+
+export interface ItemJobDetailField {
+  id: string;
+  user_id: string;
+  item_id: string;
+  field_key: JobDetailPresetField;
+  label: string;
+  field_type: JobDetailFieldType;
+  sort_order: number;
+  is_enabled: boolean;
+  is_custom: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface StockMovement {

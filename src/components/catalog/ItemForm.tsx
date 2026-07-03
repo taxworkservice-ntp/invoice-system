@@ -9,23 +9,17 @@ import { useAuth } from "../../hooks/useAuth";
 import { useClientFeatures } from "../../hooks/useClientFeatures";
 import { useToast } from "../../hooks/useToast";
 import { isDuplicateSkuError, normalizeSku, validateSku } from "../../lib/sku";
-import type { Item, JobDetailPresetField, ItemJobDetailPreset } from "../../types";
+import { createCustomJobDetailField, DEFAULT_JOB_DETAIL_FIELDS, normalizeJobDetailFields } from "../../lib/jobDetails";
+import type { Item, JobDetailPresetField, ItemJobDetailField, ItemJobDetailPreset } from "../../types";
 
-type PresetState = Record<JobDetailPresetField, string[]>;
+type PresetState = Record<string, string[]>;
 
-const JOB_DETAIL_FIELDS: { key: JobDetailPresetField; label: string; placeholder: string }[] = [
-  { key: "color", label: "สี / ฟอยล์", placeholder: "เช่น ฟอยล์ทอง" },
-  { key: "position", label: "ตำแหน่ง", placeholder: "เช่น ด้านหน้า" },
-  { key: "material", label: "วัสดุ", placeholder: "เช่น กล่องกระดาษ" },
-  { key: "remark", label: "หมายเหตุ", placeholder: "เช่น ตามแบบลูกค้า" },
-];
-
-const EMPTY_PRESETS: PresetState = {
-  color: [],
-  position: [],
-  material: [],
-  remark: [],
-};
+function createEmptyPresetState() {
+  return DEFAULT_JOB_DETAIL_FIELDS.reduce<PresetState>((acc, field) => {
+    if (field.field_type === "text") acc[field.field_key] = [];
+    return acc;
+  }, {});
+}
 
 function uniquePresetValues(values: string[]) {
   const seen = new Set<string>();
@@ -64,13 +58,9 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [hasJobDetails, setHasJobDetails] = useState(
     item?.has_job_details || false,
   );
-  const [jobDetailPresets, setJobDetailPresets] = useState<PresetState>(EMPTY_PRESETS);
-  const [newPresetValues, setNewPresetValues] = useState<Record<JobDetailPresetField, string>>({
-    color: "",
-    position: "",
-    material: "",
-    remark: "",
-  });
+  const [jobDetailFields, setJobDetailFields] = useState(() => normalizeJobDetailFields());
+  const [jobDetailPresets, setJobDetailPresets] = useState<PresetState>(() => createEmptyPresetState());
+  const [newPresetValues, setNewPresetValues] = useState<Record<string, string>>({});
   const [baseUnit, setBaseUnit] = useState(item?.base_unit || "ชิ้น");
   const [cartonEnabled, setCartonEnabled] = useState(!!item?.carton_unit);
   const [cartonUnit, setCartonUnit] = useState(item?.carton_unit || "");
@@ -93,43 +83,57 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service" || !profile?.id) return;
 
     let cancelled = false;
-    async function loadPresets() {
+    async function loadJobDetailSetup() {
       setLoadingJobDetailPresets(true);
       setJobDetailPresetError("");
-      const { data, error } = await supabase
+      const [{ data: fieldData, error: fieldError }, { data: presetData, error: presetError }] = await Promise.all([
+        supabase
+          .from("item_job_detail_fields")
+          .select("*")
+          .eq("user_id", profile!.id)
+          .eq("item_id", item!.id)
+          .order("sort_order", { ascending: true }),
+        supabase
         .from("item_job_detail_presets")
         .select("*")
         .eq("user_id", profile!.id)
         .eq("item_id", item!.id)
         .order("field_key", { ascending: true })
-        .order("sort_order", { ascending: true });
+          .order("sort_order", { ascending: true }),
+      ]);
 
       if (cancelled) return;
-      if (error) {
-        setJobDetailPresetError(error.message);
+      if (fieldError || presetError) {
+        setJobDetailPresetError(fieldError?.message || presetError?.message || "โหลดการตั้งค่าไม่สำเร็จ");
         setLoadingJobDetailPresets(false);
         return;
       }
-      const next: PresetState = { color: [], position: [], material: [], remark: [] };
-      ((data || []) as ItemJobDetailPreset[]).forEach((preset) => {
+      const fields = normalizeJobDetailFields((fieldData || []) as ItemJobDetailField[]);
+      const next: PresetState = {};
+      fields.forEach((field) => {
+        if (field.field_type === "text") next[field.field_key] = [];
+      });
+      ((presetData || []) as ItemJobDetailPreset[]).forEach((preset) => {
+        if (!next[preset.field_key]) next[preset.field_key] = [];
         next[preset.field_key].push(preset.value);
       });
+      setJobDetailFields(fields);
       setJobDetailPresets(next);
       setLoadingJobDetailPresets(false);
     }
 
-    void loadPresets();
+    void loadJobDetailSetup();
     return () => {
       cancelled = true;
     };
   }, [item, jobDetailsFeatureEnabled, profile?.id]);
 
   function addPreset(field: JobDetailPresetField) {
-    const value = newPresetValues[field].trim();
+    const value = (newPresetValues[field] || "").trim();
     if (!value) return;
     setJobDetailPresets((prev) => ({
       ...prev,
-      [field]: uniquePresetValues([...prev[field], value]),
+      [field]: uniquePresetValues([...(prev[field] || []), value]),
     }));
     setNewPresetValues((prev) => ({ ...prev, [field]: "" }));
   }
@@ -137,20 +141,47 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   function removePreset(field: JobDetailPresetField, value: string) {
     setJobDetailPresets((prev) => ({
       ...prev,
-      [field]: prev[field].filter((presetValue) => presetValue !== value),
+      [field]: (prev[field] || []).filter((presetValue) => presetValue !== value),
     }));
   }
 
   async function saveJobDetailPresets(itemId: string) {
     if (!profile || !jobDetailsFeatureEnabled) return;
+    await supabase.from("item_job_detail_fields").delete().eq("item_id", itemId);
     await supabase.from("item_job_detail_presets").delete().eq("item_id", itemId);
     if (itemType !== "service" || !hasJobDetails) return;
 
-    const records = JOB_DETAIL_FIELDS.flatMap(({ key }) =>
-      uniquePresetValues(jobDetailPresets[key]).map((value, index) => ({
+    const normalizedFields = jobDetailFields
+      .map((field, index) => ({
+        ...field,
+        label: field.label.trim() || "รายละเอียด",
+        sort_order: index,
+      }))
+      .filter((field) => field.label.trim());
+
+    const fieldRecords = normalizedFields.map((field) => ({
+      user_id: profile.id,
+      item_id: itemId,
+      field_key: field.field_key,
+      label: field.label,
+      field_type: field.field_type,
+      sort_order: field.sort_order,
+      is_enabled: field.is_enabled,
+      is_custom: field.is_custom,
+    }));
+
+    if (fieldRecords.length > 0) {
+      const { error } = await supabase.from("item_job_detail_fields").insert(fieldRecords);
+      if (error) throw error;
+    }
+
+    const records = normalizedFields
+      .filter((field) => field.field_type === "text")
+      .flatMap(({ field_key }) =>
+      uniquePresetValues(jobDetailPresets[field_key] || []).map((value, index) => ({
         user_id: profile.id,
         item_id: itemId,
-        field_key: key,
+        field_key,
         value,
         sort_order: index,
       })),
@@ -309,8 +340,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     cartonUnit &&
     parseFloat(String(qtyPerCarton)) > 0 &&
     unitPrice;
-  const presetCount = JOB_DETAIL_FIELDS.reduce(
-    (sum, field) => sum + jobDetailPresets[field.key].length,
+  const presetCount = jobDetailFields.reduce(
+    (sum, field) => sum + (jobDetailPresets[field.field_key]?.length || 0),
     0,
   );
 
@@ -475,7 +506,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
               <div className="mb-3">
                 <div className="text-sm font-medium text-[#1A1A18]">ตัวเลือกเริ่มต้น</div>
                 <p className="mt-1 text-xs leading-5 text-[#888780]">
-                  เพิ่มค่าที่ใช้บ่อยเพื่อให้เลือกได้เร็วตอนสร้างใบเสนอราคา/ใบแจ้งหนี้ ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
+                  กำหนดช่องรายละเอียดของบริการนี้ แล้วเพิ่มค่าที่ใช้บ่อยใต้แต่ละช่อง ผู้ใช้ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
                 </p>
                 {loadingJobDetailPresets && (
                   <p className="mt-2 rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#888780]">
@@ -495,12 +526,72 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
               </div>
 
               <div className="space-y-4">
-                {JOB_DETAIL_FIELDS.map((field) => (
-                  <div key={field.key}>
-                    <div className="mb-2 text-[13px] font-medium text-[#1A1A18]">{field.label}</div>
-                    {jobDetailPresets[field.key].length > 0 && (
+                {jobDetailFields.map((field) => (
+                  <div key={field.field_key} className="rounded-lg border border-[#ECE8DE] bg-white p-3">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <label className="flex min-w-0 flex-1 items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={field.is_enabled}
+                          onChange={(event) =>
+                            setJobDetailFields((prev) =>
+                              prev.map((item) =>
+                                item.field_key === field.field_key
+                                  ? { ...item, is_enabled: event.target.checked }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className="h-4 w-4 rounded border-[#D7DEE7] text-primary focus:ring-primary"
+                        />
+                        <input
+                          type="text"
+                          value={field.label}
+                          onChange={(event) =>
+                            setJobDetailFields((prev) =>
+                              prev.map((item) =>
+                                item.field_key === field.field_key
+                                  ? { ...item, label: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className="min-w-0 flex-1 rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2 text-[13px] font-medium text-[#1A1A18] focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                          placeholder="ชื่อช่อง"
+                        />
+                      </label>
+                      <span className="rounded-full border border-[#E8E6DF] bg-[#FBFAF7] px-2 py-1 text-[10px] text-[#888780]">
+                        {field.field_type === "dimension" ? "ขนาด" : "ข้อความ"}
+                      </span>
+                      {field.is_custom && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setJobDetailFields((prev) => prev.filter((item) => item.field_key !== field.field_key));
+                            setJobDetailPresets((prev) => {
+                              const next = { ...prev };
+                              delete next[field.field_key];
+                              return next;
+                            });
+                          }}
+                          className="rounded-lg border border-red-100 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                        >
+                          ลบช่อง
+                        </button>
+                      )}
+                    </div>
+
+                    {field.field_type === "dimension" && (
+                      <p className="text-xs leading-5 text-[#888780]">
+                        ช่องขนาดใช้รูปแบบกว้าง x สูง และไม่มีตัวเลือกเริ่มต้น
+                      </p>
+                    )}
+
+                    {field.field_type === "text" && (
+                      <>
+                    {(jobDetailPresets[field.field_key] || []).length > 0 && (
                       <div className="mb-2 flex flex-wrap gap-1.5">
-                        {jobDetailPresets[field.key].map((value) => (
+                        {(jobDetailPresets[field.field_key] || []).map((value) => (
                           <span
                             key={value}
                             className="inline-flex items-center gap-1 rounded-full border border-[#D7DEE7] bg-white px-2.5 py-1 text-xs text-[#5F5A52]"
@@ -508,7 +599,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                             {value}
                             <button
                               type="button"
-                              onClick={() => removePreset(field.key, value)}
+                              onClick={() => removePreset(field.field_key, value)}
                               className="text-gray-400 transition-colors hover:text-red-500"
                               aria-label={`ลบ ${value}`}
                             >
@@ -521,14 +612,14 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        value={newPresetValues[field.key]}
+                        value={newPresetValues[field.field_key] || ""}
                         onChange={(event) =>
-                          setNewPresetValues((prev) => ({ ...prev, [field.key]: event.target.value }))
+                          setNewPresetValues((prev) => ({ ...prev, [field.field_key]: event.target.value }))
                         }
                         onKeyDown={(event) => {
                           if (event.key === "Enter") {
                             event.preventDefault();
-                            addPreset(field.key);
+                            addPreset(field.field_key);
                           }
                         }}
                         placeholder={field.placeholder}
@@ -536,14 +627,28 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                       />
                       <button
                         type="button"
-                        onClick={() => addPreset(field.key)}
+                        onClick={() => addPreset(field.field_key)}
                         className="shrink-0 rounded-lg border border-card-border bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
                       >
                         เพิ่ม
                       </button>
                     </div>
+                      </>
+                    )}
                   </div>
                 ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setJobDetailFields((prev) => [
+                      ...prev,
+                      { ...createCustomJobDetailField("ช่องใหม่"), sort_order: prev.length },
+                    ])
+                  }
+                  className="w-full rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-3 py-2 text-sm font-medium text-[#1A1A18] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
+                >
+                  เพิ่มช่องรายละเอียด
+                </button>
               </div>
             </div>
           )}

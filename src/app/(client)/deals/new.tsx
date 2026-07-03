@@ -17,10 +17,11 @@ import { generateDocNumberBE } from "../../../lib/docNumber";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
+import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle, ChevronDown, Copy, X, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
-import type { DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
+import type { DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
 interface LineItemForm {
   id: string;
@@ -44,30 +45,10 @@ interface LineItemForm {
   job_position: string;
   job_material: string;
   job_remark: string;
+  job_detail_values: Record<string, string>;
 }
 
-type JobDetailSuggestions = {
-  colors: string[];
-  positions: string[];
-  materials: string[];
-  remarks: string[];
-};
-
-const PRESET_FIELD_TO_SUGGESTION_KEY: Record<JobDetailPresetField, keyof JobDetailSuggestions> = {
-  color: "colors",
-  position: "positions",
-  material: "materials",
-  remark: "remarks",
-};
-
-const PRESET_FIELD_LABELS: Record<JobDetailPresetField, string> = {
-  color: "สี/ฟอยล์",
-  position: "ตำแหน่ง",
-  material: "วัสดุ",
-  remark: "หมายเหตุ",
-};
-
-type JobDetailLineField = "job_color" | "job_position" | "job_material" | "job_remark";
+type JobDetailSuggestions = Record<string, string[]>;
 
 interface JobDetailPresetInputProps {
   label: string;
@@ -190,6 +171,7 @@ function createEmptyLine(): LineItemForm {
     job_position: "",
     job_material: "",
     job_remark: "",
+    job_detail_values: {},
   };
 }
 
@@ -296,7 +278,8 @@ function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item, jobDe
     job_position: hasJobDetails ? lineItem.job_position : "",
     job_material: hasJobDetails ? lineItem.job_material : "",
     job_remark: hasJobDetails ? lineItem.job_remark : "",
-    line_note: hasJobDetails ? buildJobDetailsNote(lineItem) : "",
+    job_detail_values: hasJobDetails ? lineItem.job_detail_values : {},
+    line_note: hasJobDetails ? lineItem.line_note : "",
     unit_price: getSuggestedUnitPrice(
       catalogItem.unit_price,
       unit,
@@ -306,24 +289,58 @@ function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item, jobDe
   };
 }
 
-function buildJobDetailsNote(lineItem: LineItemForm) {
-  const size = [lineItem.job_width.trim(), lineItem.job_height.trim()].filter(Boolean).join(" x ");
-  return [
-    lineItem.job_color.trim() ? `สี/ฟอยล์: ${lineItem.job_color.trim()}` : "",
-    size ? `ขนาด: ${size} มม.` : "",
-    lineItem.job_position.trim() ? `ตำแหน่ง: ${lineItem.job_position.trim()}` : "",
-    lineItem.job_material.trim() ? `วัสดุ: ${lineItem.job_material.trim()}` : "",
-    lineItem.job_remark.trim() ? `หมายเหตุ: ${lineItem.job_remark.trim()}` : "",
-  ].filter(Boolean).join("\n");
+function getJobDetailValue(lineItem: LineItemForm, fieldKey: string) {
+  if (lineItem.job_detail_values[fieldKey] !== undefined) return lineItem.job_detail_values[fieldKey];
+  if (fieldKey === "color") return lineItem.job_color;
+  if (fieldKey === "position") return lineItem.job_position;
+  if (fieldKey === "material") return lineItem.job_material;
+  if (fieldKey === "remark") return lineItem.job_remark;
+  return "";
 }
 
-function getJobDetailsSummary(lineItem: LineItemForm) {
-  const size = [lineItem.job_width.trim(), lineItem.job_height.trim()].filter(Boolean).join("x");
-  return [
-    lineItem.job_color.trim(),
-    size ? `${size} mm` : "",
-    lineItem.job_position.trim(),
-  ].filter(Boolean).join(" · ");
+function getJobDetailDimension(lineItem: LineItemForm, fieldKey: string) {
+  if (fieldKey === "size") {
+    return {
+      width: lineItem.job_detail_values.size_width ?? lineItem.job_width,
+      height: lineItem.job_detail_values.size_height ?? lineItem.job_height,
+    };
+  }
+  return {
+    width: lineItem.job_detail_values[`${fieldKey}_width`] || "",
+    height: lineItem.job_detail_values[`${fieldKey}_height`] || "",
+  };
+}
+
+function buildJobDetailsNote(lineItem: LineItemForm, fields = DEFAULT_JOB_DETAIL_FIELDS) {
+  return fields
+    .filter((field) => field.is_enabled)
+    .map((field) => {
+      if (field.field_type === "dimension") {
+        const { width, height } = getJobDetailDimension(lineItem, field.field_key);
+        const size = [width.trim(), height.trim()].filter(Boolean).join(" x ");
+        return size ? `${field.label}: ${size} มม.` : "";
+      }
+      const value = getJobDetailValue(lineItem, field.field_key).trim();
+      return value ? `${field.label}: ${value}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function getJobDetailsSummary(lineItem: LineItemForm, fields = DEFAULT_JOB_DETAIL_FIELDS) {
+  return fields
+    .filter((field) => field.is_enabled)
+    .map((field) => {
+      if (field.field_type === "dimension") {
+        const { width, height } = getJobDetailDimension(lineItem, field.field_key);
+        const size = [width.trim(), height.trim()].filter(Boolean).join("x");
+        return size ? `${size} mm` : "";
+      }
+      return getJobDetailValue(lineItem, field.field_key).trim();
+    })
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(" · ");
 }
 
 export default function NewDealPage() {
@@ -350,6 +367,7 @@ export default function NewDealPage() {
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([createEmptyLine()]);
+  const [serviceJobDetailFields, setServiceJobDetailFields] = useState<Record<string, JobDetailFieldConfig[]>>({});
   const [serviceJobDetailPresets, setServiceJobDetailPresets] = useState<Record<string, JobDetailSuggestions>>({});
   const [vatRegistered, setVatRegistered] = useState(clientProfile?.vat_registered ?? false);
   const [vatRate, setVatRate] = useState<number>(clientProfile?.vat_rate ?? VAT_DEFAULT);
@@ -444,39 +462,57 @@ export default function NewDealPage() {
   useEffect(() => {
     const itemIds = jobDetailServiceItems.map((item) => item.id);
     if (!userId || itemIds.length === 0) {
+      setServiceJobDetailFields({});
       setServiceJobDetailPresets({});
       return;
     }
 
     let cancelled = false;
-    async function loadServicePresets() {
-      const { data } = await supabase
-        .from("item_job_detail_presets")
-        .select("*")
-        .eq("user_id", userId)
-        .in("item_id", itemIds)
-        .order("sort_order", { ascending: true });
+    async function loadServiceJobDetailSetup() {
+      const [{ data: fieldData }, { data: presetData }] = await Promise.all([
+        supabase
+          .from("item_job_detail_fields")
+          .select("*")
+          .eq("user_id", userId)
+          .in("item_id", itemIds)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("item_job_detail_presets")
+          .select("*")
+          .eq("user_id", userId)
+          .in("item_id", itemIds)
+          .order("sort_order", { ascending: true }),
+      ]);
 
       if (cancelled) return;
-      const next: Record<string, JobDetailSuggestions> = {};
+      const fieldsByItem: Record<string, JobDetailFieldConfig[]> = {};
+      const rawFieldsByItem: Record<string, ItemJobDetailField[]> = {};
       itemIds.forEach((itemId) => {
-        next[itemId] = { colors: [], positions: [], materials: [], remarks: [] };
+        rawFieldsByItem[itemId] = [];
+      });
+      ((fieldData || []) as ItemJobDetailField[]).forEach((field) => {
+        if (!rawFieldsByItem[field.item_id]) rawFieldsByItem[field.item_id] = [];
+        rawFieldsByItem[field.item_id].push(field);
+      });
+      itemIds.forEach((itemId) => {
+        fieldsByItem[itemId] = normalizeJobDetailFields(rawFieldsByItem[itemId]).filter((field) => field.is_enabled);
       });
 
-      ((data || []) as ItemJobDetailPreset[]).forEach((preset) => {
-        if (!next[preset.item_id]) {
-          next[preset.item_id] = { colors: [], positions: [], materials: [], remarks: [] };
-        }
-        if (preset.field_key === "color") next[preset.item_id].colors.push(preset.value);
-        if (preset.field_key === "position") next[preset.item_id].positions.push(preset.value);
-        if (preset.field_key === "material") next[preset.item_id].materials.push(preset.value);
-        if (preset.field_key === "remark") next[preset.item_id].remarks.push(preset.value);
+      const presetsByItem: Record<string, JobDetailSuggestions> = {};
+      itemIds.forEach((itemId) => {
+        presetsByItem[itemId] = {};
+      });
+      ((presetData || []) as ItemJobDetailPreset[]).forEach((preset) => {
+        if (!presetsByItem[preset.item_id]) presetsByItem[preset.item_id] = {};
+        if (!presetsByItem[preset.item_id][preset.field_key]) presetsByItem[preset.item_id][preset.field_key] = [];
+        presetsByItem[preset.item_id][preset.field_key].push(preset.value);
       });
 
-      setServiceJobDetailPresets(next);
+      setServiceJobDetailFields(fieldsByItem);
+      setServiceJobDetailPresets(presetsByItem);
     }
 
-    void loadServicePresets();
+    void loadServiceJobDetailSetup();
     return () => {
       cancelled = true;
     };
@@ -484,7 +520,7 @@ export default function NewDealPage() {
 
   async function removeServiceJobDetailPreset(itemId: string, fieldKey: JobDetailPresetField, value: string) {
     if (!userId) return;
-    const label = PRESET_FIELD_LABELS[fieldKey];
+    const label = getJobDetailFieldLabel(serviceJobDetailFields[itemId] || DEFAULT_JOB_DETAIL_FIELDS, fieldKey);
     const confirmed = window.confirm(`ลบ "${value}" ออกจากตัวเลือก${label}ของบริการนี้?`);
     if (!confirmed) return;
 
@@ -501,15 +537,11 @@ export default function NewDealPage() {
       return;
     }
 
-    const suggestionKey = PRESET_FIELD_TO_SUGGESTION_KEY[fieldKey];
     setServiceJobDetailPresets((prev) => ({
       ...prev,
       [itemId]: {
-        colors: prev[itemId]?.colors || [],
-        positions: prev[itemId]?.positions || [],
-        materials: prev[itemId]?.materials || [],
-        remarks: prev[itemId]?.remarks || [],
-        [suggestionKey]: (prev[itemId]?.[suggestionKey] || []).filter((presetValue) => presetValue !== value),
+        ...(prev[itemId] || {}),
+        [fieldKey]: (prev[itemId]?.[fieldKey] || []).filter((presetValue) => presetValue !== value),
       },
     }));
     toast.success("ลบตัวเลือกแล้ว");
@@ -793,6 +825,7 @@ export default function NewDealPage() {
             updated.job_position = "";
             updated.job_material = "";
             updated.job_remark = "";
+            updated.job_detail_values = {};
           }
         }
 
@@ -813,7 +846,12 @@ export default function NewDealPage() {
     setLineItems((prev) => {
       const sourceIndex = prev.findIndex((lineItem) => lineItem.id === id);
       if (sourceIndex < 0) return prev;
-      const copy = { ...prev[sourceIndex], id: crypto.randomUUID(), job_details_open: false };
+      const copy = {
+        ...prev[sourceIndex],
+        id: crypto.randomUUID(),
+        job_details_open: false,
+        job_detail_values: { ...prev[sourceIndex].job_detail_values },
+      };
       return [
         ...prev.slice(0, sourceIndex + 1),
         copy,
@@ -824,14 +862,30 @@ export default function NewDealPage() {
 
   const updateJobDetail = (
     id: string,
-    field: "job_color" | "job_width" | "job_height" | "job_position" | "job_material" | "job_remark",
+    field: string,
     value: string,
   ) => {
     setLineItems((prev) =>
       prev.map((lineItem) => {
         if (lineItem.id !== id) return lineItem;
-        const updated = { ...lineItem, [field]: value } as LineItemForm;
-        return { ...updated, line_note: buildJobDetailsNote(updated) };
+        const matchedItem = items.find((catalogItem) => catalogItem.id === lineItem.item_id);
+        const fields = matchedItem?.id ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS : DEFAULT_JOB_DETAIL_FIELDS;
+        const legacyUpdates: Partial<LineItemForm> = {};
+        if (field === "color") legacyUpdates.job_color = value;
+        if (field === "position") legacyUpdates.job_position = value;
+        if (field === "material") legacyUpdates.job_material = value;
+        if (field === "remark") legacyUpdates.job_remark = value;
+        if (field === "size_width") legacyUpdates.job_width = value;
+        if (field === "size_height") legacyUpdates.job_height = value;
+        const updated = {
+          ...lineItem,
+          ...legacyUpdates,
+          job_detail_values: {
+            ...lineItem.job_detail_values,
+            [field]: value,
+          },
+        } as LineItemForm;
+        return { ...updated, line_note: buildJobDetailsNote(updated, fields) };
       }),
     );
   };
@@ -859,13 +913,11 @@ export default function NewDealPage() {
     lineItemId: string,
     itemId: string,
     fieldKey: JobDetailPresetField,
-    lineField: JobDetailLineField,
     value: string,
     label: string,
     placeholder: string,
   ) => {
-    const suggestionKey = PRESET_FIELD_TO_SUGGESTION_KEY[fieldKey];
-    const presets = serviceJobDetailPresets[itemId]?.[suggestionKey] || [];
+    const presets = serviceJobDetailPresets[itemId]?.[fieldKey] || [];
 
     return (
       <JobDetailPresetInput
@@ -873,7 +925,7 @@ export default function NewDealPage() {
         value={value}
         placeholder={placeholder}
         presets={presets}
-        onChange={(nextValue) => updateJobDetail(lineItemId, lineField, nextValue)}
+        onChange={(nextValue) => updateJobDetail(lineItemId, fieldKey, nextValue)}
         onDeletePreset={(presetValue) => void removeServiceJobDetailPreset(itemId, fieldKey, presetValue)}
       />
     );
@@ -1421,7 +1473,10 @@ export default function NewDealPage() {
                 const soldByCarton = isCartonUnitSelected(item);
                 const baseQuantity = getLineBaseQuantity(item);
                 const jobDetailsEnabled = jobDetailsFeatureEnabled && matchedItem?.item_type === "service" && matchedItem.has_job_details;
-                const jobDetailsSummary = getJobDetailsSummary(item);
+                const jobDetailFields = matchedItem?.id
+                  ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS
+                  : DEFAULT_JOB_DETAIL_FIELDS;
+                const jobDetailsSummary = getJobDetailsSummary(item, jobDetailFields);
 
                 if (isUtilityBill && idx === 0) {
                   const amounts = calculateLineAmounts(item);
@@ -1504,41 +1559,52 @@ export default function NewDealPage() {
                             />
                           </label>
                           {matchedItem?.id ? (
-                            renderJobDetailPresetInput(item.id, matchedItem.id, "color", "job_color", item.job_color, "สี / ฟอยล์", "เช่น ฟอยล์แดง")
+                            jobDetailFields.map((field) => {
+                              if (field.field_type === "dimension") {
+                                const { width, height } = getJobDetailDimension(item, field.field_key);
+                                return (
+                                  <div key={field.field_key}>
+                                    <span className="mb-1 block text-[10px] text-gray-400">{field.label}</span>
+                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={width}
+                                        onChange={(event) => updateJobDetail(item.id, `${field.field_key}_width`, event.target.value)}
+                                        placeholder="24"
+                                        className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                                      />
+                                      <span className="text-xs text-gray-400">x</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={height}
+                                        onChange={(event) => updateJobDetail(item.id, `${field.field_key}_height`, event.target.value)}
+                                        placeholder="35"
+                                        className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              const input = renderJobDetailPresetInput(
+                                item.id,
+                                matchedItem.id,
+                                field.field_key,
+                                getJobDetailValue(item, field.field_key),
+                                field.label,
+                                field.placeholder,
+                              );
+                              return field.field_key === "remark" ? (
+                                <div key={field.field_key} className="md:col-span-2">
+                                  {input}
+                                </div>
+                              ) : (
+                                <div key={field.field_key}>{input}</div>
+                              );
+                            })
                           ) : null}
-                          <div>
-                            <span className="mb-1 block text-[10px] text-gray-400">ขนาด กว้าง x สูง (มม.)</span>
-                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                value={item.job_width}
-                                onChange={(event) => updateJobDetail(item.id, "job_width", event.target.value)}
-                                placeholder="24"
-                                className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
-                              />
-                              <span className="text-xs text-gray-400">x</span>
-                              <input
-                                type="number"
-                                min="0"
-                                value={item.job_height}
-                                onChange={(event) => updateJobDetail(item.id, "job_height", event.target.value)}
-                                placeholder="35"
-                                className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
-                              />
-                            </div>
-                          </div>
-                          {matchedItem?.id ? (
-                            renderJobDetailPresetInput(item.id, matchedItem.id, "position", "job_position", item.job_position, "ตำแหน่ง", "เช่น ด้านซ้าย")
-                          ) : null}
-                          {matchedItem?.id ? (
-                            renderJobDetailPresetInput(item.id, matchedItem.id, "material", "job_material", item.job_material, "วัสดุ", "เช่น กล่องกระดาษ")
-                          ) : null}
-                          <div className="md:col-span-2">
-                            {matchedItem?.id ? (
-                              renderJobDetailPresetInput(item.id, matchedItem.id, "remark", "job_remark", item.job_remark, "หมายเหตุ", "หมายเหตุเพิ่มเติม")
-                            ) : null}
-                          </div>
                         </div>
                       )}
                     </div>
