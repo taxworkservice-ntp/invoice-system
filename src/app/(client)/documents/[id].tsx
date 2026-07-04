@@ -1210,6 +1210,17 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
+          {isDraft && doc.doc_type === "invoice" && !isUtilityBill && (
+            <Button
+              variant="secondary"
+              size="md"
+              className="w-full"
+              onClick={() => navigate(`/documents/${doc.id}/edit`)}
+            >
+              แก้ไขฉบับร่าง
+            </Button>
+          )}
+
           {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && permissions.canSendDocuments && (
             <Button
               variant={doc.doc_type === "delivery_note" ? "primary" : "secondary"}

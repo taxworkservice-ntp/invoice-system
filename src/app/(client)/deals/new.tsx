@@ -22,7 +22,7 @@ import { getWorkspacePermissions } from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle, ChevronDown, Copy, X, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
-import type { DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
+import type { Document, DocumentLineItem, DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
 interface LineItemForm {
   id: string;
@@ -344,13 +344,21 @@ function getJobDetailsSummary(lineItem: LineItemForm, fields = DEFAULT_JOB_DETAI
     .join(" · ");
 }
 
-export default function NewDealPage() {
+interface NewDealPageProps {
+  documentId?: string;
+  initialType?: DocumentType;
+}
+
+export default function NewDealPage({ documentId, initialType }: NewDealPageProps = {}) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const requestedType = searchParams.get("type") || "quotation";
+  const requestedType = initialType || searchParams.get("type") || "quotation";
   const isUtilityBill = requestedType === "utility_bill";
   const type = (isUtilityBill ? "invoice" : requestedType) as DocumentType;
-  const label = isUtilityBill ? "ออกบิลประจำรอบ" : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
+  const isEditingDraft = Boolean(documentId);
+  const label = isEditingDraft && type === "invoice"
+    ? "แก้ไขร่างใบแจ้งหนี้"
+    : isUtilityBill ? "ออกบิลประจำรอบ" : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
   const isBillingNote = type === "billing_note";
   const isTaxInvoiceReceipt = type === "tax_invoice_receipt";
   const isDeliveryNote = type === "delivery_note";
@@ -398,6 +406,8 @@ export default function NewDealPage() {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [editLoading, setEditLoading] = useState(Boolean(documentId));
+  const [editingDealId, setEditingDealId] = useState<string | null>(null);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
@@ -419,6 +429,84 @@ export default function NewDealPage() {
       setWhtRate(clientProfile.default_wht_rate);
     }
   }, [clientProfile]);
+
+  useEffect(() => {
+    if (!documentId || !userId) return;
+
+    let cancelled = false;
+
+    async function loadDraftInvoice() {
+      setEditLoading(true);
+      setError(null);
+      try {
+        const [{ data: documentData, error: documentError }, { data: lineData, error: lineError }] = await Promise.all([
+          supabase
+            .from("documents")
+            .select("*, customer:customer_id(*)")
+            .eq("id", documentId)
+            .eq("user_id", userId)
+            .single(),
+          supabase
+            .from("document_line_items")
+            .select("*")
+            .eq("document_id", documentId)
+            .order("sort_order", { ascending: true }),
+        ]);
+
+        if (documentError || !documentData) throw documentError || new Error("ไม่พบเอกสาร");
+        if (lineError) throw lineError;
+
+        const draftDoc = documentData as Document & { customer?: Customer };
+        if (draftDoc.doc_type !== "invoice" || draftDoc.status !== "draft") {
+          throw new Error("แก้ไขได้เฉพาะร่างใบแจ้งหนี้");
+        }
+
+        if (cancelled) return;
+        setSelectedCustomer(draftDoc.customer || null);
+        setEditingDealId(draftDoc.deal_id);
+        setIssueDate(draftDoc.issue_date || todayString());
+        setVatRegistered(draftDoc.vat_registered);
+        setVatRate(draftDoc.vat_rate);
+        setWhtRate(String(draftDoc.wht_rate) as WhtRate);
+        setDocumentDiscountPercent(draftDoc.discount_percent || 0);
+        setNote(draftDoc.note || "");
+        setDocNumberOverride(draftDoc.doc_number || "");
+        setLineItems(((lineData || []) as DocumentLineItem[]).map((line) => ({
+          id: line.id || crypto.randomUUID(),
+          item_id: line.item_id,
+          item_sku: line.item_sku,
+          item_name: line.item_name,
+          line_note: line.line_note || "",
+          item_type: line.item_type,
+          unit_price: line.unit_price,
+          quantity: line.quantity,
+          discount_percent: line.discount_percent || 0,
+          unit: line.unit,
+          base_unit: line.unit,
+          carton_unit: line.carton_unit,
+          qty_per_carton: line.qty_carton && line.quantity ? line.base_quantity ? line.base_quantity / line.quantity : null : null,
+          base_unit_price: null,
+          job_details_open: false,
+          job_color: "",
+          job_width: "",
+          job_height: "",
+          job_position: "",
+          job_material: "",
+          job_remark: "",
+          job_detail_values: {},
+        })));
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || "โหลดร่างใบแจ้งหนี้ไม่สำเร็จ");
+      } finally {
+        if (!cancelled) setEditLoading(false);
+      }
+    }
+
+    void loadDraftInvoice();
+    return () => {
+      cancelled = true;
+    };
+  }, [documentId, userId]);
 
   useEffect(() => {
     const customerId = searchParams.get("customer_id");
@@ -1004,8 +1092,8 @@ export default function NewDealPage() {
     let createdDealId: string | null = null;
     let createdDocumentId: string | null = null;
     try {
-      let dealId: string | null = null;
-      if (!isBillingNote) {
+      let dealId: string | null = editingDealId;
+      if (!documentId && !isBillingNote) {
         const { data: deal, error: dealError } = await supabase
           .from("deals")
           .insert({
@@ -1050,14 +1138,30 @@ export default function NewDealPage() {
         hide_amounts_on_print: isDeliveryNote ? hideAmountsOnPrint : null,
       };
 
-      const { data: document, error: docError } = await supabase
-        .from("documents")
-        .insert(docPayload)
-        .select("*")
-        .single();
+      let savedDocumentId = documentId || "";
+      if (documentId) {
+        const { error: docError } = await supabase
+          .from("documents")
+          .update(docPayload)
+          .eq("id", documentId)
+          .eq("user_id", userId)
+          .eq("doc_type", "invoice")
+          .eq("status", "draft");
 
-      if (docError) throw docError;
-      createdDocumentId = document.id;
+        if (docError) throw docError;
+        const { error: deleteItemsError } = await supabase.from("document_line_items").delete().eq("document_id", documentId);
+        if (deleteItemsError) throw deleteItemsError;
+      } else {
+        const { data: document, error: docError } = await supabase
+          .from("documents")
+          .insert(docPayload)
+          .select("*")
+          .single();
+
+        if (docError || !document) throw docError || new Error("ไม่สามารถสร้างเอกสารได้");
+        savedDocumentId = document.id;
+        createdDocumentId = document.id;
+      }
 
       if (isLineItemDocument) {
         const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
@@ -1067,7 +1171,7 @@ export default function NewDealPage() {
             const baseQuantity = getLineBaseQuantity(lineItem);
             const soldByCarton = isCartonUnitSelected(lineItem);
             return {
-              document_id: document.id,
+              document_id: savedDocumentId,
               user_id: userId,
               item_id: lineItem.item_id,
               item_name: lineItem.item_name,
@@ -1092,14 +1196,14 @@ export default function NewDealPage() {
       }
 
       if (isTaxInvoiceReceipt) {
-        await deductStockOnDocumentSent(document.id, userId);
+        await deductStockOnDocumentSent(savedDocumentId, userId);
       }
 
       if (isBillingNote) {
         const selectedInvoices = unpaidInvoices.filter((inv) => selectedInvoiceIds.has(inv.id));
         if (selectedInvoices.length > 0) {
           const billingRecords = selectedInvoices.map((inv) => ({
-            billing_note_id: document.id,
+            billing_note_id: savedDocumentId,
             invoice_id: inv.id,
             user_id: userId,
             invoice_number: inv.doc_number,
@@ -1113,7 +1217,10 @@ export default function NewDealPage() {
         }
       }
 
-      if (dealId) {
+      if (documentId) {
+        toast.success("บันทึกร่างใบแจ้งหนี้แล้ว");
+        navigate(`/documents/${documentId}`);
+      } else if (dealId) {
         toast.success("บันทึกงานขายสำเร็จ");
         navigate(`/deals/${dealId}`);
       } else {
@@ -1140,6 +1247,14 @@ export default function NewDealPage() {
   const canSave = selectedCustomer && (isBillingNote ? selectedInvoiceIds.size > 0 : lineItems.some((lineItem) => lineItem.item_name.trim()));
   const isIssueDateToday = issueDate === todayString();
   const isPaymentDateToday = paymentDate === todayString();
+
+  if (editLoading) {
+    return (
+      <AppShell title={label} showBack>
+        <Spinner />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title={label} showBack>
@@ -1171,9 +1286,12 @@ export default function NewDealPage() {
             ? "border-emerald-200 bg-emerald-50 text-emerald-900"
             : "border-blue-200 bg-blue-50 text-blue-900"
         }`}>
-          {vatRegistered
-            ? "เอกสารนี้จะออกเป็นใบกำกับภาษี/ใบเสร็จรับเงินทันที และถือว่ารับชำระแล้วในขั้นตอนเดียว"
-            : "บัญชีนี้ไม่ได้จด VAT ระบบจะออกเป็นใบเสร็จรับเงินทันที ไม่มีรายการ VAT และถือว่ารับชำระแล้วในขั้นตอนเดียว"}
+          <p className="font-medium">เอกสารนี้ไม่มีฉบับร่าง</p>
+          <p className="mt-1 text-xs leading-5">
+            {vatRegistered
+              ? "เมื่อบันทึก ระบบจะออกใบกำกับภาษี/ใบเสร็จรับเงินทันที และถือว่ารับชำระแล้วในขั้นตอนเดียว"
+              : "บัญชีนี้ไม่ได้จด VAT เมื่อบันทึก ระบบจะออกเป็นใบเสร็จรับเงินทันที ไม่มีรายการ VAT และถือว่ารับชำระแล้วในขั้นตอนเดียว"}
+          </p>
         </div>
       )}
 
@@ -2021,7 +2139,7 @@ export default function NewDealPage() {
         />
 
         <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "บันทึกและออกเอกสาร" : "บันทึก"}
+          {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "ออกเอกสารทันที" : isEditingDraft ? "บันทึกร่าง" : "บันทึก"}
         </Button>
       </div>
     </AppShell>

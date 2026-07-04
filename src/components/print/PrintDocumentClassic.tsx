@@ -389,7 +389,6 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                   <td className="print-classic-item-name">&nbsp;</td>
                   <td className="center">&nbsp;</td>
                   <td className="center">&nbsp;</td>
-                  <td className="center">&nbsp;</td>
                   {!hideDeliveryAmounts && (
                     <>
                       <td className="right">&nbsp;</td>
