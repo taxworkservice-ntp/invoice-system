@@ -1,6 +1,6 @@
-import { requireAdmin } from "../../../../../_lib/auth.js";
-import { ApiError, readJsonBody, sendError, sendJson } from "../../../../../_lib/http.js";
-import { supabaseAdmin } from "../../../../../_lib/supabase.js";
+import { requireAdmin } from "../../../../_lib/auth.js";
+import { ApiError, readJsonBody, sendError, sendJson } from "../../../../_lib/http.js";
+import { supabaseAdmin } from "../../../../_lib/supabase.js";
 
 const ROLES = new Set(["owner", "manager", "officer"]);
 const STATUSES = new Set(["active", "disabled"]);
@@ -22,14 +22,12 @@ function normalizePermissions(input) {
   if (typeof input !== "object" || Array.isArray(input)) {
     throw new ApiError(400, "Invalid permissions");
   }
-
   const normalized = {};
   for (const [key, value] of Object.entries(input)) {
     if (!PERMISSION_KEYS.has(key)) continue;
     if (typeof value !== "boolean") throw new ApiError(400, "Invalid permission value");
     normalized[key] = value;
   }
-
   normalized.canManageTeam = false;
   return normalized;
 }
@@ -44,8 +42,9 @@ export default async function handler(req, res) {
       return sendJson(res, 405, { error: "Method not allowed" });
     }
 
-    const { id, memberId } = req.query;
-    if (!id || !memberId) throw new ApiError(400, "Missing member id");
+    const workspaceId = req.query.id;
+    const memberId = (req.query.action || [])[0];
+    if (!workspaceId || !memberId) throw new ApiError(400, "Missing id or memberId");
 
     const body = readJsonBody(req);
     const patch = {};
@@ -72,23 +71,21 @@ export default async function handler(req, res) {
       .from("client_members")
       .select("*")
       .eq("id", memberId)
-      .eq("workspace_user_id", id)
+      .eq("workspace_user_id", workspaceId)
       .single();
     if (existingErr) {
-      console.error("[memberId PATCH] fetch existing failed:", JSON.stringify(existingErr));
+      console.error("[members/action PATCH] fetch failed:", JSON.stringify(existingErr));
       throw existingErr;
     }
     if (!existing) throw new ApiError(404, "Member not found");
 
-    if (existing.member_user_id === id && (patch.role && patch.role !== "owner")) {
+    if (existing.member_user_id === workspaceId && (patch.role && patch.role !== "owner")) {
       throw new ApiError(400, "Workspace owner must keep owner role");
     }
-
-    if (existing.member_user_id === id && patch.status === "disabled") {
+    if (existing.member_user_id === workspaceId && patch.status === "disabled") {
       throw new ApiError(400, "Workspace owner cannot be disabled");
     }
-
-    if (existing.member_user_id === id && patch.permissions !== undefined) {
+    if (existing.member_user_id === workspaceId && patch.permissions !== undefined) {
       throw new ApiError(400, "Workspace owner permissions cannot be customized");
     }
 
@@ -96,11 +93,11 @@ export default async function handler(req, res) {
       .from("client_members")
       .update(patch)
       .eq("id", memberId)
-      .eq("workspace_user_id", id)
+      .eq("workspace_user_id", workspaceId)
       .select("*")
       .single();
     if (updateErr) {
-      console.error("[memberId PATCH] update failed:", JSON.stringify(updateErr));
+      console.error("[members/action PATCH] update failed:", JSON.stringify(updateErr));
       throw updateErr;
     }
 
@@ -110,14 +107,14 @@ export default async function handler(req, res) {
           ban_duration: patch.status === "disabled" ? "876000h" : "none",
         });
       } catch (banErr) {
-        console.error("[memberId PATCH] ban update failed:", JSON.stringify(banErr));
+        console.error("[members/action PATCH] ban failed:", JSON.stringify(banErr));
         throw banErr;
       }
     }
 
     return sendJson(res, 200, { member: updated });
   } catch (error) {
-    console.error("[memberId] Unhandled error:", error);
+    console.error("[members/action] Unhandled error:", error);
     return sendError(res, error);
   }
 }
