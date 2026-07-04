@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useAuth, useClientProfile } from "../../../hooks/useAuth";
+import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useCustomers } from "../../../hooks/useCustomers";
 import { useItems } from "../../../hooks/useItems";
 import { useClientFeatures } from "../../../hooks/useClientFeatures";
@@ -18,6 +18,7 @@ import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
+import { getWorkspacePermissions } from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle, ChevronDown, Copy, X, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
@@ -355,7 +356,8 @@ export default function NewDealPage() {
   const isDeliveryNote = type === "delivery_note";
   const isLineItemDocument = type === "quotation" || type === "invoice" || isTaxInvoiceReceipt || isDeliveryNote;
 
-  const { profile } = useAuth();
+  const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
   const { hasFeature } = useClientFeatures(userId);
@@ -989,6 +991,11 @@ export default function NewDealPage() {
 
     if (isBillingNote && selectedInvoiceIds.size === 0) {
       setError("กรุณาเลือกอย่างน้อย 1 ใบแจ้งหนี้");
+      return;
+    }
+
+    if (isTaxInvoiceReceipt && !permissions.canRecordPayments) {
+      setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
 

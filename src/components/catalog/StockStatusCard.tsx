@@ -3,8 +3,8 @@ import type { Item } from "../../types";
 
 interface Props {
   item: Item;
-  onStockIn: () => void;
-  onStockOut: () => void;
+  onStockIn?: () => void;
+  onStockOut?: () => void;
 }
 
 export function StockStatusCard({ item, onStockIn, onStockOut }: Props) {
@@ -59,22 +59,28 @@ export function StockStatusCard({ item, onStockIn, onStockOut }: Props) {
           หมด
         </span>
       )}
-      <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={onStockIn}
-          className="flex-1 rounded-lg border-[0.5px] border-[#C8E6B0] bg-[#EAF3DE] px-4 py-2.5 text-[13px] font-medium text-[#27500A] transition-colors hover:bg-[#dcebcb]"
-        >
-          รับสินค้าเข้า
-        </button>
-        <button
-          type="button"
-          onClick={onStockOut}
-          className="flex-1 rounded-lg border-[0.5px] border-[#F5C6C6] bg-[#FCEBEB] px-4 py-2.5 text-[13px] font-medium text-[#791F1F] transition-colors hover:bg-[#f9d9d9]"
-        >
-          ตัดสต็อก
-        </button>
-      </div>
+      {(onStockIn || onStockOut) && (
+        <div className="mt-4 flex gap-2">
+          {onStockIn && (
+            <button
+              type="button"
+              onClick={onStockIn}
+              className="flex-1 rounded-lg border-[0.5px] border-[#C8E6B0] bg-[#EAF3DE] px-4 py-2.5 text-[13px] font-medium text-[#27500A] transition-colors hover:bg-[#dcebcb]"
+            >
+              รับสินค้าเข้า
+            </button>
+          )}
+          {onStockOut && (
+            <button
+              type="button"
+              onClick={onStockOut}
+              className="flex-1 rounded-lg border-[0.5px] border-[#F5C6C6] bg-[#FCEBEB] px-4 py-2.5 text-[13px] font-medium text-[#791F1F] transition-colors hover:bg-[#f9d9d9]"
+            >
+              ตัดสต็อก
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

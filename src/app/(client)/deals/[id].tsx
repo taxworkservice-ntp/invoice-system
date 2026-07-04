@@ -469,6 +469,7 @@ export default function DealDetailPage() {
       return;
     }
     await executeConfirmPayment();
+  };
 
   const executeConfirmPayment = async () => {
     if (!payDocument || !userId || !dealId) return;

@@ -1,9 +1,22 @@
 import { apiFetch } from "./api";
+import type { WorkspacePermissions } from "./permissions";
 
 export interface AdminAuthUserSummary {
   id: string;
   email: string;
   isActive: boolean;
+}
+
+export interface AdminClientMember {
+  id: string;
+  workspaceUserId: string;
+  memberUserId: string;
+  email: string;
+  role: "owner" | "manager" | "officer";
+  status: "active" | "disabled";
+  permissions: Partial<WorkspacePermissions> | null;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export async function listAdminClientUsers(): Promise<AdminAuthUserSummary[]> {
@@ -63,5 +76,32 @@ export async function resetClientDocuments(id: string) {
 export async function deleteAdminClient(id: string) {
   return apiFetch(`/api/admin/clients/${id}/delete`, {
     method: "DELETE",
+  });
+}
+
+export async function listAdminClientMembers(clientId: string): Promise<AdminClientMember[]> {
+  const result = await apiFetch<{ members: AdminClientMember[] }>(`/api/admin/clients/${clientId}/members`);
+  return result.members;
+}
+
+export async function createAdminClientMember(clientId: string, payload: {
+  email: string;
+  role: "manager" | "officer";
+  password?: string;
+}): Promise<{ member: AdminClientMember; tempPassword?: string }> {
+  return apiFetch(`/api/admin/clients/${clientId}/members`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAdminClientMember(clientId: string, memberId: string, payload: {
+  role?: "owner" | "manager" | "officer";
+  status?: "active" | "disabled";
+  permissions?: Partial<WorkspacePermissions> | null;
+}) {
+  return apiFetch(`/api/admin/clients/${clientId}/members/${memberId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }

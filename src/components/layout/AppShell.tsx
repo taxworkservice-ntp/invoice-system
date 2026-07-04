@@ -4,8 +4,9 @@ import { Home, FileText, BarChart3, Package, Settings, Users, ChevronRight, Arro
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
-import { useAuth, useClientProfile } from "../../hooks/useAuth";
+import { useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
 import { DevBadge } from "../ui/DevBadge";
+import { getWorkspacePermissions } from "../../lib/permissions";
 
 const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
@@ -32,8 +33,14 @@ interface AppShellProps {
 export function AppShell({ title, showBack, action, breadcrumbs, children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const { clientProfile } = useClientProfile(profile?.id);
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
+    if (item.path === "/reports") return permissions.canViewReports;
+    if (item.path === "/settings") return permissions.canManageSettings;
+    return true;
+  });
   const companyName = clientProfile?.company_name_th?.trim() || "Invoice System";
 
   const impersonatedUserId = sessionStorage.getItem("impersonate_user_id");
@@ -61,7 +68,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
           </h1>
         </div>
         <nav className="flex-1 px-2 py-3 space-y-1">
-          {BOTTOM_NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}

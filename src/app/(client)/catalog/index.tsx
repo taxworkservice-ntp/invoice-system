@@ -2,14 +2,16 @@ import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../../components/layout/AppShell";
 import { CatalogList } from "../../../components/catalog/CatalogList";
 import { useItems } from "../../../hooks/useItems";
-import { useAuth } from "../../../hooks/useAuth";
+import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { getWorkspacePermissions } from "../../../lib/permissions";
 import type { Item } from "../../../types";
 
 export default function CatalogPage() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const toast = useToast();
   const { items, loading, updateItemLocal } = useItems(profile?.id);
 
@@ -36,6 +38,7 @@ export default function CatalogPage() {
         onAdd={() => navigate("/catalog/new")}
         userId={profile?.id}
         onToggleFavorite={handleToggleFavorite}
+        canManage={permissions.canManageCatalog}
       />
     </AppShell>
   );

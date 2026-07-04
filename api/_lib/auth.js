@@ -82,6 +82,18 @@ export async function requireStorageAccess(req, key) {
   }
 
   if (storageKey.userId !== user.id) {
+    const { data: membership } = await supabaseAdmin
+      .from("client_members")
+      .select("id")
+      .eq("workspace_user_id", storageKey.userId)
+      .eq("member_user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (membership) {
+      return { user, profile };
+    }
+
     throw new ApiError(403, "Forbidden");
   }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
-import { useAuth } from "../../../hooks/useAuth";
+import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useStockMovements } from "../../../hooks/useItems";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -25,12 +25,14 @@ import {
   correctManualStockOut,
 } from "../../../lib/stock";
 import { formatBuddhistDate } from "../../../lib/dates";
+import { getWorkspacePermissions } from "../../../lib/permissions";
 import type { Item, StockMovement } from "../../../types";
 
 export default function CatalogItemPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const toast = useToast();
   const {
     movements,
@@ -80,6 +82,10 @@ export default function CatalogItemPage() {
 
   async function handleStockIn(qtyBase: number, unitCost: number, reason: string) {
     if (!item || !profile) return;
+    if (!permissions.canManageCatalog) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     try {
       await manualStockIn(item.id, profile.id, qtyBase, unitCost, reason || undefined);
       toast.success(`รับสินค้าเข้าแล้ว +${qtyBase} ${item.base_unit}`);
@@ -94,6 +100,10 @@ export default function CatalogItemPage() {
 
   async function handleStockOut(qtyBase: number, reason: string) {
     if (!item || !profile) return;
+    if (!permissions.canManageCatalog) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     try {
       await manualStockOut(item.id, profile.id, qtyBase, reason || undefined);
       toast.success(`ตัดสต็อกแล้ว -${qtyBase} ${item.base_unit}`);
@@ -108,6 +118,10 @@ export default function CatalogItemPage() {
 
   async function handleConfirmRevert() {
     if (!revertTarget || !profile) return;
+    if (!permissions.canManageCatalog) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     const isIn = revertTarget.movement_type === "manual_in";
     setReverting(true);
     try {
@@ -162,6 +176,10 @@ export default function CatalogItemPage() {
 
   async function handleCorrect(qtyBase: number, unitCost: number, reasonNote: string) {
     if (!correctTarget || !profile || !item) return;
+    if (!permissions.canManageCatalog) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     const isIn = correctTarget.movement_type === "manual_in";
     try {
       const result = isIn
@@ -209,7 +227,7 @@ export default function CatalogItemPage() {
     <AppShell
       title={item.name}
       showBack
-      action={
+      action={permissions.canManageCatalog ? (
         <Button
           size="sm"
           variant="secondary"
@@ -217,7 +235,7 @@ export default function CatalogItemPage() {
         >
           แก้ไข
         </Button>
-      }
+      ) : undefined}
     >
       <div className="space-y-4">
         <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
@@ -253,18 +271,18 @@ export default function CatalogItemPage() {
           <>
             <StockStatusCard
               item={item}
-              onStockIn={() => setStockModal("in")}
-              onStockOut={() => setStockModal("out")}
+              onStockIn={permissions.canManageCatalog ? () => setStockModal("in") : undefined}
+              onStockOut={permissions.canManageCatalog ? () => setStockModal("out") : undefined}
             />
             <StockHistory
               movements={movements}
               loading={movLoading}
               item={item}
-              onRevert={(m) => {
+              onRevert={permissions.canManageCatalog ? (m) => {
                 setRevertTarget(m);
                 setRevertReason("");
-              }}
-              onEdit={(m) => setCorrectTarget(m)}
+              } : undefined}
+              onEdit={permissions.canManageCatalog ? (m) => setCorrectTarget(m) : undefined}
             />
           </>
         )}

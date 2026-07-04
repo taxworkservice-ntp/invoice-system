@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Spinner } from "./components/ui/Spinner";
-import { useRole } from "./hooks/useAuth";
+import { useWorkspaceRole } from "./hooks/useAuth";
 import { supabase } from "./lib/supabase";
+import { getWorkspacePermissions } from "./lib/permissions";
 
 const LoginPage = lazy(() => import("./app/(auth)/login"));
 const SetupPage = lazy(() => import("./app/(auth)/setup"));
@@ -38,7 +39,10 @@ function RouteFallback() {
 }
 
 export default function App() {
-  const { role, isAdmin, loading } = useRole();
+  const { profile, workspaceRole, workspacePermissions, loading } = useWorkspaceRole();
+  const role = profile?.role ?? null;
+  const isAdmin = role === "admin";
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
@@ -89,13 +93,13 @@ export default function App() {
             <Route path="/documents/:id/print" element={<DocumentPrintPreviewPage />} />
             <Route path="/documents/:id" element={<DocumentDetailPage />} />
             <Route path="/catalog" element={<CatalogPage />} />
-            <Route path="/catalog/new" element={<CatalogNewPage />} />
-            <Route path="/catalog/:id/edit" element={<CatalogEditPage />} />
+            <Route path="/catalog/new" element={permissions.canManageCatalog ? <CatalogNewPage /> : <Navigate to="/catalog" replace />} />
+            <Route path="/catalog/:id/edit" element={permissions.canManageCatalog ? <CatalogEditPage /> : <Navigate to="/catalog" replace />} />
             <Route path="/catalog/:id" element={<CatalogItemPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/reports" element={permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />} />
+            <Route path="/settings" element={permissions.canManageSettings ? <SettingsPage /> : <Navigate to="/home" replace />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </>
         ) : role === "admin" ? (

@@ -41,6 +41,11 @@ export default function SetupPage() {
     return null;
   }
 
+  if (profile.workspace_role && profile.workspace_role !== "owner") {
+    navigate("/home", { replace: true });
+    return null;
+  }
+
   const userId = profile.id;
 
   async function handleSaveStep1() {

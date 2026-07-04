@@ -15,7 +15,7 @@ import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
-import { useAuth } from "../../../hooks/useAuth";
+import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
@@ -25,6 +25,7 @@ import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS, CHIP_COLORS } from "..
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { getWorkspacePermissions, type WorkspacePermissions } from "../../../lib/permissions";
 import type { Document, DocumentStatus, DocumentType } from "../../../types";
 
 const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
@@ -174,6 +175,7 @@ function DocumentCard({
   onToggleSelect,
   selectMode,
   onOpenDeal,
+  permissions,
 }: {
   doc: Document;
   onOpen: () => void;
@@ -186,6 +188,7 @@ function DocumentCard({
   onToggleSelect?: () => void;
   selectMode?: boolean;
   onOpenDeal?: () => void;
+  permissions: WorkspacePermissions;
 }) {
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -349,35 +352,43 @@ function DocumentCard({
             <>
               {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (
                 <>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("send")}>
-                    <Send size={14} />
-                    <span>{doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว"}</span>
-                  </button>
+                  {permissions.canSendDocuments && (
+                    <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("send")}>
+                      <Send size={14} />
+                      <span>{doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว"}</span>
+                    </button>
+                  )}
                   <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
                     <Edit3 size={14} />
                     <span>แก้ไข</span>
                   </button>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
-                    <Trash2 size={14} />
-                    <span>ลบ</span>
-                  </button>
+                  {permissions.canDeleteDocuments && (
+                    <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
+                      <Trash2 size={14} />
+                      <span>ลบ</span>
+                    </button>
+                  )}
                 </>
               )}
 
               {isDraft && doc.doc_type === "credit_note" && (
                 <>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("issue_cn")}>
-                    <FileText size={14} />
-                    <span>ออกใบลดหนี้</span>
-                  </button>
+                  {permissions.canSendDocuments && (
+                    <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("issue_cn")}>
+                      <FileText size={14} />
+                      <span>ออกใบลดหนี้</span>
+                    </button>
+                  )}
                   <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
                     <Edit3 size={14} />
                     <span>แก้ไข</span>
                   </button>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
-                    <Trash2 size={14} />
-                    <span>ลบ</span>
-                  </button>
+                  {permissions.canDeleteDocuments && (
+                    <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
+                      <Trash2 size={14} />
+                      <span>ลบ</span>
+                    </button>
+                  )}
                 </>
               )}
 
@@ -387,14 +398,16 @@ function DocumentCard({
                     <Edit3 size={14} />
                     <span>แก้ไข</span>
                   </button>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
-                    <Trash2 size={14} />
-                    <span>ลบ</span>
-                  </button>
+                  {permissions.canDeleteDocuments && (
+                    <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
+                      <Trash2 size={14} />
+                      <span>ลบ</span>
+                    </button>
+                  )}
                 </>
               )}
 
-              {isSent && doc.doc_type === "quotation" && (
+              {isSent && doc.doc_type === "quotation" && permissions.canSendDocuments && (
                 <>
                   <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("convert")}>
                     <Copy size={14} />
@@ -407,7 +420,7 @@ function DocumentCard({
                 </>
               )}
 
-              {isSent && doc.doc_type === "invoice" && (
+              {isSent && doc.doc_type === "invoice" && permissions.canRecordPayments && (
                 <>
                   <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("billing")}>
                     <FileText size={14} />
@@ -424,7 +437,7 @@ function DocumentCard({
                 </>
               )}
 
-              {isSent && doc.doc_type === "billing_note" && (
+              {isSent && doc.doc_type === "billing_note" && permissions.canRecordPayments && (
                 <>
                   <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("pay")}>
                     <CreditCard size={14} />
@@ -437,7 +450,7 @@ function DocumentCard({
                 </>
               )}
 
-              {isSent && doc.doc_type === "delivery_note" && (
+              {isSent && doc.doc_type === "delivery_note" && permissions.canSendDocuments && (
                 <>
                   <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("invoice_from_dn")}>
                     <FileStack size={14} />
@@ -450,7 +463,7 @@ function DocumentCard({
                 </>
               )}
 
-              {isSent && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && (
+              {isSent && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && permissions.canVoidDocuments && (
                 <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
                   <Ban size={14} />
                   <span>ยกเลิก</span>
@@ -681,7 +694,8 @@ function QuickDetailModal({
 export default function DocumentsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { profile } = useAuth();
+  const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const toast = useToast();
   const { documents, loading, refetch } = useDocuments(profile?.id);
 
@@ -762,6 +776,18 @@ export default function DocumentsPage() {
 
   const handleInlineAction = async (doc: Document, action: string) => {
     if (!profile?.id) return;
+    if ((action === "send" || action === "issue_cn") && !permissions.canSendDocuments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
+    if (action === "void" && !permissions.canVoidDocuments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
+    if (action === "delete" && !permissions.canDeleteDocuments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner");
+      return;
+    }
     setInlineLoading(doc.id);
     try {
       if (action === "send") {
@@ -791,6 +817,14 @@ export default function DocumentsPage() {
   };
 
   const handleMenuAction = (doc: Document, action: string) => {
+    if ((action === "pay" || action === "billing") && !permissions.canRecordPayments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
+    if ((action === "convert" || action === "invoice_from_dn") && !permissions.canSendDocuments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     if (action === "void" || action === "delete") {
       setPendingConfirm({ docId: doc.id, action });
       return;
@@ -1399,6 +1433,7 @@ export default function DocumentsPage() {
                        onToggleSelect={() => toggleSelectDoc(doc.id)}
                        selectMode={selectedDocIds.size > 0}
                        onOpenDeal={doc.deal_id ? () => navigate(`/deals/${doc.deal_id}`) : undefined}
+                       permissions={permissions}
                      />
                    ))}
                 </div>

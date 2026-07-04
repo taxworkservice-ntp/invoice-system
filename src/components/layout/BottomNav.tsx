@@ -2,6 +2,8 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Home, FileText, BarChart3, Package, Users, Settings } from "lucide-react";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
+import { useWorkspaceRole } from "../../hooks/useAuth";
+import { getWorkspacePermissions } from "../../lib/permissions";
 
 const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
@@ -15,6 +17,13 @@ const iconMap: Record<string, React.ReactNode> = {
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
+    if (item.path === "/reports") return permissions.canViewReports;
+    if (item.path === "/settings") return permissions.canManageSettings;
+    return true;
+  });
 
   function isActive(path: string) {
     return location.pathname.startsWith(path);
@@ -23,7 +32,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-card-border z-40 md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div className="flex justify-around py-2">
-        {BOTTOM_NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <button
             key={item.path}
             onClick={() => navigate(item.path)}

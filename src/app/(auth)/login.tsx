@@ -73,7 +73,13 @@ export default function LoginPage() {
       } else if (cp) {
         navigate("/home", { replace: true });
       } else {
-        navigate("/setup", { replace: true });
+        const { data: membership } = await supabase
+          .from("client_members")
+          .select("workspace_user_id")
+          .eq("member_user_id", data.user.id)
+          .eq("status", "active")
+          .maybeSingle();
+        navigate(membership ? "/home" : "/setup", { replace: true });
       }
     }
 

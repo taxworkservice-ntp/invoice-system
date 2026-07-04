@@ -42,6 +42,15 @@ export default async function handler(req, res) {
     });
     if (profileErr) throw profileErr;
 
+    const { error: memberErr } = await supabaseAdmin.from("client_members").insert({
+      workspace_user_id: newUserId,
+      member_user_id: newUserId,
+      role: "owner",
+      status: "active",
+      permissions: null,
+    });
+    if (memberErr) throw memberErr;
+
     if (companyName || tempPassword) {
       const cpInsert = { user_id: newUserId };
       cpInsert.company_name_th = companyName || "รอกรอกข้อมูลบริษัท";

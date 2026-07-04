@@ -1,4 +1,6 @@
 export type UserRole = "admin" | "client";
+export type ClientMemberRole = "owner" | "manager" | "officer";
+export type ClientMemberStatus = "active" | "disabled";
 
 export type DocumentType =
   | "quotation"
@@ -40,8 +42,23 @@ export type StoragePurpose = "logos" | "signatures" | "stamps" | "pdfs" | "expor
 
 export interface Profile {
   id: string;
+  auth_user_id?: string;
   role: UserRole;
+  workspace_role?: ClientMemberRole | null;
+  workspace_user_id?: string | null;
+  workspace_permissions?: Partial<Record<string, boolean>> | null;
   created_at: string;
+}
+
+export interface ClientMember {
+  id: string;
+  workspace_user_id: string;
+  member_user_id: string;
+  role: ClientMemberRole;
+  status: ClientMemberStatus;
+  permissions: Partial<Record<string, boolean>> | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ClientProfile {

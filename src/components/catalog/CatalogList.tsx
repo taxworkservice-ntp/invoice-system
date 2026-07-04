@@ -24,9 +24,10 @@ interface Props {
   onAdd: () => void;
   userId?: string;
   onToggleFavorite: (item: Item, e: React.MouseEvent) => void;
+  canManage?: boolean;
 }
 
-export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite }: Props) {
+export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, canManage = true }: Props) {
   const navigate = useNavigate();
   const toast = useToast();
   const [search, setSearch] = useState("");
@@ -300,9 +301,11 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite }:
           <FileText size={14} className="mr-1" />
           ประวัติ
         </Button>
-        <Button onClick={onAdd} size="sm" className="!rounded-lg shrink-0">
-          + เพิ่ม
-        </Button>
+        {canManage && (
+          <Button onClick={onAdd} size="sm" className="!rounded-lg shrink-0">
+            + เพิ่ม
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -332,9 +335,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite }:
           <EmptyState
             title="ยังไม่มีสินค้าหรือบริการ"
             description="เพิ่มรายการแรกเพื่อเริ่มต้น"
-            action={
-              <Button onClick={onAdd}>+ เพิ่มสินค้า / บริการ</Button>
-            }
+            action={canManage ? <Button onClick={onAdd}>+ เพิ่มสินค้า / บริการ</Button> : undefined}
           />
         ) : filterMode === "favorites" && favoriteCount === 0 ? (
           <div className="text-center py-12 text-[13px] text-[#888780]">

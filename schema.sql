@@ -93,6 +93,69 @@ create policy "Client reads own profile"
   on profiles for select
   using (auth.uid() = id);
 
+create type client_member_role as enum ('owner', 'manager', 'officer');
+create type client_member_status as enum ('active', 'disabled');
+
+create table client_members (
+  id                uuid primary key default uuid_generate_v4(),
+  workspace_user_id uuid not null references profiles(id) on delete cascade,
+  member_user_id    uuid not null references profiles(id) on delete cascade,
+  role              client_member_role not null,
+  status            client_member_status not null default 'active',
+  permissions       jsonb,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  unique (workspace_user_id, member_user_id)
+);
+
+alter table client_members enable row level security;
+
+create or replace function public.is_client_workspace_member(p_workspace_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  select auth.uid() = p_workspace_user_id or exists (
+    select 1
+    from public.client_members
+    where workspace_user_id = p_workspace_user_id
+      and member_user_id = auth.uid()
+      and status = 'active'
+  );
+$$;
+
+create or replace function public.client_workspace_role(p_workspace_user_id uuid)
+returns text
+language sql
+security definer
+set search_path = ''
+as $$
+  select case
+    when auth.uid() = p_workspace_user_id then 'owner'
+    else (
+      select role::text
+      from public.client_members
+      where workspace_user_id = p_workspace_user_id
+        and member_user_id = auth.uid()
+        and status = 'active'
+      limit 1
+    )
+  end;
+$$;
+
+create policy "Client members read workspace membership"
+  on client_members for select
+  using (public.is_admin() or workspace_user_id = auth.uid() or member_user_id = auth.uid());
+
+create policy "Admin manages client members"
+  on client_members for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create index idx_client_members_member_status
+  on client_members (member_user_id, status);
+
 
 -- ============================================================
 -- CLIENT PROFILES
@@ -150,9 +213,17 @@ create table client_profiles (
 
 alter table client_profiles enable row level security;
 
-create policy "Client manages own profile"
-  on client_profiles for all
-  using (auth.uid() = user_id)
+create policy "Client reads workspace profile"
+  on client_profiles for select
+  using (public.is_client_workspace_member(user_id));
+
+create policy "Owner manages workspace profile"
+  on client_profiles for update
+  using (public.client_workspace_role(user_id) = 'owner')
+  with check (public.client_workspace_role(user_id) = 'owner');
+
+create policy "Client creates own workspace profile"
+  on client_profiles for insert
   with check (auth.uid() = user_id);
 
 create policy "Admin reads all client profiles"
@@ -171,9 +242,9 @@ create table client_features (
 
 alter table client_features enable row level security;
 
-create policy "Client reads own features"
+create policy "Client reads workspace features"
   on client_features for select
-  using (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id));
 
 create policy "Admin manages client features"
   on client_features for all
@@ -203,10 +274,14 @@ create table doc_number_sequences (
 
 alter table doc_number_sequences enable row level security;
 
-create policy "Client manages own sequences"
+create policy "Client reads workspace sequences"
+  on doc_number_sequences for select
+  using (public.is_client_workspace_member(user_id));
+
+create policy "Owner manages workspace sequences"
   on doc_number_sequences for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.client_workspace_role(user_id) = 'owner')
+  with check (public.client_workspace_role(user_id) = 'owner');
 
 create policy "Admin reads all sequences"
   on doc_number_sequences for select
@@ -237,10 +312,10 @@ create table customers (
 
 alter table customers enable row level security;
 
-create policy "Client manages own customers"
+create policy "Client manages workspace customers"
   on customers for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all customers"
   on customers for select
@@ -280,10 +355,10 @@ create table items (
 
 alter table items enable row level security;
 
-create policy "Client manages own items"
+create policy "Client manages workspace items"
   on items for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all items"
   on items for select
@@ -306,10 +381,10 @@ create table item_job_detail_presets (
 
 alter table item_job_detail_presets enable row level security;
 
-create policy "Client manages own job detail presets"
+create policy "Client manages workspace job detail presets"
   on item_job_detail_presets for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads job detail presets"
   on item_job_detail_presets for select
@@ -335,10 +410,10 @@ create table item_job_detail_fields (
 
 alter table item_job_detail_fields enable row level security;
 
-create policy "Client manages own job detail fields"
+create policy "Client manages workspace job detail fields"
   on item_job_detail_fields for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads job detail fields"
   on item_job_detail_fields for select
@@ -380,10 +455,10 @@ create table stock_movements (
 
 alter table stock_movements enable row level security;
 
-create policy "Client manages own stock movements"
+create policy "Client manages workspace stock movements"
   on stock_movements for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all stock movements"
   on stock_movements for select
@@ -409,10 +484,10 @@ create table deals (
 
 alter table deals enable row level security;
 
-create policy "Client manages own deals"
+create policy "Client manages workspace deals"
   on deals for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all deals"
   on deals for select
@@ -476,10 +551,10 @@ create table documents (
 
 alter table documents enable row level security;
 
-create policy "Client manages own documents"
+create policy "Client manages workspace documents"
   on documents for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all documents"
   on documents for select
@@ -519,10 +594,10 @@ create table files (
 
 alter table files enable row level security;
 
-create policy "Client manages own file metadata"
+create policy "Client manages workspace file metadata"
   on files for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all file metadata"
   on files for select
@@ -575,10 +650,10 @@ create table document_line_items (
 
 alter table document_line_items enable row level security;
 
-create policy "Client manages own line items"
+create policy "Client manages workspace line items"
   on document_line_items for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all line items"
   on document_line_items for select
@@ -614,10 +689,10 @@ create table invoice_delivery_notes (
 
 alter table invoice_delivery_notes enable row level security;
 
-create policy "Client manages own invoice delivery notes"
+create policy "Client manages workspace invoice delivery notes"
   on invoice_delivery_notes for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all invoice delivery notes"
   on invoice_delivery_notes for select
@@ -655,10 +730,10 @@ create table billing_note_invoices (
 
 alter table billing_note_invoices enable row level security;
 
-create policy "Client manages own billing note invoices"
+create policy "Client manages workspace billing note invoices"
   on billing_note_invoices for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all billing note invoices"
   on billing_note_invoices for select
@@ -689,10 +764,10 @@ create table receipt_invoices (
 
 alter table receipt_invoices enable row level security;
 
-create policy "Client manages own receipt invoices"
+create policy "Client manages workspace receipt invoices"
   on receipt_invoices for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
 
 create policy "Admin reads all receipt invoices"
   on receipt_invoices for select
@@ -717,6 +792,10 @@ $$ language plpgsql;
 
 create trigger trg_client_profiles_updated_at
   before update on client_profiles
+  for each row execute function handle_updated_at();
+
+create trigger trg_client_members_updated_at
+  before update on client_members
   for each row execute function handle_updated_at();
 
 create trigger trg_client_features_updated_at

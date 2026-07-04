@@ -2,25 +2,30 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, MoreHorizontal } from "lucide-react";
 import {
+  createAdminClientMember,
   deleteAdminClient,
   getAdminClientUser,
+  listAdminClientMembers,
   resetAdminClientWorkspace,
   resetAllClientData,
   resetClientDocuments,
+  updateAdminClientMember,
   updateAdminClientPassword,
   updateAdminClientStatus,
+  type AdminClientMember,
 } from "../../../lib/adminApi";
 import { supabase } from "../../../lib/supabase";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Modal } from "../../../components/ui/Modal";
-import { Input } from "../../../components/ui/Input";
+import { Input, Select } from "../../../components/ui/Input";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { CLIENT_FEATURES } from "../../../lib/features";
+import { getWorkspacePermissions, PERMISSION_GROUPS, type WorkspacePermissions } from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from "../../../constants";
 import type { ClientFeature, ClientFeatureKey, ClientProfile, Document } from "../../../types";
 
@@ -36,6 +41,7 @@ export default function AdminClientDetailPage() {
   const [isActive, setIsActive] = useState(true);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [features, setFeatures] = useState<ClientFeature[]>([]);
+  const [members, setMembers] = useState<AdminClientMember[]>([]);
   const [dealCount, setDealCount] = useState(0);
   const [activeCustomerCount, setActiveCustomerCount] = useState(0);
   const [activeItemCount, setActiveItemCount] = useState(0);
@@ -61,6 +67,15 @@ export default function AdminClientDetailPage() {
   const [showResetDocsModal, setShowResetDocsModal] = useState(false);
   const [resetDocsConfirm, setResetDocsConfirm] = useState("");
   const [resettingDocs, setResettingDocs] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberRole, setMemberRole] = useState<"manager" | "officer">("manager");
+  const [memberPassword, setMemberPassword] = useState("");
+  const [creatingMember, setCreatingMember] = useState(false);
+  const [memberActionId, setMemberActionId] = useState<string | null>(null);
+  const [permissionMember, setPermissionMember] = useState<AdminClientMember | null>(null);
+  const [permissionDraft, setPermissionDraft] = useState<WorkspacePermissions | null>(null);
+  const [savingPermissions, setSavingPermissions] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -72,7 +87,7 @@ export default function AdminClientDetailPage() {
 
     setLoading(true);
 
-    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes] = await Promise.all([
+    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes, memberRes] = await Promise.all([
       supabase.from("client_profiles").select("*").eq("user_id", id).single(),
       supabase
         .from("documents")
@@ -86,6 +101,7 @@ export default function AdminClientDetailPage() {
       supabase.from("items").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
       supabase.from("deals").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
       supabase.from("client_features").select("*").eq("user_id", id),
+      listAdminClientMembers(id).catch(() => []),
     ]);
 
     if (!cpRes.error && cpRes.data) {
@@ -109,6 +125,7 @@ export default function AdminClientDetailPage() {
     if (!featureRes.error && featureRes.data) {
       setFeatures(featureRes.data as ClientFeature[]);
     }
+    setMembers(memberRes);
 
     setEmail(userRes.email || "");
     setIsActive(userRes.isActive);
@@ -237,6 +254,78 @@ export default function AdminClientDetailPage() {
       toast.error(error.message || "Unable to toggle business feature");
     } finally {
       setTogglingFeature(null);
+    }
+  }
+
+  async function handleCreateMember() {
+    if (!id) return;
+    if (!memberEmail.trim()) {
+      toast.error("กรุณากรอกอีเมล");
+      return;
+    }
+    if (memberPassword && memberPassword.length < 6) {
+      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      return;
+    }
+
+    setCreatingMember(true);
+    try {
+      const result = await createAdminClientMember(id, {
+        email: memberEmail.trim(),
+        role: memberRole,
+        password: memberPassword.trim() || undefined,
+      });
+      setMembers((prev) => [...prev, result.member]);
+      setShowAddMemberModal(false);
+      setMemberEmail("");
+      setMemberRole("manager");
+      setMemberPassword("");
+      toast.success("เพิ่มพนักงานแล้ว");
+    } catch (error: any) {
+      toast.error(error.message || "Unable to add staff member");
+    } finally {
+      setCreatingMember(false);
+    }
+  }
+
+  async function handleUpdateMember(member: AdminClientMember, patch: { role?: "owner" | "manager" | "officer"; status?: "active" | "disabled"; permissions?: Partial<WorkspacePermissions> | null }) {
+    if (!id) return;
+    setMemberActionId(member.id);
+    try {
+      await updateAdminClientMember(id, member.id, patch);
+      setMembers((prev) => prev.map((item) => (item.id === member.id ? { ...item, ...patch, isActive: patch.status ? patch.status === "active" : item.isActive } : item)));
+      toast.success("อัปเดตทีมแล้ว");
+    } catch (error: any) {
+      toast.error(error.message || "Unable to update staff member");
+    } finally {
+      setMemberActionId(null);
+    }
+  }
+
+  function openPermissionEditor(member: AdminClientMember) {
+    setPermissionMember(member);
+    setPermissionDraft(getWorkspacePermissions(member.role, member.permissions as Partial<WorkspacePermissions> | null));
+  }
+
+  function setPermissionValue(key: keyof WorkspacePermissions, value: boolean) {
+    setPermissionDraft((prev) => prev ? { ...prev, [key]: value } : prev);
+  }
+
+  async function handleSavePermissions() {
+    if (!id || !permissionMember || !permissionDraft) return;
+    setSavingPermissions(true);
+    try {
+      await updateAdminClientMember(id, permissionMember.id, { permissions: permissionDraft });
+      setMembers((prev) => prev.map((member) => (
+        member.id === permissionMember.id ? { ...member, permissions: permissionDraft } : member
+      )));
+      setPermissionMember(null);
+      setPermissionDraft(null);
+      toast.success("อัปเดตสิทธิ์แล้ว");
+    } catch (error: any) {
+      toast.error(error.message || "Unable to update permissions");
+    } finally {
+      setSavingPermissions(false);
     }
   }
 
@@ -380,6 +469,11 @@ export default function AdminClientDetailPage() {
   const enabledFeatureKeys = new Set(
     features.filter((feature) => feature.enabled).map((feature) => feature.feature_key),
   );
+  const roleLabels: Record<AdminClientMember["role"], string> = {
+    owner: "Owner",
+    manager: "Manager",
+    officer: "Officer",
+  };
 
   return (
     <div className="min-h-screen bg-[#F7F6F3]">
@@ -535,6 +629,97 @@ export default function AdminClientDetailPage() {
                 </div>
               );
             })}
+          </div>
+        </Card>
+
+        <div className={CARD_LABEL}>Team Members</div>
+
+        <Card>
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-[#1A1A18]">Owner, manager, officer</div>
+                <p className="mt-1 text-xs leading-5 text-[#888780]">
+                  Admin-managed staff access for this client workspace. Owner keeps settings control; managers operate documents; officers prepare drafts.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setMemberEmail("");
+                  setMemberRole("manager");
+                  setMemberPassword("");
+                  setShowAddMemberModal(true);
+                }}
+              >
+                Add staff
+              </Button>
+            </div>
+
+            <div className="divide-y divide-[#E8E6DF] rounded-lg border border-[#E8E6DF] bg-white">
+              {members.length === 0 ? (
+                <div className="px-3 py-4 text-sm text-[#888780]">No team members yet.</div>
+              ) : (
+                members.map((member) => {
+                  const isOwner = member.memberUserId === id || member.role === "owner";
+                  return (
+                    <div key={member.id} className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-[#1A1A18]">{member.email || "-"}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#888780]">
+                          <span>{roleLabels[member.role]}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              member.status === "active" ? "bg-[#EAF3DE] text-[#27500A]" : "bg-[#F1EFE8] text-[#6F6A61]"
+                            }`}
+                          >
+                            {member.status === "active" ? "Active" : "Disabled"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={member.role}
+                          disabled={isOwner || memberActionId === member.id}
+                          onChange={(event) => {
+                            const nextRole = event.target.value as AdminClientMember["role"];
+                            handleUpdateMember(member, {
+                              role: nextRole,
+                              permissions: getWorkspacePermissions(nextRole),
+                            });
+                          }}
+                          className="rounded-lg border border-card-border bg-white px-3 py-1.5 text-xs text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
+                        >
+                          <option value="owner">Owner</option>
+                          <option value="manager">Manager</option>
+                          <option value="officer">Officer</option>
+                        </select>
+                        {!isOwner && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => openPermissionEditor(member)}
+                            >
+                              Access
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={member.status === "active" ? "danger" : "secondary"}
+                              loading={memberActionId === member.id}
+                              onClick={() => handleUpdateMember(member, { status: member.status === "active" ? "disabled" : "active" })}
+                            >
+                              {member.status === "active" ? "Disable" : "Enable"}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </Card>
 
@@ -737,6 +922,131 @@ export default function AdminClientDetailPage() {
           )}
         </Card>
       </div>
+
+      <Modal
+        open={showAddMemberModal}
+        onClose={() => {
+          if (!creatingMember) setShowAddMemberModal(false);
+        }}
+        title="Add staff member"
+      >
+        <div className="space-y-3">
+          <Input
+            label="Email"
+            type="email"
+            value={memberEmail}
+            onChange={(event) => setMemberEmail(event.target.value)}
+            placeholder="staff@example.com"
+          />
+          <Select
+            label="Role"
+            value={memberRole}
+            onChange={(event) => setMemberRole(event.target.value as "manager" | "officer")}
+          >
+            <option value="manager">Manager - documents, payments, reports</option>
+            <option value="officer">Officer - draft preparation only</option>
+          </Select>
+          <Input
+            label="Temporary password (optional)"
+            type="password"
+            value={memberPassword}
+            onChange={(event) => setMemberPassword(event.target.value)}
+            placeholder="Leave blank to use invite email"
+          />
+          <div className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] p-3 text-xs leading-5 text-[#6F6A61]">
+            Staff users share this client's customers, catalog, documents, and numbering. They do not get their own company profile.
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowAddMemberModal(false)} disabled={creatingMember}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateMember} loading={creatingMember}>
+              Add staff
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!permissionMember}
+        onClose={() => {
+          if (!savingPermissions) {
+            setPermissionMember(null);
+            setPermissionDraft(null);
+          }
+        }}
+        title="Customize access"
+      >
+        {permissionMember && permissionDraft && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] p-3">
+              <div className="text-sm font-medium text-[#1A1A18]">{permissionMember.email}</div>
+              <p className="mt-1 text-xs leading-5 text-[#888780]">
+                Role: {roleLabels[permissionMember.role]}. These toggles override the default access for this staff member only.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {PERMISSION_GROUPS.filter((permission) => permission.key !== "canManageTeam").map((permission) => {
+                const checked = Boolean(permissionDraft[permission.key]);
+                return (
+                  <label
+                    key={permission.key}
+                    className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-[#E8E6DF] bg-white p-3 hover:bg-[#FBFAF7]"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-[#1A1A18]">{permission.label}</span>
+                      <span className="mt-1 block text-xs leading-5 text-[#888780]">{permission.description}</span>
+                    </span>
+                    <span
+                      className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                        checked ? "bg-[#378ADD]" : "bg-[#D8D5CE]"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => setPermissionValue(permission.key, event.target.checked)}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                          checked ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+              <Button
+                variant="ghost"
+                onClick={() => setPermissionDraft(getWorkspacePermissions(permissionMember.role))}
+                disabled={savingPermissions}
+              >
+                Reset to role default
+              </Button>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setPermissionMember(null);
+                    setPermissionDraft(null);
+                  }}
+                  disabled={savingPermissions}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSavePermissions} loading={savingPermissions}>
+                  Save access
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={showWorkspaceResetModal}

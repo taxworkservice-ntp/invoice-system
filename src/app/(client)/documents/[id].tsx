@@ -328,6 +328,7 @@ export default function DocumentDetailPage() {
       return;
     }
     await executePay();
+  };
 
   const executePay = async () => {
     if (!doc || !userId) return;
@@ -336,6 +337,8 @@ export default function DocumentDetailPage() {
       setError("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
       return;
     }
+    setPaying(true);
+    try {
       const paidAt = toLocalMiddayIso(payDate);
       const receiptBackdateFields = buildReceiptBackdateFields({
         selectedDate: payDate,
