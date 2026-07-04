@@ -42,39 +42,42 @@ export async function createAdminClient(payload: {
 }
 
 export async function updateAdminClientPassword(id: string, password: string) {
-  return apiFetch(`/api/admin/clients/${id}/password`, {
+  return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ action: "password", password }),
   });
 }
 
 export async function updateAdminClientStatus(id: string, active: boolean) {
-  return apiFetch(`/api/admin/clients/${id}/status`, {
+  return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
-    body: JSON.stringify({ active }),
+    body: JSON.stringify({ action: "status", active }),
   });
 }
 
 export async function resetAdminClientWorkspace(id: string) {
-  return apiFetch(`/api/admin/clients/${id}/reset-workspace`, {
+  return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
+    body: JSON.stringify({ action: "reset-workspace" }),
   });
 }
 
 export async function resetAllClientData(id: string) {
-  return apiFetch(`/api/admin/clients/${id}/reset-all`, {
+  return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
+    body: JSON.stringify({ action: "reset-all" }),
   });
 }
 
 export async function resetClientDocuments(id: string) {
-  return apiFetch(`/api/admin/clients/${id}/reset-documents`, {
+  return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
+    body: JSON.stringify({ action: "reset-documents" }),
   });
 }
 
 export async function deleteAdminClient(id: string) {
-  return apiFetch(`/api/admin/clients/${id}/delete`, {
+  return apiFetch(`/api/admin/clients/${id}`, {
     method: "DELETE",
   });
 }
