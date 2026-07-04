@@ -324,12 +324,16 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
           <table className="print-classic-items-table">
             <colgroup>
               <col style={{ width: "12mm" }} />
-              <col style={{ width: "80mm" }} />
+              <col style={{ width: hideDeliveryAmounts ? "139mm" : "80mm" }} />
               <col style={{ width: "13mm" }} />
               <col style={{ width: "18mm" }} />
-              <col style={{ width: "22mm" }} />
-              <col style={{ width: "11mm" }} />
-              <col style={{ width: "26mm" }} />
+              {!hideDeliveryAmounts && (
+                <>
+                  <col style={{ width: "22mm" }} />
+                  <col style={{ width: "11mm" }} />
+                  <col style={{ width: "26mm" }} />
+                </>
+              )}
             </colgroup>
             <thead>
               <tr>
