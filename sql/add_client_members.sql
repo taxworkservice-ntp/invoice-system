@@ -77,6 +77,11 @@ create policy "Admin manages client members"
   using (public.is_admin())
   with check (public.is_admin());
 
+create policy "Members update own password_changed"
+  on public.client_members for update
+  using (member_user_id = auth.uid())
+  with check (member_user_id = auth.uid());
+
 create index if not exists idx_client_members_member_status
   on public.client_members (member_user_id, status);
 
