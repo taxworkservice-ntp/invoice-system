@@ -17,7 +17,6 @@ import { formatCurrency } from "../../../lib/format";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
-import { insertDealNote, formatDocActionNote } from "../../../lib/dealNotes";
 import {
   buildReceiptBackdateFields,
   composeReceiptBackdateReason,
@@ -561,7 +560,6 @@ export default function DealDetailPage() {
       setPayDocument(null);
       setPaymentBackdateReason("");
       setPaymentBackdateNote("");
-      insertDealNote(dealId, userId, formatDocActionNote(payDocument.doc_type, payDocument.doc_number, "ได้รับเงินแล้ว"));
       fetchDealData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -1579,7 +1577,7 @@ export default function DealDetailPage() {
         </Card>
       </div>
 
-      {dealId && <DealNotes dealId={dealId} />}
+      {dealId && userId && <DealNotes dealId={dealId} userId={userId} />}
 
       <Modal open={menuOpen} onClose={() => setMenuOpen(false)} title="ตัวเลือกเพิ่มเติม">
         <div className="space-y-2">
