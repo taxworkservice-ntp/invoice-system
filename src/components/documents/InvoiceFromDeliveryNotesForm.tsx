@@ -392,7 +392,7 @@ export function InvoiceFromDeliveryNotesForm() {
       if (updateError) throw updateError;
 
       toast.success("สร้างใบแจ้งหนี้จากใบส่งของแล้ว");
-      navigate(`/documents/${invoice.id}`);
+      navigate(`/deals/${invoiceDealId}`);
     } catch (err: any) {
       if (invoiceId) {
         await supabase.from("documents").delete().eq("id", invoiceId);
