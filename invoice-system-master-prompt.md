@@ -670,7 +670,7 @@ transaction when saving a document. Never generate numbers in React.
 | items | Product and service catalog per client |
 | stock_movements | Full audit log of every stock change |
 | deals | Parent container for a transaction lifecycle (includes JSONB `notes` for internal notes) |
-| documents | All document types in one table |
+| documents | All document types in one table (includes hide_amounts_on_print for DNs) |
 | document_line_items | Line items on quotation/invoice/delivery/credit |
 | billing_note_invoices | Invoice references inside a billing note |
 
@@ -723,11 +723,25 @@ Do not build these in v1. They can be added without redesigning the system:
 | Staff PATCH API | memberId in request body, not URL | Vercel nested bracket routing fails with [id]/members/[memberId] deep nesting |
 | Deal notes | JSONB array on deals column, no separate table | Avoids RLS/schema-cache issues with new tables |
 | Staff force password change | password_changed boolean on client_members; redirect to /set-password | Simple flag, no separate auth state |
+| Delivery note PDF amounts | hide_amounts_on_print boolean on documents; toggle in form; affects both templates consistently | User choice per delivery note |
+| Multi-page distribution | Evenly distribute continuation page items (no sparse almost-empty pages); always ensure a "last" page for footer/signature | Clean presentation, signature always renders |
 ---
 
 ## Current Rollout Status
 
 Completed:
+- Delivery note hide-amounts-on-print toggle: hide_amounts_on_print column on documents, toggle in create/edit forms (deals/new, DeliveryNoteFromQuotationForm), respected consistently by both modern and classic print templates
+- Fixed classic template blank-row column misalignment (extra td breaking table-layout: fixed)
+- Fixed classic template colgroup mismatch when hiding DN amounts — conditional colgroup matching column count
+- Fixed classic signature band: DN labels ("ผู้ส่งของ", "ผู้รับของ") were hardcoded for all doc types; now uses correct labels per type (ผู้รับเงิน/ผู้จ่ายเงิน for invoices)
+- Added blank filler rows to receipt tables in both classic and modern templates (6/8 rows)
+- Fixed pagination: while-loop bug where no "last" page was created for certain item counts, hiding signature
+- Evenly distributed continuation page items: no more sparse almost-empty pages (e.g. cont(8) → cont(15)+cont(15) for 60 items)
+- Fixed DN showing ฿0.00 on home deal list (getAmountDocument missing delivery_note)
+- Fixed DN showing ฿0.00 on deal detail header (amountDoc missing delivery_note)
+- Fixed invoice-from-delivery-notes navigation: now goes to deal page instead of document detail
+- Auth refactor: AuthProvider React context, recovery state consolidated in useAuth, active flag for cleanup
+- Fixed login staff password_changed check: properly checks client_members.password_changed for staff users
 - Multi-page invoice printing (modern + classic): continuation pages with compact headers, signature on last page only, 20/26/14 items per page in modern template
 - Staff members system: create/update/delete members, role-based permissions (canManageCatalog, canManageCustomers), UI enforced in nav + route guards
 - Staff force-password-change flow: password_changed flag, /set-password page, RLS policy for self-update
