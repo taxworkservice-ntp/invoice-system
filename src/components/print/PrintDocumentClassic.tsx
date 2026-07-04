@@ -545,7 +545,7 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
         <div className="print-classic-sig-cell print-classic-sig-cell-mid">
           <div className="print-classic-sig-line"></div>
           <div className="print-classic-sig-dt">วันที่ / DATE</div>
-          <div className="print-classic-sig-role">{isDeliveryNote ? "ผู้ส่งของ / DELIVERED BY" : ""}</div>
+          <div className="print-classic-sig-role">{isDeliveryNote ? "ผู้ส่งของ / DELIVERED BY" : "ผู้จ่ายเงิน / PAYER"}</div>
         </div>
         <div className="print-classic-sig-cell">
           <div className="print-classic-sig-th">ในนาม&nbsp;{clientProfile.company_name_th}</div>
