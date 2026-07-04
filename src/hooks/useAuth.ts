@@ -1,13 +1,18 @@
 import { createContext, createElement, useContext, useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { supabase } from "../lib/supabase";
-import type { ClientMemberRole, Profile, ClientProfile, UserRole } from "../types";
+import type { ClientFeature, ClientFeatureKey, ClientMemberRole, Profile, ClientProfile, UserRole } from "../types";
 
 interface AuthContextValue {
   profile: Profile | null;
+  clientProfile: ClientProfile | null;
+  clientFeatures: ClientFeature[];
   loading: boolean;
+  workspaceLoading: boolean;
   error: string | null;
   recovery: boolean;
+  setClientProfile: Dispatch<SetStateAction<ClientProfile | null>>;
+  refetchWorkspace: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -62,24 +67,79 @@ async function resolveProfile(userId: string): Promise<Profile> {
   };
 }
 
+async function resolveWorkspaceData(profile: Profile | null) {
+  if (!profile || profile.role !== "client") {
+    return { clientProfile: null, clientFeatures: [] as ClientFeature[] };
+  }
+
+  const workspaceUserId = profile.workspace_user_id ?? profile.id;
+  const [{ data: clientProfileData, error: clientProfileError }, { data: featureData, error: featureError }] =
+    await Promise.all([
+      supabase.from("client_profiles").select("*").eq("user_id", workspaceUserId).maybeSingle(),
+      supabase.from("client_features").select("*").eq("user_id", workspaceUserId).eq("enabled", true),
+    ]);
+
+  if (clientProfileError) throw clientProfileError;
+  if (featureError) throw featureError;
+
+  return {
+    clientProfile: clientProfileData as ClientProfile | null,
+    clientFeatures: (featureData ?? []) as ClientFeature[],
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
+  const [clientFeatures, setClientFeatures] = useState<ClientFeature[]>([]);
   const [loading, setLoading] = useState(true);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
     let active = true;
 
+    async function fetchWorkspace(resolvedProfile: Profile | null) {
+      if (!resolvedProfile || resolvedProfile.role !== "client") {
+        setClientProfile(null);
+        setClientFeatures([]);
+        setWorkspaceLoading(false);
+        return;
+      }
+
+      setWorkspaceLoading(true);
+      try {
+        const workspaceData = await resolveWorkspaceData(resolvedProfile);
+        if (active) {
+          setClientProfile(workspaceData.clientProfile);
+          setClientFeatures(workspaceData.clientFeatures);
+        }
+      } catch (err: any) {
+        if (active) {
+          setError(err.message || "Unable to load workspace");
+          setClientProfile(null);
+          setClientFeatures([]);
+        }
+      } finally {
+        if (active) setWorkspaceLoading(false);
+      }
+    }
+
     async function fetchProfile(userId: string) {
       try {
         setError(null);
         const resolvedProfile = await resolveProfile(userId);
-        if (active) setProfile(resolvedProfile);
+        if (active) {
+          setProfile(resolvedProfile);
+          await fetchWorkspace(resolvedProfile);
+        }
       } catch (err: any) {
         if (active) {
           setError(err.message || "Unable to load profile");
           setProfile(null);
+          setClientProfile(null);
+          setClientFeatures([]);
         }
       } finally {
         if (active) setLoading(false);
@@ -99,7 +159,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         void fetchProfile(session.user.id);
       } else {
+        setProfile(null);
+        setClientProfile(null);
+        setClientFeatures([]);
         setLoading(false);
+        setWorkspaceLoading(false);
       }
     });
 
@@ -115,7 +179,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void fetchProfile(session.user.id);
       } else {
         setProfile(null);
+        setClientProfile(null);
+        setClientFeatures([]);
         setLoading(false);
+        setWorkspaceLoading(false);
       }
     });
 
@@ -125,7 +192,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return createElement(AuthContext.Provider, { value: { profile, loading, error, recovery } }, children);
+  async function refetchWorkspace() {
+    setWorkspaceLoading(true);
+    try {
+      const workspaceData = await resolveWorkspaceData(profile);
+      setClientProfile(workspaceData.clientProfile);
+      setClientFeatures(workspaceData.clientFeatures);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || "Unable to load workspace");
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  return createElement(AuthContext.Provider, {
+    value: {
+      profile,
+      clientProfile,
+      clientFeatures,
+      loading,
+      workspaceLoading,
+      error,
+      recovery,
+      setClientProfile,
+      refetchWorkspace,
+    },
+  }, children);
 }
 
 export function useAuth() {
@@ -154,28 +247,30 @@ export function useWorkspaceRole() {
 }
 
 export function useClientProfile(userId: string | undefined) {
-  const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { profile, clientProfile, workspaceLoading, setClientProfile } = useAuth();
+  const workspaceUserId = profile?.workspace_user_id ?? profile?.id;
+  const matchesActiveWorkspace = Boolean(userId && workspaceUserId && userId === workspaceUserId);
 
-  useEffect(() => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-    supabase
-      .from("client_profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .single()
-      .then(({ data, error }) => {
-        if (!error && data) {
-          setClientProfile(data as ClientProfile);
-        }
-        setLoading(false);
-      });
-  }, [userId]);
+  return {
+    clientProfile: matchesActiveWorkspace ? clientProfile : null,
+    loading: Boolean(userId) && matchesActiveWorkspace && workspaceLoading,
+    setClientProfile,
+  };
+}
 
-  return { clientProfile, loading, setClientProfile };
+export function useWorkspaceFeatures(userId: string | undefined) {
+  const { profile, clientFeatures, workspaceLoading, refetchWorkspace } = useAuth();
+  const workspaceUserId = profile?.workspace_user_id ?? profile?.id;
+  const matchesActiveWorkspace = Boolean(userId && workspaceUserId && userId === workspaceUserId);
+  const features = matchesActiveWorkspace ? clientFeatures : [];
+  const enabledKeys = new Set(features.map((feature) => feature.feature_key));
+
+  return {
+    features,
+    loading: Boolean(userId) && matchesActiveWorkspace && workspaceLoading,
+    refetch: refetchWorkspace,
+    hasFeature: (key: ClientFeatureKey) => enabledKeys.has(key),
+  };
 }
 
 export function useRole(): { role: UserRole | null; isAdmin: boolean; isClient: boolean; loading: boolean } {
