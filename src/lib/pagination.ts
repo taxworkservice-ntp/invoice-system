@@ -18,8 +18,7 @@ const CLASSIC_LAST_PAGE_ITEMS = 12;
 
 /**
  * Split line items into page batches.
- * Returns an array where each element is the subset of line items for that page
- * along with the page mode.
+ * Distributions are even across continuation pages — no sparse almost-empty pages.
  */
 export function paginateLineItems(
   lineItems: DocumentLineItem[],
@@ -34,65 +33,37 @@ export function paginateLineItems(
   }
 
   const batches: PageBatch[] = [];
-  let remaining = [...lineItems];
-  let index = 1;
 
   // First page
-  batches.push({
-    items: remaining.slice(0, fp),
-    mode: "first",
-    startIndex: index,
-  });
-  index += fp;
-  remaining = remaining.slice(fp);
+  batches.push({ items: lineItems.slice(0, fp), mode: "first", startIndex: 1 });
 
-  // If the remaining fits on one last page, don't create unnecessary continuation pages
-  if (remaining.length <= lp + cp) {
-    // Try to fit as much as possible on continuation, rest on last
-    const contItems = Math.max(0, remaining.length - lp);
-    if (contItems > 0) {
+  const remaining = lineItems.slice(fp);
+  const lastCount = Math.min(lp, remaining.length);
+  const contTotal = remaining.length - lastCount;
+
+  let head = 0; // cursor into `remaining`
+
+  if (contTotal > 0) {
+    const contPages = Math.ceil(contTotal / cp);
+    const perPage = Math.ceil(contTotal / contPages);
+
+    for (let i = 0; i < contPages; i++) {
+      const pageItems = remaining.slice(head, Math.min(head + perPage, head + contTotal));
       batches.push({
-        items: remaining.slice(0, contItems),
+        items: pageItems,
         mode: "continuation",
-        startIndex: index,
+        startIndex: fp + head + 1,
       });
-      index += contItems;
-      remaining = remaining.slice(contItems);
+      head += pageItems.length;
     }
-    if (remaining.length > 0) {
-      batches.push({
-        items: remaining,
-        mode: "last",
-        startIndex: index,
-      });
-    }
-  } else {
-    while (remaining.length > lp + cp) {
-      batches.push({
-        items: remaining.slice(0, cp),
-        mode: "continuation",
-        startIndex: index,
-      });
-      index += cp;
-      remaining = remaining.slice(cp);
-    }
-    const contItems = Math.max(0, remaining.length - lp);
-    if (contItems > 0) {
-      batches.push({
-        items: remaining.slice(0, contItems),
-        mode: "continuation",
-        startIndex: index,
-      });
-      index += contItems;
-      remaining = remaining.slice(contItems);
-    }
-    if (remaining.length > 0) {
-      batches.push({
-        items: remaining,
-        mode: "last",
-        startIndex: index,
-      });
-    }
+  }
+
+  if (lastCount > 0) {
+    batches.push({
+      items: remaining.slice(head),
+      mode: "last",
+      startIndex: fp + head + 1,
+    });
   }
 
   return batches;
