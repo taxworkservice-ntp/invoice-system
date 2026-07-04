@@ -1,6 +1,6 @@
-import { requireAdmin } from "../../../_lib/auth.js";
-import { ApiError, readJsonBody, sendError, sendJson } from "../../../_lib/http.js";
-import { supabaseAdmin } from "../../../_lib/supabase.js";
+import { requireAdmin } from "../../_lib/auth.js";
+import { ApiError, readJsonBody, sendError, sendJson } from "../../_lib/http.js";
+import { supabaseAdmin } from "../../_lib/supabase.js";
 
 const DOC_TYPES = ["quotation", "invoice", "tax_invoice_receipt", "billing_note", "receipt", "delivery_note", "credit_note"];
 
