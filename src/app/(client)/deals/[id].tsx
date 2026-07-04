@@ -129,6 +129,13 @@ export default function DealDetailPage() {
   const { profile, loading: authLoading, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
+  const [userEmail, setUserEmail] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data?.user?.email || "");
+    });
+  }, []);
 
   const [deal, setDeal] = useState<Deal | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -1577,7 +1584,14 @@ export default function DealDetailPage() {
         </Card>
       </div>
 
-      {dealId && userId && <DealNotes dealId={dealId} userId={userId} />}
+      {dealId && userId && (
+        <DealNotes
+          dealId={dealId}
+          userId={userId}
+          authorName={userEmail.split("@")[0] || "คุณ"}
+          authorRole={workspaceRole || "owner"}
+        />
+      )}
 
       <Modal open={menuOpen} onClose={() => setMenuOpen(false)} title="ตัวเลือกเพิ่มเติม">
         <div className="space-y-2">

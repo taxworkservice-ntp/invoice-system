@@ -18,10 +18,23 @@ const COLLAPSE_COUNT = 3;
 interface RawNote {
   content: string;
   user_id: string;
+  author_name: string;
+  author_role: string;
   created_at: string;
 }
 
-export function DealNotes({ dealId, userId }: { dealId: string; userId: string }) {
+const ROLE_BADGE: Record<string, { label: string; color: string }> = {
+  owner: { label: "Owner", color: "bg-amber-100 text-amber-800" },
+  manager: { label: "Manager", color: "bg-blue-100 text-blue-800" },
+  officer: { label: "Officer", color: "bg-slate-100 text-slate-600" },
+};
+
+export function DealNotes({ dealId, userId, authorName, authorRole }: {
+  dealId: string;
+  userId: string;
+  authorName: string;
+  authorRole: string;
+}) {
   const [notes, setNotes] = useState<RawNote[]>([]);
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
@@ -54,7 +67,13 @@ export function DealNotes({ dealId, userId }: { dealId: string; userId: string }
     if (!trimmed || sending || !ready) return;
     setSending(true);
     try {
-      const raw: RawNote = { content: trimmed, user_id: userId, created_at: new Date().toISOString() };
+      const raw: RawNote = {
+        content: trimmed,
+        user_id: userId,
+        author_name: authorName,
+        author_role: authorRole,
+        created_at: new Date().toISOString(),
+      };
       const next = [raw, ...notes];
       const { error } = await supabase.from("deals").update({ notes: next }).eq("id", dealId);
       if (error) throw error;
@@ -94,12 +113,21 @@ export function DealNotes({ dealId, userId }: { dealId: string; userId: string }
         <p className="text-xs text-[#888780] mb-3">ยังไม่มีบันทึก</p>
       )}
 
-      {visibleNotes.map((note, i) => (
+      {visibleNotes.map((note, i) => {
+        const badge = ROLE_BADGE[note.author_role] || ROLE_BADGE.officer;
+        return (
         <div key={i} className="mb-3 last:mb-0">
-          <p className="text-[10px] text-[#b0aca0] mb-0.5">{relativeTime(note.created_at)}</p>
-          <p className="text-xs text-[#444441] whitespace-pre-wrap leading-relaxed">{note.content}</p>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${badge.color}`}>
+              {badge.label}
+            </span>
+            <span className="text-xs font-medium text-[#1A1A18]">{note.author_name}</span>
+            <span className="text-[10px] text-[#b0aca0]">{relativeTime(note.created_at)}</span>
+          </div>
+          <p className="text-xs text-[#444441] whitespace-pre-wrap leading-relaxed pl-0.5">{note.content}</p>
         </div>
-      ))}
+        );
+      })}
 
       {!expanded && hiddenCount > 0 && (
         <button onClick={() => setExpanded(true)} className="text-[11px] text-[#378ADD] font-medium hover:underline mt-1 mb-3">
