@@ -690,6 +690,9 @@ export default function DocumentDetailPage() {
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
   const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
   const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
+  const deliveryNoteQuotationId = doc.doc_type === "delivery_note"
+    ? doc.converted_from_id || doc.line_items?.find((line) => line.source_document_id)?.source_document_id || null
+    : null;
   const isCorrectionCandidate = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
   const correctionTitle = doc.doc_type === "tax_invoice_receipt" ? "ยกเลิกและออกฉบับใหม่" : "แก้ไขโดยออกฉบับใหม่";
   const statusMessage = isVoided
@@ -1216,6 +1219,24 @@ export default function DocumentDetailPage() {
               size="md"
               className="w-full"
               onClick={() => navigate(`/documents/${doc.id}/edit`)}
+            >
+              แก้ไขฉบับร่าง
+            </Button>
+          )}
+
+          {isDraft && doc.doc_type === "delivery_note" && deliveryNoteQuotationId && (
+            <Button
+              variant="secondary"
+              size="md"
+              className="w-full"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  type: "delivery_note_from_quotation",
+                  quotationId: deliveryNoteQuotationId,
+                  documentId: doc.id,
+                });
+                navigate(`/documents/new?${params.toString()}`);
+              }}
             >
               แก้ไขฉบับร่าง
             </Button>
