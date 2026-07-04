@@ -17,6 +17,7 @@ import { formatCurrency } from "../../../lib/format";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
+import { insertDealNote, formatDocActionNote } from "../../../lib/dealNotes";
 import {
   buildReceiptBackdateFields,
   composeReceiptBackdateReason,
@@ -27,6 +28,7 @@ import {
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
+import { DealNotes } from "../../../components/deals/DealNotes";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { getWorkspacePermissions } from "../../../lib/permissions";
@@ -559,6 +561,7 @@ export default function DealDetailPage() {
       setPayDocument(null);
       setPaymentBackdateReason("");
       setPaymentBackdateNote("");
+      insertDealNote(dealId, userId, formatDocActionNote(payDocument.doc_type, payDocument.doc_number, "ได้รับเงินแล้ว"));
       fetchDealData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -1575,6 +1578,8 @@ export default function DealDetailPage() {
           </div>
         </Card>
       </div>
+
+      {dealId && <DealNotes dealId={dealId} />}
 
       <Modal open={menuOpen} onClose={() => setMenuOpen(false)} title="ตัวเลือกเพิ่มเติม">
         <div className="space-y-2">

@@ -321,6 +321,16 @@ export interface InvoiceDeliveryNote {
   created_at: string;
 }
 
+export interface DealNote {
+  id: string;
+  deal_id: string;
+  user_id: string;
+  author_name: string;
+  author_role: "owner" | "manager" | "officer";
+  content: string;
+  created_at: string;
+}
+
 export interface TaxResult {
   grossSubtotal: number;
   lineDiscountAmount: number;
