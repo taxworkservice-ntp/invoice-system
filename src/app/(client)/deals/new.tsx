@@ -2103,32 +2103,36 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary whitespace-pre-line"
               />
             </div>
-            {isDeliveryNote && (
-              <div className="border-t border-card-border pt-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <div className="relative inline-flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={hideAmountsOnPrint}
-                      onChange={(e) => setHideAmountsOnPrint(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div
-                      className={`w-9 h-5 rounded-full transition-colors ${hideAmountsOnPrint ? "bg-primary" : "bg-gray-300"}`}
-                    />
-                    <div
-                      className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${hideAmountsOnPrint ? "translate-x-4" : ""}`}
-                    />
-                  </div>
-                  <div>
-                    <span className="text-xs font-medium text-gray-700">ซ่อนจำนวนเงินใน PDF</span>
-                    <span className="block text-[11px] text-gray-400">Hide amounts on print</span>
-                  </div>
-                </label>
-              </div>
-            )}
           </div>
         </Card>
+
+        {isDeliveryNote && (
+          <Card>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <div className="relative inline-flex items-center mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={hideAmountsOnPrint}
+                  onChange={(e) => setHideAmountsOnPrint(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={`w-9 h-5 rounded-full transition-colors ${hideAmountsOnPrint ? "bg-primary" : "bg-gray-300"}`}
+                />
+                <div
+                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${hideAmountsOnPrint ? "translate-x-4" : ""}`}
+                />
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-800">ซ่อนจำนวนเงินใน PDF</span>
+                <span className="text-[11px] text-gray-400 ml-2">Hide amounts on print</span>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม
+                </p>
+              </div>
+            </label>
+          </Card>
+        )}
 
         <EditableDocNumber
           value={docNumberOverride}

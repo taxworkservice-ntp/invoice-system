@@ -836,6 +836,7 @@ export default function DealDetailPage() {
       [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "billing_note") ||
       [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "invoice") ||
       [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "quotation") ||
+      [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "delivery_note") ||
       null
     );
   }, [nonVoidedDocs]);

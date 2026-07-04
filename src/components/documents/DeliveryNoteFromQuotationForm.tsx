@@ -533,26 +533,6 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               onChange={(event) => setNote(event.target.value)}
               placeholder="เช่น ส่งบางส่วนจากใบเสนอราคา"
             />
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div className="relative inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={hideAmountsOnPrint}
-                  onChange={(e) => setHideAmountsOnPrint(e.target.checked)}
-                  className="sr-only"
-                />
-                <div
-                  className={`w-9 h-5 rounded-full transition-colors ${hideAmountsOnPrint ? "bg-primary" : "bg-gray-300"}`}
-                />
-                <div
-                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${hideAmountsOnPrint ? "translate-x-4" : ""}`}
-                />
-              </div>
-              <div>
-                <span className="text-xs font-medium text-gray-700">ซ่อนจำนวนเงินใน PDF</span>
-                <span className="block text-[11px] text-gray-400">Hide amounts on print</span>
-              </div>
-            </label>
             <div className="rounded-xl border border-[#E8E6DF] bg-[#FAF8F3] p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
                 <PackageCheck className="h-3.5 w-3.5" />
@@ -566,7 +546,11 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                 <span>มูลค่าอ้างอิง</span>
                 <span>฿{formatCurrency(tax.total)}</span>
               </div>
-              <p className="mt-2 text-xs leading-5 text-gray-500">มูลค่านี้ใช้สำหรับรวมออกใบแจ้งหนี้ภายหลัง แต่ PDF ใบส่งของจะไม่แสดงราคา</p>
+              {hideAmountsOnPrint ? (
+                <p className="mt-2 text-xs leading-5 text-gray-500">มูลค่านี้ใช้สำหรับรวมออกใบแจ้งหนี้ภายหลัง แต่ PDF ใบส่งของจะไม่แสดงราคา</p>
+              ) : (
+                <p className="mt-2 text-xs leading-5 text-blue-600">PDF ใบส่งของจะแสดงราคาและยอดรวมด้วย</p>
+              )}
             </div>
             <EditableDocNumber
               value={docNumberOverride}
@@ -575,9 +559,38 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               autoGenerate={async () => userId ? await generateDocNumberBE(userId, "delivery_note", issueDate) : ""}
               className="mb-3"
             />
-            <Button className="w-full justify-center" disabled={selectedLines.length === 0 || saving} loading={saving} onClick={handleSave}>
-              {isEditing ? "บันทึกร่างใบส่งของ" : "สร้างใบส่งของฉบับร่าง"}
-            </Button>
+          </div>
+        </Card>
+
+        <Card>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <div className="relative inline-flex items-center mt-0.5 shrink-0">
+              <input
+                type="checkbox"
+                checked={hideAmountsOnPrint}
+                onChange={(e) => setHideAmountsOnPrint(e.target.checked)}
+                className="sr-only"
+              />
+              <div
+                className={`w-9 h-5 rounded-full transition-colors ${hideAmountsOnPrint ? "bg-primary" : "bg-gray-300"}`}
+              />
+              <div
+                className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${hideAmountsOnPrint ? "translate-x-4" : ""}`}
+              />
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-800">ซ่อนจำนวนเงินใน PDF</span>
+              <span className="text-[11px] text-gray-400 ml-2">Hide amounts on print</span>
+              <p className="mt-1 text-xs leading-5 text-gray-500">
+                เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม
+              </p>
+            </div>
+          </label>
+        </Card>
+
+        <Button className="w-full justify-center" disabled={selectedLines.length === 0 || saving} loading={saving} onClick={handleSave}>
+          {isEditing ? "บันทึกร่างใบส่งของ" : "สร้างใบส่งของฉบับร่าง"}
+        </Button>
           </div>
         </Card>
       </div>
