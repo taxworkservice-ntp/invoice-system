@@ -591,8 +591,6 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
         <Button className="w-full justify-center" disabled={selectedLines.length === 0 || saving} loading={saving} onClick={handleSave}>
           {isEditing ? "บันทึกร่างใบส่งของ" : "สร้างใบส่งของฉบับร่าง"}
         </Button>
-          </div>
-        </Card>
       </div>
     </AppShell>
   );
