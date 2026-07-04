@@ -713,17 +713,7 @@ export default function DealDetailPage() {
         return;
       }
       if (activeDoc.document.doc_type === "delivery_note") {
-        const quotationId = activeDoc.document.converted_from_id || activeDoc.line_items.find((line) => line.source_document_id)?.source_document_id;
-        if (quotationId) {
-          const params = new URLSearchParams({
-            type: "delivery_note_from_quotation",
-            quotationId,
-            documentId: activeDoc.document.id,
-          });
-          navigate(`/documents/new?${params.toString()}`);
-          return;
-        }
-        navigate(`/documents/${activeDoc.document.id}`);
+        navigate(`/documents/${activeDoc.document.id}/edit`);
         return;
       }
       navigate(`/documents/${activeDoc.document.id}/edit`);
