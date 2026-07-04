@@ -16,7 +16,6 @@ export default function EditDocumentPage() {
   const [dealId, setDealId] = useState<string | null>(null);
   const [quotationId, setQuotationId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export default function EditDocumentPage() {
 
     async function loadEditTarget() {
       setLoading(true);
-      setError("");
+      setQuotationId(null);
 
       const { data } = await supabase
         .from("documents")
@@ -55,12 +54,8 @@ export default function EditDocumentPage() {
           sourceQuotationId = lines?.[0]?.source_document_id || null;
         }
 
-        if (!cancelled) {
-          if (sourceQuotationId) {
-            setQuotationId(sourceQuotationId);
-          } else {
-            setError("ไม่พบใบเสนอราคาต้นทางของร่างใบส่งของนี้");
-          }
+        if (!cancelled && sourceQuotationId) {
+          setQuotationId(sourceQuotationId);
         }
       }
 
@@ -75,7 +70,6 @@ export default function EditDocumentPage() {
 
   if (!id) return <Navigate to="/documents" replace />;
   if (loading) return <AppShell title="กำลังโหลด..." showBack><Spinner /></AppShell>;
-  if (error) return <AppShell title="แก้ไขเอกสาร" showBack><div className="py-12 text-center text-sm text-red-600">{error}</div></AppShell>;
 
   if (docType === "credit_note") {
     return <CreditNoteForm documentId={id} />;
@@ -89,8 +83,11 @@ export default function EditDocumentPage() {
     return <NewDealPage documentId={id} initialType="invoice" />;
   }
 
-  if (docType === "delivery_note" && status === "draft" && quotationId) {
-    return <DeliveryNoteFromQuotationForm quotationId={quotationId} documentId={id} />;
+  if (docType === "delivery_note" && status === "draft") {
+    if (quotationId) {
+      return <DeliveryNoteFromQuotationForm quotationId={quotationId} documentId={id} />;
+    }
+    return <NewDealPage documentId={id} initialType="delivery_note" />;
   }
 
   if (dealId) {
