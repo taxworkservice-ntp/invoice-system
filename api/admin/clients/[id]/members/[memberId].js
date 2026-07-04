@@ -38,7 +38,8 @@ export default async function handler(req, res) {
   try {
     await requireAdmin(req);
 
-    if (req.method !== "PATCH") {
+    const method = (req.method || "").toUpperCase();
+    if (method !== "PATCH") {
       res.setHeader("Allow", "PATCH");
       return sendJson(res, 405, { error: "Method not allowed" });
     }
@@ -73,7 +74,11 @@ export default async function handler(req, res) {
       .eq("id", memberId)
       .eq("workspace_user_id", id)
       .single();
-    if (existingErr || !existing) throw new ApiError(404, "Member not found");
+    if (existingErr) {
+      console.error("[memberId PATCH] fetch existing failed:", JSON.stringify(existingErr));
+      throw existingErr;
+    }
+    if (!existing) throw new ApiError(404, "Member not found");
 
     if (existing.member_user_id === id && (patch.role && patch.role !== "owner")) {
       throw new ApiError(400, "Workspace owner must keep owner role");
@@ -87,23 +92,32 @@ export default async function handler(req, res) {
       throw new ApiError(400, "Workspace owner permissions cannot be customized");
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data: updated, error: updateErr } = await supabaseAdmin
       .from("client_members")
       .update(patch)
       .eq("id", memberId)
       .eq("workspace_user_id", id)
       .select("*")
       .single();
-    if (error) throw error;
-
-    if (patch.status) {
-      await supabaseAdmin.auth.admin.updateUserById(data.member_user_id, {
-        ban_duration: patch.status === "disabled" ? "876000h" : "none",
-      });
+    if (updateErr) {
+      console.error("[memberId PATCH] update failed:", JSON.stringify(updateErr));
+      throw updateErr;
     }
 
-    return sendJson(res, 200, { member: data });
+    if (patch.status) {
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(updated.member_user_id, {
+          ban_duration: patch.status === "disabled" ? "876000h" : "none",
+        });
+      } catch (banErr) {
+        console.error("[memberId PATCH] ban update failed:", JSON.stringify(banErr));
+        throw banErr;
+      }
+    }
+
+    return sendJson(res, 200, { member: updated });
   } catch (error) {
+    console.error("[memberId] Unhandled error:", error);
     return sendError(res, error);
   }
 }
