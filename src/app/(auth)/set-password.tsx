@@ -15,6 +15,7 @@ export default function SetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const [isStaff, setIsStaff] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -30,10 +31,30 @@ export default function SetPasswordPage() {
         .eq("user_id", session.user.id)
         .single()
         .then(({ data: cp }) => {
-          if (!cp || cp.password_changed !== false) {
-            navigate("/home", { replace: true });
+          if (cp && cp.password_changed === false) {
+            // Owner with temp password — show set-password
+            setLoading(false);
+            return;
           }
-          setLoading(false);
+          if (cp && cp.password_changed !== false) {
+            navigate("/home", { replace: true });
+            return;
+          }
+          // No client_profiles — check if staff member needs password change
+          supabase
+            .from("client_members")
+            .select("password_changed")
+            .eq("member_user_id", session.user.id)
+            .eq("status", "active")
+            .maybeSingle()
+            .then(({ data: mb }) => {
+              if (mb && mb.password_changed === false) {
+                setIsStaff(true);
+                setLoading(false);
+              } else {
+                navigate("/home", { replace: true });
+              }
+            });
         });
     });
   }, [navigate]);
@@ -63,24 +84,22 @@ export default function SetPasswordPage() {
     }
 
     if (userId) {
-      await supabase
-        .from("client_profiles")
-        .update({ password_changed: true })
-        .eq("user_id", userId);
+      if (isStaff) {
+        await supabase
+          .from("client_members")
+          .update({ password_changed: true })
+          .eq("member_user_id", userId)
+          .eq("status", "active");
+      } else {
+        await supabase
+          .from("client_profiles")
+          .update({ password_changed: true })
+          .eq("user_id", userId);
+      }
     }
-
-    const { data: cp } = await supabase
-      .from("client_profiles")
-      .select("id")
-      .eq("user_id", userId)
-      .single();
 
     toast.success("ตั้งรหัสผ่านเรียบร้อย");
-    if (cp) {
-      navigate("/home", { replace: true });
-    } else {
-      navigate("/setup", { replace: true });
-    }
+    navigate("/home", { replace: true });
   }
 
   if (loading) {

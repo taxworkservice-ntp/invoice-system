@@ -108,3 +108,17 @@ export async function updateAdminClientMember(clientId: string, memberId: string
     body: JSON.stringify({ memberId, ...payload }),
   });
 }
+
+export async function resetMemberPassword(clientId: string, memberId: string, password: string) {
+  return apiFetch(`/api/admin/clients/${clientId}/members`, {
+    method: "PATCH",
+    body: JSON.stringify({ memberId, action: "reset-password", password }),
+  });
+}
+
+export async function deleteAdminClientMember(clientId: string, memberId: string) {
+  return apiFetch(`/api/admin/clients/${clientId}/members`, {
+    method: "DELETE",
+    body: JSON.stringify({ memberId }),
+  });
+}

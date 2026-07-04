@@ -75,11 +75,15 @@ export default function LoginPage() {
       } else {
         const { data: membership } = await supabase
           .from("client_members")
-          .select("workspace_user_id")
+          .select("workspace_user_id, password_changed")
           .eq("member_user_id", data.user.id)
           .eq("status", "active")
           .maybeSingle();
-        navigate(membership ? "/home" : "/setup", { replace: true });
+        if (membership && membership.password_changed === false) {
+          navigate("/set-password", { replace: true });
+        } else {
+          navigate(membership ? "/home" : "/setup", { replace: true });
+        }
       }
     }
 

@@ -196,6 +196,30 @@ export default async function handler(req, res) {
       const memberId = body.memberId;
       if (!memberId) throw new ApiError(400, "Missing memberId");
 
+      if (body.action === "reset-password") {
+        const newPassword = body.password;
+        if (!newPassword || newPassword.length < 6) throw new ApiError(400, "Password must be at least 6 characters");
+
+        const { data: memberRow, error: fetchErr } = await supabaseAdmin
+          .from("client_members")
+          .select("member_user_id")
+          .eq("id", memberId)
+          .eq("workspace_user_id", id)
+          .single();
+        if (fetchErr || !memberRow) throw new ApiError(404, "Member not found");
+
+        const { error: passwordErr } = await supabaseAdmin.auth.admin.updateUserById(memberRow.member_user_id, {
+          password: newPassword,
+        });
+        if (passwordErr) throw passwordErr;
+
+        await supabaseAdmin.from("client_members")
+          .update({ password_changed: false })
+          .eq("id", memberId);
+
+        return sendJson(res, 200, { success: true });
+      }
+
       const patch = {};
 
       if (body.role !== undefined) {
@@ -248,7 +272,28 @@ export default async function handler(req, res) {
       return sendJson(res, 200, { member: updated });
     }
 
-    res.setHeader("Allow", "GET, POST, PATCH");
+    if (req.method === "DELETE") {
+      const body = readJsonBody(req);
+      const memberId = body.memberId;
+      if (!memberId) throw new ApiError(400, "Missing memberId");
+
+      const { data: existing, error: fetchErr } = await supabaseAdmin
+        .from("client_members")
+        .select("member_user_id, role")
+        .eq("id", memberId)
+        .eq("workspace_user_id", id)
+        .single();
+      if (fetchErr || !existing) throw new ApiError(404, "Member not found");
+      if (existing.role === "owner") throw new ApiError(400, "Cannot delete workspace owner");
+
+      await supabaseAdmin.from("client_members").delete().eq("id", memberId);
+      await supabaseAdmin.from("profiles").delete().eq("id", existing.member_user_id);
+      await supabaseAdmin.auth.admin.deleteUser(existing.member_user_id);
+
+      return sendJson(res, 200, { success: true });
+    }
+
+    res.setHeader("Allow", "GET, POST, PATCH, DELETE");
     return sendJson(res, 405, { error: "Method not allowed" });
   } catch (error) {
     console.error("[members] Unhandled error:", error);

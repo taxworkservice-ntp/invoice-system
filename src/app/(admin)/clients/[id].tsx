@@ -4,11 +4,13 @@ import { ArrowLeft, MoreHorizontal } from "lucide-react";
 import {
   createAdminClientMember,
   deleteAdminClient,
+  deleteAdminClientMember,
   getAdminClientUser,
   listAdminClientMembers,
   resetAdminClientWorkspace,
   resetAllClientData,
   resetClientDocuments,
+  resetMemberPassword,
   updateAdminClientMember,
   updateAdminClientPassword,
   updateAdminClientStatus,
@@ -76,6 +78,13 @@ export default function AdminClientDetailPage() {
   const [permissionMember, setPermissionMember] = useState<AdminClientMember | null>(null);
   const [permissionDraft, setPermissionDraft] = useState<WorkspacePermissions | null>(null);
   const [savingPermissions, setSavingPermissions] = useState(false);
+  const [showResetMemberPasswordModal, setShowResetMemberPasswordModal] = useState(false);
+  const [resetMemberTarget, setResetMemberTarget] = useState<AdminClientMember | null>(null);
+  const [resetMemberPasswordValue, setResetMemberPasswordValue] = useState("");
+  const [resettingMemberPassword, setResettingMemberPassword] = useState(false);
+  const [showDeleteMemberModal, setShowDeleteMemberModal] = useState(false);
+  const [deleteMemberTarget, setDeleteMemberTarget] = useState<AdminClientMember | null>(null);
+  const [deletingMember, setDeletingMember] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -299,6 +308,42 @@ export default function AdminClientDetailPage() {
       toast.error(error.message || "Unable to update staff member");
     } finally {
       setMemberActionId(null);
+    }
+  }
+
+  async function handleResetMemberPassword() {
+    if (!id || !resetMemberTarget) return;
+    if (!resetMemberPasswordValue || resetMemberPasswordValue.length < 6) {
+      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      return;
+    }
+    setResettingMemberPassword(true);
+    try {
+      await resetMemberPassword(id, resetMemberTarget.id, resetMemberPasswordValue);
+      toast.success("ตั้งรหัสผ่านใหม่ให้ " + (resetMemberTarget.email || "staff") + " เรียบร้อยแล้ว");
+      setShowResetMemberPasswordModal(false);
+      setResetMemberTarget(null);
+      setResetMemberPasswordValue("");
+    } catch (error: any) {
+      toast.error(error.message || "Unable to reset password");
+    } finally {
+      setResettingMemberPassword(false);
+    }
+  }
+
+  async function handleDeleteMember() {
+    if (!id || !deleteMemberTarget) return;
+    setDeletingMember(true);
+    try {
+      await deleteAdminClientMember(id, deleteMemberTarget.id);
+      setMembers((prev) => prev.filter((m) => m.id !== deleteMemberTarget.id));
+      toast.success("ลบ " + (deleteMemberTarget.email || "staff") + " เรียบร้อยแล้ว");
+      setShowDeleteMemberModal(false);
+      setDeleteMemberTarget(null);
+    } catch (error: any) {
+      toast.error(error.message || "Unable to delete staff member");
+    } finally {
+      setDeletingMember(false);
     }
   }
 
@@ -700,6 +745,17 @@ export default function AdminClientDetailPage() {
                             <Button
                               size="sm"
                               variant="secondary"
+                              onClick={() => {
+                                setResetMemberTarget(member);
+                                setResetMemberPasswordValue("");
+                                setShowResetMemberPasswordModal(true);
+                              }}
+                            >
+                              Reset PW
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
                               onClick={() => openPermissionEditor(member)}
                             >
                               Access
@@ -711,6 +767,16 @@ export default function AdminClientDetailPage() {
                               onClick={() => handleUpdateMember(member, { status: member.status === "active" ? "disabled" : "active" })}
                             >
                               {member.status === "active" ? "Disable" : "Enable"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => {
+                                setDeleteMemberTarget(member);
+                                setShowDeleteMemberModal(true);
+                              }}
+                            >
+                              Delete
                             </Button>
                           </>
                         )}
@@ -1277,6 +1343,46 @@ export default function AdminClientDetailPage() {
             </Button>
             <Button onClick={handleChangePassword} loading={changingPassword} disabled={!newPassword || !newPasswordConfirm}>
               เปลี่ยนรหัสผ่าน
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showResetMemberPasswordModal} onClose={() => setShowResetMemberPasswordModal(false)} title="รีเซ็ตรหัสผ่านสมาชิก">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            ตั้งรหัสผ่านชั่วคราวให้ <strong>{resetMemberTarget?.email || ""}</strong> สมาชิกจะถูกขอให้เปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งถัดไป
+          </p>
+          <Input
+            id="reset-member-password"
+            label="รหัสผ่านชั่วคราว"
+            type="password"
+            value={resetMemberPasswordValue}
+            onChange={(e) => setResetMemberPasswordValue(e.target.value)}
+            minLength={6}
+          />
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setShowResetMemberPasswordModal(false)}>ยกเลิก</Button>
+            <Button
+              onClick={handleResetMemberPassword}
+              loading={resettingMemberPassword}
+              disabled={!resetMemberPasswordValue || resetMemberPasswordValue.length < 6}
+            >
+              รีเซ็ตรหัสผ่าน
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showDeleteMemberModal} onClose={() => setShowDeleteMemberModal(false)} title="ลบสมาชิก">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            คุณแน่ใจว่าต้องการลบ <strong>{deleteMemberTarget?.email || ""}</strong> ออกจากทีมใช่หรือไม่? การลบจะยกเลิกบัญชีผู้ใช้ทั้งหมดและไม่สามารถเรียกคืนได้
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setShowDeleteMemberModal(false)}>ยกเลิก</Button>
+            <Button variant="danger" onClick={handleDeleteMember} loading={deletingMember}>
+              ลบสมาชิก
             </Button>
           </div>
         </div>
