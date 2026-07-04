@@ -213,9 +213,13 @@ export default async function handler(req, res) {
         });
         if (passwordErr) throw passwordErr;
 
-        await supabaseAdmin.from("client_members")
-          .update({ password_changed: false })
-          .eq("id", memberId);
+        try {
+          await supabaseAdmin.from("client_members")
+            .update({ password_changed: false })
+            .eq("id", memberId);
+        } catch (e) {
+          console.warn("[members reset-password] failed to set password_changed:", e);
+        }
 
         return sendJson(res, 200, { success: true });
       }

@@ -75,14 +75,24 @@ export default function LoginPage() {
       } else {
         const { data: membership } = await supabase
           .from("client_members")
-          .select("workspace_user_id, password_changed")
+          .select("workspace_user_id")
           .eq("member_user_id", data.user.id)
           .eq("status", "active")
           .maybeSingle();
-        if (membership && membership.password_changed === false) {
-          navigate("/set-password", { replace: true });
+        if (membership) {
+          const { data: pwCheck } = await supabase
+            .from("client_members")
+            .select("password_changed")
+            .eq("member_user_id", data.user.id)
+            .eq("status", "active")
+            .maybeSingle();
+          if (pwCheck && pwCheck.password_changed === false) {
+            navigate("/set-password", { replace: true });
+          } else {
+            navigate("/home", { replace: true });
+          }
         } else {
-          navigate(membership ? "/home" : "/setup", { replace: true });
+          navigate("/setup", { replace: true });
         }
       }
     }
