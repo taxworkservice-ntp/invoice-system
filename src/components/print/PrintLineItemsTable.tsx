@@ -5,6 +5,7 @@ import type { PageMode } from "../../lib/pagination";
 
 const MIN_MODERN_ITEM_ROWS = 6;
 const MIN_MODERN_BILLING_NOTE_ROWS = 6;
+const MIN_MODERN_RECEIPT_ROWS = 6;
 
 function formatDate(date: string | null | undefined) {
   if (!date) return "-";
@@ -46,6 +47,7 @@ export function PrintLineItemsTable({
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
   const blankLineCount = isLastOrSingle ? Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length) : 0;
   const billingBlankCount = Math.max(0, MIN_MODERN_BILLING_NOTE_ROWS - billingNoteInvoices.length);
+  const receiptBlankCount = Math.max(0, MIN_MODERN_RECEIPT_ROWS - receiptInvoices.length);
 
   if (document.doc_type === "billing_note") {
     return (
@@ -117,25 +119,34 @@ export function PrintLineItemsTable({
             </tr>
           </thead>
           <tbody>
-            {receiptInvoices.map((invoice) => (
-              <tr key={invoice.id} className={getRowClass()}>
-                <td className="px-2 py-1.5 text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {invoice.invoice_number}
-                </td>
-                <td className="px-2 py-1.5 text-[10px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
-                  {formatDate(invoice.issue_date)}
-                </td>
-                <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {formatCurrency(invoice.subtotal)}
-                </td>
-                <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {formatCurrency(invoice.vat_amount)}
-                </td>
-                <td className="px-2 py-1.5 text-right text-[10px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {formatCurrency(invoice.paid_amount)}
-                </td>
-              </tr>
-            ))}
+              {receiptInvoices.map((invoice) => (
+                <tr key={invoice.id} className={getRowClass()}>
+                  <td className="px-2 py-1.5 text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                    {invoice.invoice_number}
+                  </td>
+                  <td className="px-2 py-1.5 text-[10px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
+                    {formatDate(invoice.issue_date)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                    {formatCurrency(invoice.subtotal)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                    {formatCurrency(invoice.vat_amount)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-[10px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                    {formatCurrency(invoice.paid_amount)}
+                  </td>
+                </tr>
+              ))}
+              {Array.from({ length: receiptBlankCount }).map((_, index) => (
+                <tr key={`receipt-blank-${index}`} className="print-modern-blank-row break-inside-avoid align-top bg-white">
+                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                  <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                  <td className="px-2 py-1.5 text-[10px] text-right border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                  <td className="px-2 py-1.5 text-[10px] text-right border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                  <td className="px-2 py-1.5 text-[10px] text-right border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </section>

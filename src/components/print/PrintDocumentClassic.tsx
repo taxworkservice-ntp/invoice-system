@@ -42,6 +42,7 @@ const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note
 const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
 const MIN_CLASSIC_ITEM_ROWS = 8;
 const MIN_CLASSIC_BILLING_NOTE_ROWS = 8;
+const MIN_CLASSIC_RECEIPT_ROWS = 8;
 
 
 
@@ -89,6 +90,7 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
   const blankLineCount = isLastOrSingle ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length) : 0;
   const billingBlankCount = Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - billingNoteInvoices.length);
+  const receiptBlankCount = Math.max(0, MIN_CLASSIC_RECEIPT_ROWS - receiptInvoices.length);
   const noteText = document.note?.trim();
   const paymentLines = [
     clientProfile.bank_name && showBank ? `ธนาคาร: ${clientProfile.bank_name}` : null,
@@ -316,6 +318,16 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                   <td className="right">{formatCurrency(inv.subtotal)}</td>
                   <td className="right">{formatCurrency(inv.vat_amount)}</td>
                   <td className="right bold">{formatCurrency(inv.paid_amount)}</td>
+                </tr>
+              ))}
+              {Array.from({ length: receiptBlankCount }).map((_, index) => (
+                <tr key={`receipt-blank-${index}`} className="print-classic-blank-row">
+                  <td className="center">&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td className="center">&nbsp;</td>
+                  <td className="right">&nbsp;</td>
+                  <td className="right">&nbsp;</td>
+                  <td className="right bold">&nbsp;</td>
                 </tr>
               ))}
             </tbody>
