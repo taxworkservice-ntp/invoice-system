@@ -72,6 +72,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState("");
+  const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(true);
   const isEditing = Boolean(documentId);
 
   useEffect(() => {
@@ -159,6 +160,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           setIssueDate((existingDoc as Document).issue_date || todayString());
           setNote((existingDoc as Document).note || "");
           setDocNumberOverride((existingDoc as Document).doc_number || "");
+          setHideAmountsOnPrint((existingDoc as Document).hide_amounts_on_print ?? true);
         }
 
         const activeDraft = draftDoc && draftDoc.id !== documentId
@@ -288,6 +290,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           wht_amount: tax.whtAmount,
           net_payable: tax.netPayable,
           note: note || null,
+          hide_amounts_on_print: hideAmountsOnPrint,
           converted_from_id: quotation.id,
         };
 
@@ -530,6 +533,26 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               onChange={(event) => setNote(event.target.value)}
               placeholder="เช่น ส่งบางส่วนจากใบเสนอราคา"
             />
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div className="relative inline-flex items-center">
+                <input
+                  type="checkbox"
+                  checked={hideAmountsOnPrint}
+                  onChange={(e) => setHideAmountsOnPrint(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={`w-9 h-5 rounded-full transition-colors ${hideAmountsOnPrint ? "bg-primary" : "bg-gray-300"}`}
+                />
+                <div
+                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${hideAmountsOnPrint ? "translate-x-4" : ""}`}
+                />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-gray-700">ซ่อนจำนวนเงินใน PDF</span>
+                <span className="block text-[11px] text-gray-400">Hide amounts on print</span>
+              </div>
+            </label>
             <div className="rounded-xl border border-[#E8E6DF] bg-[#FAF8F3] p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
                 <PackageCheck className="h-3.5 w-3.5" />
