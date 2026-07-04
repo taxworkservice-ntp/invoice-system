@@ -112,6 +112,8 @@ export default function DocumentDetailPage() {
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [hasQuotationDnActivity, setHasQuotationDnActivity] = useState(false);
   const [dnInvoiceRef, setDnInvoiceRef] = useState<{ id: string; doc_number: string | null } | null>(null);
+  const [copiedFromRef, setCopiedFromRef] = useState<{ id: string; doc_number: string | null } | null>(null);
+  const [replacementRef, setReplacementRef] = useState<{ id: string; doc_number: string | null } | null>(null);
 
   const fetchDoc = async () => {
     if (!id) return;
@@ -119,6 +121,25 @@ export default function DocumentDetailPage() {
     try {
       const data = await getDocumentDetail(id);
       setDoc(data);
+      const [copiedFromResult, replacementResult] = await Promise.all([
+        data.copied_from_id
+          ? supabase
+              .from("documents")
+              .select("id, doc_number")
+              .eq("id", data.copied_from_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        supabase
+          .from("documents")
+          .select("id, doc_number")
+          .eq("copied_from_id", data.id)
+          .neq("status", "voided")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      setCopiedFromRef(copiedFromResult.data ? { id: (copiedFromResult.data as any).id, doc_number: (copiedFromResult.data as any).doc_number } : null);
+      setReplacementRef(replacementResult.data ? { id: (replacementResult.data as any).id, doc_number: (replacementResult.data as any).doc_number } : null);
       if (data.doc_type === "delivery_note") {
         const { data: link } = await supabase
           .from("invoice_delivery_notes")
@@ -205,6 +226,10 @@ export default function DocumentDetailPage() {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
+    if (voidAndRecreate && !voidReason.trim()) {
+      setError("กรุณาระบุเหตุผลในการแก้ไขโดยออกฉบับใหม่");
+      return;
+    }
     setVoiding(true);
     try {
       await voidDocumentWithSideEffects(doc, userId, voidReason);
@@ -237,10 +262,10 @@ export default function DocumentDetailPage() {
             wht_amount: doc.wht_amount,
             net_payable: doc.net_payable,
             note: doc.note,
-            payment_method: doc.doc_type === "tax_invoice_receipt" ? doc.payment_method : null,
-            amount_received: doc.doc_type === "tax_invoice_receipt" ? doc.amount_received : null,
-            paid_at: doc.doc_type === "tax_invoice_receipt" ? doc.paid_at : null,
-            wht_certificate_no: doc.doc_type === "tax_invoice_receipt" ? doc.wht_certificate_no : null,
+            payment_method: null,
+            amount_received: null,
+            paid_at: null,
+            wht_certificate_no: null,
             copied_from_id: doc.id,
           })
           .select("*")
@@ -306,6 +331,11 @@ export default function DocumentDetailPage() {
 
       if (recreatedDocId && recreatedIsUtility) {
         navigate(`/documents/${recreatedDocId}/edit-utility`);
+        return;
+      }
+
+      if (recreatedDocId && doc.deal_id) {
+        navigate(`/deals/${doc.deal_id}`);
         return;
       }
 
@@ -660,6 +690,8 @@ export default function DocumentDetailPage() {
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
   const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
   const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
+  const isCorrectionCandidate = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
+  const correctionTitle = doc.doc_type === "tax_invoice_receipt" ? "ยกเลิกและออกฉบับใหม่" : "แก้ไขโดยออกฉบับใหม่";
   const statusMessage = isVoided
     ? "ยกเลิกแล้ว เก็บไว้เป็นประวัติ"
     : doc.doc_type === "delivery_note" && isConverted
@@ -728,6 +760,24 @@ export default function DocumentDetailPage() {
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#625C52]">{statusMessage}</p>
               {isVoided && doc.voided_reason && (
                 <p className="mt-1 text-xs text-[#9A9690] italic">เหตุผลการยกเลิก: {doc.voided_reason}</p>
+              )}
+              {copiedFromRef && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/documents/${copiedFromRef.id}`)}
+                  className="mt-2 inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  ออกแทน {copiedFromRef.doc_number || "เอกสารเดิม"}
+                </button>
+              )}
+              {replacementRef && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/documents/${replacementRef.id}`)}
+                  className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                >
+                  ออกใหม่เป็น {replacementRef.doc_number || "ฉบับใหม่"}
+                </button>
               )}
             </div>
 
@@ -1323,6 +1373,11 @@ export default function DocumentDetailPage() {
               <Button variant="primary" size="md" className="w-full" onClick={openPayModal}>
                 รับเงินแล้ว
               </Button>
+              {doc.doc_type === "invoice" && (
+                <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+                  ระบบจะเก็บใบเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข เลขที่ใบเดิมจะไม่ถูกนำกลับมาใช้ซ้ำ
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="ghost"
@@ -1337,7 +1392,7 @@ export default function DocumentDetailPage() {
                   ยกเลิกอย่างเดียว
                 </Button>
                 <Button
-                  variant="danger"
+                  variant={doc.doc_type === "invoice" ? "primary" : "danger"}
                   size="md"
                   className="w-full"
                   onClick={() => {
@@ -1346,13 +1401,41 @@ export default function DocumentDetailPage() {
                     setVoidModal(true);
                   }}
                 >
-                  ยกเลิกและสร้างใหม่
+                  {doc.doc_type === "invoice" ? "แก้ไขโดยออกฉบับใหม่" : "ยกเลิกและสร้างใหม่"}
                 </Button>
               </div>
             </div>
           )}
 
-          {(isSent || (isIssued && doc.doc_type === "tax_invoice_receipt")) && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && permissions.canVoidDocuments && (
+          {isIssued && doc.doc_type === "tax_invoice_receipt" && permissions.canVoidDocuments && (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                ใบกำกับภาษีออกแล้ว หากยอดลดลงควรออกใบลดหนี้ หากออกผิดให้ยกเลิกและออกฉบับใหม่พร้อมเหตุผล
+              </div>
+              <Button
+                variant="secondary"
+                size="md"
+                className="w-full"
+                onClick={() => navigate(`/documents/new?type=credit_note&dealId=${doc.deal_id || ""}`)}
+              >
+                ออกใบลดหนี้
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                className="w-full"
+                onClick={() => {
+                  setVoidReason("");
+                  setVoidAndRecreate(true);
+                  setVoidModal(true);
+                }}
+              >
+                ยกเลิกและออกฉบับใหม่
+              </Button>
+            </div>
+          )}
+
+          {(isSent || (isIssued && doc.doc_type === "tax_invoice_receipt")) && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && doc.doc_type !== "tax_invoice_receipt" && permissions.canVoidDocuments && (
             <Button
               variant="danger"
               size="md"
@@ -1398,23 +1481,34 @@ export default function DocumentDetailPage() {
       <Modal
         open={voidModal}
         onClose={() => setVoidModal(false)}
-        title={voidAndRecreate ? "ยกเลิกและสร้างใหม่" : "ยกเลิกเอกสาร"}
+        title={voidAndRecreate ? correctionTitle : "ยกเลิกเอกสาร"}
       >
         <div className="space-y-3">
+          <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
+            เอกสารเดิม: <span className="font-semibold text-stone-900">{doc.doc_number || docLabel.thai}</span>
+          </div>
           <p className="text-sm text-gray-600">
             {voidAndRecreate
-              ? "การยกเลิกจะเปลี่ยนสถานะเป็นยกเลิก และสร้างสำเนาใหม่ในสถานะร่าง"
+              ? "ระบบจะเก็บเอกสารเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข โดยฉบับใหม่จะใช้เลขที่เอกสารใหม่"
               : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้?"}
           </p>
+          {voidAndRecreate && isCorrectionCandidate && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              หากเอกสารนี้ผูกกับใบวางบิล ใบเสร็จ หรือใบส่งของ ระบบจะปลดสถานะที่เกี่ยวข้องตามกฎการยกเลิกเดิม และเก็บประวัติไว้ตรวจสอบย้อนหลัง
+            </div>
+          )}
           <Input
             label="เหตุผลการยกเลิก"
             value={voidReason}
             onChange={(e) => setVoidReason(e.target.value)}
-            placeholder="ไม่บังคับ"
+            placeholder={voidAndRecreate ? "เช่น ลูกค้าขอปรับยอด / ออกผิดรายละเอียด" : "ไม่บังคับ"}
+            required={voidAndRecreate}
           />
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setVoidModal(false)}>ปิด</Button>
-            <Button variant="danger" onClick={handleVoid} loading={voiding}>ยืนยัน</Button>
+            <Button variant={voidAndRecreate && isCorrectionCandidate ? "primary" : "danger"} onClick={handleVoid} loading={voiding}>
+              {voidAndRecreate ? correctionTitle : "ยืนยัน"}
+            </Button>
           </div>
         </div>
       </Modal>

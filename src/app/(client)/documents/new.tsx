@@ -9,6 +9,7 @@ export default function NewDocumentPage() {
   const type = searchParams.get("type");
   const dealId = searchParams.get("dealId") || undefined;
   const quotationId = searchParams.get("quotationId") || undefined;
+  const documentId = searchParams.get("documentId") || undefined;
 
   if (type === "billing_note") {
     return <BillingNoteForm dealId={dealId} />;
@@ -23,7 +24,7 @@ export default function NewDocumentPage() {
   }
 
   if (type === "delivery_note_from_quotation" && quotationId) {
-    return <DeliveryNoteFromQuotationForm quotationId={quotationId} />;
+    return <DeliveryNoteFromQuotationForm quotationId={quotationId} documentId={documentId} />;
   }
 
   const nextParams = new URLSearchParams(searchParams);

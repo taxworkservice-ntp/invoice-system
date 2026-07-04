@@ -527,6 +527,7 @@ create table documents (
   net_payable         numeric(15,2) not null default 0,  -- total - wht
 
   note                text,
+  hide_amounts_on_print boolean not null default true,
 
   -- Receipt-specific fields
   payment_method      payment_method,

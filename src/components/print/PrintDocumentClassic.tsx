@@ -73,6 +73,7 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
   const startIndex = batchLineItems ? data.lineItems.indexOf(batchLineItems[0]) + 1 : 1;
   const isCopy = copyType === "copy";
   const isDeliveryNote = document.doc_type === "delivery_note";
+  const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
   const isBillingNote = document.doc_type === "billing_note";
   const showFooter = pageMode === "single" || pageMode === "last";
   const showHeader = pageMode === "single" || pageMode === "first";
@@ -336,9 +337,13 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                 <th>รายการ<span className="en">DESCRIPTION</span></th>
                 <th style={{ textAlign: "center" }}>จำนวน<span className="en">QTY</span></th>
                 <th style={{ textAlign: "center" }}>หน่วย<span className="en">UNIT</span></th>
-                <th style={{ textAlign: "right" }}>ราคา/หน่วย<span className="en">UNIT PRICE</span></th>
-                <th style={{ textAlign: "center" }}>ส่วนลด<span className="en">DISC.</span></th>
-                <th style={{ textAlign: "right" }}>จำนวนเงิน<span className="en">AMOUNT</span></th>
+                {!hideDeliveryAmounts && (
+                  <>
+                    <th style={{ textAlign: "right" }}>ราคา/หน่วย<span className="en">UNIT PRICE</span></th>
+                    <th style={{ textAlign: "center" }}>ส่วนลด<span className="en">DISC.</span></th>
+                    <th style={{ textAlign: "right" }}>จำนวนเงิน<span className="en">AMOUNT</span></th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -354,7 +359,7 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                       {printableNote ? (
                         <div className="print-classic-item-note">{printableNote}</div>
                       ) : null}
-                      {hasLineDiscount ? (
+                      {hasLineDiscount && !hideDeliveryAmounts ? (
                         <div className="print-classic-discount-note">
                           ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | -${formatCurrency(item.discount_amount)}` : ""}
                         </div>
@@ -368,9 +373,13 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                     </td>
                     <td className="center">{item.quantity}</td>
                     <td className="center">{item.unit}</td>
-                    <td className="right">{formatCurrency(item.unit_price)}</td>
-                    <td className="center">{hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}</td>
-                    <td className="right bold">{formatCurrency(item.line_total)}</td>
+                    {!hideDeliveryAmounts && (
+                      <>
+                        <td className="right">{formatCurrency(item.unit_price)}</td>
+                        <td className="center">{hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}</td>
+                        <td className="right bold">{formatCurrency(item.line_total)}</td>
+                      </>
+                    )}
                   </tr>
                 );
               })}
@@ -380,9 +389,14 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                   <td className="print-classic-item-name">&nbsp;</td>
                   <td className="center">&nbsp;</td>
                   <td className="center">&nbsp;</td>
-                  <td className="right">&nbsp;</td>
                   <td className="center">&nbsp;</td>
-                  <td className="right">&nbsp;</td>
+                  {!hideDeliveryAmounts && (
+                    <>
+                      <td className="right">&nbsp;</td>
+                      <td className="center">&nbsp;</td>
+                      <td className="right">&nbsp;</td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -449,6 +463,7 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                 </>
               )}
             </div>
+            {!hideDeliveryAmounts && (
             <div className="print-classic-totals-col">
               <div className="print-classic-totals-row">
                 <div className="print-classic-totals-lab">
@@ -501,6 +516,7 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                 </>
               ) : null}
             </div>
+            )}
           </div>
         </div>
       </section>

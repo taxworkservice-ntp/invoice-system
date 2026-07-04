@@ -42,6 +42,7 @@ export function PrintLineItemsTable({
   const { document, billingNoteInvoices, receiptInvoices, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
   const lineItems = lineItemsOverride ?? data.lineItems;
   const isDeliveryNote = document.doc_type === "delivery_note";
+  const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
   const blankLineCount = isLastOrSingle ? Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length) : 0;
   const billingBlankCount = Math.max(0, MIN_MODERN_BILLING_NOTE_ROWS - billingNoteInvoices.length);
@@ -156,7 +157,7 @@ export function PrintLineItemsTable({
             <th className="px-2 py-1.5 text-left text-[9px] font-semibold tracking-[0.06em]">รายละเอียด<div className="text-[6.5px] font-normal text-[#94a3b8]">DESCRIPTION</div></th>
             <th className="w-[16mm] px-2 py-1.5 text-right text-[9px] font-semibold tracking-[0.06em]">จำนวน<div className="text-[6.5px] font-normal text-[#94a3b8]">QTY</div></th>
             <th className="w-[16mm] px-2 py-1.5 text-left text-[9px] font-semibold tracking-[0.06em]">หน่วย<div className="text-[6.5px] font-normal text-[#94a3b8]">UNIT</div></th>
-            {!isDeliveryNote && (
+            {!hideDeliveryAmounts && (
               <>
                 <th className="w-[20mm] px-2 py-1.5 text-right text-[9px] font-semibold tracking-[0.06em]">ราคา/หน่วย<div className="text-[6.5px] font-normal text-[#94a3b8]">UNIT PRICE</div></th>
                 <th className="w-[13mm] px-2 py-1.5 text-right text-[9px] font-semibold tracking-[0.06em]">ส่วนลด<div className="text-[6.5px] font-normal text-[#94a3b8]">DISC.</div></th>
@@ -178,7 +179,7 @@ export function PrintLineItemsTable({
                   {printableNote ? (
                     <div className="mt-0.5 whitespace-pre-line text-[9px] leading-[12px] text-[#667085]">{printableNote}</div>
                   ) : null}
-                  {hasLineDiscount && !isDeliveryNote ? (
+                  {hasLineDiscount && !hideDeliveryAmounts ? (
                     <div className="mt-0.5 text-[9px] text-[#B54708]">
                       ส่วนลด {item.discount_percent || 0}%{item.discount_amount > 0 ? ` | -${formatCurrency(item.discount_amount)}` : ""}
                     </div>
@@ -192,7 +193,7 @@ export function PrintLineItemsTable({
                 </td>
                 <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">{item.quantity}</td>
                 <td className="px-2 py-1.5 text-[10px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">{item.unit}</td>
-                {!isDeliveryNote && (
+                {!hideDeliveryAmounts && (
                   <>
                     <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">{formatCurrency(item.unit_price)}</td>
                     <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
@@ -212,7 +213,7 @@ export function PrintLineItemsTable({
               <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
               <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
               <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
-              {!isDeliveryNote && (
+              {!hideDeliveryAmounts && (
                 <>
                   <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
                   <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>

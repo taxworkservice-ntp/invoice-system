@@ -110,7 +110,8 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       .select("*")
       .eq("deal_id", dealId)
       .eq("user_id", userId)
-      .in("status", ["paid", "generated"])
+      .in("doc_type", ["invoice", "tax_invoice_receipt"])
+      .in("status", ["paid", "generated", "issued"])
       .order("created_at", { ascending: false });
 
     if (paidDocs && paidDocs.length > 0) {

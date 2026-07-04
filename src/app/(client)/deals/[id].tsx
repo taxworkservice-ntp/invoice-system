@@ -594,6 +594,10 @@ export default function DealDetailPage() {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
+    if (voidAndRecreate && !voidReason.trim()) {
+      toast.error("กรุณาระบุเหตุผลในการแก้ไขโดยออกฉบับใหม่");
+      return;
+    }
     let recreatedId: string | null = null;
     let recreatedIsUtility = false;
     setVoiding(true);
@@ -614,6 +618,7 @@ export default function DealDetailPage() {
             doc_number: newDocNumber,
             status: "draft" as DocumentStatus,
             issue_date: issueDate,
+            due_date: voidDocument.due_date,
             vat_registered: voidDocument.vat_registered,
             vat_rate: voidDocument.vat_rate,
             wht_rate: voidDocument.wht_rate,
@@ -624,6 +629,11 @@ export default function DealDetailPage() {
             total_amount: voidDocument.total_amount,
             wht_amount: voidDocument.wht_amount,
             net_payable: voidDocument.net_payable,
+            note: voidDocument.note,
+            payment_method: null,
+            amount_received: null,
+            paid_at: null,
+            wht_certificate_no: null,
             copied_from_id: voidDocument.id,
           })
           .select("*")
@@ -700,6 +710,10 @@ export default function DealDetailPage() {
       const isUtilityBill = activeDoc.line_items.some((li) => (li.line_note || "").includes("[USAGE_BILL]"));
       if (isUtilityBill) {
         navigate(`/documents/${activeDoc.document.id}/edit-utility`);
+        return;
+      }
+      if (activeDoc.document.doc_type === "delivery_note" && activeDoc.document.converted_from_id) {
+        navigate(`/documents/new?type=delivery_note_from_quotation&quotationId=${activeDoc.document.converted_from_id}&documentId=${activeDoc.document.id}`);
         return;
       }
       navigate(`/documents/${activeDoc.document.id}/edit`);
@@ -799,6 +813,17 @@ export default function DealDetailPage() {
     () => docsWithMeta.filter((item) => item.document.status === "voided"),
     [docsWithMeta]
   );
+
+  const replacementBySourceId = useMemo(() => {
+    const map = new Map<string, Document>();
+    for (const item of docsWithMeta) {
+      const sourceId = item.document.copied_from_id;
+      if (sourceId && item.document.status !== "voided") {
+        map.set(sourceId, item.document);
+      }
+    }
+    return map;
+  }, [docsWithMeta]);
 
   const activeDoc = useMemo(() => {
     const unresolved = nonVoidedDocs.filter((item) => item.stage !== "done");
@@ -1424,6 +1449,9 @@ export default function DealDetailPage() {
             <div className="space-y-0">
               {nonVoidedDocs.map((item, index) => {
                 const doc = item.document;
+                const copiedFromDoc = doc.copied_from_id
+                  ? docsWithMeta.find((source) => source.document.id === doc.copied_from_id)?.document
+                  : null;
                 const isCurrent = activeDoc?.document.id === doc.id;
                 const overdue = isOverdueDocument(doc);
                 const isDoneStage = item.stage === "done" && !isCurrent;
@@ -1455,6 +1483,11 @@ export default function DealDetailPage() {
                           <div className={`mt-0.5 text-[11px] ${doc.status === "voided" ? "line-through" : "text-gray-500"}`}>
                             {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
                           </div>
+                          {copiedFromDoc && (
+                            <div className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                              ออกแทน {copiedFromDoc.doc_number || "เอกสารเดิม"}
+                            </div>
+                          )}
                           <div className="mt-1 text-[10px] text-gray-400">
                             {formatBuddhistDate(doc.issue_date)}
                             {doc.due_date ? (
@@ -1503,6 +1536,7 @@ export default function DealDetailPage() {
 
               {showVoided && voidedDocs.map((item) => {
                 const doc = item.document;
+                const replacementDoc = replacementBySourceId.get(doc.id);
                 return (
                   <div key={doc.id} className="flex gap-3 opacity-50">
                     <div className="w-7 flex flex-col items-center shrink-0">
@@ -1513,6 +1547,11 @@ export default function DealDetailPage() {
                         <div>
                           <div className="text-xs font-semibold text-gray-700">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</div>
                           <div className="mt-0.5 text-[11px] text-gray-500 line-through">{doc.doc_number || "ยังไม่มีเลขเอกสาร"}</div>
+                          {replacementDoc && (
+                            <div className="mt-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                              ออกใหม่เป็น {replacementDoc.doc_number || "ฉบับใหม่"}
+                            </div>
+                          )}
                           <div className="mt-1 text-[10px] text-gray-400">{formatBuddhistDate(doc.issue_date)}</div>
                           {doc.voided_reason && (
                             <div className="mt-0.5 text-[10px] text-gray-400 italic">เหตุผล: {doc.voided_reason}</div>
@@ -1547,7 +1586,9 @@ export default function DealDetailPage() {
             <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-5 text-stone-700">
               {activeDoc.document.status === "draft"
                 ? "Draft documents can be edited directly."
-                : "For sent or later documents, this action voids the current version and creates a fresh draft copy."}
+                : activeDoc.document.doc_type === "invoice" || activeDoc.document.doc_type === "tax_invoice_receipt"
+                  ? "ระบบจะเก็บเอกสารเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข"
+                  : "For sent or later documents, this action voids the current version and creates a fresh draft copy."}
             </div>
           )}
            <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1562,14 +1603,37 @@ export default function DealDetailPage() {
                 {bulkDownloading ? `กำลังสร้าง ZIP (${nonVoidedDocs.length})` : "ดาวน์โหลดเอกสารทั้งหมด (ZIP)"}
               </Button>
             )}
-            <Button
-              variant="secondary"
-              className={`col-span-2 justify-center ${activeDoc?.document.status !== "draft" ? "!bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100" : "!bg-page-bg"}`}
-              onClick={handleCurrentDocAction}
-            >
-              {activeDoc?.document.status === "draft" ? "แก้ไขฉบับร่าง" : "ยกเลิก / แก้ไข"}
-            </Button>
-            {allDone && hasPaidDocs && (
+            {activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued" ? (
+              <>
+                <Button
+                  variant="secondary"
+                  className="justify-center !bg-amber-50 !text-amber-800 !border-amber-200 hover:!bg-amber-100"
+                  onClick={handleCreateCreditNote}
+                >
+                  ออกใบลดหนี้
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="justify-center !bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100"
+                  onClick={() => handleOpenVoidModal(activeDoc.document, true)}
+                >
+                  ยกเลิกและออกฉบับใหม่
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="secondary"
+                className={`col-span-2 justify-center ${activeDoc?.document.status !== "draft" ? "!bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100" : "!bg-page-bg"}`}
+                onClick={handleCurrentDocAction}
+              >
+                {activeDoc?.document.status === "draft"
+                  ? "แก้ไขฉบับร่าง"
+                  : activeDoc?.document.doc_type === "invoice"
+                    ? "แก้ไขโดยออกฉบับใหม่"
+                    : "ยกเลิก / แก้ไข"}
+              </Button>
+            )}
+            {allDone && hasPaidDocs && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (
               <Button
                 variant="secondary"
                 className="col-span-2 justify-center !bg-page-bg"
@@ -1626,18 +1690,37 @@ export default function DealDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={voidModalOpen} onClose={() => setVoidModalOpen(false)} title={voidAndRecreate ? "ยกเลิกและสร้างใหม่" : "ยกเลิกเอกสาร"}>
+      <Modal
+        open={voidModalOpen}
+        onClose={() => setVoidModalOpen(false)}
+        title={voidAndRecreate
+          ? voidDocument?.doc_type === "tax_invoice_receipt"
+            ? "ยกเลิกและออกฉบับใหม่"
+            : "แก้ไขโดยออกฉบับใหม่"
+          : "ยกเลิกเอกสาร"}
+      >
         <div className="space-y-3">
+          {voidDocument && (
+            <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
+              เอกสารเดิม: <span className="font-semibold text-stone-900">{voidDocument.doc_number || documentTypeLabel(voidDocument.doc_type, voidDocument.vat_registered).thai}</span>
+            </div>
+          )}
           <p className="text-sm text-gray-600">
             {voidAndRecreate
-              ? "การยกเลิกจะเปลี่ยนสถานะเป็นยกเลิก และสร้างสำเนาใหม่ในสถานะร่าง"
+              ? "ระบบจะเก็บเอกสารเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข โดยฉบับใหม่จะใช้เลขที่เอกสารใหม่"
               : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้? สินค้าจะถูกคืนสต็อก"}
           </p>
+          {voidAndRecreate && voidDocument && (voidDocument.doc_type === "invoice" || voidDocument.doc_type === "tax_invoice_receipt") && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              หากเอกสารนี้ผูกกับใบวางบิล ใบเสร็จ หรือใบส่งของ ระบบจะปลดสถานะที่เกี่ยวข้องตามกฎการยกเลิกเดิม และเก็บประวัติไว้ตรวจสอบย้อนหลัง
+            </div>
+          )}
           <Input
             label="เหตุผลการยกเลิก"
             value={voidReason}
             onChange={(e) => setVoidReason(e.target.value)}
-            placeholder="ไม่บังคับ"
+            placeholder={voidAndRecreate ? "เช่น ลูกค้าขอปรับยอด / ออกผิดรายละเอียด" : "ไม่บังคับ"}
+            required={voidAndRecreate}
           />
           <div className="flex gap-2">
             {voidAndRecreate ? (
@@ -1645,8 +1728,8 @@ export default function DealDetailPage() {
                 <Button variant="secondary" className="flex-1" onClick={() => setVoidAndRecreate(false)}>
                   ยกเลิกอย่างเดียว
                 </Button>
-                <Button variant="danger" className="flex-1" onClick={handleConfirmVoid} loading={voiding}>
-                  {voiding ? "กำลังยกเลิก..." : "ยกเลิกและสร้างใหม่"}
+                <Button variant="primary" className="flex-1" onClick={handleConfirmVoid} loading={voiding}>
+                  {voiding ? "กำลังยกเลิก..." : voidDocument?.doc_type === "tax_invoice_receipt" ? "ยกเลิกและออกฉบับใหม่" : "แก้ไขโดยออกฉบับใหม่"}
                 </Button>
               </>
             ) : (

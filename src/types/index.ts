@@ -232,6 +232,7 @@ export interface Document {
   voided_reason: string | null;
   copied_from_id: string | null;
   converted_from_id: string | null;
+  hide_amounts_on_print?: boolean;
   created_at: string;
   updated_at: string;
   customer?: Customer;

@@ -53,9 +53,10 @@ function getBaseQuantity(source: DocumentLineItem, quantity: number) {
 
 interface DeliveryNoteFromQuotationFormProps {
   quotationId: string;
+  documentId?: string;
 }
 
-export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQuotationFormProps) {
+export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: DeliveryNoteFromQuotationFormProps) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const userId = profile?.id;
@@ -71,6 +72,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState("");
+  const isEditing = Boolean(documentId);
 
   useEffect(() => {
     if (!quotationId || !userId) return;
@@ -102,35 +104,43 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
 
         if (linesError) throw linesError;
 
-        const { data: sourcedDnLines, error: dnLinesError } = await supabase
-          .from("document_line_items")
-          .select("*, document:document_id(id, status, doc_type)")
-          .eq("source_document_id", quotationId);
+        const [
+          { data: sourcedDnLines, error: dnLinesError },
+          { data: existingDoc, error: existingDocError },
+          { data: existingLines, error: existingLinesError },
+        ] = await Promise.all([
+          supabase
+            .from("document_line_items")
+            .select("*, document:document_id(id, status, doc_type)")
+            .eq("source_document_id", quotationId),
+          documentId
+            ? supabase
+                .from("documents")
+                .select("*")
+                .eq("id", documentId)
+                .eq("user_id", userId)
+                .eq("converted_from_id", quotationId)
+                .eq("doc_type", "delivery_note")
+                .eq("status", "draft")
+                .single()
+            : Promise.resolve({ data: null, error: null }),
+          documentId
+            ? supabase
+                .from("document_line_items")
+                .select("*")
+                .eq("document_id", documentId)
+                .order("sort_order", { ascending: true })
+            : Promise.resolve({ data: null, error: null }),
+        ]);
 
         if (dnLinesError) throw dnLinesError;
+        if (existingDocError) throw existingDocError;
+        if (existingLinesError) throw existingLinesError;
+        if (documentId && !existingDoc) throw new Error("ไม่พบร่างใบส่งของ");
 
-        const totals = new Map<string, DeliveryTotals>();
-        ((sourcedDnLines || []) as (DocumentLineItem & { document?: Pick<Document, "status" | "doc_type"> })[]).forEach((line) => {
-          if (!line.source_line_item_id || line.document?.doc_type !== "delivery_note" || line.document?.status === "voided") return;
-          const current = totals.get(line.source_line_item_id) || { delivered: 0, pending: 0 };
-          if (line.document?.status === "sent" || line.document?.status === "converted") {
-            current.delivered = round3(current.delivered + line.quantity);
-          } else if (line.document?.status === "draft") {
-            current.pending = round3(current.pending + line.quantity);
-          }
-          totals.set(line.source_line_item_id, current);
-        });
-
-        const qLines = (quoteLines || []) as DocumentLineItem[];
-        const initialLines = qLines.map((line) => {
-          const total = totals.get(line.id) || { delivered: 0, pending: 0 };
-          const remaining = round3(line.quantity - total.delivered - total.pending);
-          return {
-            source: line,
-            quantity: Math.max(0, remaining),
-            delivered: total.delivered,
-            pending: total.pending,
-          };
+        const existingLineBySourceId = new Map<string, DocumentLineItem>();
+        ((existingLines || []) as DocumentLineItem[]).forEach((line) => {
+          if (line.source_line_item_id) existingLineBySourceId.set(line.source_line_item_id, line);
         });
 
         const { data: draftDoc, error: draftError } = await supabase
@@ -145,11 +155,47 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
           .maybeSingle();
         if (draftError) throw draftError;
 
+        if (documentId && existingDoc) {
+          setIssueDate((existingDoc as Document).issue_date || todayString());
+          setNote((existingDoc as Document).note || "");
+          setDocNumberOverride((existingDoc as Document).doc_number || "");
+        }
+
+        const activeDraft = draftDoc && draftDoc.id !== documentId
+          ? { id: draftDoc.id, doc_number: draftDoc.doc_number }
+          : null;
+
+        const totals = new Map<string, DeliveryTotals>();
+        ((sourcedDnLines || []) as (DocumentLineItem & { document?: Pick<Document, "id" | "status" | "doc_type"> })[]).forEach((line) => {
+          if (!line.source_line_item_id || line.document?.doc_type !== "delivery_note" || line.document?.status === "voided") return;
+          if (documentId && line.document?.id === documentId) return;
+          const current = totals.get(line.source_line_item_id) || { delivered: 0, pending: 0 };
+          if (line.document?.status === "sent" || line.document?.status === "converted") {
+            current.delivered = round3(current.delivered + line.quantity);
+          } else if (line.document?.status === "draft") {
+            current.pending = round3(current.pending + line.quantity);
+          }
+          totals.set(line.source_line_item_id, current);
+        });
+
+        const qLines = (quoteLines || []) as DocumentLineItem[];
+        const initialLines = qLines.map((line) => {
+          const total = totals.get(line.id) || { delivered: 0, pending: 0 };
+          const existingLine = existingLineBySourceId.get(line.id);
+          const remaining = round3(line.quantity - total.delivered - total.pending);
+          return {
+            source: line,
+            quantity: existingLine ? existingLine.quantity : Math.max(0, remaining),
+            delivered: total.delivered,
+            pending: total.pending,
+          };
+        });
+
         if (cancelled) return;
         setQuotation(quote);
         setQuotationLines(qLines);
         setLines(initialLines);
-        setExistingDraft(draftDoc ? { id: draftDoc.id, doc_number: draftDoc.doc_number } : null);
+        setExistingDraft(activeDraft);
       } catch (err: any) {
         if (!cancelled) setError(err.message || "โหลดข้อมูลไม่สำเร็จ");
       } finally {
@@ -161,7 +207,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
     return () => {
       cancelled = true;
     };
-  }, [quotationId, userId]);
+  }, [documentId, quotationId, userId]);
 
   const refetchExistingDraft = useCallback(async () => {
     if (!userId || !quotationId) return;
@@ -176,8 +222,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
       .limit(1)
       .maybeSingle();
     if (draftError) return;
-    setExistingDraft(draftDoc ? { id: draftDoc.id, doc_number: draftDoc.doc_number } : null);
-  }, [quotationId, userId]);
+    setExistingDraft(draftDoc && draftDoc.id !== documentId ? { id: draftDoc.id, doc_number: draftDoc.doc_number } : null);
+  }, [documentId, quotationId, userId]);
 
   const selectedLines = useMemo(
     () => lines.filter((line) => line.quantity > 0),
@@ -223,9 +269,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
 
     try {
       const docNumber = docNumberOverride || await generateDocNumberBE(userId, "delivery_note", issueDate);
-      const { data: deliveryNote, error: docError } = await supabase
-        .from("documents")
-        .insert({
+      const docPayload = {
           user_id: userId,
           deal_id: quotation.deal_id,
           customer_id: quotation.customer_id,
@@ -245,12 +289,31 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
           net_payable: tax.netPayable,
           note: note || null,
           converted_from_id: quotation.id,
-        })
-        .select("*")
-        .single();
+        };
 
-      if (docError || !deliveryNote) throw docError || new Error("สร้างใบส่งของไม่สำเร็จ");
-      createdDocId = deliveryNote.id;
+      let deliveryNoteId = documentId || "";
+      if (documentId) {
+        const { error: docError } = await supabase
+          .from("documents")
+          .update(docPayload)
+          .eq("id", documentId)
+          .eq("user_id", userId)
+          .eq("status", "draft");
+
+        if (docError) throw docError;
+        const { error: deleteLinesError } = await supabase.from("document_line_items").delete().eq("document_id", documentId);
+        if (deleteLinesError) throw deleteLinesError;
+      } else {
+        const { data: deliveryNote, error: docError } = await supabase
+          .from("documents")
+          .insert(docPayload)
+          .select("*")
+          .single();
+
+        if (docError || !deliveryNote) throw docError || new Error("สร้างใบส่งของไม่สำเร็จ");
+        deliveryNoteId = deliveryNote.id;
+        createdDocId = deliveryNote.id;
+      }
 
       const lineRecords = selectedLines.map((line, index) => {
         const calc = calculateLineAmounts({
@@ -260,7 +323,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
         });
 
         return {
-          document_id: deliveryNote.id,
+          document_id: deliveryNoteId,
           user_id: userId,
           item_id: line.source.item_id,
           item_name: line.source.item_name,
@@ -285,8 +348,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
       const { error: lineError } = await supabase.from("document_line_items").insert(lineRecords);
       if (lineError) throw lineError;
 
-      toast.success("สร้างใบส่งของจากใบเสนอราคาแล้ว");
-      navigate(`/documents/${deliveryNote.id}`);
+      toast.success(documentId ? "บันทึกร่างใบส่งของแล้ว" : "สร้างใบส่งของจากใบเสนอราคาแล้ว");
+      navigate(`/documents/${deliveryNoteId}`);
     } catch (err: any) {
       if (createdDocId) {
         await supabase.from("documents").delete().eq("id", createdDocId);
@@ -307,7 +370,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
 
   if (loading) {
     return (
-      <AppShell title="ออกใบส่งของจากใบเสนอราคา" showBack>
+      <AppShell title={isEditing ? "แก้ไขร่างใบส่งของ" : "ออกใบส่งของจากใบเสนอราคา"} showBack>
         <Spinner />
       </AppShell>
     );
@@ -315,7 +378,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
 
   if (error || !quotation) {
     return (
-      <AppShell title="ออกใบส่งของจากใบเสนอราคา" showBack>
+      <AppShell title={isEditing ? "แก้ไขร่างใบส่งของ" : "ออกใบส่งของจากใบเสนอราคา"} showBack>
         <div className="py-12 text-center text-sm text-red-600">{error || "ไม่พบใบเสนอราคา"}</div>
       </AppShell>
     );
@@ -323,14 +386,14 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
 
   if (quotationLines.length === 0) {
     return (
-      <AppShell title="ออกใบส่งของจากใบเสนอราคา" showBack>
+      <AppShell title={isEditing ? "แก้ไขร่างใบส่งของ" : "ออกใบส่งของจากใบเสนอราคา"} showBack>
         <EmptyState title="ใบเสนอราคานี้ไม่มีรายการสินค้า" description="เพิ่มรายการในใบเสนอราคาก่อนสร้างใบส่งของ" />
       </AppShell>
     );
   }
 
   return (
-    <AppShell title="ออกใบส่งของจากใบเสนอราคา" showBack>
+    <AppShell title={isEditing ? "แก้ไขร่างใบส่งของ" : "ออกใบส่งของจากใบเสนอราคา"} showBack>
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
           {error}
@@ -490,7 +553,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId }: DeliveryNoteFromQ
               className="mb-3"
             />
             <Button className="w-full justify-center" disabled={selectedLines.length === 0 || saving} loading={saving} onClick={handleSave}>
-              สร้างใบส่งของฉบับร่าง
+              {isEditing ? "บันทึกร่างใบส่งของ" : "สร้างใบส่งของฉบับร่าง"}
             </Button>
           </div>
         </Card>

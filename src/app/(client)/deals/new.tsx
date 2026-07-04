@@ -391,6 +391,7 @@ export default function NewDealPage() {
   const [utilityRate, setUtilityRate] = useState("");
   const [utilityLastHint, setUtilityLastHint] = useState<string | null>(null);
   const [loadingUtilityLast, setLoadingUtilityLast] = useState(false);
+  const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(true);
 
   const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
@@ -1046,6 +1047,7 @@ export default function NewDealPage() {
         paid_at: isTaxInvoiceReceipt ? new Date(`${paymentDate}T00:00:00`).toISOString() : null,
         amount_received: isTaxInvoiceReceipt ? tax.netPayable : null,
         note: note.trim() ? note : null,
+        hide_amounts_on_print: isDeliveryNote ? hideAmountsOnPrint : null,
       };
 
       const { data: document, error: docError } = await supabase
@@ -1983,6 +1985,30 @@ export default function NewDealPage() {
                 className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary whitespace-pre-line"
               />
             </div>
+            {isDeliveryNote && (
+              <div className="border-t border-card-border pt-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <div className="relative inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={hideAmountsOnPrint}
+                      onChange={(e) => setHideAmountsOnPrint(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-9 h-5 rounded-full transition-colors ${hideAmountsOnPrint ? "bg-primary" : "bg-gray-300"}`}
+                    />
+                    <div
+                      className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${hideAmountsOnPrint ? "translate-x-4" : ""}`}
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-700">ซ่อนจำนวนเงินใน PDF</span>
+                    <span className="block text-[11px] text-gray-400">Hide amounts on print</span>
+                  </div>
+                </label>
+              </div>
+            )}
           </div>
         </Card>
 

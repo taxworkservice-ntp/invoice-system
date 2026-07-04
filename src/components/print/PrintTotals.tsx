@@ -4,8 +4,9 @@ import type { PrintDocumentData } from "../../lib/print";
 export function PrintTotals({ data }: { data: PrintDocumentData }) {
   const { document, grossSubtotal, lineDiscountTotal } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
+  const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
 
-  if (isDeliveryNote) {
+  if (hideDeliveryAmounts) {
     return (
       <section className="print-block mt-3">
         <div>
