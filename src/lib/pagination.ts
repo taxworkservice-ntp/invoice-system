@@ -67,8 +67,7 @@ export function paginateLineItems(
       });
     }
   } else {
-    // Multiple continuation pages needed, then last
-    while (remaining.length > lp) {
+    while (remaining.length > lp + cp) {
       batches.push({
         items: remaining.slice(0, cp),
         mode: "continuation",
@@ -76,6 +75,16 @@ export function paginateLineItems(
       });
       index += cp;
       remaining = remaining.slice(cp);
+    }
+    const contItems = Math.max(0, remaining.length - lp);
+    if (contItems > 0) {
+      batches.push({
+        items: remaining.slice(0, contItems),
+        mode: "continuation",
+        startIndex: index,
+      });
+      index += contItems;
+      remaining = remaining.slice(contItems);
     }
     if (remaining.length > 0) {
       batches.push({
