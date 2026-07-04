@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, PackageCheck } from "lucide-react";
-import { useAuth } from "../../../hooks/useAuth";
+import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -29,6 +29,7 @@ import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stoc
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
+import { getWorkspacePermissions } from "../../../lib/permissions";
 import type {
   Document,
   DocumentLineItem,
@@ -124,7 +125,8 @@ function getStatusPill(doc: Document | null) {
 export default function DealDetailPage() {
   const { id: dealId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile, loading: authLoading } = useAuth();
+  const { profile, loading: authLoading, workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
 
   const [deal, setDeal] = useState<Deal | null>(null);
@@ -148,6 +150,7 @@ export default function DealDetailPage() {
   const [paymentBackdateReason, setPaymentBackdateReason] = useState("");
   const [paymentBackdateNote, setPaymentBackdateNote] = useState("");
   const [paying, setPaying] = useState(false);
+  const [paymentMismatchConfirm, setPaymentMismatchConfirm] = useState(false);
 
   const [confirmConvertDoc, setConfirmConvertDoc] = useState<Document | null>(null);
   const [showVoided, setShowVoided] = useState(false);
@@ -301,6 +304,10 @@ export default function DealDetailPage() {
 
   const handleSendDraft = async (doc: Document) => {
     if (!userId) return;
+    if (!permissions.canSendDocuments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     setActionLoadingId(doc.id);
     try {
       const { warnings } = await sendDocumentWithSideEffects(doc, userId);
@@ -319,6 +326,10 @@ export default function DealDetailPage() {
 
   const handleConvertToInvoice = async (quotation: Document) => {
     if (!userId || !dealId || !customer) return;
+    if (!permissions.canSendDocuments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     setActionLoadingId(quotation.id);
     let createdInvoiceId: string | null = null;
     try {
@@ -432,8 +443,13 @@ export default function DealDetailPage() {
   };
 
   const handleOpenPaymentModal = (doc: Document) => {
+    if (!permissions.canRecordPayments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     setPayDocument(doc);
     setAmountReceived(doc.net_payable);
+    setPaymentMismatchConfirm(false);
     setPaymentMethod("bank_transfer");
     setWhtCertificateNo("");
     setPaymentDate(todayString());
@@ -443,6 +459,18 @@ export default function DealDetailPage() {
   };
 
   const handleConfirmPayment = async () => {
+    if (!payDocument || !userId || !dealId) return;
+    if (!permissions.canRecordPayments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
+    if (amountReceived !== payDocument.net_payable) {
+      setPaymentMismatchConfirm(true);
+      return;
+    }
+    await executeConfirmPayment();
+
+  const executeConfirmPayment = async () => {
     if (!payDocument || !userId || !dealId) return;
     if (isPastDate(paymentDate) && !paymentBackdateReason) {
       toast.error("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
@@ -526,6 +554,7 @@ export default function DealDetailPage() {
 
       toast.success("บันทึกรับเงินสำเร็จ");
       setPaymentModalOpen(false);
+      setPaymentMismatchConfirm(false);
       setPayDocument(null);
       setPaymentBackdateReason("");
       setPaymentBackdateNote("");
@@ -542,6 +571,10 @@ export default function DealDetailPage() {
   };
 
   const handleOpenVoidModal = (doc: Document, recreate: boolean) => {
+    if (!permissions.canVoidDocuments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     setVoidDocument(doc);
     setVoidReason("");
     setVoidAndRecreate(recreate);
@@ -550,6 +583,10 @@ export default function DealDetailPage() {
 
   const handleConfirmVoid = async () => {
     if (!voidDocument || !userId || !dealId) return;
+    if (!permissions.canVoidDocuments) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     let recreatedId: string | null = null;
     let recreatedIsUtility = false;
     setVoiding(true);
@@ -944,6 +981,7 @@ export default function DealDetailPage() {
     const doc = activeDoc.document;
     if (allDone) return { type: "done", label: "เสร็จสิ้น" };
     if (doc.status === "draft") {
+      if (!permissions.canSendDocuments) return null;
       return {
         type: "send_draft",
         doc,
@@ -958,18 +996,22 @@ export default function DealDetailPage() {
       };
     }
     if (doc.doc_type === "delivery_note" && doc.status === "sent") {
+      if (!permissions.canSendDocuments) return null;
       return { type: "invoice_from_dns", doc, label: "ออกใบแจ้งหนี้จากใบส่งของ" };
     }
     if (doc.doc_type === "quotation" && doc.status === "sent") {
+      if (!permissions.canSendDocuments) return null;
       if (hasQuotationDeliveryActivity) {
         return { type: "delivery_from_quote", doc, label: "ออกใบส่งของจากใบเสนอราคา" };
       }
       return { type: "convert", doc, label: "ลูกค้าตกลงแล้ว" };
     }
     if (doc.doc_type === "invoice" && doc.status === "sent") {
+      if (!permissions.canRecordPayments) return null;
       return { type: "billing", doc, label: "วางบิล" };
     }
     if (doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue")) {
+      if (!permissions.canRecordPayments) return null;
       return {
         type: "collect",
         doc,
@@ -978,7 +1020,7 @@ export default function DealDetailPage() {
       };
     }
     return null;
-  }, [activeDoc, allDone, hasQuotationDeliveryActivity]);
+  }, [activeDoc, allDone, hasQuotationDeliveryActivity, permissions.canRecordPayments, permissions.canSendDocuments]);
 
   const actionHint = useMemo(() => {
     if (!activeDoc?.document.doc_number) return "";
@@ -1605,10 +1647,41 @@ export default function DealDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="ยืนยันการรับเงิน">
+      <Modal open={paymentModalOpen} onClose={() => { setPaymentModalOpen(false); setPaymentMismatchConfirm(false); }} title="ยืนยันการรับเงิน">
         <div className="space-y-4">
           {payDocument && (
             <>
+              {paymentMismatchConfirm ? (
+                <>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-semibold text-amber-900">จำนวนเงินที่รับไม่ตรงกับยอดที่ต้องชำระ</p>
+                    <div className="mt-3 space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-amber-700">ยอดที่ต้องชำระ</span>
+                        <span className="font-medium text-amber-900">฿{formatCurrency(payDocument.net_payable)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-amber-700">จำนวนเงินที่รับ</span>
+                        <span className="font-medium text-amber-900">฿{formatCurrency(amountReceived)}</span>
+                      </div>
+                      <div className="border-t border-amber-200 pt-1.5 flex justify-between">
+                        <span className="text-amber-700">ส่วนต่าง</span>
+                        <span className="font-bold text-amber-900">{amountReceived > payDocument.net_payable ? "+" : ""}฿{formatCurrency(amountReceived - payDocument.net_payable)}</span>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-xs text-amber-700">
+                      {amountReceived < payDocument.net_payable
+                        ? "คุณกำลังรับเงินน้อยกว่ายอดที่ต้องชำระ ยอดคงเหลือจะไม่ถูกติดตาม"
+                        : "คุณกำลังรับเงินมากกว่ายอดที่ต้องชำระ จำนวนที่เกินจะไม่ถูกบันทึกเป็นเครดิต"}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="secondary" onClick={() => setPaymentMismatchConfirm(false)}>กลับไปแก้ไข</Button>
+                    <Button variant="primary" onClick={executeConfirmPayment} loading={paying}>ยืนยันรับเงิน</Button>
+                  </div>
+                </>
+              ) : (
+                <>
               <div className="rounded-lg bg-stone-50 border border-card-border px-4 py-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">ยอดในใบวางบิล</span>
@@ -1700,6 +1773,8 @@ export default function DealDetailPage() {
                   {paying ? "กำลังบันทึก..." : "ยืนยันการรับเงิน"}
                 </Button>
               </div>
+                </>
+              )}
             </>
           )}
         </div>

@@ -11,7 +11,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { getDocumentDetail, saveLineItems } from "../../../hooks/useDocuments";
-import { useAuth, useClientProfile } from "../../../hooks/useAuth";
+import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
@@ -24,6 +24,7 @@ import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../.
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { getWorkspacePermissions } from "../../../lib/permissions";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import {
   buildReceiptBackdateFields,
@@ -78,7 +79,8 @@ function DetailCard({
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
 
@@ -101,6 +103,7 @@ export default function DocumentDetailPage() {
   const [payBackdateReason, setPayBackdateReason] = useState("");
   const [payBackdateNote, setPayBackdateNote] = useState("");
   const [paying, setPaying] = useState(false);
+  const [payMismatchConfirm, setPayMismatchConfirm] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -163,6 +166,10 @@ export default function DocumentDetailPage() {
 
   const handleDelete = async () => {
     if (!doc || !userId) return;
+    if (!permissions.canDeleteDocuments) {
+      setError("สิทธิ์นี้ทำได้เฉพาะ Owner");
+      return;
+    }
     setDeleting(true);
     try {
       if (doc.doc_type === "billing_note") {
@@ -194,6 +201,10 @@ export default function DocumentDetailPage() {
 
   const handleVoid = async () => {
     if (!doc || !userId) return;
+    if (!permissions.canVoidDocuments) {
+      setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     setVoiding(true);
     try {
       await voidDocumentWithSideEffects(doc, userId, voidReason);
@@ -308,14 +319,23 @@ export default function DocumentDetailPage() {
 
   const handlePay = async () => {
     if (!doc || !userId || payAmount <= 0) return;
+    if (!permissions.canRecordPayments) {
+      setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
+    if (payAmount !== doc.net_payable) {
+      setPayMismatchConfirm(true);
+      return;
+    }
+    await executePay();
+
+  const executePay = async () => {
+    if (!doc || !userId) return;
     const isBackdatedReceipt = isPastDate(payDate);
     if (isBackdatedReceipt && !payBackdateReason) {
       setError("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
       return;
     }
-
-    setPaying(true);
-    try {
       const paidAt = toLocalMiddayIso(payDate);
       const receiptBackdateFields = buildReceiptBackdateFields({
         selectedDate: payDate,
@@ -389,6 +409,7 @@ export default function DocumentDetailPage() {
       }
 
       setPayModal(false);
+      setPayMismatchConfirm(false);
       setPayBackdateReason("");
       setPayBackdateNote("");
       await fetchDoc();
@@ -401,6 +422,10 @@ export default function DocumentDetailPage() {
 
   const handleConvert = async () => {
     if (!doc || !userId) return;
+    if (!permissions.canSendDocuments) {
+      setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     setActionLoading("convert");
     try {
       const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
@@ -574,7 +599,12 @@ export default function DocumentDetailPage() {
 
   const openPayModal = () => {
     if (!doc) return;
+    if (!permissions.canRecordPayments) {
+      setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
     setPayAmount(doc.net_payable);
+    setPayMismatchConfirm(false);
     setPayMethod("bank_transfer");
     setPayWhtCert("");
     setPayDate(todayString());
@@ -1127,7 +1157,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (
+          {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && permissions.canSendDocuments && (
             <Button
               variant={doc.doc_type === "delivery_note" ? "primary" : "secondary"}
               size="md"
@@ -1152,7 +1182,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isDraft && doc.doc_type === "credit_note" && (
+          {isDraft && doc.doc_type === "credit_note" && permissions.canSendDocuments && (
             <Button
               variant="primary"
               size="md"
@@ -1178,7 +1208,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && doc.doc_type === "delivery_note" && (
+          {isSent && doc.doc_type === "delivery_note" && permissions.canSendDocuments && (
             <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
               เอกสารถูกล็อกหลังยืนยันส่งของแล้ว หากผิดให้ยกเลิกและสร้างใหม่
             </div>
@@ -1213,30 +1243,34 @@ export default function DocumentDetailPage() {
                 รวมกับใบส่งของอื่น
               </Button>
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="ghost"
-                  size="md"
-                  className="w-full"
-                  onClick={() => {
-                    setVoidReason("");
-                    setVoidAndRecreate(false);
-                    setVoidModal(true);
-                  }}
-                >
-                  ยกเลิกอย่างเดียว
-                </Button>
-                <Button
-                  variant="danger"
-                  size="md"
-                  className="w-full"
-                  onClick={() => {
-                    setVoidReason("");
-                    setVoidAndRecreate(true);
-                    setVoidModal(true);
-                  }}
-                >
-                  ยกเลิกและสร้างใหม่
-                </Button>
+                {permissions.canVoidDocuments && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      className="w-full"
+                      onClick={() => {
+                        setVoidReason("");
+                        setVoidAndRecreate(false);
+                        setVoidModal(true);
+                      }}
+                    >
+                      ยกเลิกอย่างเดียว
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="md"
+                      className="w-full"
+                      onClick={() => {
+                        setVoidReason("");
+                        setVoidAndRecreate(true);
+                        setVoidModal(true);
+                      }}
+                    >
+                      ยกเลิกและสร้างใหม่
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -1252,7 +1286,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && doc.doc_type === "invoice" && (
+          {isSent && doc.doc_type === "invoice" && permissions.canRecordPayments && (
             <Button
               variant="secondary"
               size="md"
@@ -1263,13 +1297,13 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isDraft && (
+          {isDraft && permissions.canDeleteDocuments && (
             <Button variant="danger" size="md" className="w-full" onClick={() => setDeleteModal(true)}>
               ลบเอกสาร
             </Button>
           )}
 
-          {isSent && doc.doc_type === "quotation" && !hasQuotationDnActivity && (
+          {isSent && doc.doc_type === "quotation" && !hasQuotationDnActivity && permissions.canSendDocuments && (
             <Button
               variant="primary"
               size="md"
@@ -1281,7 +1315,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && (doc.doc_type === "invoice" || doc.doc_type === "billing_note") && (
+          {isSent && (doc.doc_type === "invoice" || doc.doc_type === "billing_note") && permissions.canRecordPayments && (
             <div className="space-y-2">
               <Button variant="primary" size="md" className="w-full" onClick={openPayModal}>
                 รับเงินแล้ว
@@ -1315,7 +1349,7 @@ export default function DocumentDetailPage() {
             </div>
           )}
 
-          {(isSent || (isIssued && doc.doc_type === "tax_invoice_receipt")) && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && (
+          {(isSent || (isIssued && doc.doc_type === "tax_invoice_receipt")) && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && permissions.canVoidDocuments && (
             <Button
               variant="danger"
               size="md"
@@ -1341,7 +1375,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && !isPaid && !isVoided && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && (
+          {isSent && !isPaid && !isVoided && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && permissions.canVoidDocuments && (
             <Button
               variant="ghost"
               size="sm"
@@ -1382,8 +1416,39 @@ export default function DocumentDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={payModal} onClose={() => setPayModal(false)} title="ยืนยันการรับเงิน">
+      <Modal open={payModal} onClose={() => { setPayModal(false); setPayMismatchConfirm(false); }} title="ยืนยันการรับเงิน">
         <div className="space-y-3">
+          {payMismatchConfirm ? (
+            <>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-900">จำนวนเงินที่รับไม่ตรงกับยอดที่ต้องชำระ</p>
+                <div className="mt-3 space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">ยอดที่ต้องชำระ</span>
+                    <span className="font-medium text-amber-900">฿{formatCurrency(doc.net_payable)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">จำนวนเงินที่รับ</span>
+                    <span className="font-medium text-amber-900">฿{formatCurrency(payAmount)}</span>
+                  </div>
+                  <div className="border-t border-amber-200 pt-1.5 flex justify-between">
+                    <span className="text-amber-700">ส่วนต่าง</span>
+                    <span className="font-bold text-amber-900">{payAmount > doc.net_payable ? "+" : ""}฿{formatCurrency(payAmount - doc.net_payable)}</span>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-amber-700">
+                  {payAmount < doc.net_payable
+                    ? "คุณกำลังรับเงินน้อยกว่ายอดที่ต้องชำระ ยอดคงเหลือจะไม่ถูกติดตาม"
+                    : "คุณกำลังรับเงินมากกว่ายอดที่ต้องชำระ จำนวนที่เกินจะไม่ถูกบันทึกเป็นเครดิต"}
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="secondary" onClick={() => setPayMismatchConfirm(false)}>กลับไปแก้ไข</Button>
+                <Button variant="primary" onClick={executePay} loading={paying}>ยืนยันรับเงิน</Button>
+              </div>
+            </>
+          ) : (
+            <>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">ยอดที่ต้องชำระ</label>
             <p className="text-lg font-semibold">฿{formatCurrency(doc.net_payable)}</p>
@@ -1451,6 +1516,8 @@ export default function DocumentDetailPage() {
             <Button variant="secondary" onClick={() => setPayModal(false)}>ปิด</Button>
             <Button variant="primary" onClick={handlePay} loading={paying} disabled={payAmount <= 0}>ยืนยัน</Button>
           </div>
+            </>
+          )}
         </div>
       </Modal>
 
