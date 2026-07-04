@@ -485,7 +485,7 @@ export default function HomePage() {
     [activeDealsAll, homeFilter]
   );
 
-  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount" | "nextActionLabel";
+  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount";
   const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, { key: "createdAt", dir: "desc" });
 
   const recentlyDone = useMemo(
@@ -708,15 +708,7 @@ export default function HomePage() {
                             active={dealSort.sort.key === "amount"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("amount")}
-                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
-                          />
-                          <SortableTh
-                            label="ขั้นตอนถัดไป"
-                            align="left"
-                            active={dealSort.sort.key === "nextActionLabel"}
-                            dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("nextActionLabel")}
-                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden md:table-cell"
+                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase min-w-[120px]"
                           />
                         </tr>
                       </thead>
@@ -750,12 +742,7 @@ export default function HomePage() {
                               </span>
                             </td>
                             <td className="px-3 py-2 text-right">
-                              <span className="font-medium text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</span>
-                            </td>
-                            <td className="px-3 py-2 hidden md:table-cell">
-                              <span className="text-[11px] font-medium text-[#777166]">
-                                {deal.nextActionLabel}
-                              </span>
+                              <span className="font-medium text-[#1A1A18] min-w-[100px] inline-block text-right">฿ {formatCurrency(deal.amount)}</span>
                             </td>
                           </tr>
                           );
