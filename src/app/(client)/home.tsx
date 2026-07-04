@@ -100,6 +100,7 @@ function getAmountDocument(documents: DealDoc[]) {
     [...nonVoided].reverse().find((doc) => doc.doc_type === "billing_note") ||
     [...nonVoided].reverse().find((doc) => doc.doc_type === "invoice") ||
     [...nonVoided].reverse().find((doc) => doc.doc_type === "quotation") ||
+    [...nonVoided].reverse().find((doc) => doc.doc_type === "delivery_note") ||
     null
   );
 }
