@@ -536,16 +536,16 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
       {/* ============== BOTTOM BAND (signatures) ============== */}
       <div className="print-classic-bottom-band">
         <div className="print-classic-sig-cell">
-          <div className="print-classic-sig-th">ได้รับสินค้า/บริการถูกต้องแล้ว</div>
-          <div className="print-classic-sig-th-en">GOODS/SERVICES RECEIVED</div>
+          <div className="print-classic-sig-th">{isDeliveryNote ? "ได้รับสินค้า/บริการถูกต้องแล้ว" : "ได้รับชำระเงินถูกต้องแล้ว"}</div>
+          <div className="print-classic-sig-th-en">{isDeliveryNote ? "GOODS/SERVICES RECEIVED" : "PAYMENT RECEIVED"}</div>
           <div className="print-classic-sig-line"></div>
           <div className="print-classic-sig-dt">วันที่ / DATE</div>
-          <div className="print-classic-sig-role">ผู้รับของ / RECEIVED BY</div>
+          <div className="print-classic-sig-role">{isDeliveryNote ? "ผู้รับของ / RECEIVED BY" : "ผู้รับเงิน / RECEIVER"}</div>
         </div>
         <div className="print-classic-sig-cell print-classic-sig-cell-mid">
           <div className="print-classic-sig-line"></div>
           <div className="print-classic-sig-dt">วันที่ / DATE</div>
-          <div className="print-classic-sig-role">ผู้ส่งของ / DELIVERED BY</div>
+          <div className="print-classic-sig-role">{isDeliveryNote ? "ผู้ส่งของ / DELIVERED BY" : ""}</div>
         </div>
         <div className="print-classic-sig-cell">
           <div className="print-classic-sig-th">ในนาม&nbsp;{clientProfile.company_name_th}</div>
