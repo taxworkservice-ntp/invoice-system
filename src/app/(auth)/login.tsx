@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useToast } from "../../hooks/useToast";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
-import type { Subscription } from "@supabase/supabase-js";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -13,26 +12,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const authSubRef = useRef<Subscription | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return;
-      const hash = window.location.hash;
-      if (hash.includes("type=recovery")) {
-        navigate("/reset-password", { replace: true });
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        navigate("/reset-password", { replace: true });
-      }
-    });
-    authSubRef.current = subscription;
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -50,8 +29,6 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-
-    authSubRef.current?.unsubscribe();
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -79,21 +56,7 @@ export default function LoginPage() {
           .eq("member_user_id", data.user.id)
           .eq("status", "active")
           .maybeSingle();
-        if (membership) {
-          const { data: pwCheck } = await supabase
-            .from("client_members")
-            .select("password_changed")
-            .eq("member_user_id", data.user.id)
-            .eq("status", "active")
-            .maybeSingle();
-          if (pwCheck && pwCheck.password_changed === false) {
-            navigate("/set-password", { replace: true });
-          } else {
-            navigate("/home", { replace: true });
-          }
-        } else {
-          navigate("/setup", { replace: true });
-        }
+        navigate(membership ? "/home" : "/setup", { replace: true });
       }
     }
 

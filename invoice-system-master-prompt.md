@@ -137,10 +137,16 @@ Hidden behind a quiet "show more" expand — never visible by default.
 
 - Supabase Auth — email and password only
 - Admin has role = 'admin' in profiles table, clients have role = 'client'
+- Staff members (owner/manager/officer) are stored in `client_members` table
+- Each staff member has: role, status, permissions (canManageCatalog, canManageCustomers)
+- Owner can manage all staff; manager/officer permissions are UI-enforced + RLS-backed
+- Staff login flow: first login → force password change via `/set-password` (password_changed flag)
+- Admin can reset staff passwords, triggering force-change on next login
 - On login, check profile role and route accordingly:
   - admin → /admin/clients
   - client (profile incomplete) → /setup
   - client (profile complete) → /home
+  - staff (password not changed) → /set-password
 - Row Level Security enforces data isolation at database level
 - Clients cannot access other clients' data under any circumstances
 - Admin impersonation: store target client user_id in session state, apply as filter on all queries — do not use actual Supabase impersonation
@@ -655,14 +661,15 @@ transaction when saving a document. Never generate numbers in React.
 ## Data Model Summary
 
 | Table | Purpose |
-|---|---|
+|---|---|---|
 | profiles | Links auth.users to role (admin/client) |
 | client_profiles | Company info, tax defaults, logo |
+| client_members | Staff members per client account (owner/manager/officer), roles, permissions |
 | doc_number_sequences | Per-client per-type running number config |
 | customers | Client's own customer list |
 | items | Product and service catalog per client |
 | stock_movements | Full audit log of every stock change |
-| deals | Parent container for a transaction lifecycle |
+| deals | Parent container for a transaction lifecycle (includes JSONB `notes` for internal notes) |
 | documents | All document types in one table |
 | document_line_items | Line items on quotation/invoice/delivery/credit |
 | billing_note_invoices | Invoice references inside a billing note |
@@ -681,7 +688,6 @@ Do not build these in v1. They can be added without redesigning the system:
 - Recurring invoices
 - Purchase orders and restocking workflow
 - Multi-currency
-- Multiple users per client account
 - Accountant access role
 - Automated SMS/email reminders for overdue
 - Discount fields per invoice or per line item
@@ -713,11 +719,26 @@ Do not build these in v1. They can be added without redesigning the system:
 | Auth | Supabase Auth only | Zero custom auth code |
 | Currency | Thai Baht only, no multi-currency | Scope control |
 | Backend | No custom server — Supabase + Vercel cron only | Simplicity, cost |
+| Multi-page printing | Signature on last page only; continuation pages show compact header | Cleaner output, standard practice |
+| Staff PATCH API | memberId in request body, not URL | Vercel nested bracket routing fails with [id]/members/[memberId] deep nesting |
+| Deal notes | JSONB array on deals column, no separate table | Avoids RLS/schema-cache issues with new tables |
+| Staff force password change | password_changed boolean on client_members; redirect to /set-password | Simple flag, no separate auth state |
 ---
 
 ## Current Rollout Status
 
-Completed recently:
+Completed:
+- Multi-page invoice printing (modern + classic): continuation pages with compact headers, signature on last page only, 20/26/14 items per page in modern template
+- Staff members system: create/update/delete members, role-based permissions (canManageCatalog, canManageCustomers), UI enforced in nav + route guards
+- Staff force-password-change flow: password_changed flag, /set-password page, RLS policy for self-update
+- Fixed staff infinite set-password loop: RLS policy allowing members to update own password_changed
+- Deal internal notes: JSONB `notes` column on deals, DealNotes component with role badges, relative timestamps, auto-resize textarea, Enter-to-send
+- Fixed billing note delete bug: releasing linked invoices from in_billing → sent on delete
+- Receipt amount mismatch warning dialog (warn + allow, not strict block)
+- Consolidated Vercel API functions 14→7 (merged password, status, delete, reset-* into [id]/index.js)
+- Fixed PATCH member endpoint: send memberId in request body to avoid Vercel nested bracket routing failures
+- Deal table: removed "ขั้นตอนถัดไป" column, widened "จำนวนเงิน" column
+- Deal page performance fix: prevent empty state flash on auth race, removed 15s timeout
 - Documents list redesigned into a cleaner command-center style
 - Mobile-first improvements for Documents list filters and scanning
 - Quick-detail document modal from the Documents list

@@ -1,8 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Spinner } from "./components/ui/Spinner";
 import { useWorkspaceRole } from "./hooks/useAuth";
-import { supabase } from "./lib/supabase";
 import { getWorkspacePermissions } from "./lib/permissions";
 
 const LoginPage = lazy(() => import("./app/(auth)/login"));
@@ -39,27 +38,10 @@ function RouteFallback() {
 }
 
 export default function App() {
-  const { profile, workspaceRole, workspacePermissions, loading } = useWorkspaceRole();
+  const { profile, workspaceRole, workspacePermissions, loading, recovery } = useWorkspaceRole();
   const role = profile?.role ?? null;
   const isAdmin = role === "admin";
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
-  const [recovery, setRecovery] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session && window.location.hash.includes("type=recovery")) {
-        setRecovery(true);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setRecovery(true);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   if (recovery) {
     return <Navigate to="/reset-password" replace />;

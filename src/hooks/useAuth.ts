@@ -1,101 +1,149 @@
-import { useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import type { ClientMemberRole, Profile, ClientProfile, UserRole } from "../types";
 
-export function useAuth() {
+interface AuthContextValue {
+  profile: Profile | null;
+  loading: boolean;
+  error: string | null;
+  recovery: boolean;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+async function resolveProfile(userId: string): Promise<Profile> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  if (error) throw error;
+
+  const baseProfile = data as Profile;
+
+  if (baseProfile.role === "client") {
+    const { data: membership } = await supabase
+      .from("client_members")
+      .select("workspace_user_id, role, status, permissions")
+      .eq("member_user_id", userId)
+      .eq("status", "active")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (membership?.workspace_user_id) {
+      return {
+        ...baseProfile,
+        auth_user_id: userId,
+        id: membership.workspace_user_id,
+        workspace_user_id: membership.workspace_user_id,
+        workspace_role: membership.role as ClientMemberRole,
+        workspace_permissions: membership.permissions as Profile["workspace_permissions"],
+      };
+    }
+
+    return {
+      ...baseProfile,
+      auth_user_id: userId,
+      workspace_user_id: userId,
+      workspace_role: "owner",
+      workspace_permissions: null,
+    };
+  }
+
+  return {
+    ...baseProfile,
+    auth_user_id: userId,
+    workspace_user_id: userId,
+    workspace_role: null,
+    workspace_permissions: null,
+  };
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
+    async function fetchProfile(userId: string) {
+      try {
+        setError(null);
+        const resolvedProfile = await resolveProfile(userId);
+        if (active) setProfile(resolvedProfile);
+      } catch (err: any) {
+        if (active) {
+          setError(err.message || "Unable to load profile");
+          setProfile(null);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
     supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      if (!active) return;
       if (sessionError) {
         setError(sessionError.message);
         setLoading(false);
         return;
       }
+      if (session && window.location.hash.includes("type=recovery")) {
+        setRecovery(true);
+      }
       if (session?.user) {
-        fetchProfile(session.user.id);
+        void fetchProfile(session.user.id);
       } else {
         setLoading(false);
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (event === "PASSWORD_RECOVERY") {
+        setRecovery(true);
+        setLoading(false);
+        return;
+      }
       if (session?.user) {
-        fetchProfile(session.user.id);
+        setLoading(true);
+        void fetchProfile(session.user.id);
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  async function fetchProfile(userId: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+  return createElement(AuthContext.Provider, { value: { profile, loading, error, recovery } }, children);
+}
 
-    if (error) {
-      setError(error.message);
-    } else {
-      const baseProfile = data as Profile;
-
-      if (baseProfile.role === "client") {
-        const { data: membership } = await supabase
-          .from("client_members")
-          .select("workspace_user_id, role, status, permissions")
-          .eq("member_user_id", userId)
-          .eq("status", "active")
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (membership?.workspace_user_id) {
-          setProfile({
-            ...baseProfile,
-            auth_user_id: userId,
-            id: membership.workspace_user_id,
-            workspace_user_id: membership.workspace_user_id,
-            workspace_role: membership.role as ClientMemberRole,
-            workspace_permissions: membership.permissions as Profile["workspace_permissions"],
-          });
-        } else {
-          setProfile({
-            ...baseProfile,
-            auth_user_id: userId,
-            workspace_user_id: userId,
-            workspace_role: "owner",
-            workspace_permissions: null,
-          });
-        }
-      } else {
-        setProfile({
-          ...baseProfile,
-          auth_user_id: userId,
-          workspace_user_id: userId,
-          workspace_role: null,
-          workspace_permissions: null,
-        });
-      }
-    }
-    setLoading(false);
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
   }
-
-  return { profile, loading, error };
+  return context;
 }
 
 export function useWorkspaceRole() {
-  const { profile, loading } = useAuth();
+  const { profile, loading, recovery } = useAuth();
   const workspaceRole = profile?.workspace_role ?? null;
 
   return {
     profile,
     loading,
+    recovery,
     workspaceUserId: profile?.workspace_user_id ?? profile?.id,
     workspaceRole,
     workspacePermissions: profile?.workspace_permissions ?? null,
