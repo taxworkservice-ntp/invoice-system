@@ -92,12 +92,12 @@ export default function App() {
             <Route path="/documents/:id/edit-utility" element={<EditUtilityBillPage />} />
             <Route path="/documents/:id/print" element={<DocumentPrintPreviewPage />} />
             <Route path="/documents/:id" element={<DocumentDetailPage />} />
-            <Route path="/catalog" element={<CatalogPage />} />
+            <Route path="/catalog" element={permissions.canManageCatalog ? <CatalogPage /> : <Navigate to="/home" replace />} />
             <Route path="/catalog/new" element={permissions.canManageCatalog ? <CatalogNewPage /> : <Navigate to="/catalog" replace />} />
             <Route path="/catalog/:id/edit" element={permissions.canManageCatalog ? <CatalogEditPage /> : <Navigate to="/catalog" replace />} />
-            <Route path="/catalog/:id" element={<CatalogItemPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/customers/:id" element={<CustomerDetailPage />} />
+            <Route path="/catalog/:id" element={permissions.canManageCatalog ? <CatalogItemPage /> : <Navigate to="/home" replace />} />
+            <Route path="/customers" element={permissions.canManageCustomers ? <CustomersPage /> : <Navigate to="/home" replace />} />
+            <Route path="/customers/:id" element={permissions.canManageCustomers ? <CustomerDetailPage /> : <Navigate to="/home" replace />} />
             <Route path="/reports" element={permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings" element={permissions.canManageSettings ? <SettingsPage /> : <Navigate to="/home" replace />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
