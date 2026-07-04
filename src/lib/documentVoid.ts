@@ -26,12 +26,55 @@ export async function voidDocumentWithSideEffects(
     await releaseInvoicesFromBillingNote(document.id);
   }
 
+  if (document.doc_type === "receipt") {
+    await releaseInvoicesFromReceipt(document.id);
+  }
+
   if (document.doc_type === "invoice" && document.converted_from_id) {
     await releaseDeliveryNoteFromInvoice(document.converted_from_id);
   }
 
   if (document.doc_type === "invoice") {
     await releaseDeliveryNotesFromInvoice(document.id);
+  }
+}
+
+async function releaseInvoicesFromReceipt(receiptId: string): Promise<void> {
+  const { data: links, error } = await supabase
+    .from("receipt_invoices")
+    .select("invoice_id, source_billing_note_id")
+    .eq("receipt_id", receiptId);
+
+  if (error) throw error;
+
+  const invoiceIds = (links || [])
+    .map((link) => link.invoice_id)
+    .filter(Boolean);
+  if (invoiceIds.length === 0) return;
+
+  const billingNoteIds = Array.from(new Set(
+    (links || [])
+      .map((link) => link.source_billing_note_id)
+      .filter(Boolean),
+  ));
+
+  const invoiceStatus = billingNoteIds.length > 0 ? "in_billing" : "sent";
+  const { error: invoiceError } = await supabase
+    .from("documents")
+    .update({ status: invoiceStatus as DocumentStatus, paid_at: null })
+    .in("id", invoiceIds)
+    .eq("status", "paid");
+
+  if (invoiceError) throw invoiceError;
+
+  if (billingNoteIds.length > 0) {
+    const { error: billingError } = await supabase
+      .from("documents")
+      .update({ status: "sent" as DocumentStatus, paid_at: null })
+      .in("id", billingNoteIds)
+      .eq("status", "paid");
+
+    if (billingError) throw billingError;
   }
 }
 

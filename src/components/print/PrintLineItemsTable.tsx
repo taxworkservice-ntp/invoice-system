@@ -39,7 +39,7 @@ export function PrintLineItemsTable({
   startIndex?: number;
   pageMode?: PageMode;
 }) {
-  const { document, billingNoteInvoices, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
+  const { document, billingNoteInvoices, receiptInvoices, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
   const lineItems = lineItemsOverride ?? data.lineItems;
   const isDeliveryNote = document.doc_type === "delivery_note";
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
@@ -90,6 +90,49 @@ export function PrintLineItemsTable({
                 <td className="px-2 py-1.5 text-[10px] text-right border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
                 <td className="px-2 py-1.5 text-[10px] text-right border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
                 <td className="px-2 py-1.5 text-[10px] text-right border-t-[0.5px] border-[#E6EBF2]">&nbsp;</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    );
+  }
+
+  if (document.doc_type === "receipt" && receiptInvoices.length > 0) {
+    return (
+      <section className="print-block mt-3">
+        <div className="mb-0.5">
+          <span className="text-[9px] tracking-[0.12em] text-[#667085]">รายการที่ชำระ</span>
+          <span className="text-[6.5px] text-[#94a3b8] ml-2">PAID INVOICES</span>
+        </div>
+        <table className="print-table w-full border-separate border-spacing-0">
+          <thead className="bg-[#F4F7FB] text-[#344054]">
+            <tr>
+              <th className="px-2 py-1.5 text-left text-[9px] font-semibold tracking-[0.06em]">เลขที่ใบแจ้งหนี้<div className="text-[6.5px] font-normal text-[#94a3b8]">INVOICE NO.</div></th>
+              <th className="px-2 py-1.5 text-left text-[9px] font-semibold tracking-[0.06em]">วันที่ออก<div className="text-[6.5px] font-normal text-[#94a3b8]">ISSUE DATE</div></th>
+              <th className="px-2 py-1.5 text-right text-[9px] font-semibold tracking-[0.06em]">มูลค่า<div className="text-[6.5px] font-normal text-[#94a3b8]">SUBTOTAL</div></th>
+              <th className="px-2 py-1.5 text-right text-[9px] font-semibold tracking-[0.06em]">ภาษีมูลค่าเพิ่ม<div className="text-[6.5px] font-normal text-[#94a3b8]">VAT</div></th>
+              <th className="px-2 py-1.5 text-right text-[9px] font-semibold tracking-[0.06em]">รับชำระ<div className="text-[6.5px] font-normal text-[#94a3b8]">PAID</div></th>
+            </tr>
+          </thead>
+          <tbody>
+            {receiptInvoices.map((invoice) => (
+              <tr key={invoice.id} className={getRowClass()}>
+                <td className="px-2 py-1.5 text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                  {invoice.invoice_number}
+                </td>
+                <td className="px-2 py-1.5 text-[10px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
+                  {formatDate(invoice.issue_date)}
+                </td>
+                <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                  {formatCurrency(invoice.subtotal)}
+                </td>
+                <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                  {formatCurrency(invoice.vat_amount)}
+                </td>
+                <td className="px-2 py-1.5 text-right text-[10px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                  {formatCurrency(invoice.paid_amount)}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -68,7 +68,7 @@ interface PrintDocumentClassicProps {
 }
 
 export function PrintDocumentClassic({ data, copyType = "original", pageMode = "single", pageIndex = 1, totalPages = 1, batchLineItems }: PrintDocumentClassicProps) {
-  const { document, clientProfile, customer, referenceDoc, billingNoteInvoices, invoiceDeliveryNotes, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
+  const { document, clientProfile, customer, referenceDoc, billingNoteInvoices, receiptInvoices, invoiceDeliveryNotes, lineDeliveryNoteMap, showInlineDeliveryNotes } = data;
   const lineItems = batchLineItems ?? data.lineItems;
   const startIndex = batchLineItems ? data.lineItems.indexOf(batchLineItems[0]) + 1 : 1;
   const isCopy = copyType === "copy";
@@ -233,6 +233,8 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
       <section className="print-classic-items-wrap">
         {isBillingNote ? (
           <div className="print-classic-items-title">รายการใบแจ้งหนี้ (INVOICES)</div>
+        ) : document.doc_type === "receipt" && receiptInvoices.length > 0 ? (
+          <div className="print-classic-items-title">รายการที่ชำระ (PAID INVOICES)</div>
         ) : (
           <div className="print-classic-items-title">
             {document.doc_type === "receipt" ? "รายการที่ชำระ" : "รายการสินค้าและบริการ"}
@@ -280,6 +282,39 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
                   <td className="right">&nbsp;</td>
                   <td className="right">&nbsp;</td>
                   <td className="right bold">&nbsp;</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          ) : document.doc_type === "receipt" && receiptInvoices.length > 0 ? (
+          <table className="print-classic-items-table">
+            <colgroup>
+              <col style={{ width: "12mm" }} />
+              <col style={{ width: "32mm" }} />
+              <col style={{ width: "20mm" }} />
+              <col style={{ width: "24mm" }} />
+              <col style={{ width: "24mm" }} />
+              <col style={{ width: "24mm" }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>เลขที่<span className="en">NO.</span></th>
+                <th>เลขที่ใบแจ้งหนี้<span className="en">INVOICE NO.</span></th>
+                <th>วันที่ออก<span className="en">ISSUE DATE</span></th>
+                <th>มูลค่า<span className="en">SUBTOTAL</span></th>
+                <th>ภาษีมูลค่าเพิ่ม<span className="en">VAT</span></th>
+                <th>รับชำระ<span className="en">PAID</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {receiptInvoices.map((inv, i) => (
+                <tr key={inv.id}>
+                  <td className="center">{i + 1}</td>
+                  <td>{inv.invoice_number}</td>
+                  <td>{formatDateBuddhist(inv.issue_date)}</td>
+                  <td className="right">{formatCurrency(inv.subtotal)}</td>
+                  <td className="right">{formatCurrency(inv.vat_amount)}</td>
+                  <td className="right bold">{formatCurrency(inv.paid_amount)}</td>
                 </tr>
               ))}
             </tbody>

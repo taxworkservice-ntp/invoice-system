@@ -1,4 +1,4 @@
-import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLineItem, InvoiceDeliveryNote } from "../types";
+import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLineItem, InvoiceDeliveryNote, ReceiptInvoice } from "../types";
 import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
 import { getR2PresignedUrl } from "./r2";
@@ -14,6 +14,7 @@ export interface PrintDocumentData {
   document: Document;
   lineItems: DocumentLineItem[];
   billingNoteInvoices: BillingNoteInvoice[];
+  receiptInvoices: ReceiptInvoice[];
   invoiceDeliveryNotes: InvoiceDeliveryNote[];
   clientProfile: ClientProfile;
   customer: Customer;
@@ -30,6 +31,7 @@ export interface PrintableDocumentDataBase {
   document: Document;
   lineItems: DocumentLineItem[];
   billingNoteInvoices: BillingNoteInvoice[];
+  receiptInvoices: ReceiptInvoice[];
   invoiceDeliveryNotes: InvoiceDeliveryNote[];
   clientProfile: ClientProfile;
   customer: Customer;
@@ -212,6 +214,7 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     document,
     lineItems,
     billingNoteInvoices: document.billing_invoices || [],
+    receiptInvoices: document.receipt_invoices || [],
     invoiceDeliveryNotes,
     clientProfile,
     customer,

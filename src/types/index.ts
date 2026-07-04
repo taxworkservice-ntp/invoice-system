@@ -221,6 +221,7 @@ export interface Document {
   deal?: Deal;
   line_items?: DocumentLineItem[];
   billing_invoices?: BillingNoteInvoice[];
+  receipt_invoices?: ReceiptInvoice[];
   invoice_delivery_notes?: InvoiceDeliveryNote[];
 }
 
@@ -271,6 +272,21 @@ export interface BillingNoteInvoice {
   subtotal: number;
   vat_amount: number;
   total_amount: number;
+  created_at: string;
+}
+
+export interface ReceiptInvoice {
+  id: string;
+  receipt_id: string;
+  invoice_id: string;
+  source_billing_note_id: string | null;
+  user_id: string;
+  invoice_number: string;
+  issue_date: string | null;
+  subtotal: number;
+  vat_amount: number;
+  total_amount: number;
+  paid_amount: number;
   created_at: string;
 }
 

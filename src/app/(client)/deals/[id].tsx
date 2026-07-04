@@ -14,6 +14,7 @@ import { supabase } from "../../../lib/supabase";
 import { generateDocNumberBE } from "../../../lib/docNumber";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import {
@@ -455,6 +456,7 @@ export default function DealDetailPage() {
         userId,
         reason: composeReceiptBackdateReason(paymentBackdateReason, paymentBackdateNote),
       });
+      const receiptInvoiceSources = await getReceiptInvoiceSources(payDocument, userId);
 
       await supabase
         .from("documents")
@@ -483,7 +485,7 @@ export default function DealDetailPage() {
       const issueDate = paymentDate;
       const docNumber = docNumberOverride || await generateDocNumberBE(userId, "receipt", issueDate);
 
-      await supabase.from("documents").insert({
+      const { data: receipt, error: receiptError } = await supabase.from("documents").insert({
         user_id: userId,
         deal_id: dealId,
         customer_id: payDocument.customer_id,
@@ -491,6 +493,7 @@ export default function DealDetailPage() {
         doc_number: docNumber,
         status: "generated" as DocumentStatus,
         issue_date: issueDate,
+        converted_from_id: payDocument.id,
         vat_registered: payDocument.vat_registered,
         vat_rate: payDocument.vat_rate,
         wht_rate: payDocument.wht_rate,
@@ -506,7 +509,20 @@ export default function DealDetailPage() {
         wht_certificate_no: whtCertificateNo || null,
         paid_at: paidAt,
         ...receiptBackdateFields,
-      });
+      }).select("id").single();
+      if (receiptError || !receipt) throw receiptError || new Error("ไม่สามารถสร้างใบเสร็จได้");
+
+      if (receiptInvoiceSources.length > 0) {
+        const { error: receiptInvoiceError } = await supabase.from("receipt_invoices").insert(
+          buildReceiptInvoiceRecords({
+            receiptId: receipt.id,
+            userId,
+            sourceDocument: payDocument,
+            invoices: receiptInvoiceSources,
+          }),
+        );
+        if (receiptInvoiceError) throw receiptInvoiceError;
+      }
 
       toast.success("บันทึกรับเงินสำเร็จ");
       setPaymentModalOpen(false);

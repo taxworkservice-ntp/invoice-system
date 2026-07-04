@@ -667,6 +667,40 @@ create policy "Admin reads all billing note invoices"
 create index idx_bni_billing_note on billing_note_invoices(billing_note_id);
 create index idx_bni_invoice      on billing_note_invoices(invoice_id);
 
+create table receipt_invoices (
+  id                  uuid primary key default uuid_generate_v4(),
+  receipt_id          uuid not null references documents(id) on delete cascade,
+  invoice_id          uuid not null references documents(id) on delete restrict,
+  source_billing_note_id uuid references documents(id) on delete set null,
+  user_id             uuid not null references profiles(id) on delete cascade,
+
+  -- Snapshot of invoice/payment amounts at time of receipt
+  invoice_number      text not null,
+  issue_date          date,
+  subtotal            numeric(15,2) not null,
+  vat_amount          numeric(15,2) not null,
+  total_amount        numeric(15,2) not null,
+  paid_amount         numeric(15,2) not null,
+
+  unique (receipt_id, invoice_id),
+
+  created_at          timestamptz not null default now()
+);
+
+alter table receipt_invoices enable row level security;
+
+create policy "Client manages own receipt invoices"
+  on receipt_invoices for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Admin reads all receipt invoices"
+  on receipt_invoices for select
+  using (public.is_admin());
+
+create index idx_ri_receipt on receipt_invoices(receipt_id);
+create index idx_ri_invoice on receipt_invoices(invoice_id);
+
 
 -- ============================================================
 -- FUNCTIONS

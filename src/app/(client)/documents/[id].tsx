@@ -24,6 +24,7 @@ import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../.
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import {
   buildReceiptBackdateFields,
   composeReceiptBackdateReason,
@@ -32,7 +33,7 @@ import {
   toLocalMiddayIso,
   todayString,
 } from "../../../lib/receiptBackdating";
-import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote } from "../../../types";
+import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice } from "../../../types";
 
 function formatDate(date: string): string {
   return formatBuddhistDate(date);
@@ -307,6 +308,7 @@ export default function DocumentDetailPage() {
         userId,
         reason: composeReceiptBackdateReason(payBackdateReason, payBackdateNote),
       });
+      const receiptInvoiceSources = await getReceiptInvoiceSources(doc, userId);
       await supabase
         .from("documents")
         .update({
@@ -333,7 +335,7 @@ export default function DocumentDetailPage() {
       }
 
       const recNumber = docNumberOverride || await generateDocNumberBE(userId, "receipt", payDate);
-      await supabase.from("documents").insert({
+      const { data: receipt, error: receiptError } = await supabase.from("documents").insert({
         user_id: userId,
         deal_id: doc.deal_id,
         customer_id: doc.customer_id,
@@ -341,6 +343,7 @@ export default function DocumentDetailPage() {
         doc_number: recNumber,
         status: "generated" as DocumentStatus,
         issue_date: payDate,
+        converted_from_id: doc.id,
         paid_at: paidAt,
         vat_registered: doc.vat_registered,
         vat_rate: doc.vat_rate,
@@ -356,7 +359,20 @@ export default function DocumentDetailPage() {
         amount_received: payAmount,
         wht_certificate_no: payWhtCert || null,
         ...receiptBackdateFields,
-      });
+      }).select("id").single();
+      if (receiptError || !receipt) throw receiptError || new Error("ไม่สามารถสร้างใบเสร็จได้");
+
+      if (receiptInvoiceSources.length > 0) {
+        const { error: receiptInvoiceError } = await supabase.from("receipt_invoices").insert(
+          buildReceiptInvoiceRecords({
+            receiptId: receipt.id,
+            userId,
+            sourceDocument: doc,
+            invoices: receiptInvoiceSources,
+          }),
+        );
+        if (receiptInvoiceError) throw receiptInvoiceError;
+      }
 
       setPayModal(false);
       setPayBackdateReason("");
@@ -556,10 +572,12 @@ export default function DocumentDetailPage() {
 
   type LineItemSortKey = "item_name" | "quantity" | "unit_price" | "line_total";
   type BillingInvoiceSortKey = "invoice_number" | "subtotal" | "vat_amount" | "total_amount";
+  type ReceiptInvoiceSortKey = "invoice_number" | "issue_date" | "paid_amount";
   type DeliveryNoteSortKey = "delivery_note_number" | "issue_date" | "total_amount";
 
   const lineItemSort = useTableSort<DocumentLineItem, LineItemSortKey>(doc?.line_items || [], { key: "item_name", dir: "asc" });
   const billingInvoiceSort = useTableSort<BillingNoteInvoice, BillingInvoiceSortKey>(doc?.billing_invoices || [], { key: "invoice_number", dir: "asc" });
+  const receiptInvoiceSort = useTableSort<ReceiptInvoice, ReceiptInvoiceSortKey>(doc?.receipt_invoices || [], { key: "invoice_number", dir: "asc" });
   const deliveryNoteSort = useTableSort<InvoiceDeliveryNote, DeliveryNoteSortKey>(doc?.invoice_delivery_notes || [], { key: "delivery_note_number", dir: "asc" });
 
   if (loading) {
@@ -842,6 +860,52 @@ export default function DocumentDetailPage() {
                   <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.subtotal)}</td>
                   <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.vat_amount)}</td>
                   <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.total_amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </DetailCard>
+      )}
+
+      {doc.doc_type === "receipt" && doc.receipt_invoices && doc.receipt_invoices.length > 0 && (
+        <DetailCard title="ใบแจ้งหนี้ที่ชำระ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
+          <div className="-mt-4 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-card-border bg-[#FAF8F3]">
+                <SortableTh
+                  label="เลขที่ใบแจ้งหนี้"
+                  align="left"
+                  active={receiptInvoiceSort.sort.key === "invoice_number"}
+                  dir={receiptInvoiceSort.sort.dir}
+                  onClick={() => receiptInvoiceSort.handleSort("invoice_number")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="วันที่ออก"
+                  align="left"
+                  active={receiptInvoiceSort.sort.key === "issue_date"}
+                  dir={receiptInvoiceSort.sort.dir}
+                  onClick={() => receiptInvoiceSort.handleSort("issue_date")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+                <SortableTh
+                  label="รับชำระ"
+                  align="right"
+                  active={receiptInvoiceSort.sort.key === "paid_amount"}
+                  dir={receiptInvoiceSort.sort.dir}
+                  onClick={() => receiptInvoiceSort.handleSort("paid_amount")}
+                  className="!text-gray-500 !text-xs !font-medium"
+                />
+              </tr>
+            </thead>
+            <tbody>
+              {receiptInvoiceSort.sorted.map((invoice) => (
+                <tr key={invoice.id} className="border-b border-card-border last:border-0">
+                  <td className="px-4 py-2 text-gray-700">{invoice.invoice_number}</td>
+                  <td className="px-4 py-2 text-gray-700">{invoice.issue_date ? formatDate(invoice.issue_date) : "-"}</td>
+                  <td className="px-4 py-2 text-right text-gray-700 font-medium">฿{formatCurrency(invoice.paid_amount)}</td>
                 </tr>
               ))}
             </tbody>
