@@ -69,7 +69,10 @@ export default async function handler(req, res) {
         .select("*")
         .eq("workspace_user_id", id)
         .order("created_at", { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.error("[members GET] client_members query failed:", JSON.stringify(error));
+        throw error;
+      }
 
       const userMap = await getAuthUserMap((members || []).map((member) => member.member_user_id));
       return sendJson(res, 200, {
@@ -79,9 +82,9 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const body = readJsonBody(req);
-      const email = body.email?.trim();
-      const role = body.role?.trim();
-      const tempPassword = body.password?.trim() || "";
+      const email = (body && body.email ? String(body.email).trim() : "");
+      const role = (body && body.role ? String(body.role).trim() : "");
+      const tempPassword = (body && body.password ? String(body.password).trim() : "");
 
       if (!email) throw new ApiError(400, "Email is required");
       if (!STAFF_ROLES.has(role)) throw new ApiError(400, "Role must be manager or officer");
@@ -118,16 +121,22 @@ export default async function handler(req, res) {
       }
 
       const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser(createUserPayload);
-      if (authErr) throw authErr;
+      if (authErr) {
+        console.error("[members POST] createUser failed:", JSON.stringify(authErr));
+        throw authErr;
+      }
 
       const memberUserId = authData.user.id;
 
       const { error: profileErr } = await supabaseAdmin.from("profiles").insert({
         id: memberUserId,
         role: "client",
-        admin_notes: `Staff for client ${id}`,
+        admin_notes: "Staff for client " + id,
       });
-      if (profileErr) throw profileErr;
+      if (profileErr) {
+        console.error("[members POST] profile insert failed:", JSON.stringify(profileErr));
+        throw profileErr;
+      }
 
       const { data: member, error: memberErr } = await supabaseAdmin
         .from("client_members")
@@ -140,13 +149,16 @@ export default async function handler(req, res) {
         })
         .select("*")
         .single();
-      if (memberErr) throw memberErr;
+      if (memberErr) {
+        console.error("[members POST] member insert failed:", JSON.stringify(memberErr));
+        throw memberErr;
+      }
 
       if (!tempPassword) {
         try {
           await supabaseAdmin.auth.admin.generateLink({ type: "invite", email });
         } catch (error) {
-          console.warn("Staff invite link generation failed", error);
+          console.warn("[members POST] Invite link generation failed", error);
         }
       }
 
@@ -159,6 +171,7 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "GET, POST");
     return sendJson(res, 405, { error: "Method not allowed" });
   } catch (error) {
+    console.error("[members] Unhandled error:", error);
     return sendError(res, error);
   }
 }

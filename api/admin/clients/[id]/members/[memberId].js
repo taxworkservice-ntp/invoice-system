@@ -1,6 +1,6 @@
-import { requireAdmin } from "../../../../_lib/auth.js";
-import { ApiError, readJsonBody, sendError, sendJson } from "../../../../_lib/http.js";
-import { supabaseAdmin } from "../../../../_lib/supabase.js";
+import { requireAdmin } from "../../../../../_lib/auth.js";
+import { ApiError, readJsonBody, sendError, sendJson } from "../../../../../_lib/http.js";
+import { supabaseAdmin } from "../../../../../_lib/supabase.js";
 
 const ROLES = new Set(["owner", "manager", "officer"]);
 const STATUSES = new Set(["active", "disabled"]);
