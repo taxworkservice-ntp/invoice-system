@@ -172,14 +172,13 @@ export default function DealDetailPage() {
 
   const fetchDealData = useCallback(async () => {
     if (!dealId || !userId) {
+      if (userId === undefined && !deal) {
+        return;
+      }
       setLoading(false);
       return;
     }
     setLoading(true);
-    const timeout = setTimeout(() => {
-      setLoading(false);
-      setDocsWithMeta([]);
-    }, 15000);
     try {
       const { data: dealData } = await supabase
         .from("deals")
@@ -250,7 +249,6 @@ export default function DealDetailPage() {
       // eslint-disable-next-line no-console
       console.error(err);
     } finally {
-      clearTimeout(timeout);
       setLoading(false);
     }
   }, [dealId, userId]);
