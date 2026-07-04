@@ -192,11 +192,10 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PATCH") {
-      const urlParts = (req.url || "").split("/").filter(Boolean);
-      const memberId = urlParts[urlParts.length - 1];
-      if (!memberId || memberId === "members") throw new ApiError(400, "Missing memberId");
-
       const body = readJsonBody(req);
+      const memberId = body.memberId;
+      if (!memberId) throw new ApiError(400, "Missing memberId");
+
       const patch = {};
 
       if (body.role !== undefined) {

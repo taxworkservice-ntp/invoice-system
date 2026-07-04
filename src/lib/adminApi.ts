@@ -103,8 +103,8 @@ export async function updateAdminClientMember(clientId: string, memberId: string
   status?: "active" | "disabled";
   permissions?: Partial<WorkspacePermissions> | null;
 }) {
-  return apiFetch(`/api/admin/clients/${clientId}/members/${memberId}`, {
+  return apiFetch(`/api/admin/clients/${clientId}/members`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ memberId, ...payload }),
   });
 }
