@@ -132,8 +132,8 @@ export function FinancialReport({ userId }: FinancialReportProps) {
           <Skeleton className="h-8 w-48 rounded-md" />
           <Skeleton className="h-8 w-32 rounded-md" />
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
@@ -179,29 +179,12 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       </div>
 
       {summary && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <SummaryCard icon={<TrendingUp className="h-4 w-4" />} label="รายได้รวม" value={formatCurrency(summary.revenue)} delta={revenueDelta} />
-          <SummaryCard icon={<CircleDollarSign className="h-4 w-4" />} label="กำไรสุทธิ" value={formatCurrency((summary.revenue || 0) - cogs)} delta={null} />
-          <SummaryCard icon={<Wallet className="h-4 w-4" />} label="เก็บแล้ว" value={formatCurrency(summary.collected)} />
-          <SummaryCard icon={<FileText className="h-4 w-4" />} label="ค้างชำระ" value={formatCurrency(summary.outstanding)} alert={summary.outstanding > 0} />
-          <SummaryCard icon={<BarChart3 className="h-4 w-4" />} label="VAT ที่เก็บ" value={formatCurrency(summary.vatCollected)} />
-          <Card className="min-h-[90px] border-[0.5px] p-3 shadow-sm">
-            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500">
-              <TrendingUp className="h-4 w-4" />
-              การเก็บเงิน
-            </div>
-            <div className="mt-1.5 text-xl font-semibold tabular-nums text-[#1A1A18]">
-              {(collectionRate * 100).toFixed(0)}%
-            </div>
-            <div className="mt-1.5 h-1.5 w-full rounded-full bg-gray-200">
-              <div
-                className={`h-1.5 rounded-full transition-all ${
-                  collectionRate >= 0.8 ? "bg-[#1E5A38]" : collectionRate >= 0.5 ? "bg-amber-500" : "bg-[#C0392B]"
-                }`}
-                style={{ width: `${Math.min(collectionRate * 100, 100)}%` }}
-              />
-            </div>
-          </Card>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <SummaryCard icon={<TrendingUp className="h-4 w-4" />} label="ยอดขายก่อน VAT" value={formatCurrency(summary.revenue - summary.vatCollected)} />
+          <SummaryCard icon={<FileText className="h-4 w-4" />} label="VAT" value={formatCurrency(summary.vatCollected)} />
+          <SummaryCard icon={<BarChart3 className="h-4 w-4" />} label="ยอดรวม" value={formatCurrency(summary.revenue)} delta={revenueDelta} />
+          <SummaryCard icon={<CircleDollarSign className="h-4 w-4" />} label="เก็บแล้ว" value={formatCurrency(summary.collected)} />
+          <SummaryCard icon={<Wallet className="h-4 w-4" />} label="ค้างเก็บ" value={formatCurrency(summary.outstanding)} alert={summary.outstanding > 0} />
         </div>
       )}
 
