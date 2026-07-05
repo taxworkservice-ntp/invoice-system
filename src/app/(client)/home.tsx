@@ -22,6 +22,7 @@ import { formatCurrency } from "../../lib/format";
 import { formatBuddhistDate, formatBuddhistDateTime } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS } from "../../constants";
+import { TABLE } from "../../lib/tableStyles";
 import type { Deal, Document, Customer, DocumentLineItem } from "../../types";
 
 type DealDoc = Pick<
@@ -685,16 +686,16 @@ export default function HomePage() {
               ) : viewMode === "table" ? (
                 <div className="bg-white border border-card-border rounded-card overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-[13px]">
+                    <table className={TABLE.table}>
                       <thead>
-                        <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                        <tr className={TABLE.theadTr}>
                           <SortableTh
                             label="ลูกค้า"
                             align="left"
                             active={dealSort.sort.key === "customerName"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("customerName")}
-                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                            className={TABLE.thSortable}
                           />
                           <SortableTh
                             label="สถานะ"
@@ -702,7 +703,7 @@ export default function HomePage() {
                             active={dealSort.sort.key === "stageLabel"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("stageLabel")}
-                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                            className={TABLE.thSortable}
                           />
                           <SortableTh
                             label="สร้างเมื่อ"
@@ -710,17 +711,17 @@ export default function HomePage() {
                             active={dealSort.sort.key === "createdAt"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("createdAt")}
-                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                            className={TABLE.thSortable}
                           />
-                          <th className="px-3 py-2 font-semibold hidden sm:table-cell">รายการ</th>
-                          <th className="px-3 py-2 font-semibold hidden md:table-cell">บันทึก</th>
+                          <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
+                          <th className={`${TABLE.thStatic} hidden md:table-cell`}>บันทึก</th>
                           <SortableTh
                             label="จำนวนเงิน"
                             align="right"
                             active={dealSort.sort.key === "amount"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("amount")}
-                            className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase min-w-[120px]"
+                            className={`${TABLE.thSortable} min-w-[120px]`}
                           />
                         </tr>
                       </thead>
@@ -731,35 +732,35 @@ export default function HomePage() {
                           <tr
                             key={deal.dealId}
                             onClick={() => navigate(`/deals/${deal.dealId}`)}
-                            className="border-b border-[#F0EFE9] last:border-0 hover:bg-[#FAFAF7] cursor-pointer transition-colors"
+                            className={TABLE.tbodyTr}
                           >
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <CustomerAvatar customer={rowAvatar} size="sm" />
-                                <span className="font-semibold text-[#1A1A18] truncate">{deal.customerName}</span>
+                                <span className="font-semibold text-[#111827] truncate">{deal.customerName}</span>
                               </div>
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1.5">
                                 <span className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`} />
-                                <span className="text-[12px] text-[#444441]">{deal.stageLabel}</span>
+                                <span className="text-[12px] text-[#475467]">{deal.stageLabel}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-2">
-                              <span className="whitespace-nowrap text-[11px] text-[#888780] tabular-nums">{formatBuddhistDateTime(deal.createdAt)}</span>
+                            <td className={TABLE.tdDimmed}>
+                              <span className="whitespace-nowrap tabular-nums">{formatBuddhistDateTime(deal.createdAt)}</span>
                             </td>
-                            <td className="px-3 py-2 hidden sm:table-cell">
-                              <span className="text-[12px] text-[#888780] truncate block max-w-[200px]">
+                            <td className={`${TABLE.tdDimmed} hidden sm:table-cell`}>
+                              <span className="truncate block max-w-[200px]">
                                 {deal.itemNames?.length ? deal.itemNames.slice(0, 2).join(", ") : deal.itemSummary}
                               </span>
                             </td>
-                            <td className="px-3 py-2 hidden md:table-cell">
-                              <span className="text-[12px] text-[#888780] truncate block max-w-[180px]">
+                            <td className={`${TABLE.tdDimmed} hidden md:table-cell`}>
+                              <span className="truncate block max-w-[180px]">
                                 {deal.internalNote}
                               </span>
                             </td>
                             <td className="px-3 py-2 text-right">
-                              <span className="font-medium text-[#1A1A18] min-w-[100px] inline-block text-right">฿ {formatCurrency(deal.amount)}</span>
+                              <span className="font-medium text-[#111827] min-w-[100px] inline-block text-right">฿ {formatCurrency(deal.amount)}</span>
                             </td>
                           </tr>
                           );

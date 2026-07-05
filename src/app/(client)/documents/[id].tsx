@@ -24,6 +24,7 @@ import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../.
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { TABLE } from "../../../lib/tableStyles";
 import { getWorkspacePermissions } from "../../../lib/permissions";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import {
@@ -848,17 +849,17 @@ export default function DocumentDetailPage() {
       {doc.line_items && doc.line_items.length > 0 && (
         <DetailCard title="รายการเอกสาร" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
           <div className="-mt-4 overflow-hidden">
-          <table className="w-full text-sm">
+          <table className={TABLE.table}>
             <thead>
-              <tr className="border-b border-card-border bg-[#FAF8F3]">
-                <th className="w-8 px-4 py-3 text-left text-xs font-medium text-gray-500">#</th>
+              <tr className={TABLE.theadTr}>
+                <th className={`w-8 px-4 py-3 text-left ${TABLE.thSortable}`}>#</th>
                 <SortableTh
                   label="รายการ"
                   align="left"
                   active={lineItemSort.sort.key === "item_name"}
                   dir={lineItemSort.sort.dir}
                   onClick={() => lineItemSort.handleSort("item_name")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="จำนวน"
@@ -866,7 +867,7 @@ export default function DocumentDetailPage() {
                   active={lineItemSort.sort.key === "quantity"}
                   dir={lineItemSort.sort.dir}
                   onClick={() => lineItemSort.handleSort("quantity")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="ราคา/หน่วย"
@@ -874,7 +875,7 @@ export default function DocumentDetailPage() {
                   active={lineItemSort.sort.key === "unit_price"}
                   dir={lineItemSort.sort.dir}
                   onClick={() => lineItemSort.handleSort("unit_price")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="รวม"
@@ -882,15 +883,15 @@ export default function DocumentDetailPage() {
                   active={lineItemSort.sort.key === "line_total"}
                   dir={lineItemSort.sort.dir}
                   onClick={() => lineItemSort.handleSort("line_total")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
               </tr>
             </thead>
             <tbody>
               {lineItemSort.sorted.map((item, index) => (
-                <tr key={item.id} className="border-b border-card-border last:border-0">
-                  <td className="px-4 py-2 text-gray-500">{index + 1}</td>
-                  <td className="px-4 py-2 text-gray-700">
+                <tr key={item.id} className={TABLE.tbodyTr}>
+                  <td className="px-4 py-2 text-[#667085]">{index + 1}</td>
+                  <td className="px-4 py-2 text-[#475467]">
                     <div>{item.item_name}</div>
                     {item.line_note ? <div className="mt-1 text-xs text-gray-500">{item.line_note}</div> : null}
                     {item.discount_amount > 0 && (
@@ -899,9 +900,9 @@ export default function DocumentDetailPage() {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right text-gray-700">{item.quantity} {item.unit}</td>
-                  <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(item.unit_price)}</td>
-                  <td className="px-4 py-2 text-right text-gray-700 font-medium">฿{formatCurrency(item.line_total)}</td>
+                  <td className="px-4 py-2 text-right text-[#475467]">{item.quantity} {item.unit}</td>
+                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(item.unit_price)}</td>
+                  <td className="px-4 py-2 text-right text-[#475467] font-medium">฿{formatCurrency(item.line_total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -913,16 +914,16 @@ export default function DocumentDetailPage() {
       {doc.doc_type === "billing_note" && doc.billing_invoices && doc.billing_invoices.length > 0 && (
         <DetailCard title="ใบแจ้งหนี้ที่รวม" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
           <div className="-mt-4 overflow-hidden">
-          <table className="w-full text-sm">
+          <table className={TABLE.table}>
             <thead>
-              <tr className="border-b border-card-border bg-[#FAF8F3]">
+              <tr className={TABLE.theadTr}>
                 <SortableTh
                   label="เลขที่ใบแจ้งหนี้"
                   align="left"
                   active={billingInvoiceSort.sort.key === "invoice_number"}
                   dir={billingInvoiceSort.sort.dir}
                   onClick={() => billingInvoiceSort.handleSort("invoice_number")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="ยอดก่อน VAT"
@@ -930,7 +931,7 @@ export default function DocumentDetailPage() {
                   active={billingInvoiceSort.sort.key === "subtotal"}
                   dir={billingInvoiceSort.sort.dir}
                   onClick={() => billingInvoiceSort.handleSort("subtotal")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="VAT"
@@ -938,7 +939,7 @@ export default function DocumentDetailPage() {
                   active={billingInvoiceSort.sort.key === "vat_amount"}
                   dir={billingInvoiceSort.sort.dir}
                   onClick={() => billingInvoiceSort.handleSort("vat_amount")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="รวม"
@@ -946,17 +947,17 @@ export default function DocumentDetailPage() {
                   active={billingInvoiceSort.sort.key === "total_amount"}
                   dir={billingInvoiceSort.sort.dir}
                   onClick={() => billingInvoiceSort.handleSort("total_amount")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
               </tr>
             </thead>
             <tbody>
               {billingInvoiceSort.sorted.map((invoice) => (
-                <tr key={invoice.id} className="border-b border-card-border last:border-0">
-                  <td className="px-4 py-2 text-gray-700">{invoice.invoice_number}</td>
-                  <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.subtotal)}</td>
-                  <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.vat_amount)}</td>
-                  <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(invoice.total_amount)}</td>
+                <tr key={invoice.id} className={TABLE.tbodyTr}>
+                  <td className="px-4 py-2 text-[#475467]">{invoice.invoice_number}</td>
+                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(invoice.subtotal)}</td>
+                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(invoice.vat_amount)}</td>
+                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(invoice.total_amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -968,16 +969,16 @@ export default function DocumentDetailPage() {
       {doc.doc_type === "receipt" && doc.receipt_invoices && doc.receipt_invoices.length > 0 && (
         <DetailCard title="ใบแจ้งหนี้ที่ชำระ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
           <div className="-mt-4 overflow-hidden">
-          <table className="w-full text-sm">
+          <table className={TABLE.table}>
             <thead>
-              <tr className="border-b border-card-border bg-[#FAF8F3]">
+              <tr className={TABLE.theadTr}>
                 <SortableTh
                   label="เลขที่ใบแจ้งหนี้"
                   align="left"
                   active={receiptInvoiceSort.sort.key === "invoice_number"}
                   dir={receiptInvoiceSort.sort.dir}
                   onClick={() => receiptInvoiceSort.handleSort("invoice_number")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="วันที่ออก"
@@ -985,7 +986,7 @@ export default function DocumentDetailPage() {
                   active={receiptInvoiceSort.sort.key === "issue_date"}
                   dir={receiptInvoiceSort.sort.dir}
                   onClick={() => receiptInvoiceSort.handleSort("issue_date")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="รับชำระ"
@@ -993,16 +994,16 @@ export default function DocumentDetailPage() {
                   active={receiptInvoiceSort.sort.key === "paid_amount"}
                   dir={receiptInvoiceSort.sort.dir}
                   onClick={() => receiptInvoiceSort.handleSort("paid_amount")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
               </tr>
             </thead>
             <tbody>
               {receiptInvoiceSort.sorted.map((invoice) => (
-                <tr key={invoice.id} className="border-b border-card-border last:border-0">
-                  <td className="px-4 py-2 text-gray-700">{invoice.invoice_number}</td>
-                  <td className="px-4 py-2 text-gray-700">{invoice.issue_date ? formatDate(invoice.issue_date) : "-"}</td>
-                  <td className="px-4 py-2 text-right text-gray-700 font-medium">฿{formatCurrency(invoice.paid_amount)}</td>
+                <tr key={invoice.id} className={TABLE.tbodyTr}>
+                  <td className="px-4 py-2 text-[#475467]">{invoice.invoice_number}</td>
+                  <td className="px-4 py-2 text-[#475467]">{invoice.issue_date ? formatDate(invoice.issue_date) : "-"}</td>
+                  <td className="px-4 py-2 text-right text-[#475467] font-medium">฿{formatCurrency(invoice.paid_amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1014,16 +1015,16 @@ export default function DocumentDetailPage() {
       {(doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") && doc.invoice_delivery_notes && doc.invoice_delivery_notes.length > 0 && (
         <DetailCard title="อ้างอิงใบส่งของ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
           <div className="-mt-4 overflow-hidden">
-          <table className="w-full text-sm">
+          <table className={TABLE.table}>
             <thead>
-              <tr className="border-b border-card-border bg-[#FAF8F3]">
+              <tr className={TABLE.theadTr}>
                 <SortableTh
                   label="เลขที่ใบส่งของ"
                   align="left"
                   active={deliveryNoteSort.sort.key === "delivery_note_number"}
                   dir={deliveryNoteSort.sort.dir}
                   onClick={() => deliveryNoteSort.handleSort("delivery_note_number")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="วันที่ส่งของ"
@@ -1031,7 +1032,7 @@ export default function DocumentDetailPage() {
                   active={deliveryNoteSort.sort.key === "issue_date"}
                   dir={deliveryNoteSort.sort.dir}
                   onClick={() => deliveryNoteSort.handleSort("issue_date")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="มูลค่าอ้างอิง"
@@ -1039,16 +1040,16 @@ export default function DocumentDetailPage() {
                   active={deliveryNoteSort.sort.key === "total_amount"}
                   dir={deliveryNoteSort.sort.dir}
                   onClick={() => deliveryNoteSort.handleSort("total_amount")}
-                  className="!text-gray-500 !text-xs !font-medium"
+                  className={TABLE.thSortable}
                 />
               </tr>
             </thead>
             <tbody>
               {deliveryNoteSort.sorted.map((deliveryNote) => (
-                <tr key={deliveryNote.id} className="border-b border-card-border last:border-0">
-                  <td className="px-4 py-2 text-gray-700">{deliveryNote.delivery_note_number}</td>
-                  <td className="px-4 py-2 text-gray-700">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>
-                  <td className="px-4 py-2 text-right text-gray-700">฿{formatCurrency(deliveryNote.total_amount)}</td>
+                <tr key={deliveryNote.id} className={TABLE.tbodyTr}>
+                  <td className="px-4 py-2 text-[#475467]">{deliveryNote.delivery_note_number}</td>
+                  <td className="px-4 py-2 text-[#475467]">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>
+                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(deliveryNote.total_amount)}</td>
                 </tr>
               ))}
             </tbody>

@@ -67,12 +67,22 @@ export function DealCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 text-sm font-semibold text-[#1A1A18] truncate">
-              {customerName} · สร้าง {formatBuddhistDateTime(createdAt)}
+              {customerName}
             </div>
             <div className="text-sm font-semibold text-[#1A1A18] shrink-0">{amountText}</div>
           </div>
-          <div className="mt-1 flex items-end justify-between gap-3">
-            <div className="min-w-0 flex-1">
+          <div className="mt-0.5 flex items-end justify-between gap-3">
+            <div className="text-[10px] text-[#888780] tabular-nums">
+              สร้าง {formatBuddhistDateTime(createdAt)}
+            </div>
+            <div className="text-right shrink-0">
+              {stageHint && <div className="text-[10px] leading-4 text-gray-400">{stageHint}</div>}
+              <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
+                {stageLabel}
+              </span>
+            </div>
+          </div>
+          <div className="mt-1">
               {previewItems.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {previewItems.map((itemName, index) => (
@@ -92,13 +102,6 @@ export function DealCard({
               ) : (
                 <div className="text-xs text-gray-500 truncate">{itemSummary}</div>
               )}
-            </div>
-            <div className="text-right shrink-0">
-              {stageHint && <div className="text-[10px] leading-4 text-gray-400">{stageHint}</div>}
-              <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
-                {stageLabel}
-              </span>
-            </div>
           </div>
         </div>
       </div>

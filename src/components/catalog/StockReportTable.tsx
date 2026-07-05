@@ -3,6 +3,7 @@ import { isLowStock, isOutOfStock, formatMixedStock } from "../../lib/stock";
 import { formatCurrency } from "../../lib/format";
 import { SortableTh } from "../ui/SortableTh";
 import { useTableSort } from "../ui/useTableSort";
+import { TABLE } from "../../lib/tableStyles";
 import type { Item } from "../../types";
 
 interface Props {
@@ -31,36 +32,36 @@ function StockRow({ item, index }: { item: Item; index: number }) {
 
   return (
     <tr
-      className={`cursor-pointer border-b border-[#F0EFE9] last:border-0 transition-colors hover:bg-[#FAFAF7] ${rowBg}`}
+      className={`${TABLE.tbodyTr} ${rowBg}`}
       onClick={() => navigate(`/catalog/${item.id}`)}
     >
-      <td className="px-3 py-2 text-[11px] text-[#888780] w-8 text-right tabular-nums">
+      <td className="px-3 py-2 text-[11px] text-[#667085] w-8 text-right tabular-nums">
         {index}
       </td>
       <td className="px-3 py-2 min-w-0">
-        <div className={`text-[13px] leading-tight ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#1A1A18]"}`}>
+        <div className={`text-[13px] leading-tight ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#111827]"}`}>
           {item.name}
         </div>
         {item.sku && (
-          <div className="text-[10px] text-[#888780]">{item.sku}</div>
+          <div className="text-[10px] text-[#667085]">{item.sku}</div>
         )}
       </td>
-      <td className={`px-3 py-2 text-[13px] text-right tabular-nums font-medium ${textColor || "text-[#1A1A18]"}`}>
+      <td className={`px-3 py-2 text-[13px] text-right tabular-nums font-medium ${textColor || "text-[#111827]"}`}>
         {item.item_type === "product" ? item.stock_count : "—"}
       </td>
-      <td className="px-3 py-2 text-[11px] text-[#888780] text-center">
+      <td className="px-3 py-2 text-[11px] text-[#667085] text-center">
         {item.item_type === "product" ? item.base_unit : "—"}
       </td>
-      <td className="px-3 py-2 text-[11px] text-right text-[#888780]">
+      <td className="px-3 py-2 text-[11px] text-right text-[#667085]">
         {item.item_type === "product" ? formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton) : "—"}
       </td>
-      <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#888780]">
+      <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#667085]">
         {item.item_type === "product" ? item.low_stock_threshold : "—"}
       </td>
-      <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#444441] hidden sm:table-cell">
+      <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#475467] hidden sm:table-cell">
         {item.item_type === "product" ? item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : "—"}
       </td>
-      <td className="px-3 py-2 text-[12px] text-right tabular-nums font-medium text-[#1A1A18] hidden sm:table-cell">
+      <td className="px-3 py-2 text-[12px] text-right tabular-nums font-medium text-[#111827] hidden sm:table-cell">
         {item.item_type === "product" ? value.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : formatCurrency(item.unit_price)}
       </td>
     </tr>
@@ -124,17 +125,17 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
     <div>
       <div className="hidden sm:block bg-white border border-card-border rounded-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
+          <table className={TABLE.table}>
             <thead>
-              <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
-                <th className="px-3 py-2 font-semibold w-8 text-right">#</th>
+              <tr className={TABLE.theadTr}>
+                <th className={`${TABLE.thStatic} w-8 text-right`}>#</th>
                 <SortableTh
                   label="รายการ"
                   align="left"
                   active={sort.key === "name"}
                   dir={sort.dir}
                   onClick={() => handleSort("name")}
-                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="สต็อก"
@@ -142,7 +143,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
                   active={sort.key === "stock_count"}
                   dir={sort.dir}
                   onClick={() => handleSort("stock_count")}
-                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="หน่วย"
@@ -150,16 +151,16 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
                   active={sort.key === "base_unit"}
                   dir={sort.dir}
                   onClick={() => handleSort("base_unit")}
-                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                  className={TABLE.thSortable}
                 />
-                <th className="px-3 py-2 font-semibold text-right">นับรวม</th>
+                <th className={`${TABLE.thStatic} text-right`}>นับรวม</th>
                 <SortableTh
                   label="แจ้งเตือน"
                   align="right"
                   active={sort.key === "low_stock_threshold"}
                   dir={sort.dir}
                   onClick={() => handleSort("low_stock_threshold")}
-                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                  className={TABLE.thSortable}
                 />
                 <SortableTh
                   label="ต้นทุนเฉลี่ย"

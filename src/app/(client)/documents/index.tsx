@@ -25,6 +25,7 @@ import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS, CHIP_COLORS } from "..
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { TABLE } from "../../../lib/tableStyles";
 import { getWorkspacePermissions, type WorkspacePermissions } from "../../../lib/permissions";
 import type { Document, DocumentStatus, DocumentType } from "../../../types";
 
@@ -1329,16 +1330,16 @@ export default function DocumentsPage() {
           ) : (
             <div className="bg-white border border-card-border rounded-card overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-[13px]">
+                <table className={TABLE.table}>
                   <thead>
-                    <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                    <tr className={TABLE.theadTr}>
                       <SortableTh
                         label="เลขที่"
                         align="left"
                         active={docSort.sort.key === "doc_number"}
                         dir={docSort.sort.dir}
                         onClick={() => docSort.handleSort("doc_number")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="ประเภท"
@@ -1346,9 +1347,9 @@ export default function DocumentsPage() {
                         active={docSort.sort.key === "doc_type"}
                         dir={docSort.sort.dir}
                         onClick={() => docSort.handleSort("doc_type")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                        className={TABLE.thSortable}
                       />
-                      <th className="px-3 py-2 font-semibold">ลูกค้า</th>
+                      <th className={TABLE.thStatic}>ลูกค้า</th>
                       <SortableTh
                         label="วันที่"
                         align="left"
@@ -1363,7 +1364,7 @@ export default function DocumentsPage() {
                         active={docSort.sort.key === "net_payable"}
                         dir={docSort.sort.dir}
                         onClick={() => docSort.handleSort("net_payable")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="สถานะ"
@@ -1384,23 +1385,23 @@ export default function DocumentsPage() {
                         <tr
                           key={doc.id}
                           onClick={() => openDocModal(doc)}
-                          className={`border-b border-[#F0EFE9] last:border-0 hover:bg-[#FAFAF7] cursor-pointer transition-colors ${isVoided ? "opacity-50" : ""} ${selectedDocIds.has(doc.id) ? "bg-primary/5" : ""}`}
+                          className={`${TABLE.tbodyTr} ${isVoided ? "opacity-50" : ""} ${selectedDocIds.has(doc.id) ? "bg-primary/5" : ""}`}
                         >
                           <td className="px-3 py-2">
-                            <span className="font-semibold text-[#1A1A18]">{doc.doc_number || "-"}</span>
+                            <span className="font-semibold text-[#111827]">{doc.doc_number || "-"}</span>
                             {overdue && <span className="ml-1.5 w-2 h-2 rounded-full bg-[#C0392B] inline-block" />}
                           </td>
                           <td className="px-3 py-2">
                             <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
                           </td>
                           <td className="px-3 py-2">
-                            <span className="text-[#444441] truncate block max-w-[180px]">{customerName}</span>
+                            <span className="text-[#475467] truncate block max-w-[180px]">{customerName}</span>
                           </td>
-                          <td className="px-3 py-2 hidden sm:table-cell text-[#888780] text-[12px]">
+                          <td className="px-3 py-2 hidden sm:table-cell text-[#667085] text-[12px]">
                             {formatBuddhistDate(doc.issue_date)}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <span className="font-medium text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc) || 0)}</span>
+                            <span className="font-medium text-[#111827]">฿ {formatCurrency(getDisplayAmount(doc) || 0)}</span>
                           </td>
                           <td className="px-3 py-2 hidden md:table-cell">
                             <Badge status={doc.status} />

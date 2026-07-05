@@ -24,6 +24,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { Input, Select } from "../../../components/ui/Input";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
+import { TABLE } from "../../../lib/tableStyles";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { CLIENT_FEATURES } from "../../../lib/features";
@@ -926,16 +927,16 @@ export default function AdminClientDetailPage() {
             <p className="text-sm text-gray-400 text-center py-4">ยังไม่มีเอกสาร</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
+              <table className={TABLE.table}>
                 <thead>
-                  <tr className="border-b border-[#E8E6DF] text-[#888780]">
+                  <tr className={TABLE.theadTr}>
                     <SortableTh
                       label="เลขที่"
                       align="left"
                       active={adminDocSort.sort.key === "doc_number"}
                       dir={adminDocSort.sort.dir}
                       onClick={() => adminDocSort.handleSort("doc_number")}
-                      className="!text-[#888780] !text-[12px] !font-normal !py-2 !pr-2 !pl-0"
+                      className={`${TABLE.thSortable} !py-2 !pr-2 !pl-0`}
                     />
                     <SortableTh
                       label="ประเภท"
@@ -943,16 +944,16 @@ export default function AdminClientDetailPage() {
                       active={adminDocSort.sort.key === "doc_type"}
                       dir={adminDocSort.sort.dir}
                       onClick={() => adminDocSort.handleSort("doc_type")}
-                      className="!text-[#888780] !text-[12px] !font-normal !py-2 !pr-2 !pl-0"
+                      className={`${TABLE.thSortable} !py-2 !pr-2 !pl-0`}
                     />
-                    <th className="text-left py-2 pr-2">ลูกค้า</th>
+                    <th className={`${TABLE.thStatic} text-left`}>ลูกค้า</th>
                     <SortableTh
                       label="ยอดรวม"
                       align="right"
                       active={adminDocSort.sort.key === "total_amount"}
                       dir={adminDocSort.sort.dir}
                       onClick={() => adminDocSort.handleSort("total_amount")}
-                      className="!text-[#888780] !text-[12px] !font-normal !py-2 !pr-2 !pl-0"
+                      className={`${TABLE.thSortable} !py-2 !pr-2 !pl-0`}
                     />
                     <SortableTh
                       label="สถานะ"
@@ -966,10 +967,10 @@ export default function AdminClientDetailPage() {
                 </thead>
                 <tbody>
                   {adminDocSort.sorted.map((document) => (
-                    <tr key={document.id} className="border-b border-[#E8E6DF]/50 hover:bg-gray-50 cursor-pointer">
-                      <td className="py-2 pr-2 font-medium">{document.doc_number || "-"}</td>
-                      <td className="py-2 pr-2">{DOC_TYPE_LABELS[document.doc_type]?.th || document.doc_type}</td>
-                      <td className="py-2 pr-2 text-[#888780]">{(document as any).customer?.name || "-"}</td>
+                    <tr key={document.id} className={`${TABLE.tbodyTr}`}>
+                      <td className="py-2 pr-2 font-medium text-[#111827]">{document.doc_number || "-"}</td>
+                      <td className="py-2 pr-2 text-[#475467]">{DOC_TYPE_LABELS[document.doc_type]?.th || document.doc_type}</td>
+                      <td className="py-2 pr-2 text-[#667085]">{(document as any).customer?.name || "-"}</td>
                       <td className="py-2 pr-2 text-right">฿ {document.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
                       <td className="py-2">
                         <span

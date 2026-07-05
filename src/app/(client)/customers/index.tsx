@@ -15,6 +15,7 @@ import { useCustomers } from "../../../hooks/useCustomers";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { TABLE } from "../../../lib/tableStyles";
 import type { Customer } from "../../../types";
 
 type FilterMode = "all" | "favorites" | "hasDeals";
@@ -377,9 +378,9 @@ export default function CustomersPage() {
         ) : viewMode === "table" ? (
           <div className="bg-white border border-card-border rounded-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
+              <table className={TABLE.table}>
                 <thead>
-                  <tr className="bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                  <tr className={TABLE.theadTr}>
                     <th className="px-3 py-2 w-10"></th>
                     <SortableTh
                       label="ชื่อลูกค้า"
@@ -387,7 +388,7 @@ export default function CustomersPage() {
                       active={customerSort.sort.key === "name"}
                       dir={customerSort.sort.dir}
                       onClick={() => customerSort.handleSort("name")}
-                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      className={TABLE.thSortable}
                     />
                     <SortableTh
                       label="เลขผู้เสียภาษี"
@@ -411,7 +412,7 @@ export default function CustomersPage() {
                       active={customerSort.sort.key === "dealCount"}
                       dir={customerSort.sort.dir}
                       onClick={() => customerSort.handleSort("dealCount")}
-                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                      className={TABLE.thSortable}
                     />
                     <SortableTh
                       label="สถานะ"
@@ -431,7 +432,7 @@ export default function CustomersPage() {
                       <tr
                         key={c.id}
                         onClick={() => navigate(`/customers/${c.id}`)}
-                        className="border-b border-[#F0EFE9] last:border-0 hover:bg-[#FAFAF7] cursor-pointer transition-colors"
+                        className={TABLE.tbodyTr}
                       >
                         <td className="px-3 py-2">
                           <button
@@ -450,13 +451,13 @@ export default function CustomersPage() {
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <CustomerAvatar customer={c} size="sm" />
-                            <span className="font-semibold text-[#1A1A18] truncate">{c.name}</span>
+                            <span className="font-semibold text-[#111827] truncate">{c.name}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-2 font-mono text-[12px] text-[#444441] hidden sm:table-cell">
+                        <td className="px-3 py-2 font-mono text-[12px] text-[#475467] hidden sm:table-cell">
                           {c.tax_id || <span className="text-[#AAAAAA] italic font-sans">—</span>}
                         </td>
-                        <td className="px-3 py-2 text-[#444441] hidden md:table-cell">
+                        <td className="px-3 py-2 text-[#475467] hidden md:table-cell">
                           {c.phone || <span className="text-[#AAAAAA] italic">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right">
@@ -468,7 +469,7 @@ export default function CustomersPage() {
                         </td>
                         <td className="px-3 py-2 hidden sm:table-cell">
                           {incomplete ? (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
+                            <span className={`${TABLE.statusPill} bg-[#FAEEDA] text-[#633806]`}>
                               <AlertTriangle size={10} />
                               ไม่ครบ
                             </span>
@@ -502,6 +503,7 @@ export default function CustomersPage() {
                         className={c.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
                       />
                     </button>
+                    <CustomerAvatar customer={c} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <div className="text-[14px] font-semibold text-[#1A1A18] truncate">

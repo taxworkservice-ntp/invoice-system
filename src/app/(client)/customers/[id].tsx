@@ -18,6 +18,7 @@ import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { TABLE } from "../../../lib/tableStyles";
 import type { Customer, Deal, Document } from "../../../types";
 
 const AVATAR_PRESET_COLORS = [
@@ -692,16 +693,16 @@ export default function CustomerDetailPage() {
                 ))}
               </div>
               <div className="hidden overflow-hidden rounded-card border border-card-border bg-white sm:block">
-                <table className="w-full text-[13px]">
+                <table className={TABLE.table}>
                   <thead>
-                    <tr className="border-b border-card-border bg-[#F7F6F3] text-left text-[11px] uppercase tracking-wide text-[#888780]">
+                    <tr className={TABLE.theadTr}>
                       <SortableTh
                         label="งานขาย / เอกสารล่าสุด"
                         align="left"
                         active={dealSort.sort.key === "title"}
                         dir={dealSort.sort.dir}
                         onClick={() => dealSort.handleSort("title")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="วันที่"
@@ -709,7 +710,7 @@ export default function CustomerDetailPage() {
                         active={dealSort.sort.key === "latestDate"}
                         dir={dealSort.sort.dir}
                         onClick={() => dealSort.handleSort("latestDate")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="สถานะ"
@@ -717,7 +718,7 @@ export default function CustomerDetailPage() {
                         active={dealSort.sort.key === "status"}
                         dir={dealSort.sort.dir}
                         onClick={() => dealSort.handleSort("status")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="ยอด"
@@ -725,35 +726,35 @@ export default function CustomerDetailPage() {
                         active={dealSort.sort.key === "amount"}
                         dir={dealSort.sort.dir}
                         onClick={() => dealSort.handleSort("amount")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
+                        className={TABLE.thSortable}
                       />
-                      <th className="px-3 py-2 text-right font-semibold">เปิด</th>
+                      <th className={TABLE.thStaticRight}>เปิด</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-card-border">
+                  <tbody>
                     {dealSort.sorted.map((item) => (
                       <tr
                         key={item.deal.id}
                         onClick={() => navigate(`/deals/${item.deal.id}`)}
-                        className={`cursor-pointer transition-colors hover:bg-[#FAF8F3] ${
-                          item.isDone ? "bg-[#FAFAF8] text-[#8A8478]" : "bg-white text-[#1A1A18]"
+                        className={`cursor-pointer transition-colors hover:bg-[#F8FAFC] ${
+                          item.isDone ? "bg-[#FAFAF8] text-[#8A8478]" : "bg-white"
                         }`}
                       >
                         <td className="px-3 py-2">
-                          <div className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
+                          <div className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-[#8A8478]" : "text-[#111827]"}`}>
                             {item.deal.title || "งานขาย"}
                           </div>
-                          <div className="mt-0.5 truncate text-[11px] text-[#888780]">
+                          <div className="mt-0.5 truncate text-[11px] text-[#667085]">
                             {item.latestDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-[12px] text-[#888780]">
+                        <td className="px-3 py-2 text-[12px] text-[#667085]">
                           {item.latestDate ? formatBuddhistDate(item.latestDate) : "-"}
                         </td>
                         <td className="px-3 py-2">
                           {item.latestDoc ? <Badge status={item.latestDoc.status} /> : <span className="text-[12px] text-[#AAA49A]">-</span>}
                         </td>
-                        <td className={`px-3 py-2 text-right font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[#1A1A18]"}`}>
+                        <td className={`px-3 py-2 text-right font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[#111827]"}`}>
                           ฿ {formatCurrency(item.amount)}
                         </td>
                         <td className="px-3 py-2">

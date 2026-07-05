@@ -11,6 +11,7 @@ import { useStockReport, fetchFullStockReport } from "../../hooks/useReports";
 import type { StockMovementRow } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
 import { formatMixedStock } from "../../lib/stock";
+import { TABLE } from "../../lib/tableStyles";
 import type { Item } from "../../types";
 
 function todayString() {
@@ -160,7 +161,7 @@ export function StockReport({ userId }: StockReportProps) {
               key={tab.key}
               onClick={() => setSubTab(tab.key)}
               className={`flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                active ? "bg-white text-[#1A1A18] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                active ? "bg-white text-[#1A1A18] shadow-sm" : "text-gray-500 hover:text-[#475467]"
               }`}
             >
               {tab.icon}
@@ -191,7 +192,7 @@ export function StockReport({ userId }: StockReportProps) {
                   <div key={item.id} className="flex items-center justify-between text-sm cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
                     <div className="flex items-center gap-2">
                       <div className={`h-2 w-2 rounded-full ${item.stock_count <= 0 ? "bg-[#C0392B]" : "bg-amber-500"}`} />
-                      <span className="text-gray-700">{item.name}</span>
+                      <span className="text-[#475467]">{item.name}</span>
                       {item.sku && <span className="text-xs text-gray-400">({item.sku})</span>}
                     </div>
                     <div className="text-right tabular-nums">
@@ -220,14 +221,14 @@ export function StockReport({ userId }: StockReportProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#E8E6DF]">
+                  <tr className={TABLE.theadTr}>
                     <SortableTh
                       label="รายการ"
                       align="left"
                       active={valuationSort.sort.key === "name"}
                       dir={valuationSort.sort.dir}
                       onClick={() => valuationSort.handleSort("name")}
-                      className="text-xs font-medium text-gray-500 !text-[10px]"
+                      className={TABLE.thSortable}
                     />
                     <SortableTh
                       label="คงเหลือ"
@@ -235,7 +236,7 @@ export function StockReport({ userId }: StockReportProps) {
                       active={valuationSort.sort.key === "stock_count"}
                       dir={valuationSort.sort.dir}
                       onClick={() => valuationSort.handleSort("stock_count")}
-                      className="text-xs font-medium text-gray-500 !text-[10px]"
+                      className={TABLE.thSortable}
                     />
                     <SortableTh
                       label="ทุนเฉลี่ย/หน่วย"
@@ -243,16 +244,16 @@ export function StockReport({ userId }: StockReportProps) {
                       active={valuationSort.sort.key === "avg_cost"}
                       dir={valuationSort.sort.dir}
                       onClick={() => valuationSort.handleSort("avg_cost")}
-                      className="text-xs font-medium text-gray-500 !text-[10px]"
+                      className={TABLE.thSortable}
                     />
-                    <th className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-gray-500">ทุนเฉลี่ย/หน่วยรอง</th>
+                    <th className={`whitespace-nowrap px-3 py-2 text-right ${TABLE.thSortable}`}>ทุนเฉลี่ย/หน่วยรอง</th>
                     <SortableTh
                       label="มูลค่า"
                       align="right"
                       active={valuationSort.sort.key === "stock_value"}
                       dir={valuationSort.sort.dir}
                       onClick={() => valuationSort.handleSort("stock_value")}
-                      className="text-xs font-medium text-gray-500 !text-[10px]"
+                      className={TABLE.thSortable}
                     />
                   </tr>
                 </thead>
@@ -260,22 +261,22 @@ export function StockReport({ userId }: StockReportProps) {
                   {valuationSort.sorted.map((item) => (
                     <tr
                       key={item.id}
-                      className="border-b border-[#F0EEE8] cursor-pointer last:border-0 hover:bg-[#FAFAF8] transition-colors"
+                      className={TABLE.tbodyTr}
                       onClick={() => navigate(`/catalog/${item.id}`)}
                     >
-                      <td className="whitespace-nowrap px-3 py-2 text-gray-700">{item.name}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                      <td className="whitespace-nowrap px-3 py-2 text-[#475467]">{item.name}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">
                         {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">
                         ฿{formatCurrency(item.avg_cost || 0)}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">
                         {item.carton_unit && item.qty_per_carton && item.qty_per_carton > 0
                           ? `฿${formatCurrency((item.avg_cost || 0) * item.qty_per_carton)} / ${item.carton_unit}`
                           : "—"}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums font-medium text-[#1A1A18]">
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums font-medium text-[#111827]">
                         ฿{formatCurrency(item.stock_value || 0)}
                       </td>
                     </tr>
@@ -298,7 +299,7 @@ export function StockReport({ userId }: StockReportProps) {
                 <div key={item.id} className="flex items-center justify-between text-sm cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
                   <div className="flex items-center gap-2">
                     <div className={`h-2 w-2 rounded-full ${item.stock_count <= 0 ? "bg-[#C0392B]" : "bg-amber-500"}`} />
-                    <span className="text-gray-700">{item.name}</span>
+                    <span className="text-[#475467]">{item.name}</span>
                     {item.sku && <span className="text-xs text-gray-400">({item.sku})</span>}
                   </div>
                   <div className="text-right tabular-nums">
@@ -341,14 +342,14 @@ export function StockReport({ userId }: StockReportProps) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[#E8E6DF]">
+                    <tr className={TABLE.theadTr}>
                       <SortableTh
                         label="วันที่"
                         align="left"
                         active={movementSort.sort.key === "date"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("date")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="รายการ"
@@ -356,7 +357,7 @@ export function StockReport({ userId }: StockReportProps) {
                         active={movementSort.sort.key === "itemName"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("itemName")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="ประเภท"
@@ -364,7 +365,7 @@ export function StockReport({ userId }: StockReportProps) {
                         active={movementSort.sort.key === "type"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("type")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="จำนวน"
@@ -372,7 +373,7 @@ export function StockReport({ userId }: StockReportProps) {
                         active={movementSort.sort.key === "qty"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("qty")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="ทุน/หน่วย"
@@ -380,7 +381,7 @@ export function StockReport({ userId }: StockReportProps) {
                         active={movementSort.sort.key === "unitCost"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("unitCost")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="มูลค่า"
@@ -388,7 +389,7 @@ export function StockReport({ userId }: StockReportProps) {
                         active={movementSort.sort.key === "movementValue"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("movementValue")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="คงเหลือ"
@@ -396,7 +397,7 @@ export function StockReport({ userId }: StockReportProps) {
                         active={movementSort.sort.key === "balance"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("balance")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="มูลค่าคงเหลือ"
@@ -404,7 +405,7 @@ export function StockReport({ userId }: StockReportProps) {
                         active={movementSort.sort.key === "balanceValue"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("balanceValue")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                       <SortableTh
                         label="เอกสาร"
@@ -412,7 +413,7 @@ export function StockReport({ userId }: StockReportProps) {
                         active={movementSort.sort.key === "docNumber"}
                         dir={movementSort.sort.dir}
                         onClick={() => movementSort.handleSort("docNumber")}
-                        className="text-xs font-medium text-gray-500 !text-[10px]"
+                        className={TABLE.thSortable}
                       />
                     </tr>
                   </thead>
@@ -424,20 +425,20 @@ export function StockReport({ userId }: StockReportProps) {
                         return items.map((m) => {
                           const badge = MOVEMENT_BADGE[m.typeKey] || "bg-gray-50 text-gray-600";
                           return (
-                            <tr key={m.id} className="border-b border-[#F0EEE8] last:border-0">
+                            <tr key={m.id} className={TABLE.tbodyTr}>
                               <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-400">{formatDate(m.date)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-gray-700">{m.itemName}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-[#475467]">{m.itemName}</td>
                               <td className="whitespace-nowrap px-3 py-2">
                                 <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${badge}`}>{m.type}</span>
                               </td>
                               <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-[#C0392B]" : "text-[#1E5A38]"}`}>
                                 {m.qty > 0 ? "+" : ""}{m.qty} {m.baseUnit}
                               </td>
-                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">฿{formatCurrency(m.unitCost || 0)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">฿{formatCurrency(m.movementValue || 0)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">฿{formatCurrency(m.balanceValue || 0)}</td>
-                              <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{m.docNumber || m.reason || "-"}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">฿{formatCurrency(m.unitCost || 0)}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">฿{formatCurrency(m.movementValue || 0)}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">฿{formatCurrency(m.balanceValue || 0)}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-xs text-[#667085]">{m.docNumber || m.reason || "-"}</td>
                             </tr>
                           );
                         });
@@ -456,20 +457,20 @@ export function StockReport({ userId }: StockReportProps) {
                         }
                         const badge = MOVEMENT_BADGE[m.typeKey] || "bg-gray-50 text-gray-600";
                         rows.push(
-                          <tr key={m.id} className="border-b border-[#F0EEE8] last:border-0">
+                          <tr key={m.id} className={TABLE.tbodyTr}>
                             <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-400"></td>
-                            <td className="whitespace-nowrap px-3 py-2 text-gray-700">{m.itemName}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-[#475467]">{m.itemName}</td>
                             <td className="whitespace-nowrap px-3 py-2">
                               <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${badge}`}>{m.type}</span>
                             </td>
                             <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${m.qty < 0 ? "text-[#C0392B]" : "text-[#1E5A38]"}`}>
                               {m.qty > 0 ? "+" : ""}{m.qty} {m.baseUnit}
                             </td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">฿{formatCurrency(m.unitCost || 0)}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">฿{formatCurrency(m.movementValue || 0)}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">฿{formatCurrency(m.balanceValue || 0)}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{m.docNumber || m.reason || "-"}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">฿{formatCurrency(m.unitCost || 0)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">฿{formatCurrency(m.movementValue || 0)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">{formatMixedStock(m.balance, m.baseUnit, m.cartonUnit, m.qtyPerCarton)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#475467]">฿{formatCurrency(m.balanceValue || 0)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-xs text-[#667085]">{m.docNumber || m.reason || "-"}</td>
                           </tr>
                         );
                       });
