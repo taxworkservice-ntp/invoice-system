@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { STATUS_LABELS } from "../constants";
 import { supabase } from "../lib/supabase";
 import type { Document, DocumentLineItem, Item, StockMovement } from "../types";
 
@@ -114,6 +115,22 @@ function isRecognizedSalesDocument(doc: any, vatRegistered: boolean) {
 
 function getRecognitionDate(doc: any) {
   return (doc.paid_at || doc.issue_date || "").slice(0, 10);
+}
+
+function getTransactionStatusLabel(doc: any) {
+  if (doc.doc_type === "receipt" || doc.doc_type === "tax_invoice_receipt") {
+    return STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
+  }
+
+  const statusLabels: Record<string, string> = {
+    paid: "ชำระแล้ว",
+    generated: "รอชำระ",
+    issued: "รอชำระ",
+    sent: "รอชำระ",
+    overdue: "เกินกำหนด",
+  };
+
+  return statusLabels[doc.status as string] || STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
 }
 
 export function useFinancialReport(userId: string | undefined, year: number, month: number) {
@@ -290,13 +307,6 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       );
 
       // Transaction-level detail table
-      const statusLabels: Record<string, string> = {
-        paid: "ชำระแล้ว",
-        generated: "รอชำระ",
-        issued: "รอชำระ",
-        sent: "รอชำระ",
-        overdue: "เกินกำหนด",
-      };
       const docTypeLabels: Record<string, string> = {
         invoice: "ใบแจ้งหนี้",
         tax_invoice_receipt: "ใบกำกับภาษี",
@@ -315,8 +325,8 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         total_amount: d.total_amount || 0,
         wht_amount: d.wht_amount || 0,
         net_payable: d.net_payable || 0,
-        status: statusLabels[d.status as string] || d.status,
-        is_paid: d.status === "paid",
+        status: getTransactionStatusLabel(d),
+        is_paid: d.status === "paid" || d.doc_type === "receipt" || d.doc_type === "tax_invoice_receipt",
       }));
       setTransactions(txns);
 
