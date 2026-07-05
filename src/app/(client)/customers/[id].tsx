@@ -43,6 +43,7 @@ type DealHistoryItem = {
 };
 
 const DEAL_HISTORY_VIEW_STORAGE_KEY = "customer_deal_history_view";
+const SALES_JOB_DOCUMENT_TYPES = new Set(["quotation", "invoice", "tax_invoice_receipt", "delivery_note"]);
 
 function isResolvedDealDocument(doc: Document | null) {
   if (!doc) return false;
@@ -52,6 +53,12 @@ function isResolvedDealDocument(doc: Document | null) {
 function getSortedDocs(deal: DealWithDocs) {
   return [...(deal.documents || [])].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+}
+
+function hasSalesJobDocument(deal: DealWithDocs) {
+  return (deal.documents || []).some(
+    (doc) => SALES_JOB_DOCUMENT_TYPES.has(doc.doc_type) && doc.status !== "voided",
   );
 }
 
@@ -265,7 +272,7 @@ export default function CustomerDetailPage() {
   }
 
   const dealHistoryItems = useMemo(
-    () => deals.map(getDealHistoryItem),
+    () => deals.filter(hasSalesJobDocument).map(getDealHistoryItem),
     [deals],
   );
 
@@ -297,13 +304,13 @@ export default function CustomerDetailPage() {
   type DealSortKey = "title" | "latestDate" | "status" | "amount";
   const dealSort = useTableSort<(typeof dealRows)[number], DealSortKey>(dealRows, { key: "latestDate", dir: "desc" });
 
-  const totalReceived = deals.reduce((sum, d) => {
-    const paidDoc = d.documents?.find((doc) => doc.status === "paid" && doc.doc_type === "billing_note");
+  const totalReceived = dealHistoryItems.reduce((sum, item) => {
+    const paidDoc = item.deal.documents?.find((doc) => doc.status === "paid" && doc.doc_type === "billing_note");
     return sum + (paidDoc?.amount_received || 0);
   }, 0);
 
-  const unpaid = deals.reduce((sum, d) => {
-    const sentDoc = d.documents?.find((doc) => doc.status === "sent" || doc.status === "overdue");
+  const unpaid = dealHistoryItems.reduce((sum, item) => {
+    const sentDoc = item.deal.documents?.find((doc) => doc.status === "sent" || doc.status === "overdue");
     return sum + (sentDoc?.net_payable || 0);
   }, 0);
 
@@ -601,7 +608,7 @@ export default function CustomerDetailPage() {
         <Card>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <div className="text-[20px] font-bold text-[#1A1A18]">{deals.length}</div>
+              <div className="text-[20px] font-bold text-[#1A1A18]">{dealHistoryItems.length}</div>
               <div className="text-[11px] text-[#888780]">งานขายทั้งหมด</div>
             </div>
             <div>

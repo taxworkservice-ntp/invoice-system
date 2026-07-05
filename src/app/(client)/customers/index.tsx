@@ -19,6 +19,7 @@ import { TABLE } from "../../../lib/tableStyles";
 import type { Customer } from "../../../types";
 
 type FilterMode = "all" | "favorites" | "hasDeals";
+const SALES_JOB_DOCUMENT_TYPES = ["quotation", "invoice", "tax_invoice_receipt", "delivery_note"];
 
 export default function CustomersPage() {
   const navigate = useNavigate();
@@ -96,15 +97,23 @@ export default function CustomersPage() {
     const timer = setTimeout(() => {
       if (!profile?.id) return;
       supabase
-        .from("deals")
-        .select("customer_id")
+        .from("documents")
+        .select("customer_id, deal_id")
         .eq("user_id", profile.id)
+        .in("doc_type", SALES_JOB_DOCUMENT_TYPES)
+        .neq("status", "voided")
+        .not("deal_id", "is", null)
         .then(({ data }) => {
           if (!data) return;
-          const counts: Record<string, number> = {};
-          for (const d of data) {
-            counts[d.customer_id] = (counts[d.customer_id] || 0) + 1;
+          const dealIdsByCustomer: Record<string, Set<string>> = {};
+          for (const doc of data) {
+            if (!doc.customer_id || !doc.deal_id) continue;
+            if (!dealIdsByCustomer[doc.customer_id]) dealIdsByCustomer[doc.customer_id] = new Set();
+            dealIdsByCustomer[doc.customer_id].add(doc.deal_id);
           }
+          const counts = Object.fromEntries(
+            Object.entries(dealIdsByCustomer).map(([customerId, dealIds]) => [customerId, dealIds.size]),
+          );
           setDealCounts(counts);
         });
     }, 100);
