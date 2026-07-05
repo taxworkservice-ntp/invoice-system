@@ -20,27 +20,38 @@ function StockRow({ item, index }: { item: Item; index: number }) {
   const out = isProduct && isOutOfStock(item.stock_count);
   const value = item.stock_value;
 
-  let rowBg = "";
   let textColor = "";
   if (out) {
-    rowBg = "bg-[#FCEBEB]";
     textColor = "text-[#791F1F]";
   } else if (low) {
-    rowBg = "bg-[#FAEEDA]";
     textColor = "text-[#633806]";
   }
 
   return (
     <tr
-      className={`${TABLE.tbodyTr} ${rowBg}`}
+      className={TABLE.tbodyTr}
       onClick={() => navigate(`/catalog/${item.id}`)}
     >
-      <td className="px-3 py-2 text-[11px] text-[#667085] w-8 text-right tabular-nums">
+      <td className={`border-l-2 px-3 py-2 text-[11px] text-[#667085] w-8 text-right tabular-nums ${
+        out ? "border-l-[#C0392B]" : low ? "border-l-[#F59E0B]" : "border-l-transparent"
+      }`}>
         {index}
       </td>
       <td className="px-3 py-2 min-w-0">
-        <div className={`text-[13px] leading-tight ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#111827]"}`}>
-          {item.name}
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[13px] leading-tight text-[#111827]">
+            {item.name}
+          </span>
+          {out && (
+            <span className="shrink-0 rounded border border-[#F2C7C7] bg-[#FEF3F2] px-1.5 py-0.5 text-[10px] font-medium text-[#B42318]">
+              หมด
+            </span>
+          )}
+          {low && !out && (
+            <span className="shrink-0 rounded border border-[#FCDFA6] bg-[#FFFAEB] px-1.5 py-0.5 text-[10px] font-medium text-[#B54708]">
+              ใกล้หมด
+            </span>
+          )}
         </div>
         {item.sku && (
           <div className="text-[10px] text-[#667085]">{item.sku}</div>
@@ -75,21 +86,29 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
   const out = isProduct && isOutOfStock(item.stock_count);
   const value = item.stock_value;
 
-  let rowBg = "";
-  if (out) rowBg = "bg-[#FCEBEB]";
-  else if (low) rowBg = "bg-[#FAEEDA]";
-
   return (
     <div
-      className={`cursor-pointer border-b border-[#F0EFE9] last:border-0 px-3 py-2.5 transition-colors hover:bg-[#FAFAF7] ${rowBg}`}
+      className={`cursor-pointer border-b border-l-2 border-b-[#F0EFE9] last:border-b-0 px-3 py-2.5 transition-colors hover:bg-[#FAFAF7] ${
+        out ? "border-l-[#C0392B]" : low ? "border-l-[#F59E0B]" : "border-l-transparent"
+      }`}
       onClick={() => navigate(`/catalog/${item.id}`)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <span className="text-[10px] text-[#888780] mr-1">{index}.</span>
-          <span className={`text-[14px] ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#1A1A18]"}`}>
+          <span className="text-[14px] text-[#1A1A18]">
             {item.name}
           </span>
+          {out && (
+            <span className="ml-1 inline-flex rounded border border-[#F2C7C7] bg-[#FEF3F2] px-1.5 py-0.5 text-[10px] font-medium text-[#B42318]">
+              หมด
+            </span>
+          )}
+          {low && !out && (
+            <span className="ml-1 inline-flex rounded border border-[#FCDFA6] bg-[#FFFAEB] px-1.5 py-0.5 text-[10px] font-medium text-[#B54708]">
+              ใกล้หมด
+            </span>
+          )}
           {item.sku && <span className="text-[10px] text-[#888780] ml-1">{item.sku}</span>}
         </div>
         <div className={`shrink-0 text-[14px] font-medium tabular-nums text-right ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#1A1A18]"}`}>
