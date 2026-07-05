@@ -433,14 +433,14 @@ export default function CustomersPage() {
             <div className="overflow-x-auto">
               <table className={`${TABLE.table} table-fixed min-w-[920px]`}>
                 <colgroup>
-                  <col className="w-[44px]" />
-                  <col className="w-[32%]" />
-                  <col className="w-[140px]" />
-                  <col className="w-[130px]" />
-                  <col className="w-[82px]" />
-                  <col className="w-[82px]" />
-                  <col className="w-[82px]" />
-                  <col className="w-[86px]" />
+                  <col className="w-[42px]" />
+                  <col className="w-auto" />
+                  <col className="w-[132px]" />
+                  <col className="w-[118px]" />
+                  <col className="w-[64px]" />
+                  <col className="w-[64px]" />
+                  <col className="w-[64px]" />
+                  <col className="w-[74px]" />
                 </colgroup>
                 <thead>
                   <tr className={TABLE.theadTr}>
