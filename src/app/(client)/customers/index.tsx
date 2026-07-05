@@ -396,7 +396,7 @@ export default function CustomersPage() {
                       active={customerSort.sort.key === "tax_id"}
                       dir={customerSort.sort.dir}
                       onClick={() => customerSort.handleSort("tax_id")}
-                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                      className={`${TABLE.thSortable} hidden sm:table-cell`}
                     />
                     <SortableTh
                       label="เบอร์โทร"
@@ -404,7 +404,7 @@ export default function CustomersPage() {
                       active={customerSort.sort.key === "phone"}
                       dir={customerSort.sort.dir}
                       onClick={() => customerSort.handleSort("phone")}
-                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden md:table-cell"
+                      className={`${TABLE.thSortable} hidden md:table-cell`}
                     />
                     <SortableTh
                       label="งานขาย"
@@ -414,14 +414,14 @@ export default function CustomersPage() {
                       onClick={() => customerSort.handleSort("dealCount")}
                       className={TABLE.thSortable}
                     />
-                    <SortableTh
-                      label="สถานะ"
-                      align="left"
-                      active={customerSort.sort.key === "is_active"}
-                      dir={customerSort.sort.dir}
-                      onClick={() => customerSort.handleSort("is_active")}
-                      className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
-                    />
+                      <SortableTh
+                        label="สถานะ"
+                        align="left"
+                        active={customerSort.sort.key === "is_active"}
+                        dir={customerSort.sort.dir}
+                        onClick={() => customerSort.handleSort("is_active")}
+                        className={`${TABLE.thSortable} hidden sm:table-cell whitespace-nowrap min-w-[80px]`}
+                      />
                   </tr>
                 </thead>
                 <tbody>

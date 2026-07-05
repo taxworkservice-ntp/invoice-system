@@ -1356,7 +1356,7 @@ export default function DocumentsPage() {
                         active={docSort.sort.key === "issue_date"}
                         dir={docSort.sort.dir}
                         onClick={() => docSort.handleSort("issue_date")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                        className={`${TABLE.thSortable} hidden sm:table-cell`}
                       />
                       <SortableTh
                         label="จำนวนเงิน"
@@ -1372,7 +1372,7 @@ export default function DocumentsPage() {
                         active={docSort.sort.key === "status"}
                         dir={docSort.sort.dir}
                         onClick={() => docSort.handleSort("status")}
-                        className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden md:table-cell"
+                        className={`${TABLE.thSortable} hidden md:table-cell`}
                       />
                     </tr>
                   </thead>

@@ -168,7 +168,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
                   active={sort.key === "avg_cost"}
                   dir={sort.dir}
                   onClick={() => handleSort("avg_cost")}
-                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                  className={`${TABLE.thSortable} hidden sm:table-cell`}
                 />
                 <SortableTh
                   label="มูลค่า"
@@ -176,7 +176,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
                   active={sort.key === "stock_value"}
                   dir={sort.dir}
                   onClick={() => handleSort("stock_value")}
-                  className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase hidden sm:table-cell"
+                  className={`${TABLE.thSortable} hidden sm:table-cell`}
                 />
               </tr>
             </thead>
