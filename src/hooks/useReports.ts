@@ -5,6 +5,7 @@ import type { Document, DocumentLineItem, Item, StockMovement } from "../types";
 export interface FinancialSummary {
   revenue: number;
   collected: number;
+  whtWithheld: number;
   outstanding: number;
   vatCollected: number;
   docCount: number;
@@ -104,6 +105,17 @@ function getMonthsBack(count: number) {
   return months;
 }
 
+function isRecognizedSalesDocument(doc: any, vatRegistered: boolean) {
+  if (vatRegistered) {
+    return doc.doc_type === "tax_invoice_receipt" && (doc.status === "issued" || doc.status === "paid");
+  }
+  return doc.doc_type === "receipt" && (doc.status === "generated" || doc.status === "paid" || doc.status === "issued");
+}
+
+function getRecognitionDate(doc: any) {
+  return (doc.paid_at || doc.issue_date || "").slice(0, 10);
+}
+
 export function useFinancialReport(userId: string | undefined, year: number, month: number) {
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [byType, setByType] = useState<RevenueByType[]>([]);
@@ -125,11 +137,17 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
     try {
       const { start, end } = getMonthRange(year, month);
 
+      const { data: clientProfile } = await supabase
+        .from("client_profiles")
+        .select("vat_registered")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const vatRegistered = Boolean(clientProfile?.vat_registered);
+
       const { data: allDocs } = await supabase
         .from("documents")
         .select("id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, paid_at, issue_date, due_date, customer_id, customer:customer_id(name)")
         .eq("user_id", userId)
-        .neq("doc_type", "receipt")
         .neq("doc_type", "delivery_note")
         .neq("doc_type", "credit_note")
         .neq("status", "draft")
@@ -143,17 +161,15 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         .select("invoice_id");
       const invoiceIdsInBn = new Set((bnLinks || []).map((l: any) => l.invoice_id));
 
-      const paidThisPeriod = docs.filter(
-        (d) =>
-          d.paid_at &&
-          d.paid_at.slice(0, 10) >= start &&
-          d.paid_at.slice(0, 10) <= end &&
-          (d.status === "paid" || d.status === "generated" || d.status === "issued") &&
-          d.doc_type !== "billing_note"
-      );
+      const recognizedSalesDocs = docs.filter((d) => isRecognizedSalesDocument(d, vatRegistered));
+      const paidThisPeriod = recognizedSalesDocs.filter((d) => {
+        const recognitionDate = getRecognitionDate(d);
+        return recognitionDate >= start && recognitionDate <= end;
+      });
 
       const revenue = paidThisPeriod.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0);
       const collected = paidThisPeriod.reduce((sum, d) => sum + (d.amount_received || d.net_payable || 0), 0);
+      const whtWithheld = paidThisPeriod.reduce((sum, d) => sum + (d.wht_amount || 0), 0);
       const vatCollected = paidThisPeriod.reduce((sum, d) => sum + (d.vat_amount || 0), 0);
 
       const outstanding = docs
@@ -167,6 +183,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       setSummary({
         revenue,
         collected,
+        whtWithheld,
         outstanding,
         vatCollected,
         docCount: paidThisPeriod.length,
@@ -190,14 +207,10 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const monthlyData: MonthlyRevenue[] = [];
       for (const m of months) {
         const { start: ms, end: me } = getMonthRange(m.year, m.month);
-        const inMonth = docs.filter(
-          (d) =>
-            d.paid_at &&
-            d.paid_at.slice(0, 10) >= ms &&
-            d.paid_at.slice(0, 10) <= me &&
-            (d.status === "paid" || d.status === "generated" || d.status === "issued") &&
-            !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
-        );
+        const inMonth = recognizedSalesDocs.filter((d) => {
+          const recognitionDate = getRecognitionDate(d);
+          return recognitionDate >= ms && recognitionDate <= me;
+        });
         monthlyData.push({
           month: `${m.month}`.padStart(2, "0"),
           year: m.year,
@@ -288,11 +301,12 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         invoice: "ใบแจ้งหนี้",
         tax_invoice_receipt: "ใบกำกับภาษี",
         billing_note: "ใบวางบิล",
+        receipt: "ใบเสร็จรับเงิน",
       };
       const txns: Transaction[] = paidThisPeriod.map((d: any) => ({
         id: d.id,
         deal_id: d.deal_id || null,
-        date: d.paid_at?.slice(0, 10) || "",
+        date: getRecognitionDate(d),
         doc_number: d.doc_number || "-",
         doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
         customer_name: d.customer?.name || "ไม่ระบุ",

@@ -69,6 +69,7 @@ function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     ["รายได้รวม", formatCurrency(summary?.revenue ?? 0)],
     ["กำไรสุทธิ", formatCurrency((summary?.revenue ?? 0) - cogs)],
     ["เก็บแล้ว", formatCurrency(summary?.collected ?? 0)],
+    ["หัก ณ ที่จ่าย", formatCurrency(summary?.whtWithheld ?? 0)],
     ["ค้างชำระ", formatCurrency(summary?.outstanding ?? 0)],
     ["VAT ที่เก็บ", formatCurrency(summary?.vatCollected ?? 0)],
     ["จำนวนเอกสาร", String(summary?.docCount ?? 0)],

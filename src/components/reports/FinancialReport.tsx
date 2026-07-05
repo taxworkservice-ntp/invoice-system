@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CircleDollarSign, TrendingUp, Wallet, FileText, Download, BarChart3 } from "lucide-react";
+import { CircleDollarSign, TrendingUp, Wallet, FileText, Download, BarChart3, Percent } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -132,8 +132,8 @@ export function FinancialReport({ userId }: FinancialReportProps) {
           <Skeleton className="h-8 w-48 rounded-md" />
           <Skeleton className="h-8 w-32 rounded-md" />
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
@@ -179,11 +179,12 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       </div>
 
       {summary && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <SummaryCard icon={<TrendingUp className="h-4 w-4" />} label="ยอดขายก่อน VAT" value={formatCurrency(summary.revenue - summary.vatCollected)} />
           <SummaryCard icon={<FileText className="h-4 w-4" />} label="VAT" value={formatCurrency(summary.vatCollected)} />
           <SummaryCard icon={<BarChart3 className="h-4 w-4" />} label="ยอดรวม" value={formatCurrency(summary.revenue)} delta={revenueDelta} />
           <SummaryCard icon={<CircleDollarSign className="h-4 w-4" />} label="เก็บแล้ว" value={formatCurrency(summary.collected)} />
+          <SummaryCard icon={<Percent className="h-4 w-4" />} label="หัก ณ ที่จ่าย" value={formatCurrency(summary.whtWithheld)} />
           <SummaryCard icon={<Wallet className="h-4 w-4" />} label="ค้างเก็บ" value={formatCurrency(summary.outstanding)} alert={summary.outstanding > 0} />
         </div>
       )}
