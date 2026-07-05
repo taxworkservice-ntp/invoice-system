@@ -1,7 +1,7 @@
 import { Card } from "../ui/Card";
 import { formatBuddhistDateTime } from "../../lib/dates";
 import { CustomerAvatar } from "../customer/CustomerAvatar";
-import type { Customer, DocumentStatus } from "../../types";
+import type { Customer } from "../../types";
 
 interface DealCardProps {
   customerName: string;
@@ -9,10 +9,10 @@ interface DealCardProps {
   itemSummary: string;
   itemNames?: string[];
   amountText: string;
-  status: DocumentStatus;
   stageLabel: string;
   stageHint?: string;
   internalNote: string;
+  noteAuthorRole: string;
   isOverdue?: boolean;
   createdAt: string;
   queue: string;
@@ -28,6 +28,12 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   done: { bg: "bg-gray-100", text: "text-gray-500" },
 };
 
+const ROLE_BADGE: Record<string, { label: string; color: string }> = {
+  owner: { label: "Owner", color: "bg-amber-100 text-amber-800" },
+  manager: { label: "Manager", color: "bg-blue-100 text-blue-800" },
+  officer: { label: "Officer", color: "bg-slate-100 text-slate-600" },
+};
+
 const ITEM_CHIP_CLASS = "bg-[#F7F6F3] text-[#62605A]";
 
 export function DealCard({
@@ -36,10 +42,10 @@ export function DealCard({
   itemSummary,
   itemNames = [],
   amountText,
-  status,
   stageLabel,
   stageHint,
   internalNote,
+  noteAuthorRole,
   isOverdue,
   createdAt,
   queue,
@@ -48,53 +54,61 @@ export function DealCard({
   const previewItems = itemNames.slice(0, 3);
   const remainingItems = itemNames.length - previewItems.length;
   const colors = STAGE_COLORS[queue] || STAGE_COLORS.progress;
-  void status;
+  const roleBadge = ROLE_BADGE[noteAuthorRole];
   const avatarCustomer = customerAvatar ?? { name: customerName, avatar_initials: null, avatar_color: null };
 
   return (
     <Card
-      className={`rounded-xl border-[0.5px] p-4 shadow-sm hover:shadow-md ${isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
+      className={`rounded-xl border-[0.5px] py-3 px-4 shadow-sm hover:shadow-md ${isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
       onClick={onTap}
     >
-      <div className="flex items-start gap-3">
-        <CustomerAvatar customer={avatarCustomer} size="md" className="mt-0.5" />
+      <div className="flex items-start gap-2.5">
+        <CustomerAvatar customer={avatarCustomer} size="sm" className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 text-sm font-semibold text-[#1A1A18] truncate">
+              {customerName} · สร้าง {formatBuddhistDateTime(createdAt)}
+            </div>
+            <div className="text-sm font-semibold text-[#1A1A18] shrink-0">{amountText}</div>
+          </div>
+          <div className="mt-1 flex items-end justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-[#1A1A18] truncate">{customerName}</div>
-              <div className="mt-0.5 text-[10px] text-[#888780] tabular-nums">สร้าง {formatBuddhistDateTime(createdAt)}</div>
+              {previewItems.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {previewItems.map((itemName, index) => (
+                    <span
+                      key={`${customerName}-item-${index}-${itemName}`}
+                      className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs ${ITEM_CHIP_CLASS}`}
+                    >
+                      <span className="truncate">{itemName}</span>
+                    </span>
+                  ))}
+                  {remainingItems > 0 && (
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${ITEM_CHIP_CLASS} opacity-80`}>
+                      +{remainingItems} more
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 truncate">{itemSummary}</div>
+              )}
             </div>
             <div className="text-right shrink-0">
-              <div className="text-sm font-semibold text-[#1A1A18]">{amountText}</div>
-              {stageHint && <div className="mt-1 max-w-[120px] text-[10px] leading-4 text-gray-400">{stageHint}</div>}
-              <span className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
+              {stageHint && <div className="text-[10px] leading-4 text-gray-400">{stageHint}</div>}
+              <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
                 {stageLabel}
               </span>
             </div>
           </div>
-          {previewItems.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {previewItems.map((itemName, index) => (
-                <span
-                  key={`${customerName}-item-${index}-${itemName}`}
-                  className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs ${ITEM_CHIP_CLASS}`}
-                >
-                  <span className="truncate">{itemName}</span>
-                </span>
-              ))}
-              {remainingItems > 0 && (
-                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${ITEM_CHIP_CLASS} opacity-80`}>
-                  +{remainingItems} more
-                </span>
-              )}
-            </div>
-          ) : (
-            <div className="mt-1 text-xs text-gray-500 truncate">{itemSummary}</div>
-          )}
         </div>
       </div>
       {internalNote ? (
-        <div className="mt-3 border-t border-[#F0EFE9] pt-2 text-xs leading-4 text-[#777166]">
+        <div className="mt-2 border-t border-[#F0EFE9] pt-1.5 text-xs leading-4 text-[#777166]">
+          {roleBadge && (
+            <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium mr-1 ${roleBadge.color}`}>
+              {roleBadge.label}
+            </span>
+          )}
           {internalNote}
         </div>
       ) : null}

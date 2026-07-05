@@ -55,6 +55,7 @@ type DashboardDeal = {
   isOverdue: boolean;
   nextActionLabel: string;
   internalNote: string;
+  noteAuthorRole: string;
 };
 
 type HomeQueue = "wait_send" | "wait_invoice" | "wait_collect" | "overdue" | "progress" | "done";
@@ -241,6 +242,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const stageInfo = getStageInfo(deal.documents || [], latestDocument, isDone, isOverdue);
 
   const latestNote = (deal.notes || []).length > 0 ? deal.notes![0].content : "";
+  const latestNoteRole = (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
 
   return {
     dealId: deal.id,
@@ -269,6 +271,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     isOverdue,
     nextActionLabel: getNextActionLabel(latestDocument),
     internalNote: latestNote,
+    noteAuthorRole: latestNoteRole,
   };
 }
 
@@ -775,10 +778,10 @@ export default function HomePage() {
                       itemSummary={deal.itemSummary || deal.latestDocument?.doc_number || DOC_TYPE_LABELS[deal.latestDocument?.doc_type || "quotation"].th}
                       itemNames={deal.itemNames}
                       amountText={`฿ ${formatCurrency(deal.amount)}`}
-                      status={deal.status}
                       stageLabel={deal.stageLabel}
                       stageHint={deal.stageHint}
                       internalNote={deal.internalNote}
+                      noteAuthorRole={deal.noteAuthorRole}
                       isOverdue={deal.isOverdue}
                       createdAt={deal.createdAt}
                       queue={deal.queue}
