@@ -610,6 +610,7 @@ export default function CustomerDetailPage() {
             <div>
               <div className="text-[20px] font-bold text-[#1A1A18]">{dealHistoryItems.length}</div>
               <div className="text-[11px] text-[#888780]">งานขายทั้งหมด</div>
+              <div className="mt-0.5 text-[10px] text-[#AAA49A]">กำลังทำ {activeDealItems.length} · เสร็จแล้ว {doneDealItems.length}</div>
             </div>
             <div>
               <div className="text-[20px] font-bold text-[#1A1A18]">฿ {formatCurrency(totalReceived)}</div>

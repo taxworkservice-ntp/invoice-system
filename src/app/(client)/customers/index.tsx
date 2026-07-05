@@ -16,10 +16,29 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { TABLE } from "../../../lib/tableStyles";
-import type { Customer } from "../../../types";
+import type { Customer, DocumentStatus, DocumentType } from "../../../types";
 
 type FilterMode = "all" | "favorites" | "hasDeals";
 const SALES_JOB_DOCUMENT_TYPES = ["quotation", "invoice", "tax_invoice_receipt", "delivery_note"];
+const RESOLVED_DEAL_STATUSES = new Set<DocumentStatus>(["paid", "voided", "generated", "issued"]);
+const EMPTY_DEAL_STATS = { active: 0, done: 0, total: 0 };
+
+type CustomerDealStats = typeof EMPTY_DEAL_STATS;
+type SalesJobDocumentRow = {
+  customer_id: string | null;
+  deal_id: string | null;
+  doc_type: DocumentType;
+  status: DocumentStatus;
+  created_at: string;
+};
+type DealDocumentAccumulator = {
+  hasSalesJobDocument: boolean;
+  latestDoc: SalesJobDocumentRow;
+};
+
+function isResolvedDealStatus(status: DocumentStatus) {
+  return RESOLVED_DEAL_STATUSES.has(status);
+}
 
 export default function CustomersPage() {
   const navigate = useNavigate();
@@ -27,7 +46,7 @@ export default function CustomersPage() {
   const toast = useToast();
   const { customers, loading, refetch, updateCustomerLocal } = useCustomers(profile?.id);
   const [search, setSearch] = useState("");
-  const [dealCounts, setDealCounts] = useState<Record<string, number>>({});
+  const [dealStats, setDealStats] = useState<Record<string, CustomerDealStats>>({});
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -98,23 +117,43 @@ export default function CustomersPage() {
       if (!profile?.id) return;
       supabase
         .from("documents")
-        .select("customer_id, deal_id")
+        .select("customer_id, deal_id, doc_type, status, created_at")
         .eq("user_id", profile.id)
-        .in("doc_type", SALES_JOB_DOCUMENT_TYPES)
         .neq("status", "voided")
         .not("deal_id", "is", null)
         .then(({ data }) => {
           if (!data) return;
-          const dealIdsByCustomer: Record<string, Set<string>> = {};
-          for (const doc of data) {
+          const dealDocsByCustomer: Record<string, Record<string, DealDocumentAccumulator>> = {};
+          for (const doc of data as SalesJobDocumentRow[]) {
             if (!doc.customer_id || !doc.deal_id) continue;
-            if (!dealIdsByCustomer[doc.customer_id]) dealIdsByCustomer[doc.customer_id] = new Set();
-            dealIdsByCustomer[doc.customer_id].add(doc.deal_id);
+            if (!dealDocsByCustomer[doc.customer_id]) dealDocsByCustomer[doc.customer_id] = {};
+
+            const current = dealDocsByCustomer[doc.customer_id][doc.deal_id];
+            const isSalesJobDoc = SALES_JOB_DOCUMENT_TYPES.includes(doc.doc_type);
+            if (!current) {
+              dealDocsByCustomer[doc.customer_id][doc.deal_id] = {
+                hasSalesJobDocument: isSalesJobDoc,
+                latestDoc: doc,
+              };
+              continue;
+            }
+
+            current.hasSalesJobDocument = current.hasSalesJobDocument || isSalesJobDoc;
+            if (new Date(doc.created_at).getTime() > new Date(current.latestDoc.created_at).getTime()) {
+              current.latestDoc = doc;
+            }
           }
-          const counts = Object.fromEntries(
-            Object.entries(dealIdsByCustomer).map(([customerId, dealIds]) => [customerId, dealIds.size]),
-          );
-          setDealCounts(counts);
+          const nextStats: Record<string, CustomerDealStats> = {};
+          for (const [customerId, dealDocs] of Object.entries(dealDocsByCustomer)) {
+            const jobs = Object.values(dealDocs).filter((deal) => deal.hasSalesJobDocument);
+            const done = jobs.filter((deal) => isResolvedDealStatus(deal.latestDoc.status)).length;
+            nextStats[customerId] = {
+              active: jobs.length - done,
+              done,
+              total: jobs.length,
+            };
+          }
+          setDealStats(nextStats);
         });
     }, 100);
     return () => clearTimeout(timer);
@@ -123,7 +162,7 @@ export default function CustomersPage() {
   const filtered = useMemo(() => {
     let list = customers;
     if (filterMode === "favorites") list = list.filter((c) => c.is_favorite);
-    if (filterMode === "hasDeals") list = list.filter((c) => (dealCounts[c.id] || 0) > 0);
+    if (filterMode === "hasDeals") list = list.filter((c) => (dealStats[c.id]?.total || 0) > 0);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -136,19 +175,23 @@ export default function CustomersPage() {
       );
     }
     return list;
-  }, [customers, search, filterMode, dealCounts]);
+  }, [customers, search, filterMode, dealStats]);
 
   const customerRows = useMemo(
-    () => filtered.map((c) => ({ ...c, dealCount: dealCounts[c.id] || 0 })),
-    [filtered, dealCounts],
+    () =>
+      filtered.map((c) => {
+        const stats = dealStats[c.id] || EMPTY_DEAL_STATS;
+        return { ...c, dealActive: stats.active, dealDone: stats.done, dealTotal: stats.total };
+      }),
+    [filtered, dealStats],
   );
-  type CustomerSortKey = "name" | "tax_id" | "phone" | "dealCount" | "is_active";
+  type CustomerSortKey = "name" | "tax_id" | "phone" | "dealTotal" | "is_active";
   const customerSort = useTableSort<(typeof customerRows)[number], CustomerSortKey>(customerRows, { key: "name", dir: "asc" });
 
   const favoriteCount = useMemo(() => customers.filter((c) => c.is_favorite).length, [customers]);
   const hasDealsCount = useMemo(
-    () => customers.filter((c) => (dealCounts[c.id] || 0) > 0).length,
-    [customers, dealCounts],
+    () => customers.filter((c) => (dealStats[c.id]?.total || 0) > 0).length,
+    [customers, dealStats],
   );
 
   async function handleAddCustomer() {
@@ -330,7 +373,7 @@ export default function CustomersPage() {
         ) : viewMode === "grid" ? (
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((c) => {
-              const count = dealCounts[c.id] || 0;
+              const stats = dealStats[c.id] || EMPTY_DEAL_STATS;
               const incomplete = isIncomplete(c);
               return (
                 <Card key={c.id} onClick={() => navigate(`/customers/${c.id}`)} className="!p-3.5 flex flex-col gap-2.5 min-h-[120px] relative">
@@ -372,9 +415,10 @@ export default function CustomersPage() {
                     ) : (
                       <span className="text-[10px] text-[#AAAAAA]">ข้อมูลครบ</span>
                     )}
-                    {count > 0 ? (
-                      <span className="text-[11px] text-[#378ADD] font-medium">
-                        {count} งานขาย →
+                    {stats.total > 0 ? (
+                      <span className="text-right text-[11px] leading-4">
+                        <span className="font-semibold text-[#378ADD]">งานขาย {stats.total} →</span>
+                        <span className="block text-[#888780]">กำลังทำ {stats.active} · เสร็จแล้ว {stats.done}</span>
                       </span>
                     ) : (
                       <span className="text-[11px] text-[#AAAAAA]">ยังไม่มีงานขาย</span>
@@ -418,9 +462,9 @@ export default function CustomersPage() {
                     <SortableTh
                       label="งานขาย"
                       align="right"
-                      active={customerSort.sort.key === "dealCount"}
+                      active={customerSort.sort.key === "dealTotal"}
                       dir={customerSort.sort.dir}
-                      onClick={() => customerSort.handleSort("dealCount")}
+                      onClick={() => customerSort.handleSort("dealTotal")}
                       className={TABLE.thSortable}
                     />
                       <SortableTh
@@ -435,7 +479,6 @@ export default function CustomersPage() {
                 </thead>
                 <tbody>
                   {customerSort.sorted.map((c) => {
-                    const count = c.dealCount;
                     const incomplete = isIncomplete(c);
                     return (
                       <tr
@@ -470,8 +513,13 @@ export default function CustomersPage() {
                           {c.phone || <span className="text-[#AAAAAA] italic">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {count > 0 ? (
-                            <span className="text-[#378ADD] font-medium">{count}</span>
+                          {c.dealTotal > 0 ? (
+                            <div className="leading-tight">
+                              <div className="font-semibold text-[#378ADD]">{c.dealTotal}</div>
+                              <div className="mt-0.5 whitespace-nowrap text-[10px] text-[#888780]">
+                                ทำ {c.dealActive} · เสร็จ {c.dealDone}
+                              </div>
+                            </div>
                           ) : (
                             <span className="text-[#AAAAAA]">0</span>
                           )}
@@ -496,7 +544,7 @@ export default function CustomersPage() {
         ) : (
           <div className="space-y-2">
             {filtered.map((c) => {
-              const count = dealCounts[c.id] || 0;
+              const stats = dealStats[c.id] || EMPTY_DEAL_STATS;
               return (
                 <Card key={c.id} onClick={() => navigate(`/customers/${c.id}`)}>
                   <div className="flex items-center gap-3">
@@ -537,8 +585,11 @@ export default function CustomersPage() {
                       )}
                     </div>
                     <div className="text-right shrink-0">
-                      {count > 0 ? (
-                        <span className="text-[12px] text-[#378ADD]">{count} งานขาย →</span>
+                      {stats.total > 0 ? (
+                        <div className="leading-4">
+                          <div className="text-[12px] font-medium text-[#378ADD]">{stats.total} งานขาย →</div>
+                          <div className="text-[10px] text-[#888780]">กำลังทำ {stats.active} · เสร็จแล้ว {stats.done}</div>
+                        </div>
                       ) : (
                         <span className="text-[12px] text-[#AAAAAA]">ยังไม่มีงานขาย</span>
                       )}
