@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, PackageCheck } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, PackageCheck, ExternalLink } from "lucide-react";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -1156,6 +1156,20 @@ export default function DealDetailPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="text-[15px] font-semibold text-gray-900 truncate">{customer?.name || title}</div>
+                  {customer && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/customers/${customer.id}`);
+                      }}
+                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-[#378ADD] hover:bg-[#EAF4FF] transition-colors"
+                      title="เปิดหน้าลูกค้า"
+                      aria-label="เปิดหน้าลูกค้า"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   {customer?.phone && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopyText(customer.phone!); }}
