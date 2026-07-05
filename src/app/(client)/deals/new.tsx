@@ -1135,7 +1135,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         paid_at: isTaxInvoiceReceipt ? new Date(`${paymentDate}T00:00:00`).toISOString() : null,
         amount_received: isTaxInvoiceReceipt ? tax.netPayable : null,
         note: note.trim() ? note : null,
-        hide_amounts_on_print: isDeliveryNote ? hideAmountsOnPrint : null,
+        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint } : {}),
       };
 
       let savedDocumentId = documentId || "";
