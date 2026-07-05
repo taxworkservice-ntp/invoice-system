@@ -467,7 +467,7 @@ export default function CustomersPage() {
                             <span className="text-[#AAAAAA]">0</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 hidden sm:table-cell">
+                        <td className="px-3 py-2 hidden sm:table-cell whitespace-nowrap">
                           {incomplete ? (
                             <span className={`${TABLE.statusPill} bg-[#FAEEDA] text-[#633806]`}>
                               <AlertTriangle size={10} />
