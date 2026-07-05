@@ -559,10 +559,10 @@ export default function CustomersPage() {
                             <span className="text-[#AAAAAA]">0</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap align-middle">
                           {incomplete ? (
-                            <span className={`${TABLE.statusPill} bg-[#FAEEDA] text-[#633806]`}>
-                              <AlertTriangle size={10} />
+                            <span className={`${TABLE.statusPill} inline-flex items-center gap-1 whitespace-nowrap bg-[#FAEEDA] text-[#633806]`}>
+                              <AlertTriangle size={10} className="shrink-0" />
                               ไม่ครบ
                             </span>
                           ) : (
