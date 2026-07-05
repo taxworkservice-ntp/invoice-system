@@ -185,7 +185,7 @@ export default function CustomersPage() {
       }),
     [filtered, dealStats],
   );
-  type CustomerSortKey = "name" | "tax_id" | "phone" | "dealTotal" | "is_active";
+  type CustomerSortKey = "name" | "tax_id" | "phone" | "dealActive" | "dealDone" | "dealTotal" | "is_active";
   const customerSort = useTableSort<(typeof customerRows)[number], CustomerSortKey>(customerRows, { key: "name", dir: "asc" });
 
   const favoriteCount = useMemo(() => customers.filter((c) => c.is_favorite).length, [customers]);
@@ -431,10 +431,20 @@ export default function CustomersPage() {
         ) : viewMode === "table" ? (
           <div className="bg-white border border-card-border rounded-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className={TABLE.table}>
+              <table className={`${TABLE.table} table-fixed min-w-[920px]`}>
+                <colgroup>
+                  <col className="w-[44px]" />
+                  <col className="w-[32%]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[82px]" />
+                  <col className="w-[82px]" />
+                  <col className="w-[82px]" />
+                  <col className="w-[86px]" />
+                </colgroup>
                 <thead>
                   <tr className={TABLE.theadTr}>
-                    <th className="px-3 py-2 w-10"></th>
+                    <th className="px-3 py-2"></th>
                     <SortableTh
                       label="ชื่อลูกค้า"
                       align="left"
@@ -449,7 +459,7 @@ export default function CustomersPage() {
                       active={customerSort.sort.key === "tax_id"}
                       dir={customerSort.sort.dir}
                       onClick={() => customerSort.handleSort("tax_id")}
-                      className={`${TABLE.thSortable} hidden sm:table-cell`}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
                     />
                     <SortableTh
                       label="เบอร์โทร"
@@ -457,10 +467,26 @@ export default function CustomersPage() {
                       active={customerSort.sort.key === "phone"}
                       dir={customerSort.sort.dir}
                       onClick={() => customerSort.handleSort("phone")}
-                      className={`${TABLE.thSortable} hidden md:table-cell`}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
                     />
                     <SortableTh
-                      label="งานขาย"
+                      label="กำลังทำ"
+                      align="right"
+                      active={customerSort.sort.key === "dealActive"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("dealActive")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
+                    <SortableTh
+                      label="เสร็จแล้ว"
+                      align="right"
+                      active={customerSort.sort.key === "dealDone"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("dealDone")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
+                    <SortableTh
+                      label="ทั้งหมด"
                       align="right"
                       active={customerSort.sort.key === "dealTotal"}
                       dir={customerSort.sort.dir}
@@ -473,7 +499,7 @@ export default function CustomersPage() {
                         active={customerSort.sort.key === "is_active"}
                         dir={customerSort.sort.dir}
                         onClick={() => customerSort.handleSort("is_active")}
-                        className={`${TABLE.thSortable} hidden sm:table-cell whitespace-nowrap min-w-[80px]`}
+                        className={`${TABLE.thSortable} whitespace-nowrap`}
                       />
                   </tr>
                 </thead>
@@ -486,7 +512,7 @@ export default function CustomersPage() {
                         onClick={() => navigate(`/customers/${c.id}`)}
                         className={TABLE.tbodyTr}
                       >
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 w-[44px]">
                           <button
                             type="button"
                             onClick={(e) => toggleFavorite(c, e)}
@@ -500,31 +526,40 @@ export default function CustomersPage() {
                             />
                           </button>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 min-w-0">
                           <div className="flex items-center gap-2 min-w-0">
                             <CustomerAvatar customer={c} size="sm" />
                             <span className="font-semibold text-[#111827] truncate">{c.name}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-2 font-mono text-[12px] text-[#475467] hidden sm:table-cell">
+                        <td className="px-3 py-2 font-mono text-[12px] text-[#475467] truncate">
                           {c.tax_id || <span className="text-[#AAAAAA] italic font-sans">—</span>}
                         </td>
-                        <td className="px-3 py-2 text-[#475467] hidden md:table-cell">
+                        <td className="px-3 py-2 text-[#475467] truncate">
                           {c.phone || <span className="text-[#AAAAAA] italic">—</span>}
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          {c.dealTotal > 0 ? (
-                            <div className="leading-tight">
-                              <div className="font-semibold text-[#378ADD]">{c.dealTotal}</div>
-                              <div className="mt-0.5 whitespace-nowrap text-[10px] text-[#888780]">
-                                ทำ {c.dealActive} · เสร็จ {c.dealDone}
-                              </div>
-                            </div>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {c.dealActive > 0 ? (
+                            <span className="font-semibold text-[#C2410C]">{c.dealActive}</span>
                           ) : (
                             <span className="text-[#AAAAAA]">0</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 hidden sm:table-cell whitespace-nowrap">
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {c.dealDone > 0 ? (
+                            <span className="font-semibold text-[#15803D]">{c.dealDone}</span>
+                          ) : (
+                            <span className="text-[#AAAAAA]">0</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {c.dealTotal > 0 ? (
+                            <span className="font-semibold text-[#378ADD]">{c.dealTotal}</span>
+                          ) : (
+                            <span className="text-[#AAAAAA]">0</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
                           {incomplete ? (
                             <span className={`${TABLE.statusPill} bg-[#FAEEDA] text-[#633806]`}>
                               <AlertTriangle size={10} />
