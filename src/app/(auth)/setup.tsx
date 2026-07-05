@@ -415,7 +415,7 @@ export default function SetupPage() {
                 onClick={() => handleNavigateAndComplete("/home")}
                 className="w-full text-[#378ADD] text-sm font-medium py-2 hover:underline"
               >
-                เข้าสู่หน้าหลัก →
+                เข้าสู่หน้างานขาย →
               </button>
             </div>
           )}

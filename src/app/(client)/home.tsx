@@ -54,6 +54,7 @@ type DashboardDeal = {
   isDone: boolean;
   isOverdue: boolean;
   nextActionLabel: string;
+  internalNote: string;
 };
 
 type HomeQueue = "wait_send" | "wait_invoice" | "wait_collect" | "overdue" | "progress" | "done";
@@ -239,6 +240,8 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const isOverdue = isOverdueDocument(latestDocument);
   const stageInfo = getStageInfo(deal.documents || [], latestDocument, isDone, isOverdue);
 
+  const latestNote = (deal.notes || []).length > 0 ? deal.notes![0].content : "";
+
   return {
     dealId: deal.id,
     customerName: deal.customers?.name || "ลูกค้า",
@@ -265,6 +268,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     isDone,
     isOverdue,
     nextActionLabel: getNextActionLabel(latestDocument),
+    internalNote: latestNote,
   };
 }
 
@@ -498,7 +502,7 @@ export default function HomePage() {
     [deals]
   );
 
-  const homeTitle = clientProfile?.company_name_th?.trim() || "หน้าหลัก";
+  const homeTitle = clientProfile?.company_name_th?.trim() || "หน้างานขาย";
   const actionCount = activeDealsAll.length;
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -536,7 +540,7 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <AppShell title="หน้าหลัก">
+      <AppShell title="หน้างานขาย">
         <div className="space-y-4">
           <div className="space-y-1 px-1">
             <Skeleton className="h-5 w-40 rounded-md" />
@@ -561,7 +565,7 @@ export default function HomePage() {
   }
 
   return (
-    <AppShell title="หน้าหลัก">
+    <AppShell title="หน้างานขาย">
       <div className="space-y-4" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div className="overflow-hidden transition-all" style={{ height: pullDistance > 0 || refreshing ? Math.max(pullDistance, refreshing ? 40 : 0) : 0 }}>
           <div className="flex h-10 items-center justify-center text-gray-500">
@@ -647,27 +651,30 @@ export default function HomePage() {
                         className={`rounded-xl border-[0.5px] p-3.5 shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-2.5 min-h-[130px] ${deal.isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
                         onClick={() => navigate(`/deals/${deal.dealId}`)}
                       >
-                        <div className="flex items-start gap-2.5">
-                          <CustomerAvatar customer={gridAvatar} size="md" className="mt-0.5" />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
-                              {deal.customerName}
-                            </div>
-                            <div className="mt-0.5 text-[10px] text-[#888780] tabular-nums">
-                              สร้าง {formatBuddhistDateTime(deal.createdAt)}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}>
-                                {deal.stageLabel}
-                              </span>
-                              <span className={`inline-flex items-center justify-center w-2 h-2 rounded-full ${QUEUE_COLORS[deal.queue].dot}`} />
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <CustomerAvatar customer={gridAvatar} size="md" className="mt-0.5" />
+                            <div className="min-w-0">
+                              <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
+                                {deal.customerName}
+                              </div>
+                              <div className="mt-0.5 text-[10px] text-[#888780] tabular-nums">
+                                สร้าง {formatBuddhistDateTime(deal.createdAt)}
+                              </div>
                             </div>
                           </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-[13px] font-semibold text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</div>
+                            <span className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}>
+                              {deal.stageLabel}
+                            </span>
+                          </div>
                         </div>
-                        <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
-                          <span className="text-[11px] text-[#888780] truncate max-w-[60%]">{deal.nextActionLabel}</span>
-                          <span className="text-[13px] font-semibold text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</span>
-                        </div>
+                        {deal.internalNote ? (
+                          <div className="mt-auto pt-2 border-t border-[#F0EFE9] text-[11px] text-[#888780] leading-4">
+                            {deal.internalNote}
+                          </div>
+                        ) : null}
                       </Card>
                     );
                   })}
@@ -703,6 +710,7 @@ export default function HomePage() {
                             className="!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase"
                           />
                           <th className="px-3 py-2 font-semibold hidden sm:table-cell">รายการ</th>
+                          <th className="px-3 py-2 font-semibold hidden md:table-cell">บันทึก</th>
                           <SortableTh
                             label="จำนวนเงิน"
                             align="right"
@@ -742,6 +750,11 @@ export default function HomePage() {
                                 {deal.itemNames?.length ? deal.itemNames.slice(0, 2).join(", ") : deal.itemSummary}
                               </span>
                             </td>
+                            <td className="px-3 py-2 hidden md:table-cell">
+                              <span className="text-[12px] text-[#888780] truncate block max-w-[180px]">
+                                {deal.internalNote}
+                              </span>
+                            </td>
                             <td className="px-3 py-2 text-right">
                               <span className="font-medium text-[#1A1A18] min-w-[100px] inline-block text-right">฿ {formatCurrency(deal.amount)}</span>
                             </td>
@@ -765,7 +778,7 @@ export default function HomePage() {
                       status={deal.status}
                       stageLabel={deal.stageLabel}
                       stageHint={deal.stageHint}
-                      nextActionLabel={deal.nextActionLabel}
+                      internalNote={deal.internalNote}
                       isOverdue={deal.isOverdue}
                       createdAt={deal.createdAt}
                       queue={deal.queue}

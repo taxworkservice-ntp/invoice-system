@@ -711,7 +711,7 @@ export default function DocumentDetailPage() {
       title={docLabel.thai}
       showBack
       breadcrumbs={[
-        { label: "หน้าหลัก", path: "/home" },
+        { label: "หน้างานขาย", path: "/home" },
         { label: "เอกสาร", path: "/documents" },
         { label: doc.doc_number || docLabel.thai },
       ]}

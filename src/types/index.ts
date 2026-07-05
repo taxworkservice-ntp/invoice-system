@@ -198,6 +198,7 @@ export interface Deal {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  notes?: { content: string; user_id: string; author_name: string; author_role: string; created_at: string }[];
 }
 
 export interface Document {

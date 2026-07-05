@@ -12,7 +12,7 @@ interface DealCardProps {
   status: DocumentStatus;
   stageLabel: string;
   stageHint?: string;
-  nextActionLabel: string;
+  internalNote: string;
   isOverdue?: boolean;
   createdAt: string;
   queue: string;
@@ -39,7 +39,7 @@ export function DealCard({
   status,
   stageLabel,
   stageHint,
-  nextActionLabel,
+  internalNote,
   isOverdue,
   createdAt,
   queue,
@@ -63,15 +63,13 @@ export function DealCard({
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-[#1A1A18] truncate">{customerName}</div>
               <div className="mt-0.5 text-[10px] text-[#888780] tabular-nums">สร้าง {formatBuddhistDateTime(createdAt)}</div>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
-                  {stageLabel}
-                </span>
-              </div>
             </div>
             <div className="text-right shrink-0">
               <div className="text-sm font-semibold text-[#1A1A18]">{amountText}</div>
               {stageHint && <div className="mt-1 max-w-[120px] text-[10px] leading-4 text-gray-400">{stageHint}</div>}
+              <span className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
+                {stageLabel}
+              </span>
             </div>
           </div>
           {previewItems.length > 0 ? (
@@ -95,9 +93,11 @@ export function DealCard({
           )}
         </div>
       </div>
-      <div className="mt-3 border-t border-[#F0EFE9] pt-2 text-xs font-medium leading-4 text-[#777166]">
-        {nextActionLabel}
-      </div>
+      {internalNote ? (
+        <div className="mt-3 border-t border-[#F0EFE9] pt-2 text-xs leading-4 text-[#777166]">
+          {internalNote}
+        </div>
+      ) : null}
     </Card>
   );
 }
