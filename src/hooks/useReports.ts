@@ -127,7 +127,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
 
       const { data: allDocs } = await supabase
         .from("documents")
-        .select("id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, wht_amount, paid_at, issue_date, due_date, customer_id, customer:customer_id(name)")
+        .select("id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, paid_at, issue_date, due_date, customer_id, customer:customer_id(name)")
         .eq("user_id", userId)
         .neq("doc_type", "receipt")
         .neq("doc_type", "delivery_note")
