@@ -1101,7 +1101,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             customer_id: selectedCustomer.id,
             title: null,
           })
-          .select("*")
+          .select("id")
           .single();
 
         if (dealError) throw dealError;
@@ -1155,7 +1155,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         const { data: document, error: docError } = await supabase
           .from("documents")
           .insert(docPayload)
-          .select("*")
+          .select("id")
           .single();
 
         if (docError || !document) throw docError || new Error("ไม่สามารถสร้างเอกสารได้");
