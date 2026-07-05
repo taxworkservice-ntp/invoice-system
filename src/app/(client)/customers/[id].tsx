@@ -26,6 +26,7 @@ const AVATAR_PRESET_COLORS = [
   "#7C3AED", "#BE185D", "#0F766E", "#1565C0",
   "#DC2626", "#EA580C", "#CA8A04", "#16A34A",
   "#0891B2", "#9333EA", "#DB2777", "#475569",
+  "#FFFFFF",
 ];
 
 interface DealWithDocs extends Deal {
@@ -445,7 +446,9 @@ export default function CustomerDetailPage() {
                             className={`w-7 h-7 rounded-full border-2 transition-transform ${
                               editAvatarColor.toLowerCase() === c.toLowerCase()
                                 ? "border-[#1A1A18] scale-110"
-                                : "border-white shadow-sm hover:scale-105"
+                                : c === "#FFFFFF"
+                                  ? "border-[#D4D0C8] shadow-sm hover:scale-105"
+                                  : "border-white shadow-sm hover:scale-105"
                             }`}
                             style={{ backgroundColor: c }}
                           />

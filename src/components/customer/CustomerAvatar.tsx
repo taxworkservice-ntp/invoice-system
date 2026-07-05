@@ -58,13 +58,15 @@ const SIZE_CLASSES: Record<NonNullable<CustomerAvatarProps["size"]>, string> = {
 };
 
 export function CustomerAvatar({ customer, size = "md", className = "" }: CustomerAvatarProps) {
-  const { bg, fg, initials } = useMemo(() => {
+  const { bg, fg, initials, isWhite } = useMemo(() => {
     if (isValidHex(customer.avatar_color)) {
       const hex = customer.avatar_color;
+      const isWhiteBg = /^#(F{3}|F{6})$/i.test(hex) || /^#(f{3}|f{6})$/i.test(hex);
       return {
         bg: hex,
         fg: contrastFg(hex),
         initials: (customer.avatar_initials || deriveInitials(customer.name)).toUpperCase().slice(0, 2),
+        isWhite: isWhiteBg,
       };
     }
     const palette = PALETTE[hashName(customer.name) % PALETTE.length];
@@ -72,8 +74,18 @@ export function CustomerAvatar({ customer, size = "md", className = "" }: Custom
       bg: palette.bg,
       fg: palette.fg,
       initials: (customer.avatar_initials || deriveInitials(customer.name)).toUpperCase().slice(0, 2),
+      isWhite: false,
     };
   }, [customer.avatar_color, customer.avatar_initials, customer.name]);
+
+  if (isWhite) {
+    return (
+      <div
+        className={`shrink-0 rounded-lg flex items-center justify-center ${SIZE_CLASSES[size]} ${className} border border-[#E8E6DF] bg-white`}
+        aria-label={customer.name}
+      />
+    );
+  }
 
   return (
     <div
