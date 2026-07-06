@@ -692,22 +692,30 @@ export default function DocumentDetailPage() {
   const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
 
   const handleUnlinkAllInvoices = async () => {
-    if (!id) return;
+    if (!id || !userId) return;
     const billingInvoices = (doc.billing_invoices || []) as any[];
     const invoiceIds = billingInvoices.map((bi: any) => bi.invoice_id).filter(Boolean);
     if (invoiceIds.length === 0) return;
 
-    await supabase
-      .from("documents")
-      .update({ status: "sent" as DocumentStatus })
-      .in("id", invoiceIds)
-      .eq("status", "in_billing");
+    for (const invoiceId of invoiceIds) {
+      const { data: newDeal } = await supabase
+        .from("deals")
+        .insert({ user_id: userId, customer_id: doc.customer_id, is_active: true })
+        .select("id")
+        .single();
+
+      if (newDeal) {
+        await supabase
+          .from("documents")
+          .update({ status: "sent" as DocumentStatus, deal_id: newDeal.id })
+          .eq("id", invoiceId);
+      }
+    }
 
     await supabase.from("billing_note_invoices").delete().eq("billing_note_id", id);
-
     await supabase.from("documents").update({ status: "draft" as DocumentStatus }).eq("id", id);
 
-    navigate(`/documents/${id}/edit`);
+    await fetchDoc();
   };
 
   const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
