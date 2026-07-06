@@ -1371,9 +1371,6 @@ export default function DocumentsPage() {
         return false;
       if (statusFilter !== "all" && doc.status !== statusFilter) return false;
 
-      if (doc.doc_type === "invoice" && doc.status === "in_billing")
-        return false;
-
       if (
         quickView === "attention" &&
         !(doc.status === "overdue" || isActuallyOverdue(doc))
