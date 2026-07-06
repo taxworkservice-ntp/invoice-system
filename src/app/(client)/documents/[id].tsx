@@ -690,6 +690,26 @@ export default function DocumentDetailPage() {
   const dueDateLabel = doc.due_date ? formatDate(doc.due_date) : "ไม่มีกำหนด";
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
   const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
+
+  const handleUnlinkAllInvoices = async () => {
+    if (!id) return;
+    const billingInvoices = (doc.billing_invoices || []) as any[];
+    const invoiceIds = billingInvoices.map((bi: any) => bi.invoice_id).filter(Boolean);
+    if (invoiceIds.length === 0) return;
+
+    await supabase
+      .from("documents")
+      .update({ status: "sent" as DocumentStatus })
+      .in("id", invoiceIds)
+      .eq("status", "in_billing");
+
+    await supabase.from("billing_note_invoices").delete().eq("billing_note_id", id);
+
+    await supabase.from("documents").update({ status: "draft" as DocumentStatus }).eq("id", id);
+
+    navigate(`/documents/${id}/edit`);
+  };
+
   const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
   const isCorrectionCandidate = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
   const correctionTitle = doc.doc_type === "tax_invoice_receipt" ? "ยกเลิกและออกฉบับใหม่" : "แก้ไขโดยออกฉบับใหม่";
@@ -818,6 +838,11 @@ export default function DocumentDetailPage() {
               {canEditDocument && (
                 <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
                   แก้ไขเอกสาร
+                </Button>
+              )}
+              {doc.doc_type === "billing_note" && (doc.billing_invoices || []).length > 0 && (
+                <Button variant="secondary" size="sm" onClick={handleUnlinkAllInvoices}>
+                  เริ่มรวมใหม่
                 </Button>
               )}
               {doc.deal_id && (
