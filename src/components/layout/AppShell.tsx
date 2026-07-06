@@ -101,7 +101,6 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
   const roleLabel = workspaceRole ? WORKSPACE_ROLE_LABELS[workspaceRole] : "Workspace";
   const vatLabel = clientProfile?.vat_registered ? `VAT ${clientProfile.vat_rate || 7}%` : "Non-VAT";
   const workspaceMeta = `${roleLabel} · ${vatLabel}`;
-  const workspaceDestination = permissions.canManageSettings ? "/settings" : "/home";
 
   return (
     <div className="md:flex min-h-screen bg-page-bg">
@@ -109,7 +108,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
         <div className="border-b border-card-border p-3">
           <button
             type="button"
-            onClick={() => navigate(workspaceDestination)}
+            onClick={() => navigate("/home")}
             className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#F7F6F3] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
           >
             <WorkspaceMark profile={clientProfile} companyName={companyName} />
