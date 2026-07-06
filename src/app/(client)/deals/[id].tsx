@@ -1258,6 +1258,9 @@ export default function DealDetailPage() {
         <Card className="border-[0.5px]">
           <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
+                {deal?.deal_number && (
+                  <div className="text-[11px] font-medium text-primary tabular-nums">{deal.deal_number}</div>
+                )}
                 <div className="flex items-center gap-2">
                   <div className="text-[15px] font-semibold text-gray-900 truncate">{customer?.name || title}</div>
                   {customer && (

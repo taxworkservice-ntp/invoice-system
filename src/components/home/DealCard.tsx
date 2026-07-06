@@ -11,6 +11,7 @@ interface DealCardProps {
   amountText: string;
   stageLabel: string;
   stageHint?: string;
+  docTypeLabel?: string;
   internalNote: string;
   noteAuthorRole: string;
   isOverdue?: boolean;
@@ -44,6 +45,7 @@ export function DealCard({
   amountText,
   stageLabel,
   stageHint,
+  docTypeLabel,
   internalNote,
   noteAuthorRole,
   isOverdue,
@@ -80,6 +82,9 @@ export function DealCard({
               <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
                 {stageLabel}
               </span>
+              {docTypeLabel && (
+                <div className="mt-1 text-[10px] leading-4 text-gray-400">{docTypeLabel}</div>
+              )}
             </div>
           </div>
           <div className="mt-1">

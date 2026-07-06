@@ -75,6 +75,7 @@ type DashboardDeal = {
   nextActionLabel: string;
   internalNote: string;
   noteAuthorRole: string;
+  docTypeLabel: string;
 };
 
 type HomeQueue =
@@ -421,6 +422,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     nextActionLabel: getNextActionLabel(latestDocument),
     internalNote: latestNote,
     noteAuthorRole: latestNoteRole,
+    docTypeLabel: latestDocument?.doc_type ? (DOC_TYPE_LABELS[latestDocument.doc_type]?.th || latestDocument.doc_type) : "",
   };
 }
 
@@ -942,6 +944,9 @@ export default function HomePage() {
                             >
                               {deal.stageLabel}
                             </span>
+                            {deal.docTypeLabel && (
+                              <div className="mt-1 text-[10px] text-[#888780]">{deal.docTypeLabel}</div>
+                            )}
                           </div>
                         </div>
                         {deal.internalNote ? (
@@ -1042,6 +1047,11 @@ export default function HomePage() {
                                     {deal.stageLabel}
                                   </span>
                                 </div>
+                                {deal.docTypeLabel && (
+                                  <div className="mt-0.5 text-[10px] text-[#888780]">
+                                    {deal.docTypeLabel}
+                                  </div>
+                                )}
                               </td>
                               <td className={TABLE.tdDimmed}>
                                 <span className="whitespace-nowrap tabular-nums">
@@ -1094,6 +1104,7 @@ export default function HomePage() {
                       amountText={`฿ ${formatCurrency(deal.amount)}`}
                       stageLabel={deal.stageLabel}
                       stageHint={deal.stageHint}
+                      docTypeLabel={deal.docTypeLabel}
                       internalNote={deal.internalNote}
                       noteAuthorRole={deal.noteAuthorRole}
                       isOverdue={deal.isOverdue}
