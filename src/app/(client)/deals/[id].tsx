@@ -165,6 +165,7 @@ export default function DealDetailPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copyingDeal, setCopyingDeal] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
+  const [hasActiveDnLinks, setHasActiveDnLinks] = useState(false);
 
   const toast = useToast();
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -760,6 +761,55 @@ export default function DealDetailPage() {
     navigate("/home");
   };
 
+  const handleUnlinkAllDeliveryNotes = async () => {
+    if (!activeDoc || !userId) return;
+    const invoiceId = activeDoc.document.id;
+
+    const { data: links } = await supabase
+      .from("invoice_delivery_notes")
+      .select("delivery_note_id")
+      .eq("invoice_id", invoiceId)
+      .is("released_at", null);
+
+    const dnIds = (links || []).map((l) => l.delivery_note_id).filter(Boolean);
+    if (dnIds.length === 0) return;
+
+    for (const dnId of dnIds) {
+      const { data: newDeal } = await supabase
+        .from("deals")
+        .insert({
+          user_id: userId,
+          customer_id: activeDoc.document.customer_id,
+          is_active: true,
+        })
+        .select("id")
+        .single();
+
+      if (newDeal) {
+        await supabase
+          .from("documents")
+          .update({ status: "sent" as DocumentStatus, deal_id: newDeal.id })
+          .eq("id", dnId);
+      }
+    }
+
+    await supabase
+      .from("invoice_delivery_notes")
+      .update({ released_at: new Date().toISOString() })
+      .eq("invoice_id", invoiceId)
+      .is("released_at", null);
+
+    await supabase
+      .from("documents")
+      .update({
+        status: "voided" as DocumentStatus,
+        voided_at: new Date().toISOString(),
+      })
+      .eq("id", invoiceId);
+
+    navigate("/home");
+  };
+
   const handleCopyDeal = async () => {
     if (!userId || !customer) return;
     setCopyingDeal(true);
@@ -868,6 +918,22 @@ export default function DealDetailPage() {
     if (unresolved.length > 0) return unresolved[unresolved.length - 1];
     return nonVoidedDocs[nonVoidedDocs.length - 1] || null;
   }, [nonVoidedDocs]);
+
+  useEffect(() => {
+    if (!activeDoc || activeDoc.document.doc_type !== "invoice" || activeDoc.document.status === "voided") {
+      setHasActiveDnLinks(false);
+      return;
+    }
+    const checkDnLinks = async () => {
+      const { count } = await supabase
+        .from("invoice_delivery_notes")
+        .select("*", { count: "exact", head: true })
+        .eq("invoice_id", activeDoc.document.id)
+        .is("released_at", null);
+      setHasActiveDnLinks((count ?? 0) > 0);
+    };
+    checkDnLinks();
+  }, [activeDoc?.document.id, activeDoc?.document.doc_type]);
 
   const amountDoc = useMemo(() => {
     return (
@@ -1693,6 +1759,15 @@ export default function DealDetailPage() {
                 variant="secondary"
                 className="col-span-2 justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
                 onClick={handleUnlinkAllInvoices}
+              >
+                เริ่มรวมใหม่
+              </Button>
+            )}
+            {activeDoc?.document.doc_type === "invoice" && hasActiveDnLinks && (
+              <Button
+                variant="secondary"
+                className="col-span-2 justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
+                onClick={handleUnlinkAllDeliveryNotes}
               >
                 เริ่มรวมใหม่
               </Button>
