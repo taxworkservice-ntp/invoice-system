@@ -752,9 +752,8 @@ export default function DealDetailPage() {
     await supabase
       .from("documents")
       .update({
-        status: "draft" as DocumentStatus,
-        subtotal: 0, vat_amount: 0, total_amount: 0,
-        net_payable: 0, wht_amount: 0,
+        status: "voided" as DocumentStatus,
+        voided_at: new Date().toISOString(),
       })
       .eq("id", activeDoc.document.id);
 
