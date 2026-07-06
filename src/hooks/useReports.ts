@@ -199,9 +199,12 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           )
         : new Set<string>();
 
-      const paidThisPeriod = recognizedSalesDocs.filter((d) => {
+      const dedupedSalesDocs = recognizedSalesDocs.filter((d) => {
         if (d.doc_type === "invoice" && d.deal_id && tirDealIds.has(d.deal_id)) return false;
-        if (d.doc_type === "invoice" && invoiceIdsInBn.has(d.id)) return false;
+        return true;
+      });
+
+      const paidThisPeriod = dedupedSalesDocs.filter((d) => {
         const recognitionDate = getRecognitionDate(d);
         return recognitionDate >= start && recognitionDate <= end;
       });
@@ -211,11 +214,15 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const whtWithheld = paidThisPeriod.reduce((sum, d) => sum + (d.wht_amount || 0), 0);
       const vatCollected = paidThisPeriod.reduce((sum, d) => sum + (d.vat_amount || 0), 0);
 
+      const isArDoc = (d: any) =>
+        (d.status === "sent" || d.status === "overdue" ||
+          (d.doc_type === "tax_invoice_receipt" && d.status === "issued"));
+
       const outstanding = docs
         .filter(
           (d) =>
-            (d.status === "sent" || d.status === "overdue") &&
-            !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
+            isArDoc(d) &&
+            !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id)),
         )
         .reduce((sum, d) => sum + (d.net_payable || 0), 0);
 
@@ -246,7 +253,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const monthlyData: MonthlyRevenue[] = [];
       for (const m of months) {
         const { start: ms, end: me } = getMonthRange(m.year, m.month);
-        const inMonth = recognizedSalesDocs.filter((d) => {
+        const inMonth = dedupedSalesDocs.filter((d) => {
           const recognitionDate = getRecognitionDate(d);
           return recognitionDate >= ms && recognitionDate <= me;
         });
@@ -278,7 +285,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const overdueDocs = docs.filter(
         (d) =>
-          (d.status === "sent" || d.status === "overdue") &&
+          isArDoc(d) &&
           !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
       );
       const buckets: ARAgingBucket[] = [
