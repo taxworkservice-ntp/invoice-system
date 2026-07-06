@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Home, FileText, BarChart3, Package, Settings, Users, ChevronRight, ArrowLeft } from "lucide-react";
 import { TopBar } from "./TopBar";
@@ -7,6 +7,8 @@ import { BOTTOM_NAV_ITEMS } from "../../constants";
 import { useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
 import { DevBadge } from "../ui/DevBadge";
 import { getWorkspacePermissions } from "../../lib/permissions";
+import { getProxiedImageUrl } from "../../lib/r2";
+import type { ClientMemberRole, ClientProfile } from "../../types";
 
 const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
@@ -28,6 +30,41 @@ interface AppShellProps {
   action?: React.ReactNode;
   breadcrumbs?: BreadcrumbItem[];
   children: React.ReactNode;
+}
+
+const WORKSPACE_ROLE_LABELS: Record<ClientMemberRole, string> = {
+  owner: "Owner",
+  manager: "Manager",
+  officer: "Officer",
+};
+
+function getInitials(name: string) {
+  const compact = name.trim();
+  if (!compact) return "IS";
+  const words = compact.split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    return words.slice(0, 2).map(w => w[0]).join("").toUpperCase();
+  }
+  return compact.slice(0, 2).toUpperCase();
+}
+
+function WorkspaceMark({ profile, companyName }: { profile: ClientProfile | null; companyName: string }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const logoUrl = profile?.logo_url && !logoFailed ? getProxiedImageUrl(profile.logo_url) : null;
+
+  if (logoUrl) {
+    return (
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#E8E6DF] bg-white overflow-hidden">
+        <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" loading="lazy" onError={() => setLogoFailed(true)} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#D6E4F5] bg-[#EEF6FF] text-[11px] font-semibold text-primary">
+      {getInitials(companyName)}
+    </div>
+  );
 }
 
 export function AppShell({ title, showBack, action, breadcrumbs, children }: AppShellProps) {
@@ -61,23 +98,41 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
     return location.pathname.startsWith(path);
   }
 
+  const roleLabel = workspaceRole ? WORKSPACE_ROLE_LABELS[workspaceRole] : "Workspace";
+  const vatLabel = clientProfile?.vat_registered ? `VAT ${clientProfile.vat_rate || 7}%` : "Non-VAT";
+  const workspaceMeta = `${roleLabel} · ${vatLabel}`;
+  const workspaceDestination = permissions.canManageSettings ? "/settings" : "/home";
+
   return (
     <div className="md:flex min-h-screen bg-page-bg">
-      <aside className="hidden md:flex md:flex-col md:w-56 md:h-screen md:sticky md:top-0 bg-white border-r border-card-border shrink-0">
-        <div className="px-4 py-4 border-b border-card-border">
-          <h1 className="text-base font-semibold text-gray-800 truncate flex items-center" title={companyName}>
-            {companyName}<DevBadge />
-          </h1>
+      <aside className="hidden md:flex md:flex-col md:w-64 md:h-screen md:sticky md:top-0 bg-white border-r border-card-border shrink-0">
+        <div className="border-b border-card-border p-3">
+          <button
+            type="button"
+            onClick={() => navigate(workspaceDestination)}
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#F7F6F3] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+          >
+            <WorkspaceMark profile={clientProfile} companyName={companyName} />
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center">
+                <h1 className="truncate text-sm font-semibold text-[#1A1A18]" title={companyName}>
+                  {companyName}
+                </h1>
+                <DevBadge />
+              </div>
+              <p className="mt-0.5 truncate text-[11px] font-medium text-[#7B766E]">{workspaceMeta}</p>
+            </div>
+          </button>
         </div>
-        <nav className="flex-1 px-2 py-3 space-y-1">
+        <nav className="flex-1 space-y-1 px-3 py-3">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 isActive(item.path)
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-[#EEF6FF] font-medium text-primary"
+                  : "text-[#5F5B54] hover:bg-[#F7F6F3] hover:text-[#1A1A18]"
               }`}
             >
               {iconMap[item.path] || <Home className="w-5 h-5" />}
