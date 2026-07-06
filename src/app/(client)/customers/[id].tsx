@@ -48,7 +48,7 @@ const SALES_JOB_DOCUMENT_TYPES = new Set(["quotation", "invoice", "tax_invoice_r
 
 function isResolvedDealDocument(doc: Document | null) {
   if (!doc) return false;
-  return ["paid", "voided", "generated", "issued"].includes(doc.status);
+  return ["paid", "converted", "generated", "issued", "voided"].includes(doc.status);
 }
 
 function getSortedDocs(deal: DealWithDocs) {
@@ -144,6 +144,7 @@ export default function CustomerDetailPage() {
         .from("deals")
         .select("*, documents(*)")
         .eq("customer_id", id)
+        .eq("is_active", true)
         .order("updated_at", { ascending: false }),
     ]).then(([custRes, dealsRes]) => {
       if (custRes.error) {
