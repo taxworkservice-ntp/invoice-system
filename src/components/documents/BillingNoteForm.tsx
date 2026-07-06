@@ -155,8 +155,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   const initialHydratedRef = useRef(false);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const customerLocked = Boolean(dealId || existingDocument);
-  const readOnly =
-    existingDocument?.status === "sent" || existingDocument?.status === "paid";
+  const readOnly = existingDocument?.status === "paid";
   const isDraft = !existingDocument || existingDocument.status === "draft";
 
   const selectedCustomerId = selectedCustomer?.id || null;
@@ -908,20 +907,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {existingDocument?.status === "sent" && (
-          <div className="rounded-card border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-            <div className="font-medium">
-              ใบวางบิลนี้ส่งแล้ว ไม่สามารถแก้ไขได้
-            </div>
-            <button
-              className="mt-2 text-xs font-medium text-yellow-900 underline"
-              onClick={() => navigate(`/documents/${existingDocument.id}`)}
-            >
-              ยกเลิกและสร้างใหม่ →
-            </button>
           </div>
         )}
 

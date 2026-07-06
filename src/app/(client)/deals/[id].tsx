@@ -719,6 +719,10 @@ export default function DealDetailPage() {
       navigate(`/documents/${activeDoc.document.id}/edit`);
       return;
     }
+    if (activeDoc.document.doc_type === "billing_note" && activeDoc.document.status !== "paid") {
+      navigate(`/documents/${activeDoc.document.id}/edit`);
+      return;
+    }
     handleOpenVoidModal(activeDoc.document, true);
   };
 
@@ -1643,9 +1647,11 @@ export default function DealDetailPage() {
               >
                 {activeDoc?.document.status === "draft"
                   ? "แก้ไขฉบับร่าง"
-                  : activeDoc?.document.doc_type === "invoice"
-                    ? "แก้ไขโดยออกฉบับใหม่"
-                    : "ยกเลิก / แก้ไข"}
+                  : activeDoc?.document.doc_type === "billing_note" && activeDoc?.document.status !== "paid"
+                    ? "แก้ไขใบวางบิล"
+                    : activeDoc?.document.doc_type === "invoice"
+                      ? "แก้ไขโดยออกฉบับใหม่"
+                      : "ยกเลิก / แก้ไข"}
               </Button>
             )}
             {allDone && hasPaidDocs && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (
