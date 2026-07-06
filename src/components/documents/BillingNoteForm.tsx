@@ -694,6 +694,12 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             .update({ status: "in_billing" as DocumentStatus })
             .in("id", currentlySelectedIds);
           if (selectedStatusError) throw selectedStatusError;
+
+          const { error: moveError } = await supabase
+            .from("documents")
+            .update({ deal_id: resolvedDealId })
+            .in("id", currentlySelectedIds);
+          if (moveError) throw moveError;
         }
 
         const restorableDeselectedIds = deselectedIds.filter((id) => {
