@@ -690,49 +690,6 @@ export default function DocumentDetailPage() {
   const dueDateLabel = doc.due_date ? formatDate(doc.due_date) : "ไม่มีกำหนด";
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
   const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
-
-  const handleUnlinkAllInvoices = async () => {
-    if (!id || !userId) return;
-    const billingInvoices = (doc.billing_invoices || []) as any[];
-    const invoiceIds = billingInvoices.map((bi: any) => bi.invoice_id).filter(Boolean);
-    if (invoiceIds.length === 0) return;
-
-    for (const invoiceId of invoiceIds) {
-      const { data: newDeal } = await supabase
-        .from("deals")
-        .insert({ user_id: userId, customer_id: doc.customer_id, is_active: true })
-        .select("id")
-        .single();
-
-      if (newDeal) {
-        await supabase
-          .from("documents")
-          .update({ status: "sent" as DocumentStatus, deal_id: newDeal.id })
-          .eq("id", invoiceId);
-      }
-    }
-
-    await supabase.from("billing_note_invoices").delete().eq("billing_note_id", id);
-
-    const { error: zeroError } = await supabase
-      .from("documents")
-      .update({
-        status: "draft" as DocumentStatus,
-        subtotal: 0,
-        vat_amount: 0,
-        total_amount: 0,
-        net_payable: 0,
-        wht_amount: 0,
-      })
-      .eq("id", id);
-    if (zeroError) {
-      toast.error("ไม่สามารถรีเซ็ตยอดรวมได้");
-      return;
-    }
-
-    await fetchDoc();
-  };
-
   const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
   const isCorrectionCandidate = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
   const correctionTitle = doc.doc_type === "tax_invoice_receipt" ? "ยกเลิกและออกฉบับใหม่" : "แก้ไขโดยออกฉบับใหม่";
@@ -861,11 +818,6 @@ export default function DocumentDetailPage() {
               {canEditDocument && (
                 <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
                   แก้ไขเอกสาร
-                </Button>
-              )}
-              {doc.doc_type === "billing_note" && (doc.billing_invoices || []).length > 0 && (
-                <Button variant="secondary" size="sm" onClick={handleUnlinkAllInvoices}>
-                  เริ่มรวมใหม่
                 </Button>
               )}
               {doc.deal_id && (

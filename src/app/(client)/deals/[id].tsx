@@ -726,6 +726,41 @@ export default function DealDetailPage() {
     handleOpenVoidModal(activeDoc.document, true);
   };
 
+  const handleUnlinkAllInvoices = async () => {
+    if (!activeDoc || !userId) return;
+    const billingInvoices = activeDoc.billing_invoices || [];
+    const invoiceIds = billingInvoices.map((bi) => bi.invoice_id).filter(Boolean);
+    if (invoiceIds.length === 0) return;
+
+    for (const invoiceId of invoiceIds) {
+      const { data: newDeal } = await supabase
+        .from("deals")
+        .insert({ user_id: userId, customer_id: activeDoc.document.customer_id, is_active: true })
+        .select("id")
+        .single();
+
+      if (newDeal) {
+        await supabase
+          .from("documents")
+          .update({ status: "sent" as DocumentStatus, deal_id: newDeal.id })
+          .eq("id", invoiceId);
+      }
+    }
+
+    await supabase.from("billing_note_invoices").delete().eq("billing_note_id", activeDoc.document.id);
+
+    await supabase
+      .from("documents")
+      .update({
+        status: "draft" as DocumentStatus,
+        subtotal: 0, vat_amount: 0, total_amount: 0,
+        net_payable: 0, wht_amount: 0,
+      })
+      .eq("id", activeDoc.document.id);
+
+    navigate("/home");
+  };
+
   const handleCopyDeal = async () => {
     if (!userId || !customer) return;
     setCopyingDeal(true);
@@ -1652,6 +1687,15 @@ export default function DealDetailPage() {
                     : activeDoc?.document.doc_type === "invoice"
                       ? "แก้ไขโดยออกฉบับใหม่"
                       : "ยกเลิก / แก้ไข"}
+              </Button>
+            )}
+            {activeDoc?.document.doc_type === "billing_note" && activeDoc.billing_invoices.length > 0 && (
+              <Button
+                variant="secondary"
+                className="col-span-2 justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
+                onClick={handleUnlinkAllInvoices}
+              >
+                เริ่มรวมใหม่
               </Button>
             )}
             {allDone && hasPaidDocs && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (
