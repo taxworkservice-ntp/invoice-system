@@ -120,6 +120,9 @@ function isRecognizedSalesDocument(doc: any, vatRegistered: boolean) {
 }
 
 function getRecognitionDate(doc: any) {
+  if (doc.doc_type === "tax_invoice_receipt" || doc.doc_type === "invoice") {
+    return (doc.issue_date || doc.paid_at || "").slice(0, 10);
+  }
   return (doc.paid_at || doc.issue_date || "").slice(0, 10);
 }
 
