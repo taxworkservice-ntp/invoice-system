@@ -340,7 +340,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
 
       // Transaction-level detail table
       const docTypeLabels: Record<string, string> = {
-        invoice: "ใบแจ้งหนี้",
+        invoice: vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้",
         tax_invoice_receipt: "ใบกำกับภาษี",
         billing_note: "ใบวางบิล",
         receipt: "ใบเสร็จรับเงิน",
