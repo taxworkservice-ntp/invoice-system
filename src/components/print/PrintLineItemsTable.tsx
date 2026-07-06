@@ -65,7 +65,7 @@ export function PrintLineItemsTable({
     MIN_MODERN_RECEIPT_ROWS - receiptInvoices.length,
   );
 
-  if (document.doc_type === "billing_note") {
+  if (document.doc_type === "billing_note" && document.vat_registered) {
     return (
       <section className="print-block mt-3">
         <div className="mb-0.5">
@@ -347,7 +347,8 @@ export function PrintLineItemsTable({
                     </div>
                   ) : null}
                   {!document.vat_registered &&
-                  receiptInvoices.length > 1 &&
+                  (receiptInvoices.length > 1 ||
+                    billingNoteInvoices.length > 1) &&
                   invoiceNumberMap[item.document_id] ? (
                     <div className="mt-0.5 text-[9px] text-[#6B7280]">
                       ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}

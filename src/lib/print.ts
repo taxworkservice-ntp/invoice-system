@@ -107,7 +107,10 @@ export async function getPrintableDocumentDataBase(
 
   let lineItems = document.line_items || [];
 
-  if (document.doc_type === "receipt" && document.deal_id) {
+  if (
+    (document.doc_type === "receipt" || document.doc_type === "billing_note") &&
+    document.deal_id
+  ) {
     const { data: dealDocs } = await supabase
       .from("documents")
       .select("*")
@@ -262,6 +265,9 @@ export async function getPrintableDocumentDataBase(
   const invoiceNumberMap: Record<string, string> = {};
   for (const ri of document.receipt_invoices || []) {
     invoiceNumberMap[ri.invoice_id] = ri.invoice_number;
+  }
+  for (const bi of document.billing_invoices || []) {
+    invoiceNumberMap[bi.invoice_id] = bi.invoice_number;
   }
 
   return {

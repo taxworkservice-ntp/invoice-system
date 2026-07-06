@@ -357,7 +357,7 @@ export function PrintDocumentClassic({
 
       {/* ============== ITEMS TABLE ============== */}
       <section className="print-classic-items-wrap">
-        {isBillingNote ? (
+        {isBillingNote && document.vat_registered ? (
           <div className="print-classic-items-title">
             รายการใบแจ้งหนี้ (INVOICES)
           </div>
@@ -377,7 +377,7 @@ export function PrintDocumentClassic({
         )}
 
         <div className="print-classic-table-frame">
-          {isBillingNote ? (
+          {isBillingNote && document.vat_registered ? (
             <table className="print-classic-items-table">
               <colgroup>
                 <col style={{ width: "12mm" }} />
@@ -578,7 +578,8 @@ export function PrintDocumentClassic({
                           </div>
                         ) : null}
                         {!document.vat_registered &&
-                        receiptInvoices.length > 1 &&
+                        (receiptInvoices.length > 1 ||
+                          billingNoteInvoices.length > 1) &&
                         invoiceNumberMap[item.document_id] ? (
                           <div className="print-classic-dn-note">
                             ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
