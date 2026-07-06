@@ -1,9 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowUpDown, Ban, CheckCircle2, Clock3, Copy, CreditCard, Edit3, FileStack, FileText, MoreHorizontal, Search, Send, SlidersHorizontal, Trash2, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpDown,
+  Ban,
+  CheckCircle2,
+  Clock3,
+  Copy,
+  CreditCard,
+  Edit3,
+  FileStack,
+  FileText,
+  MoreHorizontal,
+  Search,
+  Send,
+  SlidersHorizontal,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
-import { Input } from "../../../components/ui/Input";
+import { Input, Select } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { Card } from "../../../components/ui/Card";
@@ -21,12 +38,20 @@ import { supabase } from "../../../lib/supabase";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { deleteDocumentFiles } from "../../../lib/r2";
-import { DOC_TYPE_COLORS, DOC_TYPE_LABELS, STATUS_LABELS, CHIP_COLORS } from "../../../constants";
+import {
+  DOC_TYPE_COLORS,
+  DOC_TYPE_LABELS,
+  STATUS_LABELS,
+  CHIP_COLORS,
+} from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
-import { getWorkspacePermissions, type WorkspacePermissions } from "../../../lib/permissions";
+import {
+  getWorkspacePermissions,
+  type WorkspacePermissions,
+} from "../../../lib/permissions";
 import type { Document, DocumentStatus, DocumentType } from "../../../types";
 
 const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
@@ -40,6 +65,24 @@ const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
   { label: "ใบลดหนี้", value: "credit_note" },
 ];
 
+const MONTH_LABELS = [
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
+];
+
+const CURRENT_MONTH = new Date().getMonth() + 1;
+const CURRENT_YEAR = new Date().getFullYear();
+
 const STATUS_FILTERS: { label: string; value: DocumentStatus | "all" }[] = [
   { label: "ทั้งหมด", value: "all" },
   { label: "ร่าง", value: "draft" },
@@ -52,7 +95,8 @@ const STATUS_FILTERS: { label: string; value: DocumentStatus | "all" }[] = [
   { label: "ยกเลิก", value: "voided" },
 ];
 
-type QuickView = "all" | "attention" | "draft" | "dn_invoice" | "collect" | "paid" | "voided";
+type QuickView =
+  "all" | "attention" | "draft" | "dn_invoice" | "collect" | "paid" | "voided";
 
 function getDisplayAmount(doc: Document): number {
   return doc.doc_type === "delivery_note" ? doc.total_amount : doc.net_payable;
@@ -74,7 +118,8 @@ function relativeDueLabel(dueDate: string): { text: string; urgent: boolean } {
   now.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
   const diff = Math.round((due.getTime() - now.getTime()) / 86400000);
-  if (diff < 0) return { text: `เกินกำหนด ${Math.abs(diff)} วัน`, urgent: true };
+  if (diff < 0)
+    return { text: `เกินกำหนด ${Math.abs(diff)} วัน`, urgent: true };
   if (diff === 0) return { text: "ครบกำหนดวันนี้", urgent: true };
   if (diff === 1) return { text: "ครบกำหนดพรุ่งนี้", urgent: false };
   if (diff <= 7) return { text: `ครบกำหนดใน ${diff} วัน`, urgent: false };
@@ -82,30 +127,58 @@ function relativeDueLabel(dueDate: string): { text: string; urgent: boolean } {
 }
 
 function isCollectingStatus(doc: Document) {
-  return doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue" || doc.status === "paid");
+  return (
+    doc.doc_type === "billing_note" &&
+    (doc.status === "sent" || doc.status === "overdue" || doc.status === "paid")
+  );
 }
 
 function isActuallyOverdue(doc: Document) {
   if (!doc.due_date) return false;
-  return (doc.status === "sent" || doc.status === "overdue") && new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10));
+  return (
+    (doc.status === "sent" || doc.status === "overdue") &&
+    new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10))
+  );
 }
 
 function getNextStepText(doc: Document) {
   if (doc.status === "draft") return "ยังไม่ได้ส่ง";
-  if (doc.status === "overdue" || isActuallyOverdue(doc)) return "ต้องติดตามการชำระ";
-  if (doc.doc_type === "quotation" && doc.status === "sent") return "รอลูกค้ายืนยัน";
-  if (doc.doc_type === "invoice" && doc.status === "sent") return "พร้อมวางบิลหรือรับเงิน";
-  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "ส่งของแล้ว รอออกใบแจ้งหนี้";
-  if (doc.doc_type === "billing_note" && doc.status === "sent") return "รอรับเงิน";
-  if (doc.status === "paid" || doc.status === "generated" || doc.status === "issued") return "เสร็จสมบูรณ์";
+  if (doc.status === "overdue" || isActuallyOverdue(doc))
+    return "ต้องติดตามการชำระ";
+  if (doc.doc_type === "quotation" && doc.status === "sent")
+    return "รอลูกค้ายืนยัน";
+  if (doc.doc_type === "invoice" && doc.status === "sent")
+    return "พร้อมวางบิลหรือรับเงิน";
+  if (doc.doc_type === "delivery_note" && doc.status === "sent")
+    return "ส่งของแล้ว รอออกใบแจ้งหนี้";
+  if (doc.doc_type === "billing_note" && doc.status === "sent")
+    return "รอรับเงิน";
+  if (
+    doc.status === "paid" ||
+    doc.status === "generated" ||
+    doc.status === "issued"
+  )
+    return "เสร็จสมบูรณ์";
   if (doc.status === "voided") return "เก็บไว้เป็นประวัติ";
   return "ดูรายละเอียด";
 }
 
-function DocTypeBadge({ docType, vatRegistered = false }: { docType: DocumentType; vatRegistered?: boolean }) {
+function DocTypeBadge({
+  docType,
+  vatRegistered = false,
+}: {
+  docType: DocumentType;
+  vatRegistered?: boolean;
+}) {
   const color = DOC_TYPE_COLORS[docType];
   const label = documentTypeLabel(docType, vatRegistered);
-  return <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${color.bg} ${color.text}`}>{label.thai}</span>;
+  return (
+    <span
+      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${color.bg} ${color.text}`}
+    >
+      {label.thai}
+    </span>
+  );
 }
 
 function SummaryCard({
@@ -126,19 +199,37 @@ function SummaryCard({
   onClick: () => void;
 }) {
   const tones = {
-    blue: active ? "border-[#378ADD] bg-[#F2F8FF] text-[#0C447C]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
-    amber: active ? "border-[#D89A1D] bg-[#FFF8EA] text-[#7A4A00]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
-    red: active ? "border-[#D14343] bg-[#FFF5F5] text-[#8A2020]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
-    green: active ? "border-[#3E8D5D] bg-[#F1FAF4] text-[#1E5A38]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
-    gray: active ? "border-[#5E5A52] bg-[#F5F3EF] text-[#3F3B34]" : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    blue: active
+      ? "border-[#378ADD] bg-[#F2F8FF] text-[#0C447C]"
+      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    amber: active
+      ? "border-[#D89A1D] bg-[#FFF8EA] text-[#7A4A00]"
+      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    red: active
+      ? "border-[#D14343] bg-[#FFF5F5] text-[#8A2020]"
+      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    green: active
+      ? "border-[#3E8D5D] bg-[#F1FAF4] text-[#1E5A38]"
+      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+    gray: active
+      ? "border-[#5E5A52] bg-[#F5F3EF] text-[#3F3B34]"
+      : "border-[#E5E1D9] bg-white text-[#4D493F]",
   };
 
   return (
-    <button type="button" onClick={onClick} className={`rounded-xl border px-3 py-3 text-left shadow-sm transition-colors hover:border-[#B9B2A6] ${tones[tone]}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl border px-3 py-3 text-left shadow-sm transition-colors hover:border-[#B9B2A6] ${tones[tone]}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <div className="text-xs font-medium leading-5 opacity-75">{title}</div>
-          <div className="text-xl font-semibold leading-none tabular-nums">{count}</div>
+          <div className="text-xs font-medium leading-5 opacity-75">
+            {title}
+          </div>
+          <div className="text-xl font-semibold leading-none tabular-nums">
+            {count}
+          </div>
         </div>
         <div className="shrink-0 opacity-80">{icon}</div>
       </div>
@@ -147,19 +238,48 @@ function SummaryCard({
   );
 }
 
-function SectionHeader({ title, hint, count, tone = "active" }: { title: string; hint: string; count: number; tone?: "attention" | "active" | "muted" }) {
-  const dotColor = tone === "attention" ? "bg-[#C0392B]" : tone === "active" ? "bg-primary" : "bg-gray-300";
+function SectionHeader({
+  title,
+  hint,
+  count,
+  tone = "active",
+}: {
+  title: string;
+  hint: string;
+  count: number;
+  tone?: "attention" | "active" | "muted";
+}) {
+  const dotColor =
+    tone === "attention"
+      ? "bg-[#C0392B]"
+      : tone === "active"
+        ? "bg-primary"
+        : "bg-gray-300";
   const dotVisible = tone !== "muted";
   return (
     <div className="flex items-end justify-between gap-4">
       <div className="flex items-center gap-2">
-        {dotVisible && <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />}
+        {dotVisible && (
+          <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+        )}
         <div>
-          <h2 className={`text-sm font-semibold ${tone === "muted" ? "text-gray-400" : "text-[#1A1A18]"}`}>{title}</h2>
-          <p className={`mt-1 text-xs ${tone === "muted" ? "text-gray-300" : "text-[#6F6A61]"}`}>{hint}</p>
+          <h2
+            className={`text-sm font-semibold ${tone === "muted" ? "text-gray-400" : "text-[#1A1A18]"}`}
+          >
+            {title}
+          </h2>
+          <p
+            className={`mt-1 text-xs ${tone === "muted" ? "text-gray-300" : "text-[#6F6A61]"}`}
+          >
+            {hint}
+          </p>
         </div>
       </div>
-      <span className={`shrink-0 text-xs ${tone === "muted" ? "text-gray-300" : "text-[#888780]"}`}>{count} รายการ</span>
+      <span
+        className={`shrink-0 text-xs ${tone === "muted" ? "text-gray-300" : "text-[#888780]"}`}
+      >
+        {count} รายการ
+      </span>
     </div>
   );
 }
@@ -196,7 +316,10 @@ function DocumentCard({
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (menuDropdownRef.current && !menuDropdownRef.current.contains(e.target as Node)) {
+      if (
+        menuDropdownRef.current &&
+        !menuDropdownRef.current.contains(e.target as Node)
+      ) {
         onToggleMenu();
       }
     };
@@ -213,7 +336,10 @@ function DocumentCard({
   const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
   const isDraft = doc.status === "draft";
   const isSent = doc.status === "sent";
-  const isPaid = doc.status === "paid" || doc.status === "generated" || doc.status === "issued";
+  const isPaid =
+    doc.status === "paid" ||
+    doc.status === "generated" ||
+    doc.status === "issued";
   const isVoided = doc.status === "voided";
   const isConverted = doc.status === "converted";
   const isTerminal = isPaid || isVoided || isConverted;
@@ -221,16 +347,24 @@ function DocumentCard({
   const isConfirming = pendingConfirm?.docId === doc.id;
 
   const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
-  const itemNames = Array.isArray(doc.line_items) ? doc.line_items.map((item) => item.item_name.trim()).filter(Boolean) : [];
+  const itemNames = Array.isArray(doc.line_items)
+    ? doc.line_items.map((item) => item.item_name.trim()).filter(Boolean)
+    : [];
   const previewItems = itemNames.slice(0, 3);
   const remainingItems = itemNames.length - previewItems.length;
 
   return (
-    <Card onClick={selectMode ? onToggleSelect : onOpen} className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${isVoided ? "border-l-gray-300 opacity-50" : DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""} ${isSelected ? "ring-2 ring-primary bg-primary/5" : ""}`}>
+    <Card
+      onClick={selectMode ? onToggleSelect : onOpen}
+      className={`cursor-pointer overflow-hidden !p-0 relative border-l-4 ${isVoided ? "border-l-gray-300 opacity-50" : DOC_TYPE_BORDER[doc.doc_type]} ${overdue ? "bg-red-50/30" : ""} ${isSelected ? "ring-2 ring-primary bg-primary/5" : ""}`}
+    >
       <div className="p-3.5 sm:p-4">
         <div className="flex items-start gap-3">
           {selectMode && (
-            <div className="shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="shrink-0 pt-0.5"
+              onClick={(e) => e.stopPropagation()}
+            >
               <input
                 type="checkbox"
                 checked={isSelected || false}
@@ -241,12 +375,23 @@ function DocumentCard({
           )}
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`text-sm font-semibold ${isVoided ? "line-through text-gray-400" : "text-[#1A1A18]"}`}>{doc.doc_number || "-"}</span>
-              <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
+              <span
+                className={`text-sm font-semibold ${isVoided ? "line-through text-gray-400" : "text-[#1A1A18]"}`}
+              >
+                {doc.doc_number || "-"}
+              </span>
+              <DocTypeBadge
+                docType={doc.doc_type}
+                vatRegistered={doc.vat_registered}
+              />
               <span className="hidden sm:inline-flex">
                 <Badge status={doc.status} />
               </span>
-              {overdue && <span className="inline-flex rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">ต้องติดตาม</span>}
+              {overdue && (
+                <span className="inline-flex rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                  ต้องติดตาม
+                </span>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -256,14 +401,18 @@ function DocumentCard({
               <p className="truncate text-sm text-[#444441]">{customerName}</p>
               <p className="text-xs text-[#7D776D]">{getNextStepText(doc)}</p>
               {isVoided && doc.voided_reason && (
-                <p className="text-xs text-[#9A9690] italic">เหตุผล: {doc.voided_reason}</p>
+                <p className="text-xs text-[#9A9690] italic">
+                  เหตุผล: {doc.voided_reason}
+                </p>
               )}
             </div>
 
             <div className="flex flex-col gap-1 text-xs text-[#888780] sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
               <span>ออกเอกสาร: {formatBuddhistDate(doc.issue_date)}</span>
               {doc.due_date && dueRel?.text ? (
-                <span className={dueRel.urgent ? "font-medium text-red-600" : ""}>
+                <span
+                  className={dueRel.urgent ? "font-medium text-red-600" : ""}
+                >
                   &middot; {dueRel.text}
                 </span>
               ) : doc.due_date ? (
@@ -273,7 +422,10 @@ function DocumentCard({
               ) : null}
               {onOpenDeal && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onOpenDeal(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenDeal();
+                  }}
                   className="text-primary hover:underline"
                 >
                   &middot; ดูงานขาย
@@ -292,7 +444,9 @@ function DocumentCard({
                     </span>
                   ))}
                   {remainingItems > 0 && (
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${CHIP_COLORS[previewItems.length % CHIP_COLORS.length]} opacity-80`}>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${CHIP_COLORS[previewItems.length % CHIP_COLORS.length]} opacity-80`}
+                    >
                       +{remainingItems} more
                     </span>
                   )}
@@ -301,18 +455,30 @@ function DocumentCard({
             )}
           </div>
 
-            <div className={`shrink-0 pl-2 text-right ml-auto ${isTerminal ? "opacity-60" : ""}`}>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-[#888780]">ยอดสุทธิ</div>
-              <div className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-[#1A1A18]"}`}>
-                ฿{formatCurrency(getDisplayAmount(doc))}
-              </div>
+          <div
+            className={`shrink-0 pl-2 text-right ml-auto ${isTerminal ? "opacity-60" : ""}`}
+          >
+            <div className="text-[11px] uppercase tracking-[0.12em] text-[#888780]">
+              ยอดสุทธิ
+            </div>
+            <div
+              className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-[#1A1A18]"}`}
+            >
+              ฿{formatCurrency(getDisplayAmount(doc))}
+            </div>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onToggleMenu(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMenu();
+              }}
               className="mt-1.5 rounded p-0.5 hover:bg-gray-100 transition-colors"
               disabled={menuLoading}
             >
-              <MoreHorizontal size={15} className={menuLoading ? "text-gray-300" : "text-[#9A968F]"} />
+              <MoreHorizontal
+                size={15}
+                className={menuLoading ? "text-gray-300" : "text-[#9A968F]"}
+              />
             </button>
           </div>
         </div>
@@ -325,13 +491,17 @@ function DocumentCard({
           onClick={(e) => e.stopPropagation()}
         >
           {menuLoading && (
-            <div className="px-3 py-2 text-xs text-gray-400 text-center">กำลังดำเนินการ...</div>
+            <div className="px-3 py-2 text-xs text-gray-400 text-center">
+              กำลังดำเนินการ...
+            </div>
           )}
 
           {!menuLoading && isConfirming && (
             <>
               <div className="px-3 py-1.5 text-xs text-red-600 font-medium border-b border-gray-100">
-                {pendingConfirm!.action === "void" ? "ยืนยันการยกเลิก?" : "ยืนยันการลบ?"}
+                {pendingConfirm!.action === "void"
+                  ? "ยืนยันการยกเลิก?"
+                  : "ยืนยันการลบ?"}
               </div>
               <button
                 className="w-full text-left px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 flex items-center gap-2"
@@ -351,41 +521,65 @@ function DocumentCard({
 
           {!menuLoading && !isConfirming && (
             <>
-              {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (
-                <>
-                  {permissions.canSendDocuments && (
-                    <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("send")}>
-                      <Send size={14} />
-                      <span>{doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว"}</span>
+              {isDraft &&
+                doc.doc_type !== "receipt" &&
+                doc.doc_type !== "credit_note" && (
+                  <>
+                    {permissions.canSendDocuments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("send")}
+                      >
+                        <Send size={14} />
+                        <span>
+                          {doc.doc_type === "delivery_note"
+                            ? "ยืนยันส่งของแล้ว"
+                            : "ทำเครื่องหมายว่าส่งแล้ว"}
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("edit")}
+                    >
+                      <Edit3 size={14} />
+                      <span>แก้ไข</span>
                     </button>
-                  )}
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
-                    <Edit3 size={14} />
-                    <span>แก้ไข</span>
-                  </button>
-                  {permissions.canDeleteDocuments && (
-                    <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
-                      <Trash2 size={14} />
-                      <span>ลบ</span>
-                    </button>
-                  )}
-                </>
-              )}
+                    {permissions.canDeleteDocuments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("delete")}
+                      >
+                        <Trash2 size={14} />
+                        <span>ลบ</span>
+                      </button>
+                    )}
+                  </>
+                )}
 
               {isDraft && doc.doc_type === "credit_note" && (
                 <>
                   {permissions.canSendDocuments && (
-                    <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("issue_cn")}>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("issue_cn")}
+                    >
                       <FileText size={14} />
                       <span>ออกใบลดหนี้</span>
                     </button>
                   )}
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
+                  <button
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={() => onMenuAction("edit")}
+                  >
                     <Edit3 size={14} />
                     <span>แก้ไข</span>
                   </button>
                   {permissions.canDeleteDocuments && (
-                    <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("delete")}
+                    >
                       <Trash2 size={14} />
                       <span>ลบ</span>
                     </button>
@@ -395,12 +589,18 @@ function DocumentCard({
 
               {isDraft && doc.doc_type === "receipt" && (
                 <>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("edit")}>
+                  <button
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={() => onMenuAction("edit")}
+                  >
                     <Edit3 size={14} />
                     <span>แก้ไข</span>
                   </button>
                   {permissions.canDeleteDocuments && (
-                    <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("delete")}>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("delete")}
+                    >
                       <Trash2 size={14} />
                       <span>ลบ</span>
                     </button>
@@ -408,79 +608,125 @@ function DocumentCard({
                 </>
               )}
 
-              {isSent && doc.doc_type === "quotation" && permissions.canSendDocuments && (
-                <>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("convert")}>
-                    <Copy size={14} />
-                    <span>แปลงเป็นใบแจ้งหนี้</span>
-                  </button>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
+              {isSent &&
+                doc.doc_type === "quotation" &&
+                permissions.canSendDocuments && (
+                  <>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("convert")}
+                    >
+                      <Copy size={14} />
+                      <span>แปลงเป็นใบแจ้งหนี้</span>
+                    </button>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("void")}
+                    >
+                      <Ban size={14} />
+                      <span>ยกเลิก</span>
+                    </button>
+                  </>
+                )}
+
+              {isSent &&
+                doc.doc_type === "invoice" &&
+                permissions.canRecordPayments && (
+                  <>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("billing")}
+                    >
+                      <FileText size={14} />
+                      <span>วางบิล</span>
+                    </button>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("pay")}
+                    >
+                      <CreditCard size={14} />
+                      <span>รับเงินแล้ว</span>
+                    </button>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("void")}
+                    >
+                      <Ban size={14} />
+                      <span>ยกเลิก</span>
+                    </button>
+                  </>
+                )}
+
+              {isSent &&
+                doc.doc_type === "billing_note" &&
+                permissions.canRecordPayments && (
+                  <>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("pay")}
+                    >
+                      <CreditCard size={14} />
+                      <span>รับเงินแล้ว</span>
+                    </button>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("void")}
+                    >
+                      <Ban size={14} />
+                      <span>ยกเลิก</span>
+                    </button>
+                  </>
+                )}
+
+              {isSent &&
+                doc.doc_type === "delivery_note" &&
+                permissions.canSendDocuments && (
+                  <>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("invoice_from_dn")}
+                    >
+                      <FileStack size={14} />
+                      <span>ออกใบแจ้งหนี้จากใบนี้</span>
+                    </button>
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("void")}
+                    >
+                      <Ban size={14} />
+                      <span>ยกเลิก</span>
+                    </button>
+                  </>
+                )}
+
+              {isSent &&
+                doc.doc_type !== "quotation" &&
+                doc.doc_type !== "invoice" &&
+                doc.doc_type !== "billing_note" &&
+                doc.doc_type !== "delivery_note" &&
+                permissions.canVoidDocuments && (
+                  <button
+                    className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    onClick={() => onMenuAction("void")}
+                  >
                     <Ban size={14} />
                     <span>ยกเลิก</span>
                   </button>
-                </>
-              )}
-
-              {isSent && doc.doc_type === "invoice" && permissions.canRecordPayments && (
-                <>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("billing")}>
-                    <FileText size={14} />
-                    <span>วางบิล</span>
-                  </button>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("pay")}>
-                    <CreditCard size={14} />
-                    <span>รับเงินแล้ว</span>
-                  </button>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
-                    <Ban size={14} />
-                    <span>ยกเลิก</span>
-                  </button>
-                </>
-              )}
-
-              {isSent && doc.doc_type === "billing_note" && permissions.canRecordPayments && (
-                <>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("pay")}>
-                    <CreditCard size={14} />
-                    <span>รับเงินแล้ว</span>
-                  </button>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
-                    <Ban size={14} />
-                    <span>ยกเลิก</span>
-                  </button>
-                </>
-              )}
-
-              {isSent && doc.doc_type === "delivery_note" && permissions.canSendDocuments && (
-                <>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("invoice_from_dn")}>
-                    <FileStack size={14} />
-                    <span>ออกใบแจ้งหนี้จากใบนี้</span>
-                  </button>
-                  <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
-                    <Ban size={14} />
-                    <span>ยกเลิก</span>
-                  </button>
-                </>
-              )}
-
-              {isSent && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && permissions.canVoidDocuments && (
-                <button className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => onMenuAction("void")}>
-                  <Ban size={14} />
-                  <span>ยกเลิก</span>
-                </button>
-              )}
+                )}
 
               {isTerminal && (
-                <button className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2" onClick={() => onMenuAction("copy")}>
+                <button
+                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  onClick={() => onMenuAction("copy")}
+                >
                   <Copy size={14} />
                   <span>คัดลอกเป็นฉบับร่าง</span>
                 </button>
               )}
             </>
           )}
-          </div>
-        )}
+        </div>
+      )}
     </Card>
   );
 }
@@ -506,7 +752,12 @@ function QuickDetailModal({
 
   if (loading || !doc) {
     return (
-      <Modal open={open} onClose={onClose} title="รายละเอียดเอกสาร" className="md:max-w-3xl">
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="รายละเอียดเอกสาร"
+        className="md:max-w-3xl"
+      >
         <div className="space-y-3">
           <SkeletonCard className="p-0" />
           <SkeletonCard className="p-0" />
@@ -519,33 +770,57 @@ function QuickDetailModal({
   const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
   const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
   const items = Array.isArray(doc.line_items) ? doc.line_items : [];
-  const lineDiscountTotal = items.reduce((sum, item) => sum + (item.discount_amount || 0), 0);
+  const lineDiscountTotal = items.reduce(
+    (sum, item) => sum + (item.discount_amount || 0),
+    0,
+  );
   const detailRows = [
     { label: "ลูกค้า", value: customerName },
     { label: "วันที่ออก", value: formatBuddhistDate(doc.issue_date) },
-    { label: "ครบกำหนด", value: doc.due_date ? formatBuddhistDate(doc.due_date) : "ไม่มีกำหนด", emphasis: overdue },
+    {
+      label: "ครบกำหนด",
+      value: doc.due_date ? formatBuddhistDate(doc.due_date) : "ไม่มีกำหนด",
+      emphasis: overdue,
+    },
     { label: "ขั้นตอนถัดไป", value: getNextStepText(doc) },
   ];
 
   return (
-    <Modal open={open} onClose={onClose} title={doc.doc_number || "รายละเอียดเอกสาร"} className="md:max-w-3xl">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={doc.doc_number || "รายละเอียดเอกสาร"}
+      className="md:max-w-3xl"
+    >
       <div className="space-y-4">
         <div className="rounded-[22px] border border-[#E8E6DF] bg-[linear-gradient(135deg,#FFFDF8_0%,#F6F2EA_100%)] p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
+            <DocTypeBadge
+              docType={doc.doc_type}
+              vatRegistered={doc.vat_registered}
+            />
             <Badge status={doc.status} />
             {overdue && (
-              <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">ต้องติดตาม</span>
+              <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
+                ต้องติดตาม
+              </span>
             )}
           </div>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">ยอดสุทธิ</div>
-              <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</div>
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                ยอดสุทธิ
+              </div>
+              <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">
+                ฿ {formatCurrency(getDisplayAmount(doc))}
+              </div>
             </div>
             {doc.deal_id && (
-              <Button onClick={onOpenDeal} className="w-full sm:w-auto !border-amber-500 !bg-amber-500 !text-white shadow-sm hover:!bg-amber-600">
+              <Button
+                onClick={onOpenDeal}
+                className="w-full sm:w-auto !border-amber-500 !bg-amber-500 !text-white shadow-sm hover:!bg-amber-600"
+              >
                 ดูเอกสารในงานขายนี้
               </Button>
             )}
@@ -555,9 +830,16 @@ function QuickDetailModal({
         <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
           <div className="space-y-3 text-sm">
             {detailRows.map((row) => (
-              <div key={row.label} className="flex items-start justify-between gap-4">
+              <div
+                key={row.label}
+                className="flex items-start justify-between gap-4"
+              >
                 <span className="text-[#7B766E]">{row.label}</span>
-                <span className={`text-right font-medium ${row.emphasis ? "text-red-700" : "text-[#1A1A18]"}`}>{row.value}</span>
+                <span
+                  className={`text-right font-medium ${row.emphasis ? "text-red-700" : "text-[#1A1A18]"}`}
+                >
+                  {row.value}
+                </span>
               </div>
             ))}
           </div>
@@ -566,28 +848,46 @@ function QuickDetailModal({
         {items.length > 0 && (
           <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-3.5 sm:p-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">รายการ</div>
-              <div className="text-xs text-[#7B766E]">{items.length} รายการ</div>
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                รายการ
+              </div>
+              <div className="text-xs text-[#7B766E]">
+                {items.length} รายการ
+              </div>
             </div>
 
             <div className="mt-2.5 space-y-1.5 sm:hidden">
               {items.slice(0, 4).map((item) => (
-                <div key={item.id} className="rounded-[18px] border border-[#F0ECE5] bg-[#FCFBF8] px-3 py-2.5">
+                <div
+                  key={item.id}
+                  className="rounded-[18px] border border-[#F0ECE5] bg-[#FCFBF8] px-3 py-2.5"
+                >
                   <div className="flex items-start justify-between gap-2.5">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-sm font-medium leading-5 text-[#1A1A18]">{item.item_name}</p>
+                        <p className="truncate text-sm font-medium leading-5 text-[#1A1A18]">
+                          {item.item_name}
+                        </p>
                         <div className="shrink-0 text-right">
-                          <div className="text-[10px] uppercase tracking-[0.12em] text-[#8A8478]">รวม</div>
-                          <div className="text-sm font-semibold leading-5 text-[#1A1A18]">฿ {formatCurrency(item.line_total)}</div>
+                          <div className="text-[10px] uppercase tracking-[0.12em] text-[#8A8478]">
+                            รวม
+                          </div>
+                          <div className="text-sm font-semibold leading-5 text-[#1A1A18]">
+                            ฿ {formatCurrency(item.line_total)}
+                          </div>
                         </div>
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-[#7B766E]">
-                        <span>{item.quantity} {item.unit}</span>
+                        <span>
+                          {item.quantity} {item.unit}
+                        </span>
                         <span>x ฿ {formatCurrency(item.unit_price)}</span>
                       </div>
                       {item.discount_amount > 0 && (
-                        <p className="mt-1 text-[11px] leading-4 text-red-700">ส่วนลด {item.discount_percent}% (-฿ {formatCurrency(item.discount_amount)})</p>
+                        <p className="mt-1 text-[11px] leading-4 text-red-700">
+                          ส่วนลด {item.discount_percent}% (-฿{" "}
+                          {formatCurrency(item.discount_amount)})
+                        </p>
                       )}
                     </div>
                   </div>
@@ -609,79 +909,118 @@ function QuickDetailModal({
                   }`}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium leading-5 text-[#1A1A18]">{item.item_name}</p>
+                    <p className="truncate text-sm font-medium leading-5 text-[#1A1A18]">
+                      {item.item_name}
+                    </p>
                     {item.discount_amount > 0 && (
-                      <p className="mt-1 text-[11px] leading-4 text-red-700">ส่วนลด {item.discount_percent}% (-฿ {formatCurrency(item.discount_amount)})</p>
+                      <p className="mt-1 text-[11px] leading-4 text-red-700">
+                        ส่วนลด {item.discount_percent}% (-฿{" "}
+                        {formatCurrency(item.discount_amount)})
+                      </p>
                     )}
                   </div>
                   <div className="text-right text-sm leading-5 text-[#5F5A52]">
                     {item.quantity} {item.unit}
-                    <div className="mt-0.5 text-[11px] leading-4 text-[#8A8478]">x ฿ {formatCurrency(item.unit_price)}</div>
+                    <div className="mt-0.5 text-[11px] leading-4 text-[#8A8478]">
+                      x ฿ {formatCurrency(item.unit_price)}
+                    </div>
                   </div>
-                  <div className="text-right text-sm font-semibold leading-5 text-[#1A1A18]">฿ {formatCurrency(item.line_total)}</div>
+                  <div className="text-right text-sm font-semibold leading-5 text-[#1A1A18]">
+                    ฿ {formatCurrency(item.line_total)}
+                  </div>
                 </div>
               ))}
             </div>
 
-            {items.length > 4 && <div className="mt-3 text-center text-xs text-[#7B766E]">และอีก {items.length - 4} รายการในหน้ารายละเอียดเต็ม</div>}
+            {items.length > 4 && (
+              <div className="mt-3 text-center text-xs text-[#7B766E]">
+                และอีก {items.length - 4} รายการในหน้ารายละเอียดเต็ม
+              </div>
+            )}
           </div>
         )}
 
         <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
-          <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">สรุปยอด</div>
+          <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+            สรุปยอด
+          </div>
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex items-start justify-between gap-4">
               <span className="text-[#7B766E]">Subtotal</span>
-              <span className="text-right font-medium text-[#1A1A18]">฿ {formatCurrency(doc.subtotal)}</span>
+              <span className="text-right font-medium text-[#1A1A18]">
+                ฿ {formatCurrency(doc.subtotal)}
+              </span>
             </div>
             {lineDiscountTotal > 0 && (
               <div className="flex items-start justify-between gap-4 text-red-700">
                 <span>ส่วนลดรายการ</span>
-                <span className="text-right font-medium">-฿ {formatCurrency(lineDiscountTotal)}</span>
+                <span className="text-right font-medium">
+                  -฿ {formatCurrency(lineDiscountTotal)}
+                </span>
               </div>
             )}
             {doc.discount_amount > 0 && (
               <div className="flex items-start justify-between gap-4 text-red-700">
                 <span>ส่วนลดท้ายบิล</span>
-                <span className="text-right font-medium">-฿ {formatCurrency(doc.discount_amount)}</span>
+                <span className="text-right font-medium">
+                  -฿ {formatCurrency(doc.discount_amount)}
+                </span>
               </div>
             )}
             {doc.vat_registered && (
               <div className="flex items-start justify-between gap-4">
                 <span className="text-[#7B766E]">VAT {doc.vat_rate}%</span>
-                <span className="text-right font-medium text-[#1A1A18]">฿ {formatCurrency(doc.vat_amount)}</span>
+                <span className="text-right font-medium text-[#1A1A18]">
+                  ฿ {formatCurrency(doc.vat_amount)}
+                </span>
               </div>
             )}
             {doc.wht_rate > 0 && (
               <div className="flex items-start justify-between gap-4 text-red-700">
                 <span>หัก ณ ที่จ่าย {doc.wht_rate}%</span>
-                <span className="text-right font-medium">-฿ {formatCurrency(doc.wht_amount)}</span>
+                <span className="text-right font-medium">
+                  -฿ {formatCurrency(doc.wht_amount)}
+                </span>
               </div>
             )}
             <div className="flex items-start justify-between gap-4 border-t border-[#F0ECE5] pt-2">
               <span className="font-medium text-[#1A1A18]">ยอดสุทธิ</span>
-              <span className="text-right text-base font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</span>
+              <span className="text-right text-base font-semibold text-[#1A1A18]">
+                ฿ {formatCurrency(getDisplayAmount(doc))}
+              </span>
             </div>
           </div>
         </div>
 
         {doc.note && (
           <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
-            <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">หมายเหตุ</div>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#4F4A42]">{doc.note}</p>
+            <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+              หมายเหตุ
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#4F4A42]">
+              {doc.note}
+            </p>
           </div>
         )}
 
-         <div className="space-y-2 border-t border-[#F0ECE5] pt-3">
+        <div className="space-y-2 border-t border-[#F0ECE5] pt-3">
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-            <Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
               ปิด
             </Button>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={onOpenPreview} className="w-full sm:w-auto">
                 ดาวน์โหลดเอกสาร
               </Button>
-              <Button variant="secondary" onClick={onOpenFull} className="w-full sm:w-auto">
+              <Button
+                variant="secondary"
+                onClick={onOpenFull}
+                className="w-full sm:w-auto"
+              >
                 ดูรายละเอียด
               </Button>
             </div>
@@ -696,19 +1035,28 @@ export default function DocumentsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
-  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const permissions = getWorkspacePermissions(
+    workspaceRole,
+    workspacePermissions,
+  );
   const toast = useToast();
   const { documents, loading, refetch } = useDocuments(profile?.id);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchDebouncing, setSearchDebouncing] = useState(false);
-  const [docTypeFilter, setDocTypeFilter] = useState<DocumentType | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<DocumentStatus | "all">("all");
+  const [docTypeFilter, setDocTypeFilter] = useState<DocumentType | "all">(
+    "all",
+  );
+  const [statusFilter, setStatusFilter] = useState<DocumentStatus | "all">(
+    "all",
+  );
   const [quickView, setQuickView] = useState<QuickView>("all");
   const [hideVoided, setHideVoided] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<number>(CURRENT_MONTH);
+  const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
@@ -717,14 +1065,19 @@ export default function DocumentsPage() {
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [inlineLoading, setInlineLoading] = useState<string | null>(null);
-  const [pendingConfirm, setPendingConfirm] = useState<{ docId: string; action: "void" | "delete" } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    docId: string;
+    action: "void" | "delete";
+  } | null>(null);
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
     const stored = window.localStorage.getItem("documentsViewMode");
-    return stored === "list" || stored === "grid" || stored === "table" ? stored : "list";
+    return stored === "list" || stored === "grid" || stored === "table"
+      ? stored
+      : "list";
   });
 
   useEffect(() => {
@@ -777,7 +1130,10 @@ export default function DocumentsPage() {
 
   const handleInlineAction = async (doc: Document, action: string) => {
     if (!profile?.id) return;
-    if ((action === "send" || action === "issue_cn") && !permissions.canSendDocuments) {
+    if (
+      (action === "send" || action === "issue_cn") &&
+      !permissions.canSendDocuments
+    ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
@@ -793,18 +1149,30 @@ export default function DocumentsPage() {
     try {
       if (action === "send") {
         const { warnings } = await sendDocumentWithSideEffects(doc, profile.id);
-          warnings.forEach((warning) => toast.info(`${warning.itemName} สต็อกไม่พอ`));
-        toast.success(doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว");
+        warnings.forEach((warning) =>
+          toast.info(`${warning.itemName} สต็อกไม่พอ`),
+        );
+        toast.success(
+          doc.doc_type === "delivery_note"
+            ? "ยืนยันส่งของแล้ว"
+            : "ทำเครื่องหมายว่าส่งแล้ว",
+        );
       } else if (action === "void") {
         await voidDocumentWithSideEffects(doc, profile.id);
         toast.success("ยกเลิกเอกสารแล้ว");
       } else if (action === "delete") {
-        await supabase.from("document_line_items").delete().eq("document_id", doc.id);
+        await supabase
+          .from("document_line_items")
+          .delete()
+          .eq("document_id", doc.id);
         await deleteDocumentFiles(doc.id);
         await supabase.from("documents").delete().eq("id", doc.id);
         toast.success("ลบเอกสารแล้ว");
       } else if (action === "issue_cn") {
-        await supabase.from("documents").update({ status: "issued" as DocumentStatus }).eq("id", doc.id);
+        await supabase
+          .from("documents")
+          .update({ status: "issued" as DocumentStatus })
+          .eq("id", doc.id);
         toast.success("ออกใบลดหนี้แล้ว");
       }
       setOpenMenuId(null);
@@ -818,11 +1186,17 @@ export default function DocumentsPage() {
   };
 
   const handleMenuAction = (doc: Document, action: string) => {
-    if ((action === "pay" || action === "billing") && !permissions.canRecordPayments) {
+    if (
+      (action === "pay" || action === "billing") &&
+      !permissions.canRecordPayments
+    ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    if ((action === "convert" || action === "invoice_from_dn") && !permissions.canSendDocuments) {
+    if (
+      (action === "convert" || action === "invoice_from_dn") &&
+      !permissions.canSendDocuments
+    ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
@@ -851,7 +1225,9 @@ export default function DocumentsPage() {
     }
     if (action === "invoice_from_dn") {
       setOpenMenuId(null);
-      navigate(`/documents/new?type=invoice_from_delivery_notes&dnId=${doc.id}`);
+      navigate(
+        `/documents/new?type=invoice_from_delivery_notes&dnId=${doc.id}`,
+      );
       return;
     }
     handleInlineAction(doc, action);
@@ -904,13 +1280,17 @@ export default function DocumentsPage() {
 
       const JSZip = (await import("jszip")).default;
 
-      const { getPrintableDocumentDataBase, generatePDFBlob } = await import("../../../lib/print");
+      const { getPrintableDocumentDataBase, generatePDFBlob } =
+        await import("../../../lib/print");
       const generateBlob = async (docId: string) => {
         const data = await getPrintableDocumentDataBase(docId);
         // Stamp the template from the client profile so the dispatcher
         // picks the right generator for each document.
-        const template = clientProfile.pdf_template === "classic" ? "classic" : "modern";
-        return generatePDFBlob({ ...data, template } as Parameters<typeof generatePDFBlob>[0]);
+        const template =
+          clientProfile.pdf_template === "classic" ? "classic" : "modern";
+        return generatePDFBlob({ ...data, template } as Parameters<
+          typeof generatePDFBlob
+        >[0]);
       };
 
       const zip = new JSZip();
@@ -947,41 +1327,100 @@ export default function DocumentsPage() {
 
   const summary = useMemo(() => {
     const paidThisMonth = documents.filter((doc) => {
-      if (!isCollectingStatus(doc) || doc.status !== "paid" || !doc.paid_at) return false;
+      if (!isCollectingStatus(doc) || doc.status !== "paid" || !doc.paid_at)
+        return false;
       const paidAt = new Date(doc.paid_at);
       const now = new Date();
-      return paidAt.getMonth() === now.getMonth() && paidAt.getFullYear() === now.getFullYear();
+      return (
+        paidAt.getMonth() === now.getMonth() &&
+        paidAt.getFullYear() === now.getFullYear()
+      );
     }).length;
 
     return {
       draft: documents.filter((doc) => doc.status === "draft").length,
-      dnReady: documents.filter((doc) => doc.doc_type === "delivery_note" && doc.status === "sent").length,
-      collect: documents.filter((doc) => doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue")).length,
-      overdue: documents.filter((doc) => doc.status === "overdue" || isActuallyOverdue(doc)).length,
+      dnReady: documents.filter(
+        (doc) => doc.doc_type === "delivery_note" && doc.status === "sent",
+      ).length,
+      collect: documents.filter(
+        (doc) =>
+          doc.doc_type === "billing_note" &&
+          (doc.status === "sent" || doc.status === "overdue"),
+      ).length,
+      overdue: documents.filter(
+        (doc) => doc.status === "overdue" || isActuallyOverdue(doc),
+      ).length,
       paidThisMonth,
       voided: documents.filter((doc) => doc.status === "voided").length,
     };
   }, [documents]);
 
+  const availableYears = useMemo(() => {
+    const years = new Set([CURRENT_YEAR]);
+    for (const doc of documents) {
+      if (doc.issue_date) {
+        years.add(new Date(doc.issue_date).getFullYear());
+      }
+    }
+    return Array.from(years).sort((a, b) => b - a);
+  }, [documents]);
+
   const filtered = useMemo(() => {
     return documents.filter((doc) => {
-      if (docTypeFilter !== "all" && doc.doc_type !== docTypeFilter) return false;
+      if (docTypeFilter !== "all" && doc.doc_type !== docTypeFilter)
+        return false;
       if (statusFilter !== "all" && doc.status !== statusFilter) return false;
 
-      if (quickView === "attention" && !(doc.status === "overdue" || isActuallyOverdue(doc))) return false;
+      if (
+        quickView === "attention" &&
+        !(doc.status === "overdue" || isActuallyOverdue(doc))
+      )
+        return false;
       if (quickView === "draft" && doc.status !== "draft") return false;
-      if (quickView === "dn_invoice" && !(doc.doc_type === "delivery_note" && doc.status === "sent")) return false;
-      if (quickView === "collect" && !(doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue" || doc.status === "paid"))) return false;
-      if (quickView === "paid" && !(doc.doc_type === "billing_note" && doc.status === "paid")) return false;
+      if (
+        quickView === "dn_invoice" &&
+        !(doc.doc_type === "delivery_note" && doc.status === "sent")
+      )
+        return false;
+      if (
+        quickView === "collect" &&
+        !(
+          doc.doc_type === "billing_note" &&
+          (doc.status === "sent" ||
+            doc.status === "overdue" ||
+            doc.status === "paid")
+        )
+      )
+        return false;
+      if (
+        quickView === "paid" &&
+        !(doc.doc_type === "billing_note" && doc.status === "paid")
+      )
+        return false;
       if (quickView === "voided" && doc.status !== "voided") return false;
 
-      if (hideVoided && doc.status === "voided" && quickView !== "voided" && statusFilter !== "voided") return false;
+      if (
+        hideVoided &&
+        doc.status === "voided" &&
+        quickView !== "voided" &&
+        statusFilter !== "voided"
+      )
+        return false;
 
       if (preset === "paid_this_month") {
-        if (doc.doc_type !== "billing_note" || doc.status !== "paid" || !doc.paid_at) return false;
+        if (
+          doc.doc_type !== "billing_note" ||
+          doc.status !== "paid" ||
+          !doc.paid_at
+        )
+          return false;
         const paidAt = new Date(doc.paid_at);
         const now = new Date();
-        if (paidAt.getMonth() !== now.getMonth() || paidAt.getFullYear() !== now.getFullYear()) return false;
+        if (
+          paidAt.getMonth() !== now.getMonth() ||
+          paidAt.getFullYear() !== now.getFullYear()
+        )
+          return false;
       }
 
       if (debouncedSearch) {
@@ -989,24 +1428,58 @@ export default function DocumentsPage() {
         const customerName = ((doc as any).customer?.name || "").toLowerCase();
         const docNumber = (doc.doc_number || "").toLowerCase();
         const note = (doc.note || "").toLowerCase();
-        if (!customerName.includes(query) && !docNumber.includes(query) && !note.includes(query)) return false;
+        if (
+          !customerName.includes(query) &&
+          !docNumber.includes(query) &&
+          !note.includes(query)
+        )
+          return false;
       }
 
       if (dateFrom && doc.issue_date < dateFrom) return false;
       if (dateTo && doc.issue_date > dateTo) return false;
+
+      if (doc.issue_date) {
+        const docDate = new Date(doc.issue_date);
+        if (docDate.getMonth() + 1 !== selectedMonth) return false;
+        if (docDate.getFullYear() !== selectedYear) return false;
+      }
+
       return true;
     });
-  }, [documents, docTypeFilter, statusFilter, quickView, hideVoided, preset, debouncedSearch, dateFrom, dateTo]);
+  }, [
+    documents,
+    docTypeFilter,
+    statusFilter,
+    quickView,
+    hideVoided,
+    preset,
+    debouncedSearch,
+    dateFrom,
+    dateTo,
+    selectedMonth,
+    selectedYear,
+  ]);
 
   const grouped = useMemo(() => {
-    const active = filtered.filter((doc) => doc.status !== "voided" && !["paid", "generated", "issued"].includes(doc.status));
-    const completed = filtered.filter((doc) => ["paid", "generated", "issued"].includes(doc.status));
+    const active = filtered.filter(
+      (doc) =>
+        doc.status !== "voided" &&
+        !["paid", "generated", "issued"].includes(doc.status),
+    );
+    const completed = filtered.filter((doc) =>
+      ["paid", "generated", "issued"].includes(doc.status),
+    );
     const voided = filtered.filter((doc) => doc.status === "voided");
     return { active, completed, voided };
   }, [filtered]);
 
-  type DocSortKey = "doc_number" | "doc_type" | "issue_date" | "net_payable" | "status";
-  const docSort = useTableSort<Document, DocSortKey>(filtered, { key: "issue_date", dir: "desc" });
+  type DocSortKey =
+    "doc_number" | "doc_type" | "issue_date" | "net_payable" | "status";
+  const docSort = useTableSort<Document, DocSortKey>(filtered, {
+    key: "issue_date",
+    dir: "desc",
+  });
 
   const hasFilters =
     quickView !== "all" ||
@@ -1014,6 +1487,8 @@ export default function DocumentsPage() {
     statusFilter !== "all" ||
     dateFrom ||
     dateTo ||
+    selectedMonth !== CURRENT_MONTH ||
+    selectedYear !== CURRENT_YEAR ||
     debouncedSearch;
 
   function clearFilters() {
@@ -1023,11 +1498,21 @@ export default function DocumentsPage() {
     setStatusFilter("all");
     setDateFrom("");
     setDateTo("");
+    setSelectedMonth(CURRENT_MONTH);
+    setSelectedYear(CURRENT_YEAR);
     setMobileFiltersOpen(false);
   }
 
   function handleExportCSV() {
-    const headers = ["เลขที่เอกสาร", "ประเภท", "สถานะ", "ลูกค้า", "วันที่ออก", "วันครบกำหนด", "ยอดสุทธิ"];
+    const headers = [
+      "เลขที่เอกสาร",
+      "ประเภท",
+      "สถานะ",
+      "ลูกค้า",
+      "วันที่ออก",
+      "วันครบกำหนด",
+      "ยอดสุทธิ",
+    ];
     const rows = filtered.map((doc) => [
       doc.doc_number || "",
       DOC_TYPE_LABELS[doc.doc_type].th,
@@ -1037,8 +1522,13 @@ export default function DocumentsPage() {
       doc.due_date || "",
       doc.net_payable.toString(),
     ]);
-    const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const csv = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -1068,12 +1558,34 @@ export default function DocumentsPage() {
   }
 
   const sections = [
-    { key: "active", title: "เอกสารที่ยังใช้งานอยู่", hint: "ร่าง เอกสารที่ส่งแล้ว และเอกสารที่ยังต้องอ้างอิงในขั้นตอนเอกสาร", tone: "active" as const, docs: grouped.active },
-    { key: "completed", title: "เอกสารเสร็จแล้ว", hint: "เอกสารที่ออกแล้ว รับเงินแล้ว หรือปิดงานแล้ว", tone: "muted" as const, docs: grouped.completed },
-    { key: "voided", title: "เอกสารยกเลิก", hint: "ประวัติเอกสารที่ยกเลิกไว้สำหรับตรวจสอบย้อนหลัง", tone: "muted" as const, docs: grouped.voided },
+    {
+      key: "active",
+      title: "เอกสารที่ยังใช้งานอยู่",
+      hint: "ร่าง เอกสารที่ส่งแล้ว และเอกสารที่ยังต้องอ้างอิงในขั้นตอนเอกสาร",
+      tone: "active" as const,
+      docs: grouped.active,
+    },
+    {
+      key: "completed",
+      title: "เอกสารเสร็จแล้ว",
+      hint: "เอกสารที่ออกแล้ว รับเงินแล้ว หรือปิดงานแล้ว",
+      tone: "muted" as const,
+      docs: grouped.completed,
+    },
+    {
+      key: "voided",
+      title: "เอกสารยกเลิก",
+      hint: "ประวัติเอกสารที่ยกเลิกไว้สำหรับตรวจสอบย้อนหลัง",
+      tone: "muted" as const,
+      docs: grouped.voided,
+    },
   ].filter((section) => section.docs.length > 0);
 
-  const mobileQuickFilters: { label: string; value: QuickView; count: number }[] = [
+  const mobileQuickFilters: {
+    label: string;
+    value: QuickView;
+    count: number;
+  }[] = [
     { label: "ทั้งหมด", value: "all", count: documents.length },
     { label: "เกินกำหนด", value: "attention", count: summary.overdue },
     { label: "ร่าง", value: "draft", count: summary.draft },
@@ -1088,8 +1600,12 @@ export default function DocumentsPage() {
         <section className="rounded-2xl border border-[#E8E6DF] bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-[#1A1A18]">คลังเอกสาร</h2>
-              <p className="mt-1 text-sm leading-6 text-[#6F6A61]">ค้นหา พิมพ์ ส่งออก และตรวจสอบเอกสารย้อนหลัง</p>
+              <h2 className="text-base font-semibold text-[#1A1A18]">
+                คลังเอกสาร
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-[#6F6A61]">
+                ค้นหา พิมพ์ ส่งออก และตรวจสอบเอกสารย้อนหลัง
+              </p>
             </div>
             <div className="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[#7D776D] sm:block">
               {filtered.length} จาก {documents.length} รายการ
@@ -1098,15 +1614,90 @@ export default function DocumentsPage() {
 
           <div className="mt-4 hidden gap-2 md:grid md:grid-cols-6">
             {loading ? (
-              Array.from({ length: 6 }).map((_, index) => <SkeletonCard key={index} className="p-0" />)
+              Array.from({ length: 6 }).map((_, index) => (
+                <SkeletonCard key={index} className="p-0" />
+              ))
             ) : (
               <>
-                <SummaryCard title="ร่าง" count={summary.draft} hint="ยังไม่ออกใช้งาน" active={quickView === "draft"} tone="blue" icon={<FileText className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "draft" ? "all" : "draft"))} />
-                <SummaryCard title="ใบส่งของรอออกบิล" count={summary.dnReady} hint="กรอง DN ที่ยังไม่รวมบิล" active={quickView === "dn_invoice"} tone="blue" icon={<FileStack className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "dn_invoice" ? "all" : "dn_invoice"))} />
-                <SummaryCard title="ใบวางบิลรอรับเงิน" count={summary.collect} hint="กรองใบวางบิลที่ยังเปิดอยู่" active={quickView === "collect"} tone="amber" icon={<Clock3 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "collect" ? "all" : "collect"))} />
-                <SummaryCard title="เกินกำหนด" count={summary.overdue} hint="เอกสารที่ควรตรวจสอบ" active={quickView === "attention" || (quickView === "all" && statusFilter === "overdue")} tone="red" icon={<AlertTriangle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "attention" ? "all" : "attention"))} />
-                <SummaryCard title="รับเงินเดือนนี้" count={summary.paidThisMonth} hint="เอกสารที่ปิดยอดในเดือนนี้" active={quickView === "paid"} tone="green" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "paid" ? "all" : "paid"))} />
-                <SummaryCard title="ยกเลิก" count={summary.voided} hint="ประวัติที่แยกเก็บไว้" active={quickView === "voided"} tone="gray" icon={<XCircle className="h-5 w-5" />} onClick={() => setQuickView((value) => (value === "voided" ? "all" : "voided"))} />
+                <SummaryCard
+                  title="ร่าง"
+                  count={summary.draft}
+                  hint="ยังไม่ออกใช้งาน"
+                  active={quickView === "draft"}
+                  tone="blue"
+                  icon={<FileText className="h-5 w-5" />}
+                  onClick={() =>
+                    setQuickView((value) =>
+                      value === "draft" ? "all" : "draft",
+                    )
+                  }
+                />
+                <SummaryCard
+                  title="ใบส่งของรอออกบิล"
+                  count={summary.dnReady}
+                  hint="กรอง DN ที่ยังไม่รวมบิล"
+                  active={quickView === "dn_invoice"}
+                  tone="blue"
+                  icon={<FileStack className="h-5 w-5" />}
+                  onClick={() =>
+                    setQuickView((value) =>
+                      value === "dn_invoice" ? "all" : "dn_invoice",
+                    )
+                  }
+                />
+                <SummaryCard
+                  title="ใบวางบิลรอรับเงิน"
+                  count={summary.collect}
+                  hint="กรองใบวางบิลที่ยังเปิดอยู่"
+                  active={quickView === "collect"}
+                  tone="amber"
+                  icon={<Clock3 className="h-5 w-5" />}
+                  onClick={() =>
+                    setQuickView((value) =>
+                      value === "collect" ? "all" : "collect",
+                    )
+                  }
+                />
+                <SummaryCard
+                  title="เกินกำหนด"
+                  count={summary.overdue}
+                  hint="เอกสารที่ควรตรวจสอบ"
+                  active={
+                    quickView === "attention" ||
+                    (quickView === "all" && statusFilter === "overdue")
+                  }
+                  tone="red"
+                  icon={<AlertTriangle className="h-5 w-5" />}
+                  onClick={() =>
+                    setQuickView((value) =>
+                      value === "attention" ? "all" : "attention",
+                    )
+                  }
+                />
+                <SummaryCard
+                  title="รับเงินเดือนนี้"
+                  count={summary.paidThisMonth}
+                  hint="เอกสารที่ปิดยอดในเดือนนี้"
+                  active={quickView === "paid"}
+                  tone="green"
+                  icon={<CheckCircle2 className="h-5 w-5" />}
+                  onClick={() =>
+                    setQuickView((value) => (value === "paid" ? "all" : "paid"))
+                  }
+                />
+                <SummaryCard
+                  title="ยกเลิก"
+                  count={summary.voided}
+                  hint="ประวัติที่แยกเก็บไว้"
+                  active={quickView === "voided"}
+                  tone="gray"
+                  icon={<XCircle className="h-5 w-5" />}
+                  onClick={() =>
+                    setQuickView((value) =>
+                      value === "voided" ? "all" : "voided",
+                    )
+                  }
+                />
               </>
             )}
           </div>
@@ -1132,18 +1723,36 @@ export default function DocumentsPage() {
             <div className="flex items-center gap-2 md:hidden">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A968F]" />
-                <Input id="search-mobile" className="pl-9" placeholder="ค้นหาเอกสาร" value={search} onChange={(event) => setSearch(event.target.value)} />
+                <Input
+                  id="search-mobile"
+                  className="pl-9"
+                  placeholder="ค้นหาเอกสาร"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
               </div>
-              <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={() => setMobileFiltersOpen((value) => !value)}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setMobileFiltersOpen((value) => !value)}
+              >
                 <SlidersHorizontal className="h-4 w-4" />
                 {hasFilters ? "ตัวกรอง" : "กรอง"}
               </Button>
             </div>
 
             <div className="mt-2 flex items-center justify-between gap-3 md:hidden">
-              <span className="text-xs text-[#7D776D]">{filtered.length} รายการ</span>
+              <span className="text-xs text-[#7D776D]">
+                {filtered.length} รายการ
+              </span>
               {hasFilters && (
-                <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline">
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
                   ล้างตัวกรอง
                 </button>
               )}
@@ -1152,16 +1761,73 @@ export default function DocumentsPage() {
 
           <div className="hidden flex-col gap-3 md:flex md:flex-row md:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-[#666258]">ค้นหาเอกสาร</label>
+              <label className="mb-1 block text-xs font-medium text-[#666258]">
+                ค้นหาเอกสาร
+              </label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A968F]" />
-                <Input id="search" className="pl-9" placeholder="ค้นหาชื่อลูกค้า เลขที่เอกสาร หรือหมายเหตุ" value={search} onChange={(event) => setSearch(event.target.value)} />
+                <Input
+                  id="search"
+                  className="pl-9"
+                  placeholder="ค้นหาชื่อลูกค้า เลขที่เอกสาร หรือหมายเหตุ"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 md:w-[320px]">
-              <Input id="dateFrom" type="date" label="จากวันที่" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
-              <Input id="dateTo" type="date" label="ถึงวันที่" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+              <Input
+                id="dateFrom"
+                type="date"
+                label="จากวันที่"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+              />
+              <Input
+                id="dateTo"
+                type="date"
+                label="ถึงวันที่"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="hidden md:flex items-end gap-3">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-medium text-[#666258]">
+                เดือน
+              </label>
+              <div className="flex gap-1.5 flex-wrap">
+                {MONTH_LABELS.map((label, i) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setSelectedMonth(i + 1)}
+                    className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+                      selectedMonth === i + 1
+                        ? "border-primary bg-primary text-white"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="w-[110px]">
+              <Select
+                label="ปี"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+              >
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </Select>
             </div>
           </div>
 
@@ -1174,7 +1840,10 @@ export default function DocumentsPage() {
                 onChange={(e) => setHideVoided(e.target.checked)}
                 className="h-3.5 w-3.5 accent-primary rounded"
               />
-              <label htmlFor="hideVoided" className="text-[11px] text-[#888780] select-none cursor-pointer">
+              <label
+                htmlFor="hideVoided"
+                className="text-[11px] text-[#888780] select-none cursor-pointer"
+              >
                 ซ่อนเอกสารที่ยกเลิก ({summary.voided})
               </label>
             </div>
@@ -1186,10 +1855,59 @@ export default function DocumentsPage() {
             </div>
           )}
 
-          <div className={`space-y-3 ${mobileFiltersOpen ? "block" : "hidden"} md:block`}>
+          <div
+            className={`space-y-3 ${mobileFiltersOpen ? "block" : "hidden"} md:block`}
+          >
             <div className="grid grid-cols-2 gap-2 md:hidden">
-              <Input id="dateFromMobile" type="date" label="จากวันที่" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
-              <Input id="dateToMobile" type="date" label="ถึงวันที่" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+              <Input
+                id="dateFromMobile"
+                type="date"
+                label="จากวันที่"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+              />
+              <Input
+                id="dateToMobile"
+                type="date"
+                label="ถึงวันที่"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+              />
+            </div>
+
+            <div className="md:hidden">
+              <label className="mb-1 block text-xs font-medium text-[#666258]">
+                เดือน
+              </label>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {MONTH_LABELS.map((label, i) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setSelectedMonth(i + 1)}
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                      selectedMonth === i + 1
+                        ? "border-primary bg-primary text-white"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 w-[120px]">
+                <Select
+                  label="ปี"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </Select>
+              </div>
             </div>
 
             <div>
@@ -1239,7 +1957,10 @@ export default function DocumentsPage() {
                   onChange={(e) => setHideVoided(e.target.checked)}
                   className="h-3.5 w-3.5 accent-primary rounded"
                 />
-                <label htmlFor="hideVoidedMobile" className="text-[11px] text-[#888780] select-none cursor-pointer">
+                <label
+                  htmlFor="hideVoidedMobile"
+                  className="text-[11px] text-[#888780] select-none cursor-pointer"
+                >
                   ซ่อนเอกสารที่ยกเลิก ({summary.voided})
                 </label>
               </div>
@@ -1248,23 +1969,38 @@ export default function DocumentsPage() {
 
           <div className="hidden flex-wrap items-center justify-between gap-3 border-t border-[#F0ECE5] pt-3 md:flex">
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#7D776D]">
-              {quickView !== "all" && <span className="rounded-full bg-[#EEF5FC] px-2.5 py-1 text-[#1A5A92]">กำลังดูแบบลัด</span>}
+              {quickView !== "all" && (
+                <span className="rounded-full bg-[#EEF5FC] px-2.5 py-1 text-[#1A5A92]">
+                  กำลังดูแบบลัด
+                </span>
+              )}
               {hasFilters && (
-                <button type="button" onClick={clearFilters} className="text-primary hover:underline">
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-primary hover:underline"
+                >
                   ล้างตัวกรองทั้งหมด
                 </button>
               )}
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[#7D776D]">{filtered.length} จาก {documents.length} รายการ</span>
+              <span className="text-xs text-[#7D776D]">
+                {filtered.length} จาก {documents.length} รายการ
+              </span>
               <ViewToggle value={viewMode} onChange={setViewMode} />
               {selectedDocIds.size > 0 ? (
                 <Button variant="secondary" size="sm" onClick={clearSelection}>
                   ยกเลิกเลือก ({selectedDocIds.size})
                 </Button>
               ) : (
-                <Button variant="secondary" size="sm" onClick={selectAllFiltered} disabled={filtered.length === 0}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={selectAllFiltered}
+                  disabled={filtered.length === 0}
+                >
                   เลือกทั้งหมด
                 </Button>
               )}
@@ -1272,8 +2008,16 @@ export default function DocumentsPage() {
                 ส่งออก CSV
               </Button>
               {selectedDocIds.size > 0 && (
-                <Button variant="primary" size="sm" onClick={handleBulkDownloadPDF} loading={bulkDownloading} disabled={bulkDownloading}>
-                  {bulkDownloading ? `กำลังสร้าง ${bulkProgress.current}/${bulkProgress.total}` : "ดาวน์โหลด PDF (ZIP)"}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleBulkDownloadPDF}
+                  loading={bulkDownloading}
+                  disabled={bulkDownloading}
+                >
+                  {bulkDownloading
+                    ? `กำลังสร้าง ${bulkProgress.current}/${bulkProgress.total}`
+                    : "ดาวน์โหลด PDF (ZIP)"}
                 </Button>
               )}
             </div>
@@ -1283,14 +2027,23 @@ export default function DocumentsPage() {
         {loading ? (
           <SkeletonTable />
         ) : filtered.length === 0 ? (
-          <EmptyState title="ไม่พบเอกสาร" description={documents.length === 0 ? "ยังไม่มีเอกสารในระบบ" : "ลองเปลี่ยนคำค้นหา หรือปรับตัวกรอง"} />
+          <EmptyState
+            title="ไม่พบเอกสาร"
+            description={
+              documents.length === 0
+                ? "ยังไม่มีเอกสารในระบบ"
+                : "ลองเปลี่ยนคำค้นหา หรือปรับตัวกรอง"
+            }
+          />
         ) : viewMode !== "list" ? (
           viewMode === "grid" ? (
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((doc) => {
-                const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
+                const overdue =
+                  doc.status === "overdue" || isActuallyOverdue(doc);
                 const isVoided = doc.status === "voided";
-                const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
+                const customerName =
+                  (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
                 return (
                   <Card
                     key={doc.id}
@@ -1298,14 +2051,30 @@ export default function DocumentsPage() {
                     className={`cursor-pointer !p-3.5 flex flex-col gap-2.5 min-h-[110px] relative ${isVoided ? "opacity-50" : ""} ${overdue ? "border-l-4 border-l-[#C0392B]" : ""} ${selectedDocIds.has(doc.id) ? "ring-2 ring-primary bg-primary/5" : ""}`}
                   >
                     {selectedDocIds.size > 0 && (
-                      <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedDocIds.has(doc.id)} onChange={() => toggleSelectDoc(doc.id)} className="h-4 w-4 accent-primary cursor-pointer" />
+                      <div
+                        className="absolute top-2 right-2 z-10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDocIds.has(doc.id)}
+                          onChange={() => toggleSelectDoc(doc.id)}
+                          className="h-4 w-4 accent-primary cursor-pointer"
+                        />
                       </div>
                     )}
                     <div className="flex items-start gap-2 pr-6">
-                      <span className={`shrink-0 w-2 h-2 mt-1.5 rounded-full ${
-                        isVoided ? "bg-gray-300" : overdue ? "bg-[#C0392B]" : doc.status === "draft" ? "bg-[#888780]" : "bg-primary"
-                      }`} />
+                      <span
+                        className={`shrink-0 w-2 h-2 mt-1.5 rounded-full ${
+                          isVoided
+                            ? "bg-gray-300"
+                            : overdue
+                              ? "bg-[#C0392B]"
+                              : doc.status === "draft"
+                                ? "bg-[#888780]"
+                                : "bg-primary"
+                        }`}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="text-[12px] font-semibold text-[#1A1A18] truncate">
                           {doc.doc_number || "-"}
@@ -1316,12 +2085,23 @@ export default function DocumentsPage() {
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
-                      {overdue && <span className="text-[10px] text-[#C0392B] font-medium">เกินกำหนด</span>}
+                      <DocTypeBadge
+                        docType={doc.doc_type}
+                        vatRegistered={doc.vat_registered}
+                      />
+                      {overdue && (
+                        <span className="text-[10px] text-[#C0392B] font-medium">
+                          เกินกำหนด
+                        </span>
+                      )}
                     </div>
                     <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
-                      <span className="text-[11px] text-[#888780]">{formatBuddhistDate(doc.issue_date)}</span>
-                      <span className="text-[12px] font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc) || 0)}</span>
+                      <span className="text-[11px] text-[#888780]">
+                        {formatBuddhistDate(doc.issue_date)}
+                      </span>
+                      <span className="text-[12px] font-semibold text-[#1A1A18]">
+                        ฿ {formatCurrency(getDisplayAmount(doc) || 0)}
+                      </span>
                     </div>
                   </Card>
                 );
@@ -1378,9 +2158,11 @@ export default function DocumentsPage() {
                   </thead>
                   <tbody>
                     {docSort.sorted.map((doc) => {
-                      const overdue = doc.status === "overdue" || isActuallyOverdue(doc);
+                      const overdue =
+                        doc.status === "overdue" || isActuallyOverdue(doc);
                       const isVoided = doc.status === "voided";
-                      const customerName = (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
+                      const customerName =
+                        (doc as any).customer?.name || "ไม่ได้ระบุลูกค้า";
                       return (
                         <tr
                           key={doc.id}
@@ -1388,20 +2170,31 @@ export default function DocumentsPage() {
                           className={`${TABLE.tbodyTr} ${isVoided ? "opacity-50" : ""} ${selectedDocIds.has(doc.id) ? "bg-primary/5" : ""}`}
                         >
                           <td className="px-3 py-2">
-                            <span className="font-semibold text-[#111827]">{doc.doc_number || "-"}</span>
-                            {overdue && <span className="ml-1.5 w-2 h-2 rounded-full bg-[#C0392B] inline-block" />}
+                            <span className="font-semibold text-[#111827]">
+                              {doc.doc_number || "-"}
+                            </span>
+                            {overdue && (
+                              <span className="ml-1.5 w-2 h-2 rounded-full bg-[#C0392B] inline-block" />
+                            )}
                           </td>
                           <td className="px-3 py-2">
-                            <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
+                            <DocTypeBadge
+                              docType={doc.doc_type}
+                              vatRegistered={doc.vat_registered}
+                            />
                           </td>
                           <td className="px-3 py-2">
-                            <span className="text-[#475467] truncate block max-w-[180px]">{customerName}</span>
+                            <span className="text-[#475467] truncate block max-w-[180px]">
+                              {customerName}
+                            </span>
                           </td>
                           <td className="px-3 py-2 hidden sm:table-cell text-[#667085] text-[12px]">
                             {formatBuddhistDate(doc.issue_date)}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <span className="font-medium text-[#111827]">฿ {formatCurrency(getDisplayAmount(doc) || 0)}</span>
+                            <span className="font-medium text-[#111827]">
+                              ฿ {formatCurrency(getDisplayAmount(doc) || 0)}
+                            </span>
                           </td>
                           <td className="px-3 py-2 hidden md:table-cell">
                             <Badge status={doc.status} />
@@ -1417,26 +2210,38 @@ export default function DocumentsPage() {
         ) : (
           <div className="space-y-5">
             {sections.map((section) => (
-              <section key={section.key} className={`space-y-3 ${section.tone === "muted" ? "opacity-60" : ""}`}>
-                <SectionHeader title={section.title} hint={section.hint} count={section.docs.length} tone={section.tone} />
+              <section
+                key={section.key}
+                className={`space-y-3 ${section.tone === "muted" ? "opacity-60" : ""}`}
+              >
+                <SectionHeader
+                  title={section.title}
+                  hint={section.hint}
+                  count={section.docs.length}
+                  tone={section.tone}
+                />
                 <div className="space-y-2">
-                   {section.docs.map((doc) => (
-                     <DocumentCard
-                       key={doc.id}
-                       doc={doc}
-                       onOpen={() => openDocModal(doc)}
-                       menuOpen={openMenuId === doc.id}
-                       onToggleMenu={() => toggleMenu(doc.id)}
-                       onMenuAction={(action) => handleMenuAction(doc, action)}
-                       menuLoading={inlineLoading === doc.id}
-                       pendingConfirm={pendingConfirm}
-                       isSelected={selectedDocIds.has(doc.id)}
-                       onToggleSelect={() => toggleSelectDoc(doc.id)}
-                       selectMode={selectedDocIds.size > 0}
-                       onOpenDeal={doc.deal_id ? () => navigate(`/deals/${doc.deal_id}`) : undefined}
-                       permissions={permissions}
-                     />
-                   ))}
+                  {section.docs.map((doc) => (
+                    <DocumentCard
+                      key={doc.id}
+                      doc={doc}
+                      onOpen={() => openDocModal(doc)}
+                      menuOpen={openMenuId === doc.id}
+                      onToggleMenu={() => toggleMenu(doc.id)}
+                      onMenuAction={(action) => handleMenuAction(doc, action)}
+                      menuLoading={inlineLoading === doc.id}
+                      pendingConfirm={pendingConfirm}
+                      isSelected={selectedDocIds.has(doc.id)}
+                      onToggleSelect={() => toggleSelectDoc(doc.id)}
+                      selectMode={selectedDocIds.size > 0}
+                      onOpenDeal={
+                        doc.deal_id
+                          ? () => navigate(`/deals/${doc.deal_id}`)
+                          : undefined
+                      }
+                      permissions={permissions}
+                    />
+                  ))}
                 </div>
               </section>
             ))}
@@ -1452,8 +2257,16 @@ export default function DocumentsPage() {
               <Button variant="secondary" size="sm" onClick={clearSelection}>
                 ล้าง
               </Button>
-              <Button variant="primary" size="sm" onClick={handleBulkDownloadPDF} loading={bulkDownloading} disabled={bulkDownloading}>
-                {bulkDownloading ? `${bulkProgress.current}/${bulkProgress.total}` : "ดาวน์โหลด ZIP"}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleBulkDownloadPDF}
+                loading={bulkDownloading}
+                disabled={bulkDownloading}
+              >
+                {bulkDownloading
+                  ? `${bulkProgress.current}/${bulkProgress.total}`
+                  : "ดาวน์โหลด ZIP"}
               </Button>
             </div>
           </div>
@@ -1467,7 +2280,11 @@ export default function DocumentsPage() {
         onClose={closeDocModal}
         onOpenPreview={() => {
           if (!selectedDocId) return;
-          window.open(`/documents/${selectedDocId}/print`, "_blank", "noopener,noreferrer");
+          window.open(
+            `/documents/${selectedDocId}/print`,
+            "_blank",
+            "noopener,noreferrer",
+          );
         }}
         onOpenFull={() => {
           if (!selectedDocId) return;
