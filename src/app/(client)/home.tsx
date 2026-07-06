@@ -60,7 +60,7 @@ type DashboardDeal = {
 };
 
 type HomeQueue = "wait_send" | "wait_invoice" | "wait_collect" | "overdue" | "progress" | "done";
-type HomeFilter = "all" | "wait_send" | "wait_invoice" | "wait_collect" | "overdue";
+type HomeFilter = "all" | "wait_send" | "wait_send_invoice" | "wait_invoice" | "wait_collect" | "overdue";
 
 const QUEUE_COLORS: Record<HomeQueue, { bg: string; text: string; dot: string }> = {
   wait_send: { bg: "bg-[#FFF8EB]", text: "text-[#8B6914]", dot: "bg-amber-500" },
@@ -465,7 +465,10 @@ export default function HomePage() {
           acc.overdueCount += 1;
           acc.overdueAmount += deal.amount || 0;
         }
-        if (deal.queue === "wait_send") acc.waitSendCount += 1;
+        if (deal.queue === "wait_send") {
+          acc.waitSendCount += 1;
+          if (deal.latestDocument?.doc_type === "invoice") acc.waitSendInvoiceCount += 1;
+        }
         return acc;
       },
       {
@@ -476,6 +479,7 @@ export default function HomePage() {
         overdueCount: 0,
         overdueAmount: 0,
         waitSendCount: 0,
+        waitSendInvoiceCount: 0,
       }
     );
   }, [deals]);
@@ -492,6 +496,9 @@ export default function HomePage() {
     () =>
       activeDealsAll.filter((deal) => {
         if (homeFilter === "all") return true;
+        if (homeFilter === "wait_send_invoice") {
+          return deal.queue === "wait_send" && deal.latestDocument?.doc_type === "invoice";
+        }
         return deal.queue === homeFilter;
       }),
     [activeDealsAll, homeFilter]
@@ -532,7 +539,7 @@ export default function HomePage() {
   };
 
   const summaryCards = [
-    { label: "รอออกบิล", value: summary.waitInvoiceAmount, count: summary.waitInvoiceCount, alert: false, preset: "wait_invoice", hint: "ใบส่งของ" },
+    { label: "ทั้งหมด", value: activeDealsAll.reduce((s, d) => s + d.amount, 0), count: activeDealsAll.length, alert: false, preset: "all", hint: "ทุกรายการที่ต้องทำ" },
     { label: "รอเก็บเงิน", value: summary.waitCollectAmount, count: summary.waitCollectCount, alert: false, preset: "wait_collect", hint: "ใบวางบิล" },
     { label: "เกินกำหนด", value: summary.overdueAmount, count: summary.overdueCount, alert: summary.overdueCount > 0, preset: "overdue", hint: "ควรติดตาม" },
   ] as const;
@@ -540,6 +547,7 @@ export default function HomePage() {
   const quickFilters: { label: string; value: HomeFilter; count: number }[] = [
     { label: "ทั้งหมด", value: "all", count: activeDealsAll.length },
     { label: "รอส่ง", value: "wait_send", count: summary.waitSendCount },
+    { label: "รอส่งใบแจ้งหนี้", value: "wait_send_invoice", count: summary.waitSendInvoiceCount },
     { label: "รอออกบิล", value: "wait_invoice", count: summary.waitInvoiceCount },
     { label: "รอเก็บเงิน", value: "wait_collect", count: summary.waitCollectCount },
     { label: "เกินกำหนด", value: "overdue", count: summary.overdueCount },
