@@ -174,15 +174,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      if (session?.user) {
-        setLoading(true);
-        void fetchProfile(session.user.id);
-      } else {
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        if (session?.user) {
+          setLoading(true);
+          void fetchProfile(session.user.id);
+        }
+        return;
+      }
+      if (event === "SIGNED_OUT") {
         setProfile(null);
         setClientProfile(null);
         setClientFeatures([]);
         setLoading(false);
         setWorkspaceLoading(false);
+        return;
+      }
+      if (event === "INITIAL_SESSION") {
+        if (session?.user) {
+          setLoading(true);
+          void fetchProfile(session.user.id);
+        } else {
+          setProfile(null);
+          setClientProfile(null);
+          setClientFeatures([]);
+          setLoading(false);
+          setWorkspaceLoading(false);
+        }
       }
     });
 
