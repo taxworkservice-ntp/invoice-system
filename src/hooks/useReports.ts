@@ -108,7 +108,13 @@ function getMonthsBack(count: number) {
 
 function isRecognizedSalesDocument(doc: any, vatRegistered: boolean) {
   if (vatRegistered) {
-    return doc.doc_type === "tax_invoice_receipt" && (doc.status === "issued" || doc.status === "paid");
+    if (doc.doc_type === "tax_invoice_receipt" && (doc.status === "issued" || doc.status === "paid")) {
+      return true;
+    }
+    if (doc.doc_type === "invoice" && !["draft", "voided", "converted"].includes(doc.status)) {
+      return true;
+    }
+    return false;
   }
   return doc.doc_type === "receipt" && (doc.status === "generated" || doc.status === "paid" || doc.status === "issued");
 }
@@ -179,7 +185,23 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const invoiceIdsInBn = new Set((bnLinks || []).map((l: any) => l.invoice_id));
 
       const recognizedSalesDocs = docs.filter((d) => isRecognizedSalesDocument(d, vatRegistered));
+
+      const tirDealIds = vatRegistered
+        ? new Set(
+            docs
+              .filter(
+                (d) =>
+                  d.doc_type === "tax_invoice_receipt" &&
+                  (d.status === "issued" || d.status === "paid"),
+              )
+              .map((d) => d.deal_id as string)
+              .filter(Boolean),
+          )
+        : new Set<string>();
+
       const paidThisPeriod = recognizedSalesDocs.filter((d) => {
+        if (d.doc_type === "invoice" && d.deal_id && tirDealIds.has(d.deal_id)) return false;
+        if (d.doc_type === "invoice" && invoiceIdsInBn.has(d.id)) return false;
         const recognitionDate = getRecognitionDate(d);
         return recognitionDate >= start && recognitionDate <= end;
       });
