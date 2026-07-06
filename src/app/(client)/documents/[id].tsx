@@ -713,7 +713,22 @@ export default function DocumentDetailPage() {
     }
 
     await supabase.from("billing_note_invoices").delete().eq("billing_note_id", id);
-    await supabase.from("documents").update({ status: "draft" as DocumentStatus }).eq("id", id);
+
+    const { error: zeroError } = await supabase
+      .from("documents")
+      .update({
+        status: "draft" as DocumentStatus,
+        subtotal: 0,
+        vat_amount: 0,
+        total_amount: 0,
+        net_payable: 0,
+        wht_amount: 0,
+      })
+      .eq("id", id);
+    if (zeroError) {
+      toast.error("ไม่สามารถรีเซ็ตยอดรวมได้");
+      return;
+    }
 
     await fetchDoc();
   };
