@@ -809,6 +809,17 @@ export default function DealDetailPage() {
     [docsWithMeta]
   );
 
+  const timelineDocs = useMemo(
+    () =>
+      nonVoidedDocs.filter((item) => {
+        const doc = item.document;
+        if (doc.doc_type === "invoice" && doc.status === "in_billing")
+          return false;
+        return true;
+      }),
+    [nonVoidedDocs],
+  );
+
   const voidedDocs = useMemo(
     () => docsWithMeta.filter((item) => item.document.status === "voided"),
     [docsWithMeta]
@@ -1456,13 +1467,13 @@ export default function DealDetailPage() {
 
         <div>
           <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
-          {nonVoidedDocs.length === 0 ? (
+          {timelineDocs.length === 0 ? (
             <Card className="border-[0.5px]">
               <EmptyState title="ยังไม่มีเอกสาร" description="กดปุ่มด้านบนเพื่อเริ่มต้นขั้นตอนของงานขายนี้" />
             </Card>
           ) : (
             <div className="space-y-0">
-              {nonVoidedDocs.map((item, index) => {
+              {timelineDocs.map((item, index) => {
                 const doc = item.document;
                 const copiedFromDoc = doc.copied_from_id
                   ? docsWithMeta.find((source) => source.document.id === doc.copied_from_id)?.document
@@ -1484,7 +1495,7 @@ export default function DealDetailPage() {
                           (doc.status === "sent" || doc.status === "in_billing") && !overdue && !isCurrent ? "bg-primary" : "",
                         ].join(" ")}
                       />
-                      {index < nonVoidedDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
+                      {index < timelineDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
                     </div>
                     <Card
                       className={`mb-2 flex-1 border-[0.5px] ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-[#FAFAF8]" : ""}`}
@@ -1607,7 +1618,7 @@ export default function DealDetailPage() {
             </div>
           )}
            <div className="mt-3 grid grid-cols-2 gap-2">
-            {nonVoidedDocs.length > 0 && (
+            {timelineDocs.length > 0 && (
               <Button
                 variant="secondary"
                 className="col-span-2 justify-center !bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100"
@@ -1615,7 +1626,7 @@ export default function DealDetailPage() {
                 onClick={handleDownloadAll}
               >
                 <Download className="mr-1.5 h-4 w-4" />
-                {bulkDownloading ? `กำลังสร้าง ZIP (${nonVoidedDocs.length})` : "ดาวน์โหลดเอกสารทั้งหมด (ZIP)"}
+                {bulkDownloading ? `กำลังสร้าง ZIP (${timelineDocs.length})` : "ดาวน์โหลดเอกสารทั้งหมด (ZIP)"}
               </Button>
             )}
             {activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued" ? (
