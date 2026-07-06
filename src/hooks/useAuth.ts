@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { supabase } from "../lib/supabase";
 import type { ClientFeature, ClientFeatureKey, ClientMemberRole, Profile, ClientProfile, UserRole } from "../types";
@@ -96,15 +96,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState(false);
+  const authUserIdRef = useRef<string | null>(null);
+  const profileRef = useRef<Profile | null>(null);
+
+  function updateProfile(nextProfile: Profile | null) {
+    profileRef.current = nextProfile;
+    setProfile(nextProfile);
+  }
+
+  function clearWorkspace() {
+    setClientProfile(null);
+    setClientFeatures([]);
+    setWorkspaceLoading(false);
+  }
+
+  function clearAuthState() {
+    authUserIdRef.current = null;
+    updateProfile(null);
+    clearWorkspace();
+  }
 
   useEffect(() => {
     let active = true;
 
     async function fetchWorkspace(resolvedProfile: Profile | null) {
       if (!resolvedProfile || resolvedProfile.role !== "client") {
-        setClientProfile(null);
-        setClientFeatures([]);
-        setWorkspaceLoading(false);
+        clearWorkspace();
         return;
       }
 
@@ -118,8 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err: any) {
         if (active) {
           setError(err.message || "Unable to load workspace");
-          setClientProfile(null);
-          setClientFeatures([]);
+          clearWorkspace();
         }
       } finally {
         if (active) setWorkspaceLoading(false);
@@ -131,15 +147,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null);
         const resolvedProfile = await resolveProfile(userId);
         if (active) {
-          setProfile(resolvedProfile);
+          updateProfile(resolvedProfile);
           await fetchWorkspace(resolvedProfile);
         }
       } catch (err: any) {
         if (active) {
           setError(err.message || "Unable to load profile");
-          setProfile(null);
-          setClientProfile(null);
-          setClientFeatures([]);
+          clearAuthState();
         }
       } finally {
         if (active) setLoading(false);
@@ -157,13 +171,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRecovery(true);
       }
       if (session?.user) {
+        authUserIdRef.current = session.user.id;
         void fetchProfile(session.user.id);
       } else {
-        setProfile(null);
-        setClientProfile(null);
-        setClientFeatures([]);
+        clearAuthState();
         setLoading(false);
-        setWorkspaceLoading(false);
       }
     });
 
@@ -176,27 +188,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         if (session?.user) {
+          const isSameLoadedUser = authUserIdRef.current === session.user.id && profileRef.current?.auth_user_id === session.user.id;
+          if (event === "SIGNED_IN" && isSameLoadedUser) {
+            return;
+          }
+          authUserIdRef.current = session.user.id;
           setLoading(true);
           void fetchProfile(session.user.id);
         }
         return;
       }
       if (event === "SIGNED_OUT") {
-        setProfile(null);
-        setClientProfile(null);
-        setClientFeatures([]);
+        clearAuthState();
         setLoading(false);
-        setWorkspaceLoading(false);
         return;
       }
       if (event === "INITIAL_SESSION") {
         if (session?.user) {
+          authUserIdRef.current = session.user.id;
           setLoading(true);
           void fetchProfile(session.user.id);
         } else {
-          setProfile(null);
-          setClientProfile(null);
-          setClientFeatures([]);
+          clearAuthState();
           setLoading(false);
           setWorkspaceLoading(false);
         }
