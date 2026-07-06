@@ -212,13 +212,16 @@ function getStageInfo(documents: DealDoc[], latestDocument: DealDoc | null, isDo
   }
   if (billingWaiting.length > 0) return { stageLabel: "รอรับเงิน", stageHint: "ใบวางบิลส่งแล้ว", queue: "wait_collect" as HomeQueue };
   if (latestDocument?.status === "draft") {
-    const label = latestDocument.doc_type === "quotation"
-      ? "รอส่งใบเสนอราคา"
-      : latestDocument.doc_type === "delivery_note"
-        ? "รอส่งของ"
-        : latestDocument.doc_type === "invoice"
-          ? "รอส่งใบแจ้งหนี้"
-          : "รอส่งเอกสาร";
+    const label =
+      latestDocument.doc_type === "quotation"
+        ? "รอส่งใบเสนอราคา"
+        : latestDocument.doc_type === "delivery_note"
+          ? "รอส่งของ"
+          : latestDocument.doc_type === "invoice"
+            ? "รอส่งใบแจ้งหนี้"
+            : latestDocument.doc_type === "billing_note"
+              ? "รอส่งใบวางบิล"
+              : "รอส่งเอกสาร";
     return { stageLabel: label, stageHint: "ฉบับร่าง", queue: "wait_send" as HomeQueue };
   }
   if (quoteProgress) {
