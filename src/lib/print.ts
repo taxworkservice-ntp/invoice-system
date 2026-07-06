@@ -1,4 +1,12 @@
-import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLineItem, InvoiceDeliveryNote, ReceiptInvoice } from "../types";
+import type {
+  BillingNoteInvoice,
+  ClientProfile,
+  Customer,
+  Document,
+  DocumentLineItem,
+  InvoiceDeliveryNote,
+  ReceiptInvoice,
+} from "../types";
 import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
 import { getR2PresignedUrl } from "./r2";
@@ -22,9 +30,13 @@ export interface PrintDocumentData {
   template: HtmlPrintTemplate;
   lineDiscountTotal: number;
   grossSubtotal: number;
-  lineDeliveryNoteMap: Record<string, { number: string; issue_date: string | null }>;
+  lineDeliveryNoteMap: Record<
+    string,
+    { number: string; issue_date: string | null }
+  >;
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
+  invoiceNumberMap: Record<string, string>;
 }
 
 export interface PrintableDocumentDataBase {
@@ -38,16 +50,24 @@ export interface PrintableDocumentDataBase {
   referenceDoc?: Document;
   lineDiscountTotal: number;
   grossSubtotal: number;
-  lineDeliveryNoteMap: Record<string, { number: string; issue_date: string | null }>;
+  lineDeliveryNoteMap: Record<
+    string,
+    { number: string; issue_date: string | null }
+  >;
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
+  invoiceNumberMap: Record<string, string>;
 }
 
-export function isHtmlPrintTemplate(template: string | null | undefined): template is HtmlPrintTemplate {
+export function isHtmlPrintTemplate(
+  template: string | null | undefined,
+): template is HtmlPrintTemplate {
   return template === "modern" || template === "classic";
 }
 
-export async function getPrintableDocumentDataBase(documentId: string): Promise<PrintableDocumentDataBase> {
+export async function getPrintableDocumentDataBase(
+  documentId: string,
+): Promise<PrintableDocumentDataBase> {
   const document = await getDocumentDetail(documentId);
   const customer = document.customer as Customer | undefined;
 
@@ -97,7 +117,9 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     const docList = (dealDocs || []) as Document[];
 
     const billingNote = docList.find((d) => d.doc_type === "billing_note");
-    const sourceInvoice = docList.find((d) => d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt");
+    const sourceInvoice = docList.find(
+      (d) => d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt",
+    );
 
     if (billingNote) {
       const { data: linkedInvoices } = await supabase
@@ -105,7 +127,9 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
         .select("invoice_id")
         .eq("billing_note_id", billingNote.id);
 
-      const linkedIds = (linkedInvoices || []).map((r: { invoice_id: string }) => r.invoice_id);
+      const linkedIds = (linkedInvoices || []).map(
+        (r: { invoice_id: string }) => r.invoice_id,
+      );
 
       if (linkedIds.length > 0) {
         const { data: invDocs } = await supabase
@@ -148,11 +172,19 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     }
   }
 
-  const lineDiscountTotal = lineItems.reduce((sum, item) => sum + (item.discount_amount || 0), 0);
-  const grossSubtotal = document.subtotal + (document.discount_amount || 0) + lineDiscountTotal;
+  const lineDiscountTotal = lineItems.reduce(
+    (sum, item) => sum + (item.discount_amount || 0),
+    0,
+  );
+  const grossSubtotal =
+    document.subtotal + (document.discount_amount || 0) + lineDiscountTotal;
   let invoiceDeliveryNotes = document.invoice_delivery_notes || [];
 
-  if ((document.doc_type === "invoice" || document.doc_type === "tax_invoice_receipt") && invoiceDeliveryNotes.length === 0) {
+  if (
+    (document.doc_type === "invoice" ||
+      document.doc_type === "tax_invoice_receipt") &&
+    invoiceDeliveryNotes.length === 0
+  ) {
     const { data: deliveryNotes } = await supabase
       .from("invoice_delivery_notes")
       .select("*")
@@ -171,7 +203,9 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
   if (clientProfile.signature_url) {
     try {
-      clientProfile.signature_url = await getR2PresignedUrl(clientProfile.signature_url);
+      clientProfile.signature_url = await getR2PresignedUrl(
+        clientProfile.signature_url,
+      );
     } catch {
       clientProfile.signature_url = null;
     }
@@ -179,7 +213,9 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
 
   if (clientProfile.stamp_url) {
     try {
-      clientProfile.stamp_url = await getR2PresignedUrl(clientProfile.stamp_url);
+      clientProfile.stamp_url = await getR2PresignedUrl(
+        clientProfile.stamp_url,
+      );
     } catch {
       clientProfile.stamp_url = null;
     }
@@ -189,26 +225,44 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
   for (const dn of invoiceDeliveryNotes) {
     dnBySourceId.set(dn.delivery_note_id, dn);
   }
-  const lineDeliveryNoteMap: Record<string, { number: string; issue_date: string | null }> = {};
+  const lineDeliveryNoteMap: Record<
+    string,
+    { number: string; issue_date: string | null }
+  > = {};
   for (const item of lineItems) {
-    const dn = item.source_document_id ? dnBySourceId.get(item.source_document_id) : undefined;
+    const dn = item.source_document_id
+      ? dnBySourceId.get(item.source_document_id)
+      : undefined;
     if (dn) {
-      lineDeliveryNoteMap[item.id] = { number: dn.delivery_note_number, issue_date: dn.issue_date };
+      lineDeliveryNoteMap[item.id] = {
+        number: dn.delivery_note_number,
+        issue_date: dn.issue_date,
+      };
     }
   }
-  const summarySourceIds = new Set(invoiceDeliveryNotes.map((dn) => dn.delivery_note_id));
+  const summarySourceIds = new Set(
+    invoiceDeliveryNotes.map((dn) => dn.delivery_note_id),
+  );
   const isDeliveryNoteSummaryInvoice =
-    (document.doc_type === "invoice" || document.doc_type === "tax_invoice_receipt") &&
+    (document.doc_type === "invoice" ||
+      document.doc_type === "tax_invoice_receipt") &&
     invoiceDeliveryNotes.length > 0 &&
     lineItems.length === invoiceDeliveryNotes.length &&
-    lineItems.every((item) =>
-      item.source_document_id &&
-      summarySourceIds.has(item.source_document_id) &&
-      !item.source_line_item_id,
+    lineItems.every(
+      (item) =>
+        item.source_document_id &&
+        summarySourceIds.has(item.source_document_id) &&
+        !item.source_line_item_id,
     );
-  const showInlineDeliveryNotes = !isDeliveryNoteSummaryInvoice && new Set(
-    Object.values(lineDeliveryNoteMap).map((ref) => ref.number),
-  ).size >= 1;
+  const showInlineDeliveryNotes =
+    !isDeliveryNoteSummaryInvoice &&
+    new Set(Object.values(lineDeliveryNoteMap).map((ref) => ref.number)).size >=
+      1;
+
+  const invoiceNumberMap: Record<string, string> = {};
+  for (const ri of document.receipt_invoices || []) {
+    invoiceNumberMap[ri.invoice_id] = ri.invoice_number;
+  }
 
   return {
     document,
@@ -224,13 +278,17 @@ export async function getPrintableDocumentDataBase(documentId: string): Promise<
     lineDeliveryNoteMap,
     showInlineDeliveryNotes,
     isDeliveryNoteSummaryInvoice,
+    invoiceNumberMap,
   };
 }
 
-export async function getPrintDocumentData(documentId: string): Promise<PrintDocumentData> {
+export async function getPrintDocumentData(
+  documentId: string,
+): Promise<PrintDocumentData> {
   const baseData = await getPrintableDocumentDataBase(documentId);
   const rawTemplate = baseData.clientProfile.pdf_template;
-  const template: HtmlPrintTemplate = rawTemplate === "classic" ? "classic" : "modern";
+  const template: HtmlPrintTemplate =
+    rawTemplate === "classic" ? "classic" : "modern";
   return { ...baseData, template };
 }
 
@@ -246,7 +304,8 @@ async function renderModernPrintCanvas(
   const container = document.createElement("div");
   container.style.cssText = `position:fixed;top:0;left:0;width:${A4_WIDTH_MM}mm;height:${A4_HEIGHT_MM}mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;overflow:hidden;`;
   document.body.appendChild(container);
-  let root: { render: (...args: any[]) => void; unmount: () => void } | null = null;
+  let root: { render: (...args: any[]) => void; unmount: () => void } | null =
+    null;
 
   try {
     const { createRoot } = await import("react-dom/client");
@@ -261,14 +320,16 @@ async function renderModernPrintCanvas(
     root = createRoot(container);
 
     await new Promise<void>((resolve) => {
-      root?.render(React.createElement(PrintDocument, {
-        data: printData,
-        copyType,
-        pageMode: pageMode ?? "single",
-        pageIndex: pageIndex ?? 1,
-        totalPages: totalPages ?? 1,
-        batchLineItems,
-      }));
+      root?.render(
+        React.createElement(PrintDocument, {
+          data: printData,
+          copyType,
+          pageMode: pageMode ?? "single",
+          pageIndex: pageIndex ?? 1,
+          totalPages: totalPages ?? 1,
+          batchLineItems,
+        }),
+      );
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
 
@@ -295,7 +356,9 @@ async function renderModernPrintCanvas(
       await document.fonts.ready;
     }
 
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) =>
+      requestAnimationFrame(() => requestAnimationFrame(r)),
+    );
 
     const captureRect = sheet.getBoundingClientRect();
 
@@ -308,7 +371,8 @@ async function renderModernPrintCanvas(
       windowWidth: captureRect.width,
       windowHeight: captureRect.height,
       onclone: (clonedDoc) => {
-        const clonedSheet = clonedDoc.querySelector<HTMLElement>(".print-sheet");
+        const clonedSheet =
+          clonedDoc.querySelector<HTMLElement>(".print-sheet");
         if (clonedSheet) {
           clonedSheet.style.width = `${A4_WIDTH_MM}mm`;
           clonedSheet.style.height = `${A4_HEIGHT_MM}mm`;
@@ -318,7 +382,9 @@ async function renderModernPrintCanvas(
           clonedSheet.style.borderRadius = "0";
           clonedSheet.style.boxShadow = "none";
         }
-        const clonedTheme = clonedDoc.querySelector<HTMLElement>(".print-theme-modern");
+        const clonedTheme = clonedDoc.querySelector<HTMLElement>(
+          ".print-theme-modern",
+        );
         if (clonedTheme) {
           clonedTheme.style.border = "none";
           clonedTheme.style.borderRadius = "0";
@@ -342,7 +408,14 @@ async function renderModernPrintPages(
   }
   return Promise.all(
     batches.map((batch, i) =>
-      renderModernPrintCanvas(data, copyType, batch.items, batch.mode, i + 1, batches.length),
+      renderModernPrintCanvas(
+        data,
+        copyType,
+        batch.items,
+        batch.mode,
+        i + 1,
+        batches.length,
+      ),
     ),
   );
 }
@@ -352,7 +425,11 @@ export async function generateModernPDFDocument(
   copyTypes: Array<"original" | "copy"> = ["original"],
 ) {
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [A4_WIDTH_MM, A4_HEIGHT_MM] });
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [A4_WIDTH_MM, A4_HEIGHT_MM],
+  });
 
   let firstPage = true;
   for (const copyType of copyTypes) {
@@ -362,14 +439,23 @@ export async function generateModernPDFDocument(
         pdf.addPage();
       }
       firstPage = false;
-      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        0,
+        A4_WIDTH_MM,
+        A4_HEIGHT_MM,
+      );
     }
   }
 
   return pdf;
 }
 
-export async function generateModernPDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
+export async function generateModernPDFBlob(
+  data: PrintableDocumentDataBase,
+): Promise<Blob> {
   const pdf = await generateModernPDFDocument(data, ["original"]);
   return pdf.output("blob");
 }
@@ -386,11 +472,13 @@ async function renderClassicPrintCanvas(
   const container = document.createElement("div");
   container.style.cssText = `position:fixed;top:0;left:0;width:${A4_WIDTH_MM}mm;height:${A4_HEIGHT_MM}mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;overflow:hidden;`;
   document.body.appendChild(container);
-  let root: { render: (...args: any[]) => void; unmount: () => void } | null = null;
+  let root: { render: (...args: any[]) => void; unmount: () => void } | null =
+    null;
 
   try {
     const { createRoot } = await import("react-dom/client");
-    const { PrintDocumentClassic } = await import("../components/print/PrintDocumentClassic");
+    const { PrintDocumentClassic } =
+      await import("../components/print/PrintDocumentClassic");
     const React = await import("react");
 
     const printData: PrintDocumentData = {
@@ -401,14 +489,16 @@ async function renderClassicPrintCanvas(
     root = createRoot(container);
 
     await new Promise<void>((resolve) => {
-      root?.render(React.createElement(PrintDocumentClassic, {
-        data: printData,
-        copyType,
-        pageMode: pageMode ?? "single",
-        pageIndex: pageIndex ?? 1,
-        totalPages: totalPages ?? 1,
-        batchLineItems,
-      }));
+      root?.render(
+        React.createElement(PrintDocumentClassic, {
+          data: printData,
+          copyType,
+          pageMode: pageMode ?? "single",
+          pageIndex: pageIndex ?? 1,
+          totalPages: totalPages ?? 1,
+          batchLineItems,
+        }),
+      );
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
 
@@ -435,7 +525,9 @@ async function renderClassicPrintCanvas(
       await document.fonts.ready;
     }
 
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) =>
+      requestAnimationFrame(() => requestAnimationFrame(r)),
+    );
 
     const captureRect = sheet.getBoundingClientRect();
 
@@ -448,7 +540,8 @@ async function renderClassicPrintCanvas(
       windowWidth: captureRect.width,
       windowHeight: captureRect.height,
       onclone: (clonedDoc) => {
-        const clonedSheet = clonedDoc.querySelector<HTMLElement>(".print-sheet");
+        const clonedSheet =
+          clonedDoc.querySelector<HTMLElement>(".print-sheet");
         if (clonedSheet) {
           clonedSheet.style.width = `${A4_WIDTH_MM}mm`;
           clonedSheet.style.height = `${A4_HEIGHT_MM}mm`;
@@ -458,7 +551,9 @@ async function renderClassicPrintCanvas(
           clonedSheet.style.borderRadius = "0";
           clonedSheet.style.boxShadow = "none";
         }
-        const clonedTheme = clonedDoc.querySelector<HTMLElement>(".print-theme-classic");
+        const clonedTheme = clonedDoc.querySelector<HTMLElement>(
+          ".print-theme-classic",
+        );
         if (clonedTheme) {
           clonedTheme.style.border = "none";
           clonedTheme.style.borderRadius = "0";
@@ -482,7 +577,14 @@ async function renderClassicPrintPages(
   }
   return Promise.all(
     batches.map((batch, i) =>
-      renderClassicPrintCanvas(data, copyType, batch.items, batch.mode, i + 1, batches.length),
+      renderClassicPrintCanvas(
+        data,
+        copyType,
+        batch.items,
+        batch.mode,
+        i + 1,
+        batches.length,
+      ),
     ),
   );
 }
@@ -492,7 +594,11 @@ export async function generateClassicPDFDocument(
   copyTypes: Array<"original" | "copy"> = ["original"],
 ) {
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [A4_WIDTH_MM, A4_HEIGHT_MM] });
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [A4_WIDTH_MM, A4_HEIGHT_MM],
+  });
 
   let firstPage = true;
   for (const copyType of copyTypes) {
@@ -502,14 +608,23 @@ export async function generateClassicPDFDocument(
         pdf.addPage();
       }
       firstPage = false;
-      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        0,
+        A4_WIDTH_MM,
+        A4_HEIGHT_MM,
+      );
     }
   }
 
   return pdf;
 }
 
-export async function generateClassicPDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
+export async function generateClassicPDFBlob(
+  data: PrintableDocumentDataBase,
+): Promise<Blob> {
   const pdf = await generateClassicPDFDocument(data, ["original"]);
   return pdf.output("blob");
 }
@@ -524,7 +639,9 @@ export async function generatePDFDocument(
   return generateModernPDFDocument(data, copyTypes);
 }
 
-export async function generatePDFBlob(data: PrintableDocumentDataBase): Promise<Blob> {
+export async function generatePDFBlob(
+  data: PrintableDocumentDataBase,
+): Promise<Blob> {
   if ((data as PrintDocumentData).template === "classic") {
     return generateClassicPDFBlob(data);
   }

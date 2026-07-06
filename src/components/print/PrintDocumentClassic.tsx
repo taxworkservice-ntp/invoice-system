@@ -92,6 +92,7 @@ export function PrintDocumentClassic({
     invoiceDeliveryNotes,
     lineDeliveryNoteMap,
     showInlineDeliveryNotes,
+    invoiceNumberMap,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
   const startIndex = batchLineItems
@@ -362,7 +363,7 @@ export function PrintDocumentClassic({
           </div>
         ) : document.doc_type === "receipt" &&
           receiptInvoices.length > 0 &&
-          (document.vat_registered || receiptInvoices.length > 1) ? (
+          document.vat_registered ? (
           <div className="print-classic-items-title">
             รายการที่ชำระ (PAID INVOICES)
           </div>
@@ -438,7 +439,7 @@ export function PrintDocumentClassic({
             </table>
           ) : document.doc_type === "receipt" &&
             receiptInvoices.length > 0 &&
-            (document.vat_registered || receiptInvoices.length > 1) ? (
+            document.vat_registered ? (
             <table className="print-classic-items-table">
               <colgroup>
                 <col style={{ width: "12mm" }} />
@@ -574,6 +575,13 @@ export function PrintDocumentClassic({
                             {deliveryNoteRef.issue_date
                               ? ` (${formatDateBuddhist(deliveryNoteRef.issue_date)})`
                               : ""}
+                          </div>
+                        ) : null}
+                        {!document.vat_registered &&
+                        receiptInvoices.length > 1 &&
+                        invoiceNumberMap[item.document_id] ? (
+                          <div className="print-classic-dn-note">
+                            ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
                           </div>
                         ) : null}
                       </td>

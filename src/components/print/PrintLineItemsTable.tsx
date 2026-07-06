@@ -46,6 +46,7 @@ export function PrintLineItemsTable({
     receiptInvoices,
     lineDeliveryNoteMap,
     showInlineDeliveryNotes,
+    invoiceNumberMap,
   } = data;
   const lineItems = lineItemsOverride ?? data.lineItems;
   const isDeliveryNote = document.doc_type === "delivery_note";
@@ -159,7 +160,7 @@ export function PrintLineItemsTable({
   if (
     document.doc_type === "receipt" &&
     receiptInvoices.length > 0 &&
-    (document.vat_registered || receiptInvoices.length > 1)
+    document.vat_registered
   ) {
     return (
       <section className="print-block mt-3">
@@ -343,6 +344,13 @@ export function PrintLineItemsTable({
                       {lineDeliveryNoteMap[item.id].issue_date
                         ? ` (${formatDate(lineDeliveryNoteMap[item.id].issue_date)})`
                         : ""}
+                    </div>
+                  ) : null}
+                  {!document.vat_registered &&
+                  receiptInvoices.length > 1 &&
+                  invoiceNumberMap[item.document_id] ? (
+                    <div className="mt-0.5 text-[9px] text-[#6B7280]">
+                      ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
                     </div>
                   ) : null}
                 </td>
