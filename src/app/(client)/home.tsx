@@ -27,18 +27,36 @@ import type { Deal, Document, Customer, DocumentLineItem } from "../../types";
 
 type DealDoc = Pick<
   Document,
-  "id" | "doc_type" | "doc_number" | "status" | "total_amount" | "net_payable" | "due_date" | "created_at" | "updated_at" | "paid_at" | "line_items"
+  | "id"
+  | "doc_type"
+  | "doc_number"
+  | "status"
+  | "total_amount"
+  | "net_payable"
+  | "due_date"
+  | "created_at"
+  | "updated_at"
+  | "paid_at"
+  | "line_items"
 >;
 
 type DealWithRelations = Deal & {
-  customers: Pick<Customer, "id" | "name" | "avatar_initials" | "avatar_color"> | null;
+  customers: Pick<
+    Customer,
+    "id" | "name" | "avatar_initials" | "avatar_color"
+  > | null;
   documents: DealDoc[];
+  deal_number: string | null;
 };
 
 type DashboardDeal = {
   dealId: string;
+  dealNumber: string | null;
   customerName: string;
-  customerAvatar: Pick<Customer, "name" | "avatar_initials" | "avatar_color"> | null;
+  customerAvatar: Pick<
+    Customer,
+    "name" | "avatar_initials" | "avatar_color"
+  > | null;
   itemSummary: string;
   itemNames: string[];
   amount: number;
@@ -59,13 +77,40 @@ type DashboardDeal = {
   noteAuthorRole: string;
 };
 
-type HomeQueue = "wait_send" | "wait_invoice" | "wait_collect" | "overdue" | "progress" | "done";
-type HomeFilter = "all" | "wait_send" | "wait_send_invoice" | "wait_invoice" | "wait_collect" | "overdue";
+type HomeQueue =
+  | "wait_send"
+  | "wait_invoice"
+  | "wait_collect"
+  | "overdue"
+  | "progress"
+  | "done";
+type HomeFilter =
+  | "all"
+  | "wait_send"
+  | "wait_send_invoice"
+  | "wait_invoice"
+  | "wait_collect"
+  | "overdue";
 
-const QUEUE_COLORS: Record<HomeQueue, { bg: string; text: string; dot: string }> = {
-  wait_send: { bg: "bg-[#FFF8EB]", text: "text-[#8B6914]", dot: "bg-amber-500" },
-  wait_invoice: { bg: "bg-[#F5F0FF]", text: "text-[#5B21B6]", dot: "bg-violet-500" },
-  wait_collect: { bg: "bg-[#ECFDF5]", text: "text-[#065F46]", dot: "bg-emerald-500" },
+const QUEUE_COLORS: Record<
+  HomeQueue,
+  { bg: string; text: string; dot: string }
+> = {
+  wait_send: {
+    bg: "bg-[#FFF8EB]",
+    text: "text-[#8B6914]",
+    dot: "bg-amber-500",
+  },
+  wait_invoice: {
+    bg: "bg-[#F5F0FF]",
+    text: "text-[#5B21B6]",
+    dot: "bg-violet-500",
+  },
+  wait_collect: {
+    bg: "bg-[#ECFDF5]",
+    text: "text-[#065F46]",
+    dot: "bg-emerald-500",
+  },
   overdue: { bg: "bg-[#FEF2F2]", text: "text-[#C0392B]", dot: "bg-[#C0392B]" },
   progress: { bg: "bg-[#EEF6FF]", text: "text-[#0C447C]", dot: "bg-primary" },
   done: { bg: "bg-gray-100", text: "text-gray-500", dot: "bg-gray-400" },
@@ -77,14 +122,19 @@ function firstNameFromCompanyName(name: string | null | undefined) {
 }
 
 function isResolvedStatus(status: Document["status"]) {
-  return ["paid", "converted", "generated", "voided", "issued"].includes(status);
+  return ["paid", "converted", "generated", "voided", "issued"].includes(
+    status,
+  );
 }
 
 function isOverdueDocument(doc: DealDoc | null) {
   if (!doc) return false;
   if (doc.status === "overdue") return true;
   if (doc.doc_type !== "billing_note" || !doc.due_date) return false;
-  return new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10)) && doc.status !== "paid";
+  return (
+    new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10)) &&
+    doc.status !== "paid"
+  );
 }
 
 function getLatestRelevantDocument(documents: DealDoc[]) {
@@ -92,14 +142,18 @@ function getLatestRelevantDocument(documents: DealDoc[]) {
   if (nonVoided.length === 0) return null;
   const unresolved = nonVoided.filter((doc) => !isResolvedStatus(doc.status));
   const pool = unresolved.length > 0 ? unresolved : nonVoided;
-  const sorted = [...pool].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const sorted = [...pool].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at),
+  );
   return sorted[sorted.length - 1] || null;
 }
 
 function getAmountDocument(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   return (
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "tax_invoice_receipt") ||
+    [...nonVoided]
+      .reverse()
+      .find((doc) => doc.doc_type === "tax_invoice_receipt") ||
     [...nonVoided].reverse().find((doc) => doc.doc_type === "billing_note") ||
     [...nonVoided].reverse().find((doc) => doc.doc_type === "invoice") ||
     [...nonVoided].reverse().find((doc) => doc.doc_type === "quotation") ||
@@ -115,7 +169,9 @@ function getItemPreview(documents: DealDoc[]) {
     nonVoided.find((doc) => (doc.line_items || []).length > 0) ||
     null;
 
-  return (sourceDoc?.line_items || []).map((item) => item.item_name.trim()).filter(Boolean);
+  return (sourceDoc?.line_items || [])
+    .map((item) => item.item_name.trim())
+    .filter(Boolean);
 }
 
 function getCompletedAt(documents: DealDoc[]) {
@@ -123,12 +179,22 @@ function getCompletedAt(documents: DealDoc[]) {
 
   const receipt = [...nonVoided]
     .reverse()
-    .find((doc) => doc.doc_type === "receipt" && (doc.status === "generated" || doc.status === "paid" || doc.status === "issued"));
+    .find(
+      (doc) =>
+        doc.doc_type === "receipt" &&
+        (doc.status === "generated" ||
+          doc.status === "paid" ||
+          doc.status === "issued"),
+    );
   if (receipt) return receipt.paid_at || receipt.updated_at;
 
   const combined = [...nonVoided]
     .reverse()
-    .find((doc) => doc.doc_type === "tax_invoice_receipt" && (doc.status === "issued" || doc.status === "paid"));
+    .find(
+      (doc) =>
+        doc.doc_type === "tax_invoice_receipt" &&
+        (doc.status === "issued" || doc.status === "paid"),
+    );
   if (combined) return combined.paid_at || combined.updated_at;
 
   const paidBilling = [...nonVoided]
@@ -156,53 +222,96 @@ function isDealDone(documents: DealDoc[]) {
 function getNextActionLabel(doc: DealDoc | null) {
   if (!doc) return "";
   if (isOverdueDocument(doc)) return "เกินกำหนด — รับเงินแล้วใช่ไหม →";
-  if (doc.doc_type === "quotation" && doc.status === "draft") return "ส่งใบเสนอราคาแล้วหรือยัง →";
-  if (doc.doc_type === "quotation" && doc.status === "sent") return "ลูกค้าตกลงแล้วใช่ไหม →";
-  if (doc.doc_type === "invoice" && doc.status === "draft") return "ส่งใบแจ้งหนี้แล้วหรือยัง →";
-  if (doc.doc_type === "invoice" && doc.status === "sent") return "ถึงเวลาวางบิลแล้ว →";
-  if (doc.doc_type === "delivery_note" && doc.status === "draft") return "ส่งของแล้วหรือยัง →";
-  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "ออกใบแจ้งหนี้จากใบส่งของ →";
+  if (doc.doc_type === "quotation" && doc.status === "draft")
+    return "ส่งใบเสนอราคาแล้วหรือยัง →";
+  if (doc.doc_type === "quotation" && doc.status === "sent")
+    return "ลูกค้าตกลงแล้วใช่ไหม →";
+  if (doc.doc_type === "invoice" && doc.status === "draft")
+    return "ส่งใบแจ้งหนี้แล้วหรือยัง →";
+  if (doc.doc_type === "invoice" && doc.status === "sent")
+    return "ถึงเวลาวางบิลแล้ว →";
+  if (doc.doc_type === "delivery_note" && doc.status === "draft")
+    return "ส่งของแล้วหรือยัง →";
+  if (doc.doc_type === "delivery_note" && doc.status === "sent")
+    return "ออกใบแจ้งหนี้จากใบส่งของ →";
   if (doc.doc_type === "tax_invoice_receipt") return "";
-  if (doc.doc_type === "billing_note" && doc.status === "draft") return "ส่งใบวางบิลแล้วหรือยัง →";
-  if (doc.doc_type === "billing_note" && doc.status === "sent") return "รับเงินแล้วใช่ไหม →";
+  if (doc.doc_type === "billing_note" && doc.status === "draft")
+    return "ส่งใบวางบิลแล้วหรือยัง →";
+  if (doc.doc_type === "billing_note" && doc.status === "sent")
+    return "รับเงินแล้วใช่ไหม →";
   return "";
 }
 
 function getDnWaitingForInvoice(documents: DealDoc[]) {
-  return documents.filter((doc) => doc.doc_type === "delivery_note" && doc.status === "sent");
+  return documents.filter(
+    (doc) => doc.doc_type === "delivery_note" && doc.status === "sent",
+  );
 }
 
 function getBillingWaitingForPayment(documents: DealDoc[]) {
-  return documents.filter((doc) => doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue"));
+  return documents.filter(
+    (doc) =>
+      doc.doc_type === "billing_note" &&
+      (doc.status === "sent" || doc.status === "overdue"),
+  );
 }
 
 function getQuotationDeliveryProgress(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
-  const quote = [...nonVoided].reverse().find((doc) => doc.doc_type === "quotation");
+  const quote = [...nonVoided]
+    .reverse()
+    .find((doc) => doc.doc_type === "quotation");
   if (!quote?.line_items?.length) return null;
 
   const deliveredByQuoteLine = new Map<string, number>();
   for (const doc of nonVoided) {
-    if (doc.doc_type !== "delivery_note" || (doc.status !== "sent" && doc.status !== "converted")) continue;
+    if (
+      doc.doc_type !== "delivery_note" ||
+      (doc.status !== "sent" && doc.status !== "converted")
+    )
+      continue;
     for (const line of doc.line_items || []) {
-      if (line.source_document_id !== quote.id || !line.source_line_item_id) continue;
-      deliveredByQuoteLine.set(line.source_line_item_id, (deliveredByQuoteLine.get(line.source_line_item_id) || 0) + line.quantity);
+      if (line.source_document_id !== quote.id || !line.source_line_item_id)
+        continue;
+      deliveredByQuoteLine.set(
+        line.source_line_item_id,
+        (deliveredByQuoteLine.get(line.source_line_item_id) || 0) +
+          line.quantity,
+      );
     }
   }
 
   const quoted = quote.line_items.reduce((sum, line) => sum + line.quantity, 0);
-  const delivered = quote.line_items.reduce((sum, line) => sum + (deliveredByQuoteLine.get(line.id) || 0), 0);
+  const delivered = quote.line_items.reduce(
+    (sum, line) => sum + (deliveredByQuoteLine.get(line.id) || 0),
+    0,
+  );
   if (delivered <= 0) return null;
   return { delivered, quoted };
 }
 
-function getStageInfo(documents: DealDoc[], latestDocument: DealDoc | null, isDone: boolean, isOverdue: boolean) {
+function getStageInfo(
+  documents: DealDoc[],
+  latestDocument: DealDoc | null,
+  isDone: boolean,
+  isOverdue: boolean,
+) {
   const dnWaiting = getDnWaitingForInvoice(documents);
   const billingWaiting = getBillingWaitingForPayment(documents);
   const quoteProgress = getQuotationDeliveryProgress(documents);
 
-  if (isDone) return { stageLabel: "เสร็จแล้ว", stageHint: "ปิดงานแล้ว", queue: "done" as HomeQueue };
-  if (isOverdue) return { stageLabel: "เกินกำหนด", stageHint: "ต้องติดตาม", queue: "overdue" as HomeQueue };
+  if (isDone)
+    return {
+      stageLabel: "เสร็จแล้ว",
+      stageHint: "ปิดงานแล้ว",
+      queue: "done" as HomeQueue,
+    };
+  if (isOverdue)
+    return {
+      stageLabel: "เกินกำหนด",
+      stageHint: "ต้องติดตาม",
+      queue: "overdue" as HomeQueue,
+    };
   if (dnWaiting.length > 0) {
     return {
       stageLabel: "รอออกใบแจ้งหนี้",
@@ -210,7 +319,12 @@ function getStageInfo(documents: DealDoc[], latestDocument: DealDoc | null, isDo
       queue: "wait_invoice" as HomeQueue,
     };
   }
-  if (billingWaiting.length > 0) return { stageLabel: "รอรับเงิน", stageHint: "ใบวางบิลส่งแล้ว", queue: "wait_collect" as HomeQueue };
+  if (billingWaiting.length > 0)
+    return {
+      stageLabel: "รอรับเงิน",
+      stageHint: "ใบวางบิลส่งแล้ว",
+      queue: "wait_collect" as HomeQueue,
+    };
   if (latestDocument?.status === "draft") {
     const label =
       latestDocument.doc_type === "quotation"
@@ -222,7 +336,11 @@ function getStageInfo(documents: DealDoc[], latestDocument: DealDoc | null, isDo
             : latestDocument.doc_type === "billing_note"
               ? "รอส่งใบวางบิล"
               : "รอส่งเอกสาร";
-    return { stageLabel: label, stageHint: "ฉบับร่าง", queue: "wait_send" as HomeQueue };
+    return {
+      stageLabel: label,
+      stageHint: "ฉบับร่าง",
+      queue: "wait_send" as HomeQueue,
+    };
   }
   if (quoteProgress) {
     return {
@@ -231,10 +349,29 @@ function getStageInfo(documents: DealDoc[], latestDocument: DealDoc | null, isDo
       queue: "progress" as HomeQueue,
     };
   }
-  if (latestDocument?.doc_type === "quotation") return { stageLabel: "ใบเสนอราคา", stageHint: "รอลูกค้าตอบ", queue: "progress" as HomeQueue };
-  if (latestDocument?.doc_type === "invoice") return { stageLabel: "รอวางบิล", stageHint: "ใบแจ้งหนี้ส่งแล้ว", queue: "progress" as HomeQueue };
-  if (latestDocument?.doc_type === "delivery_note") return { stageLabel: "ใบส่งของ", stageHint: "รอดำเนินการต่อ", queue: "progress" as HomeQueue };
-  return { stageLabel: "กำลังดำเนินการ", stageHint: latestDocument?.doc_number || "", queue: "progress" as HomeQueue };
+  if (latestDocument?.doc_type === "quotation")
+    return {
+      stageLabel: "ใบเสนอราคา",
+      stageHint: "รอลูกค้าตอบ",
+      queue: "progress" as HomeQueue,
+    };
+  if (latestDocument?.doc_type === "invoice")
+    return {
+      stageLabel: "รอวางบิล",
+      stageHint: "ใบแจ้งหนี้ส่งแล้ว",
+      queue: "progress" as HomeQueue,
+    };
+  if (latestDocument?.doc_type === "delivery_note")
+    return {
+      stageLabel: "ใบส่งของ",
+      stageHint: "รอดำเนินการต่อ",
+      queue: "progress" as HomeQueue,
+    };
+  return {
+    stageLabel: "กำลังดำเนินการ",
+    stageHint: latestDocument?.doc_number || "",
+    queue: "progress" as HomeQueue,
+  };
 }
 
 function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
@@ -243,13 +380,21 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const paidAt = getCompletedAt(deal.documents || []);
   const isDone = isDealDone(deal.documents || []);
   const isOverdue = isOverdueDocument(latestDocument);
-  const stageInfo = getStageInfo(deal.documents || [], latestDocument, isDone, isOverdue);
+  const stageInfo = getStageInfo(
+    deal.documents || [],
+    latestDocument,
+    isDone,
+    isOverdue,
+  );
 
-  const latestNote = (deal.notes || []).length > 0 ? deal.notes![0].content : "";
-  const latestNoteRole = (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
+  const latestNote =
+    (deal.notes || []).length > 0 ? deal.notes![0].content : "";
+  const latestNoteRole =
+    (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
 
   return {
     dealId: deal.id,
+    dealNumber: (deal as any).deal_number || null,
     customerName: deal.customers?.name || "ลูกค้า",
     customerAvatar: deal.customers
       ? {
@@ -294,28 +439,34 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
     const stored = window.localStorage.getItem("homeViewMode");
-    return stored === "list" || stored === "grid" || stored === "table" ? stored : "list";
+    return stored === "list" || stored === "grid" || stored === "table"
+      ? stored
+      : "list";
   });
   const [pullDistance, setPullDistance] = useState(0);
 
   useEffect(() => {
     window.localStorage.setItem("homeViewMode", viewMode);
   }, [viewMode]);
-  const [showNudge, setShowNudge] = useState<"profile" | "customer" | "items" | null>(null);
+  const [showNudge, setShowNudge] = useState<
+    "profile" | "customer" | "items" | null
+  >(null);
   const [nudgesLoaded, setNudgesLoaded] = useState(false);
 
   const touchStartY = useRef<number | null>(null);
   const pulling = useRef(false);
 
-  const fetchDashboard = useCallback(async (showRefresh = false) => {
-    if (!userId) return;
-    if (showRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  const fetchDashboard = useCallback(
+    async (showRefresh = false) => {
+      if (!userId) return;
+      if (showRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
 
-    const { data, error: fetchError } = await supabase
-      .from("deals")
-      .select(`
+      const { data, error: fetchError } = await supabase
+        .from("deals")
+        .select(
+          `
         *,
         customers(id, name, avatar_initials, avatar_color),
         documents(
@@ -323,50 +474,55 @@ export default function HomePage() {
           total_amount, net_payable, due_date, paid_at,
           created_at, updated_at
         )
-      `)
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .order("updated_at", { ascending: false });
+      `,
+        )
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .order("updated_at", { ascending: false });
 
-    if (fetchError) {
-      setError(fetchError.message);
+      if (fetchError) {
+        setError(fetchError.message);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const dealsWithRelations = (data || []) as unknown as DealWithRelations[];
+      const docIds = dealsWithRelations
+        .flatMap((deal) => (deal.documents || []).map((doc) => doc.id))
+        .filter(Boolean);
+      const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
+
+      if (docIds.length > 0) {
+        const { data: lineItemsData } = await supabase
+          .from("document_line_items")
+          .select("*")
+          .in("document_id", docIds)
+          .order("sort_order", { ascending: true });
+
+        for (const item of (lineItemsData || []) as DocumentLineItem[]) {
+          const current = lineItemsByDoc.get(item.document_id) || [];
+          current.push(item);
+          lineItemsByDoc.set(item.document_id, current);
+        }
+      }
+
+      setDeals(
+        dealsWithRelations
+          .map((deal) => ({
+            ...deal,
+            documents: (deal.documents || []).map((doc) => ({
+              ...doc,
+              line_items: lineItemsByDoc.get(doc.id) || [],
+            })),
+          }))
+          .map(deriveDashboardDeal),
+      );
       setLoading(false);
       setRefreshing(false);
-      return;
-    }
-
-    const dealsWithRelations = (data || []) as unknown as DealWithRelations[];
-    const docIds = dealsWithRelations.flatMap((deal) => (deal.documents || []).map((doc) => doc.id)).filter(Boolean);
-    const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
-
-    if (docIds.length > 0) {
-      const { data: lineItemsData } = await supabase
-        .from("document_line_items")
-        .select("*")
-        .in("document_id", docIds)
-        .order("sort_order", { ascending: true });
-
-      for (const item of (lineItemsData || []) as DocumentLineItem[]) {
-        const current = lineItemsByDoc.get(item.document_id) || [];
-        current.push(item);
-        lineItemsByDoc.set(item.document_id, current);
-      }
-    }
-
-    setDeals(
-      dealsWithRelations
-        .map((deal) => ({
-          ...deal,
-          documents: (deal.documents || []).map((doc) => ({
-            ...doc,
-            line_items: lineItemsByDoc.get(doc.id) || [],
-          })),
-        }))
-        .map(deriveDashboardDeal),
-    );
-    setLoading(false);
-    setRefreshing(false);
-  }, [userId]);
+    },
+    [userId],
+  );
 
   useEffect(() => {
     fetchDashboard();
@@ -375,10 +531,14 @@ export default function HomePage() {
   useEffect(() => {
     if (!userId || !clientProfile || loading || nudgesLoaded) return;
 
-    const dismissed = JSON.parse(localStorage.getItem("nudges_dismissed") || "{}") as Record<string, boolean>;
+    const dismissed = JSON.parse(
+      localStorage.getItem("nudges_dismissed") || "{}",
+    ) as Record<string, boolean>;
 
     if (clientProfile.company_name_th && !dismissed.profile) {
-      const missingProfile = !clientProfile.address || (clientProfile.vat_registered && !clientProfile.tax_id);
+      const missingProfile =
+        !clientProfile.address ||
+        (clientProfile.vat_registered && !clientProfile.tax_id);
       if (missingProfile) {
         setShowNudge("profile");
         setNudgesLoaded(true);
@@ -444,7 +604,9 @@ export default function HomePage() {
   }, [userId, clientProfile, loading, nudgesLoaded]);
 
   function handleDismissNudge(type: string) {
-    const dismissed = JSON.parse(localStorage.getItem("nudges_dismissed") || "{}") as Record<string, boolean>;
+    const dismissed = JSON.parse(
+      localStorage.getItem("nudges_dismissed") || "{}",
+    ) as Record<string, boolean>;
     dismissed[type] = true;
     localStorage.setItem("nudges_dismissed", JSON.stringify(dismissed));
     setShowNudge(null);
@@ -467,7 +629,8 @@ export default function HomePage() {
         }
         if (deal.queue === "wait_send") {
           acc.waitSendCount += 1;
-          if (deal.latestDocument?.doc_type === "invoice") acc.waitSendInvoiceCount += 1;
+          if (deal.latestDocument?.doc_type === "invoice")
+            acc.waitSendInvoiceCount += 1;
         }
         return acc;
       },
@@ -480,7 +643,7 @@ export default function HomePage() {
         overdueAmount: 0,
         waitSendCount: 0,
         waitSendInvoiceCount: 0,
-      }
+      },
     );
   }, [deals]);
 
@@ -489,7 +652,7 @@ export default function HomePage() {
       deals
         .filter((deal) => !deal.isDone)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [deals]
+    [deals],
   );
 
   const activeDeals = useMemo(
@@ -497,15 +660,21 @@ export default function HomePage() {
       activeDealsAll.filter((deal) => {
         if (homeFilter === "all") return true;
         if (homeFilter === "wait_send_invoice") {
-          return deal.queue === "wait_send" && deal.latestDocument?.doc_type === "invoice";
+          return (
+            deal.queue === "wait_send" &&
+            deal.latestDocument?.doc_type === "invoice"
+          );
         }
         return deal.queue === homeFilter;
       }),
-    [activeDealsAll, homeFilter]
+    [activeDealsAll, homeFilter],
   );
 
   type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount";
-  const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, { key: "createdAt", dir: "desc" });
+  const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, {
+    key: "createdAt",
+    dir: "desc",
+  });
 
   const recentlyDone = useMemo(
     () =>
@@ -513,7 +682,7 @@ export default function HomePage() {
         .filter((deal) => deal.isDone)
         .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || ""))
         .slice(0, 5),
-    [deals]
+    [deals],
   );
 
   const homeTitle = clientProfile?.company_name_th?.trim() || "หน้างานขาย";
@@ -528,7 +697,8 @@ export default function HomePage() {
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
     if (!pulling.current || touchStartY.current === null) return;
     const distance = event.touches[0].clientY - touchStartY.current;
-    if (distance > 0 && window.scrollY === 0) setPullDistance(Math.min(distance, 80));
+    if (distance > 0 && window.scrollY === 0)
+      setPullDistance(Math.min(distance, 80));
   };
 
   const handleTouchEnd = async () => {
@@ -539,17 +709,50 @@ export default function HomePage() {
   };
 
   const summaryCards = [
-    { label: "ทั้งหมด", value: activeDealsAll.reduce((s, d) => s + d.amount, 0), count: activeDealsAll.length, alert: false, preset: "all", hint: "ทุกรายการที่ต้องทำ" },
-    { label: "รอเก็บเงิน", value: summary.waitCollectAmount, count: summary.waitCollectCount, alert: false, preset: "wait_collect", hint: "ใบวางบิล" },
-    { label: "เกินกำหนด", value: summary.overdueAmount, count: summary.overdueCount, alert: summary.overdueCount > 0, preset: "overdue", hint: "ควรติดตาม" },
+    {
+      label: "ทั้งหมด",
+      value: activeDealsAll.reduce((s, d) => s + d.amount, 0),
+      count: activeDealsAll.length,
+      alert: false,
+      preset: "all",
+      hint: "ทุกรายการที่ต้องทำ",
+    },
+    {
+      label: "รอเก็บเงิน",
+      value: summary.waitCollectAmount,
+      count: summary.waitCollectCount,
+      alert: false,
+      preset: "wait_collect",
+      hint: "ใบวางบิล",
+    },
+    {
+      label: "เกินกำหนด",
+      value: summary.overdueAmount,
+      count: summary.overdueCount,
+      alert: summary.overdueCount > 0,
+      preset: "overdue",
+      hint: "ควรติดตาม",
+    },
   ] as const;
 
   const quickFilters: { label: string; value: HomeFilter; count: number }[] = [
     { label: "ทั้งหมด", value: "all", count: activeDealsAll.length },
     { label: "รอส่ง", value: "wait_send", count: summary.waitSendCount },
-    { label: "รอส่งใบแจ้งหนี้", value: "wait_send_invoice", count: summary.waitSendInvoiceCount },
-    { label: "รอออกบิล", value: "wait_invoice", count: summary.waitInvoiceCount },
-    { label: "รอเก็บเงิน", value: "wait_collect", count: summary.waitCollectCount },
+    {
+      label: "รอส่งใบแจ้งหนี้",
+      value: "wait_send_invoice",
+      count: summary.waitSendInvoiceCount,
+    },
+    {
+      label: "รอออกบิล",
+      value: "wait_invoice",
+      count: summary.waitInvoiceCount,
+    },
+    {
+      label: "รอเก็บเงิน",
+      value: "wait_collect",
+      count: summary.waitCollectCount,
+    },
     { label: "เกินกำหนด", value: "overdue", count: summary.overdueCount },
   ];
 
@@ -563,14 +766,19 @@ export default function HomePage() {
           </div>
           <div className="grid grid-cols-3 gap-2">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="rounded-card border border-card-border bg-white p-3 shadow-sm">
+              <div
+                key={index}
+                className="rounded-card border border-card-border bg-white p-3 shadow-sm"
+              >
                 <Skeleton className="mb-2 h-5 w-16 rounded-md" />
                 <Skeleton className="h-3 w-14 rounded-md" />
               </div>
             ))}
           </div>
-        <div className="space-y-3">
-            {Array.from({ length: viewMode === "grid" ? 6 : viewMode === "table" ? 5 : 3 }).map((_, index) => (
+          <div className="space-y-3">
+            {Array.from({
+              length: viewMode === "grid" ? 6 : viewMode === "table" ? 5 : 3,
+            }).map((_, index) => (
               <Skeleton key={index} className="h-20 rounded-xl bg-[#F1EFE8]" />
             ))}
           </div>
@@ -581,16 +789,35 @@ export default function HomePage() {
 
   return (
     <AppShell title="หน้างานขาย">
-      <div className="space-y-4" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        <div className="overflow-hidden transition-all" style={{ height: pullDistance > 0 || refreshing ? Math.max(pullDistance, refreshing ? 40 : 0) : 0 }}>
+      <div
+        className="space-y-4"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div
+          className="overflow-hidden transition-all"
+          style={{
+            height:
+              pullDistance > 0 || refreshing
+                ? Math.max(pullDistance, refreshing ? 40 : 0)
+                : 0,
+          }}
+        >
           <div className="flex h-10 items-center justify-center text-gray-500">
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+            />
           </div>
         </div>
 
         <HomeTopBar
           greeting={homeTitle}
-          subtitle={actionCount === 0 ? "ไม่มีงานค้างในวันนี้" : `วันนี้มี ${actionCount} รายการรอดำเนินการ`}
+          subtitle={
+            actionCount === 0
+              ? "ไม่มีงานค้างในวันนี้"
+              : `วันนี้มี ${actionCount} รายการรอดำเนินการ`
+          }
           isAllClear={actionCount === 0}
           onNewDeal={() => setNewSheetOpen(true)}
         />
@@ -608,8 +835,13 @@ export default function HomePage() {
 
         {error ? (
           <Card className="py-10 text-center">
-            <div className="text-sm font-medium text-gray-700">โหลดข้อมูลไม่สำเร็จ</div>
-            <button className="mt-3 text-sm text-primary hover:underline" onClick={() => fetchDashboard()}>
+            <div className="text-sm font-medium text-gray-700">
+              โหลดข้อมูลไม่สำเร็จ
+            </div>
+            <button
+              className="mt-3 text-sm text-primary hover:underline"
+              onClick={() => fetchDashboard()}
+            >
               ลองใหม่
             </button>
           </Card>
@@ -617,7 +849,11 @@ export default function HomePage() {
           <EmptyState
             title="เริ่มต้นใช้งาน"
             description="เริ่มต้นด้วยงานขายแรกของคุณ"
-            action={<Button onClick={() => setNewSheetOpen(true)}>เริ่มงานขายแรก</Button>}
+            action={
+              <Button onClick={() => setNewSheetOpen(true)}>
+                เริ่มงานขายแรก
+              </Button>
+            }
           />
         ) : (
           <>
@@ -631,9 +867,15 @@ export default function HomePage() {
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-primary" />
                   <div className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">
-                    {homeFilter === "all" ? "ต้องทำวันนี้ / กำลังดำเนินการ" : quickFilters.find((filter) => filter.value === homeFilter)?.label}
+                    {homeFilter === "all"
+                      ? "ต้องทำวันนี้ / กำลังดำเนินการ"
+                      : quickFilters.find(
+                          (filter) => filter.value === homeFilter,
+                        )?.label}
                   </div>
-                  <div className="ml-auto text-[11px] text-gray-400">{activeDeals.length} รายการ</div>
+                  <div className="ml-auto text-[11px] text-gray-400">
+                    {activeDeals.length} รายการ
+                  </div>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {quickFilters.map((filter) => (
@@ -648,18 +890,27 @@ export default function HomePage() {
                       }`}
                     >
                       {filter.label}
-                      <span className="ml-1 text-[10px] opacity-70">{filter.count}</span>
+                      <span className="ml-1 text-[10px] opacity-70">
+                        {filter.count}
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
 
               {activeDeals.length === 0 ? (
-                <EmptyState title="ยังไม่มีรายการในคิวนี้" description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างงานขายใหม่” เพื่อเริ่มงาน" />
+                <EmptyState
+                  title="ยังไม่มีรายการในคิวนี้"
+                  description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างงานขายใหม่” เพื่อเริ่มงาน"
+                />
               ) : viewMode === "grid" ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {activeDeals.map((deal) => {
-                    const gridAvatar = deal.customerAvatar ?? { name: deal.customerName, avatar_initials: null, avatar_color: null };
+                    const gridAvatar = deal.customerAvatar ?? {
+                      name: deal.customerName,
+                      avatar_initials: null,
+                      avatar_color: null,
+                    };
                     return (
                       <Card
                         key={deal.dealId}
@@ -668,7 +919,11 @@ export default function HomePage() {
                       >
                         <div className="flex items-start justify-between gap-2.5">
                           <div className="flex items-start gap-2.5 min-w-0">
-                            <CustomerAvatar customer={gridAvatar} size="md" className="mt-0.5" />
+                            <CustomerAvatar
+                              customer={gridAvatar}
+                              size="md"
+                              className="mt-0.5"
+                            />
                             <div className="min-w-0">
                               <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
                                 {deal.customerName}
@@ -679,8 +934,12 @@ export default function HomePage() {
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-[13px] font-semibold text-[#1A1A18]">฿ {formatCurrency(deal.amount)}</div>
-                            <span className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}>
+                            <div className="text-[13px] font-semibold text-[#1A1A18]">
+                              ฿ {formatCurrency(deal.amount)}
+                            </div>
+                            <span
+                              className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}
+                            >
                               {deal.stageLabel}
                             </span>
                           </div>
@@ -700,6 +959,9 @@ export default function HomePage() {
                     <table className={TABLE.table}>
                       <thead>
                         <tr className={TABLE.theadTr}>
+                          <th className={`${TABLE.thStatic} w-[80px]`}>
+                            เลขที่ดีล
+                          </th>
                           <SortableTh
                             label="ลูกค้า"
                             align="left"
@@ -724,8 +986,16 @@ export default function HomePage() {
                             onClick={() => dealSort.handleSort("createdAt")}
                             className={TABLE.thSortable}
                           />
-                          <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
-                          <th className={`${TABLE.thStatic} hidden md:table-cell`}>บันทึก</th>
+                          <th
+                            className={`${TABLE.thStatic} hidden sm:table-cell`}
+                          >
+                            รายการ
+                          </th>
+                          <th
+                            className={`${TABLE.thStatic} hidden md:table-cell`}
+                          >
+                            บันทึก
+                          </th>
                           <SortableTh
                             label="จำนวนเงิน"
                             align="right"
@@ -738,42 +1008,68 @@ export default function HomePage() {
                       </thead>
                       <tbody>
                         {dealSort.sorted.map((deal) => {
-                          const rowAvatar = deal.customerAvatar ?? { name: deal.customerName, avatar_initials: null, avatar_color: null };
+                          const rowAvatar = deal.customerAvatar ?? {
+                            name: deal.customerName,
+                            avatar_initials: null,
+                            avatar_color: null,
+                          };
                           return (
-                          <tr
-                            key={deal.dealId}
-                            onClick={() => navigate(`/deals/${deal.dealId}`)}
-                            className={TABLE.tbodyTr}
-                          >
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <CustomerAvatar customer={rowAvatar} size="sm" />
-                                <span className="font-semibold text-[#111827] truncate">{deal.customerName}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`} />
-                                <span className="text-[12px] text-[#475467]">{deal.stageLabel}</span>
-                              </div>
-                            </td>
-                            <td className={TABLE.tdDimmed}>
-                              <span className="whitespace-nowrap tabular-nums">{formatBuddhistDateTime(deal.createdAt)}</span>
-                            </td>
-                            <td className={`${TABLE.tdDimmed} hidden sm:table-cell`}>
-                              <span className="truncate block max-w-[200px]">
-                                {deal.itemNames?.length ? deal.itemNames.slice(0, 2).join(", ") : deal.itemSummary}
-                              </span>
-                            </td>
-                            <td className={`${TABLE.tdDimmed} hidden md:table-cell`}>
-                              <span className="truncate block max-w-[180px]">
-                                {deal.internalNote}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <span className="font-medium text-[#111827] min-w-[100px] inline-block text-right">฿ {formatCurrency(deal.amount)}</span>
-                            </td>
-                          </tr>
+                            <tr
+                              key={deal.dealId}
+                              onClick={() => navigate(`/deals/${deal.dealId}`)}
+                              className={TABLE.tbodyTr}
+                            >
+                              <td className="px-3 py-2 whitespace-nowrap text-[12px] font-medium text-[#111827] tabular-nums">
+                                {deal.dealNumber || "-"}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <CustomerAvatar
+                                    customer={rowAvatar}
+                                    size="sm"
+                                  />
+                                  <span className="font-semibold text-[#111827] truncate">
+                                    {deal.customerName}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`}
+                                  />
+                                  <span className="text-[12px] text-[#475467]">
+                                    {deal.stageLabel}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className={TABLE.tdDimmed}>
+                                <span className="whitespace-nowrap tabular-nums">
+                                  {formatBuddhistDateTime(deal.createdAt)}
+                                </span>
+                              </td>
+                              <td
+                                className={`${TABLE.tdDimmed} hidden sm:table-cell`}
+                              >
+                                <span className="truncate block max-w-[200px]">
+                                  {deal.itemNames?.length
+                                    ? deal.itemNames.slice(0, 2).join(", ")
+                                    : deal.itemSummary}
+                                </span>
+                              </td>
+                              <td
+                                className={`${TABLE.tdDimmed} hidden md:table-cell`}
+                              >
+                                <span className="truncate block max-w-[180px]">
+                                  {deal.internalNote}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <span className="font-medium text-[#111827] min-w-[100px] inline-block text-right">
+                                  ฿ {formatCurrency(deal.amount)}
+                                </span>
+                              </td>
+                            </tr>
                           );
                         })}
                       </tbody>
@@ -787,7 +1083,13 @@ export default function HomePage() {
                       key={deal.dealId}
                       customerName={deal.customerName}
                       customerAvatar={deal.customerAvatar}
-                      itemSummary={deal.itemSummary || deal.latestDocument?.doc_number || DOC_TYPE_LABELS[deal.latestDocument?.doc_type || "quotation"].th}
+                      itemSummary={
+                        deal.itemSummary ||
+                        deal.latestDocument?.doc_number ||
+                        DOC_TYPE_LABELS[
+                          deal.latestDocument?.doc_type || "quotation"
+                        ].th
+                      }
                       itemNames={deal.itemNames}
                       amountText={`฿ ${formatCurrency(deal.amount)}`}
                       stageLabel={deal.stageLabel}
@@ -809,9 +1111,13 @@ export default function HomePage() {
                 <div className="border-t border-card-border pt-1" />
                 <section>
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">เสร็จสิ้นล่าสุด</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">
+                      เสร็จสิ้นล่าสุด
+                    </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-gray-400">{recentlyDone.length} รายการ</span>
+                      <span className="text-[11px] text-gray-400">
+                        {recentlyDone.length} รายการ
+                      </span>
                       <button
                         className="text-[11px] text-gray-400 hover:text-gray-600"
                         onClick={() => navigate("/documents?preset=paid")}
@@ -826,10 +1132,18 @@ export default function HomePage() {
                         key={deal.dealId}
                         customerName={deal.customerName}
                         customerAvatar={deal.customerAvatar}
-                        itemSummary={deal.itemSummary || deal.latestDocument?.doc_number || "ชำระเรียบร้อย"}
+                        itemSummary={
+                          deal.itemSummary ||
+                          deal.latestDocument?.doc_number ||
+                          "ชำระเรียบร้อย"
+                        }
                         itemNames={deal.itemNames}
                         amountText={`฿ ${formatCurrency(deal.amount)}`}
-                        paidAtText={deal.paidAt ? formatBuddhistDate(deal.paidAt) : undefined}
+                        paidAtText={
+                          deal.paidAt
+                            ? formatBuddhistDate(deal.paidAt)
+                            : undefined
+                        }
                         onTap={() => navigate(`/deals/${deal.dealId}`)}
                       />
                     ))}

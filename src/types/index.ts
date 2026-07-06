@@ -28,17 +28,14 @@ export type JobDetailFieldType = "text" | "dimension";
 export type ClientFeatureKey = "service_job_details";
 
 export type StockMovementType =
-  | "manual_in"
-  | "manual_out"
-  | "auto_out"
-  | "auto_in"
-  | "return_in";
+  "manual_in" | "manual_out" | "auto_out" | "auto_in" | "return_in";
 
 export type PaymentMethod = "cash" | "bank_transfer" | "cheque";
 
 export type WhtRate = "0" | "1" | "2" | "3" | "5";
 
-export type StoragePurpose = "logos" | "signatures" | "stamps" | "pdfs" | "exports" | "attachments";
+export type StoragePurpose =
+  "logos" | "signatures" | "stamps" | "pdfs" | "exports" | "attachments";
 
 export interface Profile {
   id: string;
@@ -195,10 +192,17 @@ export interface Deal {
   user_id: string;
   customer_id: string;
   title: string | null;
+  deal_number: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  notes?: { content: string; user_id: string; author_name: string; author_role: string; created_at: string }[];
+  notes?: {
+    content: string;
+    user_id: string;
+    author_name: string;
+    author_role: string;
+    created_at: string;
+  }[];
 }
 
 export interface Document {

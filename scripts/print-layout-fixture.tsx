@@ -5,7 +5,14 @@ import { PrintDocument } from "../src/components/print/PrintDocument";
 import { PrintDocumentClassic } from "../src/components/print/PrintDocumentClassic";
 import type { CopyType } from "../src/components/print/PrintDocument";
 import type { HtmlPrintTemplate, PrintDocumentData } from "../src/lib/print";
-import type { BillingNoteInvoice, ClientProfile, Customer, Document, DocumentLineItem, InvoiceDeliveryNote } from "../src/types";
+import type {
+  BillingNoteInvoice,
+  ClientProfile,
+  Customer,
+  Document,
+  DocumentLineItem,
+  InvoiceDeliveryNote,
+} from "../src/types";
 
 const image = (label: string, color: string) =>
   `data:image/svg+xml,${encodeURIComponent(
@@ -53,7 +60,8 @@ const clientProfile: ClientProfile = {
   credit_term_days: 30,
   stock_deduct_trigger: "invoice",
   pdf_template: "modern",
-  classic_terms: "Payment is due within the stated credit term.\nPlease quote invoice number with payment.\nGoods remain company property until paid in full.",
+  classic_terms:
+    "Payment is due within the stated credit term.\nPlease quote invoice number with payment.\nGoods remain company property until paid in full.",
   bank_name: "Baseline Bank",
   bank_account: "123-4-56789-0",
   signature_url: image("SIGN", "#475467"),
@@ -225,11 +233,15 @@ const data = (template: HtmlPrintTemplate): PrintDocumentData => ({
     "line-3": { number: "DN-2026-07-001", issue_date: "2026-06-28" },
   },
   showInlineDeliveryNotes: true,
+  receiptInvoices: [],
+  isDeliveryNoteSummaryInvoice: false,
+  invoiceNumberMap: {},
 });
 
 const params = new URLSearchParams(window.location.search);
 const template = params.get("template") === "classic" ? "classic" : "modern";
-const copyType: CopyType = params.get("copyType") === "copy" ? "copy" : "original";
+const copyType: CopyType =
+  params.get("copyType") === "copy" ? "copy" : "original";
 
 document.documentElement.classList.add("print-export-document");
 document.body.classList.add("print-export-document");
