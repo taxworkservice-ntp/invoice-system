@@ -101,7 +101,7 @@ export function PrintLineItemsTable({
     );
   }
 
-  if (document.doc_type === "receipt" && receiptInvoices.length > 0) {
+  if (document.doc_type === "receipt" && receiptInvoices.length > 0 && (document.vat_registered || receiptInvoices.length > 1)) {
     return (
       <section className="print-block mt-3">
         <div className="mb-0.5">

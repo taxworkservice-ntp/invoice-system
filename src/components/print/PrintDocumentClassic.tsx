@@ -236,7 +236,7 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
       <section className="print-classic-items-wrap">
         {isBillingNote ? (
           <div className="print-classic-items-title">รายการใบแจ้งหนี้ (INVOICES)</div>
-        ) : document.doc_type === "receipt" && receiptInvoices.length > 0 ? (
+        ) : document.doc_type === "receipt" && receiptInvoices.length > 0 && (document.vat_registered || receiptInvoices.length > 1) ? (
           <div className="print-classic-items-title">รายการที่ชำระ (PAID INVOICES)</div>
         ) : (
           <div className="print-classic-items-title">
@@ -289,7 +289,7 @@ export function PrintDocumentClassic({ data, copyType = "original", pageMode = "
               ))}
             </tbody>
           </table>
-          ) : document.doc_type === "receipt" && receiptInvoices.length > 0 ? (
+          ) : document.doc_type === "receipt" && receiptInvoices.length > 0 && (document.vat_registered || receiptInvoices.length > 1) ? (
           <table className="print-classic-items-table">
             <colgroup>
               <col style={{ width: "12mm" }} />
