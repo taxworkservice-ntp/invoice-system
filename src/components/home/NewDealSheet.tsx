@@ -1,5 +1,5 @@
 import type { ElementType } from "react";
-import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText } from "lucide-react";
+import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Truck } from "lucide-react";
 import { Modal } from "../ui/Modal";
 
 interface NewDealSheetProps {
@@ -32,6 +32,7 @@ const GROUPS: {
   {
     title: "ส่งของก่อน ออกบิลทีหลัง",
     options: [
+      { icon: Truck, title: "สร้างใบส่งของฉบับร่าง", subtitle: "ใช้เป็นทางลัดเมื่อต้องเตรียมส่งของก่อน ไม่ผูกกับใบเสนอราคา", type: "delivery_note" },
       { icon: FileStack, title: "รวมใบส่งของเพื่อออกใบแจ้งหนี้", subtitle: "ใช้สำหรับออกบิลรายรอบ เช่น สิ้นเดือน", type: "invoice_from_delivery_notes" },
     ],
   },
