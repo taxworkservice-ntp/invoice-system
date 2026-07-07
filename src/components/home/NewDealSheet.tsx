@@ -1,5 +1,5 @@
 import type { ElementType } from "react";
-import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Truck } from "lucide-react";
+import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText } from "lucide-react";
 import { Modal } from "../ui/Modal";
 
 interface NewDealSheetProps {
@@ -24,15 +24,14 @@ const GROUPS: {
   {
     title: "ขายแบบปกติ",
     options: [
-      { icon: ClipboardList, title: "ส่งใบเสนอราคาก่อน", subtitle: "เริ่มจากราคาและรายการที่ลูกค้าต้องยืนยัน", type: "quotation", recommended: true },
-      { icon: FileText, title: "ออกใบแจ้งหนี้ทันที", subtitle: "ตกลงราคาแล้ว พร้อมเรียกเก็บเงิน", type: "invoice" },
+      { icon: ClipboardList, title: "ส่งใบเสนอราคาก่อน", subtitle: "Flow ครบ: เสนอราคา → ส่งของถ้าต้องใช้ → ออกบิล → วางบิลถ้าต้องใช้", type: "quotation", recommended: true },
+      { icon: FileText, title: "ข้ามใบเสนอราคา ออกใบแจ้งหนี้ทันที", subtitle: "ใช้เมื่อตกลงงานแล้ว และไม่ต้องมีใบเสนอราคาในระบบ", type: "invoice" },
       { icon: CreditCard, title: "รับเงินแล้ว ออกใบกำกับภาษี/ใบเสร็จ", subtitle: "ชำระทันทีและปิดงานในเอกสารเดียว", type: "tax_invoice_receipt" },
     ],
   },
   {
     title: "ส่งของก่อน ออกบิลทีหลัง",
     options: [
-      { icon: Truck, title: "สร้างใบส่งของฉบับร่าง", subtitle: "เตรียมส่งสินค้า แล้วกดยืนยันเมื่อส่งจริง", type: "delivery_note" },
       { icon: FileStack, title: "รวมใบส่งของเพื่อออกใบแจ้งหนี้", subtitle: "ใช้สำหรับออกบิลรายรอบ เช่น สิ้นเดือน", type: "invoice_from_delivery_notes" },
     ],
   },
@@ -40,7 +39,7 @@ const GROUPS: {
     title: "ออกบิลตามรอบ",
     options: [
       { icon: Gauge, title: "ออกบิลประจำรอบ", subtitle: "ค่าน้ำ ค่าไฟ ค่าเช่า หรือค่าบริการรายเดือน", type: "utility_bill" },
-      { icon: ReceiptText, title: "รวมใบแจ้งหนี้เพื่อออกใบวางบิล", subtitle: "วางบิลหลายใบพร้อมกัน", type: "billing_note" },
+      { icon: ReceiptText, title: "รวมใบแจ้งหนี้เพื่อออกใบวางบิล", subtitle: "ใช้เมื่อลูกค้าต้องการวางบิลก่อนชำระเงิน", type: "billing_note" },
     ],
   },
 ];

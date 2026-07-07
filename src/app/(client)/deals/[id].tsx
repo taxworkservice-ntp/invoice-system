@@ -1138,10 +1138,9 @@ export default function DealDetailPage() {
     }
     if (doc.doc_type === "quotation" && doc.status === "sent") {
       if (!permissions.canSendDocuments) return null;
-      if (hasQuotationDeliveryActivity) {
-        return { type: "delivery_from_quote", doc, label: "ออกใบส่งของจากใบเสนอราคา" };
-      }
-      return { type: "convert", doc, label: "ลูกค้าตกลงแล้ว" };
+      return hasQuotationDeliveryActivity
+        ? { type: "delivery_from_quote", doc, label: "ออกใบส่งของจากใบเสนอราคา" }
+        : { type: "convert", doc, label: "ออกใบแจ้งหนี้ทันที" };
     }
     if (doc.doc_type === "invoice" && doc.status === "sent") {
       if (!permissions.canRecordPayments) return null;
@@ -1158,6 +1157,23 @@ export default function DealDetailPage() {
     }
     return null;
   }, [activeDoc, allDone, hasQuotationDeliveryActivity, permissions.canRecordPayments, permissions.canSendDocuments]);
+
+  const optionalAction = useMemo(() => {
+    if (!activeDoc || allDone) return null;
+    const doc = activeDoc.document;
+
+    if (doc.doc_type === "quotation" && doc.status === "sent" && permissions.canSendDocuments) {
+      return mainAction?.type === "delivery_from_quote"
+        ? { type: "convert" as const, doc, label: "ข้ามใบส่งของ ออกใบแจ้งหนี้" }
+        : { type: "delivery_from_quote" as const, doc, label: "ส่งของก่อน ออกใบส่งของ" };
+    }
+
+    if (doc.doc_type === "invoice" && doc.status === "sent" && permissions.canRecordPayments) {
+      return { type: "collect" as const, doc, label: "ข้ามใบวางบิล รับเงินทันที" };
+    }
+
+    return null;
+  }, [activeDoc, allDone, mainAction?.type, permissions.canRecordPayments, permissions.canSendDocuments]);
 
   const actionHint = useMemo(() => {
     if (!activeDoc?.document.doc_number) return "";
@@ -1531,6 +1547,26 @@ export default function DealDetailPage() {
               </Button>
               {actionHint && (
                 <div className={`mt-2 text-center text-[11px] ${isOverdue ? "text-red-700" : "text-gray-500"}`}>{actionHint}</div>
+              )}
+              {optionalAction && (
+                <Button
+                  variant="secondary"
+                  className="mt-2 w-full justify-center py-3 text-sm"
+                  loading={actionLoadingId === optionalAction.doc.id}
+                  onClick={() => {
+                    if (optionalAction.type === "convert") setConfirmConvertDoc(optionalAction.doc);
+                    if (optionalAction.type === "delivery_from_quote") {
+                      const params = new URLSearchParams({
+                        type: "delivery_note_from_quotation",
+                        quotationId: optionalAction.doc.id,
+                      });
+                      navigate(`/documents/new?${params.toString()}`);
+                    }
+                    if (optionalAction.type === "collect") handleOpenPaymentModal(optionalAction.doc);
+                  }}
+                >
+                  {optionalAction.label}
+                </Button>
               )}
             </>
           ) : (
