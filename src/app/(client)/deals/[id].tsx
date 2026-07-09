@@ -1414,17 +1414,6 @@ export default function DealDetailPage() {
               {deliveryProgress.rows.length > 4 && (
                 <div className="text-center text-[11px] text-gray-500">และอีก {deliveryProgress.rows.length - 4} รายการ</div>
             )}
-            {isDevMode && (
-              <div className="col-span-2 mt-2 pt-2 border-t border-amber-200">
-                <Button
-                  variant="secondary"
-                  className="w-full justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
-                  onClick={() => setRevertConfirmOpen(true)}
-                >
-                  ลบงานขายนี้ทั้งชุด (Dev)
-                </Button>
-              </div>
-            )}
           </div>
 
             {dnAction && (
@@ -1857,6 +1846,17 @@ export default function DealDetailPage() {
               >
                 ออกใบลดหนี้
               </Button>
+            )}
+            {isDevMode && (
+              <div className="col-span-2 mt-2 pt-2 border-t border-amber-200">
+                <Button
+                  variant="secondary"
+                  className="w-full justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
+                  onClick={() => setRevertConfirmOpen(true)}
+                >
+                  ลบงานขายนี้ทั้งชุด (Dev)
+                </Button>
+              </div>
             )}
           </div>
         </Card>
