@@ -32,8 +32,8 @@ function deriveInitials(name: string): string {
     .trim();
   if (!cleaned) return "?";
   const words = cleaned.split(/\s+/).filter(Boolean);
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+  return (words[0][0] + words[1][0] + (words[2]?.[0] || "")).toUpperCase();
 }
 
 function isValidHex(color: string | null | undefined): color is string {
@@ -65,7 +65,7 @@ export function CustomerAvatar({ customer, size = "md", className = "" }: Custom
       return {
         bg: hex,
         fg: contrastFg(hex),
-        initials: (customer.avatar_initials || deriveInitials(customer.name)).toUpperCase().slice(0, 2),
+        initials: (customer.avatar_initials || deriveInitials(customer.name)).toUpperCase().slice(0, 3),
         isWhite: isWhiteBg,
       };
     }
@@ -73,7 +73,7 @@ export function CustomerAvatar({ customer, size = "md", className = "" }: Custom
     return {
       bg: palette.bg,
       fg: palette.fg,
-      initials: (customer.avatar_initials || deriveInitials(customer.name)).toUpperCase().slice(0, 2),
+      initials: (customer.avatar_initials || deriveInitials(customer.name)).toUpperCase().slice(0, 3),
       isWhite: false,
     };
   }, [customer.avatar_color, customer.avatar_initials, customer.name]);
