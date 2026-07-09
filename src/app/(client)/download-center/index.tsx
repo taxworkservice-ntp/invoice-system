@@ -189,8 +189,13 @@ export default function DownloadCenterPage() {
         const disposition = res.headers.get("Content-Disposition");
         let pdfName = `${doc.doc_number || `doc_${i + 1}`}.pdf`;
         if (disposition) {
-          const match = disposition.match(/filename="([^"]+)"/);
-          if (match) pdfName = match[1];
+          const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/);
+          if (utf8Match) {
+            pdfName = decodeURIComponent(utf8Match[1]);
+          } else {
+            const asciiMatch = disposition.match(/filename="([^"]+)"/);
+            if (asciiMatch) pdfName = asciiMatch[1];
+          }
         }
         zip.file(pdfName, blob, { binary: true });
       } catch {
