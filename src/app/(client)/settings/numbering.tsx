@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../hooks/useAuth";
+import { useDevMode } from "../../../hooks/useDevMode";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
@@ -21,8 +22,10 @@ const TABS = [
 ];
 
 export default function SettingsNumberingPage() {
-  const { profile } = useAuth();
+  const { profile, clientProfile, setClientProfile } = useAuth();
+  const { isDevMode } = useDevMode();
   const [sequences, setSequences] = useState<Record<string, DocNumberSequence>>({});
+  const [devEffectiveDate, setDevEffectiveDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const toast = useToast();
@@ -36,17 +39,19 @@ export default function SettingsNumberingPage() {
       .from("doc_number_sequences")
       .select("*")
       .eq("user_id", profile.id)
-      .then(({ data, error: err }) => {
-        if (!err && data) {
-          const map: Record<string, DocNumberSequence> = {};
-          for (const seq of data as DocNumberSequence[]) {
-            map[seq.doc_type] = seq;
-          }
-          setSequences(map);
+      .then(({ data }) => {
+        const map: Record<string, DocNumberSequence> = {};
+        for (const seq of (data || []) as DocNumberSequence[]) {
+          map[seq.doc_type] = { ...seq, start_sequence: seq.start_sequence ?? 1 };
         }
+        setSequences(map);
         setLoading(false);
       });
   }, [profile]);
+
+  useEffect(() => {
+    setDevEffectiveDate(clientProfile?.dev_effective_date || "");
+  }, [clientProfile?.dev_effective_date]);
 
   function getPrefix(docType: DocumentType): string {
     return sequences[docType]?.prefix || "";
@@ -56,6 +61,10 @@ export default function SettingsNumberingPage() {
     return sequences[docType]?.reset_yearly ?? true;
   }
 
+  function getStartSequence(docType: DocumentType): number {
+    return sequences[docType]?.start_sequence ?? 1;
+  }
+
   function setPrefix(docType: DocumentType, value: string) {
     setSequences((prev) => ({
       ...prev,
@@ -63,6 +72,7 @@ export default function SettingsNumberingPage() {
         ...prev[docType],
         doc_type: docType,
         prefix: value,
+        start_sequence: prev[docType]?.start_sequence ?? 1,
       } as DocNumberSequence,
     }));
   }
@@ -74,6 +84,19 @@ export default function SettingsNumberingPage() {
         ...prev[docType],
         doc_type: docType,
         reset_yearly: value,
+        start_sequence: prev[docType]?.start_sequence ?? 1,
+      } as DocNumberSequence,
+    }));
+  }
+
+  function setStartSequence(docType: DocumentType, value: string) {
+    const parsed = Math.max(1, Math.floor(Number(value) || 1));
+    setSequences((prev) => ({
+      ...prev,
+      [docType]: {
+        ...prev[docType],
+        doc_type: docType,
+        start_sequence: parsed,
       } as DocNumberSequence,
     }));
   }
@@ -84,36 +107,68 @@ export default function SettingsNumberingPage() {
     setError("");
     setSuccess("");
 
-    const rows = DOC_TYPES.map((docType) => {
-      const existing = sequences[docType];
-      const prefix = getPrefix(docType);
-      const resetYearly = getResetYearly(docType);
+    try {
+      const rows = DOC_TYPES.map((docType) => {
+        const existing = sequences[docType];
+        const prefix = getPrefix(docType).trim();
+        const resetYearly = getResetYearly(docType);
+        const startSequence = getStartSequence(docType);
 
-      if (existing?.id) {
-        return { id: existing.id, prefix, reset_yearly: resetYearly };
+        if (!prefix) throw new Error("กรุณาระบุ prefix ให้ครบทุกประเภทเอกสาร");
+        if (!Number.isInteger(startSequence) || startSequence < 1) {
+          throw new Error("Start at ต้องเป็นตัวเลขตั้งแต่ 1 ขึ้นไป");
+        }
+
+        if (existing?.id) {
+          return { id: existing.id, prefix, reset_yearly: resetYearly, start_sequence: startSequence };
+        }
+        return { user_id: profile.id, doc_type: docType, prefix, reset_yearly: resetYearly, last_sequence: 0, start_sequence: startSequence };
+      });
+
+      const writes = rows.map((row) => {
+        if ("id" in row && row.id) {
+          return supabase
+            .from("doc_number_sequences")
+            .update({ prefix: row.prefix, reset_yearly: row.reset_yearly, start_sequence: row.start_sequence })
+            .eq("id", row.id);
+        }
+        const { id: _id, ...insertRow } = row as {
+          id?: string;
+          user_id: string;
+          doc_type: DocumentType;
+          prefix: string;
+          reset_yearly: boolean;
+          last_sequence: number;
+          start_sequence: number;
+        };
+        return supabase.from("doc_number_sequences").insert(insertRow);
+      });
+
+      if (isDevMode) {
+        writes.push(
+          supabase
+            .from("client_profiles")
+            .update({ dev_effective_date: devEffectiveDate || null })
+            .eq("user_id", profile.id),
+        );
       }
-      return { user_id: profile.id, doc_type: docType, prefix, reset_yearly: resetYearly, last_sequence: 0 };
-    });
 
-    const upserts = rows.map((row) => {
-      if ("id" in row && row.id) {
-        return supabase.from("doc_number_sequences").update({ prefix: row.prefix, reset_yearly: row.reset_yearly }).eq("id", row.id);
+      const results = await Promise.all(writes);
+      const firstError = results.find((result) => result.error)?.error;
+      if (firstError) throw firstError;
+
+      if (isDevMode) {
+        setClientProfile((prev) => prev ? { ...prev, dev_effective_date: devEffectiveDate || null } : prev);
       }
-      const { id: _id, ...insertRow } = row as { id?: string; user_id: string; doc_type: DocumentType; prefix: string; reset_yearly: boolean; last_sequence: number };
-      return supabase.from("doc_number_sequences").insert(insertRow);
-    });
-
-    const results = await Promise.all(upserts);
-    const hasError = results.some((r) => r.error);
-    if (hasError) {
-      const msg = results.find((r) => r.error)?.error?.message || "เกิดข้อผิดพลาด";
-      setError(msg);
-      toast.error(msg);
-    } else {
       setSuccess("บันทึกสำเร็จ");
       toast.success("บันทึกเลขที่เอกสารสำเร็จ");
+    } catch (err: any) {
+      const msg = err.message || "เกิดข้อผิดพลาด";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   if (loading) return <AppShell title="ตั้งค่า > เลขที่เอกสาร"><Spinner /></AppShell>;
@@ -139,12 +194,34 @@ export default function SettingsNumberingPage() {
 
         <Card>
           <div className="space-y-4">
+            {isDevMode && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,240px)_auto] sm:items-end">
+                  <Input
+                    id="devEffectiveDate"
+                    label="DEV fixed business date"
+                    type="date"
+                    value={devEffectiveDate}
+                    onChange={(event) => setDevEffectiveDate(event.target.value)}
+                    className="border-amber-300 bg-white"
+                  />
+                  <Button type="button" variant="secondary" onClick={() => setDevEffectiveDate("")} disabled={!devEffectiveDate || saving}>
+                    Clear fixed date
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-amber-800">
+                  Used as the default issue/payment date only. Audit timestamps stay real.
+                </p>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-card-border text-gray-500">
                     <th className="text-left py-2 pr-2">ประเภทเอกสาร</th>
-                    <th className="text-left py-2 pr-2">คำนำหน้าเลขที่</th>
+                    <th className="text-left py-2 pr-2">Prefix</th>
+                    {isDevMode && <th className="text-left py-2 pr-2">Start at</th>}
                     <th className="text-center py-2">รีเซ็ตทุกเดือน</th>
                   </tr>
                 </thead>
@@ -156,10 +233,22 @@ export default function SettingsNumberingPage() {
                         <Input
                           value={getPrefix(docType)}
                           onChange={(e) => setPrefix(docType, e.target.value)}
-                          placeholder="เช่น QT-"
+                          placeholder="เช่น INV"
                           className="text-xs"
                         />
                       </td>
+                      {isDevMode && (
+                        <td className="py-2 pr-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={getStartSequence(docType)}
+                            onChange={(e) => setStartSequence(docType, e.target.value)}
+                            className="text-xs font-mono"
+                          />
+                        </td>
+                      )}
                       <td className="py-2 text-center">
                         <input
                           type="checkbox"

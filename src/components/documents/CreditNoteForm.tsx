@@ -10,7 +10,8 @@ import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
 import { CatalogAutocomplete } from "../CatalogAutocomplete";
 import { Spinner } from "../ui/Spinner";
-import { generateDocNumberBE } from "../../lib/docNumber";
+import { resolveDocNumber } from "../../lib/docNumber";
+import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
 import { DOC_TYPE_LABELS } from "../../constants";
@@ -41,15 +42,13 @@ function uid() {
   return `cn_${++idCounter}_${Date.now()}`;
 }
 
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
+  const businessToday = businessTodayString(clientProfile);
+  const todayString = () => businessToday;
   const { items: catalogItems, addItem } = useItems(userId);
   const toast = useToast();
 
@@ -66,13 +65,19 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
   const [note, setNote] = useState("");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
   const [addItemInput, setAddItemInput] = useState("");
-  const [issueDate, setIssueDate] = useState(todayString());
+  const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
 
   const [docId, setDocId] = useState<string | null>(null);
   const [existingStatus, setExistingStatus] = useState("");
   const isEditing = !!documentId;
   const isReadOnly = isEditing && existingStatus !== "draft";
+
+  useEffect(() => {
+    if (documentId) return;
+    const realToday = businessTodayString(null);
+    if (issueDate === realToday) setIssueDate(businessToday);
+  }, [businessToday, documentId, issueDate]);
 
   const vatRegistered = clientProfile?.vat_registered ?? false;
   const vatRate = clientProfile?.vat_rate ?? 7.0;
@@ -293,7 +298,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       let targetDocId = docId;
 
       if (!isEditing) {
-        const docNumber = docNumberOverride || await generateDocNumberBE(userId, "credit_note", effectiveIssueDate);
+        const docNumber = await resolveDocNumber(userId, "credit_note", effectiveIssueDate, docNumberOverride, docId || undefined);
         const { data: newDoc, error: insertErr } = await supabase
           .from("documents")
           .insert({
@@ -649,7 +654,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
           value={docNumberOverride}
           onChange={setDocNumberOverride}
           placeholder="เลขที่ใบลดหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
-          autoGenerate={async () => userId && !isEditing ? await generateDocNumberBE(userId, "credit_note", issueDate || new Date().toISOString().slice(0, 10)) : ""}
+          autoGenerate={async () => userId && !isEditing ? await resolveDocNumber(userId, "credit_note", issueDate || todayString(), undefined, docId || undefined) : ""}
           className="mb-3"
         />
 

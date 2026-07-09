@@ -70,6 +70,7 @@ export function EditableDocNumberInline({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   if (!isDevMode) return <span className={className}>{value || "-"}</span>;
 
@@ -79,11 +80,14 @@ export function EditableDocNumberInline({
       return;
     }
     setSaving(true);
+    setError("");
     try {
       await onSave(draft.trim());
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save document number");
     } finally {
       setSaving(false);
-      setEditing(false);
     }
   }
 
@@ -94,33 +98,36 @@ export function EditableDocNumberInline({
 
   if (editing) {
     return (
-      <span className={`inline-flex items-center gap-1.5 ${className}`}>
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          className="w-48 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-sm font-mono text-gray-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave();
-            if (e.key === "Escape") handleCancel();
-          }}
-        />
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="text-xs font-medium text-amber-700 hover:text-amber-900 disabled:opacity-50"
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="text-xs text-gray-400 hover:text-gray-600"
-        >
-          Cancel
-        </button>
+      <span className={`inline-flex flex-col gap-1 ${className}`}>
+        <span className="inline-flex items-center gap-1.5">
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="w-48 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-sm font-mono text-gray-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSave();
+              if (e.key === "Escape") handleCancel();
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="text-xs font-medium text-amber-700 hover:text-amber-900 disabled:opacity-50"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="text-xs text-gray-400 hover:text-gray-600"
+          >
+            Cancel
+          </button>
+        </span>
+        {error && <span className="text-xs font-normal text-red-600">{error}</span>}
       </span>
     );
   }

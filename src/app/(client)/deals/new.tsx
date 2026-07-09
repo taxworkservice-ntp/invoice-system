@@ -13,7 +13,8 @@ import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
-import { generateDocNumberBE } from "../../../lib/docNumber";
+import { getDocNumberErrorMessage, resolveDocNumber } from "../../../lib/docNumber";
+import { businessTodayString, monthStartString as getMonthStartString } from "../../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
@@ -184,15 +185,6 @@ interface UnpaidInvoice {
   total_amount: number;
   net_payable: number;
   issue_date: string;
-}
-
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function monthStartString() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
 }
 
 function parseAmount(value: string) {
@@ -372,6 +364,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const { items, addItem } = useItems(userId);
   const jobDetailsFeatureEnabled = hasFeature("service_job_details");
+  const businessToday = businessTodayString(clientProfile);
+  const todayString = () => businessToday;
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
@@ -384,16 +378,16 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [whtRate, setWhtRate] = useState<WhtRate>(clientProfile?.default_wht_rate ?? "0");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
-  const [issueDate, setIssueDate] = useState(todayString());
-  const [paymentDate, setPaymentDate] = useState(todayString());
+  const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
+  const [paymentDate, setPaymentDate] = useState(() => businessTodayString(clientProfile));
   const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
   const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
   const [note, setNote] = useState("");
   const [utilityServiceItemId, setUtilityServiceItemId] = useState<string | null>(null);
   const [utilityServiceName, setUtilityServiceName] = useState("");
   const [utilityUnit, setUtilityUnit] = useState("หน่วย");
-  const [utilityPeriodStart, setUtilityPeriodStart] = useState(monthStartString());
-  const [utilityPeriodEnd, setUtilityPeriodEnd] = useState(todayString());
+  const [utilityPeriodStart, setUtilityPeriodStart] = useState(() => getMonthStartString(businessTodayString(clientProfile)));
+  const [utilityPeriodEnd, setUtilityPeriodEnd] = useState(() => businessTodayString(clientProfile));
   const [utilityPreviousReading, setUtilityPreviousReading] = useState("");
   const [utilityCurrentReading, setUtilityCurrentReading] = useState("");
   const [utilityRate, setUtilityRate] = useState("");
@@ -411,6 +405,17 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+
+  useEffect(() => {
+    if (documentId) return;
+    const realToday = businessTodayString(null);
+    if (issueDate === realToday) setIssueDate(businessToday);
+    if (paymentDate === realToday) setPaymentDate(businessToday);
+    if (utilityPeriodEnd === realToday) setUtilityPeriodEnd(businessToday);
+    if (utilityPeriodStart === getMonthStartString(realToday)) {
+      setUtilityPeriodStart(getMonthStartString(businessToday));
+    }
+  }, [businessToday, documentId, issueDate, paymentDate, utilityPeriodEnd, utilityPeriodStart]);
 
   const serviceItems = useMemo(() => items.filter((item) => item.item_type === "service"), [items]);
   const jobDetailServiceItems = useMemo(
@@ -1109,9 +1114,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         createdDealId = deal.id;
       }
 
-      const now = todayString();
       const documentIssueDate = isTaxInvoiceReceipt ? paymentDate : issueDate;
-      const docNumber = docNumberOverride || await generateDocNumberBE(userId, type, documentIssueDate);
+      const docNumber = await resolveDocNumber(userId, type, documentIssueDate, docNumberOverride, documentId);
 
       const docPayload: Record<string, unknown> = {
         user_id: userId,
@@ -1227,7 +1231,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         toast.success("สร้างเอกสารสำเร็จ");
         navigate("/home");
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       if (createdDocumentId) {
         await restoreStockOnVoid(createdDocumentId, userId).catch(() => undefined);
         await supabase.from("billing_note_invoices").delete().eq("billing_note_id", createdDocumentId);
@@ -1237,6 +1241,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       if (createdDealId) {
         await supabase.from("deals").delete().eq("id", createdDealId);
       }
+      const friendlyMessage = getDocNumberErrorMessage(err);
+      toast.error(friendlyMessage);
+      setError(friendlyMessage);
+      return;
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการบันทึก");
       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการบันทึก");
     } finally {
@@ -2138,7 +2146,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           value={docNumberOverride}
           onChange={setDocNumberOverride}
           placeholder="เลขที่เอกสาร (เว้นว่าง = สร้างอัตโนมัติ)"
-          autoGenerate={async () => await generateDocNumberBE(userId!, type, isTaxInvoiceReceipt ? paymentDate : issueDate)}
+          autoGenerate={async () => await resolveDocNumber(userId!, type, isTaxInvoiceReceipt ? paymentDate : issueDate)}
           className="mb-3"
         />
 

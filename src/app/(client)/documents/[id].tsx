@@ -17,7 +17,8 @@ import { supabase } from "../../../lib/supabase";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { deleteDocumentFiles } from "../../../lib/r2";
-import { generateDocNumberBE } from "../../../lib/docNumber";
+import { assertDocNumberAvailable, resolveDocNumber } from "../../../lib/docNumber";
+import { businessTodayString } from "../../../lib/devDate";
 import { deductStockOnDocumentSent } from "../../../lib/stock";
 import { EditableDocNumber, EditableDocNumberInline } from "../../../components/documents/EditableDocNumber";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../../constants";
@@ -33,7 +34,7 @@ import {
   isPastDate,
   RECEIPT_BACKDATE_REASON_OPTIONS,
   toLocalMiddayIso,
-  todayString,
+  todayString as realTodayString,
 } from "../../../lib/receiptBackdating";
 import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice } from "../../../types";
 
@@ -84,6 +85,8 @@ export default function DocumentDetailPage() {
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
+  const businessToday = businessTodayString(clientProfile);
+  const todayString = () => businessToday;
 
   const [doc, setDoc] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +103,7 @@ export default function DocumentDetailPage() {
   const [payAmount, setPayAmount] = useState(0);
   const toast = useToast();
   const [payWhtCert, setPayWhtCert] = useState("");
-  const [payDate, setPayDate] = useState(todayString());
+  const [payDate, setPayDate] = useState(() => realTodayString());
   const [payBackdateReason, setPayBackdateReason] = useState("");
   const [payBackdateNote, setPayBackdateNote] = useState("");
   const [paying, setPaying] = useState(false);
@@ -115,6 +118,10 @@ export default function DocumentDetailPage() {
   const [dnInvoiceRef, setDnInvoiceRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [copiedFromRef, setCopiedFromRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [replacementRef, setReplacementRef] = useState<{ id: string; doc_number: string | null } | null>(null);
+
+  useEffect(() => {
+    if (payDate === realTodayString()) setPayDate(businessToday);
+  }, [businessToday, payDate]);
 
   const fetchDoc = async () => {
     if (!id) return;
@@ -239,8 +246,8 @@ export default function DocumentDetailPage() {
       let recreatedIsUtility = false;
 
       if (voidAndRecreate) {
-        const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
-        const newDocNumber = docNumberOverride || await generateDocNumberBE(userId, doc.doc_type, issueDate);
+        const issueDate = doc.issue_date || todayString();
+        const newDocNumber = await resolveDocNumber(userId, doc.doc_type, issueDate, docNumberOverride);
         const { data: newDoc } = await supabase
           .from("documents")
           .insert({
@@ -363,7 +370,7 @@ export default function DocumentDetailPage() {
 
   const executePay = async () => {
     if (!doc || !userId) return;
-    const isBackdatedReceipt = isPastDate(payDate);
+    const isBackdatedReceipt = isPastDate(payDate, businessToday);
     if (isBackdatedReceipt && !payBackdateReason) {
       setError("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
       return;
@@ -375,6 +382,7 @@ export default function DocumentDetailPage() {
         selectedDate: payDate,
         userId,
         reason: composeReceiptBackdateReason(payBackdateReason, payBackdateNote),
+        today: businessToday,
       });
       const receiptInvoiceSources = await getReceiptInvoiceSources(doc, userId);
       await supabase
@@ -402,7 +410,7 @@ export default function DocumentDetailPage() {
         }
       }
 
-      const recNumber = docNumberOverride || await generateDocNumberBE(userId, "receipt", payDate);
+      const recNumber = await resolveDocNumber(userId, "receipt", payDate, docNumberOverride);
       const { data: receipt, error: receiptError } = await supabase.from("documents").insert({
         user_id: userId,
         deal_id: doc.deal_id,
@@ -462,8 +470,8 @@ export default function DocumentDetailPage() {
     }
     setActionLoading("convert");
     try {
-      const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
-      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "invoice", issueDate);
+      const issueDate = doc.issue_date || todayString();
+      const docNumber = await resolveDocNumber(userId, "invoice", issueDate, docNumberOverride);
       const { data: invoice } = await supabase
         .from("documents")
         .insert({
@@ -536,8 +544,8 @@ export default function DocumentDetailPage() {
     if (!doc || !userId) return;
     setActionLoading("copy");
     try {
-      const issueDate = doc.issue_date || new Date().toISOString().slice(0, 10);
-      const docNumber = docNumberOverride || await generateDocNumberBE(userId, doc.doc_type, issueDate);
+      const issueDate = doc.issue_date || todayString();
+      const docNumber = await resolveDocNumber(userId, doc.doc_type, issueDate, docNumberOverride);
       const { data: copy } = await supabase
         .from("documents")
         .insert({
@@ -741,8 +749,10 @@ export default function DocumentDetailPage() {
                 <EditableDocNumberInline
                   value={doc.doc_number || "-"}
                   onSave={async (newValue) => {
-                    if (!id) return;
+                    if (!id || !userId) return;
+                    await assertDocNumberAvailable(userId, newValue, id);
                     const { error } = await supabase.from("documents").update({ doc_number: newValue }).eq("id", id);
+                    if (error) throw error;
                     if (!error) {
                       setDoc((prev) => prev ? { ...prev, doc_number: newValue } : prev);
                       toast.success("เปลี่ยนเลขที่เอกสารแล้ว");
@@ -1602,7 +1612,7 @@ export default function DocumentDetailPage() {
             max={todayString()}
             onChange={(e) => setPayDate(e.target.value)}
           />
-          {isPastDate(payDate) && (
+          {isPastDate(payDate, businessToday) && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
               <p className="text-sm font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
               <p className="mt-1 text-xs leading-5 text-amber-800">

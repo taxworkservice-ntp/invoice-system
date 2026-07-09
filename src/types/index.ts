@@ -81,6 +81,7 @@ export interface ClientProfile {
   signature_url: string | null;
   stamp_url: string | null;
   dev_mode_enabled: boolean;
+  dev_effective_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +104,7 @@ export interface DocNumberSequence {
   last_year: number | null;
   last_month: number | null;
   last_sequence: number;
+  start_sequence: number;
 }
 
 export interface Customer {

@@ -7,10 +7,11 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
-import { generateDocNumberBE } from "../../lib/docNumber";
+import { resolveDocNumber } from "../../lib/docNumber";
+import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
 import { formatCurrency } from "../../lib/format";
@@ -30,10 +31,6 @@ type DeliveryLine = {
   delivered: number;
   pending: number;
 };
-
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function round3(value: number) {
   return Math.round(value * 1000) / 1000;
@@ -60,13 +57,16 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   const navigate = useNavigate();
   const { profile } = useAuth();
   const userId = profile?.id;
+  const { clientProfile } = useClientProfile(userId);
+  const businessToday = businessTodayString(clientProfile);
+  const todayString = () => businessToday;
   const toast = useToast();
 
   const [quotation, setQuotation] = useState<QuotationWithCustomer | null>(null);
   const [quotationLines, setQuotationLines] = useState<DocumentLineItem[]>([]);
   const [lines, setLines] = useState<DeliveryLine[]>([]);
   const [existingDraft, setExistingDraft] = useState<{ id: string; doc_number: string | null } | null>(null);
-  const [issueDate, setIssueDate] = useState(todayString());
+  const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,6 +74,12 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   const [error, setError] = useState("");
   const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(true);
   const isEditing = Boolean(documentId);
+
+  useEffect(() => {
+    if (documentId) return;
+    const realToday = businessTodayString(null);
+    if (issueDate === realToday) setIssueDate(businessToday);
+  }, [businessToday, documentId, issueDate]);
 
   useEffect(() => {
     if (!quotationId || !userId) return;
@@ -270,7 +276,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
     let createdDocId: string | null = null;
 
     try {
-      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "delivery_note", issueDate);
+      const docNumber = await resolveDocNumber(userId, "delivery_note", issueDate, docNumberOverride, documentId);
       const docPayload = {
           user_id: userId,
           deal_id: quotation.deal_id,
@@ -556,7 +562,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               value={docNumberOverride}
               onChange={setDocNumberOverride}
               placeholder="เลขที่ใบส่งของ (เว้นว่าง = สร้างอัตโนมัติ)"
-              autoGenerate={async () => userId ? await generateDocNumberBE(userId, "delivery_note", issueDate) : ""}
+              autoGenerate={async () => userId ? await resolveDocNumber(userId, "delivery_note", issueDate, undefined, documentId) : ""}
               className="mb-3"
             />
           </div>

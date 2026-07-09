@@ -15,7 +15,8 @@ import { useCustomers } from "../../hooks/useCustomers";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { formatBuddhistDate } from "../../lib/dates";
-import { generateDocNumberBE } from "../../lib/docNumber";
+import { assertDocNumberAvailable, resolveDocNumber } from "../../lib/docNumber";
+import { addDaysString, businessTodayString } from "../../lib/devDate";
 import { deleteDocumentFiles } from "../../lib/r2";
 import { WHT_RATE_OPTIONS } from "../../constants";
 import type {
@@ -46,16 +47,6 @@ type FormErrors = Partial<
   Record<"customer" | "invoices" | "dueDate" | "general", string>
 >;
 type AutoSaveState = "idle" | "saving" | "saved" | "error";
-
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function addDays(dateString: string, days: number) {
-  const date = new Date(dateString);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-}
 
 function resolveCreditTermDays(
   customer: Customer | null | undefined,
@@ -95,6 +86,8 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
+  const businessToday = businessTodayString(clientProfile);
+  const todayString = () => businessToday;
   const {
     customers,
     loading: customersLoading,
@@ -122,8 +115,17 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   );
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
-  const [issueDate, setIssueDate] = useState(todayString());
-  const [dueDate, setDueDate] = useState(addDays(todayString(), 7));
+  const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
+  const [dueDate, setDueDate] = useState(() => addDaysString(businessTodayString(clientProfile), 7));
+
+  useEffect(() => {
+    if (documentId) return;
+    const realToday = businessTodayString(null);
+    if (issueDate === realToday) {
+      setIssueDate(businessToday);
+      setDueDate(addDaysString(businessToday, resolveCreditTermDays(selectedCustomer, clientProfile?.credit_term_days)));
+    }
+  }, [businessToday, clientProfile?.credit_term_days, documentId, issueDate, selectedCustomer]);
 
   useEffect(() => {
     if (clientProfile && !documentId) {
@@ -131,7 +133,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         selectedCustomer,
         clientProfile.credit_term_days,
       );
-      setDueDate(addDays(issueDate, days));
+      setDueDate(addDaysString(issueDate, days));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientProfile, selectedCustomer]);
@@ -443,7 +445,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         setIssueDate(document.issue_date);
         setDueDate(
           document.due_date ||
-            addDays(
+            addDaysString(
               document.issue_date,
               resolveCreditTermDays(
                 document.customer,
@@ -640,8 +642,13 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         note: note || null,
       };
 
+      if (docNumberOverride.trim()) {
+        await assertDocNumberAvailable(userId, docNumberOverride.trim(), currentDocumentId);
+        payload.doc_number = docNumberOverride.trim();
+      }
+
       if (options?.assignDocNumber && !payload.doc_number) {
-        payload.doc_number = await generateDocNumberBE(
+        payload.doc_number = await resolveDocNumber(
           userId,
           "billing_note",
           issueDate,
@@ -935,11 +942,13 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               <EditableDocNumberInline
                 value={existingDocument?.doc_number || "-"}
                 onSave={async (newValue) => {
-                  if (!currentDocumentId) return;
-                  await supabase
+                  if (!currentDocumentId || !userId) return;
+                  await assertDocNumberAvailable(userId, newValue, currentDocumentId);
+                  const { error } = await supabase
                     .from("documents")
                     .update({ doc_number: newValue })
                     .eq("id", currentDocumentId);
+                  if (error) throw error;
                   setExistingDocument((prev) =>
                     prev ? { ...prev, doc_number: newValue } : prev,
                   );
@@ -1050,7 +1059,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                   setIssueDate(nextValue);
                   if (!dueDate)
                     setDueDate(
-                      addDays(
+                      addDaysString(
                         nextValue,
                         resolveCreditTermDays(
                           selectedCustomer,
@@ -1340,7 +1349,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           placeholder="เลขที่ใบวางบิล (เว้นว่าง = สร้างอัตโนมัติ)"
           autoGenerate={async () =>
             userId
-              ? await generateDocNumberBE(userId, "billing_note", issueDate)
+              ? await resolveDocNumber(userId, "billing_note", issueDate)
               : ""
           }
           className="mb-3 px-4 md:px-0"

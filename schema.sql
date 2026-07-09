@@ -206,6 +206,7 @@ create table client_profiles (
 
   -- Dev mode flag (admin-granted per client)
   dev_mode_enabled      boolean not null default false,
+  dev_effective_date    date,
 
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
@@ -269,6 +270,7 @@ create table doc_number_sequences (
   last_year       int,                       -- year of last issued number
   last_month      int,                       -- month of last issued number
   last_sequence   int not null default 0,    -- last sequence number used
+  start_sequence  int not null default 1 check (start_sequence >= 1),
   unique (user_id, doc_type)
 );
 
@@ -560,6 +562,10 @@ create policy "Client manages workspace documents"
 create policy "Admin reads all documents"
   on documents for select
   using (public.is_admin());
+
+create unique index uq_documents_user_doc_number
+  on documents(user_id, doc_number)
+  where doc_number is not null;
 
 -- Index for common queries
 create index idx_documents_user_status   on documents(user_id, status);
@@ -868,7 +874,7 @@ begin
       and doc_number is not null;
   end if;
 
-  v_next_seq := v_existing_max + 1;
+  v_next_seq := greatest(v_existing_max + 1, coalesce(v_seq.start_sequence, 1));
 
   -- Update sequence record
   update doc_number_sequences

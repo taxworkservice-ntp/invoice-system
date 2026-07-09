@@ -12,7 +12,8 @@ import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
-import { generateDocNumberBE } from "../../lib/docNumber";
+import { resolveDocNumber } from "../../lib/docNumber";
+import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
 import { formatCurrency } from "../../lib/format";
@@ -25,14 +26,11 @@ type DeliveryNoteOption = Document & {
   active_invoice_id?: string | null;
 };
 
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function defaultDeliveryNoteStartString() {
-  const date = new Date();
+function defaultDeliveryNoteStartString(today = localTodayString()) {
+  const [year, month, day] = today.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() - 90);
-  return date.toISOString().slice(0, 10);
+  return localTodayString(date);
 }
 
 function buildItemSummary(items: DocumentLineItem[]) {
@@ -75,14 +73,16 @@ export function InvoiceFromDeliveryNotesForm() {
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
+  const businessToday = businessTodayString(clientProfile);
+  const todayString = () => businessToday;
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const toast = useToast();
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
-  const [dateFrom, setDateFrom] = useState(defaultDeliveryNoteStartString());
-  const [dateTo, setDateTo] = useState(todayString());
-  const [issueDate, setIssueDate] = useState(todayString());
+  const [dateFrom, setDateFrom] = useState(() => defaultDeliveryNoteStartString(businessTodayString(clientProfile)));
+  const [dateTo, setDateTo] = useState(() => businessTodayString(clientProfile));
+  const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
   const [note, setNote] = useState("");
 
@@ -98,6 +98,15 @@ export function InvoiceFromDeliveryNotesForm() {
       setWhtRate(clientProfile.default_wht_rate);
     }
   }, [clientProfile]);
+
+  useEffect(() => {
+    const realToday = businessTodayString(null);
+    if (dateTo === realToday) setDateTo(businessToday);
+    if (issueDate === realToday) setIssueDate(businessToday);
+    if (dateFrom === defaultDeliveryNoteStartString(realToday)) {
+      setDateFrom(defaultDeliveryNoteStartString(businessToday));
+    }
+  }, [businessToday, dateFrom, dateTo, issueDate]);
 
   useEffect(() => {
     if (!preselectedDnId || !userId) return;
@@ -313,7 +322,7 @@ export function InvoiceFromDeliveryNotesForm() {
         createdDealId = deal.id;
       }
 
-      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "invoice", issueDate);
+      const docNumber = await resolveDocNumber(userId, "invoice", issueDate, docNumberOverride);
       const { data: invoice, error: invoiceError } = await supabase
         .from("documents")
         .insert({
@@ -638,7 +647,7 @@ export function InvoiceFromDeliveryNotesForm() {
               value={docNumberOverride}
               onChange={setDocNumberOverride}
               placeholder="เลขที่ใบแจ้งหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
-              autoGenerate={async () => userId ? await generateDocNumberBE(userId, "invoice", issueDate) : ""}
+              autoGenerate={async () => userId ? await resolveDocNumber(userId, "invoice", issueDate) : ""}
               className="mb-3"
             />
             <Button className="w-full justify-center" disabled={!canSave || saving} loading={saving} onClick={handleSave}>

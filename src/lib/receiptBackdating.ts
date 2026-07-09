@@ -22,12 +22,14 @@ export function buildReceiptBackdateFields({
   selectedDate,
   userId,
   reason,
+  today,
 }: {
   selectedDate: string;
   userId: string;
   reason: string;
+  today?: string;
 }) {
-  if (!isPastDate(selectedDate)) {
+  if (!isPastDate(selectedDate, today || todayString())) {
     return {
       backdated_at: null,
       backdated_by_user_id: null,

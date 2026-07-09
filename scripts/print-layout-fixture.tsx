@@ -67,6 +67,7 @@ const clientProfile: ClientProfile = {
   signature_url: image("SIGN", "#475467"),
   stamp_url: image("PAID", "#dc2626"),
   dev_mode_enabled: false,
+  dev_effective_date: null,
   created_at: now,
   updated_at: now,
 };

@@ -11,7 +11,8 @@ import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { supabase } from "../../../lib/supabase";
-import { generateDocNumberBE } from "../../../lib/docNumber";
+import { resolveDocNumber } from "../../../lib/docNumber";
+import { businessTodayString } from "../../../lib/devDate";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
@@ -23,7 +24,7 @@ import {
   isPastDate,
   RECEIPT_BACKDATE_REASON_OPTIONS,
   toLocalMiddayIso,
-  todayString,
+  todayString as realTodayString,
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
@@ -140,6 +141,8 @@ export default function DealDetailPage() {
   const [deal, setDeal] = useState<Deal | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
+  const businessToday = businessTodayString(clientProfile);
+  const todayString = () => businessToday;
   const [docsWithMeta, setDocsWithMeta] = useState<DocWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -154,7 +157,7 @@ export default function DealDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
   const [amountReceived, setAmountReceived] = useState(0);
   const [whtCertificateNo, setWhtCertificateNo] = useState("");
-  const [paymentDate, setPaymentDate] = useState(todayString());
+  const [paymentDate, setPaymentDate] = useState(() => realTodayString());
   const [paymentBackdateReason, setPaymentBackdateReason] = useState("");
   const [paymentBackdateNote, setPaymentBackdateNote] = useState("");
   const [paying, setPaying] = useState(false);
@@ -170,6 +173,10 @@ export default function DealDetailPage() {
   const toast = useToast();
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [bulkDownloading, setBulkDownloading] = useState(false);
+
+  useEffect(() => {
+    if (paymentDate === realTodayString()) setPaymentDate(businessToday);
+  }, [businessToday, paymentDate]);
 
   const fetchDealData = useCallback(async () => {
     if (!dealId || !userId) {
@@ -368,8 +375,8 @@ export default function DealDetailPage() {
         throw new Error("ใบเสนอราคานี้ถูกแปลงเป็นใบแจ้งหนี้แล้ว");
       }
 
-      const issueDate = quotation.issue_date || new Date().toISOString().slice(0, 10);
-      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "invoice", issueDate);
+      const issueDate = quotation.issue_date || todayString();
+      const docNumber = await resolveDocNumber(userId, "invoice", issueDate, docNumberOverride);
 
       const lineItems = docsWithMeta.find((item) => item.document.id === quotation.id)?.line_items || [];
 
@@ -480,7 +487,7 @@ export default function DealDetailPage() {
 
   const executeConfirmPayment = async () => {
     if (!payDocument || !userId || !dealId) return;
-    if (isPastDate(paymentDate) && !paymentBackdateReason) {
+    if (isPastDate(paymentDate, businessToday) && !paymentBackdateReason) {
       toast.error("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
       return;
     }
@@ -491,6 +498,7 @@ export default function DealDetailPage() {
         selectedDate: paymentDate,
         userId,
         reason: composeReceiptBackdateReason(paymentBackdateReason, paymentBackdateNote),
+        today: businessToday,
       });
       const receiptInvoiceSources = await getReceiptInvoiceSources(payDocument, userId);
 
@@ -519,7 +527,7 @@ export default function DealDetailPage() {
       }
 
       const issueDate = paymentDate;
-      const docNumber = docNumberOverride || await generateDocNumberBE(userId, "receipt", issueDate);
+      const docNumber = await resolveDocNumber(userId, "receipt", issueDate, docNumberOverride);
 
       const { data: receipt, error: receiptError } = await supabase.from("documents").insert({
         user_id: userId,
@@ -606,8 +614,8 @@ export default function DealDetailPage() {
       await voidDocumentWithSideEffects(voidDocument, userId, voidReason);
 
       if (voidAndRecreate) {
-        const issueDate = voidDocument.issue_date || new Date().toISOString().slice(0, 10);
-        const newDocNumber = docNumberOverride || await generateDocNumberBE(userId, voidDocument.doc_type, issueDate);
+        const issueDate = voidDocument.issue_date || todayString();
+        const newDocNumber = await resolveDocNumber(userId, voidDocument.doc_type, issueDate, docNumberOverride);
 
         const { data: newDoc } = await supabase
           .from("documents")
@@ -830,8 +838,8 @@ export default function DealDetailPage() {
       if (dealError || !newDeal) throw dealError || new Error("ไม่สามารถเริ่มงานขายใหม่ได้");
 
       if (sourceDoc) {
-        const issueDate = new Date().toISOString().slice(0, 10);
-        const docNumber = docNumberOverride || await generateDocNumberBE(userId, "quotation", issueDate);
+        const issueDate = todayString();
+        const docNumber = await resolveDocNumber(userId, "quotation", issueDate, docNumberOverride);
         const { data: quotationDoc, error: docError } = await supabase
           .from("documents")
           .insert({
@@ -2010,7 +2018,7 @@ export default function DealDetailPage() {
                 onChange={(e) => setPaymentDate(e.target.value)}
               />
 
-              {isPastDate(paymentDate) && (
+              {isPastDate(paymentDate, businessToday) && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
                   <p className="text-sm font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
                   <p className="mt-1 text-xs leading-5 text-amber-800">
