@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [savingNumbers, setSavingNumbers] = useState(false);
   const [numberError, setNumberError] = useState("");
   const [numbersSaved, setNumbersSaved] = useState(false);
+  const [devEffectiveDate, setDevEffectiveDate] = useState("");
 
   const [stockTrigger, setStockTrigger] = useState("invoice");
   const [savingStock, setSavingStock] = useState(false);
@@ -106,7 +107,7 @@ export default function SettingsPage() {
       if (!seqRes.error && seqRes.data) {
         const map: Record<string, DocNumberSequence> = {};
         for (const seq of seqRes.data as DocNumberSequence[]) {
-          map[seq.doc_type] = seq;
+          map[seq.doc_type] = { ...seq, start_sequence: seq.start_sequence ?? 1 };
         }
         setSequences(map);
       }
@@ -135,6 +136,7 @@ export default function SettingsPage() {
       setStampKey((clientProfile as any).stamp_url || null);
       setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
       setClassicTerms(clientProfile.classic_terms || "");
+      setDevEffectiveDate(clientProfile.dev_effective_date || "");
     }
   }, [clientProfile]);
 
@@ -146,12 +148,21 @@ export default function SettingsPage() {
     return sequences[docType]?.reset_yearly ?? true;
   }
 
+  function getStartSequence(docType: DocumentType): number {
+    return sequences[docType]?.start_sequence ?? 1;
+  }
+
   function setPrefix(docType: DocumentType, value: string) {
     setPrefixesChanged(true);
     setNumbersSaved(false);
     setSequences((prev) => ({
       ...prev,
-      [docType]: { ...prev[docType], doc_type: docType, prefix: value } as DocNumberSequence,
+      [docType]: {
+        ...prev[docType],
+        doc_type: docType,
+        prefix: value,
+        start_sequence: prev[docType]?.start_sequence ?? 1,
+      } as DocNumberSequence,
     }));
   }
 
@@ -160,7 +171,26 @@ export default function SettingsPage() {
     setNumbersSaved(false);
     setSequences((prev) => ({
       ...prev,
-      [docType]: { ...prev[docType], doc_type: docType, reset_yearly: value } as DocNumberSequence,
+      [docType]: {
+        ...prev[docType],
+        doc_type: docType,
+        reset_yearly: value,
+        start_sequence: prev[docType]?.start_sequence ?? 1,
+      } as DocNumberSequence,
+    }));
+  }
+
+  function setStartSequence(docType: DocumentType, value: string) {
+    const parsed = Math.max(1, Math.floor(Number(value) || 1));
+    setPrefixesChanged(true);
+    setNumbersSaved(false);
+    setSequences((prev) => ({
+      ...prev,
+      [docType]: {
+        ...prev[docType],
+        doc_type: docType,
+        start_sequence: parsed,
+      } as DocNumberSequence,
     }));
   }
 
@@ -305,23 +335,33 @@ export default function SettingsPage() {
       const existing = sequences[docType];
       const prefix = getPrefix(docType);
       const resetYearly = getResetYearly(docType);
+      const startSequence = getStartSequence(docType);
 
       if (existing?.id) {
-        return { id: existing.id, prefix, reset_yearly: resetYearly };
+        return { id: existing.id, prefix, reset_yearly: resetYearly, start_sequence: startSequence };
       }
-      return { user_id: userId, doc_type: docType, prefix, reset_yearly: resetYearly, last_sequence: 0 };
+      return { user_id: userId, doc_type: docType, prefix, reset_yearly: resetYearly, last_sequence: 0, start_sequence: startSequence };
     });
 
     const upserts = rows.map((row) => {
       if ("id" in row && row.id) {
         return supabase
           .from("doc_number_sequences")
-          .update({ prefix: row.prefix, reset_yearly: row.reset_yearly })
+          .update({ prefix: row.prefix, reset_yearly: row.reset_yearly, start_sequence: row.start_sequence })
           .eq("id", row.id);
       }
       const { id: _id, ...insertRow } = row as any;
       return supabase.from("doc_number_sequences").insert(insertRow);
     });
+
+    if (clientProfile?.dev_mode_enabled) {
+      upserts.push(
+        supabase
+          .from("client_profiles")
+          .update({ dev_effective_date: devEffectiveDate || null })
+          .eq("user_id", userId),
+      );
+    }
 
     const results = await Promise.all(upserts);
     const hasError = results.some((r) => r.error);
@@ -330,6 +370,12 @@ export default function SettingsPage() {
       setNumberError(msg);
       toast.error(msg);
     } else {
+      if (clientProfile?.dev_mode_enabled) {
+        setClientProfile({
+          ...clientProfile,
+          dev_effective_date: devEffectiveDate || null,
+        });
+      }
       setNumbersSaved(true);
       setPrefixesChanged(false);
       toast.success("บันทึกแล้ว");
@@ -755,8 +801,42 @@ export default function SettingsPage() {
               ตั้งค่า prefix และรูปแบบเลขที่สำหรับแต่ละประเภทเอกสาร
             </p>
 
+            {clientProfile.dev_mode_enabled && (
+              <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-3">
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,220px)_auto] sm:items-end">
+                  <Input
+                    id="devEffectiveDate"
+                    label="DEV fixed business date"
+                    type="date"
+                    value={devEffectiveDate}
+                    onChange={(e) => {
+                      setDevEffectiveDate(e.target.value);
+                      setPrefixesChanged(true);
+                      setNumbersSaved(false);
+                    }}
+                    className="border-amber-300 bg-white"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setDevEffectiveDate("");
+                      setPrefixesChanged(true);
+                      setNumbersSaved(false);
+                    }}
+                    disabled={!devEffectiveDate || savingNumbers}
+                  >
+                    Clear fixed date
+                  </Button>
+                </div>
+                <p className="mt-2 text-[11px] text-amber-800">
+                  Used as the default issue/payment date only. Audit timestamps stay real.
+                </p>
+              </div>
+            )}
+
             {DOC_TYPES.map((docType) => (
-              <div key={docType} className="flex items-center gap-3 pb-2 border-b border-[#E8E6DF]/50 last:border-0">
+              <div key={docType} className="flex flex-wrap items-center gap-3 pb-2 border-b border-[#E8E6DF]/50 last:border-0">
                 <span className="text-[13px] text-[#1A1A18] w-[110px] shrink-0">
                   {DOC_TYPE_LABELS[docType].th}
                 </span>
@@ -771,6 +851,19 @@ export default function SettingsPage() {
                     ตัวอย่าง: {getPrefix(docType) || "..."}-{currentYear}-{currentMonth}-001
                   </span>
                 </div>
+                {clientProfile.dev_mode_enabled && (
+                  <label className="flex items-center gap-1.5 text-[11px] text-amber-800">
+                    Start at
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={getStartSequence(docType)}
+                      onChange={(e) => setStartSequence(docType, e.target.value)}
+                      className="w-[70px] rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-right text-xs font-mono text-[#1A1A18] focus:border-amber-400 focus:outline-none"
+                    />
+                  </label>
+                )}
               </div>
             ))}
 
