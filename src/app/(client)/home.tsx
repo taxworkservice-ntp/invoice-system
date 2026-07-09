@@ -884,7 +884,7 @@ export default function HomePage() {
                   <div className="h-2 w-2 rounded-full bg-primary" />
                   <div className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">
                     {homeFilter === "all"
-                      ? "ต้องทำวันนี้ / กำลังดำเนินการ"
+                      ? "กำลังดำเนินการ"
                       : quickFilters.find(
                           (filter) => filter.value === homeFilter,
                         )?.label}
