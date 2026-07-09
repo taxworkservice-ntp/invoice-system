@@ -162,9 +162,11 @@ export default async function handler(req, res) {
     const pdfBuffer = await page.pdf(pdfOptions);
 
     const filename = filenameFor(document, docOwner?.company_name_th);
+    const asciiFallback = filename.replace(/[^\x20-\x7E]/g, "_");
+    const encodedFilename = encodeURIComponent(filename);
     res.status(200);
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedFilename}`);
     res.setHeader("Cache-Control", "no-store");
     res.send(pdfBuffer);
   } catch (error) {
