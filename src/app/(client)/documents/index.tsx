@@ -32,12 +32,13 @@ import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
-import { useWorkspaceRole } from "../../../hooks/useAuth";
+import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { deleteDocumentFiles } from "../../../lib/r2";
+import { businessTodayString } from "../../../lib/devDate";
 import {
   DOC_TYPE_COLORS,
   DOC_TYPE_LABELS,
@@ -1041,6 +1042,9 @@ export default function DocumentsPage() {
   );
   const toast = useToast();
   const { documents, loading, refetch } = useDocuments(profile?.id);
+  const { clientProfile } = useClientProfile(profile?.id);
+  const businessToday = businessTodayString(clientProfile);
+  const devIssueDate = clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -1148,7 +1152,7 @@ export default function DocumentsPage() {
     setInlineLoading(doc.id);
     try {
       if (action === "send") {
-        const { warnings } = await sendDocumentWithSideEffects(doc, profile.id);
+        const { warnings } = await sendDocumentWithSideEffects(doc, profile.id, { issueDate: devIssueDate });
         warnings.forEach((warning) =>
           toast.info(`${warning.itemName} สต็อกไม่พอ`),
         );
@@ -1171,7 +1175,10 @@ export default function DocumentsPage() {
       } else if (action === "issue_cn") {
         await supabase
           .from("documents")
-          .update({ status: "issued" as DocumentStatus })
+          .update({
+            status: "issued" as DocumentStatus,
+            ...(devIssueDate ? { issue_date: devIssueDate } : {}),
+          })
           .eq("id", doc.id);
         toast.success("ออกใบลดหนี้แล้ว");
       }

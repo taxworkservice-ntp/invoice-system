@@ -142,6 +142,7 @@ export default function DealDetailPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const businessToday = businessTodayString(clientProfile);
+  const devIssueDate = clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
   const todayString = () => businessToday;
   const [docsWithMeta, setDocsWithMeta] = useState<DocWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -324,7 +325,7 @@ export default function DealDetailPage() {
     }
     setActionLoadingId(doc.id);
     try {
-      const { warnings } = await sendDocumentWithSideEffects(doc, userId);
+      const { warnings } = await sendDocumentWithSideEffects(doc, userId, { issueDate: devIssueDate });
       warnings.forEach((w) =>
         toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
       );

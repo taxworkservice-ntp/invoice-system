@@ -86,6 +86,7 @@ export default function DocumentDetailPage() {
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
   const businessToday = businessTodayString(clientProfile);
+  const devIssueDate = clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
   const todayString = () => businessToday;
 
   const [doc, setDoc] = useState<Document | null>(null);
@@ -1251,7 +1252,7 @@ export default function DocumentDetailPage() {
               onClick={async () => {
                 setActionLoading("send");
                 try {
-                  const { warnings } = await sendDocumentWithSideEffects(doc, userId!);
+                  const { warnings } = await sendDocumentWithSideEffects(doc, userId!, { issueDate: devIssueDate });
                   warnings.forEach((w) =>
                     toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
                   );
@@ -1278,7 +1279,10 @@ export default function DocumentDetailPage() {
                 try {
                   await supabase
                     .from("documents")
-                    .update({ status: "issued" as DocumentStatus })
+                    .update({
+                      status: "issued" as DocumentStatus,
+                      ...(devIssueDate ? { issue_date: devIssueDate } : {}),
+                    })
                     .eq("id", doc.id);
                   await fetchDoc();
                   toast.success("ออกใบลดหนี้แล้ว");

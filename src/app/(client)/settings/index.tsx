@@ -72,6 +72,7 @@ export default function SettingsPage() {
   const [numberError, setNumberError] = useState("");
   const [numbersSaved, setNumbersSaved] = useState(false);
   const [devEffectiveDate, setDevEffectiveDate] = useState("");
+  const [bulkStartSequence, setBulkStartSequence] = useState(1);
 
   const [stockTrigger, setStockTrigger] = useState("invoice");
   const [savingStock, setSavingStock] = useState(false);
@@ -192,6 +193,24 @@ export default function SettingsPage() {
         start_sequence: parsed,
       } as DocNumberSequence,
     }));
+  }
+
+  function applyStartSequenceToAll() {
+    const parsed = Math.max(1, Math.floor(Number(bulkStartSequence) || 1));
+    setBulkStartSequence(parsed);
+    setPrefixesChanged(true);
+    setNumbersSaved(false);
+    setSequences((prev) => {
+      const next = { ...prev };
+      for (const docType of DOC_TYPES) {
+        next[docType] = {
+          ...next[docType],
+          doc_type: docType,
+          start_sequence: parsed,
+        } as DocNumberSequence;
+      }
+      return next;
+    });
   }
 
   async function handleSaveProfile() {
@@ -832,6 +851,26 @@ export default function SettingsPage() {
                 <p className="mt-2 text-[11px] text-amber-800">
                   Used as the default issue/payment date only. Audit timestamps stay real.
                 </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,220px)_auto] sm:items-end">
+                  <Input
+                    id="bulkStartSequence"
+                    label="Apply Start at to all"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={bulkStartSequence}
+                    onChange={(e) => setBulkStartSequence(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+                    className="border-amber-300 bg-white font-mono"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={applyStartSequenceToAll}
+                    disabled={savingNumbers}
+                  >
+                    Apply to all documents
+                  </Button>
+                </div>
               </div>
             )}
 

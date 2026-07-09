@@ -9,6 +9,10 @@ export interface SendDocumentResult {
   warnings: StockWarning[];
 }
 
+interface SendDocumentOptions {
+  issueDate?: string;
+}
+
 function getSentStatus(document: SendableDocument): DocumentStatus {
   return document.doc_type === "tax_invoice_receipt" ? "issued" : "sent";
 }
@@ -24,6 +28,7 @@ function canCreateStockMovement(document: SendableDocument): boolean {
 export async function sendDocumentWithSideEffects(
   document: SendableDocument,
   userId: string,
+  options: SendDocumentOptions = {},
 ): Promise<SendDocumentResult> {
   const targetStatus = getSentStatus(document);
   const stockResult = canCreateStockMovement(document)
@@ -32,7 +37,10 @@ export async function sendDocumentWithSideEffects(
 
   const { error } = await supabase
     .from("documents")
-    .update({ status: targetStatus })
+    .update({
+      status: targetStatus,
+      ...(options.issueDate ? { issue_date: options.issueDate } : {}),
+    })
     .eq("id", document.id);
 
   if (error) {

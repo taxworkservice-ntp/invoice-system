@@ -26,6 +26,7 @@ export default function SettingsNumberingPage() {
   const { isDevMode } = useDevMode();
   const [sequences, setSequences] = useState<Record<string, DocNumberSequence>>({});
   const [devEffectiveDate, setDevEffectiveDate] = useState("");
+  const [bulkStartSequence, setBulkStartSequence] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const toast = useToast();
@@ -99,6 +100,22 @@ export default function SettingsNumberingPage() {
         start_sequence: parsed,
       } as DocNumberSequence,
     }));
+  }
+
+  function applyStartSequenceToAll() {
+    const parsed = Math.max(1, Math.floor(Number(bulkStartSequence) || 1));
+    setBulkStartSequence(parsed);
+    setSequences((prev) => {
+      const next = { ...prev };
+      for (const docType of DOC_TYPES) {
+        next[docType] = {
+          ...next[docType],
+          doc_type: docType,
+          start_sequence: parsed,
+        } as DocNumberSequence;
+      }
+      return next;
+    });
   }
 
   async function handleSave() {
@@ -212,6 +229,21 @@ export default function SettingsNumberingPage() {
                 <p className="mt-2 text-xs text-amber-800">
                   Used as the default issue/payment date only. Audit timestamps stay real.
                 </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,240px)_auto] sm:items-end">
+                  <Input
+                    id="bulkStartSequence"
+                    label="Apply Start at to all"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={bulkStartSequence}
+                    onChange={(event) => setBulkStartSequence(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
+                    className="border-amber-300 bg-white font-mono"
+                  />
+                  <Button type="button" variant="secondary" onClick={applyStartSequenceToAll} disabled={saving}>
+                    Apply to all documents
+                  </Button>
+                </div>
               </div>
             )}
 
