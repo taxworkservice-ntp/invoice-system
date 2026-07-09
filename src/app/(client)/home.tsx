@@ -881,15 +881,13 @@ export default function HomePage() {
             <section>
               <div className="mb-3 space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5">
-                    <span className="h-2 w-2 rounded-full bg-primary" />
-                    <span className="text-[11px] font-semibold text-blue-700 whitespace-nowrap">
-                      {homeFilter === "all"
-                        ? "ต้องทำวันนี้ / กำลังดำเนินการ"
-                        : quickFilters.find(
-                            (filter) => filter.value === homeFilter,
-                          )?.label}
-                    </span>
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                  <div className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">
+                    {homeFilter === "all"
+                      ? "ต้องทำวันนี้ / กำลังดำเนินการ"
+                      : quickFilters.find(
+                          (filter) => filter.value === homeFilter,
+                        )?.label}
                   </div>
                   <div className="ml-auto text-[11px] text-gray-400">
                     {activeDeals.length} รายการ
@@ -1139,9 +1137,11 @@ export default function HomePage() {
                 <div className="border-t border-card-border pt-1" />
                 <section>
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      <span className="text-[11px] font-semibold text-emerald-700 whitespace-nowrap">เสร็จสิ้นล่าสุด</span>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                      <div className="text-xs font-semibold uppercase tracking-[0.05em] text-emerald-700">
+                        เสร็จสิ้นล่าสุด
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] text-gray-400">
