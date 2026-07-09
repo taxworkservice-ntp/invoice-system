@@ -106,9 +106,9 @@ export default async function handler(req, res) {
     }
 
     const { data: docOwner, error: docOwnerError } = await supabaseAdmin
-      .from("profiles")
+      .from("client_profiles")
       .select("company_name_th")
-      .eq("id", document.user_id)
+      .eq("user_id", document.user_id)
       .single();
 
     const origin = originFromRequest(req);
