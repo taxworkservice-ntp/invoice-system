@@ -9,7 +9,7 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { DOC_TYPE_LABELS } from "../../../constants";
 import type { DocumentType, Customer } from "../../../types";
-import { Download, FileText, FileSpreadsheet } from "lucide-react";
+import { Download, FileText, FileSpreadsheet, BarChart3, Package, Receipt, Users } from "lucide-react";
 
 const PRESET_TYPES: { key: string; label: string; docType: DocumentType; variant: "thisMonth" | "unpaid" }[] = [
   { key: "invoice", label: "ใบแจ้งหนี้เดือนนี้", docType: "invoice", variant: "thisMonth" },
@@ -359,72 +359,78 @@ export default function DownloadCenterPage() {
         {/* ---- รายงาน ---- */}
         <Card>
           <div className="space-y-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">รายงาน</div>
-
-            {/* Financial */}
-            <div className="border-t border-card-border pt-4">
-              <div className="text-[11px] font-semibold text-gray-500 mb-2">รายงานการเงิน</div>
-              <div className="flex items-end gap-2 flex-wrap">
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-0.5">เดือน</label>
-                  <select value={finMonth} onChange={(e) => setFinMonth(Number(e.target.value))} className="rounded-lg border border-[#E8E6DF] px-2.5 py-1.5 text-xs bg-white">
-                    {["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."].map((l, i) => (<option key={i} value={i + 1}>{l}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-0.5">ปี</label>
-                  <select value={finYear} onChange={(e) => setFinYear(Number(e.target.value))} className="rounded-lg border border-[#E8E6DF] px-2.5 py-1.5 text-xs bg-white">
-                    {[currentYear - 1, currentYear, currentYear + 1].map((y) => (<option key={y} value={y}>{y + 543}</option>))}
-                  </select>
-                </div>
-                <Button size="sm" variant="secondary" loading={reportExporting === "financial"} onClick={handleExportFinancialCsv} disabled={busy}>
-                  <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />ดาวน์โหลด CSV
-                </Button>
-              </div>
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">รายงาน</div>
+              <div className="text-[10px] text-gray-400">XLSX / CSV</div>
             </div>
 
-            {/* Stock */}
-            <div className="border-t border-card-border pt-4">
-              <div className="text-[11px] font-semibold text-gray-500 mb-2">รายงานสต็อก</div>
-              <div className="flex items-end gap-2 flex-wrap">
-                <div><label className="block text-[10px] text-gray-400 mb-0.5">จากวันที่</label><input type="date" value={stockFrom} onChange={(e) => setStockFrom(e.target.value)} className="rounded-lg border border-[#E8E6DF] px-2.5 py-1.5 text-xs bg-white" /></div>
-                <div><label className="block text-[10px] text-gray-400 mb-0.5">ถึงวันที่</label><input type="date" value={stockTo} onChange={(e) => setStockTo(e.target.value)} className="rounded-lg border border-[#E8E6DF] px-2.5 py-1.5 text-xs bg-white" /></div>
-                <Button size="sm" variant="secondary" loading={reportExporting === "stock"} onClick={handleExportStockXlsx} disabled={busy}>
-                  <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />ดาวน์โหลด XLSX
-                </Button>
-              </div>
-            </div>
-
-            {/* VAT */}
-            <div className="border-t border-card-border pt-4">
-              <div className="text-[11px] font-semibold text-gray-500 mb-2">รายงานภาษีมูลค่าเพิ่ม</div>
-              <div className="flex items-end gap-2 flex-wrap">
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-0.5">เดือน</label>
-                  <select value={vatMonth} onChange={(e) => setVatMonth(Number(e.target.value))} className="rounded-lg border border-[#E8E6DF] px-2.5 py-1.5 text-xs bg-white">
-                    {["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."].map((l, i) => (<option key={i} value={i + 1}>{l}</option>))}
-                  </select>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {/* Financial */}
+              <ReportCard
+                icon={<BarChart3 className="h-4 w-4" />}
+                title="รายงานการเงิน"
+                description="ยอดขาย ลูกหนี้ รายการธุรกรรม"
+                format="XLSX"
+                exporting={reportExporting === "financial"}
+                disabled={busy}
+                onDownload={handleExportFinancialCsv}
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  <MonthSelect label="เดือน" value={finMonth} onChange={setFinMonth} />
+                  <YearSelect label="ปี" value={finYear} onChange={setFinYear} />
                 </div>
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-0.5">ปี</label>
-                  <select value={vatYear} onChange={(e) => setVatYear(Number(e.target.value))} className="rounded-lg border border-[#E8E6DF] px-2.5 py-1.5 text-xs bg-white">
-                    {[currentYear - 1, currentYear, currentYear + 1].map((y) => (<option key={y} value={y}>{y + 543}</option>))}
-                  </select>
-                </div>
-                <Button size="sm" variant="secondary" loading={reportExporting === "vat"} onClick={handleExportVatCsv} disabled={busy}>
-                  <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />ดาวน์โหลด CSV
-                </Button>
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">เฉพาะใบกำกับภาษีที่ออกแล้ว</p>
-            </div>
+              </ReportCard>
 
-            {/* AR */}
-            <div className="border-t border-card-border pt-4">
-              <div className="text-[11px] font-semibold text-gray-500 mb-2">สรุปลูกหนี้คงค้าง</div>
-              <Button size="sm" variant="secondary" loading={reportExporting === "ar"} onClick={handleExportArCsv} disabled={busy}>
-                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />ดาวน์โหลด CSV
-              </Button>
-              <p className="text-[10px] text-gray-400 mt-1">ใบวางบิลที่ยังไม่ชำระ แยกตามลูกค้า</p>
+              {/* Stock */}
+              <ReportCard
+                icon={<Package className="h-4 w-4" />}
+                title="รายงานสต็อก"
+                description="มูลค่า ความเคลื่อนไหว แจ้งเติม"
+                format="XLSX"
+                exporting={reportExporting === "stock"}
+                disabled={busy}
+                onDownload={handleExportStockXlsx}
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-0.5">จากวันที่</label>
+                    <input type="date" value={stockFrom} onChange={(e) => setStockFrom(e.target.value)} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-0.5">ถึงวันที่</label>
+                    <input type="date" value={stockTo} onChange={(e) => setStockTo(e.target.value)} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20" />
+                  </div>
+                </div>
+              </ReportCard>
+
+              {/* VAT */}
+              <ReportCard
+                icon={<Receipt className="h-4 w-4" />}
+                title="ภาษีมูลค่าเพิ่ม (VAT)"
+                description="ใบกำกับภาษีรายเดือน — ใช้ยื่น ภ.พ.30"
+                format="CSV"
+                exporting={reportExporting === "vat"}
+                disabled={busy}
+                onDownload={handleExportVatCsv}
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  <MonthSelect label="เดือน" value={vatMonth} onChange={setVatMonth} />
+                  <YearSelect label="ปี" value={vatYear} onChange={setVatYear} />
+                </div>
+              </ReportCard>
+
+              {/* AR */}
+              <ReportCard
+                icon={<Users className="h-4 w-4" />}
+                title="สรุปลูกหนี้คงค้าง"
+                description="ใบวางบิลที่ยังไม่ชำระ แยกตามลูกค้า"
+                format="CSV"
+                exporting={reportExporting === "ar"}
+                disabled={busy}
+                onDownload={handleExportArCsv}
+              >
+                <div className="text-[10px] text-gray-400 px-1 pt-1">ข้อมูล ณ ปัจจุบัน</div>
+              </ReportCard>
             </div>
           </div>
         </Card>
@@ -449,5 +455,70 @@ function CustomerQuickSelect({ value, onChange, userId }: { value: string; onCha
       <option value="">ทั้งหมด</option>
       {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</option>))}
     </select>
+  );
+}
+
+const MONTH_LABELS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+function MonthSelect({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div>
+      <label className="block text-[10px] text-gray-500 mb-0.5">{label}</label>
+      <select value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20">
+        {MONTH_LABELS.map((l, i) => (<option key={i} value={i + 1}>{l}</option>))}
+      </select>
+    </div>
+  );
+}
+
+function YearSelect({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  const now = new Date().getFullYear();
+  return (
+    <div>
+      <label className="block text-[10px] text-gray-500 mb-0.5">{label}</label>
+      <select value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20">
+        {[now - 1, now, now + 1].map((y) => (<option key={y} value={y}>{y + 543}</option>))}
+      </select>
+    </div>
+  );
+}
+
+function ReportCard({
+  icon,
+  title,
+  description,
+  format,
+  exporting,
+  disabled,
+  onDownload,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  format: "XLSX" | "CSV";
+  exporting: boolean;
+  disabled: boolean;
+  onDownload: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col rounded-lg border border-card-border bg-white p-4 transition-colors hover:border-primary/30 hover:bg-blue-50/30">
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="shrink-0 rounded-md bg-blue-50 text-primary p-1.5">{icon}</div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-[#1A1A18] truncate">{title}</div>
+            <div className="text-[11px] text-gray-500 leading-snug">{description}</div>
+          </div>
+        </div>
+        <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-mono font-semibold text-gray-600">{format}</span>
+      </div>
+      <div className="mt-2 flex-1">{children}</div>
+      <Button size="sm" variant="secondary" loading={exporting} onClick={onDownload} disabled={disabled} className="w-full mt-3">
+        {!exporting && <Download className="mr-1.5 h-3.5 w-3.5" />}
+        {exporting ? "กำลังสร้าง..." : "ดาวน์โหลด"}
+      </Button>
+    </div>
   );
 }
