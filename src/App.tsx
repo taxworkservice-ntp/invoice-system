@@ -21,7 +21,10 @@ const CatalogPage = lazy(() => import("./app/(client)/catalog/index"));
 const CatalogItemPage = lazy(() => import("./app/(client)/catalog/[id]"));
 const CatalogEditPage = lazy(() => import("./app/(client)/catalog/edit"));
 const CatalogNewPage = lazy(() => import("./app/(client)/catalog/new"));
-const SettingsPage = lazy(() => import("./app/(client)/settings/index"));
+const SettingsProfilePage = lazy(() => import("./app/(client)/settings/profile"));
+const SettingsTaxPage = lazy(() => import("./app/(client)/settings/tax"));
+const SettingsNumberingPage = lazy(() => import("./app/(client)/settings/numbering"));
+const SettingsStockPage = lazy(() => import("./app/(client)/settings/stock"));
 const ReportsPage = lazy(() => import("./app/(client)/reports/index"));
 const CustomersPage = lazy(() => import("./app/(client)/customers/index"));
 const CustomerDetailPage = lazy(() => import("./app/(client)/customers/[id]"));
@@ -81,7 +84,11 @@ export default function App() {
             <Route path="/customers" element={permissions.canManageCustomers ? <CustomersPage /> : <Navigate to="/home" replace />} />
             <Route path="/customers/:id" element={permissions.canManageCustomers ? <CustomerDetailPage /> : <Navigate to="/home" replace />} />
             <Route path="/reports" element={permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings" element={permissions.canManageSettings ? <SettingsPage /> : <Navigate to="/home" replace />} />
+            <Route path="/settings/profile" element={permissions.canManageSettings ? <SettingsProfilePage /> : <Navigate to="/home" replace />} />
+            <Route path="/settings/tax" element={permissions.canManageSettings ? <SettingsTaxPage /> : <Navigate to="/home" replace />} />
+            <Route path="/settings/numbering" element={permissions.canManageSettings ? <SettingsNumberingPage /> : <Navigate to="/home" replace />} />
+            <Route path="/settings/stock" element={permissions.canManageSettings ? <SettingsStockPage /> : <Navigate to="/home" replace />} />
+            <Route path="/settings" element={permissions.canManageSettings ? <Navigate to="/settings/profile" replace /> : <Navigate to="/home" replace />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </>
         ) : role === "admin" ? (
