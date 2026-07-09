@@ -43,7 +43,7 @@ type DealDoc = Pick<
 type DealWithRelations = Deal & {
   customers: Pick<
     Customer,
-    "id" | "name" | "avatar_initials" | "avatar_color"
+    "id" | "name" | "code" | "avatar_initials" | "avatar_color"
   > | null;
   documents: DealDoc[];
   deal_number: string | null;
@@ -53,6 +53,7 @@ type DashboardDeal = {
   dealId: string;
   dealNumber: string | null;
   customerName: string;
+  customerCode: string | null;
   customerAvatar: Pick<
     Customer,
     "name" | "avatar_initials" | "avatar_color"
@@ -397,6 +398,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     dealId: deal.id,
     dealNumber: (deal as any).deal_number || null,
     customerName: deal.customers?.name || "ลูกค้า",
+    customerCode: deal.customers?.code || null,
     customerAvatar: deal.customers
       ? {
           name: deal.customers.name,
@@ -470,7 +472,7 @@ export default function HomePage() {
         .select(
           `
         *,
-        customers(id, name, avatar_initials, avatar_color),
+        customers(id, name, code, avatar_initials, avatar_color),
         documents(
           id, doc_type, doc_number, status,
           total_amount, net_payable, due_date, paid_at,
@@ -1092,6 +1094,7 @@ export default function HomePage() {
                     <DealCard
                       key={deal.dealId}
                       customerName={deal.customerName}
+                      customerCode={deal.customerCode}
                       customerAvatar={deal.customerAvatar}
                       itemSummary={
                         deal.itemSummary ||
@@ -1142,6 +1145,7 @@ export default function HomePage() {
                       <DoneDealCard
                         key={deal.dealId}
                         customerName={deal.customerName}
+                        customerCode={deal.customerCode}
                         customerAvatar={deal.customerAvatar}
                         itemSummary={
                           deal.itemSummary ||

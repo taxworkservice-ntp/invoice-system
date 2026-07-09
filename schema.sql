@@ -306,6 +306,7 @@ create table customers (
   phone           text,
   email           text,
   note            text,
+  code            text,
 
   is_active       boolean not null default true,
   created_at      timestamptz not null default now(),
@@ -322,6 +323,10 @@ create policy "Client manages workspace customers"
 create policy "Admin reads all customers"
   on customers for select
   using (public.is_admin());
+
+create unique index idx_customers_user_code_unique
+  on customers (user_id, lower(code))
+  where code is not null;
 
 
 -- ============================================================

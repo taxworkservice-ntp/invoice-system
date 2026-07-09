@@ -99,6 +99,7 @@ export default function CustomerDetailPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editContact, setEditContact] = useState("");
+  const [editCode, setEditCode] = useState("");
   const [editCreditTerm, setEditCreditTerm] = useState<string>("");
   const [editAvatarInitials, setEditAvatarInitials] = useState("");
   const [editAvatarColor, setEditAvatarColor] = useState("");
@@ -157,6 +158,7 @@ export default function CustomerDetailPage() {
         setEditPhone(custRes.data.phone || "");
         setEditEmail(custRes.data.email || "");
         setEditContact(custRes.data.contact_name || "");
+        setEditCode(custRes.data.code || "");
         setEditCreditTerm(custRes.data.credit_term_days != null ? String(custRes.data.credit_term_days) : "");
         setEditAvatarInitials(custRes.data.avatar_initials || "");
         setEditAvatarColor(custRes.data.avatar_color || "");
@@ -194,6 +196,7 @@ export default function CustomerDetailPage() {
         phone: editPhone || null,
         email: editEmail || null,
         contact_name: editContact || null,
+        code: editCode.trim() || null,
         credit_term_days: creditTermValue,
         avatar_initials: avatarInitials,
         avatar_color: avatarColor,
@@ -514,6 +517,12 @@ export default function CustomerDetailPage() {
                 type="email"
               />
               <Input
+                label="รหัสลูกค้า"
+                value={editCode}
+                onChange={(e) => setEditCode(e.target.value.toUpperCase())}
+                placeholder="เช่น JMK-001"
+              />
+              <Input
                 label="ชื่อผู้ติดต่อ"
                 value={editContact}
                 onChange={(e) => setEditContact(e.target.value)}
@@ -554,6 +563,12 @@ export default function CustomerDetailPage() {
         ) : (
           <Card>
             <div className="space-y-2">
+              {customer.code && (
+                <div>
+                  <span className="text-[11px] text-[#888780]">รหัสลูกค้า: </span>
+                  <span className="text-[13px] text-primary font-mono font-medium">{customer.code}</span>
+                </div>
+              )}
               {customer.tax_id && (
                 <div>
                   <span className="text-[11px] text-[#888780]">เลขผู้เสียภาษี: </span>

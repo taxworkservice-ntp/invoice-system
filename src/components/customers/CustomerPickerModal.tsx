@@ -12,12 +12,13 @@ interface CustomerPickerModalProps {
   taxSensitive?: boolean;
   onSelect: (customer: Customer) => void;
   onClose: () => void;
-  onCreate?: (customer: Pick<Customer, "name" | "tax_id" | "address">) => Promise<Customer>;
+  onCreate?: (customer: Pick<Customer, "name" | "code" | "tax_id" | "address">) => Promise<Customer>;
 }
 
 function customerSearchText(customer: Customer) {
   return [
     customer.name,
+    customer.code || "",
     customer.tax_id || "",
     customer.contact_name || "",
     customer.phone || "",
@@ -37,7 +38,7 @@ export function CustomerPickerModal({
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: "", tax_id: "", address: "" });
+  const [newCustomer, setNewCustomer] = useState({ name: "", code: "", tax_id: "", address: "" });
 
   const sortedCustomers = useMemo(
     () => [...customers].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th")),
@@ -56,10 +57,11 @@ export function CustomerPickerModal({
     try {
       const customer = await onCreate({
         name: newCustomer.name.trim(),
+        code: newCustomer.code.trim() || null,
         tax_id: newCustomer.tax_id.trim() || null,
         address: newCustomer.address.trim() || null,
       });
-      setNewCustomer({ name: "", tax_id: "", address: "" });
+      setNewCustomer({ name: "", code: "", tax_id: "", address: "" });
       setAdding(false);
       setSearch("");
       onSelect(customer);
@@ -76,7 +78,7 @@ export function CustomerPickerModal({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             className="pl-9"
-            placeholder="ค้นหาชื่อ เลขผู้เสียภาษี เบอร์โทร หรือที่อยู่"
+            placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี เบอร์โทร หรือที่อยู่"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             autoFocus
@@ -88,6 +90,7 @@ export function CustomerPickerModal({
             <div className="mb-3 text-sm font-medium text-[#1A1A18]">เพิ่มลูกค้าใหม่</div>
             <div className="space-y-2">
               <Input label="ชื่อลูกค้า" value={newCustomer.name} onChange={(event) => setNewCustomer((prev) => ({ ...prev, name: event.target.value }))} />
+              <Input label="รหัสลูกค้า" value={newCustomer.code} onChange={(event) => setNewCustomer((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))} placeholder="เช่น JMK-001" />
               <Input label="เลขผู้เสียภาษี" value={newCustomer.tax_id} onChange={(event) => setNewCustomer((prev) => ({ ...prev, tax_id: event.target.value }))} />
               <Input label="ที่อยู่" value={newCustomer.address} onChange={(event) => setNewCustomer((prev) => ({ ...prev, address: event.target.value }))} />
               <div className="flex gap-2">
@@ -135,6 +138,7 @@ export function CustomerPickerModal({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="break-words text-sm font-semibold text-[#1A1A18]">{customer.name}</span>
+                          {customer.code && <span className="text-xs font-mono text-primary font-medium">{customer.code}</span>}
                           {customer.is_favorite && <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">

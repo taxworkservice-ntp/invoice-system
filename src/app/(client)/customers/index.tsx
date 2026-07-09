@@ -111,6 +111,7 @@ export default function CustomersPage() {
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newContact, setNewContact] = useState("");
+  const [newCode, setNewCode] = useState("");
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -171,7 +172,8 @@ export default function CustomersPage() {
           (c.tax_id && c.tax_id.includes(q)) ||
           (c.address && c.address.toLowerCase().includes(q)) ||
           (c.phone && c.phone.toLowerCase().includes(q)) ||
-          (c.contact_name && c.contact_name.toLowerCase().includes(q)),
+          (c.contact_name && c.contact_name.toLowerCase().includes(q)) ||
+          (c.code && c.code.toLowerCase().includes(q)),
       );
     }
     return list;
@@ -208,6 +210,7 @@ export default function CustomersPage() {
           phone: newPhone || null,
           email: newEmail || null,
           contact_name: newContact || null,
+          code: newCode || null,
           is_active: true,
         })
         .select("*")
@@ -221,6 +224,7 @@ export default function CustomersPage() {
       setNewPhone("");
       setNewEmail("");
       setNewContact("");
+      setNewCode("");
       setShowAddSheet(false);
       toast.success("เพิ่มลูกค้าแล้ว");
       refetch();
@@ -241,7 +245,7 @@ export default function CustomersPage() {
               ref={searchRef}
               type="text"
               className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-[14px] py-[10px] text-[14px] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
-              placeholder="ค้นหาชื่อลูกค้า หรือเลขผู้เสียภาษี..."
+              placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -395,6 +399,11 @@ export default function CustomersPage() {
                       <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
                         {c.name}
                       </div>
+                      {c.code && (
+                        <div className="text-[11px] text-primary font-mono font-medium mt-0.5">
+                          {c.code}
+                        </div>
+                      )}
                       {c.tax_id ? (
                         <div className="text-[11px] text-[#888780] mt-1 font-mono truncate">
                           {c.tax_id}
@@ -453,6 +462,7 @@ export default function CustomersPage() {
                       onClick={() => customerSort.handleSort("name")}
                       className={TABLE.thSortable}
                     />
+                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500 whitespace-nowrap">รหัส</th>
                     <SortableTh
                       label="เลขผู้เสียภาษี"
                       align="left"
@@ -532,6 +542,9 @@ export default function CustomersPage() {
                             <span className="font-semibold text-[#111827] truncate">{c.name}</span>
                           </div>
                         </td>
+                        <td className="px-3 py-2 font-mono text-[12px] text-primary font-medium truncate">
+                          {c.code || <span className="text-[#AAAAAA] italic font-sans">—</span>}
+                        </td>
                         <td className="px-3 py-2 font-mono text-[12px] text-[#475467] truncate">
                           {c.tax_id || <span className="text-[#AAAAAA] italic font-sans">—</span>}
                         </td>
@@ -601,6 +614,11 @@ export default function CustomersPage() {
                         <div className="text-[14px] font-semibold text-[#1A1A18] truncate">
                           {c.name}
                         </div>
+                        {c.code && (
+                          <div className="text-[12px] text-primary font-mono font-medium mt-0.5">
+                            {c.code}
+                          </div>
+                        )}
                         {isIncomplete(c) && (
                           <span className="inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
                             <AlertTriangle size={10} />
@@ -677,6 +695,12 @@ export default function CustomersPage() {
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 type="email"
+              />
+              <Input
+                label="รหัสลูกค้า"
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+                placeholder="เช่น JMK-001"
               />
               <Input
                 label="ชื่อผู้ติดต่อ"

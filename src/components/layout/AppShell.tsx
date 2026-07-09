@@ -38,17 +38,7 @@ const WORKSPACE_ROLE_LABELS: Record<ClientMemberRole, string> = {
   officer: "Officer",
 };
 
-function getInitials(name: string) {
-  const compact = name.trim();
-  if (!compact) return "IS";
-  const words = compact.split(/\s+/).filter(Boolean);
-  if (words.length > 1) {
-    return words.slice(0, 2).map(w => w[0]).join("").toUpperCase();
-  }
-  return compact.slice(0, 2).toUpperCase();
-}
-
-function WorkspaceMark({ profile, companyName }: { profile: ClientProfile | null; companyName: string }) {
+function WorkspaceMark({ profile }: { profile: ClientProfile | null }) {
   const [logoFailed, setLogoFailed] = useState(false);
   const logoUrl = profile?.logo_url && !logoFailed ? getProxiedImageUrl(profile.logo_url) : null;
 
@@ -60,11 +50,7 @@ function WorkspaceMark({ profile, companyName }: { profile: ClientProfile | null
     );
   }
 
-  return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#D6E4F5] bg-[#EEF6FF] text-[11px] font-semibold text-primary">
-      {getInitials(companyName)}
-    </div>
-  );
+  return null;
 }
 
 export function AppShell({ title, showBack, action, breadcrumbs, children }: AppShellProps) {
@@ -111,7 +97,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
             onClick={() => navigate("/home")}
             className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#F7F6F3] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
           >
-            <WorkspaceMark profile={clientProfile} companyName={companyName} />
+            <WorkspaceMark profile={clientProfile} />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center">
                 <h1 className="truncate text-sm font-semibold text-[#1A1A18]" title={companyName}>

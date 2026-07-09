@@ -117,6 +117,7 @@ export interface Customer {
   phone: string | null;
   email: string | null;
   note: string | null;
+  code: string | null;
   is_active: boolean;
   is_favorite: boolean;
   avatar_initials: string | null;

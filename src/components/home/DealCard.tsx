@@ -5,6 +5,7 @@ import type { Customer } from "../../types";
 
 interface DealCardProps {
   customerName: string;
+  customerCode?: string | null;
   customerAvatar?: Pick<Customer, "name" | "avatar_initials" | "avatar_color"> | null;
   itemSummary: string;
   itemNames?: string[];
@@ -39,6 +40,7 @@ const ITEM_CHIP_CLASS = "bg-[#F7F6F3] text-[#62605A]";
 
 export function DealCard({
   customerName,
+  customerCode,
   customerAvatar,
   itemSummary,
   itemNames = [],
@@ -68,8 +70,13 @@ export function DealCard({
         <CustomerAvatar customer={avatarCustomer} size="sm" className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 text-sm font-semibold text-[#1A1A18] truncate">
-              {customerName}
+            <div className="min-w-0 flex flex-col gap-0.5">
+              <div className="text-sm font-semibold text-[#1A1A18] truncate">
+                {customerName}
+              </div>
+              {customerCode && (
+                <span className="text-[10px] text-primary font-mono font-medium">{customerCode}</span>
+              )}
             </div>
             <div className="text-sm font-semibold text-[#1A1A18] shrink-0">{amountText}</div>
           </div>
