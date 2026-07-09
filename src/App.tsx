@@ -27,6 +27,7 @@ const SettingsNumberingPage = lazy(() => import("./app/(client)/settings/numberi
 const SettingsStockPage = lazy(() => import("./app/(client)/settings/stock"));
 const SettingsAccountPage = lazy(() => import("./app/(client)/settings/account"));
 const ReportsPage = lazy(() => import("./app/(client)/reports/index"));
+const DownloadCenterPage = lazy(() => import("./app/(client)/download-center/index"));
 const CustomersPage = lazy(() => import("./app/(client)/customers/index"));
 const CustomerDetailPage = lazy(() => import("./app/(client)/customers/[id]"));
 const AdminClients = lazy(() => import("./app/(admin)/clients"));
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="/customers" element={permissions.canManageCustomers ? <CustomersPage /> : <Navigate to="/home" replace />} />
             <Route path="/customers/:id" element={permissions.canManageCustomers ? <CustomerDetailPage /> : <Navigate to="/home" replace />} />
             <Route path="/reports" element={permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />} />
+            <Route path="/download-center" element={<DownloadCenterPage />} />
             <Route path="/settings/profile" element={permissions.canManageSettings ? <SettingsProfilePage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/tax" element={permissions.canManageSettings ? <SettingsTaxPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/numbering" element={permissions.canManageSettings ? <SettingsNumberingPage /> : <Navigate to="/home" replace />} />

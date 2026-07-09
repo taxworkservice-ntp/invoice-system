@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, BarChart3, Package, Settings, Users, ChevronRight, ArrowLeft } from "lucide-react";
+import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
@@ -13,6 +13,7 @@ import type { ClientMemberRole, ClientProfile } from "../../types";
 const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
   "/documents": <FileText className="w-5 h-5" />,
+  "/download-center": <Download className="w-5 h-5" />,
   "/reports": <BarChart3 className="w-5 h-5" />,
   "/catalog": <Package className="w-5 h-5" />,
   "/customers": <Users className="w-5 h-5" />,
