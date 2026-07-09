@@ -72,6 +72,7 @@ type DashboardDeal = {
   documents: DealDoc[];
   isDone: boolean;
   isOverdue: boolean;
+  isEmpty: boolean;
   nextActionLabel: string;
   internalNote: string;
   noteAuthorRole: string;
@@ -420,6 +421,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     documents: deal.documents || [],
     isDone,
     isOverdue,
+    isEmpty: isDone && (deal.documents || []).filter((d) => d.status !== "voided").length === 0,
     nextActionLabel: getNextActionLabel(latestDocument),
     internalNote: latestNote,
     noteAuthorRole: latestNoteRole,
@@ -1160,6 +1162,7 @@ export default function HomePage() {
                             <th className={TABLE.thStatic}>วันที่ชำระ</th>
                             <th className={TABLE.thStatic}>จำนวนเงิน</th>
                             <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
+                            <th className={`${TABLE.thStatic} w-[60px]`}>สถานะ</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1173,36 +1176,43 @@ export default function HomePage() {
                               <tr
                                 key={deal.dealId}
                                 onClick={() => navigate(`/deals/${deal.dealId}`)}
-                                className={TABLE.tbodyTr}
+                                className={`${TABLE.tbodyTr} ${deal.isEmpty ? "opacity-40" : ""}`}
                               >
-                                <td className="px-3 py-2 whitespace-nowrap text-[11px] font-mono text-primary tabular-nums">
+                                <td className={`px-3 py-2 whitespace-nowrap text-[11px] font-mono tabular-nums ${deal.isEmpty ? "text-gray-300" : "text-primary"}`}>
                                   {deal.dealNumber || "-"}
                                 </td>
                                 <td className="px-3 py-2">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <CustomerAvatar customer={rowAvatar} size="sm" />
                                     <div className="min-w-0">
-                                      <div className="text-sm font-medium text-[#111827] truncate">
+                                      <div className={`text-sm font-medium truncate ${deal.isEmpty ? "text-gray-300" : "text-[#111827]"}`}>
                                         {deal.customerName}
                                       </div>
                                       {deal.customerCode && (
-                                        <div className="text-[10px] text-primary font-mono">{deal.customerCode}</div>
+                                        <div className={`text-[10px] font-mono ${deal.isEmpty ? "text-gray-300" : "text-primary"}`}>{deal.customerCode}</div>
                                       )}
                                     </div>
                                   </div>
                                 </td>
-                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
+                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums ${deal.isEmpty ? "text-gray-300" : ""}`}>
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
                                 </td>
-                                <td className="px-3 py-2 text-right font-medium text-[#111827] whitespace-nowrap">
+                                <td className={`px-3 py-2 text-right font-medium whitespace-nowrap ${deal.isEmpty ? "text-gray-300" : "text-[#111827]"}`}>
                                   ฿ {formatCurrency(deal.amount)}
                                 </td>
-                                <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px]`}>
+                                <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px] ${deal.isEmpty ? "text-gray-300" : ""}`}>
                                   <span className="truncate block">
                                     {deal.itemNames?.length
                                       ? deal.itemNames.slice(0, 2).join(", ")
                                       : deal.itemSummary || "-"}
                                   </span>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {deal.isEmpty ? (
+                                    <span className="text-xs text-gray-300">—</span>
+                                  ) : (
+                                    <span className="text-green-500 text-sm font-bold">✓</span>
+                                  )}
                                 </td>
                               </tr>
                             );
