@@ -96,7 +96,7 @@ export default async function handler(req, res) {
 
     const { data: document, error: documentError } = await supabaseAdmin
       .from("documents")
-      .select("id, user_id, doc_type, doc_number, issue_date, profiles(company_name_th)")
+      .select("id, user_id, doc_type, doc_number, issue_date")
       .eq("id", id)
       .single();
 
@@ -104,6 +104,12 @@ export default async function handler(req, res) {
     if (profile.role !== "admin" && document.user_id !== user.id) {
       throw new ApiError(403, "Forbidden");
     }
+
+    const { data: docOwner, error: docOwnerError } = await supabaseAdmin
+      .from("profiles")
+      .select("company_name_th")
+      .eq("id", document.user_id)
+      .single();
 
     const origin = originFromRequest(req);
     const exportUrl = new URL(`/documents/${encodeURIComponent(id)}/print`, origin);
@@ -153,7 +159,7 @@ export default async function handler(req, res) {
     }
     const pdfBuffer = await page.pdf(pdfOptions);
 
-    const filename = filenameFor(document, document.profiles?.company_name_th);
+    const filename = filenameFor(document, docOwner?.company_name_th);
     res.status(200);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
