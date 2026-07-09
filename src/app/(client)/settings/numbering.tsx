@@ -19,6 +19,7 @@ const TABS = [
   { label: "ภาษี", path: "/settings/tax" },
   { label: "เลขที่เอกสาร", path: "/settings/numbering" },
   { label: "สต็อก", path: "/settings/stock" },
+  { label: "บัญชี", path: "/settings/account" },
 ];
 
 export default function SettingsNumberingPage() {

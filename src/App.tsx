@@ -25,6 +25,7 @@ const SettingsProfilePage = lazy(() => import("./app/(client)/settings/profile")
 const SettingsTaxPage = lazy(() => import("./app/(client)/settings/tax"));
 const SettingsNumberingPage = lazy(() => import("./app/(client)/settings/numbering"));
 const SettingsStockPage = lazy(() => import("./app/(client)/settings/stock"));
+const SettingsAccountPage = lazy(() => import("./app/(client)/settings/account"));
 const ReportsPage = lazy(() => import("./app/(client)/reports/index"));
 const CustomersPage = lazy(() => import("./app/(client)/customers/index"));
 const CustomerDetailPage = lazy(() => import("./app/(client)/customers/[id]"));
@@ -88,6 +89,7 @@ export default function App() {
             <Route path="/settings/tax" element={permissions.canManageSettings ? <SettingsTaxPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/numbering" element={permissions.canManageSettings ? <SettingsNumberingPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/stock" element={permissions.canManageSettings ? <SettingsStockPage /> : <Navigate to="/home" replace />} />
+            <Route path="/settings/account" element={permissions.canManageSettings ? <SettingsAccountPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings" element={permissions.canManageSettings ? <Navigate to="/settings/profile" replace /> : <Navigate to="/home" replace />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </>

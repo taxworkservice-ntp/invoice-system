@@ -176,7 +176,7 @@ export default function CustomerDetailPage() {
       return;
     }
     setSaving(true);
-    const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 2) : null;
+    const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 3) : null;
     const avatarColor = useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor) ? editAvatarColor : null;
     const creditTermTrimmed = editCreditTerm.trim();
     const creditTermValue = creditTermTrimmed === "" ? null : parseInt(creditTermTrimmed, 10);
@@ -223,7 +223,7 @@ export default function CustomerDetailPage() {
   async function saveAvatar() {
     if (!customer) return;
     setSavingAvatar(true);
-    const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 2) : null;
+    const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 3) : null;
     const avatarColor = useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor) ? editAvatarColor : null;
     const { error: err } = await supabase
       .from("customers")
@@ -423,13 +423,13 @@ export default function CustomerDetailPage() {
                   <>
                     <div>
                       <div className="text-[11px] text-[#888780] mb-1.5">
-                        ตัวอักษร (สูงสุด 2 ตัว)
+                        ตัวอักษร (สูงสุด 3 ตัว)
                       </div>
                       <Input
                         value={editAvatarInitials}
-                        onChange={(e) => setEditAvatarInitials(e.target.value.toUpperCase().slice(0, 2))}
+                        onChange={(e) => setEditAvatarInitials(e.target.value.toUpperCase().slice(0, 3))}
                         placeholder="เช่น BP"
-                        maxLength={2}
+                        maxLength={3}
                         className="!w-24 !text-center font-semibold"
                       />
                     </div>
