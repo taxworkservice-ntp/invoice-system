@@ -322,7 +322,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 
 @page {
   size: A4;
-  margin: 8mm;
+  margin: 0;
 }
 
 @media print {

@@ -145,6 +145,8 @@ export default async function handler(req, res) {
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     });
 
+    await page.addStyleTag({ content: "@page { margin: 0 !important; }" });
+
     const useExplicitPageSize = process.env.PDF_USE_EXPLICIT_PAGE_SIZE !== "false";
     const pdfOptions = {
       printBackground: true,
