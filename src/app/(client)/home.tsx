@@ -14,7 +14,6 @@ import { useTableSort } from "../../components/ui/useTableSort";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
 import { SummaryRow } from "../../components/home/SummaryRow";
 import { DealCard } from "../../components/home/DealCard";
-import { DoneDealCard } from "../../components/home/DoneDealCard";
 import { NewDealSheet } from "../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
@@ -440,6 +439,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const [homeFilter, setHomeFilter] = useState<HomeFilter>("all");
+  const [donePage, setDonePage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
     const stored = window.localStorage.getItem("homeViewMode");
@@ -684,10 +684,20 @@ export default function HomePage() {
     () =>
       deals
         .filter((deal) => deal.isDone)
-        .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || ""))
-        .slice(0, 5),
+        .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || "")),
     [deals],
   );
+
+  const DONE_PAGE_SIZE = 15;
+  const totalDonePages = Math.max(1, Math.ceil(recentlyDone.length / DONE_PAGE_SIZE));
+  const paginatedDone = useMemo(
+    () => recentlyDone.slice((donePage - 1) * DONE_PAGE_SIZE, donePage * DONE_PAGE_SIZE),
+    [recentlyDone, donePage],
+  );
+
+  useEffect(() => {
+    if (donePage > totalDonePages) setDonePage(totalDonePages);
+  }, [totalDonePages, donePage]);
 
   const homeTitle = clientProfile?.company_name_th?.trim() || "หน้างานขาย";
   const actionCount = activeDealsAll.length;
@@ -1140,29 +1150,114 @@ export default function HomePage() {
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    {recentlyDone.map((deal) => (
-                      <DoneDealCard
-                        key={deal.dealId}
-                        customerName={deal.customerName}
-                        customerCode={deal.customerCode}
-                        customerAvatar={deal.customerAvatar}
-                        itemSummary={
-                          deal.itemSummary ||
-                          deal.latestDocument?.doc_number ||
-                          "ชำระเรียบร้อย"
-                        }
-                        itemNames={deal.itemNames}
-                        amountText={`฿ ${formatCurrency(deal.amount)}`}
-                        paidAtText={
-                          deal.paidAt
-                            ? formatBuddhistDate(deal.paidAt)
-                            : undefined
-                        }
-                        onTap={() => navigate(`/deals/${deal.dealId}`)}
-                      />
-                    ))}
+                  <div className="bg-white border border-card-border rounded-card overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className={TABLE.table}>
+                        <thead>
+                          <tr className={TABLE.theadTr}>
+                            <th className={`${TABLE.thStatic} w-[80px]`}>เลขที่ดีล</th>
+                            <th className={TABLE.thStatic}>ลูกค้า</th>
+                            <th className={TABLE.thStatic}>วันที่ชำระ</th>
+                            <th className={TABLE.thStatic}>จำนวนเงิน</th>
+                            <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedDone.map((deal) => {
+                            const rowAvatar = deal.customerAvatar ?? {
+                              name: deal.customerName,
+                              avatar_initials: null,
+                              avatar_color: null,
+                            };
+                            return (
+                              <tr
+                                key={deal.dealId}
+                                onClick={() => navigate(`/deals/${deal.dealId}`)}
+                                className={TABLE.tbodyTr}
+                              >
+                                <td className="px-3 py-2 whitespace-nowrap text-[11px] font-mono text-primary tabular-nums">
+                                  {deal.dealNumber || "-"}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <CustomerAvatar customer={rowAvatar} size="sm" />
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-medium text-[#111827] truncate">
+                                        {deal.customerName}
+                                      </div>
+                                      {deal.customerCode && (
+                                        <div className="text-[10px] text-primary font-mono">{deal.customerCode}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
+                                  {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
+                                </td>
+                                <td className="px-3 py-2 text-right font-medium text-[#111827] whitespace-nowrap">
+                                  ฿ {formatCurrency(deal.amount)}
+                                </td>
+                                <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px]`}>
+                                  <span className="truncate block">
+                                    {deal.itemNames?.length
+                                      ? deal.itemNames.slice(0, 2).join(", ")
+                                      : deal.itemSummary || "-"}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
+                  {totalDonePages > 1 && (
+                    <div className="flex items-center justify-center gap-1 mt-3">
+                      <button
+                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                        disabled={donePage === 1}
+                        onClick={() => setDonePage((p) => Math.max(1, p - 1))}
+                      >
+                        ←
+                      </button>
+                      {Array.from({ length: totalDonePages }, (_, i) => i + 1)
+                        .filter((p) => {
+                          if (totalDonePages <= 7) return true;
+                          if (p === 1 || p === totalDonePages) return true;
+                          if (Math.abs(p - donePage) <= 1) return true;
+                          return false;
+                        })
+                        .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                          if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                          acc.push(p);
+                          return acc;
+                        }, [])
+                        .map((p, i) =>
+                          p === "..." ? (
+                            <span key={`dots-${i}`} className="px-1 text-xs text-gray-300">…</span>
+                          ) : (
+                            <button
+                              key={p}
+                              className={`min-w-[28px] px-1.5 py-1 text-xs rounded ${
+                                donePage === p
+                                  ? "bg-primary text-white font-medium"
+                                  : "text-gray-500 hover:bg-gray-100"
+                              }`}
+                              onClick={() => setDonePage(p)}
+                            >
+                              {p}
+                            </button>
+                          ),
+                        )}
+                      <button
+                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                        disabled={donePage === totalDonePages}
+                        onClick={() => setDonePage((p) => Math.min(totalDonePages, p + 1))}
+                      >
+                        →
+                      </button>
+                    </div>
+                  )}
                 </section>
               </>
             )}
