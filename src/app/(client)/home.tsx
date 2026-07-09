@@ -1137,8 +1137,9 @@ export default function HomePage() {
                 <div className="border-t border-card-border pt-1" />
                 <section>
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">
-                      เสร็จสิ้นล่าสุด
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5">
+                      <span className="text-emerald-600 text-[10px] font-bold leading-none">✓</span>
+                      <span className="text-[11px] font-semibold text-emerald-700 whitespace-nowrap">เสร็จสิ้นล่าสุด</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] text-gray-400">
