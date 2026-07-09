@@ -1446,7 +1446,7 @@ export default function DocumentsPage() {
       if (dateFrom && doc.issue_date < dateFrom) return false;
       if (dateTo && doc.issue_date > dateTo) return false;
 
-      if (doc.issue_date) {
+      if (selectedMonth !== 0 && doc.issue_date) {
         const docDate = new Date(doc.issue_date);
         if (docDate.getMonth() + 1 !== selectedMonth) return false;
         if (docDate.getFullYear() !== selectedYear) return false;
@@ -1807,6 +1807,17 @@ export default function DocumentsPage() {
                 เดือน
               </label>
               <div className="flex gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth(0)}
+                  className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+                    selectedMonth === 0
+                      ? "border-primary bg-primary text-white"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  ทั้งหมด
+                </button>
                 {MONTH_LABELS.map((label, i) => (
                   <button
                     key={label}
@@ -1887,6 +1898,17 @@ export default function DocumentsPage() {
                 เดือน
               </label>
               <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth(0)}
+                  className={`shrink-0 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                    selectedMonth === 0
+                      ? "border-primary bg-primary text-white"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  ทั้งหมด
+                </button>
                 {MONTH_LABELS.map((label, i) => (
                   <button
                     key={label}
