@@ -82,8 +82,7 @@ async function handleDownloadUrl(req, res) {
 async function handleImageProxy(req, res) {
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET");
-    res.setHeader("Access-Control-Allow-Headers", "Authorization");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.status(204).end();
     return;
   }
@@ -93,7 +92,7 @@ async function handleImageProxy(req, res) {
   const key = typeof req.query.key === "string" ? req.query.key : "";
   if (!key) throw new ApiError(400, "Missing key");
 
-  await requireStorageAccess(req, key);
+  validateStorageKey(key);
 
   const signedUrl = await getDownloadSignedUrl(key);
   const imgRes = await fetch(signedUrl);

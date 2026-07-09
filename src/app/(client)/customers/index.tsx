@@ -198,6 +198,10 @@ export default function CustomersPage() {
 
   async function handleAddCustomer() {
     if (!newName.trim() || !profile?.id) return;
+    if (!newCode.trim()) {
+      toast.error("กรุณากรอกรหัสลูกค้า");
+      return;
+    }
     setSaving(true);
     try {
       const { data, error } = await supabase
@@ -664,11 +668,17 @@ export default function CustomersPage() {
 
             <div className="space-y-3">
               <Input
+                label="รหัสลูกค้า *"
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+                placeholder="เช่น JMK-001"
+                autoFocus
+              />
+              <Input
                 label="ชื่อบริษัท / ชื่อลูกค้า *"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="เช่น บริษัท มาลี จำกัด หรือ คุณสมชาย"
-                autoFocus
               />
               <div>
                 <Input
@@ -695,12 +705,6 @@ export default function CustomersPage() {
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 type="email"
-              />
-              <Input
-                label="รหัสลูกค้า"
-                value={newCode}
-                onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-                placeholder="เช่น JMK-001"
               />
               <Input
                 label="ชื่อผู้ติดต่อ"

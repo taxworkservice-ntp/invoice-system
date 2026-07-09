@@ -53,6 +53,10 @@ export function CustomerPickerModal({
 
   const handleCreate = async () => {
     if (!onCreate || !newCustomer.name.trim()) return;
+    if (!newCustomer.code.trim()) {
+      alert("กรุณากรอกรหัสลูกค้า");
+      return;
+    }
     setSaving(true);
     try {
       const customer = await onCreate({
@@ -89,8 +93,8 @@ export function CustomerPickerModal({
           <div className="rounded-xl border border-card-border bg-[#FAF8F3] p-3">
             <div className="mb-3 text-sm font-medium text-[#1A1A18]">เพิ่มลูกค้าใหม่</div>
             <div className="space-y-2">
-              <Input label="ชื่อลูกค้า" value={newCustomer.name} onChange={(event) => setNewCustomer((prev) => ({ ...prev, name: event.target.value }))} />
-              <Input label="รหัสลูกค้า" value={newCustomer.code} onChange={(event) => setNewCustomer((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))} placeholder="เช่น JMK-001" />
+              <Input label="รหัสลูกค้า *" value={newCustomer.code} onChange={(event) => setNewCustomer((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))} placeholder="เช่น JMK-001" />
+              <Input label="ชื่อลูกค้า *" value={newCustomer.name} onChange={(event) => setNewCustomer((prev) => ({ ...prev, name: event.target.value }))} />
               <Input label="เลขผู้เสียภาษี" value={newCustomer.tax_id} onChange={(event) => setNewCustomer((prev) => ({ ...prev, tax_id: event.target.value }))} />
               <Input label="ที่อยู่" value={newCustomer.address} onChange={(event) => setNewCustomer((prev) => ({ ...prev, address: event.target.value }))} />
               <div className="flex gap-2">
