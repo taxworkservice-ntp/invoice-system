@@ -5,16 +5,6 @@ import { ApiError, readJsonBody, sendError } from "../../_lib/http.js";
 import { supabaseAdmin } from "../../_lib/supabase.js";
 import { getEnv } from "../../_lib/env.js";
 
-const DOC_TYPE_SHORT = {
-  quotation: "QT",
-  invoice: "INV",
-  tax_invoice_receipt: "TIR",
-  billing_note: "BN",
-  receipt: "RC",
-  delivery_note: "DN",
-  credit_note: "CN",
-};
-
 function documentId(req) {
   const id = req.query.id;
   return Array.isArray(id) ? id[0] : id;
@@ -52,12 +42,25 @@ function renderSession(token, user) {
   };
 }
 
-function filenameFor(document) {
-  const short = DOC_TYPE_SHORT[document.doc_type] || "DOC";
+function sanitizeFilenamePart(name) {
+  return name
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9\u0E00-\u0E7F\-_]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 50);
+}
+
+function filenameFor(document, companyName) {
+  const docNumber = document.doc_number || "doc";
   const datePart = document.issue_date
-    ? String(document.issue_date).replace(/-/g, "")
-    : new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  return `${short}-${document.doc_number || "doc"}-${datePart}.pdf`;
+    ? String(document.issue_date).slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+  const safeName = sanitizeFilenamePart(companyName || "");
+  const parts = [docNumber];
+  if (safeName) parts.push(safeName);
+  parts.push(datePart);
+  return `${parts.join("_")}.pdf`;
 }
 
 async function getExecutablePath() {
@@ -93,7 +96,7 @@ export default async function handler(req, res) {
 
     const { data: document, error: documentError } = await supabaseAdmin
       .from("documents")
-      .select("id, user_id, doc_type, doc_number, issue_date")
+      .select("id, user_id, doc_type, doc_number, issue_date, profiles(company_name_th)")
       .eq("id", id)
       .single();
 
@@ -150,7 +153,7 @@ export default async function handler(req, res) {
     }
     const pdfBuffer = await page.pdf(pdfOptions);
 
-    const filename = filenameFor(document);
+    const filename = filenameFor(document, document.profiles?.company_name_th);
     res.status(200);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

@@ -8,7 +8,7 @@ import { PrintDocumentClassic } from "../../../components/print/PrintDocumentCla
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { paginateLineItems } from "../../../lib/pagination";
-import { DOC_TYPE_SHORT } from "../../../constants";
+
 import { supabase } from "../../../lib/supabase";
 
 export default function DocumentPrintPreviewPage() {
@@ -191,11 +191,20 @@ export default function DocumentPrintPreviewPage() {
   }
 
   function pdfFilename(data: PrintDocumentData) {
-    const short = DOC_TYPE_SHORT[data.document.doc_type];
+    const safeName = (data.clientProfile?.company_name_th || "")
+      .replace(/\s+/g, "-")
+      .replace(/[^a-zA-Z0-9\u0E00-\u0E7F\-_]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 50);
+    const docNumber = data.document.doc_number || "doc";
     const datePart = data.document.issue_date
-      ? data.document.issue_date.replace(/-/g, "")
-      : new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    return `${short}-${data.document.doc_number || "doc"}-${datePart}.pdf`;
+      ? data.document.issue_date.slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    const parts = [docNumber];
+    if (safeName) parts.push(safeName);
+    parts.push(datePart);
+    return `${parts.join("_")}.pdf`;
   }
 
   async function getServerPdfBlob(copyTypes: Array<"original" | "copy">) {
