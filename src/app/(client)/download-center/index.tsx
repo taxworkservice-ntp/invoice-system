@@ -186,7 +186,13 @@ export default function DownloadCenterPage() {
         });
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const blob = await res.blob();
-        zip.file(`${doc.doc_number || `doc_${i + 1}`}.pdf`, blob, { binary: true });
+        const disposition = res.headers.get("Content-Disposition");
+        let pdfName = `${doc.doc_number || `doc_${i + 1}`}.pdf`;
+        if (disposition) {
+          const match = disposition.match(/filename="([^"]+)"/);
+          if (match) pdfName = match[1];
+        }
+        zip.file(pdfName, blob, { binary: true });
       } catch {
         toast.error(`ไม่สามารถสร้าง PDF สำหรับ ${doc.doc_number || doc.id}`);
       }
