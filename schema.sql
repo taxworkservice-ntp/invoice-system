@@ -307,6 +307,7 @@ create table customers (
   email           text,
   note            text,
   code            text,
+  credit_term_days int,
 
   is_active       boolean not null default true,
   created_at      timestamptz not null default now(),
