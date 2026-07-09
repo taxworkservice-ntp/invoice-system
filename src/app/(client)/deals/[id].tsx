@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, PackageCheck, ExternalLink } from "lucide-react";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
+import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -18,6 +19,7 @@ import { formatCurrency } from "../../../lib/format";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
+import { revertDeal } from "../../../lib/documentRevert";
 import {
   buildReceiptBackdateFields,
   composeReceiptBackdateReason,
@@ -128,6 +130,7 @@ export default function DealDetailPage() {
   const { id: dealId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile, loading: authLoading, workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const { isDevMode } = useDevMode();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const [userEmail, setUserEmail] = useState("");
@@ -168,6 +171,8 @@ export default function DealDetailPage() {
   const [showVoided, setShowVoided] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copyingDeal, setCopyingDeal] = useState(false);
+  const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
+  const [reverting, setReverting] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [hasActiveDnLinks, setHasActiveDnLinks] = useState(false);
 
@@ -901,6 +906,19 @@ export default function DealDetailPage() {
     }
   };
 
+  const handleRevertDeal = async () => {
+    if (!dealId || !userId) return;
+    setReverting(true);
+    try {
+      await revertDeal(dealId, userId);
+      toast.success("ลบงานขายนี้แล้ว");
+      navigate("/home");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      setReverting(false);
+    }
+  };
+
   const nonVoidedDocs = useMemo(
     () => docsWithMeta.filter((item) => item.document.status !== "voided"),
     [docsWithMeta]
@@ -1395,8 +1413,19 @@ export default function DealDetailPage() {
               ))}
               {deliveryProgress.rows.length > 4 && (
                 <div className="text-center text-[11px] text-gray-500">และอีก {deliveryProgress.rows.length - 4} รายการ</div>
-              )}
-            </div>
+            )}
+            {isDevMode && (
+              <div className="col-span-2 mt-2 pt-2 border-t border-amber-200">
+                <Button
+                  variant="secondary"
+                  className="w-full justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
+                  onClick={() => setRevertConfirmOpen(true)}
+                >
+                  ลบงานขายนี้ทั้งชุด (Dev)
+                </Button>
+              </div>
+            )}
+          </div>
 
             {dnAction && (
               <Button
@@ -2063,6 +2092,33 @@ export default function DealDetailPage() {
               )}
             </>
           )}
+        </div>
+      </Modal>
+
+      <Modal open={revertConfirmOpen} onClose={() => setRevertConfirmOpen(false)} title="ยืนยันการลบงานขาย (Dev)">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+            การดำเนินการนี้จะลบงานขายนี้<strong>อย่างถาวร</strong> รวมถึง:
+            <ul className="mt-1.5 list-disc pl-5 text-xs space-y-0.5">
+              <li>ยกเลิกเอกสารทุกฉบับ (คืนสต็อกหากมีการตัด)</li>
+              <li>ลบเอกสารและรายการสินค้าทั้งหมด</li>
+              <li>ลบงานขายนี้จากระบบ</li>
+            </ul>
+          </div>
+          <p className="text-xs text-gray-500">เฉพาะ Dev mode เท่านั้น ไม่สามารถกู้คืนได้</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setRevertConfirmOpen(false)}>
+              ยกเลิก
+            </Button>
+            <Button
+              onClick={handleRevertDeal}
+              disabled={reverting}
+              loading={reverting}
+              className="!bg-red-600 !text-white hover:!bg-red-700"
+            >
+              {reverting ? "กำลังลบ..." : "ลบงานขายนี้"}
+            </Button>
+          </div>
         </div>
       </Modal>
     </AppShell>

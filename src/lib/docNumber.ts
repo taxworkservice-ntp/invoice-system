@@ -36,6 +36,7 @@ export async function assertDocNumberAvailable(
     .select("id")
     .eq("user_id", userId)
     .eq("doc_number", value)
+    .neq("status", "voided")
     .limit(1);
 
   if (excludeDocumentId) query = query.neq("id", excludeDocumentId);
