@@ -163,19 +163,30 @@ export default function DownloadCenterPage() {
     }
   };
 
-  const downloadDocsAsZip = async (docs: Array<{ id: string; doc_number: string | null }>, template: "modern" | "classic") => {
+  const downloadDocsAsZip = async (docs: Array<{ id: string; doc_number: string | null }>, _template: "modern" | "classic") => {
     const JSZip = (await import("jszip")).default;
-    const { getPrintableDocumentDataBase, generatePDFDocument } = await import("../../../lib/print");
     const zip = new JSZip();
     setProgress({ current: 0, total: docs.length });
     const copyTypes: Array<"original" | "copy"> = copyType === "both" ? ["original", "copy"] : ["original"];
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token || "";
+
     for (let i = 0; i < docs.length; i++) {
       setProgress({ current: i + 1, total: docs.length });
       const doc = docs[i];
       try {
-        const data = await getPrintableDocumentDataBase(doc.id);
-        const pdfDoc = await generatePDFDocument({ ...data, template } as any, copyTypes);
-        zip.file(`${doc.doc_number || `doc_${i + 1}`}.pdf`, pdfDoc.output("blob"), { binary: true });
+        const res = await fetch(`/api/documents/${encodeURIComponent(doc.id)}/pdf`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ copyTypes }),
+        });
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const blob = await res.blob();
+        zip.file(`${doc.doc_number || `doc_${i + 1}`}.pdf`, blob, { binary: true });
       } catch {
         toast.error(`ไม่สามารถสร้าง PDF สำหรับ ${doc.doc_number || doc.id}`);
       }
