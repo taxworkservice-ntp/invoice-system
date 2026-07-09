@@ -526,7 +526,7 @@ function ReportCard({
         <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-mono font-semibold text-gray-600">{format}</span>
       </div>
       <div className="mt-2 flex-1">{children}</div>
-      <Button size="sm" variant="secondary" loading={exporting} onClick={onDownload} disabled={disabled} className="w-full mt-3">
+      <Button size="sm" variant="primary" loading={exporting} onClick={onDownload} disabled={disabled} className="w-full mt-3">
         {!exporting && <Download className="mr-1.5 h-3.5 w-3.5" />}
         {exporting ? "กำลังสร้าง..." : "ดาวน์โหลด"}
       </Button>
