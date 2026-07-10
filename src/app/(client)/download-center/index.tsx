@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Card } from "../../../components/ui/Card";
@@ -55,8 +55,6 @@ export default function DownloadCenterPage() {
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
   const [customDocType, setCustomDocType] = useState<DocumentType>("invoice");
   const [customCustomerId, setCustomCustomerId] = useState("");
 
@@ -71,10 +69,15 @@ export default function DownloadCenterPage() {
   const [stockTo, setStockTo] = useState(new Date().toISOString().slice(0, 10));
   const [vatMonth, setVatMonth] = useState(currentMonth);
   const [vatYear, setVatYear] = useState(currentYear);
+  const [customMonth, setCustomMonth] = useState(currentMonth);
+  const [customYear, setCustomYear] = useState(currentYear);
+  const [quickFilter, setQuickFilter] = useState<"thisMonth" | "prevMonth">("thisMonth");
 
-  const thisMonth = useMemo(() => {
-    return `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
-  }, [currentYear, currentMonth]);
+  const quickMonthStart = useMemo(() => {
+    const d = new Date(currentYear, currentMonth - 1, 1);
+    if (quickFilter === "prevMonth") d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  }, [currentYear, currentMonth, quickFilter]);
 
   const fetchPresetCounts = useCallback(async () => {
     if (!userId) return;
@@ -87,7 +90,7 @@ export default function DownloadCenterPage() {
         .eq("doc_type", preset.docType)
         .in("status", NON_DRAFT_STATUSES);
       if (preset.variant === "thisMonth") {
-        query = query.gte("issue_date", thisMonth);
+        query = query.gte("issue_date", quickMonthStart);
       } else if (preset.variant === "unpaid") {
         query = query.neq("status", "paid");
       }
@@ -95,17 +98,17 @@ export default function DownloadCenterPage() {
       if (!error && count != null) counts[preset.key] = count;
     }
     return counts;
-  }, [userId, thisMonth]);
+  }, [userId, quickMonthStart]);
 
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [countsLoaded, setCountsLoaded] = useState(false);
 
-  useState(() => {
+  useEffect(() => {
     fetchPresetCounts().then((c) => {
       if (c) setCounts(c);
       setCountsLoaded(true);
     });
-  });
+  }, [fetchPresetCounts]);
 
   const handlePresetDownload = async (presetKey: string) => {
     if (!userId || !clientProfile) return;
@@ -121,7 +124,7 @@ export default function DownloadCenterPage() {
         .eq("doc_type", preset.docType)
         .in("status", NON_DRAFT_STATUSES)
         .order("issue_date", { ascending: false });
-      if (preset.variant === "thisMonth") query = query.gte("issue_date", thisMonth);
+      if (preset.variant === "thisMonth") query = query.gte("issue_date", quickMonthStart);
       else if (preset.variant === "unpaid") query = query.neq("status", "paid");
       const { data: docs, error } = await query;
       if (error || !docs || docs.length === 0) { toast.error("ไม่พบเอกสาร"); return; }
@@ -137,19 +140,19 @@ export default function DownloadCenterPage() {
 
   const handleCustomDownload = async () => {
     if (!userId || !clientProfile) return;
-    if (!fromDate && !toDate) { toast.error("กรุณาเลือกช่วงวันที่"); return; }
     setDownloading(true);
     setReportExporting("");
     try {
+      const { start, end } = getMonthRange(customYear, customMonth);
       let query = supabase
         .from("documents")
         .select("id, doc_number")
         .eq("user_id", userId)
         .eq("doc_type", customDocType)
         .in("status", NON_DRAFT_STATUSES)
+        .gte("issue_date", start)
+        .lte("issue_date", end)
         .order("issue_date", { ascending: false });
-      if (fromDate) query = query.gte("issue_date", fromDate);
-      if (toDate) query = query.lte("issue_date", toDate);
       if (customCustomerId) query = query.eq("customer_id", customCustomerId);
       const { data: docs, error } = await query;
       if (error || !docs || docs.length === 0) { toast.error("ไม่พบเอกสาร"); return; }
@@ -338,13 +341,19 @@ export default function DownloadCenterPage() {
               </div>
             </div>
             <div className="border-t border-card-border pt-4">
-              <div className="text-[11px] font-semibold text-gray-500 mb-3">ดาวน์โหลดด่วน</div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[11px] font-semibold text-gray-500">ดาวน์โหลดด่วน</div>
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => setQuickFilter("thisMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "thisMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>เดือนนี้</button>
+                  <button type="button" onClick={() => setQuickFilter("prevMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "prevMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>เดือนก่อน</button>
+                </div>
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {PRESET_TYPES.map((preset) => (
                   <button key={preset.key} type="button" disabled={busy} onClick={() => handlePresetDownload(preset.key)}
-                    className="flex items-center justify-between rounded-lg border border-card-border bg-white px-4 py-3 text-left hover:border-primary/30 hover:bg-blue-50/50 transition-colors disabled:opacity-50">
-                    <div className="flex items-center gap-2.5 min-w-0"><FileText className="h-4 w-4 text-gray-400 shrink-0" /><span className="text-sm text-[#1A1A18] truncate">{preset.label}</span></div>
-                    <span className="text-xs text-gray-400 tabular-nums shrink-0 ml-2">{countsLoaded ? counts[preset.key] ?? 0 : "—"}</span>
+                    className="flex items-center justify-between rounded-md border border-card-border bg-white px-3 py-2 text-left hover:border-primary/30 hover:bg-blue-50/50 transition-colors disabled:opacity-50">
+                    <div className="flex items-center gap-2 min-w-0"><FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" /><span className="text-[13px] text-[#1A1A18] truncate">{preset.label}</span></div>
+                    <span className="text-[11px] text-gray-400 tabular-nums shrink-0 ml-2">{countsLoaded ? counts[preset.key] ?? 0 : "—"}</span>
                   </button>
                 ))}
               </div>
@@ -352,8 +361,8 @@ export default function DownloadCenterPage() {
             <div className="border-t border-card-border pt-4">
               <div className="text-[11px] font-semibold text-gray-500 mb-3">ตามเงื่อนไข</div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">จากวันที่</label><input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">ถึงวันที่</label><input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20" /></div>
+                <MonthSelect label="เดือน" value={customMonth} onChange={setCustomMonth} />
+                <YearSelect label="ปี" value={customYear} onChange={setCustomYear} />
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">ประเภทเอกสาร</label><Select value={customDocType} onChange={(e) => setCustomDocType(e.target.value as DocumentType)}>{Object.entries(DOC_TYPE_LABELS).map(([key, label]) => (<option key={key} value={key}>{label.th}</option>))}</Select></div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">ลูกค้า (ไม่บังคับ)</label><CustomerQuickSelect value={customCustomerId} onChange={setCustomCustomerId} userId={userId} /></div>
               </div>
