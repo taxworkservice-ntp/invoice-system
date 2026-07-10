@@ -8,6 +8,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { DOC_TYPE_LABELS } from "../../../constants";
+import { useFinancialReport } from "../../../hooks/useReports";
 import type { DocumentType, Customer } from "../../../types";
 import { Download, FileText, FileSpreadsheet, BarChart3, Package, Receipt, Users } from "lucide-react";
 
@@ -73,6 +74,8 @@ export default function DownloadCenterPage() {
   const [customYear, setCustomYear] = useState(currentYear);
   const [quickFilter, setQuickFilter] = useState<"thisMonth" | "prevMonth">("thisMonth");
 
+  const { summary: finSummary, transactions: finTransactions, arByCustomer: finArByCustomer, cogs: finCogs, collectionRate: finCollectionRate } = useFinancialReport(userId, finYear, finMonth);
+
   const quickMonthStart = useMemo(() => {
     const d = new Date(currentYear, currentMonth - 1, 1);
     if (quickFilter === "prevMonth") d.setMonth(d.getMonth() - 1);
@@ -108,7 +111,7 @@ export default function DownloadCenterPage() {
       if (c) setCounts(c);
       setCountsLoaded(true);
     });
-  }, [fetchPresetCounts]);
+  }, [userId, quickFilter]);
 
   const handlePresetDownload = async (presetKey: string) => {
     if (!userId || !clientProfile) return;
@@ -213,37 +216,19 @@ export default function DownloadCenterPage() {
 
   const handleExportFinancialCsv = async () => {
     if (!userId) return;
+    if (!finSummary) { toast.error("ยังไม่มีข้อมูล"); return; }
     setReportExporting("financial");
     try {
-      const { start, end } = getMonthRange(finYear, finMonth);
-      const { data: docs } = await supabase
-        .from("documents")
-        .select("doc_number, doc_type, status, issue_date, total_amount, net_payable, vat_amount, wht_amount, customer:customer_id(name)")
-        .eq("user_id", userId)
-        .neq("doc_type", "delivery_note")
-        .neq("doc_type", "credit_note")
-        .neq("status", "draft")
-        .neq("status", "voided")
-        .neq("status", "converted")
-        .order("issue_date", { ascending: true });
-      if (!docs || docs.length === 0) { toast.error("ไม่พบข้อมูล"); return; }
-      const rows = [["วันที่", "เลขที่", "ประเภท", "ลูกค้า", "ยอดรวม", "VAT", "WHT", "ยอดสุทธิ", "สถานะ"]];
-      for (const d of docs as any[]) {
-        const recDate = (d.paid_at || d.issue_date || "").slice(0, 10);
-        if (recDate < start || recDate > end) continue;
-        rows.push([
-          formatDate(recDate),
-          d.doc_number || "",
-          DOC_TYPE_LABELS[d.doc_type as DocumentType]?.th || d.doc_type,
-          d.customer?.name || "",
-          (d.total_amount || 0).toFixed(2),
-          (d.vat_amount || 0).toFixed(2),
-          (d.wht_amount || 0).toFixed(2),
-          (d.net_payable || 0).toFixed(2),
-          d.status,
-        ]);
-      }
-      downloadBlob(new Blob([buildCsv(rows)], { type: "text/csv;charset=utf-8" }), `financial_${finYear}-${String(finMonth).padStart(2, "0")}.csv`);
+      const { buildFinancialReportXlsx } = await import("../../../lib/financialReportXlsx");
+      const buffer = await buildFinancialReportXlsx({
+        summary: finSummary,
+        transactions: finTransactions,
+        arByCustomer: finArByCustomer,
+        cogs: finCogs,
+        collectionRate: finCollectionRate,
+        dateFrom: `${String(finMonth).padStart(2, "0")}/${finYear}`,
+      });
+      downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `financial_${finYear}-${String(finMonth).padStart(2, "0")}.xlsx`);
       toast.success("ดาวน์โหลดเรียบร้อย");
     } catch (err: any) { toast.error(err.message); }
     finally { setReportExporting(""); }
