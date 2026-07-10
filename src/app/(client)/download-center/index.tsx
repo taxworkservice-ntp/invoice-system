@@ -241,11 +241,11 @@ export default function DownloadCenterPage() {
           date: doc?.date || "",
           customerName: doc?.customer_name || "",
           itemName: li.item_name || "",
-          quantity: li.quantity || 0,
+          quantity: Number(li.quantity) || 0,
           unit: li.unit || "",
-          unitPrice: li.unit_price || 0,
-          discountPercent: li.discount_percent || 0,
-          lineTotal: li.line_total || 0,
+          unitPrice: Number(li.unit_price) || 0,
+          discountPercent: Number(li.discount_percent) || 0,
+          lineTotal: Number(li.line_total) || 0,
           paidStatus: doc?.is_paid ? "ชำระแล้ว" : "รอชำระ",
         };
       });
