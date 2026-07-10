@@ -10,7 +10,7 @@ import { supabase } from "../../../lib/supabase";
 import { DOC_TYPE_LABELS } from "../../../constants";
 import { useFinancialReport } from "../../../hooks/useReports";
 import type { DocumentType, Customer } from "../../../types";
-import { Download, FileText, FileSpreadsheet, BarChart3, Package, Receipt, Users } from "lucide-react";
+import { Download, FileText, BarChart3, Package } from "lucide-react";
 
 const PRESET_TYPES: { key: string; label: string; docType: DocumentType; variant: "thisMonth" | "unpaid" }[] = [
   { key: "invoice", label: "ใบแจ้งหนี้เดือนนี้", docType: "invoice", variant: "thisMonth" },
@@ -24,12 +24,6 @@ const PRESET_TYPES: { key: string; label: string; docType: DocumentType; variant
 
 const NON_DRAFT_STATUSES = ["sent", "issued", "generated", "paid", "converted", "in_billing"];
 
-function formatDate(d: string) {
-  if (!d) return "";
-  const date = new Date(d);
-  return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-}
-
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -39,11 +33,6 @@ function downloadBlob(blob: Blob, filename: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-function buildCsv(rows: string[][]): string {
-  const BOM = "\uFEFF";
-  return BOM + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
 }
 
 export default function DownloadCenterPage() {
@@ -68,8 +57,6 @@ export default function DownloadCenterPage() {
   const [finYear, setFinYear] = useState(currentYear);
   const [stockFrom, setStockFrom] = useState(`${currentYear}-${String(currentMonth).padStart(2, "0")}-01`);
   const [stockTo, setStockTo] = useState(new Date().toISOString().slice(0, 10));
-  const [vatMonth, setVatMonth] = useState(currentMonth);
-  const [vatYear, setVatYear] = useState(currentYear);
   const [customMonth, setCustomMonth] = useState(currentMonth);
   const [customYear, setCustomYear] = useState(currentYear);
   const [quickFilter, setQuickFilter] = useState<"thisMonth" | "prevMonth">("thisMonth");
@@ -248,65 +235,6 @@ export default function DownloadCenterPage() {
     finally { setReportExporting(""); }
   };
 
-  const handleExportVatCsv = async () => {
-    if (!userId) return;
-    setReportExporting("vat");
-    try {
-      const { start, end } = getMonthRange(vatYear, vatMonth);
-      const { data: docs } = await supabase
-        .from("documents")
-        .select("doc_number, issue_date, total_amount, vat_amount, net_payable, customer:customer_id(name,tax_id)")
-        .eq("user_id", userId)
-        .eq("doc_type", "tax_invoice_receipt")
-        .in("status", ["issued", "paid"])
-        .gte("issue_date", start)
-        .lte("issue_date", end)
-        .order("issue_date", { ascending: true });
-      if (!docs || docs.length === 0) { toast.error("ไม่พบใบกำกับภาษีในช่วงนี้"); return; }
-      const rows = [["วันที่", "เลขที่", "ลูกค้า", "เลขผู้เสียภาษี", "ยอดรวม", "VAT", "ยอดสุทธิ"]];
-      for (const d of docs as any[]) {
-        rows.push([formatDate(d.issue_date), d.doc_number || "", d.customer?.name || "", d.customer?.tax_id || "", (d.total_amount || 0).toFixed(2), (d.vat_amount || 0).toFixed(2), (d.net_payable || 0).toFixed(2)]);
-      }
-      downloadBlob(new Blob([buildCsv(rows)], { type: "text/csv;charset=utf-8" }), `vat_${String(vatMonth).padStart(2, "0")}_${vatYear + 543}.csv`);
-      toast.success("ดาวน์โหลดเรียบร้อย");
-    } catch (err: any) { toast.error(err.message); }
-    finally { setReportExporting(""); }
-  };
-
-  const handleExportArCsv = async () => {
-    if (!userId) return;
-    setReportExporting("ar");
-    try {
-      const { data: unpaidBills } = await supabase
-        .from("documents")
-        .select("customer_id, net_payable, due_date, doc_number, customer:customer_id(name)")
-        .eq("user_id", userId)
-        .eq("doc_type", "billing_note")
-        .in("status", ["sent", "overdue"])
-        .order("due_date", { ascending: true });
-      if (!unpaidBills || unpaidBills.length === 0) { toast.error("ไม่มีใบวางบิลค้างชำระ"); return; }
-      const arMap = new Map<string, { name: string; total: number; count: number; oldestDue: string }>();
-      const today = new Date(new Date().toISOString().slice(0, 10));
-      for (const b of unpaidBills as any[]) {
-        const cid = b.customer_id;
-        const existing = arMap.get(cid) || { name: b.customer?.name || "", total: 0, count: 0, oldestDue: b.due_date || "" };
-        existing.total += b.net_payable || 0;
-        existing.count++;
-        if (b.due_date && (!existing.oldestDue || b.due_date < existing.oldestDue)) existing.oldestDue = b.due_date;
-        arMap.set(cid, existing);
-      }
-      const rows = [["ลูกค้า", "จำนวนบิล", "ยอดค้าง", "ค้างนานสุด (วัน)", "ครบกำหนดเก่าสุด"]];
-      for (const [, v] of Array.from(arMap.entries()).sort((a, b) => b[1].total - a[1].total)) {
-        const dueDate = v.oldestDue ? new Date(v.oldestDue) : null;
-        const daysOverdue = dueDate ? Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / 86400000)) : 0;
-        rows.push([v.name, String(v.count), v.total.toFixed(2), String(daysOverdue), v.oldestDue ? formatDate(v.oldestDue) : ""]);
-      }
-      downloadBlob(new Blob([buildCsv(rows)], { type: "text/csv;charset=utf-8" }), `ar_summary_${new Date().toISOString().slice(0, 10)}.csv`);
-      toast.success("ดาวน์โหลดเรียบร้อย");
-    } catch (err: any) { toast.error(err.message); }
-    finally { setReportExporting(""); }
-  };
-
   if (!userId) return <AppShell title="ศูนย์ดาวน์โหลด"><Spinner /></AppShell>;
 
   const busy = downloading || !!reportExporting;
@@ -406,35 +334,6 @@ export default function DownloadCenterPage() {
                     <input type="date" value={stockTo} onChange={(e) => setStockTo(e.target.value)} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20" />
                   </div>
                 </div>
-              </ReportCard>
-
-              {/* VAT */}
-              <ReportCard
-                icon={<Receipt className="h-4 w-4" />}
-                title="ภาษีมูลค่าเพิ่ม (VAT)"
-                description="ใบกำกับภาษีรายเดือน — ใช้ยื่น ภ.พ.30"
-                format="CSV"
-                exporting={reportExporting === "vat"}
-                disabled={busy}
-                onDownload={handleExportVatCsv}
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <MonthSelect label="เดือน" value={vatMonth} onChange={setVatMonth} />
-                  <YearSelect label="ปี" value={vatYear} onChange={setVatYear} />
-                </div>
-              </ReportCard>
-
-              {/* AR */}
-              <ReportCard
-                icon={<Users className="h-4 w-4" />}
-                title="สรุปลูกหนี้คงค้าง"
-                description="ใบวางบิลที่ยังไม่ชำระ แยกตามลูกค้า"
-                format="CSV"
-                exporting={reportExporting === "ar"}
-                disabled={busy}
-                onDownload={handleExportArCsv}
-              >
-                <div className="text-[10px] text-gray-400 px-1 pt-1">ข้อมูล ณ ปัจจุบัน</div>
               </ReportCard>
             </div>
           </div>
