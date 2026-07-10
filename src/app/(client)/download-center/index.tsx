@@ -63,6 +63,26 @@ export default function DownloadCenterPage() {
 
   const { summary: finSummary, transactions: finTransactions, arByCustomer: finArByCustomer, cogs: finCogs, collectionRate: finCollectionRate } = useFinancialReport(userId, finYear, finMonth);
 
+  const isVatRegistered = clientProfile?.vat_registered;
+
+  const presetTypes = useMemo(() => {
+    return PRESET_TYPES
+      .filter(p => isVatRegistered || p.docType !== "tax_invoice_receipt")
+      .map(p => {
+        if (p.key === "tax_invoice") return { ...p, label: "ใบกำกับภาษี/ใบเสร็จเดือนนี้" };
+        if (p.key === "invoice" && isVatRegistered) return { ...p, label: "ใบกำกับภาษีเดือนนี้" };
+        return p;
+      });
+  }, [isVatRegistered]);
+
+  const docTypeLabels = useMemo(() => {
+    const labels = { ...DOC_TYPE_LABELS };
+    if (isVatRegistered) {
+      labels.invoice = { th: "ใบกำกับภาษี", en: "Tax Invoice" };
+    }
+    return labels;
+  }, [isVatRegistered]);
+
   const quickMonthStart = useMemo(() => {
     const d = new Date(currentYear, currentMonth - 1, 1);
     if (quickFilter === "prevMonth") d.setMonth(d.getMonth() - 1);
@@ -262,7 +282,7 @@ export default function DownloadCenterPage() {
                 </div>
               </div>
               <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                {PRESET_TYPES.map((preset) => (
+                {presetTypes.map((preset) => (
                   <button key={preset.key} type="button" disabled={busy} onClick={() => handlePresetDownload(preset.key)}
                     className="flex items-center justify-between rounded-md border border-card-border bg-white px-3 py-2 text-left hover:border-primary/30 hover:bg-blue-50/50 transition-colors disabled:opacity-50">
                     <div className="flex items-center gap-2 min-w-0"><FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" /><span className="text-[13px] text-[#1A1A18] truncate">{preset.label}</span></div>
@@ -276,7 +296,7 @@ export default function DownloadCenterPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <MonthSelect label="เดือน" value={customMonth} onChange={setCustomMonth} />
                 <YearSelect label="ปี" value={customYear} onChange={setCustomYear} />
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">ประเภทเอกสาร</label><Select value={customDocType} onChange={(e) => setCustomDocType(e.target.value as DocumentType)}>{Object.entries(DOC_TYPE_LABELS).map(([key, label]) => (<option key={key} value={key}>{label.th}</option>))}</Select></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1">ประเภทเอกสาร</label><Select value={customDocType} onChange={(e) => setCustomDocType(e.target.value as DocumentType)}>{Object.entries(docTypeLabels).filter(([key]) => isVatRegistered || key !== "tax_invoice_receipt").map(([key, label]) => (<option key={key} value={key}>{label.th}</option>))}</Select></div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">ลูกค้า (ไม่บังคับ)</label><CustomerQuickSelect value={customCustomerId} onChange={setCustomCustomerId} userId={userId} /></div>
               </div>
               <Button onClick={handleCustomDownload} disabled={busy} loading={downloading} className="w-full mt-3">
