@@ -91,8 +91,9 @@ export interface StockMovementRow {
 }
 
 function getMonthRange(year: number, month: number) {
-  const start = new Date(year, month - 1, 1).toISOString().slice(0, 10);
-  const end = new Date(year, month, 0).toISOString().slice(0, 10);
+  const m = String(month).padStart(2, "0");
+  const start = `${year}-${m}-01`;
+  const end = `${year}-${m}-${new Date(year, month, 0).getDate()}`;
   return { start, end };
 }
 
