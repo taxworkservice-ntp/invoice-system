@@ -262,6 +262,9 @@ export default function DownloadCenterPage() {
   return (
     <AppShell title="ศูนย์ดาวน์โหลด">
       <div className="space-y-6">
+        <div className="rounded-lg border border-blue-100 bg-blue-50/50 px-4 py-2.5 text-[12px] text-gray-600 leading-relaxed">
+          เลือกประเภทเอกสารและเดือน <strong className="text-gray-700">ระบบจะรวม PDF เป็น ZIP</strong> ให้ดาวน์โหลดครั้งเดียว — ส่วน<strong className="text-gray-700">รายงาน</strong> ส่งออกเป็นไฟล์ Excel (XLSX) ใช้เปิดในโปรแกรมตารางคำนวณ
+        </div>
         {/* ---- เอกสาร ---- */}
         <Card>
           <div className="space-y-4">
