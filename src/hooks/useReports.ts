@@ -64,6 +64,19 @@ export interface Transaction {
   is_paid: boolean;
 }
 
+export interface LineItemRow {
+  docNumber: string;
+  date: string;
+  customerName: string;
+  itemName: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  discountPercent: number;
+  lineTotal: number;
+  paidStatus: string;
+}
+
 export interface StockSummary {
   totalItems: number;
   totalValue: number;

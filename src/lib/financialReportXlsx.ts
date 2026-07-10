@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import type { FinancialSummary, ARByCustomer, Transaction } from "../hooks/useReports";
+import type { FinancialSummary, ARByCustomer, Transaction, LineItemRow } from "../hooks/useReports";
 import { formatCurrency } from "./format";
 
 // ============ Styling ============
@@ -94,19 +94,15 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("รายการธุรกรรม");
   const { transactions } = opts;
 
-  applyTitle(ws.getCell("A1"));
-  ws.getCell("A1").value = "รายการธุรกรรม";
-
   const headers = ["วันที่", "เลขที่", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "WHT", "ยอดสุทธิ", "สถานะ"];
-  let row = 3;
+  let row = 1;
   headers.forEach((h, i) => {
     const cell = ws.getCell(row, i + 1);
-    applyHeader(cell);
+    applyBody(cell, { bold: true });
     cell.value = h;
   });
 
-  row = 4;
-  let totals = { subtotal: 0, vat: 0, total: 0, wht: 0, net: 0 };
+  row = 2;
   for (const t of transactions) {
     applyBody(ws.getCell(row, 1));
     ws.getCell(row, 1).value = t.date || "-";
@@ -133,38 +129,10 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     ws.getCell(row, 9).numFmt = CURRENCY_FMT;
     applyBody(ws.getCell(row, 10), { color: t.is_paid ? GREEN_TEXT : undefined });
     ws.getCell(row, 10).value = t.status;
-
-    totals.subtotal += t.subtotal;
-    totals.vat += t.vat_amount;
-    totals.total += t.total_amount;
-    totals.wht += t.wht_amount;
-    totals.net += t.net_payable;
     row++;
   }
 
-  // Summary row
-  const sRow = row;
-  applyBody(ws.getCell(sRow, 1), { bold: true });
-  ws.getCell(sRow, 1).value = "รวม";
-  ws.mergeCells(sRow, 1, sRow, 4);
-  applyBody(ws.getCell(sRow, 5), { right: true, bold: true });
-  ws.getCell(sRow, 5).value = totals.subtotal;
-  ws.getCell(sRow, 5).numFmt = CURRENCY_FMT;
-  applyBody(ws.getCell(sRow, 6), { right: true, bold: true });
-  ws.getCell(sRow, 6).value = totals.vat;
-  ws.getCell(sRow, 6).numFmt = CURRENCY_FMT;
-  applyBody(ws.getCell(sRow, 7), { right: true, bold: true });
-  ws.getCell(sRow, 7).value = totals.total;
-  ws.getCell(sRow, 7).numFmt = CURRENCY_FMT;
-  applyBody(ws.getCell(sRow, 8), { right: true, bold: true, color: totals.wht > 0 ? RED_TEXT : undefined });
-  ws.getCell(sRow, 8).value = totals.wht;
-  ws.getCell(sRow, 8).numFmt = CURRENCY_FMT;
-  applyBody(ws.getCell(sRow, 9), { right: true, bold: true });
-  ws.getCell(sRow, 9).value = totals.net;
-  ws.getCell(sRow, 9).numFmt = CURRENCY_FMT;
-
   setColumnWidths(ws, [12, 16, 16, 22, 14, 14, 14, 12, 14, 12]);
-  applyPageSetup(ws);
   return ws;
 }
 
@@ -211,6 +179,49 @@ function buildARSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   return ws;
 }
 
+function buildLineItemsSheet(wb: ExcelJS.Workbook, lineItems: LineItemRow[]) {
+  const ws = wb.addWorksheet("รายการบรรทัด");
+
+  const headers = ["เลขที่", "วันที่", "ลูกค้า", "รายการ", "จำนวน", "หน่วย", "หน่วยละ", "ส่วนลด%", "จำนวนเงิน", "สถานะชำระ"];
+  let row = 1;
+  headers.forEach((h, i) => {
+    const cell = ws.getCell(row, i + 1);
+    applyBody(cell, { bold: true });
+    cell.value = h;
+  });
+
+  row = 2;
+  for (const li of lineItems) {
+    applyBody(ws.getCell(row, 1));
+    ws.getCell(row, 1).value = li.docNumber;
+    applyBody(ws.getCell(row, 2));
+    ws.getCell(row, 2).value = li.date || "-";
+    applyBody(ws.getCell(row, 3));
+    ws.getCell(row, 3).value = li.customerName;
+    applyBody(ws.getCell(row, 4));
+    ws.getCell(row, 4).value = li.itemName;
+    applyBody(ws.getCell(row, 5), { right: true });
+    ws.getCell(row, 5).value = li.quantity;
+    ws.getCell(row, 5).numFmt = "#,##0.##";
+    applyBody(ws.getCell(row, 6));
+    ws.getCell(row, 6).value = li.unit;
+    applyBody(ws.getCell(row, 7), { right: true });
+    ws.getCell(row, 7).value = li.unitPrice;
+    ws.getCell(row, 7).numFmt = CURRENCY_FMT;
+    applyBody(ws.getCell(row, 8), { right: true });
+    ws.getCell(row, 8).value = li.discountPercent;
+    applyBody(ws.getCell(row, 9), { right: true, bold: true });
+    ws.getCell(row, 9).value = li.lineTotal;
+    ws.getCell(row, 9).numFmt = CURRENCY_FMT;
+    applyBody(ws.getCell(row, 10), { color: li.paidStatus === "ชำระแล้ว" ? GREEN_TEXT : undefined });
+    ws.getCell(row, 10).value = li.paidStatus;
+    row++;
+  }
+
+  setColumnWidths(ws, [16, 12, 22, 28, 10, 8, 14, 10, 14, 12]);
+  return ws;
+}
+
 // ============ Build Opts & Export ============
 
 interface BuildOpts {
@@ -220,6 +231,7 @@ interface BuildOpts {
   cogs: number;
   collectionRate: number;
   dateFrom: string;
+  lineItems?: LineItemRow[];
 }
 
 export async function buildFinancialReportXlsx(opts: BuildOpts): Promise<Uint8Array> {
@@ -230,6 +242,9 @@ export async function buildFinancialReportXlsx(opts: BuildOpts): Promise<Uint8Ar
   buildSummarySheet(wb, opts);
   buildTransactionsSheet(wb, opts);
   buildARSheet(wb, opts);
+  if (opts.lineItems && opts.lineItems.length > 0) {
+    buildLineItemsSheet(wb, opts.lineItems);
+  }
 
   const buffer = await wb.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);

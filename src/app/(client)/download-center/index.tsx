@@ -8,7 +8,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { DOC_TYPE_LABELS } from "../../../constants";
-import { useFinancialReport } from "../../../hooks/useReports";
+import { useFinancialReport, type LineItemRow } from "../../../hooks/useReports";
 import type { DocumentType, Customer } from "../../../types";
 import { Download, FileText, BarChart3, Package } from "lucide-react";
 
@@ -227,6 +227,28 @@ export default function DownloadCenterPage() {
     setReportExporting("financial");
     try {
       const { buildFinancialReportXlsx } = await import("../../../lib/financialReportXlsx");
+      const docIds = finTransactions.map(t => t.id);
+      const { data: rawLineItems } = await supabase
+        .from("document_line_items")
+        .select("*")
+        .in("document_id", docIds)
+        .order("created_at", { ascending: true });
+      const docMap = new Map(finTransactions.map(t => [t.id, t]));
+      const lineItems: LineItemRow[] = (rawLineItems || []).map((li: any) => {
+        const doc = docMap.get(li.document_id);
+        return {
+          docNumber: doc?.doc_number || "-",
+          date: doc?.date || "",
+          customerName: doc?.customer_name || "",
+          itemName: li.item_name || "",
+          quantity: li.quantity || 0,
+          unit: li.unit || "",
+          unitPrice: li.unit_price || 0,
+          discountPercent: li.discount_percent || 0,
+          lineTotal: li.line_total || 0,
+          paidStatus: doc?.is_paid ? "ชำระแล้ว" : "รอชำระ",
+        };
+      });
       const buffer = await buildFinancialReportXlsx({
         summary: finSummary,
         transactions: finTransactions,
@@ -234,6 +256,7 @@ export default function DownloadCenterPage() {
         cogs: finCogs,
         collectionRate: finCollectionRate,
         dateFrom: `${String(finMonth).padStart(2, "0")}/${finYear}`,
+        lineItems,
       });
       downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `financial_${finYear}-${String(finMonth).padStart(2, "0")}.xlsx`);
       toast.success("ดาวน์โหลดเรียบร้อย");
