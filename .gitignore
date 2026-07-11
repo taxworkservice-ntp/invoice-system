@@ -10,3 +10,4 @@ test user.md
 supabase/.temp
 tests/print-layout/actual
 .backup/
+.env*

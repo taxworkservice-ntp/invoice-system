@@ -37,6 +37,15 @@ export type WhtRate = "0" | "1" | "2" | "3" | "5";
 export type StoragePurpose =
   "logos" | "signatures" | "stamps" | "pdfs" | "exports" | "attachments";
 
+export type WhtFormType =
+  | "pnd1"
+  | "pnd1_special"
+  | "pnd2"
+  | "pnd3"
+  | "pnd2a"
+  | "pnd3a"
+  | "pnd53";
+
 export interface Profile {
   id: string;
   auth_user_id?: string;
@@ -123,6 +132,37 @@ export interface Customer {
   avatar_initials: string | null;
   avatar_color: string | null;
   credit_term_days: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WhtVendor {
+  id: string;
+  user_id: string;
+  name: string;
+  tax_id: string | null;
+  address: string | null;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  note: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WhtRecord {
+  id: string;
+  user_id: string;
+  vendor_id: string;
+  form_type: WhtFormType;
+  issue_date: string;
+  amount: number;
+  wht_rate: number;
+  wht_amount: number;
+  certificate_no: string | null;
+  certificate_generated_at: string | null;
+  note: string | null;
   created_at: string;
   updated_at: string;
 }

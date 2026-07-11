@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft } from "lucide-react";
+import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
@@ -15,6 +15,7 @@ const iconMap: Record<string, React.ReactNode> = {
   "/documents": <FileText className="w-5 h-5" />,
   "/download-center": <Download className="w-5 h-5" />,
   "/reports": <BarChart3 className="w-5 h-5" />,
+  "/wht": <Percent className="w-5 h-5" />,
   "/catalog": <Package className="w-5 h-5" />,
   "/customers": <Users className="w-5 h-5" />,
   "/settings": <Settings className="w-5 h-5" />,
@@ -62,6 +63,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
     if (item.path === "/reports") return permissions.canViewReports;
+    if (item.path === "/wht") return permissions.canViewReports;
     if (item.path === "/settings") return permissions.canManageSettings;
     if (item.path === "/catalog") return permissions.canManageCatalog;
     if (item.path === "/customers") return permissions.canManageCustomers;
