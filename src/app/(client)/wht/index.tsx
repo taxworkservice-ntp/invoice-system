@@ -30,10 +30,10 @@ const WHT_FORM_TYPE_COLORS: Record<WhtFormType, string> = {
   pnd1: "#2563eb",
   pnd1_special: "#7c3aed",
   pnd2: "#dc2626",
-  pnd3: "#059669",
+  pnd3: "#ca8a04",
   pnd2a: "#d97706",
   pnd3a: "#0891b2",
-  pnd53: "#c026d3",
+  pnd53: "#2563eb",
 };
 
 const WHT_FORM_TYPES: WhtFormType[] = ["pnd3", "pnd53", "pnd1", "pnd2", "pnd3a", "pnd2a", "pnd1_special"];
