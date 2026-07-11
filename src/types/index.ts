@@ -162,6 +162,7 @@ export interface WhtRecord {
   wht_amount: number;
   certificate_no: string | null;
   certificate_generated_at: string | null;
+  description: string | null;
   note: string | null;
   created_at: string;
   updated_at: string;

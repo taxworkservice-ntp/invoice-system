@@ -65,6 +65,7 @@ create table if not exists wht_records (
   certificate_no          text,
   certificate_generated_at timestamptz,
 
+  description             text,
   note                    text,
   created_at              timestamptz not null default now(),
   updated_at              timestamptz not null default now()

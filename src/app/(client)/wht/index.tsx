@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Download, Trash2, X, Plus, Search, FileText } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -102,6 +102,7 @@ export default function WhtPage() {
     issue_date: new Date().toISOString().slice(0, 10),
     amount: "",
     wht_rate: "3",
+    description: "",
     note: "",
   });
   const [editRecordForm, setEditRecordForm] = useState({
@@ -110,6 +111,7 @@ export default function WhtPage() {
     issue_date: "",
     amount: "",
     wht_rate: "3",
+    description: "",
     note: "",
   });
   const [newVendor, setNewVendor] = useState({ name: "", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
@@ -164,10 +166,11 @@ export default function WhtPage() {
         issue_date: newRecord.issue_date,
         amount: parseFloat(newRecord.amount),
         wht_rate: parseFloat(newRecord.wht_rate),
+        description: newRecord.description || null,
         note: newRecord.note || null,
       });
       setShowAddRecord(false);
-      setNewRecord({ vendor_id: "", form_type: "pnd3", issue_date: new Date().toISOString().slice(0, 10), amount: "", wht_rate: "3", note: "" });
+      setNewRecord({ vendor_id: "", form_type: "pnd3", issue_date: new Date().toISOString().slice(0, 10), amount: "", wht_rate: "3", description: "", note: "" });
       toast.success("เพิ่มรายการ WHT แล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
@@ -186,6 +189,7 @@ export default function WhtPage() {
         issue_date: editRecordForm.issue_date,
         amount: parseFloat(editRecordForm.amount) || showEditRecord.amount,
         wht_rate: parseFloat(editRecordForm.wht_rate),
+        description: editRecordForm.description || null,
         note: editRecordForm.note || null,
       });
       setShowEditRecord(null);
@@ -205,6 +209,7 @@ export default function WhtPage() {
       issue_date: record.issue_date?.slice(0, 10) || "",
       amount: String(record.amount),
       wht_rate: String(record.wht_rate),
+      description: record.description || "",
       note: record.note || "",
     });
   }
@@ -444,6 +449,7 @@ export default function WhtPage() {
                         />
                         <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ผู้ขาย</th>
                         <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">เลขภาษี</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">รายละเอียด</th>
                         <SortableTh
                           label="แบบ"
                           active={tableSort.sort.key === "form_type"}
@@ -471,6 +477,7 @@ export default function WhtPage() {
                           <td className="px-3 py-2">{formatDate(r.issue_date)}</td>
                           <td className="px-3 py-2 font-medium">{r.vendor?.name || "-"}</td>
                           <td className="px-3 py-2 font-mono text-[12px] text-[#888780]">{r.vendor?.tax_id || "-"}</td>
+                          <td className="px-3 py-2 text-[12px] text-[#555]">{r.description || "-"}</td>
                           <td className="px-3 py-2">
                             <span
                               className="px-1.5 py-0.5 rounded text-[11px] font-medium"
@@ -646,6 +653,7 @@ export default function WhtPage() {
                   WHT = {formatCurrency(parseFloat(newRecord.amount) * parseFloat(newRecord.wht_rate) / 100)}
                 </div>
               )}
+              <Input label="รายละเอียด" value={newRecord.description} onChange={(e) => setNewRecord({ ...newRecord, description: e.target.value })} placeholder="คำอธิบายที่จะแสดงบนฟอร์ม" />
               <Input label="หมายเหตุ" value={newRecord.note} onChange={(e) => setNewRecord({ ...newRecord, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleAddRecord} disabled={!newRecord.vendor_id || !newRecord.amount || saving} loading={saving} className="flex-1">บันทึก</Button>
@@ -687,6 +695,7 @@ export default function WhtPage() {
                   <option value="0">0%</option>
                 </select>
               </div>
+              <Input label="รายละเอียด" value={editRecordForm.description} onChange={(e) => setEditRecordForm({ ...editRecordForm, description: e.target.value })} placeholder="คำอธิบายที่จะแสดงบนฟอร์ม" />
               <Input label="หมายเหตุ" value={editRecordForm.note} onChange={(e) => setEditRecordForm({ ...editRecordForm, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleUpdateRecord} loading={saving} className="flex-1">บันทึก</Button>
