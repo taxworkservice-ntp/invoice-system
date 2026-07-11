@@ -35,6 +35,34 @@ async function getExecutablePath() {
   return chromium.executablePath();
 }
 
+async function screenshotSheets(page) {
+  const sheets = await page.$$(".print-sheet");
+  const buffers = [];
+  for (const sheet of sheets) {
+    const buf = await sheet.screenshot({ type: "png" });
+    buffers.push(buf);
+  }
+  return buffers;
+}
+
+function buildImagePdfHtml(pngBuffers) {
+  const images = pngBuffers
+    .map((buf) => `<img src="data:image/png;base64,${buf.toString("base64")}">`)
+    .join("");
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { margin: 0 !important; size: 1512px 2138px; }
+  body { margin: 0; }
+  img { width: 1512px; height: 2138px; display: block; }
+</style>
+</head>
+<body>${images}</body>
+</html>`;
+}
+
 export default async function handler(req, res) {
   let browser;
 
@@ -118,23 +146,28 @@ export default async function handler(req, res) {
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     });
 
-    await page.addStyleTag({ content: "@page { margin: 0 !important; }" });
+    let pdfBuffer;
 
-    const pdfOptions = isPnd
-      ? {
-          printBackground: true,
-          preferCSSPageSize: false,
-          width: "1512px",
-          height: "2138px",
-          margin: { top: "0", right: "0", bottom: "0", left: "0" },
-        }
-      : {
-          printBackground: true,
-          preferCSSPageSize: true,
-          margin: { top: "0", right: "0", bottom: "0", left: "0" },
-        };
+    if (isPnd) {
+      const pngBuffers = await screenshotSheets(page);
 
-    const pdfBuffer = await page.pdf(pdfOptions);
+      const imageHtml = buildImagePdfHtml(pngBuffers);
+      await page.setContent(imageHtml, { waitUntil: "load" });
+
+      pdfBuffer = await page.pdf({
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      });
+    } else {
+      await page.addStyleTag({ content: "@page { margin: 0 !important; }" });
+
+      pdfBuffer = await page.pdf({
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      });
+    }
 
     const now = new Date();
     const dateCode = `${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;

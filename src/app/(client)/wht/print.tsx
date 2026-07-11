@@ -405,7 +405,15 @@ export default function WhtPrintPage() {
   if (layout === "pnd" && profile) {
     return (
       <div>
-        <style>{`@page { margin: 0; size: ${PAGE_W}px ${PAGE_H}px; } body { margin: 0; }`}</style>
+        <style>{`
+          @font-face {
+            font-family: NotoThaiFallback;
+            src: url('${FONT_FILE}') format('truetype');
+            font-weight: 400 700;
+          }
+          @page { margin: 0; size: ${PAGE_W}px ${PAGE_H}px; }
+          body { margin: 0; }
+        `}</style>
         {records.map((r, idx) => (
           <PndPage key={r.id} record={r} profile={profile} seq={idx} />
         ))}
