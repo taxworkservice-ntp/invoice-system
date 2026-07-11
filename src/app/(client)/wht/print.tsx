@@ -7,7 +7,7 @@ const PAGE_W = 1512;
 const PAGE_H = 2138;
 const BG_IMAGE = "/wht/form_page1.png";
 
-const FONT_FAMILY = "'Sarabun', 'Noto Sans Thai', 'Cordia New', sans-serif";
+const FONT_FAMILY = "'Cordia New', 'Sarabun', 'Noto Sans Thai', sans-serif";
 
 interface FieldBox {
   top: number;
@@ -280,7 +280,7 @@ function CleanPage({
         minHeight: "297mm",
         padding: "10mm",
         boxSizing: "border-box",
-        fontFamily: "'Sarabun', 'Noto Sans Thai', sans-serif",
+        fontFamily: "'Cordia New', 'Sarabun', sans-serif",
         backgroundColor: "#fff",
         position: "relative",
       }}
@@ -442,18 +442,13 @@ export default function WhtPrintPage() {
       <div>
         <style>{`
           @font-face {
-            font-family: Sarabun;
-            src: url('/fonts/Sarabun-Regular.ttf') format('truetype');
+            font-family: 'Cordia New';
+            src: url('/fonts/cordia.ttc#0') format('truetype');
             font-weight: 400;
           }
           @font-face {
-            font-family: Sarabun;
-            src: url('/fonts/Sarabun-SemiBold.ttf') format('truetype');
-            font-weight: 600;
-          }
-          @font-face {
-            font-family: Sarabun;
-            src: url('/fonts/Sarabun-Bold.ttf') format('truetype');
+            font-family: 'Cordia New';
+            src: url('/fonts/cordia.ttc#1') format('truetype');
             font-weight: 700;
           }
           @page { margin: 0; size: ${PAGE_W}px ${PAGE_H}px; }
