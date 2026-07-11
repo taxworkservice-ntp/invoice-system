@@ -29,6 +29,27 @@ export function useWhtRecords(userId: string | undefined) {
     fetch();
   }, [fetch]);
 
+  async function generateCertNo(issueDate: string, skipId?: string): Promise<string> {
+    const yymm = issueDate.slice(2, 7).replace("-", "");
+    const { data, error } = await supabase
+      .from("wht_records")
+      .select("id, certificate_no")
+      .eq("user_id", userId)
+      .not("certificate_no", "is", null)
+      .like("certificate_no", `${yymm}%`);
+
+    let maxSeq = 0;
+    if (!error && data) {
+      for (const row of data) {
+        if (skipId && row.id === skipId) continue;
+        const seqStr = row.certificate_no?.slice(-3) || "0";
+        const seq = parseInt(seqStr, 10);
+        if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+      }
+    }
+    return `${yymm}${String(maxSeq + 1).padStart(3, "0")}`;
+  }
+
   async function addRecord(record: Partial<WhtRecord>): Promise<WhtRecordWithVendor> {
     const payload = {
       ...record,
@@ -46,21 +67,16 @@ export function useWhtRecords(userId: string | undefined) {
     const r = data as WhtRecordWithVendor;
 
     if (!r.certificate_no && userId) {
-      const { data: certNo, error: certError } = await supabase.rpc(
-        "generate_wht_certificate_no",
-        { p_user_id: userId, p_issue_date: r.issue_date, p_skip_id: r.id },
-      );
-      if (!certError && certNo) {
-        await supabase
-          .from("wht_records")
-          .update({
-            certificate_no: certNo as string,
-            certificate_generated_at: new Date().toISOString(),
-          })
-          .eq("id", r.id);
-        r.certificate_no = certNo as string;
-        r.certificate_generated_at = new Date().toISOString();
-      }
+      const certNo = await generateCertNo(r.issue_date, r.id);
+      await supabase
+        .from("wht_records")
+        .update({
+          certificate_no: certNo,
+          certificate_generated_at: new Date().toISOString(),
+        })
+        .eq("id", r.id);
+      r.certificate_no = certNo;
+      r.certificate_generated_at = new Date().toISOString();
     }
 
     setRecords((prev) => [r, ...prev]);
@@ -103,13 +119,7 @@ export function useWhtRecords(userId: string | undefined) {
         results.push(r);
         continue;
       }
-      const { data, error } = await supabase.rpc("generate_wht_certificate_no", {
-        p_user_id: userId,
-        p_issue_date: r.issue_date,
-        p_skip_id: r.id,
-      });
-      if (error) throw error;
-      const certNo = data as string;
+      const certNo = await generateCertNo(r.issue_date, r.id);
       await supabase
         .from("wht_records")
         .update({
