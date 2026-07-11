@@ -237,6 +237,28 @@ export default function WhtPage() {
     }
   }
 
+  async function handleDebugExport() {
+    const toGenerate = filteredRecords;
+    if (toGenerate.length === 0) return;
+    setGenerating(true);
+    try {
+      const ids = toGenerate.slice(0, 1).map((r) => r.id);
+      const blob = await apiFetchBlob("/api/wht/generate", { ids, layout: "pnd", debug: true });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "wht_debug.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast.error(e.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   async function handleGenerateSingle(record: WhtRecordWithVendor) {
     setGenerating(true);
     try {
@@ -396,6 +418,9 @@ export default function WhtPage() {
               <div className="flex gap-2">
                 <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
                   <Download size={14} className="mr-1" /> ออกรายงาน PDF
+                </Button>
+                <Button size="sm" variant="secondary" onClick={handleDebugExport} loading={generating} className="!rounded-lg">
+                  <FileText size={14} className="mr-1" /> Debug PDF
                 </Button>
               </div>
             )}

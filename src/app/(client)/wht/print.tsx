@@ -10,6 +10,7 @@ const BG_IMAGE = "/wht/form_page1.png";
 const FONT_FAMILY = "'Cordia New', 'Sarabun', 'Noto Sans Thai', sans-serif";
 
 interface FieldDef {
+  name: string;
   top: number;
   left: number;
   fontSize: number;
@@ -57,7 +58,7 @@ function splitTaxid(s: string | null | undefined) {
   const g1 = digits.slice(1, 5).split("").join(" ");
   const g2 = digits.slice(5, 10).split("").join(" ");
   const g3 = digits.slice(10, 12).split("").join(" ");
-  return `${digits[0]}   ${g1}     ${g2}     ${g3}   ${digits[12]}`;
+  return `${digits[0]}    ${g1}     ${g2}      ${g3}   ${digits[12]}`;
 }
 
 function thaiBahtText(num: number | null | undefined) {
@@ -108,20 +109,20 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
   const WHT_W = 180;
 
   return [
-    { top: cssTop(187, 35), left: 1317, fontSize: 35, value: whtId },
-    { top: cssTop(279, 33), left: 165, fontSize: 33, value: profile.company_name_th || "" },
-    { top: cssTop(241, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(profile.tax_id) },
-    { top: cssTop(340, 32), left: 166, fontSize: 32, wrap: true, width: 780, value: profile.address || "" },
-    { top: cssTop(464, 33), left: 169, fontSize: 33, value: String(v?.name || "") },
-    { top: cssTop(416, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(v?.tax_id) },
-    { top: cssTop(534, 32), left: 171, fontSize: 32, wrap: true, width: 780, value: String(v?.address || "") },
-    { top: cssTop(1585, 35), left: 857, fontSize: 35, value: dateStr },
-    { top: cssTop(1585, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
-    { top: cssTop(1585, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
-    { top: cssTop(1680, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
-    { top: cssTop(1680, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
-    { top: cssTop(1726, 36), left: 503, fontSize: 36, value: thaiStr },
-    { top: cssTop(1945, 35), left: 972, fontSize: 35, value: dateStr },
+    { name: "wht_id", top: cssTop(187, 35), left: 1317, fontSize: 35, value: whtId },
+    { name: "payer_name", top: cssTop(279, 33), left: 165, fontSize: 33, value: profile.company_name_th || "" },
+    { name: "payer_taxid", top: cssTop(241, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(profile.tax_id) },
+    { name: "payer_address", top: cssTop(340, 32), left: 166, fontSize: 32, wrap: true, width: 1014, value: profile.address || "" },
+    { name: "name", top: cssTop(464, 33), left: 169, fontSize: 33, value: String(v?.name || "") },
+    { name: "taxid", top: cssTop(416, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(v?.tax_id) },
+    { name: "address", top: cssTop(534, 32), left: 171, fontSize: 32, wrap: true, width: 1014, value: String(v?.address || "") },
+    { name: "date1", top: cssTop(1585, 35), left: 857, fontSize: 35, value: dateStr },
+    { name: "amount1", top: cssTop(1585, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
+    { name: "wht1", top: cssTop(1585, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
+    { name: "amount2", top: cssTop(1680, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
+    { name: "wht2", top: cssTop(1680, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
+    { name: "thai_amount", top: cssTop(1726, 36), left: 503, fontSize: 36, value: thaiStr },
+    { name: "date_bottom", top: cssTop(1945, 35), left: 972, fontSize: 35, value: dateStr },
   ];
 }
 
@@ -130,20 +131,29 @@ function buildImages(profile: ClientProfile): ImageOverlay[] {
   if (profile.signature_url) {
     images.push({ name: "signature", src: profile.signature_url, top: 1865, left: 950, width: 240, height: 90 });
   }
-  if (profile.stamp_url) {
-    images.push({ name: "logo", src: profile.stamp_url, top: 1870, left: 1265, width: 110, height: 110 });
+  const logoSrc = profile.stamp_url || profile.logo_url;
+  if (logoSrc) {
+    images.push({ name: "logo", src: logoSrc, top: 1870, left: 1265, width: 110, height: 110 });
   }
   return images;
 }
+
+const DEBUG_COLORS = [
+  "#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6",
+  "#e67e22", "#1abc9c", "#e91e63", "#3f51b5", "#009688",
+  "#ff5722", "#795548", "#607d8b", "#cddc39",
+];
 
 function PndPage({
   record,
   profile,
   seq,
+  debug,
 }: {
   record: RecordWithVendor;
   profile: ClientProfile;
   seq: number;
+  debug?: boolean;
 }) {
   const fields = buildFields(record, profile, seq);
   const images = buildImages(profile);
@@ -164,41 +174,58 @@ function PndPage({
         className="bg"
         src={BG_IMAGE}
         alt="form background"
-        style={{ position: "absolute", inset: 0, width: PAGE_W + "px", height: PAGE_H + "px" }}
+        style={{ position: "absolute", inset: 0, width: PAGE_W + "px", height: PAGE_H + "px", opacity: debug ? 0.7 : 1 }}
       />
 
       {images.map((img) => (
-        <img
-          key={img.name}
-          alt={img.name}
-          src={img.src}
-          crossOrigin="anonymous"
-          style={{
-            position: "absolute",
-            top: img.top + "px",
-            left: img.left + "px",
-            width: img.width + "px",
-            height: img.height + "px",
-            objectFit: "contain",
-            objectPosition: "center center",
-          }}
-        />
+        <div key={img.name} style={{ position: "absolute", top: img.top + "px", left: img.left + "px", width: img.width + "px", height: img.height + "px" }}>
+          {debug && (
+            <div style={{ position: "absolute", inset: 0, border: "2px dashed #e74c3c", boxSizing: "border-box", display: "flex", alignItems: "flex-start", justifyContent: "flex-start" }}>
+              <span style={{ background: "#e74c3c", color: "#fff", fontSize: 11, padding: "1px 4px", fontFamily: "monospace" }}>{img.name}</span>
+            </div>
+          )}
+          <img
+            alt={img.name}
+            src={img.src}
+            crossOrigin="anonymous"
+            style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center center" }}
+          />
+        </div>
       ))}
 
       {checkmark && (
-        <div
+        <svg
           aria-label={record.form_type}
           style={{
             position: "absolute",
             top: cssTop(checkmark.top, checkmark.fs) + "px",
             left: checkmark.left + "px",
-            fontSize: checkmark.fs + "px",
-            lineHeight: 1,
-            fontFamily: "'Segoe UI Symbol','Arial',sans-serif",
-            color: "#000",
+            width: checkmark.fs + "px",
+            height: checkmark.fs + "px",
           }}
+          viewBox="0 0 32 32"
+          fill="none"
+          stroke="#000"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          {"\u2713"}
+          <path d="M 4 16 L 12 24 L 28 8" />
+        </svg>
+      )}
+      {debug && checkmark && (
+        <div style={{
+          position: "absolute",
+          top: cssTop(checkmark.top, checkmark.fs) + "px",
+          left: checkmark.left + "px",
+          width: checkmark.fs + "px",
+          height: checkmark.fs + "px",
+          border: "2px dashed #e91e63",
+          boxSizing: "border-box",
+        }}>
+          <span style={{ background: "#e91e63", color: "#fff", fontSize: 10, padding: "1px 3px", fontFamily: "monospace", position: "absolute", top: -16, left: 0, whiteSpace: "nowrap" }}>
+            checkmark:{record.form_type}
+          </span>
         </div>
       )}
 
@@ -220,6 +247,34 @@ function PndPage({
           }}
         >
           {f.value}
+          {debug && (
+            <span style={{
+              position: "absolute",
+              top: -14,
+              left: 0,
+              background: DEBUG_COLORS[i % DEBUG_COLORS.length],
+              color: "#fff",
+              fontSize: 10,
+              padding: "1px 4px",
+              fontFamily: "monospace",
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+            }}>
+              {f.name} top:{f.top} L:{f.left} fs:{f.fontSize}{f.width ? ` W:${f.width}` : ""}
+            </span>
+          )}
+          {debug && (
+            <span style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              border: `1px dashed ${DEBUG_COLORS[i % DEBUG_COLORS.length]}`,
+              boxSizing: "border-box",
+              pointerEvents: "none",
+            }} />
+          )}
         </div>
       ))}
     </div>
@@ -341,6 +396,7 @@ export default function WhtPrintPage() {
   const idsRaw = searchParams.get("ids") || "";
   const ids = idsRaw.split(",").filter(Boolean);
   const layout = searchParams.get("layout") || "clean";
+  const debug = searchParams.get("debug") === "1";
 
   useEffect(() => {
     let cancelled = false;
@@ -416,7 +472,7 @@ export default function WhtPrintPage() {
           body { margin: 0; }
         `}</style>
         {records.map((r, idx) => (
-          <PndPage key={r.id} record={r} profile={profile} seq={idx} />
+          <PndPage key={r.id} record={r} profile={profile} seq={idx} debug={debug} />
         ))}
       </div>
     );

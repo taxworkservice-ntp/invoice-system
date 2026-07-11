@@ -79,6 +79,7 @@ export default async function handler(req, res) {
     const body = readJsonBody(req);
     const ids = body.ids;
     const layout = body.layout || "pnd";
+    const debug = body.debug === true;
     if (!Array.isArray(ids) || ids.length === 0) {
       throw new ApiError(400, "Missing record ids array");
     }
@@ -111,6 +112,7 @@ export default async function handler(req, res) {
     exportUrl.searchParams.set("ids", idsParam);
     exportUrl.searchParams.set("export", "pdf");
     exportUrl.searchParams.set("layout", layout);
+    if (debug) exportUrl.searchParams.set("debug", "1");
 
     browser = await playwright.chromium.launch({
       args: chromium.args,
