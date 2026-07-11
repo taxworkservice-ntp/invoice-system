@@ -37,6 +37,16 @@ const WHT_FORM_TYPE_COLORS: Record<WhtFormType, string> = {
 };
 
 const WHT_FORM_TYPES: WhtFormType[] = ["pnd3", "pnd53", "pnd1", "pnd2", "pnd3a", "pnd2a", "pnd1_special"];
+
+const WHT_DESCRIPTION_PRESETS = [
+  "ค่าจ้างทำของ",
+  "ค่าขนส่ง",
+  "ค่านายหน้า",
+  "ค่าเบี้ยประกันวินาศภัย",
+  "ค่าโฆษณา",
+  "ค่าเช่า",
+  "ค่าบริการ",
+];
 const TAB_RECORDS = "records" as const;
 const TAB_VENDORS = "vendors" as const;
 type Tab = typeof TAB_RECORDS | typeof TAB_VENDORS;
@@ -653,7 +663,16 @@ export default function WhtPage() {
                   WHT = {formatCurrency(parseFloat(newRecord.amount) * parseFloat(newRecord.wht_rate) / 100)}
                 </div>
               )}
-              <Input label="รายละเอียด" value={newRecord.description} onChange={(e) => setNewRecord({ ...newRecord, description: e.target.value })} placeholder="คำอธิบายที่จะแสดงบนฟอร์ม" />
+              <div>
+                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด</label>
+                <input
+                  list="wht-description-presets"
+                  value={newRecord.description}
+                  onChange={(e) => setNewRecord({ ...newRecord, description: e.target.value })}
+                  placeholder="เลือกหรือพิมพ์เอง"
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
+                />
+              </div>
               <Input label="หมายเหตุ" value={newRecord.note} onChange={(e) => setNewRecord({ ...newRecord, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleAddRecord} disabled={!newRecord.vendor_id || !newRecord.amount || saving} loading={saving} className="flex-1">บันทึก</Button>
@@ -695,7 +714,16 @@ export default function WhtPage() {
                   <option value="0">0%</option>
                 </select>
               </div>
-              <Input label="รายละเอียด" value={editRecordForm.description} onChange={(e) => setEditRecordForm({ ...editRecordForm, description: e.target.value })} placeholder="คำอธิบายที่จะแสดงบนฟอร์ม" />
+              <div>
+                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด</label>
+                <input
+                  list="wht-description-presets"
+                  value={editRecordForm.description}
+                  onChange={(e) => setEditRecordForm({ ...editRecordForm, description: e.target.value })}
+                  placeholder="เลือกหรือพิมพ์เอง"
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
+                />
+              </div>
               <Input label="หมายเหตุ" value={editRecordForm.note} onChange={(e) => setEditRecordForm({ ...editRecordForm, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleUpdateRecord} loading={saving} className="flex-1">บันทึก</Button>
@@ -751,6 +779,9 @@ export default function WhtPage() {
           </div>
         </div>
       )}
+    <datalist id="wht-description-presets">
+        {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p} />)}
+      </datalist>
     </AppShell>
   );
 }
