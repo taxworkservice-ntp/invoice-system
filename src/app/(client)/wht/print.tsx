@@ -9,19 +9,14 @@ const BG_IMAGE = "/wht/form_page1.png";
 
 const FONT_FAMILY = "'Cordia New', 'Sarabun', 'Noto Sans Thai', sans-serif";
 
-interface FieldBox {
+interface FieldDef {
   top: number;
   left: number;
-  width: number;
-  height: number;
   fontSize: number;
-  align: "left" | "right" | "center";
   bold?: boolean;
+  rightAlign?: boolean;
+  width?: number;
   wrap?: boolean;
-}
-
-interface FieldDef {
-  box: FieldBox;
   value: string;
 }
 
@@ -94,6 +89,12 @@ interface RecordWithVendor extends WhtRecord {
   vendor?: WhtVendor;
 }
 
+const FIELD_TOP_OFFSET = 3;
+
+function cssTop(configTop: number, fs: number) {
+  return configTop - fs + FIELD_TOP_OFFSET;
+}
+
 function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: number): FieldDef[] {
   const v = record.vendor;
   const month = record.issue_date ? new Date(record.issue_date).getMonth() + 1 : 1;
@@ -103,63 +104,24 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
   const whtStr = fmtNum(record.wht_amount);
   const thaiStr = thaiBahtText(record.wht_amount);
 
+  const AMT_W = 260;
+  const WHT_W = 180;
+
   return [
-    {
-      box: { top: 152, left: 1270, width: 200, height: 40, fontSize: 35, align: "center" },
-      value: whtId,
-    },
-    {
-      box: { top: 248, left: 150, width: 650, height: 38, fontSize: 33, align: "left" },
-      value: profile.company_name_th || "",
-    },
-    {
-      box: { top: 205, left: 950, width: 400, height: 48, fontSize: 45, align: "left", bold: true },
-      value: splitTaxid(profile.tax_id),
-    },
-    {
-      box: { top: 278, left: 150, width: 650, height: 90, fontSize: 32, align: "left", wrap: true },
-      value: profile.address || "",
-    },
-    {
-      box: { top: 432, left: 150, width: 650, height: 38, fontSize: 33, align: "left" },
-      value: String(v?.name || ""),
-    },
-    {
-      box: { top: 380, left: 950, width: 400, height: 48, fontSize: 45, align: "left", bold: true },
-      value: splitTaxid(v?.tax_id),
-    },
-    {
-      box: { top: 472, left: 150, width: 650, height: 90, fontSize: 32, align: "left", wrap: true },
-      value: String(v?.address || ""),
-    },
-    {
-      box: { top: 1548, left: 700, width: 180, height: 40, fontSize: 35, align: "center" },
-      value: dateStr,
-    },
-    {
-      box: { top: 1548, left: 910, width: 270, height: 40, fontSize: 35, align: "right" },
-      value: amtStr,
-    },
-    {
-      box: { top: 1548, left: 1180, width: 200, height: 40, fontSize: 35, align: "right" },
-      value: whtStr,
-    },
-    {
-      box: { top: 1645, left: 910, width: 270, height: 40, fontSize: 35, align: "right" },
-      value: amtStr,
-    },
-    {
-      box: { top: 1645, left: 1180, width: 200, height: 40, fontSize: 35, align: "right" },
-      value: whtStr,
-    },
-    {
-      box: { top: 1690, left: 490, width: 680, height: 42, fontSize: 36, align: "left" },
-      value: thaiStr,
-    },
-    {
-      box: { top: 1910, left: 845, width: 180, height: 40, fontSize: 35, align: "center" },
-      value: dateStr,
-    },
+    { top: cssTop(187, 35), left: 1317, fontSize: 35, value: whtId },
+    { top: cssTop(279, 33), left: 165, fontSize: 33, value: profile.company_name_th || "" },
+    { top: cssTop(241, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(profile.tax_id) },
+    { top: cssTop(340, 32), left: 166, fontSize: 32, wrap: true, width: 780, value: profile.address || "" },
+    { top: cssTop(464, 33), left: 169, fontSize: 33, value: String(v?.name || "") },
+    { top: cssTop(416, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(v?.tax_id) },
+    { top: cssTop(534, 32), left: 171, fontSize: 32, wrap: true, width: 780, value: String(v?.address || "") },
+    { top: cssTop(1585, 35), left: 857, fontSize: 35, value: dateStr },
+    { top: cssTop(1585, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
+    { top: cssTop(1585, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
+    { top: cssTop(1680, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
+    { top: cssTop(1680, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
+    { top: cssTop(1726, 36), left: 503, fontSize: 36, value: thaiStr },
+    { top: cssTop(1945, 35), left: 972, fontSize: 35, value: dateStr },
   ];
 }
 
@@ -228,7 +190,7 @@ function PndPage({
           aria-label={record.form_type}
           style={{
             position: "absolute",
-            top: checkmark.top - checkmark.fs + 3 + "px",
+            top: cssTop(checkmark.top, checkmark.fs) + "px",
             left: checkmark.left + "px",
             fontSize: checkmark.fs + "px",
             lineHeight: 1,
@@ -245,21 +207,16 @@ function PndPage({
           key={i}
           style={{
             position: "absolute",
-            top: f.box.top + "px",
-            left: f.box.left + "px",
-            width: f.box.width + "px",
-            height: f.box.height + "px",
-            display: "flex",
-            alignItems: f.box.wrap ? "flex-start" : "center",
-            justifyContent:
-              f.box.align === "right" ? "flex-end" : f.box.align === "center" ? "center" : "flex-start",
-            fontSize: f.box.fontSize + "px",
-            fontWeight: f.box.bold ? 700 : 400,
-            lineHeight: 1.2,
+            top: f.top + "px",
+            left: f.left + "px",
+            fontSize: f.fontSize + "px",
+            fontWeight: f.bold ? 700 : 400,
+            lineHeight: 1.35,
+            whiteSpace: f.wrap ? "normal" : "pre",
+            wordBreak: f.wrap ? "break-word" : "normal",
             color: "#000",
-            overflow: "hidden",
-            whiteSpace: f.box.wrap ? "normal" : "nowrap",
-            textOverflow: "clip",
+            ...(f.width ? { width: f.width + "px" } : {}),
+            ...(f.rightAlign ? { textAlign: "right" } : {}),
           }}
         >
           {f.value}
