@@ -58,7 +58,7 @@ function splitTaxid(s: string | null | undefined) {
   const g1 = digits.slice(1, 5).split("").join(" ");
   const g2 = digits.slice(5, 10).split("").join(" ");
   const g3 = digits.slice(10, 12).split("").join(" ");
-  return `${digits[0]}    ${g1}     ${g2}       ${g3}   ${digits[12]}`;
+  return `${digits[0]}    ${g1}      ${g2}       ${g3}   ${digits[12]}`;
 }
 
 function thaiBahtText(num: number | null | undefined) {
