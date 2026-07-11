@@ -112,14 +112,15 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
   return [
     { name: "wht_id", top: cssTop(187, 35), left: 1317, fontSize: 35, value: whtId },
     { name: "payer_name", top: cssTop(279, 33), left: 165, fontSize: 33, width: 583, value: profile.company_name_th || "" },
-    { name: "payer_taxid", top: cssTop(241, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(profile.tax_id) },
+    { name: "payer_taxid", top: cssTop(241, 45), left: 961, fontSize: 45, bold: true, value: splitTaxid(profile.tax_id) },
     { name: "payer_address", top: cssTop(337, 32), left: 166, fontSize: 32, wrap: true, width: 1166, value: profile.address || "" },
     { name: "name", top: cssTop(464, 33), left: 169, fontSize: 33, width: 583, value: String(v?.name || "") },
-    { name: "taxid", top: cssTop(416, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(v?.tax_id) },
+    { name: "taxid", top: cssTop(416, 45), left: 961, fontSize: 45, bold: true, value: splitTaxid(v?.tax_id) },
     { name: "address", top: cssTop(531, 32), left: 171, fontSize: 32, wrap: true, width: 1166, value: String(v?.address || "") },
-    { name: "date1", top: cssTop(1600, 35), left: 857, fontSize: 35, value: dateStr },
-    { name: "amount1", top: cssTop(1600, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
-    { name: "wht1", top: cssTop(1600, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
+    { name: "description1", top: cssTop(1620, 33), left: 170, fontSize: 33, width: 480, value: String(record.note || "") },
+    { name: "date1", top: cssTop(1620, 35), left: 857, fontSize: 35, value: dateStr },
+    { name: "amount1", top: cssTop(1620, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
+    { name: "wht1", top: cssTop(1620, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
     { name: "amount2", top: cssTop(1680, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
     { name: "wht2", top: cssTop(1680, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
     { name: "thai_amount", top: cssTop(1726, 36), left: 503, fontSize: 36, value: thaiStr },
@@ -207,11 +208,11 @@ function PndPage({
           viewBox="0 0 32 32"
           fill="none"
           stroke="#000"
-          strokeWidth="3"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M 4 16 L 12 24 L 28 8" />
+          <path d="M 6 17 C 6 17, 10 23, 13 25 C 16 19, 22 12, 27 7" />
         </svg>
       )}
       {debug && checkmark && (
