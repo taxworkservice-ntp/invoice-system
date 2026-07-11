@@ -117,7 +117,7 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
     { name: "name", top: cssTop(464, 33), left: 169, fontSize: 33, width: 583, value: String(v?.name || "") },
     { name: "taxid", top: cssTop(416, 45), left: 961, fontSize: 45, bold: true, value: splitTaxid(v?.tax_id) },
     { name: "address", top: cssTop(531, 32), left: 171, fontSize: 32, wrap: true, width: 1166, value: String(v?.address || "") },
-    { name: "description1", top: cssTop(1628, 33), left: 230, fontSize: 33, width: 480, value: String(record.description || "") },
+    { name: "description1", top: cssTop(1624, 33), left: 290, fontSize: 33, width: 480, value: String(record.description || "") },
     { name: "date1", top: cssTop(1620, 35), left: 857, fontSize: 35, value: dateStr },
     { name: "amount1", top: cssTop(1620, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
     { name: "wht1", top: cssTop(1620, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },

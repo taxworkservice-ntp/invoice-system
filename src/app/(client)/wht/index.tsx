@@ -649,7 +649,7 @@ export default function WhtPage() {
               <Input label="วันที่ *" type="date" value={newRecord.issue_date} onChange={(e) => setNewRecord({ ...newRecord, issue_date: e.target.value })} />
               <Input label="จำนวนเงิน *" type="number" step="0.01" value={newRecord.amount} onChange={(e) => setNewRecord({ ...newRecord, amount: e.target.value })} placeholder="0.00" />
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%)</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
                 <select value={newRecord.wht_rate} onChange={(e) => setNewRecord({ ...newRecord, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                   <option value="1">1%</option>
                   <option value="2">2%</option>
@@ -664,7 +664,7 @@ export default function WhtPage() {
                 </div>
               )}
               <div>
-                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด</label>
+                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
                 <input
                   list="wht-description-presets"
                   value={newRecord.description}
@@ -675,7 +675,7 @@ export default function WhtPage() {
               </div>
               <Input label="หมายเหตุ" value={newRecord.note} onChange={(e) => setNewRecord({ ...newRecord, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleAddRecord} disabled={!newRecord.vendor_id || !newRecord.amount || saving} loading={saving} className="flex-1">บันทึก</Button>
+                <Button onClick={handleAddRecord} disabled={!newRecord.vendor_id || !newRecord.amount || !newRecord.description.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
                 <Button variant="secondary" onClick={() => setShowAddRecord(false)} className="flex-1">ยกเลิก</Button>
               </div>
             </div>
@@ -691,21 +691,21 @@ export default function WhtPage() {
             <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">แก้ไขรายการ WHT</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ผู้ขาย/ผู้รับเงิน</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">ผู้ขาย/ผู้รับเงิน *</label>
                 <select value={editRecordForm.vendor_id} onChange={(e) => setEditRecordForm({ ...editRecordForm, vendor_id: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                   {allVendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">แบบภาษี</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">แบบภาษี *</label>
                 <select value={editRecordForm.form_type} onChange={(e) => setEditRecordForm({ ...editRecordForm, form_type: e.target.value as WhtFormType })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                   {WHT_FORM_TYPES.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
                 </select>
               </div>
-              <Input label="วันที่" type="date" value={editRecordForm.issue_date} onChange={(e) => setEditRecordForm({ ...editRecordForm, issue_date: e.target.value })} />
-              <Input label="จำนวนเงิน" type="number" step="0.01" value={editRecordForm.amount} onChange={(e) => setEditRecordForm({ ...editRecordForm, amount: e.target.value })} />
+              <Input label="วันที่ *" type="date" value={editRecordForm.issue_date} onChange={(e) => setEditRecordForm({ ...editRecordForm, issue_date: e.target.value })} />
+              <Input label="จำนวนเงิน *" type="number" step="0.01" value={editRecordForm.amount} onChange={(e) => setEditRecordForm({ ...editRecordForm, amount: e.target.value })} />
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%)</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
                 <select value={editRecordForm.wht_rate} onChange={(e) => setEditRecordForm({ ...editRecordForm, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                   <option value="1">1%</option>
                   <option value="2">2%</option>
@@ -715,7 +715,7 @@ export default function WhtPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด</label>
+                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
                 <input
                   list="wht-description-presets"
                   value={editRecordForm.description}
