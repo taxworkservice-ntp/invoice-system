@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { FileText, Download, Trash2, X, Plus, Search } from "lucide-react";
+import { Download, Trash2, X, Plus, Search, FileText } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -24,6 +24,16 @@ const WHT_FORM_TYPE_LABELS: Record<WhtFormType, string> = {
   pnd2a: "ภ.ง.ด.2ก",
   pnd3a: "ภ.ง.ด.3ก",
   pnd53: "ภ.ง.ด.53",
+};
+
+const WHT_FORM_TYPE_COLORS: Record<WhtFormType, string> = {
+  pnd1: "#2563eb",
+  pnd1_special: "#7c3aed",
+  pnd2: "#dc2626",
+  pnd3: "#059669",
+  pnd2a: "#d97706",
+  pnd3a: "#0891b2",
+  pnd53: "#c026d3",
 };
 
 const WHT_FORM_TYPES: WhtFormType[] = ["pnd3", "pnd53", "pnd1", "pnd2", "pnd3a", "pnd2a", "pnd1_special"];
@@ -237,28 +247,6 @@ export default function WhtPage() {
     }
   }
 
-  async function handleDebugExport() {
-    const toGenerate = filteredRecords;
-    if (toGenerate.length === 0) return;
-    setGenerating(true);
-    try {
-      const ids = toGenerate.slice(0, 1).map((r) => r.id);
-      const blob = await apiFetchBlob("/api/wht/generate", { ids, layout: "pnd", debug: true });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "wht_debug.pdf";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      toast.error(e.message || "เกิดข้อผิดพลาด");
-    } finally {
-      setGenerating(false);
-    }
-  }
-
   async function handleGenerateSingle(record: WhtRecordWithVendor) {
     setGenerating(true);
     try {
@@ -419,9 +407,6 @@ export default function WhtPage() {
                 <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
                   <Download size={14} className="mr-1" /> ออกรายงาน PDF
                 </Button>
-                <Button size="sm" variant="secondary" onClick={handleDebugExport} loading={generating} className="!rounded-lg">
-                  <FileText size={14} className="mr-1" /> Debug PDF
-                </Button>
               </div>
             )}
 
@@ -487,7 +472,10 @@ export default function WhtPage() {
                           <td className="px-3 py-2 font-medium">{r.vendor?.name || "-"}</td>
                           <td className="px-3 py-2 font-mono text-[12px] text-[#888780]">{r.vendor?.tax_id || "-"}</td>
                           <td className="px-3 py-2">
-                            <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-[#EEF2FF] text-[#4338CA]">
+                            <span
+                              className="px-1.5 py-0.5 rounded text-[11px] font-medium"
+                              style={{ backgroundColor: `${WHT_FORM_TYPE_COLORS[r.form_type]}15`, color: WHT_FORM_TYPE_COLORS[r.form_type] }}
+                            >
                               {WHT_FORM_TYPE_LABELS[r.form_type] || r.form_type}
                             </span>
                           </td>

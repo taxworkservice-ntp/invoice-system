@@ -100,7 +100,7 @@ function cssTop(configTop: number, fs: number) {
 function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: number): FieldDef[] {
   const v = record.vendor;
   const month = record.issue_date ? new Date(record.issue_date).getMonth() + 1 : 1;
-  const whtId = month ? `68${String(month).padStart(2, "0")}${String(seq + 100).padStart(3, "0")}` : "";
+  const whtId = record.certificate_no || (month ? `WT68${String(month).padStart(2, "0")}${String(seq + 100).padStart(3, "0")}` : "");
   const dateStr = fmtDate(record.issue_date);
   const amtStr = fmtNum(record.amount);
   const whtStr = fmtNum(record.wht_amount);

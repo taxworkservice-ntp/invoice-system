@@ -36,7 +36,7 @@ export function useWhtRecords(userId: string | undefined) {
       .select("id, certificate_no")
       .eq("user_id", userId)
       .not("certificate_no", "is", null)
-      .like("certificate_no", `${yymm}%`);
+      .or(`certificate_no.like.WT${yymm}%,certificate_no.like.${yymm}%`);
 
     let maxSeq = 0;
     if (!error && data) {
@@ -47,7 +47,7 @@ export function useWhtRecords(userId: string | undefined) {
         if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
       }
     }
-    return `${yymm}${String(maxSeq + 1).padStart(3, "0")}`;
+    return `WT${yymm}${String(maxSeq + 1).padStart(3, "0")}`;
   }
 
   async function addRecord(record: Partial<WhtRecord>): Promise<WhtRecordWithVendor> {
