@@ -17,6 +17,7 @@ interface FieldBox {
   fontSize: number;
   align: "left" | "right" | "center";
   bold?: boolean;
+  wrap?: boolean;
 }
 
 interface FieldDef {
@@ -58,7 +59,10 @@ function fmtNum(n: number | null | undefined) {
 
 function splitTaxid(s: string | null | undefined) {
   const digits = String(s || "").replace(/\D/g, "").slice(0, 13).padEnd(13, " ");
-  return `${digits[0]}   ${digits.slice(1, 5)}     ${digits.slice(5, 10)}     ${digits.slice(10, 12)}   ${digits[12]}`;
+  const g1 = digits.slice(1, 5).split("").join(" ");
+  const g2 = digits.slice(5, 10).split("").join(" ");
+  const g3 = digits.slice(10, 12).split("").join(" ");
+  return `${digits[0]}   ${g1}     ${g2}     ${g3}   ${digits[12]}`;
 }
 
 function thaiBahtText(num: number | null | undefined) {
@@ -113,7 +117,7 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
       value: splitTaxid(profile.tax_id),
     },
     {
-      box: { top: 308, left: 150, width: 650, height: 68, fontSize: 32, align: "left" },
+      box: { top: 278, left: 150, width: 650, height: 90, fontSize: 32, align: "left", wrap: true },
       value: profile.address || "",
     },
     {
@@ -125,7 +129,7 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
       value: splitTaxid(v?.tax_id),
     },
     {
-      box: { top: 502, left: 150, width: 650, height: 68, fontSize: 32, align: "left" },
+      box: { top: 472, left: 150, width: 650, height: 90, fontSize: 32, align: "left", wrap: true },
       value: String(v?.address || ""),
     },
     {
@@ -153,7 +157,7 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
       value: thaiStr,
     },
     {
-      box: { top: 1910, left: 815, width: 180, height: 40, fontSize: 35, align: "center" },
+      box: { top: 1910, left: 845, width: 180, height: 40, fontSize: 35, align: "center" },
       value: dateStr,
     },
   ];
@@ -246,7 +250,7 @@ function PndPage({
             width: f.box.width + "px",
             height: f.box.height + "px",
             display: "flex",
-            alignItems: "center",
+            alignItems: f.box.wrap ? "flex-start" : "center",
             justifyContent:
               f.box.align === "right" ? "flex-end" : f.box.align === "center" ? "center" : "flex-start",
             fontSize: f.box.fontSize + "px",
@@ -254,7 +258,7 @@ function PndPage({
             lineHeight: 1.2,
             color: "#000",
             overflow: "hidden",
-            whiteSpace: "nowrap",
+            whiteSpace: f.box.wrap ? "normal" : "nowrap",
             textOverflow: "clip",
           }}
         >
