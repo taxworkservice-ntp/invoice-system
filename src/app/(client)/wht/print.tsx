@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
+import { getProxiedImageUrl } from "../../../lib/r2";
 import type { WhtRecord, WhtVendor, ClientProfile } from "../../../types";
 
 const PAGE_W = 1512;
@@ -110,12 +111,12 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
 
   return [
     { name: "wht_id", top: cssTop(187, 35), left: 1317, fontSize: 35, value: whtId },
-    { name: "payer_name", top: cssTop(279, 33), left: 165, fontSize: 33, value: profile.company_name_th || "" },
+    { name: "payer_name", top: cssTop(279, 33), left: 165, fontSize: 33, width: 583, value: profile.company_name_th || "" },
     { name: "payer_taxid", top: cssTop(241, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(profile.tax_id) },
-    { name: "payer_address", top: cssTop(340, 32), left: 166, fontSize: 32, wrap: true, width: 1014, value: profile.address || "" },
-    { name: "name", top: cssTop(464, 33), left: 169, fontSize: 33, value: String(v?.name || "") },
+    { name: "payer_address", top: cssTop(337, 32), left: 166, fontSize: 32, wrap: true, width: 1166, value: profile.address || "" },
+    { name: "name", top: cssTop(464, 33), left: 169, fontSize: 33, width: 583, value: String(v?.name || "") },
     { name: "taxid", top: cssTop(416, 45), left: 958, fontSize: 45, bold: true, value: splitTaxid(v?.tax_id) },
-    { name: "address", top: cssTop(534, 32), left: 171, fontSize: 32, wrap: true, width: 1014, value: String(v?.address || "") },
+    { name: "address", top: cssTop(531, 32), left: 171, fontSize: 32, wrap: true, width: 1166, value: String(v?.address || "") },
     { name: "date1", top: cssTop(1585, 35), left: 857, fontSize: 35, value: dateStr },
     { name: "amount1", top: cssTop(1585, 35), left: 1175 - AMT_W, fontSize: 35, rightAlign: true, width: AMT_W, value: amtStr },
     { name: "wht1", top: cssTop(1585, 35), left: 1370 - WHT_W, fontSize: 35, rightAlign: true, width: WHT_W, value: whtStr },
@@ -129,11 +130,11 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
 function buildImages(profile: ClientProfile): ImageOverlay[] {
   const images: ImageOverlay[] = [];
   if (profile.signature_url) {
-    images.push({ name: "signature", src: profile.signature_url, top: 1865, left: 950, width: 240, height: 90 });
+    images.push({ name: "signature", src: getProxiedImageUrl(profile.signature_url), top: 1865, left: 950, width: 240, height: 90 });
   }
   const logoSrc = profile.stamp_url || profile.logo_url;
   if (logoSrc) {
-    images.push({ name: "logo", src: logoSrc, top: 1870, left: 1265, width: 110, height: 110 });
+    images.push({ name: "logo", src: getProxiedImageUrl(logoSrc), top: 1870, left: 1265, width: 110, height: 110 });
   }
   return images;
 }
