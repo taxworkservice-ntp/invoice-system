@@ -5,44 +5,35 @@ import type { WhtRecord, WhtVendor, ClientProfile } from "../../../types";
 
 const PAGE_W = 1512;
 const PAGE_H = 2138;
-const FIELD_TOP_OFFSET = 3;
-const FONT_STACK = "'Cordia New',CordiaNew,NotoThaiFallback,'Noto Sans Thai','Segoe UI',sans-serif";
 const BG_IMAGE = "/wht/form_page1.png";
-const FONT_FILE = "/fonts/NotoSansThai.ttf";
 
-interface FieldPos {
+const FONT_FAMILY = "'Sarabun', 'Noto Sans Thai', 'Cordia New', sans-serif";
+
+interface FieldBox {
   top: number;
   left: number;
-  fs: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  align: "left" | "right" | "center";
+  bold?: boolean;
 }
 
-interface ImagePos {
+interface FieldDef {
+  box: FieldBox;
+  value: string;
+}
+
+interface ImageOverlay {
+  name: string;
+  src: string;
   top: number;
   left: number;
   width: number;
   height: number;
 }
 
-const POS: Record<string, FieldPos[]> = {
-  wht_id:              [{ top: 187, left: 1317, fs: 35 }],
-  payer_name:          [{ top: 279, left: 165, fs: 33 }],
-  payer_taxid:         [{ top: 241, left: 958, fs: 45 }],
-  payer_address:       [{ top: 340, left: 166, fs: 32 }],
-  name:                [{ top: 464, left: 169, fs: 33 }],
-  taxid:               [{ top: 416, left: 958, fs: 45 }],
-  address:             [{ top: 534, left: 171, fs: 32 }],
-  date:                [{ top: 1585, left: 857, fs: 35 }, { top: 1945, left: 972, fs: 35 }],
-  amount:              [{ top: 1585, left: 1175, fs: 35 }, { top: 1680, left: 1175, fs: 35 }],
-  wht:                 [{ top: 1585, left: 1370, fs: 35 }, { top: 1680, left: 1370, fs: 35 }],
-  thai_amount_in_words: [{ top: 1726, left: 503, fs: 36 }],
-};
-
-const IMAGE_POS: Record<string, ImagePos> = {
-  signature: { top: 1865, left: 950, width: 240, height: 90 },
-  logo:      { top: 1870, left: 1265, width: 110, height: 110 },
-};
-
-const CHECKMARK_POS: Record<string, FieldPos> = {
+const CHECKMARK_POS: Record<string, { top: number; left: number; fs: number }> = {
   pnd1:         { top: 605, left: 535, fs: 32 },
   pnd1_special: { top: 605, left: 733, fs: 32 },
   pnd2:         { top: 605, left: 1007, fs: 32 },
@@ -95,63 +86,88 @@ function thaiBahtText(num: number | null | undefined) {
   return parts.reverse().join("") + "บาทถ้วน";
 }
 
-function fieldStyle(name: string, p: FieldPos): React.CSSProperties {
-  const fs = p.fs;
-  const top = p.top - fs + FIELD_TOP_OFFSET;
-  const left = p.left;
-  const base: React.CSSProperties = {
-    position: "absolute",
-    top: `${top}px`,
-    left: `${left}px`,
-    fontSize: `${fs}px`,
-    lineHeight: 1.35,
-    whiteSpace: "pre",
-    color: "#000",
-  };
-  if (name === "taxid" || name === "payer_taxid") {
-    base.fontWeight = 700;
-  }
-  if (name === "amount") {
-    base.left = `${left - 260}px`;
-    base.width = "260px";
-    base.textAlign = "right";
-  }
-  if (name === "wht") {
-    base.left = `${left - 180}px`;
-    base.width = "180px";
-    base.textAlign = "right";
-  }
-  return base;
-}
-
-function imageStyle(p: ImagePos): React.CSSProperties {
-  return {
-    position: "absolute",
-    top: `${p.top}px`,
-    left: `${p.left}px`,
-    width: `${p.width}px`,
-    height: `${p.height}px`,
-    objectFit: "contain",
-    objectPosition: "center center",
-  };
-}
-
-function checkmarkStyle(p: FieldPos): React.CSSProperties {
-  const fs = p.fs;
-  const top = p.top - fs + FIELD_TOP_OFFSET;
-  return {
-    position: "absolute",
-    top: `${top}px`,
-    left: `${p.left}px`,
-    fontSize: `${fs}px`,
-    lineHeight: 1,
-    fontFamily: "'Segoe UI Symbol','Arial',sans-serif",
-    color: "#000",
-  };
-}
-
 interface RecordWithVendor extends WhtRecord {
   vendor?: WhtVendor;
+}
+
+function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: number): FieldDef[] {
+  const v = record.vendor;
+  const month = record.issue_date ? new Date(record.issue_date).getMonth() + 1 : 1;
+  const whtId = month ? `68${String(month).padStart(2, "0")}${String(seq + 100).padStart(3, "0")}` : "";
+  const dateStr = fmtDate(record.issue_date);
+  const amtStr = fmtNum(record.amount);
+  const whtStr = fmtNum(record.wht_amount);
+  const thaiStr = thaiBahtText(record.wht_amount);
+
+  return [
+    {
+      box: { top: 152, left: 1270, width: 200, height: 40, fontSize: 35, align: "center" },
+      value: whtId,
+    },
+    {
+      box: { top: 248, left: 150, width: 650, height: 38, fontSize: 33, align: "left" },
+      value: profile.company_name_th || "",
+    },
+    {
+      box: { top: 205, left: 950, width: 400, height: 48, fontSize: 45, align: "left", bold: true },
+      value: splitTaxid(profile.tax_id),
+    },
+    {
+      box: { top: 308, left: 150, width: 650, height: 68, fontSize: 32, align: "left" },
+      value: profile.address || "",
+    },
+    {
+      box: { top: 432, left: 150, width: 650, height: 38, fontSize: 33, align: "left" },
+      value: String(v?.name || ""),
+    },
+    {
+      box: { top: 380, left: 950, width: 400, height: 48, fontSize: 45, align: "left", bold: true },
+      value: splitTaxid(v?.tax_id),
+    },
+    {
+      box: { top: 502, left: 150, width: 650, height: 68, fontSize: 32, align: "left" },
+      value: String(v?.address || ""),
+    },
+    {
+      box: { top: 1548, left: 700, width: 180, height: 40, fontSize: 35, align: "center" },
+      value: dateStr,
+    },
+    {
+      box: { top: 1548, left: 910, width: 270, height: 40, fontSize: 35, align: "right" },
+      value: amtStr,
+    },
+    {
+      box: { top: 1548, left: 1180, width: 200, height: 40, fontSize: 35, align: "right" },
+      value: whtStr,
+    },
+    {
+      box: { top: 1645, left: 910, width: 270, height: 40, fontSize: 35, align: "right" },
+      value: amtStr,
+    },
+    {
+      box: { top: 1645, left: 1180, width: 200, height: 40, fontSize: 35, align: "right" },
+      value: whtStr,
+    },
+    {
+      box: { top: 1690, left: 490, width: 680, height: 42, fontSize: 36, align: "left" },
+      value: thaiStr,
+    },
+    {
+      box: { top: 1910, left: 815, width: 180, height: 40, fontSize: 35, align: "center" },
+      value: dateStr,
+    },
+  ];
+}
+
+function buildImages(profile: ClientProfile): ImageOverlay[] {
+  const images: ImageOverlay[] = [];
+  if (profile.signature_url) {
+    images.push({ name: "signature", src: profile.signature_url, top: 1865, left: 950, width: 240, height: 90 });
+  }
+  if (profile.stamp_url) {
+    images.push({ name: "logo", src: profile.stamp_url, top: 1870, left: 1265, width: 110, height: 110 });
+  }
+  return images;
 }
 
 function PndPage({
@@ -163,44 +179,9 @@ function PndPage({
   profile: ClientProfile;
   seq: number;
 }) {
-  const v = record.vendor;
-  const month = record.issue_date ? new Date(record.issue_date).getMonth() + 1 : 1;
-
-  const whtId = month ? `68${String(month).padStart(2, "0")}${String(seq + 100).padStart(3, "0")}` : "";
-
-  const fields: { name: string; value: string; p: FieldPos }[] = [];
-  for (const [name, positions] of Object.entries(POS)) {
-    for (const p of positions) {
-      let value = "";
-      switch (name) {
-        case "wht_id": value = whtId; break;
-        case "payer_name": value = profile.company_name_th || ""; break;
-        case "payer_taxid": value = splitTaxid(profile.tax_id); break;
-        case "payer_address": value = profile.address || ""; break;
-        case "name": value = String(v?.name || ""); break;
-        case "taxid": value = splitTaxid(v?.tax_id); break;
-        case "address": value = String(v?.address || ""); break;
-        case "date": {
-          const idxInArray = positions.indexOf(p);
-          value = fmtDate(idxInArray === 0 ? record.issue_date : "");
-          break;
-        }
-        case "amount": value = fmtNum(record.amount); break;
-        case "wht": value = fmtNum(record.wht_amount); break;
-        case "thai_amount_in_words": value = thaiBahtText(record.wht_amount); break;
-      }
-      fields.push({ name, value, p });
-    }
-  }
-
+  const fields = buildFields(record, profile, seq);
+  const images = buildImages(profile);
   const checkmark = CHECKMARK_POS[record.form_type];
-  const images: { name: string; src: string; p: ImagePos }[] = [];
-  if (profile.signature_url) {
-    images.push({ name: "signature", src: profile.signature_url, p: IMAGE_POS.signature });
-  }
-  if (profile.stamp_url) {
-    images.push({ name: "logo", src: profile.stamp_url, p: IMAGE_POS.logo });
-  }
 
   return (
     <div
@@ -210,7 +191,7 @@ function PndPage({
         height: PAGE_H + "px",
         position: "relative",
         overflow: "hidden",
-        fontFamily: FONT_STACK,
+        fontFamily: FONT_FAMILY,
       }}
     >
       <img
@@ -219,12 +200,66 @@ function PndPage({
         alt="form background"
         style={{ position: "absolute", inset: 0, width: PAGE_W + "px", height: PAGE_H + "px" }}
       />
+
       {images.map((img) => (
-        <img key={img.name} alt={img.name} src={img.src} style={imageStyle(img.p)} crossOrigin="anonymous" />
+        <img
+          key={img.name}
+          alt={img.name}
+          src={img.src}
+          crossOrigin="anonymous"
+          style={{
+            position: "absolute",
+            top: img.top + "px",
+            left: img.left + "px",
+            width: img.width + "px",
+            height: img.height + "px",
+            objectFit: "contain",
+            objectPosition: "center center",
+          }}
+        />
       ))}
-      {checkmark && <div aria-label={record.form_type} style={checkmarkStyle(checkmark)}>{"\u2713"}</div>}
+
+      {checkmark && (
+        <div
+          aria-label={record.form_type}
+          style={{
+            position: "absolute",
+            top: checkmark.top - checkmark.fs + 3 + "px",
+            left: checkmark.left + "px",
+            fontSize: checkmark.fs + "px",
+            lineHeight: 1,
+            fontFamily: "'Segoe UI Symbol','Arial',sans-serif",
+            color: "#000",
+          }}
+        >
+          {"\u2713"}
+        </div>
+      )}
+
       {fields.map((f, i) => (
-        <div key={i} style={fieldStyle(f.name, f.p)}>{f.value}</div>
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            top: f.box.top + "px",
+            left: f.box.left + "px",
+            width: f.box.width + "px",
+            height: f.box.height + "px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent:
+              f.box.align === "right" ? "flex-end" : f.box.align === "center" ? "center" : "flex-start",
+            fontSize: f.box.fontSize + "px",
+            fontWeight: f.box.bold ? 700 : 400,
+            lineHeight: 1.2,
+            color: "#000",
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            textOverflow: "clip",
+          }}
+        >
+          {f.value}
+        </div>
       ))}
     </div>
   );
@@ -245,7 +280,7 @@ function CleanPage({
         minHeight: "297mm",
         padding: "10mm",
         boxSizing: "border-box",
-        fontFamily: "'Noto Sans Thai', 'Sarabun', 'Cordia New', sans-serif",
+        fontFamily: "'Sarabun', 'Noto Sans Thai', sans-serif",
         backgroundColor: "#fff",
         position: "relative",
       }}
@@ -407,9 +442,19 @@ export default function WhtPrintPage() {
       <div>
         <style>{`
           @font-face {
-            font-family: NotoThaiFallback;
-            src: url('${FONT_FILE}') format('truetype');
-            font-weight: 400 700;
+            font-family: Sarabun;
+            src: url('/fonts/Sarabun-Regular.ttf') format('truetype');
+            font-weight: 400;
+          }
+          @font-face {
+            font-family: Sarabun;
+            src: url('/fonts/Sarabun-SemiBold.ttf') format('truetype');
+            font-weight: 600;
+          }
+          @font-face {
+            font-family: Sarabun;
+            src: url('/fonts/Sarabun-Bold.ttf') format('truetype');
+            font-weight: 700;
           }
           @page { margin: 0; size: ${PAGE_W}px ${PAGE_H}px; }
           body { margin: 0; }
