@@ -44,6 +44,25 @@ export function useWhtRecords(userId: string | undefined) {
 
     if (error) throw error;
     const r = data as WhtRecordWithVendor;
+
+    if (!r.certificate_no && userId) {
+      const { data: certNo, error: certError } = await supabase.rpc(
+        "generate_wht_certificate_no",
+        { p_user_id: userId, p_issue_date: r.issue_date, p_skip_id: r.id },
+      );
+      if (!certError && certNo) {
+        await supabase
+          .from("wht_records")
+          .update({
+            certificate_no: certNo as string,
+            certificate_generated_at: new Date().toISOString(),
+          })
+          .eq("id", r.id);
+        r.certificate_no = certNo as string;
+        r.certificate_generated_at = new Date().toISOString();
+      }
+    }
+
     setRecords((prev) => [r, ...prev]);
     return r;
   }

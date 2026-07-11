@@ -112,7 +112,7 @@ begin
   v_yymm := to_char(p_issue_date, 'YYMM');
 
   select coalesce(max(
-    nullif(regexp_replace(certificate_no, '^[0-9]+', '', 'g'), '')::int
+    nullif(right(certificate_no, 3), '')::int
   ), 0) + 1
   into v_seq
   from wht_records
