@@ -187,6 +187,14 @@ export default function CustomersPage() {
       toast.error("กรุณากรอกรหัสลูกค้า");
       return;
     }
+    if (!newTaxId.trim()) {
+      toast.error("กรุณากรอกเลขผู้เสียภาษี");
+      return;
+    }
+    if (!newAddress.trim()) {
+      toast.error("กรุณากรอกที่อยู่");
+      return;
+    }
     setSaving(true);
     try {
       const { data, error } = await supabase
@@ -194,8 +202,8 @@ export default function CustomersPage() {
         .insert({
           user_id: profile.id,
           name: newName.trim(),
-          tax_id: newTaxId || null,
-          address: newAddress || null,
+          tax_id: newTaxId.trim(),
+          address: newAddress.trim(),
           phone: newPhone || null,
           email: newEmail || null,
           contact_name: newContact || null,
@@ -645,15 +653,14 @@ export default function CustomersPage() {
               />
               <div>
                 <Input
-                  label="เลขผู้เสียภาษี (13 หลัก)"
+                  label="เลขผู้เสียภาษี (13 หลัก) *"
                   value={newTaxId}
                   onChange={(e) => setNewTaxId(e.target.value)}
-                  placeholder="13 หลัก (ถ้ามี)"
+                  placeholder="13 หลัก"
                 />
-                <p className="text-[11px] text-[#888780] mt-1">จำเป็นสำหรับใบกำกับภาษี</p>
               </div>
               <Input
-                label="ที่อยู่"
+                label="ที่อยู่ *"
                 value={newAddress}
                 onChange={(e) => setNewAddress(e.target.value)}
                 placeholder="ที่อยู่สำหรับพิมพ์บนเอกสาร"
@@ -677,7 +684,7 @@ export default function CustomersPage() {
               />
 
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleAddCustomer} disabled={!newName.trim() || saving} loading={saving} className="flex-1">
+                <Button onClick={handleAddCustomer} disabled={!newName.trim() || !newCode.trim() || !newTaxId.trim() || !newAddress.trim() || saving} loading={saving} className="flex-1">
                   บันทึก
                 </Button>
                 <Button variant="secondary" onClick={() => setShowAddSheet(false)} className="flex-1">
