@@ -291,7 +291,7 @@ export default function WhtPage() {
   }
 
   async function handleAddVendor() {
-    if (!newVendor.name.trim()) return;
+    if (!newVendor.name.trim() || !newVendor.tax_id.trim() || !newVendor.address.trim()) return;
     setSaving(true);
     try {
       await addVendor(newVendor);
@@ -307,6 +307,7 @@ export default function WhtPage() {
 
   async function handleUpdateVendor() {
     if (!showEditVendor) return;
+    if (!editVendorForm.name.trim() || !editVendorForm.tax_id.trim() || !editVendorForm.address.trim()) return;
     setSaving(true);
     try {
       await updateVendor(showEditVendor.id, editVendorForm);
@@ -717,14 +718,14 @@ export default function WhtPage() {
             <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">เพิ่มผู้ขาย/ผู้รับเงิน</h2>
             <div className="space-y-3">
               <Input label="ชื่อบริษัท / ชื่อผู้ขาย *" value={newVendor.name} onChange={(e) => setNewVendor({ ...newVendor, name: e.target.value })} placeholder="เช่น บริษัท สยามปริ้นท์ จำกัด" autoFocus />
-              <Input label="เลขผู้เสียภาษี (13 หลัก)" value={newVendor.tax_id} onChange={(e) => setNewVendor({ ...newVendor, tax_id: e.target.value })} placeholder="13 หลัก (ถ้ามี)" />
-              <Input label="ที่อยู่" value={newVendor.address} onChange={(e) => setNewVendor({ ...newVendor, address: e.target.value })} />
+              <Input label="เลขผู้เสียภาษี (13 หลัก) *" value={newVendor.tax_id} onChange={(e) => setNewVendor({ ...newVendor, tax_id: e.target.value })} placeholder="13 หลัก" />
+              <Input label="ที่อยู่ *" value={newVendor.address} onChange={(e) => setNewVendor({ ...newVendor, address: e.target.value })} />
               <Input label="เบอร์โทร" value={newVendor.phone} onChange={(e) => setNewVendor({ ...newVendor, phone: e.target.value })} />
               <Input label="อีเมล" value={newVendor.email} onChange={(e) => setNewVendor({ ...newVendor, email: e.target.value })} type="email" />
               <Input label="ชื่อผู้ติดต่อ" value={newVendor.contact_name} onChange={(e) => setNewVendor({ ...newVendor, contact_name: e.target.value })} />
               <Input label="หมายเหตุ" value={newVendor.note} onChange={(e) => setNewVendor({ ...newVendor, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleAddVendor} disabled={!newVendor.name.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
+                <Button onClick={handleAddVendor} disabled={!newVendor.name.trim() || !newVendor.tax_id.trim() || !newVendor.address.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
                 <Button variant="secondary" onClick={() => setShowAddVendor(false)} className="flex-1">ยกเลิก</Button>
               </div>
             </div>
@@ -740,14 +741,14 @@ export default function WhtPage() {
             <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">แก้ไขผู้ขาย</h2>
             <div className="space-y-3">
               <Input label="ชื่อบริษัท / ชื่อผู้ขาย *" value={editVendorForm.name} onChange={(e) => setEditVendorForm({ ...editVendorForm, name: e.target.value })} />
-              <Input label="เลขผู้เสียภาษี" value={editVendorForm.tax_id} onChange={(e) => setEditVendorForm({ ...editVendorForm, tax_id: e.target.value })} />
-              <Input label="ที่อยู่" value={editVendorForm.address} onChange={(e) => setEditVendorForm({ ...editVendorForm, address: e.target.value })} />
+              <Input label="เลขผู้เสียภาษี *" value={editVendorForm.tax_id} onChange={(e) => setEditVendorForm({ ...editVendorForm, tax_id: e.target.value })} />
+              <Input label="ที่อยู่ *" value={editVendorForm.address} onChange={(e) => setEditVendorForm({ ...editVendorForm, address: e.target.value })} />
               <Input label="เบอร์โทร" value={editVendorForm.phone} onChange={(e) => setEditVendorForm({ ...editVendorForm, phone: e.target.value })} />
               <Input label="อีเมล" value={editVendorForm.email} onChange={(e) => setEditVendorForm({ ...editVendorForm, email: e.target.value })} type="email" />
               <Input label="ชื่อผู้ติดต่อ" value={editVendorForm.contact_name} onChange={(e) => setEditVendorForm({ ...editVendorForm, contact_name: e.target.value })} />
               <Input label="หมายเหตุ" value={editVendorForm.note} onChange={(e) => setEditVendorForm({ ...editVendorForm, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleUpdateVendor} disabled={!editVendorForm.name.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
+                <Button onClick={handleUpdateVendor} disabled={!editVendorForm.name.trim() || !editVendorForm.tax_id.trim() || !editVendorForm.address.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
                 <Button variant="secondary" onClick={() => setShowEditVendor(null)} className="flex-1">ยกเลิก</Button>
               </div>
             </div>
