@@ -9,7 +9,7 @@ import type {
 } from "../types";
 import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
-import { getR2PresignedUrl } from "./r2";
+import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 
 const A4_WIDTH_MM = 210;
@@ -197,31 +197,15 @@ export async function getPrintableDocumentDataBase(
   }
 
   if (clientProfile.logo_url) {
-    try {
-      clientProfile.logo_url = await getR2PresignedUrl(clientProfile.logo_url);
-    } catch {
-      clientProfile.logo_url = null;
-    }
+    clientProfile.logo_url = getProxiedImageUrl(clientProfile.logo_url);
   }
 
   if (clientProfile.signature_url) {
-    try {
-      clientProfile.signature_url = await getR2PresignedUrl(
-        clientProfile.signature_url,
-      );
-    } catch {
-      clientProfile.signature_url = null;
-    }
+    clientProfile.signature_url = getProxiedImageUrl(clientProfile.signature_url);
   }
 
   if (clientProfile.stamp_url) {
-    try {
-      clientProfile.stamp_url = await getR2PresignedUrl(
-        clientProfile.stamp_url,
-      );
-    } catch {
-      clientProfile.stamp_url = null;
-    }
+    clientProfile.stamp_url = getProxiedImageUrl(clientProfile.stamp_url);
   }
 
   const dnBySourceId = new Map<string, InvoiceDeliveryNote>();
