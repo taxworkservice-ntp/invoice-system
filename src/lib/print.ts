@@ -208,6 +208,15 @@ export async function getPrintableDocumentDataBase(
     clientProfile.stamp_url = getProxiedImageUrl(clientProfile.stamp_url);
   }
 
+  const sigDocs = (clientProfile as any).show_signature_on_docs as Record<string, boolean> | null | undefined;
+  if (sigDocs && sigDocs[document.doc_type] === false) {
+    clientProfile.signature_url = null;
+  }
+  const stpDocs = (clientProfile as any).show_stamp_on_docs as Record<string, boolean> | null | undefined;
+  if (stpDocs && stpDocs[document.doc_type] === false) {
+    clientProfile.stamp_url = null;
+  }
+
   const dnBySourceId = new Map<string, InvoiceDeliveryNote>();
   for (const dn of invoiceDeliveryNotes) {
     dnBySourceId.set(dn.delivery_note_id, dn);

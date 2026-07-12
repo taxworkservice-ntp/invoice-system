@@ -205,6 +205,10 @@ create table client_profiles (
   show_signature_on_wht  boolean not null default true,
   show_stamp_on_wht      boolean not null default true,
 
+  -- Signature & stamp visibility per document type (null = show on all)
+  show_signature_on_docs jsonb default null,
+  show_stamp_on_docs     jsonb default null,
+
   -- Onboarding / account state
   password_changed      boolean not null default true,
 

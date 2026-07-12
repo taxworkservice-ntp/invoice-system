@@ -29,6 +29,17 @@ const DOC_TYPES: DocumentType[] = [
 
 const CARD_LABEL = "text-[11px] uppercase font-semibold text-[#888780] tracking-wide";
 
+const DOC_VISIBILITY_TYPES = [
+  { key: "quotation", label: "ใบเสนอราคา" },
+  { key: "invoice", label: "ใบแจ้งหนี้" },
+  { key: "tax_invoice_receipt", label: "ใบกำกับภาษี" },
+  { key: "billing_note", label: "ใบวางบิล" },
+  { key: "receipt", label: "ใบเสร็จ" },
+  { key: "delivery_note", label: "ใบส่งของ" },
+  { key: "credit_note", label: "ใบลดหนี้" },
+  { key: "wht", label: "WHT (ภ.ง.ด.)" },
+];
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -51,6 +62,8 @@ export default function SettingsPage() {
   const [stampKey, setStampKey] = useState<string | null>(null);
   const [showSignatureOnWht, setShowSignatureOnWht] = useState(true);
   const [showStampOnWht, setShowStampOnWht] = useState(true);
+  const [showSignatureOnDocs, setShowSignatureOnDocs] = useState<Record<string, boolean>>({});
+  const [showStampOnDocs, setShowStampOnDocs] = useState<Record<string, boolean>>({});
   const [logoKey, setLogoKey] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(LOGO_SIZE_OPTIONS[0].value);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -139,6 +152,24 @@ export default function SettingsPage() {
       setStampKey((clientProfile as any).stamp_url || null);
       setShowSignatureOnWht((clientProfile as any).show_signature_on_wht !== false);
       setShowStampOnWht((clientProfile as any).show_stamp_on_wht !== false);
+      setShowSignatureOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
+        if (t.key === "wht") {
+          acc[t.key] = clientProfile.show_signature_on_wht !== false;
+        } else {
+          const map = (clientProfile as any).show_signature_on_docs as Record<string, boolean> | null;
+          acc[t.key] = map ? (map[t.key] !== false) : true;
+        }
+        return acc;
+      }, {} as Record<string, boolean>));
+      setShowStampOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
+        if (t.key === "wht") {
+          acc[t.key] = clientProfile.show_stamp_on_wht !== false;
+        } else {
+          const map = (clientProfile as any).show_stamp_on_docs as Record<string, boolean> | null;
+          acc[t.key] = map ? (map[t.key] !== false) : true;
+        }
+        return acc;
+      }, {} as Record<string, boolean>));
       setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
       setClassicTerms(clientProfile.classic_terms || "");
       setDevEffectiveDate(clientProfile.dev_effective_date || "");
@@ -245,6 +276,8 @@ export default function SettingsPage() {
       stamp_url: stampKey,
       show_signature_on_wht: showSignatureOnWht,
       show_stamp_on_wht: showStampOnWht,
+      show_signature_on_docs: Object.values(showSignatureOnDocs).every(Boolean) ? null : showSignatureOnDocs,
+      show_stamp_on_docs: Object.values(showStampOnDocs).every(Boolean) ? null : showStampOnDocs,
     };
 
     let err;
@@ -286,6 +319,8 @@ export default function SettingsPage() {
         stamp_url: stampKey,
         show_signature_on_wht: showSignatureOnWht,
         show_stamp_on_wht: showStampOnWht,
+        show_signature_on_docs: Object.values(showSignatureOnDocs).every(Boolean) ? null : showSignatureOnDocs,
+        show_stamp_on_docs: Object.values(showStampOnDocs).every(Boolean) ? null : showStampOnDocs,
       } as ClientProfile);
     }
     setSavingProfile(false);
@@ -655,7 +690,7 @@ export default function SettingsPage() {
 
             <div className="border-t border-[#E8E6DF] pt-3">
               <p className="text-[11px] font-semibold text-[#888780] mb-2">ลายเซ็นและตราประทับ</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <ImageUpload
                     userId={userId!}
@@ -664,10 +699,26 @@ export default function SettingsPage() {
                     onKeyChange={(k) => { setSignatureKey(k); setProfileSaved(false); }}
                     label="ลายเซ็น"
                   />
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={showSignatureOnWht} onChange={(e) => { setShowSignatureOnWht(e.target.checked); setProfileSaved(false); }} className="w-3.5 h-3.5 accent-primary rounded" />
-                    <span className="text-[11px] text-gray-500 select-none">แสดงในเอกสาร WHT (ภ.ง.ด.)</span>
-                  </label>
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 mb-1.5">แสดงลายเซ็นในเอกสาร:</p>
+                    <div className="grid grid-cols-4 gap-x-3 gap-y-1">
+                      {DOC_VISIBILITY_TYPES.map((t) => (
+                        <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showSignatureOnDocs[t.key] !== false}
+                            onChange={(e) => {
+                              setShowSignatureOnDocs({ ...showSignatureOnDocs, [t.key]: e.target.checked });
+                              if (t.key === "wht") setShowSignatureOnWht(e.target.checked);
+                              setProfileSaved(false);
+                            }}
+                            className="w-3 h-3 accent-primary rounded"
+                          />
+                          <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <ImageUpload
@@ -677,14 +728,30 @@ export default function SettingsPage() {
                     onKeyChange={(k) => { setStampKey(k); setProfileSaved(false); }}
                     label="ตราประทับ"
                   />
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={showStampOnWht} onChange={(e) => { setShowStampOnWht(e.target.checked); setProfileSaved(false); }} className="w-3.5 h-3.5 accent-primary rounded" />
-                    <span className="text-[11px] text-gray-500 select-none">แสดงในเอกสาร WHT (ภ.ง.ด.)</span>
-                  </label>
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 mb-1.5">แสดงตราประทับในเอกสาร:</p>
+                    <div className="grid grid-cols-4 gap-x-3 gap-y-1">
+                      {DOC_VISIBILITY_TYPES.map((t) => (
+                        <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showStampOnDocs[t.key] !== false}
+                            onChange={(e) => {
+                              setShowStampOnDocs({ ...showStampOnDocs, [t.key]: e.target.checked });
+                              if (t.key === "wht") setShowStampOnWht(e.target.checked);
+                              setProfileSaved(false);
+                            }}
+                            className="w-3 h-3 accent-primary rounded"
+                          />
+                          <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <p className="text-[11px] text-[#888780] mt-1">
-                ลายเซ็นและตราแสดงบนเอกสารทุกประเภท สำหรับเอกสาร WHT สามารถเปิด/ปิดได้ที่นี่ และปรับเพิ่มเติมได้ที่หน้า WHT
+              <p className="text-[11px] text-[#888780] mt-2">
+                ลายเซ็นและตราสามารถตั้งค่าแยกแต่ละประเภทเอกสารได้ การตั้งค่านี้มีผลกับเอกสารใหม่ที่สร้างหลังจากบันทึก
               </p>
             </div>
 

@@ -530,9 +530,6 @@ export default function WhtPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-end gap-1">
-                              <button type="button" onClick={() => window.open(`/wht/print?ids=${r.id}&layout=pnd&hideSignature=${showSig ? "0" : "1"}&hideStamp=${showStp ? "0" : "1"}`, "_blank")} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#888780] hover:text-[#378ADD]" title="ดูตัวอย่าง">
-                                <Eye size={14} />
-                              </button>
                               <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] text-[11px] font-medium" title="สร้าง PDF">
                                 <FileText size={14} />
                               </button>
