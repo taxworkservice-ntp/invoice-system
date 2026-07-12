@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, Plus, FileText } from "lucide-react";
+import { Download, Trash2, Plus, FileText, Users } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -347,23 +347,25 @@ export default function WhtPage() {
   return (
     <AppShell title="WHT ภาษีหัก ณ ที่จ่าย">
       <div className="space-y-4">
-        <div className="flex items-center gap-1 bg-[#F7F6F3] rounded-lg p-1">
+        <div className="flex gap-1 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-1">
           <button
             type="button"
             onClick={() => { setTab(TAB_RECORDS); setSearch(""); }}
-            className={`flex-1 py-2 text-[13px] font-medium rounded-md transition-colors ${
-              tab === TAB_RECORDS ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              tab === TAB_RECORDS ? "bg-white text-[#1A1A18] shadow-sm" : "text-gray-500 hover:text-gray-700"
             }`}
           >
+            <FileText className="h-4 w-4" />
             บันทึก WHT
           </button>
           <button
             type="button"
             onClick={() => { setTab(TAB_VENDORS); setSearch(""); }}
-            className={`flex-1 py-2 text-[13px] font-medium rounded-md transition-colors ${
-              tab === TAB_VENDORS ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              tab === TAB_VENDORS ? "bg-white text-[#1A1A18] shadow-sm" : "text-gray-500 hover:text-gray-700"
             }`}
           >
+            <Users className="h-4 w-4" />
             ผู้ขาย/ผู้รับเงิน
           </button>
         </div>
