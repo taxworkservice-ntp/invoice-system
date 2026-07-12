@@ -65,15 +65,37 @@ export default function DownloadCenterPage() {
 
   const isVatRegistered = clientProfile?.vat_registered;
 
+  const quickMonthStart = useMemo(() => {
+    const d = new Date(currentYear, currentMonth - 1, 1);
+    if (quickFilter === "prevMonth") d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  }, [currentYear, currentMonth, quickFilter]);
+
+  const quickMonth = useMemo(() => {
+    const d = new Date(currentYear, currentMonth - 1, 1);
+    if (quickFilter === "prevMonth") d.setMonth(d.getMonth() - 1);
+    return { month: d.getMonth() + 1, year: d.getFullYear() };
+  }, [currentYear, currentMonth, quickFilter]);
+
+  const monthSuffix = MONTH_LABELS[quickMonth.month - 1];
+  const selectedMonthLabel = `${THAI_MONTHS[quickMonth.month - 1]} ${quickMonth.year + 543}`;
+  const thisMonthLabel = `${MONTH_LABELS[currentMonth - 1]} ${currentYear + 543}`;
+  const prevMonthDate = new Date(currentYear, currentMonth - 2, 1);
+  const prevMonthLabel = `${MONTH_LABELS[prevMonthDate.getMonth()]} ${prevMonthDate.getFullYear() + 543}`;
+
   const presetTypes = useMemo(() => {
     return PRESET_TYPES
       .filter(p => isVatRegistered || p.docType !== "tax_invoice_receipt")
       .map(p => {
-        if (p.key === "tax_invoice") return { ...p, label: "ใบกำกับภาษี/ใบเสร็จเดือนนี้" };
-        if (p.key === "invoice" && isVatRegistered) return { ...p, label: "ใบกำกับภาษีเดือนนี้" };
-        return p;
+        let label = p.label;
+        if (p.key === "tax_invoice") label = "ใบกำกับภาษี/ใบเสร็จเดือนนี้";
+        if (p.key === "invoice" && isVatRegistered) label = "ใบกำกับภาษีเดือนนี้";
+        if (p.variant === "thisMonth") {
+          label = label.replace("เดือนนี้", `(${monthSuffix})`);
+        }
+        return { ...p, label };
       });
-  }, [isVatRegistered]);
+  }, [isVatRegistered, monthSuffix]);
 
   const docTypeLabels = useMemo(() => {
     const labels = { ...DOC_TYPE_LABELS };
@@ -82,12 +104,6 @@ export default function DownloadCenterPage() {
     }
     return labels;
   }, [isVatRegistered]);
-
-  const quickMonthStart = useMemo(() => {
-    const d = new Date(currentYear, currentMonth - 1, 1);
-    if (quickFilter === "prevMonth") d.setMonth(d.getMonth() - 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-  }, [currentYear, currentMonth, quickFilter]);
 
   const fetchPresetCounts = useCallback(async () => {
     if (!userId) return;
@@ -300,14 +316,15 @@ export default function DownloadCenterPage() {
               </div>
             </div>
             <div className="border-t border-card-border pt-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-1">
                 <div className="text-[11px] font-semibold text-gray-500">ดาวน์โหลดด่วน</div>
                 <div className="flex gap-1">
-                  <button type="button" onClick={() => setQuickFilter("thisMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "thisMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>เดือนนี้</button>
-                  <button type="button" onClick={() => setQuickFilter("prevMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "prevMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>เดือนก่อน</button>
+                  <button type="button" onClick={() => setQuickFilter("thisMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "thisMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>{thisMonthLabel}</button>
+                  <button type="button" onClick={() => setQuickFilter("prevMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "prevMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>{prevMonthLabel}</button>
                 </div>
               </div>
-              <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="text-[11px] text-gray-400 mb-2">{selectedMonthLabel}</div>
+              <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                 {presetTypes.map((preset) => (
                   <button key={preset.key} type="button" disabled={busy} onClick={() => handlePresetDownload(preset.key)}
                     className="flex items-center justify-between rounded-md border border-card-border bg-white px-3 py-2 text-left hover:border-primary/30 hover:bg-blue-50/50 transition-colors disabled:opacity-50">
@@ -410,6 +427,7 @@ function CustomerQuickSelect({ value, onChange, userId }: { value: string; onCha
 }
 
 const MONTH_LABELS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 
 function MonthSelect({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
