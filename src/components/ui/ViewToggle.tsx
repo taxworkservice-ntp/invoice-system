@@ -25,7 +25,7 @@ export function ViewToggle({ value, onChange, variants, className = "" }: ViewTo
   const modes = variants ?? (["list", "grid", "table"] as ViewMode[]);
 
   return (
-    <div className={`flex items-center bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg p-0.5 shrink-0 ${className}`}>
+    <div className={`flex items-center bg-white border-[0.5px] border-[#E8E6DF] rounded-lg p-0.5 shrink-0 ${className}`}>
       {modes.map((mode) => {
         const Icon = ICON[mode];
         const labels = LABELS[mode];

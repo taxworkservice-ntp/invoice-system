@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, X, Plus, Search, FileText } from "lucide-react";
+import { Download, Trash2, Plus, FileText } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { SearchInput } from "../../../components/ui/SearchInput";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ViewToggle } from "../../../components/ui/ViewToggle";
 import type { ViewMode } from "../../../components/ui/ViewToggle";
@@ -370,34 +371,20 @@ export default function WhtPage() {
         {tab === TAB_RECORDS ? (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex-1 min-w-[200px] relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#AAAAAA]" />
-                <input
-                  type="text"
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg pl-9 pr-3 py-[10px] text-[14px] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
-                  placeholder="ค้นหาชื่อ เลขภาษี เลขใบรับรอง..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                {search && (
-                  <button type="button" onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md text-[#888780] hover:text-[#1A1A18]">
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-              <select value={month} onChange={(e) => setMonth(e.target.value)} className="bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขภาษี เลขใบรับรอง..." className="flex-1 min-w-[200px]" />
+              <select value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                 <option value="">ทุกเดือน</option>
                 {availableMonths.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
-              <select value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} className="bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <select value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                 <option value="">ผู้ขายทั้งหมด</option>
                 {recordVendors.map((v) => (
                   <option key={v.id} value={v.id}>{v.name}</option>
                 ))}
               </select>
-              <select value={formFilter} onChange={(e) => setFormFilter(e.target.value)} className="bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <select value={formFilter} onChange={(e) => setFormFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                 <option value="">ทุกแบบ</option>
                 {WHT_FORM_TYPES.map((ft) => (
                   <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>
@@ -529,21 +516,7 @@ export default function WhtPage() {
         ) : (
           <>
             <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#AAAAAA]" />
-                <input
-                  type="text"
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg pl-9 pr-3 py-[10px] text-[14px] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
-                  placeholder="ค้นหาชื่อ เลขผู้เสียภาษี..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                {search && (
-                  <button type="button" onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md text-[#888780] hover:text-[#1A1A18]">
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
+              <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขผู้เสียภาษี..." className="flex-1" />
               <ViewToggle value={viewMode} onChange={setViewMode} />
               <Button size="sm" onClick={() => setShowAddVendor(true)} className="!rounded-lg shrink-0">
                 <Plus size={14} className="mr-1" /> เพิ่ม

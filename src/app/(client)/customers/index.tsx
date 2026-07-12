@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Star, X, Briefcase } from "lucide-react";
+import { AlertTriangle, Star, Briefcase } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { SearchInput } from "../../../components/ui/SearchInput";
 import { Input } from "../../../components/ui/Input";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ViewToggle } from "../../../components/ui/ViewToggle";
@@ -59,7 +60,6 @@ export default function CustomersPage() {
     const stored = window.localStorage.getItem("customersFilterMode");
     return stored === "all" || stored === "favorites" || stored === "hasDeals" ? stored : "all";
   });
-  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     window.localStorage.setItem("customersViewMode", viewMode);
@@ -68,21 +68,6 @@ export default function CustomersPage() {
   useEffect(() => {
     window.localStorage.setItem("customersFilterMode", filterMode);
   }, [filterMode]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "/") return;
-      const tag = document.activeElement?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      const target = e.target as HTMLElement | null;
-      if (target?.isContentEditable) return;
-      e.preventDefault();
-      searchRef.current?.focus();
-      searchRef.current?.select();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
 
   useEffect(() => {
     if (search.trim() && filterMode !== "all") {
@@ -244,29 +229,7 @@ export default function CustomersPage() {
     <AppShell title="ลูกค้า">
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
-            <input
-              ref={searchRef}
-              type="text"
-              className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-[14px] py-[10px] text-[14px] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
-              placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  searchRef.current?.focus();
-                }}
-                aria-label="ล้างการค้นหา"
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md text-[#888780] hover:text-[#1A1A18] hover:bg-[#E8E6DF] transition-colors"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี..." className="flex-1" />
           <ViewToggle value={viewMode} onChange={setViewMode} />
           <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-lg shrink-0">
             + เพิ่ม

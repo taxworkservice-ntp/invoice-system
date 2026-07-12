@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { CatalogSearch } from "./CatalogSearch";
+import { SearchInput } from "../ui/SearchInput";
 import { CatalogTypeTabs } from "./CatalogTypeTabs";
 import { ItemCard } from "./ItemCard";
 import { StockReportTable } from "./StockReportTable";
@@ -11,7 +11,7 @@ import type { ViewMode } from "../ui/ViewToggle";
 import { isLowStock, isOutOfStock, baseToCartons } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS } from "./constants";
 import { supabase } from "../../lib/supabase";
-import { Download, FileText, Star, X } from "lucide-react";
+import { Download, FileText, Star } from "lucide-react";
 import { useToast } from "../../hooks/useToast";
 import type { Item } from "../../types";
 
@@ -43,7 +43,6 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
     const stored = window.localStorage.getItem("catalogViewMode");
     return stored === "list" || stored === "grid" || stored === "table" ? stored : "list";
   });
-  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     window.localStorage.setItem("catalogViewMode", viewMode);
@@ -52,21 +51,6 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
   useEffect(() => {
     window.localStorage.setItem("catalogFilterMode", filterMode);
   }, [filterMode]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "/") return;
-      const tag = document.activeElement?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      const target = e.target as HTMLElement | null;
-      if (target?.isContentEditable) return;
-      e.preventDefault();
-      const input = searchRef.current?.querySelector("input");
-      input?.focus();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
 
   useEffect(() => {
     if (search.trim() && filterMode === "favorites") {
@@ -264,21 +248,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <div ref={searchRef} className="flex-1">
-          <div className="relative">
-            <CatalogSearch value={search} onChange={setSearch} />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="ล้างการค้นหา"
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md text-[#888780] hover:text-[#1A1A18] hover:bg-[#E8E6DF] transition-colors"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
+        <SearchInput value={search} onChange={setSearch} debounceMs={200} placeholder="ค้นหาชื่อสินค้า, SKU..." className="flex-1" />
         <ViewToggle value={viewMode} onChange={setViewMode} />
         <Button
           variant="secondary"
