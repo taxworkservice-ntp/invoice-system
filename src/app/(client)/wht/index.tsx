@@ -107,20 +107,15 @@ export default function WhtPage() {
   const [showEditVendor, setShowEditVendor] = useState<WhtVendor | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [saving, setSaving] = useState(false);
-  const [showOverrides, setShowOverrides] = useState<Record<string, { sig: boolean; stp: boolean }>>({});
+  const [showSig, setShowSig] = useState(true);
+  const [showStp, setShowStp] = useState(true);
 
-  function getShowSig(id: string) {
-    return showOverrides[id]?.sig ?? (clientProfile?.show_signature_on_wht !== false);
-  }
-  function getShowStp(id: string) {
-    return showOverrides[id]?.stp ?? (clientProfile?.show_stamp_on_wht !== false);
-  }
-  function toggleSig(id: string) {
-    setShowOverrides((prev) => ({ ...prev, [id]: { ...prev[id], sig: !getShowSig(id) } }));
-  }
-  function toggleStp(id: string) {
-    setShowOverrides((prev) => ({ ...prev, [id]: { ...prev[id], stp: !getShowStp(id) } }));
-  }
+  useEffect(() => {
+    if (clientProfile) {
+      if (showSig !== clientProfile.show_signature_on_wht) setShowSig(clientProfile.show_signature_on_wht !== false);
+      if (showStp !== clientProfile.show_stamp_on_wht) setShowStp(clientProfile.show_stamp_on_wht !== false);
+    }
+  }, [clientProfile]);
 
   const [newRecord, setNewRecord] = useState({
     vendor_id: "",
@@ -259,7 +254,7 @@ export default function WhtPage() {
       await assignCertificateNo(toGenerate.filter((r) => !r.certificate_no));
 
       const ids = toGenerate.map((r) => r.id);
-      const blob = await apiFetchBlob("/api/wht/generate", { ids, layout: "pnd", hideSignature: !clientProfile?.show_signature_on_wht, hideStamp: !clientProfile?.show_stamp_on_wht });
+      const blob = await apiFetchBlob("/api/wht/generate", { ids, layout: "pnd", hideSignature: !showSig, hideStamp: !showStp });
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -285,7 +280,7 @@ export default function WhtPage() {
         await assignCertificateNo([record]);
       }
 
-      const blob = await apiFetchBlob("/api/wht/generate", { ids: [record.id], hideSignature: !getShowSig(record.id), hideStamp: !getShowStp(record.id) });
+      const blob = await apiFetchBlob("/api/wht/generate", { ids: [record.id], hideSignature: !showSig, hideStamp: !showStp });
 
       const url = URL.createObjectURL(blob);
       const vendorName = record.vendor?.name || "vendor";
@@ -423,7 +418,27 @@ export default function WhtPage() {
             )}
 
             {filteredRecords.length > 0 && (
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowSig(!showSig)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      showSig ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    ลายเซ็น
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowStp(!showStp)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      showStp ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    ตราประทับ
+                  </button>
+                </div>
                 <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
                   <Download size={14} className="mr-1" /> ออกรายงาน PDF
                 </Button>
@@ -512,23 +527,9 @@ export default function WhtPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-end gap-1">
-                              <button type="button" onClick={() => window.open(`/wht/print?ids=${r.id}&layout=pnd&hideSignature=${getShowSig(r.id) ? "0" : "1"}&hideStamp=${getShowStp(r.id) ? "0" : "1"}`, "_blank")} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#888780] hover:text-[#378ADD]" title="ดูตัวอย่าง">
+                              <button type="button" onClick={() => window.open(`/wht/print?ids=${r.id}&layout=pnd&hideSignature=${showSig ? "0" : "1"}&hideStamp=${showStp ? "0" : "1"}`, "_blank")} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#888780] hover:text-[#378ADD]" title="ดูตัวอย่าง">
                                 <Eye size={14} />
                               </button>
-                              <input
-                                type="checkbox"
-                                checked={getShowSig(r.id)}
-                                onChange={() => toggleSig(r.id)}
-                                className="w-3 h-3 accent-primary rounded"
-                                title="ลายเซ็น"
-                              />
-                              <input
-                                type="checkbox"
-                                checked={getShowStp(r.id)}
-                                onChange={() => toggleStp(r.id)}
-                                className="w-3 h-3 accent-primary rounded"
-                                title="ตราประทับ"
-                              />
                               <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] text-[11px] font-medium" title="สร้าง PDF">
                                 <FileText size={14} />
                               </button>
