@@ -79,9 +79,6 @@ export default function DownloadCenterPage() {
 
   const monthSuffix = MONTH_LABELS[quickMonth.month - 1];
   const selectedMonthLabel = `${THAI_MONTHS[quickMonth.month - 1]} ${quickMonth.year + 543}`;
-  const thisMonthLabel = `${MONTH_LABELS[currentMonth - 1]} ${currentYear + 543}`;
-  const prevMonthDate = new Date(currentYear, currentMonth - 2, 1);
-  const prevMonthLabel = `${MONTH_LABELS[prevMonthDate.getMonth()]} ${prevMonthDate.getFullYear() + 543}`;
 
   const presetTypes = useMemo(() => {
     return PRESET_TYPES
@@ -319,8 +316,8 @@ export default function DownloadCenterPage() {
               <div className="flex items-center justify-between mb-1">
                 <div className="text-[11px] font-semibold text-gray-500">ดาวน์โหลดด่วน</div>
                 <div className="flex gap-1">
-                  <button type="button" onClick={() => setQuickFilter("thisMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "thisMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>{thisMonthLabel}</button>
-                  <button type="button" onClick={() => setQuickFilter("prevMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "prevMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>{prevMonthLabel}</button>
+                  <button type="button" onClick={() => setQuickFilter("thisMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "thisMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>เดือนนี้</button>
+                  <button type="button" onClick={() => setQuickFilter("prevMonth")} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${quickFilter === "prevMonth" ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>เดือนก่อน</button>
                 </div>
               </div>
               <div className="text-[11px] text-gray-400 mb-2">{selectedMonthLabel}</div>
@@ -334,7 +331,7 @@ export default function DownloadCenterPage() {
                 ))}
               </div>
             </div>
-            <div className="border-t border-card-border pt-4">
+            <div className="mt-6 border-t-2 border-[#E8E6DF] pt-5">
               <div className="text-[11px] font-semibold text-gray-500 mb-3">ตามเงื่อนไข</div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <MonthSelect label="เดือน" value={customMonth} onChange={setCustomMonth} />
