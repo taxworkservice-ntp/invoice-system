@@ -191,10 +191,6 @@ export default function CustomersPage() {
       toast.error("กรุณากรอกเลขผู้เสียภาษี");
       return;
     }
-    if (!newAddress.trim()) {
-      toast.error("กรุณากรอกที่อยู่");
-      return;
-    }
     setSaving(true);
     try {
       const { data, error } = await supabase
@@ -203,7 +199,7 @@ export default function CustomersPage() {
           user_id: profile.id,
           name: newName.trim(),
           tax_id: newTaxId.trim(),
-          address: newAddress.trim(),
+          address: newAddress || null,
           phone: newPhone || null,
           email: newEmail || null,
           contact_name: newContact || null,
@@ -660,7 +656,7 @@ export default function CustomersPage() {
                 />
               </div>
               <Input
-                label="ที่อยู่ *"
+                label="ที่อยู่"
                 value={newAddress}
                 onChange={(e) => setNewAddress(e.target.value)}
                 placeholder="ที่อยู่สำหรับพิมพ์บนเอกสาร"
@@ -684,7 +680,7 @@ export default function CustomersPage() {
               />
 
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleAddCustomer} disabled={!newName.trim() || !newCode.trim() || !newTaxId.trim() || !newAddress.trim() || saving} loading={saving} className="flex-1">
+                <Button onClick={handleAddCustomer} disabled={!newName.trim() || !newCode.trim() || !newTaxId.trim() || saving} loading={saving} className="flex-1">
                   บันทึก
                 </Button>
                 <Button variant="secondary" onClick={() => setShowAddSheet(false)} className="flex-1">
