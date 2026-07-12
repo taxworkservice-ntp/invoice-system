@@ -42,6 +42,8 @@ export default function SettingsProfilePage() {
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
+  const [showSignatureOnWht, setShowSignatureOnWht] = useState(true);
+  const [showStampOnWht, setShowStampOnWht] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -60,6 +62,8 @@ export default function SettingsProfilePage() {
       setBankAccount((clientProfile as any).bank_account || "");
       setSignatureKey((clientProfile as any).signature_url || null);
       setStampKey((clientProfile as any).stamp_url || null);
+      setShowSignatureOnWht((clientProfile as any).show_signature_on_wht !== false);
+      setShowStampOnWht((clientProfile as any).show_stamp_on_wht !== false);
       setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
       setClassicTerms(clientProfile.classic_terms || "");
     }
@@ -91,6 +95,8 @@ export default function SettingsProfilePage() {
       bank_account: bankAccount.trim() || null,
       signature_url: signatureKey,
       stamp_url: stampKey,
+      show_signature_on_wht: showSignatureOnWht,
+      show_stamp_on_wht: showStampOnWht,
     };
 
     let err;
@@ -130,6 +136,8 @@ export default function SettingsProfilePage() {
         bank_account: bankAccount.trim() || null,
         signature_url: signatureKey,
         stamp_url: stampKey,
+        show_signature_on_wht: showSignatureOnWht,
+        show_stamp_on_wht: showStampOnWht,
       } as ClientProfile);
     }
     setSaving(false);
@@ -292,20 +300,32 @@ export default function SettingsProfilePage() {
             <div className="border-t border-[#E8E6DF] pt-3">
               <p className="text-[11px] font-semibold text-[#888780] mb-2">ลายเซ็นและตราประทับ</p>
               <div className="grid grid-cols-2 gap-3">
-                <ImageUpload
-                  userId={profile!.id}
-                  storageKeyFn={signatureKeyFn}
-                  currentKey={signatureKey}
-                  onKeyChange={(k) => { setSignatureKey(k); setSaved(false); }}
-                  label="ลายเซ็น"
-                />
-                <ImageUpload
-                  userId={profile!.id}
-                  storageKeyFn={stampKeyFn}
-                  currentKey={stampKey}
-                  onKeyChange={(k) => { setStampKey(k); setSaved(false); }}
-                  label="ตราประทับ"
-                />
+                <div className="space-y-2">
+                  <ImageUpload
+                    userId={profile!.id}
+                    storageKeyFn={signatureKeyFn}
+                    currentKey={signatureKey}
+                    onKeyChange={(k) => { setSignatureKey(k); setSaved(false); }}
+                    label="ลายเซ็น"
+                  />
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={showSignatureOnWht} onChange={(e) => { setShowSignatureOnWht(e.target.checked); setSaved(false); }} className="w-3.5 h-3.5 accent-primary rounded" />
+                    <span className="text-[11px] text-gray-500 select-none">แสดงใน WHT</span>
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <ImageUpload
+                    userId={profile!.id}
+                    storageKeyFn={stampKeyFn}
+                    currentKey={stampKey}
+                    onKeyChange={(k) => { setStampKey(k); setSaved(false); }}
+                    label="ตราประทับ"
+                  />
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={showStampOnWht} onChange={(e) => { setShowStampOnWht(e.target.checked); setSaved(false); }} className="w-3.5 h-3.5 accent-primary rounded" />
+                    <span className="text-[11px] text-gray-500 select-none">แสดงใน WHT</span>
+                  </label>
+                </div>
               </div>
               <p className="text-[11px] text-[#888780] mt-1">
                 ลายเซ็นและตราจะแสดงบนเอกสารใบแจ้งหนี้ ใบกำกับภาษี และใบวางบิล

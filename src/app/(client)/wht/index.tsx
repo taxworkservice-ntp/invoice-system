@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, Plus, FileText, Users } from "lucide-react";
+import { Download, Trash2, Plus, FileText, Users, Eye } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -11,7 +11,7 @@ import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { useWhtRecords, type WhtRecordWithVendor } from "../../../hooks/useWhtRecords";
 import { useWhtVendors } from "../../../hooks/useWhtVendors";
-import { useAuth } from "../../../hooks/useAuth";
+import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
@@ -83,6 +83,7 @@ async function apiFetchBlob(url: string, body: unknown): Promise<Blob> {
 
 export default function WhtPage() {
   const { profile } = useAuth();
+  const { clientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
   const userId = profile?.id;
   const {
@@ -244,7 +245,7 @@ export default function WhtPage() {
       await assignCertificateNo(toGenerate.filter((r) => !r.certificate_no));
 
       const ids = toGenerate.map((r) => r.id);
-      const blob = await apiFetchBlob("/api/wht/generate", { ids, layout: "pnd" });
+      const blob = await apiFetchBlob("/api/wht/generate", { ids, layout: "pnd", hideSignature: !clientProfile?.show_signature_on_wht, hideStamp: !clientProfile?.show_stamp_on_wht });
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -270,7 +271,7 @@ export default function WhtPage() {
         await assignCertificateNo([record]);
       }
 
-      const blob = await apiFetchBlob("/api/wht/generate", { ids: [record.id] });
+      const blob = await apiFetchBlob("/api/wht/generate", { ids: [record.id], hideSignature: !clientProfile?.show_signature_on_wht, hideStamp: !clientProfile?.show_stamp_on_wht });
 
       const url = URL.createObjectURL(blob);
       const vendorName = record.vendor?.name || "vendor";
@@ -497,6 +498,9 @@ export default function WhtPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-end gap-1">
+                              <button type="button" onClick={() => window.open(`/wht/print?ids=${r.id}&layout=pnd`, "_blank")} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#888780] hover:text-[#378ADD]" title="ดูตัวอย่าง">
+                                <Eye size={14} />
+                              </button>
                               <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] text-[11px] font-medium" title="สร้าง PDF">
                                 <FileText size={14} />
                               </button>

@@ -201,6 +201,10 @@ create table client_profiles (
   signature_url         text,
   stamp_url             text,
 
+  -- Signature & stamp visibility on WHT forms
+  show_signature_on_wht  boolean not null default true,
+  show_stamp_on_wht      boolean not null default true,
+
   -- Onboarding / account state
   password_changed      boolean not null default true,
 

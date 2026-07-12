@@ -113,6 +113,8 @@ export default async function handler(req, res) {
     exportUrl.searchParams.set("export", "pdf");
     exportUrl.searchParams.set("layout", layout);
     if (debug) exportUrl.searchParams.set("debug", "1");
+    if (body.hideSignature) exportUrl.searchParams.set("hideSignature", "1");
+    if (body.hideStamp) exportUrl.searchParams.set("hideStamp", "1");
 
     browser = await playwright.chromium.launch({
       args: chromium.args,

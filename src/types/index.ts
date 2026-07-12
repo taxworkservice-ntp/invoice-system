@@ -89,6 +89,8 @@ export interface ClientProfile {
   bank_account: string | null;
   signature_url: string | null;
   stamp_url: string | null;
+  show_signature_on_wht: boolean;
+  show_stamp_on_wht: boolean;
   dev_mode_enabled: boolean;
   dev_effective_date: string | null;
   created_at: string;
