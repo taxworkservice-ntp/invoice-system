@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { getProxiedImageUrl } from "../../../lib/r2";
@@ -467,8 +467,39 @@ export default function WhtPrintPage() {
   }
 
   const firstRecord = records[0];
-  const sigHidden = hideSignature || (profile ? !profile.show_signature_on_wht : false);
-  const stpHidden = hideStamp || (profile ? !profile.show_stamp_on_wht : false);
+  const sigDisabled = hideSignature || (profile ? !profile.show_signature_on_wht : false);
+  const stpDisabled = hideStamp || (profile ? !profile.show_stamp_on_wht : false);
+  const [previewHideSig, setPreviewHideSig] = useState(sigDisabled);
+  const [previewHideStp, setPreviewHideStp] = useState(stpDisabled);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!firstRecord || pdfDownloading) return;
+    setPdfDownloading(true);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) throw new Error("No session");
+      const resp = await fetch("/api/wht/generate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [firstRecord.id], layout: "pnd", hideSignature: previewHideSig, hideStamp: previewHideStp }),
+      });
+      if (!resp.ok) throw new Error("Download failed");
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${firstRecord.certificate_no || "wht"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // silent
+    } finally {
+      setPdfDownloading(false);
+    }
+  }, [firstRecord, previewHideSig, previewHideStp]);
 
   if (exportMode) {
     if (layout === "pnd" && profile) {
@@ -489,7 +520,7 @@ export default function WhtPrintPage() {
             body { margin: 0; }
           `}</style>
           {records.map((r, idx) => (
-            <PndPage key={r.id} record={r} profile={profile} seq={idx} debug={debug} hideSignature={sigHidden} hideStamp={stpHidden} />
+            <PndPage key={r.id} record={r} profile={profile} seq={idx} debug={debug} hideSignature={sigDisabled} hideStamp={stpDisabled} />
           ))}
         </div>
       );
@@ -498,7 +529,7 @@ export default function WhtPrintPage() {
     return (
       <div>
         {profile && records.map((r) => (
-          <CleanPage key={r.id} record={r} profile={profile} hideSignature={sigHidden} />
+          <CleanPage key={r.id} record={r} profile={profile} hideSignature={sigDisabled} />
         ))}
       </div>
     );
@@ -538,24 +569,32 @@ export default function WhtPrintPage() {
       <div className="mx-auto mb-3 flex w-full max-w-[230mm] flex-wrap items-center gap-3 rounded-[20px] border border-[#D7DEE7] bg-white px-3 py-2.5 shadow-sm sm:px-4">
         <span className="text-[11px] font-medium text-[#667085]">แสดง:</span>
         <label className="flex items-center gap-1.5 cursor-pointer">
-          <input type="checkbox" checked={!sigHidden} onChange={() => {}} className="w-3.5 h-3.5 accent-primary rounded" disabled />
+          <input type="checkbox" checked={!previewHideSig} onChange={(e) => setPreviewHideSig(!e.target.checked)} className="w-3.5 h-3.5 accent-primary rounded" />
           <span className="text-[12px] text-[#1A1A18] select-none">ลายเซ็น</span>
         </label>
         <label className="flex items-center gap-1.5 cursor-pointer">
-          <input type="checkbox" checked={!stpHidden} onChange={() => {}} className="w-3.5 h-3.5 accent-primary rounded" disabled />
+          <input type="checkbox" checked={!previewHideStp} onChange={(e) => setPreviewHideStp(!e.target.checked)} className="w-3.5 h-3.5 accent-primary rounded" />
           <span className="text-[12px] text-[#1A1A18] select-none">ตราประทับ</span>
         </label>
-        <span className="text-[10px] text-[#888780] ml-auto">เปลี่ยนได้ที่ตั้งค่า</span>
+        <span className="text-[10px] text-[#888780] ml-auto">ค่าเริ่มต้นเปลี่ยนได้ที่ตั้งค่า</span>
+        <button
+          type="button"
+          onClick={handleDownloadPdf}
+          disabled={pdfDownloading}
+          className="rounded-lg bg-[#378ADD] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#2B6EC7] transition-colors disabled:opacity-50"
+        >
+          {pdfDownloading ? "กำลังดาวน์โหลด..." : "ดาวน์โหลด PDF"}
+        </button>
       </div>
 
       <div className="mx-auto w-full max-w-[230mm]">
         {profile && layout === "pnd" ? (
           records.map((r, idx) => (
-            <PndPage key={r.id} record={r} profile={profile} seq={idx} debug={debug} hideSignature={sigHidden} hideStamp={stpHidden} />
+            <PndPage key={r.id} record={r} profile={profile} seq={idx} debug={debug} hideSignature={previewHideSig} hideStamp={previewHideStp} />
           ))
         ) : (
           profile && records.map((r) => (
-            <CleanPage key={r.id} record={r} profile={profile} hideSignature={sigHidden} />
+            <CleanPage key={r.id} record={r} profile={profile} hideSignature={previewHideSig} />
           ))
         )}
       </div>
