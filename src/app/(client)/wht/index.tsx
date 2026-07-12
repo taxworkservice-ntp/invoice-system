@@ -107,6 +107,20 @@ export default function WhtPage() {
   const [showEditVendor, setShowEditVendor] = useState<WhtVendor | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [saving, setSaving] = useState(false);
+  const [showOverrides, setShowOverrides] = useState<Record<string, { sig: boolean; stp: boolean }>>({});
+
+  function getShowSig(id: string) {
+    return showOverrides[id]?.sig ?? (clientProfile?.show_signature_on_wht !== false);
+  }
+  function getShowStp(id: string) {
+    return showOverrides[id]?.stp ?? (clientProfile?.show_stamp_on_wht !== false);
+  }
+  function toggleSig(id: string) {
+    setShowOverrides((prev) => ({ ...prev, [id]: { ...prev[id], sig: !getShowSig(id) } }));
+  }
+  function toggleStp(id: string) {
+    setShowOverrides((prev) => ({ ...prev, [id]: { ...prev[id], stp: !getShowStp(id) } }));
+  }
 
   const [newRecord, setNewRecord] = useState({
     vendor_id: "",
@@ -271,7 +285,7 @@ export default function WhtPage() {
         await assignCertificateNo([record]);
       }
 
-      const blob = await apiFetchBlob("/api/wht/generate", { ids: [record.id], hideSignature: !clientProfile?.show_signature_on_wht, hideStamp: !clientProfile?.show_stamp_on_wht });
+      const blob = await apiFetchBlob("/api/wht/generate", { ids: [record.id], hideSignature: !getShowSig(record.id), hideStamp: !getShowStp(record.id) });
 
       const url = URL.createObjectURL(blob);
       const vendorName = record.vendor?.name || "vendor";
@@ -498,9 +512,23 @@ export default function WhtPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-end gap-1">
-                              <button type="button" onClick={() => window.open(`/wht/print?ids=${r.id}&layout=pnd`, "_blank")} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#888780] hover:text-[#378ADD]" title="ดูตัวอย่าง">
+                              <button type="button" onClick={() => window.open(`/wht/print?ids=${r.id}&layout=pnd&hideSignature=${getShowSig(r.id) ? "0" : "1"}&hideStamp=${getShowStp(r.id) ? "0" : "1"}`, "_blank")} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#888780] hover:text-[#378ADD]" title="ดูตัวอย่าง">
                                 <Eye size={14} />
                               </button>
+                              <input
+                                type="checkbox"
+                                checked={getShowSig(r.id)}
+                                onChange={() => toggleSig(r.id)}
+                                className="w-3 h-3 accent-primary rounded"
+                                title="ลายเซ็น"
+                              />
+                              <input
+                                type="checkbox"
+                                checked={getShowStp(r.id)}
+                                onChange={() => toggleStp(r.id)}
+                                className="w-3 h-3 accent-primary rounded"
+                                title="ตราประทับ"
+                              />
                               <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] text-[11px] font-medium" title="สร้าง PDF">
                                 <FileText size={14} />
                               </button>
