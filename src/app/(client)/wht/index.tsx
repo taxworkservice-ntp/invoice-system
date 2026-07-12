@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, Plus, FileText, Users, Eye } from "lucide-react";
+import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -419,26 +419,29 @@ export default function WhtPage() {
 
             {filteredRecords.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowSig(!showSig)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      showSig ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                    }`}
-                  >
-                    ลายเซ็น
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowStp(!showStp)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      showStp ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                    }`}
-                  >
-                    ตราประทับ
-                  </button>
-                </div>
+                <span className="text-[12px] text-[#888780] mr-1">แสดงบนเอกสาร:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowSig(!showSig)}
+                  title="คลิกเพื่อสลับการแสดงลายเซ็นในเอกสาร PDF"
+                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    showSig ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {showSig ? <Eye size={13} /> : <EyeOff size={13} />}
+                  ลายเซ็น: {showSig ? "แสดง" : "ซ่อน"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowStp(!showStp)}
+                  title="คลิกเพื่อสลับการแสดงตราประทับในเอกสาร PDF"
+                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    showStp ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {showStp ? <Eye size={13} /> : <EyeOff size={13} />}
+                  ตราประทับ: {showStp ? "แสดง" : "ซ่อน"}
+                </button>
                 <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
                   <Download size={14} className="mr-1" /> ออกรายงาน PDF
                 </Button>

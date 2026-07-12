@@ -310,7 +310,7 @@ export default function SettingsProfilePage() {
                   />
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={showSignatureOnWht} onChange={(e) => { setShowSignatureOnWht(e.target.checked); setSaved(false); }} className="w-3.5 h-3.5 accent-primary rounded" />
-                    <span className="text-[11px] text-gray-500 select-none">แสดงใน WHT</span>
+                    <span className="text-[11px] text-gray-500 select-none">แสดงในเอกสาร WHT (ภ.ง.ด.)</span>
                   </label>
                 </div>
                 <div className="space-y-2">
@@ -323,12 +323,12 @@ export default function SettingsProfilePage() {
                   />
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={showStampOnWht} onChange={(e) => { setShowStampOnWht(e.target.checked); setSaved(false); }} className="w-3.5 h-3.5 accent-primary rounded" />
-                    <span className="text-[11px] text-gray-500 select-none">แสดงใน WHT</span>
+                    <span className="text-[11px] text-gray-500 select-none">แสดงในเอกสาร WHT (ภ.ง.ด.)</span>
                   </label>
                 </div>
               </div>
               <p className="text-[11px] text-[#888780] mt-1">
-                ลายเซ็นและตราจะแสดงบนเอกสารใบแจ้งหนี้ ใบกำกับภาษี และใบวางบิล
+                ลายเซ็นและตราแสดงบนเอกสารทุกประเภท สำหรับเอกสาร WHT สามารถเปิด/ปิดได้ที่นี่ และปรับเพิ่มเติมได้ที่หน้า WHT
               </p>
             </div>
 
