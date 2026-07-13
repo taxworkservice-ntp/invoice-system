@@ -1,0 +1,30 @@
+WHT PDF Export — Files & Signature/Stamp Position
+===================================================
+
+1. src/app/(client)/wht/print.tsx      ← PND form layout, signature/stamp position & size
+2. src/app/(client)/wht/index.tsx      ← WHT page UI (toggles, generate buttons)
+3. api/wht/generate.js                 ← Server-side PDF generator (headless Chromium renders print.tsx)
+
+---
+
+Signature/Stamp Position (in print.tsx, buildImages function):
+
+  Signature:
+    top:    1855   (was 1865, moved up 10px)
+    left:   905    (was 935, moved left 30px total)
+    width:  304    (was 264, +15%)
+    height: 114    (was 99, +15%)
+
+  Stamp:
+    top:    1870
+    left:   1265
+    width:  139    (was 121, +15%)
+    height: 139    (was 121, +15%)
+
+---
+
+Page dimensions:
+    PAGE_W = 1512px
+    PAGE_H = 2138px
+    Background image: /wht/form_page_final.png
+    Font: Cordia New

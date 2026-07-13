@@ -131,7 +131,7 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
 function buildImages(profile: ClientProfile, hideSignature = false, hideStamp = false): ImageOverlay[] {
   const images: ImageOverlay[] = [];
   if (profile.signature_url && !hideSignature) {
-    images.push({ name: "signature", src: getProxiedImageUrl(profile.signature_url), top: 1865, left: 920, width: 304, height: 114 });
+    images.push({ name: "signature", src: getProxiedImageUrl(profile.signature_url), top: 1855, left: 905, width: 304, height: 114 });
   }
   const logoSrc = profile.stamp_url || profile.logo_url;
   if (logoSrc && !hideStamp) {
