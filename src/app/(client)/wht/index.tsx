@@ -408,45 +408,46 @@ export default function WhtPage() {
               </Button>
             </div>
 
-            {filteredRecords.length > 0 && (
-              <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#888780]">
-                <span>{summary.count} รายการ</span>
-                <span>รวมเงิน {formatCurrency(summary.totalAmount)}</span>
-                <span className="text-[#C0392B]">WHT {formatCurrency(summary.totalWht)}</span>
-                <span className="text-[#378ADD]">ออกใบรับรองแล้ว {summary.generated} รายการ</span>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {filteredRecords.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#888780]">
+                  <span>{summary.count} รายการ</span>
+                  <span>รวมเงิน {formatCurrency(summary.totalAmount)}</span>
+                  <span className="text-[#C0392B]">WHT {formatCurrency(summary.totalWht)}</span>
+                  <span className="text-[#378ADD]">ออกใบรับรองแล้ว {summary.generated} รายการ</span>
+                </div>
+              )}
 
-            {filteredRecords.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[12px] text-[#888780] mr-1">แสดงบนเอกสาร:</span>
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-[12px] text-[#888780] mr-0.5">แสดงบนเอกสาร:</span>
                 <button
                   type="button"
                   onClick={() => setShowSig(!showSig)}
-                  title="คลิกเพื่อสลับการแสดงลายเซ็นในเอกสาร PDF"
-                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  title={`ลายเซ็น: ${showSig ? "แสดง" : "ซ่อน"} — คลิกเพื่อสลับ`}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
                     showSig ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                   }`}
                 >
-                  {showSig ? <Eye size={13} /> : <EyeOff size={13} />}
-                  ลายเซ็น: {showSig ? "แสดง" : "ซ่อน"}
+                  {showSig ? <Eye size={15} /> : <EyeOff size={15} />}
+                  ลายเซ็น
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowStp(!showStp)}
-                  title="คลิกเพื่อสลับการแสดงตราประทับในเอกสาร PDF"
-                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  title={`ตราประทับ: ${showStp ? "แสดง" : "ซ่อน"} — คลิกเพื่อสลับ`}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
                     showStp ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                   }`}
                 >
-                  {showStp ? <Eye size={13} /> : <EyeOff size={13} />}
-                  ตราประทับ: {showStp ? "แสดง" : "ซ่อน"}
+                  {showStp ? <Eye size={15} /> : <EyeOff size={15} />}
+                  ตราประทับ
                 </button>
+                <div className="w-px h-6 bg-gray-200 mx-0.5" />
                 <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
                   <Download size={14} className="mr-1" /> ออกรายงาน PDF
                 </Button>
               </div>
-            )}
+            </div>
 
             {recordsLoading ? (
               <div className="bg-white border border-card-border rounded-card overflow-hidden">
