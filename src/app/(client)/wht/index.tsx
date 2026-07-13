@@ -137,6 +137,23 @@ export default function WhtPage() {
     description: "",
     note: "",
   });
+
+  function resetNewRecord() {
+    setNewRecord({
+      vendor_id: "",
+      form_type: "pnd3" as WhtFormType,
+      issue_date: new Date().toISOString().slice(0, 10),
+      amount: "",
+      wht_rate: "3",
+      description: "",
+      note: "",
+    });
+  }
+
+  function openAddRecord() {
+    resetNewRecord();
+    setShowAddRecord(true);
+  }
   const [editRecordForm, setEditRecordForm] = useState({
     vendor_id: "",
     form_type: "pnd3" as WhtFormType,
@@ -202,7 +219,7 @@ export default function WhtPage() {
         note: newRecord.note || null,
       });
       setShowAddRecord(false);
-      setNewRecord({ vendor_id: "", form_type: "pnd3", issue_date: new Date().toISOString().slice(0, 10), amount: "", wht_rate: "3", description: "", note: "" });
+      resetNewRecord();
       toast.success("เพิ่มรายการ WHT แล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
@@ -449,7 +466,7 @@ export default function WhtPage() {
                   <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>
                 ))}
               </select>
-              <Button size="sm" onClick={() => setShowAddRecord(true)} className="!rounded-lg shrink-0">
+              <Button size="sm" onClick={openAddRecord} className="!rounded-lg shrink-0">
                 <Plus size={14} className="mr-1" /> เพิ่มรายการ
               </Button>
             </div>
@@ -506,7 +523,7 @@ export default function WhtPage() {
                 <EmptyState
                   title="ยังไม่มีรายการ WHT"
                   description="เพิ่มรายการหัก ณ ที่จ่าย เพื่อออกรายงานและใบรับรอง"
-                  action={<Button onClick={() => setShowAddRecord(true)}><Plus size={14} className="mr-1" /> เพิ่มรายการ WHT</Button>}
+                  action={<Button onClick={openAddRecord}><Plus size={14} className="mr-1" /> เพิ่มรายการ WHT</Button>}
                 />
               ) : (
                 <div className="text-center py-12 text-[13px] text-[#888780]">
@@ -693,7 +710,7 @@ export default function WhtPage() {
 
       {showAddRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setShowAddRecord(false)} />
+          <div className="absolute inset-0 bg-black/30" onClick={() => { setShowAddRecord(false); resetNewRecord(); }} />
           <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">เพิ่มรายการ WHT</h2>
@@ -753,7 +770,7 @@ export default function WhtPage() {
               <Input label="หมายเหตุ" value={newRecord.note} onChange={(e) => setNewRecord({ ...newRecord, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleAddRecord} disabled={!newRecord.vendor_id || !newRecord.amount || !newRecord.description.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
-                <Button variant="secondary" onClick={() => setShowAddRecord(false)} className="flex-1">ยกเลิก</Button>
+                <Button variant="secondary" onClick={() => { setShowAddRecord(false); resetNewRecord(); }} className="flex-1">ยกเลิก</Button>
               </div>
             </div>
           </div>
