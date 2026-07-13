@@ -249,7 +249,7 @@ export default function WhtPage() {
   async function handleVendorChangeForRecord(vendorId: string, isEdit: boolean) {
     const vendor = allVendors.find((v) => v.id === vendorId);
     if (!vendor) return;
-    const autoFormType: WhtFormType = vendor.vendor_type === "company" ? "pnd53" : "pnd3";
+    const autoFormType: WhtFormType = vendor.vendor_type === "individual" ? "pnd3" : "pnd53";
     if (isEdit) {
       setEditRecordForm((prev) => ({ ...prev, vendor_id: vendorId, form_type: autoFormType }));
     } else {
