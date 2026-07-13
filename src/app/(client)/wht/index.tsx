@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil } from "lucide-react";
+import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -38,6 +38,7 @@ const WHT_FORM_TYPE_COLORS: Record<WhtFormType, string> = {
 };
 
 const WHT_FORM_TYPES: WhtFormType[] = ["pnd3", "pnd53", "pnd1", "pnd2", "pnd3a", "pnd2a", "pnd1_special"];
+const WHT_FORM_TYPE_OPTIONS: WhtFormType[] = ["pnd3", "pnd53"];
 
 const WHT_DESCRIPTION_PRESETS = [
   "ค่าจ้างทำของ",
@@ -145,8 +146,8 @@ export default function WhtPage() {
     description: "",
     note: "",
   });
-  const [newVendor, setNewVendor] = useState({ name: "", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
-  const [editVendorForm, setEditVendorForm] = useState({ name: "", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
+  const [newVendor, setNewVendor] = useState({ name: "", vendor_type: "company" as "company" | "individual", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
+  const [editVendorForm, setEditVendorForm] = useState({ name: "", vendor_type: "company" as "company" | "individual", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
@@ -245,6 +246,40 @@ export default function WhtPage() {
     });
   }
 
+  async function handleVendorChangeForRecord(vendorId: string, isEdit: boolean) {
+    const vendor = allVendors.find((v) => v.id === vendorId);
+    if (!vendor) return;
+    const autoFormType: WhtFormType = vendor.vendor_type === "company" ? "pnd53" : "pnd3";
+    if (isEdit) {
+      setEditRecordForm((prev) => ({ ...prev, vendor_id: vendorId, form_type: autoFormType }));
+    } else {
+      setNewRecord((prev) => ({ ...prev, vendor_id: vendorId, form_type: autoFormType }));
+    }
+    try {
+      const { data } = await supabase
+        .from("wht_records")
+        .select("amount, description, wht_rate, form_type")
+        .eq("vendor_id", vendorId)
+        .eq("user_id", userId || "")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        const lastAmt = String(data.amount ?? "");
+        const lastDesc = data.description || "";
+        const lastRate = String(data.wht_rate ?? "3");
+        const lastForm = (data.form_type as WhtFormType) || autoFormType;
+        if (isEdit) {
+          setEditRecordForm((prev) => ({ ...prev, amount: lastAmt, description: lastDesc, wht_rate: lastRate, form_type: lastForm }));
+        } else {
+          setNewRecord((prev) => ({ ...prev, amount: lastAmt, description: lastDesc, wht_rate: lastRate, form_type: lastForm }));
+        }
+      }
+    } catch {
+      // ignore — keep defaults
+    }
+  }
+
   async function handleDeleteRecord(id: string) {
     if (!confirm("ลบรายการ WHT นี้?")) return;
     try {
@@ -316,7 +351,7 @@ export default function WhtPage() {
     try {
       await addVendor(newVendor);
       setShowAddVendor(false);
-      setNewVendor({ name: "", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
+      setNewVendor({ name: "", vendor_type: "company", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
       toast.success("เพิ่มผู้ขายแล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
@@ -344,6 +379,7 @@ export default function WhtPage() {
     setShowEditVendor(v);
     setEditVendorForm({
       name: v.name,
+      vendor_type: v.vendor_type || "company",
       tax_id: v.tax_id || "",
       address: v.address || "",
       phone: v.phone || "",
@@ -660,19 +696,27 @@ export default function WhtPage() {
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowAddRecord(false)} />
           <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">เพิ่มรายการ WHT</h2>
+            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">เพิ่มรายการ WHT</h2>
+            <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
+              <Info size={14} className="shrink-0" />
+              <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
+            </div>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">ผู้ขาย/ผู้รับเงิน *</label>
-                <select value={newRecord.vendor_id} onChange={(e) => setNewRecord({ ...newRecord, vendor_id: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+                <select
+                  value={newRecord.vendor_id}
+                  onChange={(e) => handleVendorChangeForRecord(e.target.value, false)}
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                >
                   <option value="">เลือกผู้ขาย</option>
                   {allVendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">แบบภาษี *</label>
-                <select value={newRecord.form_type} onChange={(e) => setNewRecord({ ...newRecord, form_type: e.target.value as WhtFormType })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
-                  {WHT_FORM_TYPES.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
+                <select value={newRecord.form_type} onChange={(e) => setNewRecord({ ...newRecord, form_type: e.target.value as WhtFormType })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
+                  {WHT_FORM_TYPE_OPTIONS.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
                 </select>
               </div>
               <Input label="วันที่ *" type="date" value={newRecord.issue_date} onChange={(e) => setNewRecord({ ...newRecord, issue_date: e.target.value })} />
@@ -693,7 +737,7 @@ export default function WhtPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
-                <select value={newRecord.wht_rate} onChange={(e) => setNewRecord({ ...newRecord, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+                <select value={newRecord.wht_rate} onChange={(e) => setNewRecord({ ...newRecord, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
                   <option value="1">1%</option>
                   <option value="2">2%</option>
                   <option value="3">3%</option>
@@ -721,18 +765,27 @@ export default function WhtPage() {
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowEditRecord(null)} />
           <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">แก้ไขรายการ WHT</h2>
+            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">แก้ไขรายการ WHT</h2>
+            <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
+              <Info size={14} className="shrink-0" />
+              <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
+            </div>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">ผู้ขาย/ผู้รับเงิน *</label>
-                <select value={editRecordForm.vendor_id} onChange={(e) => setEditRecordForm({ ...editRecordForm, vendor_id: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+                <select
+                  value={editRecordForm.vendor_id}
+                  onChange={(e) => handleVendorChangeForRecord(e.target.value, true)}
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                >
+                  <option value="">เลือกผู้ขาย</option>
                   {allVendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">แบบภาษี *</label>
-                <select value={editRecordForm.form_type} onChange={(e) => setEditRecordForm({ ...editRecordForm, form_type: e.target.value as WhtFormType })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
-                  {WHT_FORM_TYPES.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
+                <select value={editRecordForm.form_type} onChange={(e) => setEditRecordForm({ ...editRecordForm, form_type: e.target.value as WhtFormType })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
+                  {WHT_FORM_TYPE_OPTIONS.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
                 </select>
               </div>
               <Input label="วันที่ *" type="date" value={editRecordForm.issue_date} onChange={(e) => setEditRecordForm({ ...editRecordForm, issue_date: e.target.value })} />
@@ -753,7 +806,7 @@ export default function WhtPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
-                <select value={editRecordForm.wht_rate} onChange={(e) => setEditRecordForm({ ...editRecordForm, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+                <select value={editRecordForm.wht_rate} onChange={(e) => setEditRecordForm({ ...editRecordForm, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
                   <option value="1">1%</option>
                   <option value="2">2%</option>
                   <option value="3">3%</option>
@@ -778,7 +831,24 @@ export default function WhtPage() {
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">เพิ่มผู้ขาย/ผู้รับเงิน</h2>
             <div className="space-y-3">
-              <Input label="ชื่อบริษัท / ชื่อผู้ขาย *" value={newVendor.name} onChange={(e) => setNewVendor({ ...newVendor, name: e.target.value })} placeholder="เช่น บริษัท สยามปริ้นท์ จำกัด" autoFocus />
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">ประเภทผู้ขาย/ผู้รับเงิน *</label>
+                <select
+                  value={newVendor.vendor_type}
+                  onChange={(e) => setNewVendor({ ...newVendor, vendor_type: e.target.value as "company" | "individual" })}
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                >
+                  <option value="company">บริษัท</option>
+                  <option value="individual">บุคคล</option>
+                </select>
+              </div>
+              <Input
+                label={newVendor.vendor_type === "company" ? "ชื่อบริษัท *" : "ชื่อบุคคล *"}
+                value={newVendor.name}
+                onChange={(e) => setNewVendor({ ...newVendor, name: e.target.value })}
+                placeholder={newVendor.vendor_type === "company" ? "เช่น บริษัท สยามปริ้นท์ จำกัด" : "เช่น นาย สมชาย ใจดี"}
+                autoFocus
+              />
               <Input label="เลขผู้เสียภาษี (13 หลัก) *" value={newVendor.tax_id} onChange={(e) => setNewVendor({ ...newVendor, tax_id: e.target.value })} placeholder="13 หลัก" />
               <Input label="ที่อยู่ *" value={newVendor.address} onChange={(e) => setNewVendor({ ...newVendor, address: e.target.value })} />
               <Input label="เบอร์โทร" value={newVendor.phone} onChange={(e) => setNewVendor({ ...newVendor, phone: e.target.value })} />
@@ -801,7 +871,22 @@ export default function WhtPage() {
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">แก้ไขผู้ขาย</h2>
             <div className="space-y-3">
-              <Input label="ชื่อบริษัท / ชื่อผู้ขาย *" value={editVendorForm.name} onChange={(e) => setEditVendorForm({ ...editVendorForm, name: e.target.value })} />
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">ประเภทผู้ขาย/ผู้รับเงิน *</label>
+                <select
+                  value={editVendorForm.vendor_type}
+                  onChange={(e) => setEditVendorForm({ ...editVendorForm, vendor_type: e.target.value as "company" | "individual" })}
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                >
+                  <option value="company">บริษัท</option>
+                  <option value="individual">บุคคล</option>
+                </select>
+              </div>
+              <Input
+                label={editVendorForm.vendor_type === "company" ? "ชื่อบริษัท *" : "ชื่อบุคคล *"}
+                value={editVendorForm.name}
+                onChange={(e) => setEditVendorForm({ ...editVendorForm, name: e.target.value })}
+              />
               <Input label="เลขผู้เสียภาษี *" value={editVendorForm.tax_id} onChange={(e) => setEditVendorForm({ ...editVendorForm, tax_id: e.target.value })} />
               <Input label="ที่อยู่ *" value={editVendorForm.address} onChange={(e) => setEditVendorForm({ ...editVendorForm, address: e.target.value })} />
               <Input label="เบอร์โทร" value={editVendorForm.phone} onChange={(e) => setEditVendorForm({ ...editVendorForm, phone: e.target.value })} />

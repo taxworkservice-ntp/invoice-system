@@ -144,6 +144,7 @@ export interface WhtVendor {
   id: string;
   user_id: string;
   name: string;
+  vendor_type: "company" | "individual";
   tax_id: string | null;
   address: string | null;
   contact_name: string | null;
