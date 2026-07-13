@@ -17,7 +17,7 @@ export function useWhtRecords(userId: string | undefined) {
       .from("wht_records")
       .select("*, vendor:wht_vendors(*)")
       .eq("user_id", userId)
-      .order("issue_date", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (!error && data) {
       setRecords(data as WhtRecordWithVendor[]);

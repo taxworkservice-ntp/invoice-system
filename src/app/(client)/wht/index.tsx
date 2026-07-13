@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff } from "lucide-react";
+import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -47,7 +47,17 @@ const WHT_DESCRIPTION_PRESETS = [
   "ค่าโฆษณา",
   "ค่าเช่า",
   "ค่าบริการ",
-];
+] as const;
+
+const WHT_DESCRIPTION_RATE_MAP: Record<string, string> = {
+  "ค่าจ้างทำของ": "3",
+  "ค่าขนส่ง": "1",
+  "ค่านายหน้า": "3",
+  "ค่าเบี้ยประกันวินาศภัย": "1",
+  "ค่าโฆษณา": "2",
+  "ค่าเช่า": "5",
+  "ค่าบริการ": "3",
+};
 const TAB_RECORDS = "records" as const;
 const TAB_VENDORS = "vendors" as const;
 type Tab = typeof TAB_RECORDS | typeof TAB_VENDORS;
@@ -168,8 +178,8 @@ export default function WhtPage() {
     };
   }, [filteredRecords]);
 
-  type WhtSortKey = "issue_date" | "form_type" | "amount";
-  const tableSort = useTableSort<WhtRecordWithVendor, WhtSortKey>(filteredRecords, { key: "issue_date", dir: "desc" });
+  type WhtSortKey = "created_at" | "issue_date" | "form_type" | "amount";
+  const tableSort = useTableSort<WhtRecordWithVendor, WhtSortKey>(filteredRecords, { key: "created_at", dir: "desc" });
 
   function formatDate(d: string) {
     if (!d) return "-";
@@ -473,23 +483,29 @@ export default function WhtPage() {
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="border-b border-[#E8E6DF] bg-[#F7F6F3]">
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500 w-[40px]">#</th>
                         <SortableTh
-                          label="วันที่"
+                          label="#"
+                          active={tableSort.sort.key === "created_at"}
+                          dir={tableSort.sort.dir}
+                          onClick={() => tableSort.handleSort("created_at")}
+                          className="px-3 py-2.5 w-[44px]"
+                        />
+                        <SortableTh
+                          label="วันที่จ่าย"
                           active={tableSort.sort.key === "issue_date"}
                           dir={tableSort.sort.dir}
                           onClick={() => tableSort.handleSort("issue_date")}
-                          className="px-3 py-2"
+                          className="px-3 py-2.5"
                         />
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ผู้ขาย</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">เลขภาษี</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">รายละเอียด</th>
+                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">ผู้ขาย</th>
+                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">เลขภาษี</th>
+                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">รายละเอียด</th>
                         <SortableTh
                           label="แบบ"
                           active={tableSort.sort.key === "form_type"}
                           dir={tableSort.sort.dir}
                           onClick={() => tableSort.handleSort("form_type")}
-                          className="px-3 py-2"
+                          className="px-3 py-2.5"
                         />
                         <SortableTh
                           label="จำนวนเงิน"
@@ -497,48 +513,51 @@ export default function WhtPage() {
                           active={tableSort.sort.key === "amount"}
                           dir={tableSort.sort.dir}
                           onClick={() => tableSort.handleSort("amount")}
-                          className="px-3 py-2"
+                          className="px-3 py-2.5"
                         />
-                        <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500">WHT</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ใบรับรอง</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500" />
+                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">WHT</th>
+                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">ใบรับรอง</th>
+                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-[#344054] tracking-[0.04em]" />
                       </tr>
                     </thead>
                     <tbody>
                       {tableSort.sorted.map((r, idx) => (
-                        <tr key={r.id} className="border-b border-[#F0EFE9] hover:bg-[#F7F6F3] transition-colors">
-                          <td className="px-3 py-2 text-[#888780]">{idx + 1}</td>
-                          <td className="px-3 py-2">{formatDate(r.issue_date)}</td>
-                          <td className="px-3 py-2 font-medium">{r.vendor?.name || "-"}</td>
-                          <td className="px-3 py-2 font-mono text-[12px] text-[#888780]">{r.vendor?.tax_id || "-"}</td>
-                          <td className="px-3 py-2 text-[12px] text-[#555]">{r.description || "-"}</td>
-                          <td className="px-3 py-2">
+                        <tr key={r.id} className="border-b border-[#F0EFE9] hover:bg-[#FAFAF8] transition-colors">
+                          <td className="px-3 py-2.5 text-[#AAAAAA] text-[12px]">{idx + 1}</td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            <div className="text-[#1A1A18]">{formatDate(r.issue_date)}</div>
+                            <div className="text-[10px] text-[#AAAAAA] mt-0.5">บันทึก {formatDate(r.created_at)}</div>
+                          </td>
+                          <td className="px-3 py-2.5 font-medium text-[#1A1A18]">{r.vendor?.name || "-"}</td>
+                          <td className="px-3 py-2.5 font-mono text-[12px] text-[#888780]">{r.vendor?.tax_id || "-"}</td>
+                          <td className="px-3 py-2.5 text-[12px] text-[#555]">{r.description || "-"}</td>
+                          <td className="px-3 py-2.5">
                             <span
-                              className="px-1.5 py-0.5 rounded text-[11px] font-medium"
+                              className="inline-block px-2 py-0.5 rounded text-[11px] font-medium"
                               style={{ backgroundColor: `${WHT_FORM_TYPE_COLORS[r.form_type]}15`, color: WHT_FORM_TYPE_COLORS[r.form_type] }}
                             >
                               {WHT_FORM_TYPE_LABELS[r.form_type] || r.form_type}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-right">{formatCurrency(r.amount)}</td>
-                          <td className="px-3 py-2 text-right text-[#C0392B]">{formatCurrency(r.wht_amount)}</td>
-                          <td className="px-3 py-2 font-mono text-[12px]">
+                          <td className="px-3 py-2.5 text-right tabular-nums text-[#1A1A18]">{formatCurrency(r.amount)}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-[#C0392B] font-medium">{formatCurrency(r.wht_amount)}</td>
+                          <td className="px-3 py-2.5">
                             {r.certificate_no ? (
-                              <span className="text-[#378ADD]">{r.certificate_no}</span>
+                              <span className="inline-block px-2 py-0.5 rounded bg-[#EEF4FF] text-[#378ADD] font-mono text-[11px] font-medium">{r.certificate_no}</span>
                             ) : (
-                              <span className="text-[#AAAAAA]">-</span>
+                              <span className="text-[#CCCCCC] text-[12px]">—</span>
                             )}
                           </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center justify-end gap-1">
-                              <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] text-[11px] font-medium" title="สร้าง PDF">
-                                <FileText size={14} />
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center justify-end gap-0.5">
+                              <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title="สร้าง PDF">
+                                <FileText size={15} />
                               </button>
-                              <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] text-[11px]" title="แก้ไข">
-                                แก้ไข
+                              <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title="แก้ไข">
+                                <Pencil size={15} />
                               </button>
-                              <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#AAAAAA] hover:text-red-500" title="ลบ">
-                                <Trash2 size={14} />
+                              <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
+                                <Trash2 size={15} />
                               </button>
                             </div>
                           </td>
@@ -659,6 +678,20 @@ export default function WhtPage() {
               <Input label="วันที่ *" type="date" value={newRecord.issue_date} onChange={(e) => setNewRecord({ ...newRecord, issue_date: e.target.value })} />
               <Input label="จำนวนเงิน *" type="number" step="0.01" value={newRecord.amount} onChange={(e) => setNewRecord({ ...newRecord, amount: e.target.value })} placeholder="0.00" />
               <div>
+                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
+                <input
+                  list="wht-description-presets"
+                  value={newRecord.description}
+                  onChange={(e) => {
+                    const desc = e.target.value;
+                    const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
+                    setNewRecord({ ...newRecord, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
+                  }}
+                  placeholder="เลือกหรือพิมพ์เอง"
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
                 <select value={newRecord.wht_rate} onChange={(e) => setNewRecord({ ...newRecord, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                   <option value="1">1%</option>
@@ -673,16 +706,6 @@ export default function WhtPage() {
                   WHT = {formatCurrency(parseFloat(newRecord.amount) * parseFloat(newRecord.wht_rate) / 100)}
                 </div>
               )}
-              <div>
-                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
-                <input
-                  list="wht-description-presets"
-                  value={newRecord.description}
-                  onChange={(e) => setNewRecord({ ...newRecord, description: e.target.value })}
-                  placeholder="เลือกหรือพิมพ์เอง"
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
-                />
-              </div>
               <Input label="หมายเหตุ" value={newRecord.note} onChange={(e) => setNewRecord({ ...newRecord, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleAddRecord} disabled={!newRecord.vendor_id || !newRecord.amount || !newRecord.description.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
@@ -715,6 +738,20 @@ export default function WhtPage() {
               <Input label="วันที่ *" type="date" value={editRecordForm.issue_date} onChange={(e) => setEditRecordForm({ ...editRecordForm, issue_date: e.target.value })} />
               <Input label="จำนวนเงิน *" type="number" step="0.01" value={editRecordForm.amount} onChange={(e) => setEditRecordForm({ ...editRecordForm, amount: e.target.value })} />
               <div>
+                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
+                <input
+                  list="wht-description-presets"
+                  value={editRecordForm.description}
+                  onChange={(e) => {
+                    const desc = e.target.value;
+                    const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
+                    setEditRecordForm({ ...editRecordForm, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
+                  }}
+                  placeholder="เลือกหรือพิมพ์เอง"
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
                 <select value={editRecordForm.wht_rate} onChange={(e) => setEditRecordForm({ ...editRecordForm, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                   <option value="1">1%</option>
@@ -723,16 +760,6 @@ export default function WhtPage() {
                   <option value="5">5%</option>
                   <option value="0">0%</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
-                <input
-                  list="wht-description-presets"
-                  value={editRecordForm.description}
-                  onChange={(e) => setEditRecordForm({ ...editRecordForm, description: e.target.value })}
-                  placeholder="เลือกหรือพิมพ์เอง"
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
-                />
               </div>
               <Input label="หมายเหตุ" value={editRecordForm.note} onChange={(e) => setEditRecordForm({ ...editRecordForm, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
