@@ -119,6 +119,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
+    async function signOutAndClear() {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // ignore — session is already invalid
+      }
+      clearAuthState();
+    }
+
     async function fetchWorkspace(resolvedProfile: Profile | null) {
       if (!resolvedProfile || resolvedProfile.role !== "client") {
         clearWorkspace();
@@ -134,8 +143,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err: any) {
         if (active) {
-          setError(err.message || "Unable to load workspace");
-          clearWorkspace();
+          if (err?.status === 400 || err?.status === 401 || err?.code === "PGRST301") {
+            void signOutAndClear();
+          } else {
+            setError(err.message || "Unable to load workspace");
+            clearWorkspace();
+          }
         }
       } finally {
         if (active) setWorkspaceLoading(false);
@@ -152,20 +165,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err: any) {
         if (active) {
-          setError(err.message || "Unable to load profile");
-          clearAuthState();
+          if (err?.status === 400 || err?.status === 401 || err?.code === "PGRST301") {
+            void signOutAndClear();
+          } else {
+            setError(err.message || "Unable to load profile");
+            clearAuthState();
+          }
         }
       } finally {
         if (active) setLoading(false);
       }
     }
 
-    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
       if (!active) return;
       if (sessionError) {
-        setError(sessionError.message);
+        await supabase.auth.signOut();
+        clearAuthState();
         setLoading(false);
         return;
+      }
+      if (session?.expires_at && session.expires_at * 1000 <= Date.now()) {
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          await supabase.auth.signOut();
+          clearAuthState();
+          setLoading(false);
+          return;
+        }
       }
       if (session && window.location.hash.includes("type=recovery")) {
         setRecovery(true);
