@@ -285,11 +285,10 @@ export default function WhtPage() {
         const lastAmt = String(data.amount ?? "");
         const lastDesc = data.description || "";
         const lastRate = String(data.wht_rate ?? "3");
-        const lastForm = (data.form_type as WhtFormType) || autoFormType;
         if (isEdit) {
-          setEditRecordForm((prev) => ({ ...prev, amount: lastAmt, description: lastDesc, wht_rate: lastRate, form_type: lastForm }));
+          setEditRecordForm((prev) => ({ ...prev, amount: lastAmt, description: lastDesc, wht_rate: lastRate }));
         } else {
-          setNewRecord((prev) => ({ ...prev, amount: lastAmt, description: lastDesc, wht_rate: lastRate, form_type: lastForm }));
+          setNewRecord((prev) => ({ ...prev, amount: lastAmt, description: lastDesc, wht_rate: lastRate }));
         }
       }
     } catch {
