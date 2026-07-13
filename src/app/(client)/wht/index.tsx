@@ -739,17 +739,18 @@ export default function WhtPage() {
               <Input label="จำนวนเงิน *" type="number" step="0.01" value={newRecord.amount} onChange={(e) => setNewRecord({ ...newRecord, amount: e.target.value })} placeholder="0.00" />
               <div>
                 <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
-                <input
-                  list="wht-description-presets"
+                <select
                   value={newRecord.description}
                   onChange={(e) => {
                     const desc = e.target.value;
                     const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
                     setNewRecord({ ...newRecord, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
                   }}
-                  placeholder="เลือกหรือพิมพ์เอง"
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
-                />
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                >
+                  <option value="">เลือกประเภทรายจ่าย</option>
+                  {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
@@ -808,17 +809,18 @@ export default function WhtPage() {
               <Input label="จำนวนเงิน *" type="number" step="0.01" value={editRecordForm.amount} onChange={(e) => setEditRecordForm({ ...editRecordForm, amount: e.target.value })} />
               <div>
                 <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
-                <input
-                  list="wht-description-presets"
+                <select
                   value={editRecordForm.description}
                   onChange={(e) => {
                     const desc = e.target.value;
                     const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
                     setEditRecordForm({ ...editRecordForm, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
                   }}
-                  placeholder="เลือกหรือพิมพ์เอง"
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
-                />
+                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                >
+                  <option value="">เลือกประเภทรายจ่าย</option>
+                  {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
@@ -917,9 +919,6 @@ export default function WhtPage() {
           </div>
         </div>
       )}
-    <datalist id="wht-description-presets">
-        {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p} />)}
-      </datalist>
     </AppShell>
   );
 }
