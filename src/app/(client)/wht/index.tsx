@@ -483,8 +483,8 @@ export default function WhtPage() {
                   <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>
                 ))}
               </select>
-              <Button size="sm" onClick={openAddRecord} className="!rounded-lg shrink-0">
-                <Plus size={14} className="mr-1" /> เพิ่มรายการ
+              <Button onClick={openAddRecord} className="!rounded-lg shrink-0">
+                <Plus size={15} className="mr-1" /> เพิ่มรายการ
               </Button>
             </div>
 
@@ -498,31 +498,31 @@ export default function WhtPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-[12px] text-[#888780] mr-0.5">แสดงบนเอกสาร:</span>
+              <div className="flex items-center gap-1 ml-auto">
+                <span className="text-[10px] text-[#CCCCCC] mr-0.5">แสดง</span>
                 <button
                   type="button"
                   onClick={() => setShowSig(!showSig)}
-                  title={`ลายเซ็น: ${showSig ? "แสดง" : "ซ่อน"} — คลิกเพื่อสลับ`}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                    showSig ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  title={`ลายเซ็น: ${showSig ? "แสดง" : "ซ่อน"}`}
+                  className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
+                    showSig ? "border-blue-200 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500"
                   }`}
                 >
-                  {showSig ? <Eye size={15} /> : <EyeOff size={15} />}
-                  ลายเซ็น
+                  {showSig ? <Eye size={12} /> : <EyeOff size={12} />}
+                  <span className="text-[10px]">ลายเซ็น</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowStp(!showStp)}
-                  title={`ตราประทับ: ${showStp ? "แสดง" : "ซ่อน"} — คลิกเพื่อสลับ`}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                    showStp ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  title={`ตราประทับ: ${showStp ? "แสดง" : "ซ่อน"}`}
+                  className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
+                    showStp ? "border-orange-200 bg-orange-50 text-orange-600" : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500"
                   }`}
                 >
-                  {showStp ? <Eye size={15} /> : <EyeOff size={15} />}
-                  ตราประทับ
+                  {showStp ? <Eye size={12} /> : <EyeOff size={12} />}
+                  <span className="text-[10px]">ตรา</span>
                 </button>
-                <div className="w-px h-6 bg-gray-200 mx-0.5" />
+                <div className="w-px h-4 bg-gray-200 mx-1.5" />
                 <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
                   <Download size={14} className="mr-1" /> ออกรายงาน PDF
                 </Button>
@@ -540,7 +540,7 @@ export default function WhtPage() {
                 <EmptyState
                   title="ยังไม่มีรายการ WHT"
                   description="เพิ่มรายการหัก ณ ที่จ่าย เพื่อออกรายงานและใบรับรอง"
-                  action={<Button onClick={openAddRecord}><Plus size={14} className="mr-1" /> เพิ่มรายการ WHT</Button>}
+                  action={<Button onClick={openAddRecord}><Plus size={15} className="mr-1" /> เพิ่มรายการ WHT</Button>}
                 />
               ) : (
                 <div className="text-center py-12 text-[13px] text-[#888780]">
