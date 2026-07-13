@@ -59,6 +59,11 @@ const WHT_DESCRIPTION_RATE_MAP: Record<string, string> = {
   "ค่าเช่า": "5",
   "ค่าบริการ": "3",
 };
+
+function isPresetDescription(desc: string): boolean {
+  return !!(desc && (WHT_DESCRIPTION_PRESETS as readonly string[]).includes(desc));
+}
+
 const TAB_RECORDS = "records" as const;
 const TAB_VENDORS = "vendors" as const;
 type Tab = typeof TAB_RECORDS | typeof TAB_VENDORS;
@@ -137,6 +142,7 @@ export default function WhtPage() {
     description: "",
     note: "",
   });
+  const [customDescAddMode, setCustomDescAddMode] = useState(false);
 
   function resetNewRecord() {
     setNewRecord({
@@ -148,11 +154,17 @@ export default function WhtPage() {
       description: "",
       note: "",
     });
+    setCustomDescAddMode(false);
   }
 
   function openAddRecord() {
     resetNewRecord();
     setShowAddRecord(true);
+  }
+
+  function closeEditRecord() {
+    closeEditRecord();
+    setCustomDescEditMode(false);
   }
   const [editRecordForm, setEditRecordForm] = useState({
     vendor_id: "",
@@ -163,6 +175,7 @@ export default function WhtPage() {
     description: "",
     note: "",
   });
+  const [customDescEditMode, setCustomDescEditMode] = useState(false);
   const [newVendor, setNewVendor] = useState({ name: "", vendor_type: "company" as "company" | "individual", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
   const [editVendorForm, setEditVendorForm] = useState({ name: "", vendor_type: "company" as "company" | "individual", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
 
@@ -241,7 +254,7 @@ export default function WhtPage() {
         description: editRecordForm.description || null,
         note: editRecordForm.note || null,
       });
-      setShowEditRecord(null);
+      closeEditRecord();
       toast.success("อัปเดตรายการ WHT แล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
@@ -252,13 +265,15 @@ export default function WhtPage() {
 
   function openEditRecord(record: WhtRecordWithVendor) {
     setShowEditRecord(record);
+    const desc = record.description || "";
+    setCustomDescEditMode(desc !== "" && !isPresetDescription(desc));
     setEditRecordForm({
       vendor_id: record.vendor_id,
       form_type: record.form_type,
       issue_date: record.issue_date?.slice(0, 10) || "",
       amount: String(record.amount),
       wht_rate: String(record.wht_rate),
-      description: record.description || "",
+      description: desc,
       note: record.note || "",
     });
   }
@@ -285,9 +300,12 @@ export default function WhtPage() {
         const lastAmt = String(data.amount ?? "");
         const lastDesc = data.description || "";
         const lastRate = String(data.wht_rate ?? "3");
+        const descIsCustom = lastDesc !== "" && !isPresetDescription(lastDesc);
         if (isEdit) {
+          setCustomDescEditMode(descIsCustom);
           setEditRecordForm((prev) => ({ ...prev, amount: lastAmt, description: lastDesc, wht_rate: lastRate }));
         } else {
+          setCustomDescAddMode(descIsCustom);
           setNewRecord((prev) => ({ ...prev, amount: lastAmt, description: lastDesc, wht_rate: lastRate }));
         }
       }
@@ -739,18 +757,43 @@ export default function WhtPage() {
               <Input label="จำนวนเงิน *" type="number" step="0.01" value={newRecord.amount} onChange={(e) => setNewRecord({ ...newRecord, amount: e.target.value })} placeholder="0.00" />
               <div>
                 <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
-                <select
-                  value={newRecord.description}
-                  onChange={(e) => {
-                    const desc = e.target.value;
-                    const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
-                    setNewRecord({ ...newRecord, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
-                  }}
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
-                >
-                  <option value="">เลือกประเภทรายจ่าย</option>
-                  {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
+                {customDescAddMode ? (
+                  <div className="flex gap-2">
+                    <input
+                      value={newRecord.description}
+                      onChange={(e) => setNewRecord({ ...newRecord, description: e.target.value })}
+                      placeholder="พิมพ์รายละเอียด"
+                      autoFocus
+                      className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setCustomDescAddMode(false); setNewRecord({ ...newRecord, description: "" }); }}
+                      className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[12px] text-[#888780] hover:bg-[#F7F6F3] transition-colors"
+                    >
+                      ↰ เลือกจากรายการ
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={newRecord.description}
+                    onChange={(e) => {
+                      const desc = e.target.value;
+                      if (desc === "__custom__") {
+                        setCustomDescAddMode(true);
+                        setNewRecord({ ...newRecord, description: "" });
+                        return;
+                      }
+                      const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
+                      setNewRecord({ ...newRecord, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
+                    }}
+                    className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                  >
+                    <option value="">เลือกประเภทรายจ่าย</option>
+                    {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+                    <option value="__custom__">อื่นๆ (พิมพ์เอง)</option>
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
@@ -809,18 +852,43 @@ export default function WhtPage() {
               <Input label="จำนวนเงิน *" type="number" step="0.01" value={editRecordForm.amount} onChange={(e) => setEditRecordForm({ ...editRecordForm, amount: e.target.value })} />
               <div>
                 <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
-                <select
-                  value={editRecordForm.description}
-                  onChange={(e) => {
-                    const desc = e.target.value;
-                    const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
-                    setEditRecordForm({ ...editRecordForm, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
-                  }}
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
-                >
-                  <option value="">เลือกประเภทรายจ่าย</option>
-                  {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
+                {customDescEditMode ? (
+                  <div className="flex gap-2">
+                    <input
+                      value={editRecordForm.description}
+                      onChange={(e) => setEditRecordForm({ ...editRecordForm, description: e.target.value })}
+                      placeholder="พิมพ์รายละเอียด"
+                      autoFocus
+                      className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setCustomDescEditMode(false); setEditRecordForm({ ...editRecordForm, description: "" }); }}
+                      className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[12px] text-[#888780] hover:bg-[#F7F6F3] transition-colors"
+                    >
+                      ↰ เลือกจากรายการ
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={editRecordForm.description}
+                    onChange={(e) => {
+                      const desc = e.target.value;
+                      if (desc === "__custom__") {
+                        setCustomDescEditMode(true);
+                        setEditRecordForm({ ...editRecordForm, description: "" });
+                        return;
+                      }
+                      const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
+                      setEditRecordForm({ ...editRecordForm, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
+                    }}
+                    className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                  >
+                    <option value="">เลือกประเภทรายจ่าย</option>
+                    {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+                    <option value="__custom__">อื่นๆ (พิมพ์เอง)</option>
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
