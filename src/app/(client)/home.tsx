@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { AppShell } from "../../components/layout/AppShell";
 import { Card } from "../../components/ui/Card";
@@ -441,6 +441,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const [homeFilter, setHomeFilter] = useState<HomeFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [donePage, setDonePage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
@@ -663,17 +664,27 @@ export default function HomePage() {
 
   const activeDeals = useMemo(
     () =>
-      activeDealsAll.filter((deal) => {
-        if (homeFilter === "all") return true;
-        if (homeFilter === "wait_send_invoice") {
+      activeDealsAll
+        .filter((deal) => {
+          if (homeFilter === "all") return true;
+          if (homeFilter === "wait_send_invoice") {
+            return (
+              deal.queue === "wait_send" &&
+              deal.latestDocument?.doc_type === "invoice"
+            );
+          }
+          return deal.queue === homeFilter;
+        })
+        .filter((deal) => {
+          if (!searchQuery) return true;
+          const q = searchQuery.toLowerCase();
           return (
-            deal.queue === "wait_send" &&
-            deal.latestDocument?.doc_type === "invoice"
+            deal.customerName.toLowerCase().includes(q) ||
+            (deal.dealNumber || "").toLowerCase().includes(q) ||
+            (deal.customerCode || "").toLowerCase().includes(q)
           );
-        }
-        return deal.queue === homeFilter;
-      }),
-    [activeDealsAll, homeFilter],
+        }),
+    [activeDealsAll, homeFilter, searchQuery],
   );
 
   type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount";
@@ -686,8 +697,17 @@ export default function HomePage() {
     () =>
       deals
         .filter((deal) => deal.isDone)
+        .filter((deal) => {
+          if (!searchQuery) return true;
+          const q = searchQuery.toLowerCase();
+          return (
+            deal.customerName.toLowerCase().includes(q) ||
+            (deal.dealNumber || "").toLowerCase().includes(q) ||
+            (deal.customerCode || "").toLowerCase().includes(q)
+          );
+        })
         .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || "")),
-    [deals],
+    [deals, searchQuery],
   );
 
   const DONE_PAGE_SIZE = 15;
@@ -877,6 +897,19 @@ export default function HomePage() {
               items={summaryCards.map((card) => ({ ...card }))}
               onCardTap={(preset) => setHomeFilter(preset as HomeFilter)}
             />
+
+            {deals.length > 3 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="ค้นหาตามชื่อลูกค้า เลขที่ หรือรหัส..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setDonePage(1); }}
+                  className="w-full rounded-lg border border-[#E8E6DF] bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            )}
 
             <section>
               <div className="mb-3 space-y-3">
