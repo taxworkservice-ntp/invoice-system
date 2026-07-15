@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info } from "lucide-react";
+import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Undo2 } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -103,7 +103,7 @@ export default function WhtPage() {
   const toast = useToast();
   const userId = profile?.id;
   const {
-    records, loading: recordsLoading, addRecord, updateRecord, deleteRecord,
+    records, loading: recordsLoading, addRecord, updateRecord, markDone, unmarkDone, deleteRecord,
     assignCertificateNo, months, vendors: recordVendors,
   } = useWhtRecords(userId);
   const {
@@ -111,6 +111,7 @@ export default function WhtPage() {
   } = useWhtVendors(userId);
 
   const [tab, setTab] = useState<Tab>(TAB_RECORDS);
+  const [doneView, setDoneView] = useState<"active" | "done">("active");
   const [month, setMonth] = useState("");
   const [vendorFilter, setVendorFilter] = useState("");
   const [formFilter, setFormFilter] = useState("");
@@ -193,6 +194,10 @@ export default function WhtPage() {
     });
   }, [records, month, vendorFilter, formFilter, search]);
 
+  const activeRecords = useMemo(() => filteredRecords.filter((r) => r.status !== "done"), [filteredRecords]);
+  const doneRecords = useMemo(() => filteredRecords.filter((r) => r.status === "done"), [filteredRecords]);
+  const displayedRecords = doneView === "active" ? activeRecords : doneRecords;
+
   const filteredVendors = useMemo(() => {
     if (!search) return allVendors;
     const s = search.toLowerCase();
@@ -210,7 +215,7 @@ export default function WhtPage() {
   }, [filteredRecords]);
 
   type WhtSortKey = "created_at" | "issue_date" | "form_type" | "amount";
-  const tableSort = useTableSort<WhtRecordWithVendor, WhtSortKey>(filteredRecords, { key: "created_at", dir: "desc" });
+  const tableSort = useTableSort<WhtRecordWithVendor, WhtSortKey>(displayedRecords, { key: "created_at", dir: "desc" });
 
   function formatDate(d: string) {
     if (!d) return "-";
@@ -319,6 +324,24 @@ export default function WhtPage() {
     try {
       await deleteRecord(id);
       toast.success("ลบรายการแล้ว");
+    } catch (e: any) {
+      toast.error(e.message || "เกิดข้อผิดพลาด");
+    }
+  }
+
+  async function handleMarkDone(id: string) {
+    try {
+      await markDone(id);
+      toast.success("ทำเครื่องหมายเรียบร้อยแล้ว");
+    } catch (e: any) {
+      toast.error(e.message || "เกิดข้อผิดพลาด");
+    }
+  }
+
+  async function handleUnmarkDone(id: string) {
+    try {
+      await unmarkDone(id);
+      toast.success("ย้ายกลับรายการรอจัดการแล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
     }
@@ -529,6 +552,29 @@ export default function WhtPage() {
               </div>
             </div>
 
+            {!recordsLoading && filteredRecords.length > 0 && (
+              <div className="flex gap-0.5 bg-[#F0EFE9] rounded-lg p-0.5 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setDoneView("active")}
+                  className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
+                    doneView === "active" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+                  }`}
+                >
+                  รอจัดการ ({activeRecords.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDoneView("done")}
+                  className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
+                    doneView === "done" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+                  }`}
+                >
+                  เรียบร้อย ({doneRecords.length})
+                </button>
+              </div>
+            )}
+
             {recordsLoading ? (
               <div className="bg-white border border-card-border rounded-card overflow-hidden">
                 <div className="p-4 space-y-2">
@@ -547,6 +593,10 @@ export default function WhtPage() {
                   <p>ไม่พบรายการที่ตรงกับตัวกรอง</p>
                 </div>
               )
+            ) : displayedRecords.length === 0 ? (
+              <div className="text-center py-12 text-[13px] text-[#888780]">
+                <p>{doneView === "active" ? "ไม่มีรายการรอจัดการ" : "ไม่มีรายการที่เรียบร้อย"}</p>
+              </div>
             ) : (
               <div className="bg-white border border-card-border rounded-card overflow-hidden">
                 <div className="overflow-x-auto">
@@ -623,14 +673,25 @@ export default function WhtPage() {
                               <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "ดาวน์โหลด PDF"}>
                                 <Download size={15} />
                               </button>
-                              {!r.certificate_no && (
+                              {r.status !== "done" && !r.certificate_no && (
                                 <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title="แก้ไข">
                                   <Pencil size={15} />
                                 </button>
                               )}
-                              <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
-                                <Trash2 size={15} />
-                              </button>
+                              {r.status !== "done" ? (
+                                <>
+                                  <button type="button" onClick={() => handleMarkDone(r.id)} className="p-1.5 rounded-md hover:bg-green-50 text-[#CCCCCC] hover:text-green-500 transition-colors" title="ทำเครื่องหมายว่าเรียบร้อย">
+                                    <CheckCircle size={15} />
+                                  </button>
+                                  <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
+                                    <Trash2 size={15} />
+                                  </button>
+                                </>
+                              ) : (
+                                <button type="button" onClick={() => handleUnmarkDone(r.id)} className="p-1.5 rounded-md hover:bg-amber-50 text-[#CCCCCC] hover:text-amber-500 transition-colors" title="ย้ายกลับรอจัดการ">
+                                  <Undo2 size={15} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

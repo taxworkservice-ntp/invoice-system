@@ -156,6 +156,8 @@ export interface WhtVendor {
   updated_at: string;
 }
 
+export type WhtStatus = "active" | "done";
+
 export interface WhtRecord {
   id: string;
   user_id: string;
@@ -169,6 +171,7 @@ export interface WhtRecord {
   certificate_generated_at: string | null;
   description: string | null;
   note: string | null;
+  status: WhtStatus;
   created_at: string;
   updated_at: string;
 }

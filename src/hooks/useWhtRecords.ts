@@ -102,6 +102,30 @@ export function useWhtRecords(userId: string | undefined) {
     );
   }
 
+  async function markDone(id: string) {
+    const { error } = await supabase
+      .from("wht_records")
+      .update({ status: "done" })
+      .eq("id", id);
+
+    if (error) throw error;
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "done" as const } : r)),
+    );
+  }
+
+  async function unmarkDone(id: string) {
+    const { error } = await supabase
+      .from("wht_records")
+      .update({ status: "active" })
+      .eq("id", id);
+
+    if (error) throw error;
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "active" as const } : r)),
+    );
+  }
+
   async function deleteRecord(id: string) {
     const { error } = await supabase
       .from("wht_records")
@@ -166,6 +190,8 @@ export function useWhtRecords(userId: string | undefined) {
     refetch: fetch,
     addRecord,
     updateRecord,
+    markDone,
+    unmarkDone,
     deleteRecord,
     assignCertificateNo,
     months,
