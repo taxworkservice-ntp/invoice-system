@@ -620,15 +620,15 @@ export default function WhtPage() {
                           </td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center justify-end gap-0.5">
-                              <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "สร้าง PDF"}>
-                                <FileText size={15} />
+                              <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "ดาวน์โหลด PDF"}>
+                                <Download size={15} />
                               </button>
                               {!r.certificate_no && (
                                 <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title="แก้ไข">
                                   <Pencil size={15} />
                                 </button>
                               )}
-                              <button type="button" onClick={() => handleDeleteRecord(r.id)} disabled={!!r.certificate_no} className={`p-1.5 rounded-md transition-colors ${r.certificate_no ? "text-[#DDDDDD] cursor-not-allowed" : "hover:bg-red-50 text-[#CCCCCC] hover:text-red-500"}`} title={r.certificate_no ? "ออกใบรับรองแล้ว ลบไม่ได้" : "ลบ"}>
+                              <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
                                 <Trash2 size={15} />
                               </button>
                             </div>
