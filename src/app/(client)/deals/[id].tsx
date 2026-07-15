@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, Download, PackageCheck, ExternalLink } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, PackageCheck, ExternalLink } from "lucide-react";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
@@ -178,7 +178,7 @@ export default function DealDetailPage() {
 
   const toast = useToast();
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [showDocList, setShowDocList] = useState(false);
 
   useEffect(() => {
     if (paymentDate === realTodayString()) setPaymentDate(businessToday);
@@ -270,53 +270,6 @@ export default function DealDetailPage() {
   useEffect(() => {
     fetchDealData();
   }, [fetchDealData]);
-
-  const handleDownloadAll = async () => {
-    if (!clientProfile || !customer) return;
-    const toDownload = nonVoidedDocs.filter((item) => !(item.document.status === "voided"));
-    if (toDownload.length === 0) {
-      toast.error("ไม่มีเอกสารที่สามารถดาวน์โหลดได้");
-      return;
-    }
-    setBulkDownloading(true);
-    try {
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
-      const { getPrintableDocumentDataBase, generatePDFBlob } = await import("../../../lib/print");
-
-      for (let i = 0; i < toDownload.length; i++) {
-        const item = toDownload[i];
-        const doc = item.document;
-
-        try {
-          const data = await getPrintableDocumentDataBase(doc.id);
-          // Stamp the template from the deal's customer/client profile
-          // so the dispatcher picks the right generator.
-          const template = clientProfile?.pdf_template === "classic" ? "classic" : "modern";
-          const blob = await generatePDFBlob({ ...data, template } as Parameters<typeof generatePDFBlob>[0]);
-          const name = `${doc.doc_number || `doc_${i + 1}`}.pdf`;
-          if (blob) zip.file(name, blob, { binary: true });
-        } catch {
-          toast.error(`ไม่สามารถสร้าง PDF สำหรับ ${doc.doc_number || doc.id}`);
-        }
-      }
-
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `deal_documents_${dealId?.slice(0, 8) || "download"}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`ดาวน์โหลด ${toDownload.length} ไฟล์เรียบร้อย`);
-    } catch (err: any) {
-      toast.error(err.message || "เกิดข้อผิดพลาด");
-    } finally {
-      setBulkDownloading(false);
-    }
-  };
 
   const handleOpenPreview = (doc: Document) => {
     window.open(`/documents/${doc.id}/print`, "_blank", "noopener,noreferrer");
@@ -1777,17 +1730,44 @@ export default function DealDetailPage() {
             </div>
           )}
            <div className="mt-3 grid grid-cols-2 gap-2">
-            {nonVoidedDocs.length > 0 && (
-              <Button
-                variant="secondary"
-                className="col-span-2 justify-center !bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100"
-                loading={bulkDownloading}
-                onClick={handleDownloadAll}
-              >
-                <Download className="mr-1.5 h-4 w-4" />
-                {bulkDownloading ? `กำลังสร้าง ZIP (${nonVoidedDocs.length})` : "ดาวน์โหลดเอกสารทั้งหมด (ZIP)"}
-              </Button>
-            )}
+             {nonVoidedDocs.length > 0 && (
+               <div className="col-span-2">
+                 <button
+                   type="button"
+                   onClick={() => setShowDocList(!showDocList)}
+                   className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition-colors"
+                 >
+                   {showDocList ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                   {showDocList ? "ซ่อนรายการเอกสาร" : `ดาวน์โหลดเอกสาร (${nonVoidedDocs.length})`}
+                 </button>
+
+                 {showDocList && (
+                   <div className="mt-1 border border-stone-200 rounded-lg divide-y divide-stone-100 bg-white">
+                     {nonVoidedDocs.map((item) => {
+                       const doc = item.document;
+                       return (
+                         <button
+                           key={doc.id}
+                           type="button"
+                           onClick={() => handleOpenPreview(doc)}
+                           className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-stone-50 transition-colors text-left"
+                         >
+                           <div className="min-w-0">
+                             <div className="text-[12px] font-medium text-gray-900">
+                               {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
+                             </div>
+                             <div className="text-[11px] text-gray-500">
+                               {doc.doc_number || "ยังไม่มีเลขเอกสาร"} · {formatBuddhistDate(doc.issue_date)}
+                             </div>
+                           </div>
+                           <ExternalLink size={13} className="shrink-0 text-gray-300" />
+                         </button>
+                       );
+                     })}
+                   </div>
+                 )}
+               </div>
+             )}
             {activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued" ? (
               <>
                 <Button
