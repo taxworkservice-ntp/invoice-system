@@ -11,6 +11,13 @@ import { DOC_TYPE_LABELS } from "../../../constants";
 import { useFinancialReport, type LineItemRow } from "../../../hooks/useReports";
 import type { DocumentType, Customer } from "../../../types";
 import { Download, FileText, BarChart3, Package } from "lucide-react";
+import { Modal } from "../../../components/ui/Modal";
+
+type ConfirmAction =
+  | { type: "preset"; preset: (typeof PRESET_TYPES)[number] }
+  | { type: "custom"; count: number }
+  | { type: "report"; reportType: "financial" | "stock" }
+  | null;
 
 const PRESET_TYPES: { key: string; label: string; docType: DocumentType; variant: "thisMonth" | "unpaid" }[] = [
   { key: "invoice", label: "ใบแจ้งหนี้เดือนนี้", docType: "invoice", variant: "thisMonth" },
@@ -44,6 +51,7 @@ export default function DownloadCenterPage() {
   const [copyType, setCopyType] = useState<"original" | "both">("original");
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
 
   const [customDocType, setCustomDocType] = useState<DocumentType>("invoice");
   const [customCustomerId, setCustomCustomerId] = useState("");
@@ -189,6 +197,23 @@ export default function DownloadCenterPage() {
     }
   };
 
+  const handleCustomConfirm = async () => {
+    if (!userId) return;
+    const { start, end } = getMonthRange(customYear, customMonth);
+    let query = supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("doc_type", customDocType)
+      .in("status", NON_DRAFT_STATUSES)
+      .gte("issue_date", start)
+      .lte("issue_date", end);
+    if (customCustomerId) query = query.eq("customer_id", customCustomerId);
+    const { count, error } = await query;
+    if (error || !count) { toast.error("ไม่พบเอกสาร"); return; }
+    setConfirmAction({ type: "custom", count });
+  };
+
   const downloadDocsAsZip = async (docs: Array<{ id: string; doc_number: string | null }>, _template: "modern" | "classic") => {
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
@@ -323,7 +348,7 @@ export default function DownloadCenterPage() {
               <div className="text-[11px] text-gray-400 mb-2">{selectedMonthLabel}</div>
               <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                 {presetTypes.map((preset) => (
-                  <button key={preset.key} type="button" disabled={busy} onClick={() => handlePresetDownload(preset.key)}
+                  <button key={preset.key} type="button" disabled={busy} onClick={() => setConfirmAction({ type: "preset", preset })}
                     className="flex items-center justify-between rounded-md border border-card-border bg-white px-3 py-2 text-left hover:border-primary/30 hover:bg-blue-50/50 transition-colors disabled:opacity-50">
                     <div className="flex items-center gap-2 min-w-0"><FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" /><span className="text-[13px] text-[#1A1A18] truncate">{preset.label}</span></div>
                     <span className="text-[11px] text-gray-400 tabular-nums shrink-0 ml-2">{countsLoaded ? counts[preset.key] ?? 0 : "—"}</span>
@@ -339,7 +364,7 @@ export default function DownloadCenterPage() {
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">ประเภทเอกสาร</label><Select value={customDocType} onChange={(e) => setCustomDocType(e.target.value as DocumentType)}>{Object.entries(docTypeLabels).filter(([key]) => isVatRegistered || key !== "tax_invoice_receipt").map(([key, label]) => (<option key={key} value={key}>{label.th}</option>))}</Select></div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">ลูกค้า (ไม่บังคับ)</label><CustomerQuickSelect value={customCustomerId} onChange={setCustomCustomerId} userId={userId} /></div>
               </div>
-              <Button onClick={handleCustomDownload} disabled={busy} loading={downloading} className="w-full mt-3">
+              <Button onClick={handleCustomConfirm} disabled={busy} loading={downloading} className="w-full mt-3">
                 <Download className="mr-2 h-4 w-4" />{downloading ? `กำลังสร้าง ${progress.current}/${progress.total}` : "ดาวน์โหลดเป็น ZIP"}
               </Button>
               {downloading && progress.total > 0 && (
@@ -366,7 +391,7 @@ export default function DownloadCenterPage() {
                 format="XLSX"
                 exporting={reportExporting === "financial"}
                 disabled={busy}
-                onDownload={handleExportFinancialCsv}
+                onDownload={() => setConfirmAction({ type: "report", reportType: "financial" })}
               >
                 <div className="grid grid-cols-2 gap-2">
                   <MonthSelect label="เดือน" value={finMonth} onChange={setFinMonth} />
@@ -382,7 +407,7 @@ export default function DownloadCenterPage() {
                 format="XLSX"
                 exporting={reportExporting === "stock"}
                 disabled={busy}
-                onDownload={handleExportStockXlsx}
+                onDownload={() => setConfirmAction({ type: "report", reportType: "stock" })}
               >
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -399,6 +424,60 @@ export default function DownloadCenterPage() {
           </div>
         </Card>
       </div>
+
+      <Modal open={!!confirmAction} onClose={() => setConfirmAction(null)} title="ยืนยันการดาวน์โหลด">
+        {confirmAction?.type === "preset" && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">คุณต้องการดาวน์โหลดเอกสารต่อไปนี้หรือไม่?</p>
+            <div className="rounded-lg bg-gray-50 p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">ประเภท:</span><span>{confirmAction.preset.label}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">เดือน:</span><span>{selectedMonthLabel}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">จำนวน:</span><span>{counts[confirmAction.preset.key] ?? 0} ฉบับ</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">รูปแบบ:</span><span>{copyType === "original" ? "ต้นฉบับ" : "ต้นฉบับ + สำเนา"}</span></div>
+            </div>
+          </div>
+        )}
+        {confirmAction?.type === "custom" && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">คุณต้องการดาวน์โหลดเอกสารตามเงื่อนไขต่อไปนี้หรือไม่?</p>
+            <div className="rounded-lg bg-gray-50 p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">ประเภท:</span><span>{docTypeLabels[customDocType]?.th}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">เดือน:</span><span>{MONTH_LABELS[customMonth - 1]} {customYear + 543}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">จำนวน:</span><span>{confirmAction.count} ฉบับ</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">รูปแบบ:</span><span>{copyType === "original" ? "ต้นฉบับ" : "ต้นฉบับ + สำเนา"}</span></div>
+            </div>
+          </div>
+        )}
+        {confirmAction?.type === "report" && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">คุณต้องการดาวน์โหลดรายงานนี้หรือไม่?</p>
+            <div className="rounded-lg bg-gray-50 p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">รายงาน:</span><span>{confirmAction.reportType === "financial" ? "รายงานการเงิน" : "รายงานสต็อก"}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">รูปแบบ:</span><span>XLSX</span></div>
+              {confirmAction.reportType === "financial" && (
+                <div className="flex justify-between"><span className="text-gray-500">รอบ:</span><span>{MONTH_LABELS[finMonth - 1]} {finYear + 543}</span></div>
+              )}
+              {confirmAction.reportType === "stock" && (
+                <div className="flex justify-between"><span className="text-gray-500">ช่วงวันที่:</span><span>{stockFrom} ถึง {stockTo}</span></div>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="flex gap-2 justify-end pt-3 border-t border-gray-100 mt-4">
+          <Button variant="secondary" onClick={() => setConfirmAction(null)}>ยกเลิก</Button>
+          <Button variant="primary" onClick={() => {
+            const action = confirmAction;
+            setConfirmAction(null);
+            if (!action) return;
+            if (action.type === "preset") handlePresetDownload(action.preset.key);
+            else if (action.type === "custom") handleCustomDownload();
+            else if (action.type === "report") {
+              if (action.reportType === "financial") handleExportFinancialCsv();
+              else handleExportStockXlsx();
+            }
+          }}>ยืนยันดาวน์โหลด</Button>
+        </div>
+      </Modal>
     </AppShell>
   );
 }
