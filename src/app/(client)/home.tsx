@@ -1038,7 +1038,7 @@ export default function HomePage() {
                               onClick={() => navigate(`/deals/${deal.dealId}`)}
                               className={TABLE.tbodyTr}
                             >
-                              <td className="px-3 py-2 whitespace-nowrap text-[12px] font-medium text-[#111827] tabular-nums">
+                               <td className="px-3 py-2 whitespace-nowrap text-[12px] text-[#111827] tabular-nums">
                                 {deal.dealNumber || "-"}
                               </td>
                               <td className="px-3 py-2">
@@ -1047,7 +1047,7 @@ export default function HomePage() {
                                     customer={rowAvatar}
                                     size="sm"
                                   />
-                                  <span className="font-semibold text-[#111827] truncate">
+                                   <span className="text-[#111827] truncate">
                                     {deal.customerName}
                                   </span>
                                 </div>
@@ -1088,8 +1088,8 @@ export default function HomePage() {
                                   {deal.internalNote}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 text-right">
-                                <span className="font-medium text-[#111827] min-w-[100px] inline-block text-right">
+                               <td className="px-3 py-2 text-right">
+                                <span className="text-[#111827] min-w-[100px] inline-block text-right">
                                   ฿ {formatCurrency(deal.amount)}
                                 </span>
                               </td>
@@ -1181,14 +1181,14 @@ export default function HomePage() {
                                 onClick={() => navigate(`/deals/${deal.dealId}`)}
                                 className={`${TABLE.tbodyTr} ${deal.isEmpty ? "opacity-40" : ""}`}
                               >
-                                <td className={`px-3 py-2 whitespace-nowrap text-[11px] font-mono tabular-nums ${deal.isEmpty ? "text-gray-300" : "text-primary"}`}>
+                                 <td className={`px-3 py-2 whitespace-nowrap text-[12px] font-mono tabular-nums ${deal.isEmpty ? "text-gray-300" : "text-primary"}`}>
                                   {deal.dealNumber || "-"}
                                 </td>
                                 <td className="px-3 py-2">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <CustomerAvatar customer={rowAvatar} size="sm" />
                                     <div className="min-w-0">
-                                      <div className={`text-sm font-medium truncate ${deal.isEmpty ? "text-gray-300" : "text-[#111827]"}`}>
+                                         <div className={`truncate ${deal.isEmpty ? "text-gray-300" : "text-[#111827]"}`}>
                                         {deal.customerName}
                                       </div>
                                       {deal.customerCode && (
@@ -1200,7 +1200,7 @@ export default function HomePage() {
                                 <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums ${deal.isEmpty ? "text-gray-300" : ""}`}>
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
                                 </td>
-                                <td className={`px-3 py-2 text-right font-medium whitespace-nowrap ${deal.isEmpty ? "text-gray-300" : "text-[#111827]"}`}>
+                                 <td className={`px-3 py-2 text-right whitespace-nowrap ${deal.isEmpty ? "text-gray-300" : "text-[#111827]"}`}>
                                   ฿ {formatCurrency(deal.amount)}
                                 </td>
                                 <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px] ${deal.isEmpty ? "text-gray-300" : ""}`}>
