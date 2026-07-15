@@ -107,6 +107,15 @@ export const NEW_DEAL_OPTIONS = [
   },
 ];
 
+export const SETTINGS_TABS = [
+  { label: "ข้อมูลบริษัท", path: "/settings/company" },
+  { label: "รูปแบบเอกสาร", path: "/settings/documents" },
+  { label: "ภาษี", path: "/settings/tax" },
+  { label: "เลขที่เอกสาร", path: "/settings/numbering" },
+  { label: "สต็อก", path: "/settings/stock" },
+  { label: "บัญชี", path: "/settings/account" },
+];
+
 export const BOTTOM_NAV_ITEMS = [
   { label: "หน้างานขาย", path: "/home" },
   { label: "เอกสาร", path: "/documents" },

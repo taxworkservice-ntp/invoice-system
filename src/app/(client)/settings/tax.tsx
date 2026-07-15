@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -10,14 +9,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { WHT_RATE_OPTIONS } from "../../../constants";
-
-const TABS = [
-  { label: "โปรไฟล์", path: "/settings/profile" },
-  { label: "ภาษี", path: "/settings/tax" },
-  { label: "เลขที่เอกสาร", path: "/settings/numbering" },
-  { label: "สต็อก", path: "/settings/stock" },
-  { label: "บัญชี", path: "/settings/account" },
-];
+import { SettingsTabs } from "./_components/SettingsTabs";
 
 export default function SettingsTaxPage() {
   const { profile } = useAuth();
@@ -118,21 +110,7 @@ export default function SettingsTaxPage() {
   return (
     <AppShell title="ตั้งค่า > ภาษี">
       <div className="space-y-4">
-        <div className="flex gap-1 border-b border-card-border pb-0">
-          {TABS.map((tab) => (
-            <Link
-              key={tab.path}
-              to={tab.path}
-              className={`px-3 py-2 text-sm rounded-t-lg ${
-                tab.path === "/settings/tax"
-                  ? "bg-white border border-card-border border-b-white text-primary font-medium"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          ))}
-        </div>
+        <SettingsTabs activePath="/settings/tax" />
 
         <Card>
           <div className="space-y-4">

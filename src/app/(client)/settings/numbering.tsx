@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
@@ -10,17 +9,10 @@ import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { DOC_TYPE_LABELS } from "../../../constants";
+import { SettingsTabs } from "./_components/SettingsTabs";
 import type { DocNumberSequence, DocumentType } from "../../../types";
 
 const DOC_TYPES: DocumentType[] = ["quotation", "invoice", "tax_invoice_receipt", "billing_note", "receipt", "delivery_note", "credit_note"];
-
-const TABS = [
-  { label: "โปรไฟล์", path: "/settings/profile" },
-  { label: "ภาษี", path: "/settings/tax" },
-  { label: "เลขที่เอกสาร", path: "/settings/numbering" },
-  { label: "สต็อก", path: "/settings/stock" },
-  { label: "บัญชี", path: "/settings/account" },
-];
 
 export default function SettingsNumberingPage() {
   const { profile, clientProfile, setClientProfile } = useAuth();
@@ -194,21 +186,7 @@ export default function SettingsNumberingPage() {
   return (
     <AppShell title="ตั้งค่า > เลขที่เอกสาร">
       <div className="space-y-4">
-        <div className="flex gap-1 border-b border-card-border pb-0">
-          {TABS.map((tab) => (
-            <Link
-              key={tab.path}
-              to={tab.path}
-              className={`px-3 py-2 text-sm rounded-t-lg ${
-                tab.path === "/settings/numbering"
-                  ? "bg-white border border-card-border border-b-white text-primary font-medium"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          ))}
-        </div>
+        <SettingsTabs activePath="/settings/numbering" />
 
         <Card>
           <div className="space-y-4">

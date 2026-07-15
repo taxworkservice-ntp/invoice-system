@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
-import { Input, Select } from "../../../components/ui/Input";
+import { Select } from "../../../components/ui/Input";
 import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -13,15 +12,8 @@ import { useToast } from "../../../hooks/useToast";
 import { LOGO_SIZE_OPTIONS } from "../../../constants";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
 import { defaultTerms } from "../../../lib/terms";
+import { SettingsTabs } from "./_components/SettingsTabs";
 import type { ClientProfile } from "../../../types";
-
-const TABS = [
-  { label: "โปรไฟล์", path: "/settings/profile" },
-  { label: "ภาษี", path: "/settings/tax" },
-  { label: "เลขที่เอกสาร", path: "/settings/numbering" },
-  { label: "สต็อก", path: "/settings/stock" },
-  { label: "บัญชี", path: "/settings/account" },
-];
 
 const DOC_VISIBILITY_TYPES = [
   { key: "quotation", label: "ใบเสนอราคา" },
@@ -34,19 +26,11 @@ const DOC_VISIBILITY_TYPES = [
   { key: "wht", label: "WHT (ภ.ง.ด.)" },
 ];
 
-export default function SettingsProfilePage() {
+export default function SettingsDocumentsPage() {
   const { profile } = useAuth();
   const { clientProfile, loading, setClientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
 
-  const [companyNameTh, setCompanyNameTh] = useState("");
-  const [companyNameEn, setCompanyNameEn] = useState("");
-  const [taxId, setTaxId] = useState("");
-  const [address, setAddress] = useState("");
-  const [phone, setPhone] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [bankAccount, setBankAccount] = useState("");
   const [logoKey, setLogoKey] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(LOGO_SIZE_OPTIONS[0].value);
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic">("modern");
@@ -63,16 +47,10 @@ export default function SettingsProfilePage() {
 
   useEffect(() => {
     if (clientProfile) {
-      setCompanyNameTh(clientProfile.company_name_th || "");
-      setCompanyNameEn(clientProfile.company_name_en || "");
-      setTaxId(clientProfile.tax_id || "");
-      setAddress(clientProfile.address || "");
-      setPhone(clientProfile.phone || "");
-      setContactName((clientProfile as any).contact_name || "");
       setLogoKey(clientProfile.logo_url);
       setLogoSize((clientProfile as any).logo_size || "square");
-      setBankName((clientProfile as any).bank_name || "");
-      setBankAccount((clientProfile as any).bank_account || "");
+      setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
+      setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey((clientProfile as any).signature_url || null);
       setStampKey((clientProfile as any).stamp_url || null);
       setShowSignatureOnWht((clientProfile as any).show_signature_on_wht !== false);
@@ -95,8 +73,6 @@ export default function SettingsProfilePage() {
         }
         return acc;
       }, {} as Record<string, boolean>));
-      setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
-      setClassicTerms(clientProfile.classic_terms || "");
     }
   }, [clientProfile]);
 
@@ -106,24 +82,11 @@ export default function SettingsProfilePage() {
     setError("");
     setSaved(false);
 
-    if (!companyNameTh.trim()) {
-      setError("กรุณากรอกชื่อบริษัท (ภาษาไทย)");
-      setSaving(false);
-      return;
-    }
-
-    const basePayload: Record<string, unknown> = {
-      company_name_th: companyNameTh.trim(),
-      company_name_en: companyNameEn.trim() || null,
-      tax_id: taxId || null,
-      address: address || null,
-      phone: phone || null,
+    const payload: Record<string, unknown> = {
       logo_url: logoKey,
       logo_size: logoSize,
       pdf_template: pdfTemplate,
       classic_terms: classicTerms.trim() || null,
-      bank_name: bankName.trim() || null,
-      bank_account: bankAccount.trim() || null,
       signature_url: signatureKey,
       stamp_url: stampKey,
       show_signature_on_wht: showSignatureOnWht,
@@ -132,20 +95,10 @@ export default function SettingsProfilePage() {
       show_stamp_on_docs: Object.values(showStampOnDocs).every(Boolean) ? null : showStampOnDocs,
     };
 
-    let err;
-    try {
-      const result = await supabase
-        .from("client_profiles")
-        .update({ ...basePayload, contact_name: contactName.trim() || null })
-        .eq("user_id", profile.id);
-      err = result.error;
-    } catch {
-      const result = await supabase
-        .from("client_profiles")
-        .update(basePayload)
-        .eq("user_id", profile.id);
-      err = result.error;
-    }
+    const { error: err } = await supabase
+      .from("client_profiles")
+      .update(payload)
+      .eq("user_id", profile.id);
 
     if (err) {
       setError(err.message);
@@ -155,56 +108,22 @@ export default function SettingsProfilePage() {
       toast.success("บันทึกแล้ว");
       setClientProfile({
         ...clientProfile,
-        company_name_th: companyNameTh.trim(),
-        company_name_en: companyNameEn.trim() || null,
-        tax_id: taxId || null,
-        address: address || null,
-        phone: phone || null,
-        contact_name: contactName.trim() || null,
-        logo_url: logoKey,
-        logo_size: logoSize,
-        pdf_template: pdfTemplate,
-        classic_terms: classicTerms.trim() || null,
-        bank_name: bankName.trim() || null,
-        bank_account: bankAccount.trim() || null,
-        signature_url: signatureKey,
-        stamp_url: stampKey,
-        show_signature_on_wht: showSignatureOnWht,
-        show_stamp_on_wht: showStampOnWht,
-        show_signature_on_docs: Object.values(showSignatureOnDocs).every(Boolean) ? null : showSignatureOnDocs,
-        show_stamp_on_docs: Object.values(showStampOnDocs).every(Boolean) ? null : showStampOnDocs,
+        ...payload,
       } as ClientProfile);
     }
     setSaving(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > โปรไฟล์"><Spinner /></AppShell>;
+  if (loading) return <AppShell title="ตั้งค่า > รูปแบบเอกสาร"><Spinner /></AppShell>;
 
-  const isDirty = companyNameTh !== (clientProfile?.company_name_th || "") ||
-    address !== (clientProfile?.address || "") ||
-    phone !== (clientProfile?.phone || "") ||
-    contactName !== ((clientProfile as any)?.contact_name || "") ||
+  const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template === "classic" ? "classic" : "modern") ||
     classicTerms !== (clientProfile?.classic_terms || "");
 
   return (
-    <AppShell title="ตั้งค่า > โปรไฟล์">
+    <AppShell title="ตั้งค่า > รูปแบบเอกสาร">
       <div className="space-y-4">
-        <div className="flex gap-1 border-b border-card-border pb-0">
-          {TABS.map((tab) => (
-            <Link
-              key={tab.path}
-              to={tab.path}
-              className={`px-3 py-2 text-sm rounded-t-lg ${
-                tab.path === "/settings/profile"
-                  ? "bg-white border border-card-border border-b-white text-primary font-medium"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          ))}
-        </div>
+        <SettingsTabs activePath="/settings/documents" />
 
         <Card>
           <div className="space-y-3">
@@ -223,74 +142,6 @@ export default function SettingsProfilePage() {
                 ))}
               </Select>
             )}
-
-            <Input
-              label="ชื่อบริษัท (ภาษาไทย) *"
-              value={companyNameTh}
-              onChange={(e) => { setCompanyNameTh(e.target.value); setSaved(false); }}
-              placeholder="บริษัท มาลี จำกัด"
-            />
-            <Input
-              label="ชื่อบริษัท (ภาษาอังกฤษ)"
-              value={companyNameEn}
-              onChange={(e) => { setCompanyNameEn(e.target.value); setSaved(false); }}
-              placeholder="Malee Co., Ltd. (ไม่บังคับ)"
-            />
-
-            <Input
-              label="เลขประจำตัวผู้เสียภาษี"
-              value={taxId}
-              onChange={(e) => setTaxId(e.target.value.replace(/\D/g, "").slice(0, 13))}
-              placeholder="0000000000000"
-              maxLength={13}
-            />
-            <p className="text-[11px] text-[#888780] -mt-2">
-              13 หลัก จำเป็นสำหรับใบกำกับภาษี
-            </p>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                ที่อยู่
-              </label>
-              <textarea
-                value={address}
-                onChange={(e) => { setAddress(e.target.value); setSaved(false); }}
-                placeholder="ที่อยู่สำหรับพิมพ์บนเอกสาร"
-                rows={3}
-                className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 placeholder:text-gray-400 resize-none"
-              />
-            </div>
-
-            <Input
-              label="เบอร์โทรศัพท์"
-              value={phone}
-              onChange={(e) => { setPhone(e.target.value); setSaved(false); }}
-            />
-            <Input
-              label="ชื่อผู้ติดต่อ / ชื่อเจ้าของ"
-              value={contactName}
-              onChange={(e) => { setContactName(e.target.value); setSaved(false); }}
-              placeholder="ชื่อที่ใช้แสดงในการทักทาย"
-            />
-            <p className="text-[11px] text-[#888780] -mt-2">
-              ใช้สำหรับข้อความทักทายในแอป
-            </p>
-
-            <div className="border-t border-[#E8E6DF] pt-3">
-              <p className="text-[11px] font-semibold text-[#888780] mb-2">ข้อมูลธนาคาร</p>
-              <Input
-                label="ชื่อธนาคาร"
-                value={bankName}
-                onChange={(e) => { setBankName(e.target.value); setSaved(false); }}
-                placeholder="ธนาคารกสิกรไทย"
-              />
-              <Input
-                label="เลขที่บัญชี"
-                value={bankAccount}
-                onChange={(e) => { setBankAccount(e.target.value); setSaved(false); }}
-                placeholder="XXX-X-XXXXX-X"
-              />
-            </div>
 
             <div className="border-t border-[#E8E6DF] pt-3">
               <p className="text-[11px] font-semibold text-[#888780] mb-2">เทมเพลต PDF</p>
@@ -404,7 +255,7 @@ export default function SettingsProfilePage() {
 
             <div className="relative">
               <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? "กำลังบันทึก..." : "บันทึกข้อมูลบริษัท"}
+                {saving ? "กำลังบันทึก..." : "บันทึกรูปแบบเอกสาร"}
               </Button>
               {isDirty && !saved && (
                 <div className="absolute top-1 right-1 w-[6px] h-[6px] rounded-full bg-[#378ADD]" />

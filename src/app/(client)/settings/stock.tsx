@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -7,14 +6,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-
-const TABS = [
-  { label: "โปรไฟล์", path: "/settings/profile" },
-  { label: "ภาษี", path: "/settings/tax" },
-  { label: "เลขที่เอกสาร", path: "/settings/numbering" },
-  { label: "สต็อก", path: "/settings/stock" },
-  { label: "บัญชี", path: "/settings/account" },
-];
+import { SettingsTabs } from "./_components/SettingsTabs";
 
 export default function SettingsStockPage() {
   const { profile } = useAuth();
@@ -59,25 +51,7 @@ export default function SettingsStockPage() {
   return (
     <AppShell title="ตั้งค่า > สต็อก">
       <div className="space-y-4">
-        <div className="flex gap-1 border-b border-card-border pb-0">
-          {TABS.map((tab) => (
-            <Link
-              key={tab.path}
-              to={tab.path}
-              className={`px-3 py-2 text-sm rounded-t-lg ${
-                tab.path === "/settings/stock"
-                  ? "bg-white border border-card-border border-b-white text-primary font-medium"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          ))}
-        </div>
-
-        <div className="text-[11px] uppercase font-semibold text-[#888780] pt-2">
-          การจัดการสต็อก
-        </div>
+        <SettingsTabs activePath="/settings/stock" />
 
         <Card>
           <div className="space-y-4">
