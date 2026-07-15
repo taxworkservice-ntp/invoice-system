@@ -648,7 +648,7 @@ export default function WhtPage() {
                             <div className="text-[#1A1A18]">{formatDate(r.issue_date)}</div>
                             <div className="text-[10px] text-[#AAAAAA] mt-0.5">บันทึก {formatDate(r.created_at)}</div>
                           </td>
-                          <td className="px-3 py-2.5 font-medium text-[#1A1A18]">{r.vendor?.name || "-"}</td>
+                          <td className="px-3 py-2.5 text-[#1A1A18]">{r.vendor?.name || "-"}</td>
                           <td className="px-3 py-2.5 font-mono text-[12px] text-[#888780]">{r.vendor?.tax_id || "-"}</td>
                           <td className="px-3 py-2.5 text-[12px] text-[#555]">{r.description || "-"}</td>
                           <td className="px-3 py-2.5">
@@ -660,7 +660,7 @@ export default function WhtPage() {
                             </span>
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-[#1A1A18]">{formatCurrency(r.amount)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-[#C0392B] font-medium">{formatCurrency(r.wht_amount)}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-[#C0392B]">{formatCurrency(r.wht_amount)}</td>
                           <td className="px-3 py-2.5">
                             {r.certificate_no ? (
                               <span className="inline-block px-2 py-0.5 rounded bg-[#EEF4FF] text-[#378ADD] font-mono text-[11px] font-medium">{r.certificate_no}</span>
@@ -768,7 +768,7 @@ export default function WhtPage() {
                     <tbody>
                       {filteredVendors.map((v) => (
                         <tr key={v.id} className="border-b border-[#F0EFE9] hover:bg-[#F7F6F3] transition-colors cursor-pointer" onClick={() => openEditVendor(v)}>
-                          <td className="px-3 py-2 font-medium">{v.name}</td>
+                          <td className="px-3 py-2">{v.name}</td>
                           <td className="px-3 py-2 font-mono text-[12px] text-[#888780]">{v.tax_id || "-"}</td>
                           <td className="px-3 py-2 text-[#888780] max-w-[200px] truncate">{v.address || "-"}</td>
                           <td className="px-3 py-2 text-[#888780]">{v.phone || "-"}</td>

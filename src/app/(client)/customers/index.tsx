@@ -510,10 +510,10 @@ export default function CustomersPage() {
                         <td className="px-3 py-2 min-w-0">
                           <div className="flex items-center gap-2 min-w-0">
                             <CustomerAvatar customer={c} size="sm" />
-                            <span className="font-semibold text-[#111827] truncate">{c.name}</span>
+                            <span className="text-[#111827] truncate">{c.name}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-2 font-mono text-[12px] text-primary font-medium truncate">
+                        <td className="px-3 py-2 font-mono text-[12px] text-primary truncate">
                           {c.code || <span className="text-[#AAAAAA] italic font-sans">—</span>}
                         </td>
                         <td className="px-3 py-2 font-mono text-[12px] text-[#475467] truncate">
@@ -524,21 +524,21 @@ export default function CustomersPage() {
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {c.dealActive > 0 ? (
-                            <span className="font-semibold text-[#C2410C]">{c.dealActive}</span>
+                            <span className="text-[#C2410C]">{c.dealActive}</span>
                           ) : (
                             <span className="text-[#AAAAAA]">0</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {c.dealDone > 0 ? (
-                            <span className="font-semibold text-[#15803D]">{c.dealDone}</span>
+                            <span className="text-[#15803D]">{c.dealDone}</span>
                           ) : (
                             <span className="text-[#AAAAAA]">0</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {c.dealTotal > 0 ? (
-                            <span className="font-semibold text-[#378ADD]">{c.dealTotal}</span>
+                            <span className="text-[#378ADD]">{c.dealTotal}</span>
                           ) : (
                             <span className="text-[#AAAAAA]">0</span>
                           )}
