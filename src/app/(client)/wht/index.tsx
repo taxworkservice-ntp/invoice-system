@@ -620,7 +620,7 @@ export default function WhtPage() {
                           </td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center justify-end gap-0.5">
-                              <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title="สร้าง PDF">
+                              <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "สร้าง PDF"}>
                                 <FileText size={15} />
                               </button>
                               {!r.certificate_no && (
@@ -628,7 +628,7 @@ export default function WhtPage() {
                                   <Pencil size={15} />
                                 </button>
                               )}
-                              <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
+                              <button type="button" onClick={() => handleDeleteRecord(r.id)} disabled={!!r.certificate_no} className={`p-1.5 rounded-md transition-colors ${r.certificate_no ? "text-[#DDDDDD] cursor-not-allowed" : "hover:bg-red-50 text-[#CCCCCC] hover:text-red-500"}`} title={r.certificate_no ? "ออกใบรับรองแล้ว ลบไม่ได้" : "ลบ"}>
                                 <Trash2 size={15} />
                               </button>
                             </div>
