@@ -602,7 +602,7 @@ export default function WhtPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-[13px]">
                     <thead>
-                      <tr className="border-b border-[#E8E6DF] bg-[#F7F6F3]">
+                      <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
                         <SortableTh
                           label="#"
                           active={tableSort.sort.key === "created_at"}
@@ -757,7 +757,7 @@ export default function WhtPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-[13px]">
                     <thead>
-                      <tr className="border-b border-[#E8E6DF] bg-[#F7F6F3]">
+                      <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
                         <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ชื่อ</th>
                         <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">เลขผู้เสียภาษี</th>
                         <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ที่อยู่</th>
