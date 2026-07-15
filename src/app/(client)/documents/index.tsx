@@ -2199,7 +2199,7 @@ export default function DocumentsPage() {
                           className={`${TABLE.tbodyTr} ${isVoided ? "opacity-50" : ""} ${selectedDocIds.has(doc.id) ? "bg-primary/5" : ""}`}
                         >
                           <td className="px-3 py-2">
-                            <span className="font-semibold text-[#111827]">
+                            <span className="text-[#111827]">
                               {doc.doc_number || "-"}
                             </span>
                             {overdue && (
@@ -2221,7 +2221,7 @@ export default function DocumentsPage() {
                             {formatBuddhistDate(doc.issue_date)}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <span className="font-medium text-[#111827]">
+                            <span className="text-[#111827]">
                               ฿ {formatCurrency(getDisplayAmount(doc) || 0)}
                             </span>
                           </td>
