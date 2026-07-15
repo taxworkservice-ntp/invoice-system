@@ -1731,42 +1731,41 @@ export default function DealDetailPage() {
           )}
            <div className="mt-3 grid grid-cols-2 gap-2">
              {nonVoidedDocs.length > 0 && (
-               <div className="col-span-2">
-                 <button
-                   type="button"
-                   onClick={() => setShowDocList(!showDocList)}
-                   className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition-colors"
-                 >
-                   {showDocList ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                   {showDocList ? "ซ่อนรายการเอกสาร" : `ดาวน์โหลดเอกสาร (${nonVoidedDocs.length})`}
-                 </button>
+                 <div className="col-span-2">
+                   <Button
+                     variant="secondary"
+                     className="w-full justify-center !bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100"
+                     onClick={() => setShowDocList(true)}
+                   >
+                     ดาวน์โหลดเอกสาร ({nonVoidedDocs.length})
+                   </Button>
 
-                 {showDocList && (
-                   <div className="mt-1 border border-stone-200 rounded-lg divide-y divide-stone-100 bg-white">
-                     {nonVoidedDocs.map((item) => {
-                       const doc = item.document;
-                       return (
-                         <button
-                           key={doc.id}
-                           type="button"
-                           onClick={() => handleOpenPreview(doc)}
-                           className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-stone-50 transition-colors text-left"
-                         >
-                           <div className="min-w-0">
-                             <div className="text-[12px] font-medium text-gray-900">
-                               {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
+                   <Modal open={showDocList} onClose={() => setShowDocList(false)} title="เลือกเอกสาร">
+                     <div className="divide-y divide-stone-100">
+                       {nonVoidedDocs.map((item) => {
+                         const doc = item.document;
+                         return (
+                           <button
+                             key={doc.id}
+                             type="button"
+                             onClick={() => { handleOpenPreview(doc); setShowDocList(false); }}
+                             className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-stone-50 transition-colors text-left"
+                           >
+                             <div className="min-w-0">
+                               <div className="text-[13px] font-medium text-gray-900">
+                                 {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
+                               </div>
+                               <div className="text-[12px] text-gray-500">
+                                 {doc.doc_number || "ยังไม่มีเลขเอกสาร"} · {formatBuddhistDate(doc.issue_date)}
+                               </div>
                              </div>
-                             <div className="text-[11px] text-gray-500">
-                               {doc.doc_number || "ยังไม่มีเลขเอกสาร"} · {formatBuddhistDate(doc.issue_date)}
-                             </div>
-                           </div>
-                           <ExternalLink size={13} className="shrink-0 text-gray-300" />
-                         </button>
-                       );
-                     })}
-                   </div>
-                 )}
-               </div>
+                             <ExternalLink size={14} className="shrink-0 text-gray-300" />
+                           </button>
+                         );
+                       })}
+                     </div>
+                   </Modal>
+                 </div>
              )}
             {activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued" ? (
               <>
