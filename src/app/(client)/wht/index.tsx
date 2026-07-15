@@ -623,9 +623,11 @@ export default function WhtPage() {
                               <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title="สร้าง PDF">
                                 <FileText size={15} />
                               </button>
-                              <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title="แก้ไข">
-                                <Pencil size={15} />
-                              </button>
+                              {!r.certificate_no && (
+                                <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title="แก้ไข">
+                                  <Pencil size={15} />
+                                </button>
+                              )}
                               <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
                                 <Trash2 size={15} />
                               </button>
