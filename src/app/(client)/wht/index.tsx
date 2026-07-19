@@ -111,7 +111,7 @@ export default function WhtPage() {
   } = useWhtVendors(userId);
 
   const [tab, setTab] = useState<Tab>(TAB_RECORDS);
-  const [doneView, setDoneView] = useState<"active" | "done">("active");
+  const [doneView, setDoneView] = useState<"active" | "done" | "all">("active");
   const [month, setMonth] = useState("");
   const [vendorFilter, setVendorFilter] = useState("");
   const [formFilter, setFormFilter] = useState("");
@@ -196,7 +196,7 @@ export default function WhtPage() {
 
   const activeRecords = useMemo(() => filteredRecords.filter((r) => r.status !== "done"), [filteredRecords]);
   const doneRecords = useMemo(() => filteredRecords.filter((r) => r.status === "done"), [filteredRecords]);
-  const displayedRecords = doneView === "active" ? activeRecords : doneRecords;
+  const displayedRecords = doneView === "all" ? filteredRecords : doneView === "active" ? activeRecords : doneRecords;
 
   const filteredVendors = useMemo(() => {
     if (!search) return allVendors;
@@ -572,6 +572,15 @@ export default function WhtPage() {
                 >
                   เรียบร้อย ({doneRecords.length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setDoneView("all")}
+                  className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
+                    doneView === "all" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+                  }`}
+                >
+                  ทั้งหมด ({filteredRecords.length})
+                </button>
               </div>
             )}
 
@@ -595,7 +604,7 @@ export default function WhtPage() {
               )
             ) : displayedRecords.length === 0 ? (
               <div className="text-center py-12 text-[13px] text-[#888780]">
-                <p>{doneView === "active" ? "ไม่มีรายการรอจัดการ" : "ไม่มีรายการที่เรียบร้อย"}</p>
+                <p>{doneView === "all" ? "ไม่มีรายการ" : doneView === "active" ? "ไม่มีรายการรอจัดการ" : "ไม่มีรายการที่เรียบร้อย"}</p>
               </div>
             ) : (
               <div className="bg-white border border-card-border rounded-card overflow-hidden">
