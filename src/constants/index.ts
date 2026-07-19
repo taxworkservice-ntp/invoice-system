@@ -121,7 +121,7 @@ export const BOTTOM_NAV_ITEMS = [
   { label: "เอกสาร", path: "/documents" },
   { label: "ศูนย์ดาวน์โหลด", path: "/download-center" },
   { label: "รายงาน", path: "/reports" },
-  { label: "WHT", path: "/wht" },
+  { label: "หัก ณ ที่จ่าย", path: "/wht" },
   { label: "สินค้า", path: "/catalog" },
   { label: "ลูกค้า", path: "/customers" },
   { label: "ตั้งค่า", path: "/settings" },

@@ -459,7 +459,7 @@ export default function WhtPage() {
   const availableMonths = months;
 
   return (
-    <AppShell title="WHT ภาษีหัก ณ ที่จ่าย">
+    <AppShell title="ภาษีหัก ณ ที่จ่าย">
       <div className="space-y-4">
         <div className="flex gap-1 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-1">
           <button
@@ -470,7 +470,7 @@ export default function WhtPage() {
             }`}
           >
             <FileText className="h-4 w-4" />
-            บันทึก WHT
+            บันทึก หัก ณ ที่จ่าย
           </button>
           <button
             type="button"
@@ -516,7 +516,7 @@ export default function WhtPage() {
                 <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#888780]">
                   <span>{summary.count} รายการ</span>
                   <span>รวมเงิน {formatCurrency(summary.totalAmount)}</span>
-                  <span className="text-[#C0392B]">WHT {formatCurrency(summary.totalWht)}</span>
+                  <span className="text-[#C0392B]">หัก ณ ที่จ่าย {formatCurrency(summary.totalWht)}</span>
                   <span className="text-[#378ADD]">ออกใบรับรองแล้ว {summary.generated} รายการ</span>
                 </div>
               )}
@@ -584,9 +584,9 @@ export default function WhtPage() {
             ) : filteredRecords.length === 0 ? (
               records.length === 0 ? (
                 <EmptyState
-                  title="ยังไม่มีรายการ WHT"
+                  title="ยังไม่มีรายการ หัก ณ ที่จ่าย"
                   description="เพิ่มรายการหัก ณ ที่จ่าย เพื่อออกรายงานและใบรับรอง"
-                  action={<Button onClick={openAddRecord}><Plus size={15} className="mr-1" /> เพิ่มรายการ WHT</Button>}
+                  action={<Button onClick={openAddRecord}><Plus size={15} className="mr-1" /> เพิ่มรายการ หัก ณ ที่จ่าย</Button>}
                 />
               ) : (
                 <div className="text-center py-12 text-[13px] text-[#888780]">
@@ -635,7 +635,7 @@ export default function WhtPage() {
                           onClick={() => tableSort.handleSort("amount")}
                           className="px-3 py-2.5"
                         />
-                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">WHT</th>
+                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">หัก ณ ที่จ่าย</th>
                         <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">ใบรับรอง</th>
                         <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-[#344054] tracking-[0.04em]" />
                       </tr>
@@ -793,7 +793,7 @@ export default function WhtPage() {
           <div className="absolute inset-0 bg-black/30" onClick={() => { setShowAddRecord(false); resetNewRecord(); }} />
           <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">เพิ่มรายการ WHT</h2>
+            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">เพิ่มรายการ หัก ณ ที่จ่าย</h2>
             <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
               <Info size={14} className="shrink-0" />
               <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
@@ -859,7 +859,7 @@ export default function WhtPage() {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา หัก ณ ที่จ่าย (%) *</label>
                 <select value={newRecord.wht_rate} onChange={(e) => setNewRecord({ ...newRecord, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
                   <option value="1">1%</option>
                   <option value="2">2%</option>
@@ -870,7 +870,7 @@ export default function WhtPage() {
               </div>
               {newRecord.amount && (
                 <div className="text-[12px] text-[#888780]">
-                  WHT = {formatCurrency(parseFloat(newRecord.amount) * parseFloat(newRecord.wht_rate) / 100)}
+                  หัก ณ ที่จ่าย = {formatCurrency(parseFloat(newRecord.amount) * parseFloat(newRecord.wht_rate) / 100)}
                 </div>
               )}
               <Input label="หมายเหตุ" value={newRecord.note} onChange={(e) => setNewRecord({ ...newRecord, note: e.target.value })} />
@@ -888,7 +888,7 @@ export default function WhtPage() {
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowEditRecord(null)} />
           <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">แก้ไขรายการ WHT</h2>
+            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">แก้ไขรายการ หัก ณ ที่จ่าย</h2>
             <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
               <Info size={14} className="shrink-0" />
               <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
@@ -954,7 +954,7 @@ export default function WhtPage() {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา WHT (%) *</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา หัก ณ ที่จ่าย (%) *</label>
                 <select value={editRecordForm.wht_rate} onChange={(e) => setEditRecordForm({ ...editRecordForm, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
                   <option value="1">1%</option>
                   <option value="2">2%</option>
