@@ -1753,7 +1753,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     />
                   )}
                   <div className="flex gap-1 items-start">
-                    <label className="w-[100px] block">
+                    <label className="w-[160px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">ราคา</span>
                       <Input
                         type="number"
@@ -1765,7 +1765,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         className="w-full"
                       />
                     </label>
-                    <label className="w-[64px] block">
+                    <label className="w-[160px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">จำนวน</span>
                       <Input
                         type="number"
