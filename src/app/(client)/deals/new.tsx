@@ -1073,6 +1073,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
   const handleSave = async () => {
     if (!selectedCustomer || !userId) return;
+
+    if (!window.confirm("บันทึกเอกสารนี้ใช่หรือไม่?")) return;
+
     setError(null);
 
     if (isUtilityBill) {
@@ -2097,7 +2100,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 type="number"
                 step="0.01"
                 value={vatRate}
-                onChange={(e) => setVatRate(parseFloat(e.target.value) || 0)}
+                disabled
               />
             )}
             <div>
@@ -2138,7 +2141,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 <input
                   type="checkbox"
                   checked={hideAmountsOnPrint}
-                  onChange={(e) => setHideAmountsOnPrint(e.target.checked)}
+                  onChange={(e) => {
+                    if (!e.target.checked) {
+                      const ok = window.confirm("การแสดงจำนวนเงินใน PDF ใบส่งของจะทำให้ผู้รับเห็นราคาและยอดรวม คุณแน่ใจหรือไม่?");
+                      if (!ok) return;
+                    }
+                    setHideAmountsOnPrint(e.target.checked);
+                  }}
                   className="sr-only"
                 />
                 <div
