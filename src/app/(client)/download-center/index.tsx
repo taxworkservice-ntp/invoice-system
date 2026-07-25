@@ -278,6 +278,7 @@ export default function DownloadCenterPage() {
           docNumber: doc?.doc_number || "-",
           date: doc?.date || "",
           customerName: doc?.customer_name || "",
+          dealNumber: doc?.deal_number || null,
           itemName: li.item_name || "",
           quantity: Number(li.quantity) || 0,
           unit: li.unit || "",
