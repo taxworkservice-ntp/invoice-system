@@ -61,6 +61,32 @@ interface JobDetailPresetInputProps {
   onDeletePreset: (value: string) => void;
 }
 
+function CommaInput({ value, onChange, ...props }: { value: number; onChange: (val: number) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+  const [focus, setFocus] = useState(false);
+  const display = focus || !value
+    ? (value || value === 0 ? value.toString() : "")
+    : (Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { minimumFractionDigits: 2 }));
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={display}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      onChange={(e) => {
+        const raw = e.target.value.replace(/,/g, "");
+        const num = parseFloat(raw);
+        if (!isNaN(num)) onChange(num);
+        else if (raw === "" || raw === "-") onChange(0);
+      }}
+      className="w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors border-card-border"
+      placeholder="0"
+      {...props}
+    />
+  );
+}
+
 function JobDetailPresetInput({
   label,
   value,
@@ -1755,27 +1781,18 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   <div className="flex gap-1 items-start">
                     <label className="w-[160px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">ราคา</span>
-                      <Input
-                        type="number"
+                      <CommaInput
+                        value={item.unit_price}
+                        onChange={(v) => updateLineItem(item.id, "unit_price", v)}
                         placeholder="0"
-                        value={item.unit_price || ""}
-                        onChange={(e) =>
-                          updateLineItem(item.id, "unit_price", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
                       />
                     </label>
                     <label className="w-[160px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">จำนวน</span>
-                      <Input
-                        type="number"
+                      <CommaInput
+                        value={item.quantity}
+                        onChange={(v) => updateLineItem(item.id, "quantity", v)}
                         placeholder="1"
-                        min="0"
-                        value={item.quantity || ""}
-                        onChange={(e) =>
-                          updateLineItem(item.id, "quantity", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
                       />
                     </label>
                     <label className="w-[68px] block">
