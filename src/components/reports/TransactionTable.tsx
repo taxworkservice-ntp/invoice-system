@@ -7,7 +7,7 @@ import { SortableTh } from "../ui/SortableTh";
 import { useTableSort } from "../ui/useTableSort";
 import type { Transaction } from "../../hooks/useReports";
 
-type SortKey = "date" | "doc_number" | "doc_type" | "customer_name" | "subtotal" | "vat_amount" | "total_amount" | "wht_amount" | "net_payable" | "status";
+type SortKey = "date" | "doc_number" | "doc_type" | "customer_name" | "subtotal" | "vat_amount" | "total_amount" | "wht_amount" | "net_payable" | "paid_at" | "status";
 
 interface Props {
   transactions: Transaction[];
@@ -23,6 +23,7 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; className
   { key: "total_amount", label: "ยอดรวม", align: "right" },
   { key: "wht_amount", label: "WHT", align: "right" },
   { key: "net_payable", label: "ยอดสุทธิ", align: "right" },
+  { key: "paid_at", label: "วันที่ชำระ", align: "left" },
   { key: "status", label: "สถานะ", align: "left" },
 ];
 
@@ -60,6 +61,8 @@ export function TransactionTable({ transactions }: Props) {
         return formatCurrency(Number(t[key]));
       case "status":
         return t.status;
+      case "paid_at":
+        return t.paid_at ? formatDateThai(t.paid_at) : "-";
       default:
         return String(t[key] || "-");
     }
@@ -125,6 +128,7 @@ export function TransactionTable({ transactions }: Props) {
             <td className="px-3 py-2 text-right">{formatCurrency(totals.total_amount)}</td>
             <td className="px-3 py-2 text-right text-[#C0392B]">{formatCurrency(totals.wht_amount)}</td>
             <td className="px-3 py-2 text-right">{formatCurrency(totals.net_payable)}</td>
+            <td className="px-3 py-2"></td>
             <td className="px-3 py-2"></td>
           </tr>
         </tfoot>

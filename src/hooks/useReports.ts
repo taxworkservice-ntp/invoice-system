@@ -162,29 +162,19 @@ function getRecognitionDate(doc: any) {
 }
 
 function getTransactionStatusLabel(doc: any) {
-  let base = "";
   if (doc.doc_type === "receipt" || doc.doc_type === "tax_invoice_receipt") {
-    base = STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
-  } else {
-    const statusLabels: Record<string, string> = {
-      paid: "ชำระแล้ว",
-      generated: "รอชำระ",
-      issued: "รอชำระ",
-      sent: "รอชำระ",
-      overdue: "เกินกำหนด",
-    };
-    base = statusLabels[doc.status as string] || STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
+    return STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
   }
 
-  if (doc.paid_at) {
-    const d = new Date(doc.paid_at);
-    const day = d.getDate().toString().padStart(2, "0");
-    const month = (d.getMonth() + 1).toString().padStart(2, "0");
-    const year = d.getFullYear() + 543;
-    base += ` (${day}/${month}/${year})`;
-  }
+  const statusLabels: Record<string, string> = {
+    paid: "ชำระแล้ว",
+    generated: "รอชำระ",
+    issued: "รอชำระ",
+    sent: "รอชำระ",
+    overdue: "เกินกำหนด",
+  };
 
-  return base;
+  return statusLabels[doc.status as string] || STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
 }
 
 export function useFinancialReport(userId: string | undefined, year: number, month: number) {

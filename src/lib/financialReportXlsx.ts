@@ -95,7 +95,7 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("รายการธุรกรรม");
   const { transactions } = opts;
 
-  const headers = ["วันที่", "เลขที่", "เลขที่ดีล", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "WHT", "ยอดสุทธิ", "สถานะ"];
+  const headers = ["วันที่", "เลขที่", "เลขที่ดีล", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "WHT", "ยอดสุทธิ", "วันที่ชำระ", "สถานะ"];
   let row = 1;
   headers.forEach((h, i) => {
     const cell = ws.getCell(row, i + 1);
@@ -130,12 +130,14 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     applyBody(ws.getCell(row, 10), { right: true, bold: true });
     ws.getCell(row, 10).value = t.net_payable;
     ws.getCell(row, 10).numFmt = CURRENCY_FMT;
-    applyBody(ws.getCell(row, 11), { color: t.is_paid ? GREEN_TEXT : undefined });
-    ws.getCell(row, 11).value = t.status;
+    applyBody(ws.getCell(row, 11));
+    ws.getCell(row, 11).value = t.paid_at ? (() => { const d = new Date(t.paid_at!); return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear() + 543}`; })() : "-";
+    applyBody(ws.getCell(row, 12), { color: t.is_paid ? GREEN_TEXT : undefined });
+    ws.getCell(row, 12).value = t.status;
     row++;
   }
 
-  setColumnWidths(ws, [12, 16, 14, 16, 22, 14, 14, 14, 12, 14, 12]);
+  setColumnWidths(ws, [12, 16, 14, 16, 22, 14, 14, 14, 12, 14, 12, 12]);
   return ws;
 }
 
