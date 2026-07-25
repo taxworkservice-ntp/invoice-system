@@ -60,6 +60,7 @@ type DashboardDeal = {
   itemSummary: string;
   itemNames: string[];
   amount: number;
+  netPayable: number;
   status: Document["status"];
   stageLabel: string;
   stageHint: string;
@@ -409,6 +410,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     itemSummary: deal.title || latestDocument?.doc_number || "",
     itemNames: getItemPreview(deal.documents || []),
     amount: amountDocument?.total_amount || amountDocument?.net_payable || 0,
+    netPayable: amountDocument?.net_payable || amountDocument?.total_amount || 0,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     stageLabel: stageInfo.stageLabel,
     stageHint: stageInfo.stageHint,
@@ -687,7 +689,7 @@ export default function HomePage() {
     [activeDealsAll, homeFilter, searchQuery],
   );
 
-  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount";
+  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount" | "netPayable";
   const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, {
     key: "createdAt",
     dir: "desc",
@@ -1043,11 +1045,14 @@ export default function HomePage() {
                           >
                             รายการ
                           </th>
-                          <th
-                            className={`${TABLE.thStatic} hidden md:table-cell`}
-                          >
-                            บันทึก
-                          </th>
+                          <SortableTh
+                            label="รับสุทธิ"
+                            align="right"
+                            active={dealSort.sort.key === "netPayable"}
+                            dir={dealSort.sort.dir}
+                            onClick={() => dealSort.handleSort("netPayable")}
+                            className={`${TABLE.thSortable} hidden md:table-cell min-w-[110px]`}
+                          />
                           <SortableTh
                             label="จำนวนเงิน"
                             align="right"
@@ -1115,10 +1120,10 @@ export default function HomePage() {
                                 </span>
                               </td>
                               <td
-                                className={`${TABLE.tdDimmed} hidden md:table-cell`}
+                                className="px-3 py-2 text-right hidden md:table-cell"
                               >
-                                <span className="truncate block max-w-[180px]">
-                                  {deal.internalNote}
+                                <span className="text-[#475467] min-w-[100px] inline-block text-right">
+                                  ฿ {formatCurrency(deal.netPayable)}
                                 </span>
                               </td>
                                <td className="px-3 py-2 text-right">
