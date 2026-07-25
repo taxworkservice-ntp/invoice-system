@@ -63,6 +63,8 @@ async function handleResetWorkspace(id) {
 }
 
 async function handleResetDocuments(id) {
+  await supabaseAdmin.from("receipt_invoices").delete().eq("user_id", id);
+  await supabaseAdmin.from("invoice_delivery_notes").delete().eq("user_id", id);
   await supabaseAdmin.from("billing_note_invoices").delete().eq("user_id", id);
   await supabaseAdmin.from("document_line_items").delete().eq("user_id", id);
   await supabaseAdmin.from("stock_movements").delete().eq("user_id", id);
@@ -79,6 +81,8 @@ async function handleResetDocuments(id) {
 }
 
 async function handleResetAll(id) {
+  await supabaseAdmin.from("receipt_invoices").delete().eq("user_id", id);
+  await supabaseAdmin.from("invoice_delivery_notes").delete().eq("user_id", id);
   await supabaseAdmin.from("billing_note_invoices").delete().eq("user_id", id);
   await supabaseAdmin.from("document_line_items").delete().eq("user_id", id);
   await supabaseAdmin.from("stock_movements").delete().eq("user_id", id);
@@ -104,6 +108,8 @@ async function handleResetAll(id) {
 }
 
 async function handleDeleteClient(id) {
+  await supabaseAdmin.from("receipt_invoices").delete().eq("user_id", id);
+  await supabaseAdmin.from("invoice_delivery_notes").delete().eq("user_id", id);
   await supabaseAdmin.from("billing_note_invoices").delete().eq("user_id", id);
   await supabaseAdmin.from("document_line_items").delete().eq("user_id", id);
   await supabaseAdmin.from("stock_movements").delete().eq("user_id", id);
