@@ -51,6 +51,7 @@ export interface ARByCustomer {
 export interface Transaction {
   id: string;
   deal_id: string | null;
+  deal_number: string | null;
   date: string;
   doc_number: string;
   doc_type: string;
@@ -62,12 +63,14 @@ export interface Transaction {
   net_payable: number;
   status: string;
   is_paid: boolean;
+  paid_at: string | null;
 }
 
 export interface LineItemRow {
   docNumber: string;
   date: string;
   customerName: string;
+  dealNumber: string | null;
   itemName: string;
   quantity: number;
   unit: string;
@@ -75,6 +78,24 @@ export interface LineItemRow {
   discountPercent: number;
   lineTotal: number;
   paidStatus: string;
+}
+
+export interface ARDetail {
+  customerName: string;
+  dealNumber: string | null;
+  docNumber: string;
+  docType: string;
+  netPayable: number;
+  dueDate: string | null;
+  daysOverdue: number;
+}
+
+export interface DealNoteRow {
+  dealNumber: string | null;
+  date: string;
+  authorName: string;
+  authorRole: string;
+  content: string;
 }
 
 export interface StockSummary {
@@ -141,19 +162,29 @@ function getRecognitionDate(doc: any) {
 }
 
 function getTransactionStatusLabel(doc: any) {
+  let base = "";
   if (doc.doc_type === "receipt" || doc.doc_type === "tax_invoice_receipt") {
-    return STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
+    base = STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
+  } else {
+    const statusLabels: Record<string, string> = {
+      paid: "ชำระแล้ว",
+      generated: "รอชำระ",
+      issued: "รอชำระ",
+      sent: "รอชำระ",
+      overdue: "เกินกำหนด",
+    };
+    base = statusLabels[doc.status as string] || STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
   }
 
-  const statusLabels: Record<string, string> = {
-    paid: "ชำระแล้ว",
-    generated: "รอชำระ",
-    issued: "รอชำระ",
-    sent: "รอชำระ",
-    overdue: "เกินกำหนด",
-  };
+  if (doc.paid_at) {
+    const d = new Date(doc.paid_at);
+    const day = d.getDate().toString().padStart(2, "0");
+    const month = (d.getMonth() + 1).toString().padStart(2, "0");
+    const year = d.getFullYear() + 543;
+    base += ` (${day}/${month}/${year})`;
+  }
 
-  return statusLabels[doc.status as string] || STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
+  return base;
 }
 
 export function useFinancialReport(userId: string | undefined, year: number, month: number) {
@@ -167,6 +198,9 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
   const [collectionRate, setCollectionRate] = useState(0);
   const [revenueDelta, setRevenueDelta] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
+  const [arDetails, setArDetails] = useState<ARDetail[]>([]);
+  const [dealNotes, setDealNotes] = useState<DealNoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -225,6 +259,67 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         const recognitionDate = getRecognitionDate(d);
         return recognitionDate >= start && recognitionDate <= end;
       });
+
+      const dealIds = [...new Set(docs.map((d: any) => d.deal_id).filter(Boolean))] as string[];
+      const dealMap = new Map<string, { deal_number: string | null; notes: any[] }>();
+      if (dealIds.length > 0) {
+        const { data: dealsData } = await supabase
+          .from("deals")
+          .select("id, deal_number, notes")
+          .in("id", dealIds);
+        for (const deal of (dealsData || []) as any[]) {
+          dealMap.set(deal.id, { deal_number: deal.deal_number || null, notes: deal.notes || [] });
+        }
+      }
+
+      const paidDocIds = paidThisPeriod.map((d: any) => d.id);
+      let allLineItems: LineItemRow[] = [];
+      if (paidDocIds.length > 0) {
+        const { data: liData } = await supabase
+          .from("document_line_items")
+          .select("*")
+          .in("document_id", paidDocIds)
+          .order("sort_order", { ascending: true });
+        allLineItems = (liData || []).map((li: any) => ({
+          docNumber: paidThisPeriod.find((d: any) => d.id === li.document_id)?.doc_number || "-",
+          date: getRecognitionDate(paidThisPeriod.find((d: any) => d.id === li.document_id) || {}),
+          customerName: paidThisPeriod.find((d: any) => d.id === li.document_id)?.customer?.name || "ไม่ระบุ",
+          dealNumber: (() => {
+            const doc = paidThisPeriod.find((d: any) => d.id === li.document_id);
+            if (!doc?.deal_id) return null;
+            return dealMap.get(doc.deal_id)?.deal_number || null;
+          })(),
+          itemName: li.item_name,
+          quantity: li.quantity,
+          unit: li.unit,
+          unitPrice: li.unit_price,
+          discountPercent: li.discount_percent,
+          lineTotal: li.line_total,
+          paidStatus: (() => {
+            const doc = paidThisPeriod.find((d: any) => d.id === li.document_id);
+            return doc?.status === "paid" ? "ชำระแล้ว" : "รอชำระ";
+          })(),
+        }));
+      }
+      setLineItems(allLineItems);
+
+      const dealNotesData: DealNoteRow[] = [];
+      const dealIdsWithActivity = new Set(paidThisPeriod.map((d: any) => d.deal_id).filter(Boolean));
+      for (const dealId of dealIdsWithActivity) {
+        const deal = dealMap.get(dealId);
+        if (!deal || deal.notes.length === 0) continue;
+        for (const note of deal.notes) {
+          dealNotesData.push({
+            dealNumber: deal.deal_number || null,
+            date: note.created_at || "",
+            authorName: note.author_name || "",
+            authorRole: note.author_role || "",
+            content: note.content || "",
+          });
+        }
+      }
+      dealNotesData.sort((a, b) => b.date.localeCompare(a.date));
+      setDealNotes(dealNotesData);
 
       const revenue = paidThisPeriod.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0);
       const collected = paidThisPeriod.reduce((sum, d) => sum + (d.amount_received || d.net_payable || 0), 0);
@@ -352,6 +447,29 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           .slice(0, 20)
       );
 
+      const docTypeLabelsExport: Record<string, string> = {
+        invoice: "ใบแจ้งหนี้",
+        tax_invoice_receipt: "ใบกำกับภาษี/ใบเสร็จรับเงิน",
+        billing_note: "ใบวางบิล",
+        receipt: "ใบเสร็จรับเงิน",
+      };
+      const arDetailsData: ARDetail[] = overdueDocs.map((d: any) => {
+        const dueDate = d.due_date || null;
+        const daysOverdue = dueDate
+          ? Math.max(0, Math.floor((today.getTime() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24)))
+          : 0;
+        return {
+          customerName: d.customer?.name || "ไม่ระบุ",
+          dealNumber: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
+          docNumber: d.doc_number || "-",
+          docType: docTypeLabelsExport[d.doc_type as string] || d.doc_type,
+          netPayable: d.net_payable || 0,
+          dueDate,
+          daysOverdue,
+        };
+      }).sort((a, b) => b.netPayable - a.netPayable);
+      setArDetails(arDetailsData);
+
       // Transaction-level detail table
       const docTypeLabels: Record<string, string> = {
         invoice: vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้",
@@ -362,6 +480,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const txns: Transaction[] = paidThisPeriod.map((d: any) => ({
         id: d.id,
         deal_id: d.deal_id || null,
+        deal_number: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
         date: getRecognitionDate(d),
         doc_number: d.doc_number || "-",
         doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
@@ -373,6 +492,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         net_payable: d.net_payable || 0,
         status: getTransactionStatusLabel(d),
         is_paid: d.status === "paid" || d.doc_type === "receipt" || d.doc_type === "tax_invoice_receipt",
+        paid_at: d.paid_at || null,
       }));
       setTransactions(txns);
 
@@ -410,7 +530,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
     fetchData();
   }, [fetchData]);
 
-  return { summary, byType, monthly, topCustomers, arAging, arByCustomer, cogs, collectionRate, revenueDelta, transactions, loading, error, refetch: fetchData };
+  return { summary, byType, monthly, topCustomers, arAging, arByCustomer, cogs, collectionRate, revenueDelta, transactions, lineItems, arDetails, dealNotes, loading, error, refetch: fetchData };
 }
 
 export function useStockReport(userId: string | undefined, dateFrom: string, dateTo: string) {

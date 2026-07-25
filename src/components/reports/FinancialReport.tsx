@@ -94,7 +94,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const { summary, monthly, arByCustomer, cogs, collectionRate, revenueDelta, transactions, loading, error } = useFinancialReport(userId, year, month);
+  const { summary, monthly, arByCustomer, arAging, topCustomers, byType, cogs, collectionRate, revenueDelta, transactions, lineItems, arDetails, dealNotes, loading, error } = useFinancialReport(userId, year, month);
 
   const today = new Date();
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
@@ -109,6 +109,13 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         summary,
         transactions,
         arByCustomer,
+        arDetails,
+        arAging,
+        topCustomers,
+        monthly,
+        byType,
+        lineItems,
+        dealNotes,
         cogs,
         collectionRate,
         dateFrom: `${String(month).padStart(2, "0")}/${year}`,

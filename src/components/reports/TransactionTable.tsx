@@ -59,7 +59,7 @@ export function TransactionTable({ transactions }: Props) {
       case "subtotal": case "vat_amount": case "total_amount": case "wht_amount": case "net_payable":
         return formatCurrency(Number(t[key]));
       case "status":
-        return t.is_paid ? "ชำระแล้ว" : t.status;
+        return t.status;
       default:
         return String(t[key] || "-");
     }
