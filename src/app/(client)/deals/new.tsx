@@ -9,6 +9,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
+import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -426,6 +427,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [editLoading, setEditLoading] = useState(Boolean(documentId));
   const [editingDealId, setEditingDealId] = useState<string | null>(null);
   const [docNumberOverride, setDocNumberOverride] = useState("");
@@ -1074,8 +1076,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const handleSave = async () => {
     if (!selectedCustomer || !userId) return;
 
-    if (!window.confirm("บันทึกเอกสารนี้ใช่หรือไม่?")) return;
-
     setError(null);
 
     if (isUtilityBill) {
@@ -1122,6 +1122,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       return;
     }
 
+    setShowConfirmModal(true);
+  };
+
+  const executeSave = async () => {
+    if (!selectedCustomer || !userId) return;
+    setShowConfirmModal(false);
     setSaving(true);
     let createdDealId: string | null = null;
     let createdDocumentId: string | null = null;
@@ -2179,6 +2185,30 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
           {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "ออกเอกสารทันที" : isEditingDraft ? "บันทึกร่าง" : "บันทึก"}
         </Button>
+
+        <Modal open={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="ยืนยันการบันทึก">
+          <div className="space-y-3">
+            <div className="rounded-lg border border-[#E8E6DF] bg-[#FAFAF7] p-3 text-sm space-y-1.5">
+              <div className="flex justify-between"><span className="text-gray-500">ลูกค้า</span><span className="font-medium text-[#1A1A18]">{selectedCustomer?.name}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">ประเภท</span><span className="font-medium text-[#1A1A18]">{DOC_TYPE_LABELS[type]?.th || type}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">รายการ</span><span className="font-medium text-[#1A1A18]">{isBillingNote ? `${selectedInvoiceIds.size} ใบแจ้งหนี้` : `${lineItems.filter((li) => li.item_name.trim()).length} รายการ`}</span></div>
+              <div className="border-t border-[#E8E6DF] pt-1.5 mt-1.5">
+                <div className="flex justify-between"><span className="text-gray-500">ก่อน VAT</span><span className="font-medium text-[#1A1A18]">฿{tax.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                {vatRegistered && tax.vatAmount > 0 && (
+                  <div className="flex justify-between"><span className="text-gray-500">VAT {vatRate}%</span><span className="font-medium text-[#1A1A18]">฿{tax.vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                )}
+                {tax.whtAmount > 0 && (
+                  <div className="flex justify-between"><span className="text-gray-500">หัก ณ ที่จ่าย</span><span className="font-medium text-[#C0392B]">-฿{tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                )}
+                <div className="flex justify-between border-t border-[#E8E6DF] pt-1.5 mt-1.5"><span className="text-gray-700 font-medium">ยอดสุทธิ</span><span className="font-semibold text-[#1A1A18]">฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setShowConfirmModal(false)} disabled={saving}>ยกเลิก</Button>
+              <Button onClick={executeSave} loading={saving}>{isTaxInvoiceReceipt ? "ออกเอกสาร" : "บันทึก"}</Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </AppShell>
   );
