@@ -1204,7 +1204,7 @@ export default function HomePage() {
                       </span>
                       <button
                         className="text-[11px] text-gray-400 hover:text-gray-600"
-                        onClick={() => navigate("/documents?preset=paid")}
+                        onClick={() => navigate("/documents")}
                       >
                         ดูทั้งหมด
                       </button>
