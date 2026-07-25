@@ -10,6 +10,8 @@ interface Props {
   onEnabledChange: (enabled: boolean) => void;
   onUnitChange: (unit: string) => void;
   onQtyChange: (qty: number | string) => void;
+  customPresets?: string[];
+  onAddPreset?: (value: string) => void;
 }
 
 export function CartonUnitSection({
@@ -21,6 +23,8 @@ export function CartonUnitSection({
   onEnabledChange,
   onUnitChange,
   onQtyChange,
+  customPresets,
+  onAddPreset,
 }: Props) {
   const qtyNum =
     typeof qtyPerCarton === "string"
@@ -59,6 +63,8 @@ export function CartonUnitSection({
             value={unit}
             onChange={onUnitChange}
             label="ชื่อหน่วยรอง"
+            customPresets={customPresets}
+            onAddPreset={onAddPreset}
           />
           <div>
             <label className="block text-[11px] uppercase font-semibold text-[#888780] mb-1">

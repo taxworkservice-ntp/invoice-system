@@ -51,7 +51,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [name, setName] = useState(item?.name || "");
   const [sku, setSku] = useState(item?.sku || "");
   const [itemType, setItemType] = useState<"product" | "service">(
-    item?.item_type || "product",
+    item?.item_type || (localStorage.getItem("catalogLastType") as "product" | "service") || "product",
   );
   const [unitPrice, setUnitPrice] = useState(
     item ? String(item.unit_price) : "",
@@ -79,6 +79,24 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [jobDetailPresetError, setJobDetailPresetError] = useState("");
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [unitPresets, setUnitPresets] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("catalogUnitPresets");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  function addUnitPreset(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setUnitPresets((prev) => {
+      if (prev.includes(trimmed)) return prev;
+      const next = [...prev, trimmed];
+      localStorage.setItem("catalogUnitPresets", JSON.stringify(next));
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service" || !profile?.id) return;
@@ -363,7 +381,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     <div className="space-y-4">
       <TypeSelector
         value={itemType}
-        onChange={setItemType}
+        onChange={(v) => { setItemType(v); localStorage.setItem("catalogLastType", v); }}
         disabled={isEdit}
       />
 
@@ -457,6 +475,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
           value={baseUnit}
           onChange={setBaseUnit}
           label="หน่วยฐาน"
+          customPresets={unitPresets}
+          onAddPreset={addUnitPreset}
         />
         {itemType === "product" && (
           <>
@@ -475,6 +495,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                 setQtyPerCarton(String(value));
                 setErrors((prev) => ({ ...prev, qtyPerCarton: "" }));
               }}
+              customPresets={unitPresets}
+              onAddPreset={addUnitPreset}
             />
             {errors.cartonUnit && (
               <p className="text-[11px] text-[#C0392B]">

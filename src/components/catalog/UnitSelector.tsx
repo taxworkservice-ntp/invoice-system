@@ -6,13 +6,15 @@ interface Props {
   onChange: (value: string) => void;
   label?: string;
   disabled?: boolean;
+  customPresets?: string[];
+  onAddPreset?: (value: string) => void;
 }
 
-export function UnitSelector({ value, onChange, label, disabled }: Props) {
-  const initialCustom = value && !UNIT_OPTIONS.includes(value);
+export function UnitSelector({ value, onChange, label, disabled, customPresets = [], onAddPreset }: Props) {
+  const initialCustom = value && !UNIT_OPTIONS.includes(value) && !customPresets.includes(value);
   const [showCustom, setShowCustom] = useState(initialCustom);
   const [customValue, setCustomValue] = useState(initialCustom ? value : "");
-  const isCustomSelected = value && !UNIT_OPTIONS.includes(value);
+  const isCustomSelected = value && !UNIT_OPTIONS.includes(value) && !customPresets.includes(value);
 
   return (
     <div className="space-y-2">
@@ -44,6 +46,11 @@ export function UnitSelector({ value, onChange, label, disabled }: Props) {
             {unit}
           </option>
         ))}
+        {customPresets.filter((u) => !UNIT_OPTIONS.includes(u)).map((unit) => (
+          <option key={unit} value={unit}>
+            {unit}
+          </option>
+        ))}
         <option value="custom">กำหนดเอง...</option>
       </select>
       {showCustom && (
@@ -53,6 +60,12 @@ export function UnitSelector({ value, onChange, label, disabled }: Props) {
           onChange={(e) => {
             setCustomValue(e.target.value);
             onChange(e.target.value);
+          }}
+          onBlur={() => {
+            if (customValue.trim() && onAddPreset) {
+              onAddPreset(customValue.trim());
+              setShowCustom(false);
+            }
           }}
           placeholder="พิมพ์ชื่อหน่วยเอง"
           className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
