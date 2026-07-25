@@ -321,7 +321,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
         )
       ) : viewMode === "table" ? (
         isFiltering ? (
-          <StockReportTable items={filtered} />
+          <StockReportTable items={filtered} onToggleFavorite={onToggleFavorite} />
         ) : (
           <div className="space-y-4">
             {productItems.length > 0 && (
@@ -329,7 +329,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
                 <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
                   สินค้า
                 </div>
-                <StockReportTable items={productItems} />
+                <StockReportTable items={productItems} onToggleFavorite={onToggleFavorite} />
               </div>
             )}
             {services.length > 0 && (
@@ -337,7 +337,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
                 <div className="text-[11px] uppercase font-semibold text-[#888780] py-2 mt-4">
                   บริการ
                 </div>
-                <StockReportTable items={services} startIndex={productItems.length} />
+                <StockReportTable items={services} startIndex={productItems.length} onToggleFavorite={onToggleFavorite} />
               </div>
             )}
           </div>

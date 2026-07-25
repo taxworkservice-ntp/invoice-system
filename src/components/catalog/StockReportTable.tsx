@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Star } from "lucide-react";
 import { isLowStock, isOutOfStock, formatMixedStock } from "../../lib/stock";
 import { formatCurrency } from "../../lib/format";
 import { SortableTh } from "../ui/SortableTh";
@@ -9,11 +10,12 @@ import type { Item } from "../../types";
 interface Props {
   items: Item[];
   startIndex?: number;
+  onToggleFavorite?: (item: Item, e: React.MouseEvent) => void;
 }
 
 type SortKey = "name" | "stock_count" | "base_unit" | "low_stock_threshold" | "avg_cost" | "stock_value";
 
-function StockRow({ item, index }: { item: Item; index: number }) {
+function StockRow({ item, index, onToggleFavorite }: { item: Item; index: number; onToggleFavorite?: (item: Item, e: React.MouseEvent) => void }) {
   const navigate = useNavigate();
   const isProduct = item.item_type === "product";
   const low = isProduct && isLowStock(item.stock_count, item.low_stock_threshold);
@@ -32,6 +34,22 @@ function StockRow({ item, index }: { item: Item; index: number }) {
       className={TABLE.tbodyTr}
       onClick={() => navigate(`/catalog/${item.id}`)}
     >
+      {onToggleFavorite && (
+        <td className="px-2 py-2 w-[42px]" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={(e) => onToggleFavorite(item, e)}
+            aria-label={item.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
+            aria-pressed={item.is_favorite}
+            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F0EFE9] transition-colors"
+          >
+            <Star
+              size={14}
+              className={item.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+            />
+          </button>
+        </td>
+      )}
       <td className={`border-l-2 px-3 py-2 text-[11px] text-[#667085] w-8 text-right tabular-nums ${
         out ? "border-l-[#C0392B]" : low ? "border-l-[#F59E0B]" : "border-l-transparent"
       }`}>
@@ -79,7 +97,7 @@ function StockRow({ item, index }: { item: Item; index: number }) {
   );
 }
 
-function StockRowMobile({ item, index }: { item: Item; index: number }) {
+function StockRowMobile({ item, index, onToggleFavorite }: { item: Item; index: number; onToggleFavorite?: (item: Item, e: React.MouseEvent) => void }) {
   const navigate = useNavigate();
   const isProduct = item.item_type === "product";
   const low = isProduct && isLowStock(item.stock_count, item.low_stock_threshold);
@@ -94,6 +112,20 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
       onClick={() => navigate(`/catalog/${item.id}`)}
     >
       <div className="flex items-start justify-between gap-2">
+        {onToggleFavorite && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(item, e); }}
+            aria-label={item.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
+            aria-pressed={item.is_favorite}
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F7F6F3] transition-colors"
+          >
+            <Star
+              size={16}
+              className={item.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+            />
+          </button>
+        )}
         <div className="min-w-0 flex-1">
           <span className="text-[10px] text-[#888780] mr-1">{index}.</span>
           <span className="text-[14px] text-[#1A1A18]">
@@ -135,7 +167,7 @@ function StockRowMobile({ item, index }: { item: Item; index: number }) {
   );
 }
 
-export function StockReportTable({ items, startIndex = 0 }: Props) {
+export function StockReportTable({ items, startIndex = 0, onToggleFavorite }: Props) {
   const { sort, handleSort, sorted } = useTableSort<Item, SortKey>(items, { key: "name", dir: "asc" });
 
   if (items.length === 0) return null;
@@ -147,6 +179,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
           <table className={TABLE.table}>
             <thead>
               <tr className={TABLE.theadTr}>
+                {onToggleFavorite && <th className="px-3 py-2 w-[42px]" />}
                 <th className={`${TABLE.thStatic} w-8 text-right`}>#</th>
                 <SortableTh
                   label="รายการ"
@@ -201,7 +234,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
             </thead>
             <tbody>
               {sorted.map((item, i) => (
-                <StockRow key={item.id} item={item} index={startIndex + i + 1} />
+                <StockRow key={item.id} item={item} index={startIndex + i + 1} onToggleFavorite={onToggleFavorite} />
               ))}
             </tbody>
           </table>
@@ -210,7 +243,7 @@ export function StockReportTable({ items, startIndex = 0 }: Props) {
 
       <div className="sm:hidden bg-white border border-card-border rounded-card overflow-hidden">
         {sorted.map((item, i) => (
-          <StockRowMobile key={item.id} item={item} index={startIndex + i + 1} />
+          <StockRowMobile key={item.id} item={item} index={startIndex + i + 1} onToggleFavorite={onToggleFavorite} />
         ))}
       </div>
     </div>
