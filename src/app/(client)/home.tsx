@@ -698,7 +698,7 @@ export default function HomePage() {
   const recentlyDone = useMemo(
     () =>
       deals
-        .filter((deal) => deal.isDone)
+        .filter((deal) => deal.isDone && !deal.isEmpty)
         .filter((deal) => {
           if (!searchQuery) return true;
           const q = searchQuery.toLowerCase();
@@ -1217,31 +1217,31 @@ export default function HomePage() {
                               <tr
                                 key={deal.dealId}
                                 onClick={() => navigate(`/deals/${deal.dealId}`)}
-                                className={`${TABLE.tbodyTr} ${deal.isEmpty ? "opacity-40" : ""}`}
+                                className={TABLE.tbodyTr}
                               >
-                                 <td className={`px-3 py-2 whitespace-nowrap text-[12px] font-mono tabular-nums ${deal.isEmpty ? "text-gray-300" : "text-primary"}`}>
+                                 <td className="px-3 py-2 whitespace-nowrap text-[12px] font-mono tabular-nums text-primary">
                                   {deal.dealNumber || "-"}
                                 </td>
                                 <td className="px-3 py-2">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <CustomerAvatar customer={rowAvatar} size="sm" />
                                     <div className="min-w-0">
-                                         <div className={`truncate ${deal.isEmpty ? "text-gray-300" : "text-[#111827]"}`}>
+                                         <div className="truncate text-[#111827]">
                                         {deal.customerName}
                                       </div>
                                       {deal.customerCode && (
-                                        <div className={`text-[10px] font-mono ${deal.isEmpty ? "text-gray-300" : "text-primary"}`}>{deal.customerCode}</div>
+                                        <div className="text-[10px] font-mono text-primary">{deal.customerCode}</div>
                                       )}
                                     </div>
                                   </div>
                                 </td>
-                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums ${deal.isEmpty ? "text-gray-300" : ""}`}>
+                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
                                 </td>
-                                 <td className={`px-3 py-2 text-right whitespace-nowrap ${deal.isEmpty ? "text-gray-300" : "text-[#111827]"}`}>
+                                 <td className="px-3 py-2 text-right whitespace-nowrap text-[#111827]">
                                   ฿ {formatCurrency(deal.amount)}
                                 </td>
-                                <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px] ${deal.isEmpty ? "text-gray-300" : ""}`}>
+                                <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px]`}>
                                   <span className="truncate block">
                                     {deal.itemNames?.length
                                       ? deal.itemNames.slice(0, 2).join(", ")
@@ -1249,11 +1249,7 @@ export default function HomePage() {
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-center">
-                                  {deal.isEmpty ? (
-                                    <span className="text-xs text-gray-300">—</span>
-                                  ) : (
-                                    <span className="text-green-500 text-sm font-bold">✓</span>
-                                  )}
+                                  <span className="text-green-500 text-sm font-bold">✓</span>
                                 </td>
                               </tr>
                             );
