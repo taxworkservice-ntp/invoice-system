@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from "react";
 import { BarChart3, Package } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { ErrorBoundary } from "../../../components/ui/ErrorBoundary";
 import { useAuth } from "../../../hooks/useAuth";
 
 const FinancialReport = lazy(() => import("../../../components/reports/FinancialReport").then((module) => ({ default: module.FinancialReport })));
@@ -51,10 +52,12 @@ export default function ReportsPage() {
           ))}
         </div>
 
+        <ErrorBoundary>
         <Suspense fallback={<ReportFallback />}>
           {activeTab === "financial" && <FinancialReport userId={userId} />}
           {activeTab === "stock" && <StockReport userId={userId} />}
         </Suspense>
+        </ErrorBoundary>
       </div>
     </AppShell>
   );

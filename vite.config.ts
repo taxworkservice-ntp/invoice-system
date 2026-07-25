@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
+  base: "/",
   plugins: [react()],
   resolve: {
     alias: {
@@ -17,6 +18,7 @@ export default defineConfig({
     },
   },
   build: {
+    modulePreload: { polyfill: true },
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {

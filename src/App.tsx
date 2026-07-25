@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Spinner } from "./components/ui/Spinner";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { useWorkspaceRole } from "./hooks/useAuth";
 import { getWorkspacePermissions } from "./lib/permissions";
 
@@ -64,6 +65,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/login" element={!role ? <LoginPage /> : <Navigate to={isAdmin ? "/admin/clients" : "/home"} replace />} />
@@ -113,5 +115,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   );
 }
