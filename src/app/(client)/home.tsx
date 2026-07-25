@@ -61,6 +61,7 @@ type DashboardDeal = {
   itemNames: string[];
   amount: number;
   netPayable: number;
+  completedDocNumber: string | null;
   status: Document["status"];
   stageLabel: string;
   stageHint: string;
@@ -175,6 +176,17 @@ function getItemPreview(documents: DealDoc[]) {
   return (sourceDoc?.line_items || [])
     .map((item) => item.item_name.trim())
     .filter(Boolean);
+}
+
+function getCompletionDoc(documents: DealDoc[]) {
+  const nonVoided = documents.filter((doc) => doc.status !== "voided");
+  return (
+    [...nonVoided].reverse().find((doc) => doc.doc_type === "receipt" && (doc.status === "generated" || doc.status === "paid" || doc.status === "issued")) ||
+    [...nonVoided].reverse().find((doc) => doc.doc_type === "tax_invoice_receipt" && (doc.status === "issued" || doc.status === "paid")) ||
+    [...nonVoided].reverse().find((doc) => doc.doc_type === "billing_note" && doc.status === "paid") ||
+    [...nonVoided].reverse().find((doc) => doc.doc_type === "invoice" && doc.status === "paid") ||
+    null
+  );
 }
 
 function getCompletedAt(documents: DealDoc[]) {
@@ -420,6 +432,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     dueDate: latestDocument?.due_date || null,
     paidAt,
     latestDocument,
+    completedDocNumber: getCompletionDoc(deal.documents || [])?.doc_number || null,
     documents: deal.documents || [],
     isDone,
     isOverdue,
@@ -1024,6 +1037,7 @@ export default function HomePage() {
                             onClick={() => dealSort.handleSort("customerName")}
                             className={TABLE.thSortable}
                           />
+                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500 whitespace-nowrap">เอกสารล่าสุด</th>
                           <SortableTh
                             label="สถานะ"
                             align="left"
@@ -1076,21 +1090,24 @@ export default function HomePage() {
                               onClick={() => navigate(`/deals/${deal.dealId}`)}
                               className={TABLE.tbodyTr}
                             >
-                               <td className="px-3 py-2 whitespace-nowrap text-[12px] text-[#111827] tabular-nums">
-                                {deal.dealNumber || "-"}
-                              </td>
-                              <td className="px-3 py-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <CustomerAvatar
-                                    customer={rowAvatar}
-                                    size="sm"
-                                  />
-                                   <span className="text-[#111827] truncate">
-                                    {deal.customerName}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2">
+                               <td className="px-3 py-2 whitespace-nowrap text-[11px] text-[#111827] tabular-nums">
+                                 {deal.dealNumber || "-"}
+                               </td>
+                               <td className="px-3 py-2">
+                                 <div className="flex items-center gap-2 min-w-0">
+                                   <CustomerAvatar
+                                     customer={rowAvatar}
+                                     size="sm"
+                                   />
+                                    <span className="text-[#111827] truncate">
+                                     {deal.customerName}
+                                   </span>
+                                 </div>
+                               </td>
+                               <td className="px-3 py-2 text-[#475467] max-w-[130px] truncate">
+                                 {deal.latestDocument?.doc_number || <span className="text-[#AAAAAA] italic">—</span>}
+                               </td>
+                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-1.5">
                                   <span
                                     className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`}
@@ -1200,6 +1217,7 @@ export default function HomePage() {
                           <tr className={TABLE.theadTr}>
                             <th className={`${TABLE.thStatic} w-[80px]`}>เลขที่ดีล</th>
                             <th className={TABLE.thStatic}>ลูกค้า</th>
+                            <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ใบเสร็จ</th>
                             <th className={TABLE.thStatic}>วันที่ชำระ</th>
                             <th className={TABLE.thStatic}>จำนวนเงิน</th>
                             <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
@@ -1219,7 +1237,7 @@ export default function HomePage() {
                                 onClick={() => navigate(`/deals/${deal.dealId}`)}
                                 className={TABLE.tbodyTr}
                               >
-                                 <td className="px-3 py-2 whitespace-nowrap text-[12px] font-mono tabular-nums text-primary">
+                                 <td className="px-3 py-2 whitespace-nowrap text-[11px] font-mono tabular-nums text-primary">
                                   {deal.dealNumber || "-"}
                                 </td>
                                 <td className="px-3 py-2">
@@ -1234,6 +1252,9 @@ export default function HomePage() {
                                       )}
                                     </div>
                                   </div>
+                                </td>
+                                <td className="px-3 py-2 text-[#475467] max-w-[130px] truncate font-mono text-[11px]">
+                                  {deal.completedDocNumber || <span className="text-[#AAAAAA] italic font-sans">—</span>}
                                 </td>
                                 <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
