@@ -338,7 +338,8 @@ function buildJobDetailsNote(lineItem: LineItemForm, fields = DEFAULT_JOB_DETAIL
       if (field.field_type === "dimension") {
         const { width, height } = getJobDetailDimension(lineItem, field.field_key);
         const size = [width.trim(), height.trim()].filter(Boolean).join(" x ");
-        return size ? `${field.label}: ${size} มม.` : "";
+        const unit = lineItem.job_detail_values[`${field.field_key}_unit`] || "มม.";
+        return size ? `${field.label}: ${size} ${unit}` : "";
       }
       const value = getJobDetailValue(lineItem, field.field_key).trim();
       return value ? `${field.label}: ${value}` : "";
@@ -1735,7 +1736,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                 return (
                                   <div key={field.field_key}>
                                     <span className="mb-1 block text-[10px] text-gray-400">{field.label}</span>
-                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                                    <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
                                       <input
                                         type="number"
                                         min="0"
@@ -1753,6 +1754,16 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                         placeholder="35"
                                         className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                                       />
+                                      <select
+                                        value={getJobDetailValue(item, `${field.field_key}_unit`) || "มม."}
+                                        onChange={(e) => updateJobDetail(item.id, `${field.field_key}_unit`, e.target.value)}
+                                        className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-[11px]"
+                                      >
+                                        <option value="มม.">มม.</option>
+                                        <option value="ซม.">ซม.</option>
+                                        <option value="นิ้ว">นิ้ว</option>
+                                        <option value="เมตร">เมตร</option>
+                                      </select>
                                     </div>
                                   </div>
                                 );

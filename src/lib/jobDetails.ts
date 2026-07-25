@@ -22,7 +22,7 @@ export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
   },
   {
     field_key: "size",
-    label: "ขนาด กว้าง x สูง (มม.)",
+    label: "ขนาด กว้าง x สูง",
     placeholder: "24 x 35",
     field_type: "dimension",
     sort_order: 1,
