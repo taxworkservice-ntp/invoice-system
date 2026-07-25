@@ -143,6 +143,7 @@ export function PrintDocument({
                   src={signatureUrl}
                   alt="ลายเซ็น"
                   className="absolute left-1/2 bottom-0 h-[40px] -translate-x-1/2 object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               )}
             </div>
@@ -185,6 +186,7 @@ export function PrintDocument({
                   src={stampUrl}
                   alt="ตราประทับ"
                   className="h-[44px] w-auto object-contain opacity-90"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               </div>
             )}
@@ -208,6 +210,7 @@ export function PrintDocument({
                       src={signatureUrl}
                       alt="ลายเซ็น"
                       className="absolute left-1/2 bottom-0 h-[40px] -translate-x-1/2 object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   )}
                 </div>

@@ -93,6 +93,7 @@ export interface ClientProfile {
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;
   show_stamp_on_docs?: Record<string, boolean> | null;
+  show_logo: boolean;
   dev_mode_enabled: boolean;
   dev_effective_date: string | null;
   created_at: string;

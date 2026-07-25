@@ -32,6 +32,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
               alt={clientProfile.company_name_th}
               style={{ width: getLogoPx(clientProfile.logo_size) }}
               className="mb-2 block"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           ) : null}
           <h1 className="text-[15px] font-semibold tracking-tight text-[#243043] leading-tight">

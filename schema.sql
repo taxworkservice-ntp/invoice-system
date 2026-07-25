@@ -1148,7 +1148,6 @@ create policy "Admin toggles client dev mode"
 -- ============================================================
 -- R2 STORAGE
 -- ============================================================
-
 -- Supabase stores file metadata only. File bytes live in Cloudflare R2.
 -- Supported private path prefixes:
 -- logos/{user_id}/...
@@ -1157,3 +1156,10 @@ create policy "Admin toggles client dev mode"
 -- pdfs/{user_id}/{document_id}/...
 -- exports/{user_id}/...
 -- attachments/{user_id}/...
+
+-- ============================================================
+-- MIGRATIONS (run these against existing databases)
+-- ============================================================
+
+-- Add show_logo toggle to client_profiles
+alter table client_profiles add column if not exists show_logo boolean not null default true;

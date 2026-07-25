@@ -193,6 +193,7 @@ export function PrintDocumentClassic({
                   alt={clientProfile.company_name_th}
                   style={{ width: getLogoPx(clientProfile.logo_size) }}
                   className="print-classic-logo-img"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               ) : (
                 <div className="print-classic-logo-fallback">logo</div>
@@ -851,6 +852,7 @@ export function PrintDocumentClassic({
                     src={signatureUrl}
                     alt="ลายเซ็น"
                     className="print-classic-sig-img"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 ) : null}
               </div>
@@ -882,6 +884,7 @@ export function PrintDocumentClassic({
                   src={stampUrl}
                   alt="ตราประทับ"
                   className="print-classic-stamp-img"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               </div>
             ) : null}

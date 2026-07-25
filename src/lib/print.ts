@@ -217,6 +217,10 @@ export async function getPrintableDocumentDataBase(
     clientProfile.stamp_url = null;
   }
 
+  if (clientProfile.show_logo === false) {
+    clientProfile.logo_url = null;
+  }
+
   const dnBySourceId = new Map<string, InvoiceDeliveryNote>();
   for (const dn of invoiceDeliveryNotes) {
     dnBySourceId.set(dn.delivery_note_id, dn);

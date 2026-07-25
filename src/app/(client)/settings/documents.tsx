@@ -33,12 +33,15 @@ export default function SettingsDocumentsPage() {
 
   const [logoKey, setLogoKey] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(LOGO_SIZE_OPTIONS[0].value);
+  const [showLogo, setShowLogo] = useState(true);
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic">("modern");
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
   const [showSignatureOnWht, setShowSignatureOnWht] = useState(true);
   const [showStampOnWht, setShowStampOnWht] = useState(true);
+  const [showSignatureMaster, setShowSignatureMaster] = useState(true);
+  const [showStampMaster, setShowStampMaster] = useState(true);
   const [showSignatureOnDocs, setShowSignatureOnDocs] = useState<Record<string, boolean>>({});
   const [showStampOnDocs, setShowStampOnDocs] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
@@ -49,6 +52,7 @@ export default function SettingsDocumentsPage() {
     if (clientProfile) {
       setLogoKey(clientProfile.logo_url);
       setLogoSize((clientProfile as any).logo_size || "square");
+      setShowLogo(clientProfile.show_logo !== false);
       setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
       setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey((clientProfile as any).signature_url || null);
@@ -64,6 +68,14 @@ export default function SettingsDocumentsPage() {
         }
         return acc;
       }, {} as Record<string, boolean>));
+      const sigDocsAllOn = DOC_VISIBILITY_TYPES
+        .filter(t => t.key !== "wht")
+        .every(t => showSignatureOnDocs[t.key] !== false);
+      // Need computed from above, but above state hasn't updated yet. Compute raw:
+      const sigMap = (clientProfile as any).show_signature_on_docs as Record<string, boolean> | null;
+      setShowSignatureMaster(!sigMap || !Object.values(sigMap).every(v => v === false));
+      const stpMap = (clientProfile as any).show_stamp_on_docs as Record<string, boolean> | null;
+      setShowStampMaster(!stpMap || !Object.values(stpMap).every(v => v === false));
       setShowStampOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
         if (t.key === "wht") {
           acc[t.key] = clientProfile.show_stamp_on_wht !== false;
@@ -85,14 +97,19 @@ export default function SettingsDocumentsPage() {
     const payload: Record<string, unknown> = {
       logo_url: logoKey,
       logo_size: logoSize,
+      show_logo: showLogo,
       pdf_template: pdfTemplate,
       classic_terms: classicTerms.trim() || null,
       signature_url: signatureKey,
       stamp_url: stampKey,
       show_signature_on_wht: showSignatureOnWht,
       show_stamp_on_wht: showStampOnWht,
-      show_signature_on_docs: Object.values(showSignatureOnDocs).every(Boolean) ? null : showSignatureOnDocs,
-      show_stamp_on_docs: Object.values(showStampOnDocs).every(Boolean) ? null : showStampOnDocs,
+      show_signature_on_docs: !showSignatureMaster
+        ? DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: false }), {})
+        : (DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").every(t => showSignatureOnDocs[t.key] !== false) ? null : DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: showSignatureOnDocs[t.key] !== false }), {} as Record<string, boolean>)),
+      show_stamp_on_docs: !showStampMaster
+        ? DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: false }), {})
+        : (DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").every(t => showStampOnDocs[t.key] !== false) ? null : DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: showStampOnDocs[t.key] !== false }), {} as Record<string, boolean>)),
     };
 
     const { error: err } = await supabase
@@ -118,7 +135,12 @@ export default function SettingsDocumentsPage() {
 
   const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template === "classic" ? "classic" : "modern") ||
-    classicTerms !== (clientProfile?.classic_terms || "");
+    classicTerms !== (clientProfile?.classic_terms || "") ||
+    logoKey !== (clientProfile?.logo_url ?? null) ||
+    logoSize !== ((clientProfile as any)?.logo_size || "square") ||
+    showLogo !== (clientProfile?.show_logo !== false) ||
+    signatureKey !== ((clientProfile as any)?.signature_url ?? null) ||
+    stampKey !== ((clientProfile as any)?.stamp_url ?? null);
 
   return (
     <AppShell title="ตั้งค่า > รูปแบบเอกสาร">
@@ -128,7 +150,7 @@ export default function SettingsDocumentsPage() {
         <Card>
           <div className="space-y-3">
             {profile && (
-              <LogoUpload userId={profile.id} currentLogoKey={logoKey} onLogoChange={setLogoKey} />
+              <LogoUpload userId={profile.id} currentLogoKey={logoKey} onLogoChange={(k) => { setLogoKey(k); setSaved(false); }} />
             )}
 
             {logoKey && (
@@ -141,6 +163,18 @@ export default function SettingsDocumentsPage() {
                   <option key={opt.value} value={opt.value}>{opt.label} ({opt.px}px)</option>
                 ))}
               </Select>
+            )}
+
+            {logoKey && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showLogo}
+                  onChange={(e) => { setShowLogo(e.target.checked); setSaved(false); }}
+                  className="w-3.5 h-3.5 accent-primary rounded"
+                />
+                <span className="text-xs text-gray-600">แสดงโลโก้ในเอกสาร</span>
+              </label>
             )}
 
             <div className="border-t border-[#E8E6DF] pt-3">
@@ -194,26 +228,47 @@ export default function SettingsDocumentsPage() {
                     onKeyChange={(k) => { setSignatureKey(k); setSaved(false); }}
                     label="ลายเซ็น"
                   />
-                  <div>
-                    <p className="text-[10px] font-medium text-gray-400 mb-1.5">แสดงลายเซ็นในเอกสาร:</p>
-                    <div className="grid grid-cols-4 gap-x-3 gap-y-1">
-                      {DOC_VISIBILITY_TYPES.map((t) => (
-                        <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={showSignatureOnDocs[t.key] !== false}
-                            onChange={(e) => {
-                              setShowSignatureOnDocs({ ...showSignatureOnDocs, [t.key]: e.target.checked });
-                              if (t.key === "wht") setShowSignatureOnWht(e.target.checked);
-                              setSaved(false);
-                            }}
-                            className="w-3 h-3 accent-primary rounded"
-                          />
-                          <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
-                        </label>
-                      ))}
+                  {signatureKey && (
+                    <div>
+                      <label className="flex items-center gap-2 cursor-pointer mb-2">
+                        <input
+                          type="checkbox"
+                          checked={showSignatureMaster}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setShowSignatureMaster(on);
+                            const next: Record<string, boolean> = {};
+                            DOC_VISIBILITY_TYPES.forEach(t => { next[t.key] = on; });
+                            setShowSignatureOnDocs(next);
+                            if (!on) setShowSignatureOnWht(false);
+                            else setShowSignatureOnWht(true);
+                            setSaved(false);
+                          }}
+                          className="w-3.5 h-3.5 accent-primary rounded"
+                        />
+                        <span className="text-xs text-gray-600">แสดงลายเซ็นในเอกสาร</span>
+                      </label>
+                      {showSignatureMaster && (
+                        <div className="grid grid-cols-4 gap-x-3 gap-y-1 ml-5">
+                          {DOC_VISIBILITY_TYPES.map((t) => (
+                            <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={showSignatureOnDocs[t.key] !== false}
+                                onChange={(e) => {
+                                  setShowSignatureOnDocs({ ...showSignatureOnDocs, [t.key]: e.target.checked });
+                                  if (t.key === "wht") setShowSignatureOnWht(e.target.checked);
+                                  setSaved(false);
+                                }}
+                                className="w-3 h-3 accent-primary rounded"
+                              />
+                              <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <ImageUpload
@@ -223,26 +278,47 @@ export default function SettingsDocumentsPage() {
                     onKeyChange={(k) => { setStampKey(k); setSaved(false); }}
                     label="ตราประทับ"
                   />
-                  <div>
-                    <p className="text-[10px] font-medium text-gray-400 mb-1.5">แสดงตราประทับในเอกสาร:</p>
-                    <div className="grid grid-cols-4 gap-x-3 gap-y-1">
-                      {DOC_VISIBILITY_TYPES.map((t) => (
-                        <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={showStampOnDocs[t.key] !== false}
-                            onChange={(e) => {
-                              setShowStampOnDocs({ ...showStampOnDocs, [t.key]: e.target.checked });
-                              if (t.key === "wht") setShowStampOnWht(e.target.checked);
-                              setSaved(false);
-                            }}
-                            className="w-3 h-3 accent-primary rounded"
-                          />
-                          <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
-                        </label>
-                      ))}
+                  {stampKey && (
+                    <div>
+                      <label className="flex items-center gap-2 cursor-pointer mb-2">
+                        <input
+                          type="checkbox"
+                          checked={showStampMaster}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setShowStampMaster(on);
+                            const next: Record<string, boolean> = {};
+                            DOC_VISIBILITY_TYPES.forEach(t => { next[t.key] = on; });
+                            setShowStampOnDocs(next);
+                            if (!on) setShowStampOnWht(false);
+                            else setShowStampOnWht(true);
+                            setSaved(false);
+                          }}
+                          className="w-3.5 h-3.5 accent-primary rounded"
+                        />
+                        <span className="text-xs text-gray-600">แสดงตราประทับในเอกสาร</span>
+                      </label>
+                      {showStampMaster && (
+                        <div className="grid grid-cols-4 gap-x-3 gap-y-1 ml-5">
+                          {DOC_VISIBILITY_TYPES.map((t) => (
+                            <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={showStampOnDocs[t.key] !== false}
+                                onChange={(e) => {
+                                  setShowStampOnDocs({ ...showStampOnDocs, [t.key]: e.target.checked });
+                                  if (t.key === "wht") setShowStampOnWht(e.target.checked);
+                                  setSaved(false);
+                                }}
+                                className="w-3 h-3 accent-primary rounded"
+                              />
+                              <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
               <p className="text-[11px] text-[#888780] mt-2">

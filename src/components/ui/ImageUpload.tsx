@@ -93,6 +93,9 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
   }
 
   function handleRemove() {
+    if (currentKey) {
+      deleteFromR2(currentKey).catch(() => undefined);
+    }
     onKeyChange(null);
     setPreview(null);
     setUploadError("");
