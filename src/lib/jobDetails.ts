@@ -8,6 +8,7 @@ export interface JobDetailFieldConfig {
   sort_order: number;
   is_enabled: boolean;
   is_custom: boolean;
+  default_unit?: string | null;
 }
 
 export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
@@ -28,6 +29,7 @@ export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
     sort_order: 1,
     is_enabled: true,
     is_custom: false,
+    default_unit: "มม.",
   },
   {
     field_key: "position",
@@ -75,6 +77,7 @@ export function normalizeJobDetailFields(fields?: ItemJobDetailField[] | null): 
         sort_order: field.sort_order,
         is_enabled: field.is_enabled,
         is_custom: field.is_custom,
+        default_unit: field.default_unit ?? defaultField?.default_unit ?? null,
       };
     })
     .sort((a, b) => a.sort_order - b.sort_order);

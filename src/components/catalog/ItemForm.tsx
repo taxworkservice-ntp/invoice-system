@@ -200,6 +200,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
       sort_order: field.sort_order,
       is_enabled: field.is_enabled,
       is_custom: field.is_custom,
+      default_unit: field.default_unit ?? null,
     }));
 
     if (fieldRecords.length > 0) {
@@ -599,6 +600,26 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                       <span className="rounded-full border border-[#E8E6DF] bg-[#FBFAF7] px-2 py-1 text-[10px] text-[#888780]">
                         {field.field_type === "dimension" ? "ขนาด" : "ข้อความ"}
                       </span>
+                      {field.field_type === "dimension" && (
+                        <select
+                          value={field.default_unit || "มม."}
+                          onChange={(e) =>
+                            setJobDetailFields((prev) =>
+                              prev.map((f) =>
+                                f.field_key === field.field_key
+                                  ? { ...f, default_unit: e.target.value }
+                                  : f,
+                              ),
+                            )
+                          }
+                          className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1 text-[11px]"
+                        >
+                          <option value="มม.">มม.</option>
+                          <option value="ซม.">ซม.</option>
+                          <option value="นิ้ว">นิ้ว</option>
+                          <option value="เมตร">เมตร</option>
+                        </select>
+                      )}
                       <div className="flex items-center rounded-lg border border-[#E8E6DF] bg-white">
                         <button
                           type="button"

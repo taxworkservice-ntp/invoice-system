@@ -1755,7 +1755,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                         className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                                       />
                                       <select
-                                        value={getJobDetailValue(item, `${field.field_key}_unit`) || "มม."}
+                                        value={getJobDetailValue(item, `${field.field_key}_unit`) || field.default_unit || "มม."}
                                         onChange={(e) => updateJobDetail(item.id, `${field.field_key}_unit`, e.target.value)}
                                         className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-[11px]"
                                       >

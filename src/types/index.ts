@@ -218,6 +218,7 @@ export interface ItemJobDetailField {
   sort_order: number;
   is_enabled: boolean;
   is_custom: boolean;
+  default_unit: string | null;
   created_at: string;
   updated_at: string;
 }
