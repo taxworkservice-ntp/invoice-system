@@ -18,7 +18,8 @@ export default defineConfig({
     },
   },
   build: {
-    modulePreload: { polyfill: true },
+    target: ["es2020", "safari15"],
+    modulePreload: false,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
