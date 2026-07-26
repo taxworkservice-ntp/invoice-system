@@ -543,74 +543,83 @@ export function PrintDocumentClassicV2({
                 </tr>
               </thead>
               <tbody>
-                {lineItems.map((item, index) => {
-                  const isDnHeader = item.source_document_id && !item.source_line_item_id && item.quantity === 0 && item.unit_price === 0;
-                  if (isDnHeader) {
-                    const dnRef = lineDeliveryNoteMap[item.id];
-                    const dateStr = item.line_note || (dnRef?.issue_date ? `วันที่ส่งของ: ${formatDateBuddhist(dnRef.issue_date)}` : "");
+                {(() => {
+                  let running = 0;
+                  return lineItems.map((item, index) => {
+                    const isDnSub = !!(item.source_document_id && item.source_line_item_id);
+                    const isDnHeader = item.source_document_id && !item.source_line_item_id && item.quantity === 0 && item.unit_price === 0;
+
+                    if (isDnHeader) {
+                      running++;
+                      const dnRef = lineDeliveryNoteMap[item.id];
+                      const dateStr = item.line_note || (dnRef?.issue_date ? `วันที่ส่งของ: ${formatDateBuddhist(dnRef.issue_date)}` : "");
+                      return (
+                        <tr key={item.id} className="print-classic-dn-header-row">
+                          <td className="center">{running}</td>
+                          <td colSpan={hideDeliveryAmounts ? 3 : 4} className="print-classic-dn-header-label">
+                            {item.item_name}{dateStr ? ` — ${dateStr}` : ""}
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    if (!isDnSub) running++;
+
+                    const hasLineDiscount =
+                      item.discount_amount > 0 || item.discount_percent > 0;
+                    const deliveryNoteRef = lineDeliveryNoteMap[item.id];
+                    const printableNote = getPrintableLineNote(item.line_note);
                     return (
-                      <tr key={item.id} className="print-classic-dn-header-row">
-                        <td colSpan={hideDeliveryAmounts ? 4 : 5} className="px-2 py-1 text-[11px]">
-                          📋 {item.item_name}{dateStr ? ` — ${dateStr}` : ""}
+                      <tr key={item.id}>
+                        <td className="center">{isDnSub ? "" : running}</td>
+                        <td className="print-classic-item-name">
+                          {item.item_name}
+                          {printableNote ? (
+                            <div className="print-classic-item-note">
+                              {printableNote}
+                            </div>
+                          ) : null}
+                          {hasLineDiscount && !hideDeliveryAmounts ? (
+                            <div className="print-classic-discount-note">
+                              ส่วนลด {item.discount_percent || 0}%
+                              {item.discount_amount > 0
+                                ? ` | -${formatCurrency(item.discount_amount)}`
+                                : ""}
+                            </div>
+                          ) : null}
+                          {showInlineDeliveryNotes && deliveryNoteRef && !isDnSub ? (
+                            <div className="print-classic-dn-note">
+                              อ้างอิง {deliveryNoteRef.number}
+                              {deliveryNoteRef.issue_date
+                                ? ` (${formatDateBuddhist(deliveryNoteRef.issue_date)})`
+                                : ""}
+                            </div>
+                          ) : null}
+                          {!document.vat_registered &&
+                          (receiptInvoices.length > 1 ||
+                            billingNoteInvoices.length > 1) &&
+                          invoiceNumberMap[item.document_id] ? (
+                            <div className="print-classic-dn-note">
+                              ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
+                            </div>
+                          ) : null}
                         </td>
+                        <td className="center">{item.quantity.toLocaleString("th-TH")}</td>
+                        <td className="center">{item.unit}</td>
+                        {!hideDeliveryAmounts && (
+                          <>
+                            <td className="right">
+                              {formatCurrency(item.unit_price)}
+                            </td>
+                            <td className="right bold">
+                              {formatCurrency(item.line_total)}
+                            </td>
+                          </>
+                        )}
                       </tr>
                     );
-                  }
-
-                  const hasLineDiscount =
-                    item.discount_amount > 0 || item.discount_percent > 0;
-                  const deliveryNoteRef = lineDeliveryNoteMap[item.id];
-                  const printableNote = getPrintableLineNote(item.line_note);
-                  return (
-                    <tr key={item.id}>
-                      <td className="center">{startIndex + index}</td>
-                      <td className="print-classic-item-name">
-                        {item.item_name}
-                        {printableNote ? (
-                          <div className="print-classic-item-note">
-                            {printableNote}
-                          </div>
-                        ) : null}
-                        {hasLineDiscount && !hideDeliveryAmounts ? (
-                          <div className="print-classic-discount-note">
-                            ส่วนลด {item.discount_percent || 0}%
-                            {item.discount_amount > 0
-                              ? ` | -${formatCurrency(item.discount_amount)}`
-                              : ""}
-                          </div>
-                        ) : null}
-                        {showInlineDeliveryNotes && deliveryNoteRef ? (
-                          <div className="print-classic-dn-note">
-                            อ้างอิง {deliveryNoteRef.number}
-                            {deliveryNoteRef.issue_date
-                              ? ` (${formatDateBuddhist(deliveryNoteRef.issue_date)})`
-                              : ""}
-                          </div>
-                        ) : null}
-                        {!document.vat_registered &&
-                        (receiptInvoices.length > 1 ||
-                          billingNoteInvoices.length > 1) &&
-                        invoiceNumberMap[item.document_id] ? (
-                          <div className="print-classic-dn-note">
-                            ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td className="center">{item.quantity.toLocaleString("th-TH")}</td>
-                      <td className="center">{item.unit}</td>
-                      {!hideDeliveryAmounts && (
-                        <>
-                          <td className="right">
-                            {formatCurrency(item.unit_price)}
-                          </td>
-                          <td className="right bold">
-                            {formatCurrency(item.line_total)}
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  );
-                })}
+                  });
+                })()}
                 {Array.from({ length: blankLineCount }).map((_, index) => (
                   <tr
                     key={`blank-${index}`}
