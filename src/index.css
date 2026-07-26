@@ -719,6 +719,19 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   line-height: 1.2;
 }
 
+.print-classic-dn-header-row td {
+  font-weight: 600;
+  color: #047857;
+  background: #ecfdf5;
+  border-bottom: 0.5px solid #a7f3d0;
+  padding-top: 2mm;
+  padding-bottom: 1.5mm;
+}
+
+.print-classic-dn-header-row:first-child td {
+  padding-top: 1.5mm;
+}
+
 /* TERMS + TOTALS */
 .print-classic-bottom-row {
   position: relative;

@@ -548,6 +548,19 @@ export function PrintDocumentClassic({
               </thead>
               <tbody>
                 {lineItems.map((item, index) => {
+                  const isDnHeader = item.source_document_id && !item.source_line_item_id && item.quantity === 0 && item.unit_price === 0;
+                  if (isDnHeader) {
+                    const dnRef = lineDeliveryNoteMap[item.id];
+                    const dateStr = item.line_note || (dnRef?.issue_date ? `วันที่ส่งของ: ${formatDateBuddhist(dnRef.issue_date)}` : "");
+                    return (
+                      <tr key={item.id} className="print-classic-dn-header-row">
+                        <td colSpan={hideDeliveryAmounts ? 4 : 6} className="px-2 py-1 text-[11px]">
+                          📋 {item.item_name}{dateStr ? ` — ${dateStr}` : ""}
+                        </td>
+                      </tr>
+                    );
+                  }
+
                   const hasLineDiscount =
                     item.discount_amount > 0 || item.discount_percent > 0;
                   const deliveryNoteRef = lineDeliveryNoteMap[item.id];

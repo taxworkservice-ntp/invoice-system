@@ -351,31 +351,54 @@ export function InvoiceFromDeliveryNotesForm() {
       if (invoiceError || !invoice) throw invoiceError || new Error("ไม่สามารถสร้างใบแจ้งหนี้ได้");
       invoiceId = invoice.id;
 
-      const lineRecords = selectedDeliveryNotes.map((dn, index) => {
-        const dnNumber = dn.doc_number || dn.id.slice(0, 8);
-        const subtotal = getDeliveryNoteSubtotal(dn);
-        return {
-        document_id: invoice.id,
-        user_id: userId,
-        item_id: null,
-        item_name: `ใบส่งของ ${dnNumber}`,
-        line_note: buildDeliveryNoteLineNote(dn),
-        item_sku: null,
-        item_type: "service",
-        unit: "ใบ",
-        unit_price: subtotal,
-        quantity: 1,
-        base_quantity: null,
-        discount_percent: 0,
-        discount_amount: 0,
-        qty_carton: null,
-        carton_unit: null,
-        line_total: subtotal,
-        source_document_id: dn.id,
-        source_line_item_id: null,
-        sort_order: index,
-        };
-      });
+      const lineRecords: any[] = [];
+      let sortIndex = 0;
+      for (const dn of selectedDeliveryNotes) {
+        lineRecords.push({
+          document_id: invoice.id,
+          user_id: userId,
+          item_id: null,
+          item_name: `ใบส่งของ ${dn.doc_number || dn.id.slice(0, 8)}`,
+          line_note: dn.issue_date ? `วันที่ส่งของ: ${formatBuddhistDate(dn.issue_date)}` : null,
+          item_sku: null,
+          item_type: "service",
+          unit: "",
+          unit_price: 0,
+          quantity: 0,
+          base_quantity: null,
+          discount_percent: 0,
+          discount_amount: 0,
+          qty_carton: null,
+          carton_unit: null,
+          line_total: 0,
+          source_document_id: dn.id,
+          source_line_item_id: null,
+          sort_order: sortIndex++,
+        });
+        for (const li of (dn.line_items || [])) {
+          lineRecords.push({
+            document_id: invoice.id,
+            user_id: userId,
+            item_id: li.item_id || null,
+            item_name: li.item_name,
+            line_note: li.line_note || null,
+            item_sku: li.item_sku || null,
+            item_type: li.item_type || "product",
+            unit: li.unit || "ชิ้น",
+            unit_price: Number(li.unit_price) || 0,
+            quantity: Number(li.quantity) || 0,
+            base_quantity: li.base_quantity ? Number(li.base_quantity) : null,
+            discount_percent: Number(li.discount_percent) || 0,
+            discount_amount: Number(li.discount_amount) || 0,
+            qty_carton: li.qty_carton ? Number(li.qty_carton) : null,
+            carton_unit: li.carton_unit || null,
+            line_total: Number(li.line_total) || 0,
+            source_document_id: dn.id,
+            source_line_item_id: li.id || null,
+            sort_order: sortIndex++,
+          });
+        }
+      }
 
       const { error: lineError } = await supabase.from("document_line_items").insert(lineRecords);
       if (lineError) throw lineError;
