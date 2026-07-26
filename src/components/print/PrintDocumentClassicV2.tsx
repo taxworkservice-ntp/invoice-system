@@ -556,15 +556,9 @@ export function PrintDocumentClassicV2({
                       return (
                         <tr key={item.id} className="print-classic-dn-header-row">
                           <td className="center">{running}</td>
-                          <td className="print-classic-dn-header-label">{item.item_name}{dateStr ? ` — ${dateStr}` : ""}</td>
-                          <td className="center">&nbsp;</td>
-                          <td className="center">&nbsp;</td>
-                          {!hideDeliveryAmounts && (
-                            <>
-                              <td className="right">&nbsp;</td>
-                              <td className="right">&nbsp;</td>
-                            </>
-                          )}
+                          <td colSpan={hideDeliveryAmounts ? 2 : 4} className="print-classic-dn-header-label">
+                            {item.item_name}{dateStr ? ` — ${dateStr}` : ""}
+                          </td>
                         </tr>
                       );
                     }
