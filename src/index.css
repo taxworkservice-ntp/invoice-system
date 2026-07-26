@@ -719,18 +719,13 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   line-height: 1.2;
 }
 
-.print-classic-dn-header-label {
-  font-weight: 600;
-  color: #047857;
-  background: #ecfdf5;
-  font-size: 11pt;
-  padding-left: 2mm;
+.print-classic-dn-header-row td {
+  border-right: 0;
 }
 
-.print-classic-dn-header-row td:first-child {
-  font-weight: 600;
-  color: #047857;
-  background: #ecfdf5;
+.print-classic-dn-header-label {
+  font-size: 11pt;
+  padding-left: 2mm;
 }
 
 /* TERMS + TOTALS */
