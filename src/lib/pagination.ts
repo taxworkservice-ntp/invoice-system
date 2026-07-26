@@ -22,7 +22,7 @@ const CLASSIC_LAST_PAGE_ITEMS = 12;
  */
 export function paginateLineItems(
   lineItems: DocumentLineItem[],
-  template: "modern" | "classic",
+  template: "modern" | "classic" | "classic_v2",
 ): PageBatch[] {
   const fp = template === "modern" ? MODERN_FIRST_PAGE_ITEMS : CLASSIC_FIRST_PAGE_ITEMS;
   const cp = template === "modern" ? MODERN_CONTINUATION_ITEMS : CLASSIC_CONTINUATION_ITEMS;
