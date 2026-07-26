@@ -583,7 +583,7 @@ export function PrintDocumentClassicV2({
                           </div>
                         ) : null}
                       </td>
-                      <td className="center">{item.quantity}</td>
+                      <td className="center">{item.quantity.toLocaleString("th-TH")}</td>
                       <td className="center">{item.unit}</td>
                       {!hideDeliveryAmounts && (
                         <>
