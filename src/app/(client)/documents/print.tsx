@@ -5,6 +5,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { PrintDocument } from "../../../components/print/PrintDocument";
 import type { CopyType } from "../../../components/print/PrintDocument";
 import { PrintDocumentClassic } from "../../../components/print/PrintDocumentClassic";
+import { PrintDocumentClassicV2 } from "../../../components/print/PrintDocumentClassicV2";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { paginateLineItems } from "../../../lib/pagination";
@@ -300,6 +301,15 @@ export default function DocumentPrintPreviewPage() {
                     totalPages={batches.length}
                     batchLineItems={batch.items}
                   />
+                ) : data.template === "classic_v2" ? (
+                  <PrintDocumentClassicV2
+                    data={data}
+                    copyType={type}
+                    pageMode={batch.mode}
+                    pageIndex={i + 1}
+                    totalPages={batches.length}
+                    batchLineItems={batch.items}
+                  />
                 ) : (
                   <PrintDocument
                     data={data}
@@ -400,6 +410,8 @@ return (
                   };
                   return data.template === "classic" ? (
                     <PrintDocumentClassic {...props} />
+                  ) : data.template === "classic_v2" ? (
+                    <PrintDocumentClassicV2 {...props} />
                   ) : (
                     <PrintDocument {...props} />
                   );
