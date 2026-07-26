@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
+import { useClientFeatures } from "../../../hooks/useClientFeatures";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
@@ -29,12 +30,14 @@ const DOC_VISIBILITY_TYPES = [
 export default function SettingsDocumentsPage() {
   const { profile } = useAuth();
   const { clientProfile, loading, setClientProfile } = useClientProfile(profile?.id);
+  const { hasFeature } = useClientFeatures(profile?.id);
   const toast = useToast();
 
+  const hasClassicV2 = hasFeature("classic_v2_template");
   const [logoKey, setLogoKey] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(LOGO_SIZE_OPTIONS[0].value);
   const [showLogo, setShowLogo] = useState(true);
-  const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic">("modern");
+  const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic" | "classic_v2">("modern");
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
@@ -53,7 +56,7 @@ export default function SettingsDocumentsPage() {
       setLogoKey(clientProfile.logo_url);
       setLogoSize((clientProfile as any).logo_size || "square");
       setShowLogo(clientProfile.show_logo !== false);
-      setPdfTemplate(clientProfile.pdf_template === "classic" ? "classic" : "modern");
+      setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
       setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey((clientProfile as any).signature_url || null);
       setStampKey((clientProfile as any).stamp_url || null);
@@ -134,7 +137,7 @@ export default function SettingsDocumentsPage() {
   if (loading) return <AppShell title="ตั้งค่า > รูปแบบเอกสาร"><Spinner /></AppShell>;
 
   const isDirty =
-    pdfTemplate !== (clientProfile?.pdf_template === "classic" ? "classic" : "modern") ||
+    pdfTemplate !== (clientProfile?.pdf_template || "modern") ||
     classicTerms !== (clientProfile?.classic_terms || "") ||
     logoKey !== (clientProfile?.logo_url ?? null) ||
     logoSize !== ((clientProfile as any)?.logo_size || "square") ||
@@ -181,10 +184,11 @@ export default function SettingsDocumentsPage() {
               <p className="text-[11px] font-semibold text-[#888780] mb-2">เทมเพลต PDF</p>
               <Select
                 value={pdfTemplate}
-                onChange={(e) => { setPdfTemplate(e.target.value as "modern" | "classic"); setSaved(false); }}
+                onChange={(e) => { setPdfTemplate(e.target.value as "modern" | "classic" | "classic_v2"); setSaved(false); }}
               >
                 <option value="modern">โมเดิร์น (Modern)</option>
                 <option value="classic">คลาสสิก (Thai Classic)</option>
+                {hasClassicV2 && <option value="classic_v2">คลาสสิก V2</option>}
               </Select>
               <p className="text-[11px] text-[#888780] mt-1">
                 เทมเพลตเริ่มต้นสำหรับเอกสารทุกประเภท มีผลกับเอกสารใหม่เท่านั้น

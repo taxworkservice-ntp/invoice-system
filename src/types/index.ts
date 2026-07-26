@@ -25,7 +25,7 @@ export type DocumentStatus =
 export type ItemType = "product" | "service";
 export type JobDetailPresetField = string;
 export type JobDetailFieldType = "text" | "dimension";
-export type ClientFeatureKey = "service_job_details";
+export type ClientFeatureKey = "service_job_details" | "classic_v2_template";
 
 export type StockMovementType =
   "manual_in" | "manual_out" | "auto_out" | "auto_in" | "return_in";
@@ -83,7 +83,7 @@ export interface ClientProfile {
   default_wht_rate: WhtRate;
   credit_term_days: number;
   stock_deduct_trigger: string;
-  pdf_template: "modern" | "classic";
+  pdf_template: "modern" | "classic" | "classic_v2";
   classic_terms: string | null;
   bank_name: string | null;
   bank_account: string | null;

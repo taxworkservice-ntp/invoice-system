@@ -16,7 +16,7 @@ const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
 const PDF_CANVAS_SCALE = 3;
 
-export type HtmlPrintTemplate = "modern" | "classic";
+export type HtmlPrintTemplate = "modern" | "classic" | "classic_v2";
 
 export interface PrintDocumentData {
   document: Document;
@@ -62,7 +62,7 @@ export interface PrintableDocumentDataBase {
 export function isHtmlPrintTemplate(
   template: string | null | undefined,
 ): template is HtmlPrintTemplate {
-  return template === "modern" || template === "classic";
+  return template === "modern" || template === "classic" || template === "classic_v2";
 }
 
 export async function getPrintableDocumentDataBase(
@@ -291,7 +291,7 @@ export async function getPrintDocumentData(
   const baseData = await getPrintableDocumentDataBase(documentId);
   const rawTemplate = baseData.clientProfile.pdf_template;
   const template: HtmlPrintTemplate =
-    rawTemplate === "classic" ? "classic" : "modern";
+    rawTemplate === "classic" ? "classic" : rawTemplate === "classic_v2" ? "classic_v2" : "modern";
   return { ...baseData, template };
 }
 
@@ -639,6 +639,9 @@ export async function generatePDFDocument(
   if ((data as PrintDocumentData).template === "classic") {
     return generateClassicPDFDocument(data, copyTypes);
   }
+  if ((data as PrintDocumentData).template === "classic_v2") {
+    return generateClassicV2PDFDocument(data, copyTypes);
+  }
   return generateModernPDFDocument(data, copyTypes);
 }
 
@@ -648,5 +651,177 @@ export async function generatePDFBlob(
   if ((data as PrintDocumentData).template === "classic") {
     return generateClassicPDFBlob(data);
   }
+  if ((data as PrintDocumentData).template === "classic_v2") {
+    return generateClassicV2PDFBlob(data);
+  }
   return generateModernPDFBlob(data);
+}
+
+async function renderClassicV2PrintCanvas(
+  data: PrintableDocumentDataBase,
+  copyType: "original" | "copy" = "original",
+  batchLineItems?: DocumentLineItem[],
+  pageMode?: "single" | "first" | "continuation" | "last",
+  pageIndex?: number,
+  totalPages?: number,
+): Promise<HTMLCanvasElement> {
+  const { default: html2canvas } = await import("html2canvas");
+  const container = document.createElement("div");
+  container.style.cssText = `position:fixed;top:0;left:0;width:${A4_WIDTH_MM}mm;height:${A4_HEIGHT_MM}mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;overflow:hidden;`;
+  document.body.appendChild(container);
+  let root: { render: (...args: any[]) => void; unmount: () => void } | null =
+    null;
+
+  try {
+    const { createRoot } = await import("react-dom/client");
+    const { PrintDocumentClassicV2 } =
+      await import("../components/print/PrintDocumentClassicV2");
+    const React = await import("react");
+
+    const printData: PrintDocumentData = {
+      ...data,
+      template: "classic_v2",
+    };
+
+    root = createRoot(container);
+
+    await new Promise<void>((resolve) => {
+      root?.render(
+        React.createElement(PrintDocumentClassicV2, {
+          data: printData,
+          copyType,
+          pageMode: pageMode ?? "single",
+          pageIndex: pageIndex ?? 1,
+          totalPages: totalPages ?? 1,
+          batchLineItems,
+        }),
+      );
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const sheet = container.querySelector<HTMLElement>(".print-sheet");
+    if (!sheet) {
+      throw new Error("Print sheet not found");
+    }
+
+    const images = sheet.querySelectorAll("img");
+    await Promise.all(
+      Array.from(images).map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) resolve();
+            else {
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            }
+          }),
+      ),
+    );
+
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+
+    await new Promise((r) =>
+      requestAnimationFrame(() => requestAnimationFrame(r)),
+    );
+
+    const captureRect = sheet.getBoundingClientRect();
+
+    return await html2canvas(sheet, {
+      scale: PDF_CANVAS_SCALE,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      width: captureRect.width,
+      height: captureRect.height,
+      windowWidth: captureRect.width,
+      windowHeight: captureRect.height,
+      onclone: (clonedDoc) => {
+        const clonedSheet =
+          clonedDoc.querySelector<HTMLElement>(".print-sheet");
+        if (clonedSheet) {
+          clonedSheet.style.width = `${A4_WIDTH_MM}mm`;
+          clonedSheet.style.height = `${A4_HEIGHT_MM}mm`;
+          clonedSheet.style.minHeight = `${A4_HEIGHT_MM}mm`;
+          clonedSheet.style.overflow = "hidden";
+          clonedSheet.style.border = "none";
+          clonedSheet.style.borderRadius = "0";
+          clonedSheet.style.boxShadow = "none";
+        }
+        const clonedTheme = clonedDoc.querySelector<HTMLElement>(
+          ".print-theme-classic",
+        );
+        if (clonedTheme) {
+          clonedTheme.style.border = "none";
+          clonedTheme.style.borderRadius = "0";
+          clonedTheme.style.boxShadow = "none";
+        }
+      },
+    });
+  } finally {
+    root?.unmount();
+    document.body.removeChild(container);
+  }
+}
+
+async function renderClassicV2PrintPages(
+  data: PrintableDocumentDataBase,
+  copyType: "original" | "copy" = "original",
+): Promise<HTMLCanvasElement[]> {
+  const batches = paginateLineItems(data.lineItems, "classic");
+  if (batches.length <= 1) {
+    return [await renderClassicV2PrintCanvas(data, copyType)];
+  }
+  return Promise.all(
+    batches.map((batch, i) =>
+      renderClassicV2PrintCanvas(
+        data,
+        copyType,
+        batch.items,
+        batch.mode,
+        i + 1,
+        batches.length,
+      ),
+    ),
+  );
+}
+
+export async function generateClassicV2PDFDocument(
+  data: PrintableDocumentDataBase,
+  copyTypes: Array<"original" | "copy"> = ["original"],
+) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [A4_WIDTH_MM, A4_HEIGHT_MM],
+  });
+
+  let firstPage = true;
+  for (const copyType of copyTypes) {
+    const pages = await renderClassicV2PrintPages(data, copyType);
+    for (const canvas of pages) {
+      if (!firstPage) {
+        pdf.addPage();
+      }
+      firstPage = false;
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        0,
+        A4_WIDTH_MM,
+        A4_HEIGHT_MM,
+      );
+    }
+  }
+
+  return pdf;
+}
+
+export async function generateClassicV2PDFBlob(
+  data: PrintableDocumentDataBase,
+): Promise<Blob> {
+  const pdf = await generateClassicV2PDFDocument(data, ["original"]);
+  return pdf.output("blob");
 }

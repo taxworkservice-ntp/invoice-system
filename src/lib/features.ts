@@ -11,4 +11,10 @@ export const CLIENT_FEATURES: {
     description:
       "For print/custom production businesses that need color, foil, size, position, material, and remarks per service line.",
   },
+  {
+    key: "classic_v2_template",
+    label: "คลาสสิก V2 Template",
+    description:
+      "Allow this client to select the Classic V2 PDF template in document settings (no discount column, wider QTY field).",
+  },
 ];
