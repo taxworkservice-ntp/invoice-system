@@ -243,7 +243,20 @@ function isDealDone(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   if (nonVoided.length === 0) return true;
 
-  return nonVoided.every((doc) => isResolvedStatus(doc.status));
+  const result = nonVoided.every((doc) => isResolvedStatus(doc.status));
+  const partialDocs = nonVoided.filter((doc) => doc.status === "partially_paid");
+  if (partialDocs.length > 0) {
+    console.log("PARTIAL_DEBUG isDealDone", {
+      total: nonVoided.length,
+      partialCount: partialDocs.length,
+      partialDocNumbers: partialDocs.map(d => d.doc_number),
+      statuses: nonVoided.map(d => d.status),
+      result,
+      isResolvedStatus: nonVoided.map(d => ({ status: d.status, resolved: isResolvedStatus(d.status) })),
+      getCompletedAt: getCompletedAt(documents),
+    });
+  }
+  return result;
 }
 
 function getNextActionLabel(doc: DealDoc | null) {
