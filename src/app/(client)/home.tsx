@@ -599,54 +599,63 @@ export default function HomePage() {
     if (!dismissed.customer) {
       supabase
         .from("customers")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact" })
         .eq("user_id", userId)
         .eq("is_active", true)
-        .then(({ count }) => {
-          if (count === 0) {
-            setShowNudge("customer");
-            setNudgesLoaded(true);
-          } else if (!dismissed.items) {
-            supabase
-              .from("items")
-              .select("id", { count: "exact", head: true })
-              .eq("user_id", userId)
-              .eq("is_active", true)
-              .then(({ count: itemCount }) => {
-                if ((itemCount || 0) < 3) {
-                  const accountAge = clientProfile.created_at
-                    ? Date.now() - new Date(clientProfile.created_at).getTime()
-                    : 0;
-                  if (accountAge > 24 * 60 * 60 * 1000) {
-                    setShowNudge("items");
-                  }
-                }
-                setNudgesLoaded(true);
-              });
-          } else {
-            setNudgesLoaded(true);
-          }
-        });
+        .then(
+          ({ count }) => {
+            if (count === 0) {
+              setShowNudge("customer");
+              setNudgesLoaded(true);
+            } else if (!dismissed.items) {
+              supabase
+                .from("items")
+                .select("id", { count: "exact" })
+                .eq("user_id", userId)
+                .eq("is_active", true)
+                .then(
+                  ({ count: itemCount }) => {
+                    if ((itemCount || 0) < 3) {
+                      const accountAge = clientProfile.created_at
+                        ? Date.now() - new Date(clientProfile.created_at).getTime()
+                        : 0;
+                      if (accountAge > 24 * 60 * 60 * 1000) {
+                        setShowNudge("items");
+                      }
+                    }
+                    setNudgesLoaded(true);
+                  },
+                  () => setNudgesLoaded(true),
+                );
+            } else {
+              setNudgesLoaded(true);
+            }
+          },
+          () => setNudgesLoaded(true),
+        );
       return;
     }
 
     if (!dismissed.items) {
       supabase
         .from("items")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact" })
         .eq("user_id", userId)
         .eq("is_active", true)
-        .then(({ count: itemCount }) => {
-          if ((itemCount || 0) < 3) {
-            const accountAge = clientProfile.created_at
-              ? Date.now() - new Date(clientProfile.created_at).getTime()
-              : 0;
-            if (accountAge > 24 * 60 * 60 * 1000) {
-              setShowNudge("items");
+        .then(
+          ({ count: itemCount }) => {
+            if ((itemCount || 0) < 3) {
+              const accountAge = clientProfile.created_at
+                ? Date.now() - new Date(clientProfile.created_at).getTime()
+                : 0;
+              if (accountAge > 24 * 60 * 60 * 1000) {
+                setShowNudge("items");
+              }
             }
-          }
-          setNudgesLoaded(true);
-        });
+            setNudgesLoaded(true);
+          },
+          () => setNudgesLoaded(true),
+        );
       return;
     }
 

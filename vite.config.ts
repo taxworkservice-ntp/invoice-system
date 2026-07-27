@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://invoice-system.vercel.app",
+        target: "https://invoice.taxworkaccount.com",
         changeOrigin: true,
       },
     },
