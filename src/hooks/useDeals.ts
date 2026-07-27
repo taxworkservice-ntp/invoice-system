@@ -99,12 +99,17 @@ export function useDeals(userId: string | undefined) {
   return { meta, activeDeals, recentDeals, loading, refetch: fetch };
 }
 
+function hasPartial(docs: DealCardData[]) {
+  return docs.some((doc) => doc.status === "partially_paid");
+}
+
 function getStage(docType: string, status: string): "quote" | "invoice" | "collect" | "done" {
   if (docType === "quotation") return "quote";
   if (docType === "tax_invoice_receipt") return "done";
-  if (docType === "invoice" && status !== "paid") return "invoice";
-  if (docType === "billing_note" && status !== "paid") return "collect";
+  if (docType === "invoice" && status !== "paid" && status !== "partially_paid") return "invoice";
+  if (docType === "billing_note" && status !== "paid" && status !== "partially_paid") return "collect";
   if (status === "paid" || status === "generated") return "done";
+  if (status === "partially_paid") return "collect";
   if (docType === "receipt" || docType === "delivery_note" || docType === "credit_note") return "done";
   return "invoice";
 }
@@ -113,22 +118,19 @@ function isResolvedDoc(doc: DealCardData) {
   return ["paid", "voided", "converted", "generated", "issued"].includes(doc.status);
 }
 
-function getLatestUnresolvedDoc(docs: DealCardData[]) {
-  return [...docs].reverse().find((doc) => !isResolvedDoc(doc));
-}
-
 function getCompletionDoc(docs: DealCardData[]) {
   const nonVoided = docs.filter((doc) => doc.status !== "voided");
+  const isPartial = hasPartial(nonVoided);
 
   const receipt = [...nonVoided]
     .reverse()
     .find((doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status));
-  if (receipt) return receipt;
+  if (receipt && !isPartial) return receipt;
 
   const combined = [...nonVoided]
     .reverse()
     .find((doc) => doc.doc_type === "tax_invoice_receipt" && ["issued", "paid"].includes(doc.status));
-  if (combined) return combined;
+  if (combined && !isPartial) return combined;
 
   const paidBilling = [...nonVoided]
     .reverse()
@@ -141,6 +143,10 @@ function getCompletionDoc(docs: DealCardData[]) {
   if (paidInvoice) return paidInvoice;
 
   return null;
+}
+
+function getLatestUnresolvedDoc(docs: DealCardData[]) {
+  return [...docs].reverse().find((doc) => !isResolvedDoc(doc));
 }
 
 function isDealResolved(docs: DealCardData[]) {
