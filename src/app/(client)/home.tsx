@@ -83,6 +83,7 @@ type DashboardDeal = {
   partialReceived: number;
   isPartiallyPaid: boolean;
   taxDocNumber: string | null;
+  isAllVoided: boolean;
 };
 
 type HomeQueue =
@@ -438,6 +439,9 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   ) || null;
   const taxDocNumber = taxDoc?.doc_number || null;
 
+  const isAllVoided = (deal.documents || []).length > 0 &&
+    (deal.documents || []).every((d) => d.status === "voided");
+
   return {
     dealId: deal.id,
     dealNumber: (deal as any).deal_number || null,
@@ -475,6 +479,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     partialReceived,
     isPartiallyPaid,
     taxDocNumber,
+    isAllVoided,
   };
 }
 
@@ -1356,7 +1361,11 @@ export default function HomePage() {
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-center">
-                                  <span className="text-green-500 text-sm font-bold">✓</span>
+                                  {deal.isAllVoided ? (
+                                    <span className="text-stone-400 text-xs font-semibold">ยกเลิก</span>
+                                  ) : (
+                                    <span className="text-green-500 text-sm font-bold">✓</span>
+                                  )}
                                 </td>
                               </tr>
                             );

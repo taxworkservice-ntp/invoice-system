@@ -35,7 +35,7 @@ interface DealWithDocs extends Deal {
 
 type DealFilter = "all" | "active" | "done" | "partial";
 
-type DealStage = "draft" | "waiting" | "pending_payment" | "partial" | "overdue" | "paid";
+type DealStage = "draft" | "waiting" | "pending_payment" | "partial" | "overdue" | "paid" | "voided";
 
 const STAGE_LABELS: Record<DealStage, string> = {
   draft: "ร่าง",
@@ -44,6 +44,7 @@ const STAGE_LABELS: Record<DealStage, string> = {
   partial: "ชำระบางส่วน",
   overdue: "เกินกำหนด",
   paid: "ชำระแล้ว",
+  voided: "ยกเลิก",
 };
 
 const STAGE_COLORS: Record<DealStage, string> = {
@@ -53,6 +54,7 @@ const STAGE_COLORS: Record<DealStage, string> = {
   partial: "bg-amber-100 text-amber-700",
   overdue: "bg-red-50 text-red-700",
   paid: "bg-green-100 text-green-700",
+  voided: "bg-stone-100 text-stone-400",
 };
 
 type DealHistoryItem = {
@@ -78,6 +80,7 @@ const REP_DOC_PRIORITY: Record<string, number> = {
 
 function getDealStage(docs: Document[]): DealStage {
   const nonVoided = docs.filter((d) => d.status !== "voided");
+  if (nonVoided.length === 0 && docs.length > 0) return "voided";
   if (nonVoided.every((d) => d.status === "draft")) return "draft";
   if (nonVoided.some((d) => d.status === "overdue")) return "overdue";
   if (nonVoided.some((d) => d.status === "partially_paid")) return "partial";

@@ -746,6 +746,7 @@ export default function DealDetailPage() {
       })
       .eq("id", activeDoc.document.id);
 
+    toast.success(`ยกเลิก ${activeDoc.document.doc_number || "เอกสาร"} แล้ว — ${invoiceIds.length} ดีลถูกแยกกลับ · สร้างใหม่ได้ทันที`);
     navigate("/home");
   };
 
@@ -795,6 +796,7 @@ export default function DealDetailPage() {
       })
       .eq("id", invoiceId);
 
+    toast.success(`ยกเลิกเอกสารแล้ว — ${dnIds.length} ดีลถูกแยกกลับ · สร้างใหม่ได้ทันที`);
     navigate("/home");
   };
 
