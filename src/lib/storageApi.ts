@@ -19,11 +19,17 @@ export function pdfKey(userId: string, documentId: string, variant: string = "or
 }
 
 export async function getR2PresignedUrl(key: string, _expiresIn: number = 3600): Promise<string> {
+  if (key.startsWith("data:") || key.startsWith("http://") || key.startsWith("https://")) {
+    return key;
+  }
   const result = await apiFetch<{ url: string }>(`/api/storage/download-url?key=${encodeURIComponent(key)}`);
   return result.url;
 }
 
 export function getProxiedImageUrl(key: string): string {
+  if (key.startsWith("data:") || key.startsWith("http://") || key.startsWith("https://")) {
+    return key;
+  }
   return `/api/storage/image-proxy?key=${encodeURIComponent(key)}`;
 }
 

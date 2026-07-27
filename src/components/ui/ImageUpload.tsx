@@ -55,6 +55,11 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
       return;
     }
 
+    if (currentKey.startsWith("data:")) {
+      setPreview(currentKey);
+      return;
+    }
+
     getR2PresignedUrl(currentKey)
       .then(setPreview)
       .catch(() => {
