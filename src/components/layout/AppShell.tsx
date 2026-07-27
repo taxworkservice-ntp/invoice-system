@@ -87,8 +87,8 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
     navigate(impersonateReturn, { replace: true });
   }
 
-  function handleLogout() {
-    supabase.auth.signOut();
+  async function handleLogout() {
+    await supabase.auth.signOut();
     navigate("/login");
   }
 

@@ -69,8 +69,8 @@ export function BottomNav() {
     }
   }
 
-  function handleLogout() {
-    supabase.auth.signOut();
+  async function handleLogout() {
+    await supabase.auth.signOut();
     navigate("/login");
   }
 
