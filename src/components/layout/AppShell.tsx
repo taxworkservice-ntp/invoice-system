@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent, LogOut } from "lucide-react";
 import { TopBar } from "./TopBar";
@@ -46,6 +46,10 @@ const WORKSPACE_ROLE_LABELS: Record<ClientMemberRole, string> = {
 function WorkspaceMark({ profile }: { profile: ClientProfile | null }) {
   const [logoFailed, setLogoFailed] = useState(false);
   const logoUrl = profile?.logo_url && !logoFailed ? getProxiedImageUrl(profile.logo_url) : null;
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [profile?.logo_url]);
 
   if (logoUrl) {
     return (
