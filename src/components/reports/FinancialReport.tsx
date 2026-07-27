@@ -27,12 +27,12 @@ function SummaryCard({ icon, label, value, alert = false, delta, deltaGood = tru
       ? "text-[#1E5A38]"
       : "text-[#C0392B]";
   return (
-    <Card className="min-h-[90px] border-[0.5px] p-3 shadow-sm">
+    <Card className="min-h-[96px] border-[0.5px] p-3 shadow-sm">
       <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500">
         {icon}
         {label}
       </div>
-      <div className={`mt-1.5 text-lg font-semibold tabular-nums ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
+      <div className={`mt-1.5 text-lg font-semibold tabular-nums truncate ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
         ฿ {value}
       </div>
       {deltaFormatted && (
@@ -94,7 +94,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const { summary, monthly, arByCustomer, arAging, topCustomers, byType, cogs, collectionRate, revenueDelta, transactions, lineItems, arDetails, dealNotes, loading, error } = useFinancialReport(userId, year, month);
+  const { summary, monthly, arByCustomer, arAging, topCustomers, byType, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error } = useFinancialReport(userId, year, month);
 
   const today = new Date();
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
@@ -108,6 +108,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       const data = await buildFinancialReportXlsx({
         summary,
         transactions,
+        whtTransactions,
         arByCustomer,
         arDetails,
         arAging,

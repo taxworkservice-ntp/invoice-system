@@ -55,11 +55,16 @@ export interface Transaction {
   date: string;
   doc_number: string;
   doc_type: string;
+  doc_type_raw: string;
   customer_name: string;
+  customer_tax_id: string | null;
+  customer_address: string | null;
   subtotal: number;
   vat_amount: number;
   total_amount: number;
   wht_amount: number;
+  wht_rate: number | null;
+  wht_certificate_no: string | null;
   net_payable: number;
   status: string;
   is_paid: boolean;
@@ -188,6 +193,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
   const [collectionRate, setCollectionRate] = useState(0);
   const [revenueDelta, setRevenueDelta] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [whtTransactions, setWhtTransactions] = useState<Transaction[]>([]);
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [arDetails, setArDetails] = useState<ARDetail[]>([]);
   const [dealNotes, setDealNotes] = useState<DealNoteRow[]>([]);
@@ -210,7 +216,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
 
       const { data: allDocs } = await supabase
         .from("documents")
-        .select("id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, paid_at, issue_date, due_date, customer_id, customer:customer_id(name)")
+        .select("id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, wht_rate, wht_certificate_no, paid_at, issue_date, due_date, customer_id, customer:customer_id(name, tax_id, address)")
         .eq("user_id", userId)
         .neq("doc_type", "delivery_note")
         .neq("doc_type", "credit_note")
@@ -485,17 +491,51 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         date: getRecognitionDate(d),
         doc_number: d.doc_number || "-",
         doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
+        doc_type_raw: d.doc_type,
         customer_name: d.customer?.name || "ไม่ระบุ",
+        customer_tax_id: d.customer?.tax_id || null,
+        customer_address: d.customer?.address || null,
         subtotal: d.subtotal || 0,
         vat_amount: d.vat_amount || 0,
         total_amount: d.total_amount || 0,
         wht_amount: d.wht_amount || 0,
+        wht_rate: d.wht_rate ?? null,
+        wht_certificate_no: d.wht_certificate_no || null,
         net_payable: d.net_payable || 0,
         status: getTransactionStatusLabel(d),
         is_paid: d.status === "paid" || d.doc_type === "receipt" || d.doc_type === "tax_invoice_receipt",
         paid_at: d.paid_at || null,
       }));
       setTransactions(txns);
+
+      const whtDocs = docs.filter((d: any) =>
+        d.wht_amount > 0 &&
+        (d.doc_type === "receipt" || d.doc_type === "tax_invoice_receipt") &&
+        !["draft", "voided"].includes(d.status),
+      );
+      const whtTransactions: Transaction[] = whtDocs.map((d: any) => ({
+        id: d.id,
+        deal_id: d.deal_id || null,
+        deal_number: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
+        date: d.issue_date?.slice(0, 10) || d.created_at?.slice(0, 10) || "-",
+        doc_number: d.doc_number || "-",
+        doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
+        doc_type_raw: d.doc_type,
+        customer_name: d.customer?.name || "ไม่ระบุ",
+        customer_tax_id: d.customer?.tax_id || null,
+        customer_address: d.customer?.address || null,
+        subtotal: d.subtotal || 0,
+        vat_amount: d.vat_amount || 0,
+        total_amount: d.total_amount || 0,
+        wht_amount: d.wht_amount || 0,
+        wht_rate: d.wht_rate ?? null,
+        wht_certificate_no: d.wht_certificate_no || null,
+        net_payable: d.net_payable || 0,
+        status: getTransactionStatusLabel(d),
+        is_paid: true,
+        paid_at: d.paid_at || null,
+      }));
+      setWhtTransactions(whtTransactions);
 
       // MoM revenue delta
       const prevM = month === 1 ? 12 : month - 1;
@@ -531,7 +571,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
     fetchData();
   }, [fetchData]);
 
-  return { summary, byType, monthly, topCustomers, arAging, arByCustomer, cogs, collectionRate, revenueDelta, transactions, lineItems, arDetails, dealNotes, loading, error, refetch: fetchData };
+  return { summary, byType, monthly, topCustomers, arAging, arByCustomer, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error, refetch: fetchData };
 }
 
 export function useStockReport(userId: string | undefined, dateFrom: string, dateTo: string) {

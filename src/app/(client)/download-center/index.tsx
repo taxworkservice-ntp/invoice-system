@@ -69,7 +69,7 @@ export default function DownloadCenterPage() {
   const [customYear, setCustomYear] = useState(currentYear);
   const [quickFilter, setQuickFilter] = useState<"thisMonth" | "prevMonth">("thisMonth");
 
-  const { summary: finSummary, transactions: finTransactions, arByCustomer: finArByCustomer, arDetails: finArDetails, arAging: finArAging, topCustomers: finTopCustomers, monthly: finMonthly, byType: finByType, lineItems: finLineItems, dealNotes: finDealNotes, cogs: finCogs, collectionRate: finCollectionRate } = useFinancialReport(userId, finYear, finMonth);
+  const { summary: finSummary, whtTransactions: finWhtTransactions, transactions: finTransactions, arByCustomer: finArByCustomer, arDetails: finArDetails, arAging: finArAging, topCustomers: finTopCustomers, monthly: finMonthly, byType: finByType, lineItems: finLineItems, dealNotes: finDealNotes, cogs: finCogs, collectionRate: finCollectionRate } = useFinancialReport(userId, finYear, finMonth);
 
   const isVatRegistered = clientProfile?.vat_registered;
 
@@ -268,6 +268,7 @@ export default function DownloadCenterPage() {
       const buffer = await buildFinancialReportXlsx({
         summary: finSummary,
         transactions: finTransactions,
+        whtTransactions: finWhtTransactions,
         arByCustomer: finArByCustomer,
         arDetails: finArDetails,
         arAging: finArAging,

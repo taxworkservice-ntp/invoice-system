@@ -32,6 +32,7 @@ type DealDoc = Pick<
   | "status"
   | "total_amount"
   | "net_payable"
+  | "amount_received"
   | "due_date"
   | "created_at"
   | "updated_at"
@@ -79,6 +80,8 @@ type DashboardDeal = {
   internalNote: string;
   noteAuthorRole: string;
   docTypeLabel: string;
+  partialReceived: number;
+  isPartiallyPaid: boolean;
 };
 
 type HomeQueue =
@@ -425,6 +428,10 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const latestNoteRole =
     (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
 
+  const partialDoc = (deal.documents || []).find((d) => d.status === "partially_paid");
+  const partialReceived = partialDoc?.amount_received || 0;
+  const isPartiallyPaid = !!partialDoc;
+
   return {
     dealId: deal.id,
     dealNumber: (deal as any).deal_number || null,
@@ -459,6 +466,8 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     internalNote: latestNote,
     noteAuthorRole: latestNoteRole,
     docTypeLabel: latestDocument?.doc_type ? (DOC_TYPE_LABELS[latestDocument.doc_type]?.th || latestDocument.doc_type) : "",
+    partialReceived,
+    isPartiallyPaid,
   };
 }
 
@@ -511,7 +520,8 @@ export default function HomePage() {
         customers(id, name, code, avatar_initials, avatar_color),
         documents(
           id, doc_type, doc_number, status,
-          total_amount, net_payable, due_date, paid_at,
+          total_amount, net_payable, amount_received,
+          due_date, paid_at,
           created_at, updated_at
         )
       `,
@@ -1178,6 +1188,11 @@ export default function HomePage() {
                               >
                                 <span className="text-[#475467] min-w-[100px] inline-block text-right">
                                   ฿ {formatCurrency(deal.netPayable)}
+                                  {deal.isPartiallyPaid && deal.partialReceived > 0 && (
+                                    <div className="text-[10px] text-amber-700 font-medium leading-tight">
+                                      รับแล้ว ฿{formatCurrency(deal.partialReceived)}
+                                    </div>
+                                  )}
                                 </span>
                               </td>
                                <td className="px-3 py-2 text-right">

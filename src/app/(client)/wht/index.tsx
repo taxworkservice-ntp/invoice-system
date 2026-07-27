@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Undo2 } from "lucide-react";
+import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Circle } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -612,13 +612,9 @@ export default function WhtPage() {
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
-                        <SortableTh
-                          label="#"
-                          active={tableSort.sort.key === "created_at"}
-                          dir={tableSort.sort.dir}
-                          onClick={() => tableSort.handleSort("created_at")}
-                          className="px-3 py-2.5 w-[44px]"
-                        />
+                        <th className="px-3 py-2.5 w-[44px] text-center" title="ทำเครื่องหมายว่าเรียบร้อย">
+                          <span className="text-[10px] font-semibold text-[#344054]">✓</span>
+                        </th>
                         <SortableTh
                           label="วันที่จ่าย"
                           active={tableSort.sort.key === "issue_date"}
@@ -650,9 +646,21 @@ export default function WhtPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {tableSort.sorted.map((r, idx) => (
-                        <tr key={r.id} className="border-b border-[#F0EFE9] hover:bg-[#FAFAF8] transition-colors">
-                          <td className="px-3 py-2.5 text-[#AAAAAA] text-[12px]">{idx + 1}</td>
+                      {tableSort.sorted.map((r, idx) => {
+                        const isDone = r.status === "done";
+                        return (
+                        <tr key={r.id} className={`border-b border-[#F0EFE9] hover:bg-[#FAFAF8] transition-colors ${isDone ? "opacity-60" : ""}`}>
+                          <td className="px-3 py-2.5 text-center">
+                            {isDone ? (
+                              <button type="button" onClick={() => handleUnmarkDone(r.id)} className="text-green-500 hover:text-green-600 transition-colors" title="เรียบร้อยแล้ว — คลิกเพื่อย้อนกลับ">
+                                <CheckCircle size={16} />
+                              </button>
+                            ) : (
+                              <button type="button" onClick={() => handleMarkDone(r.id)} className="text-[#CCCCCC] hover:text-green-500 transition-colors" title="รอจัดการ — คลิกเมื่อเรียบร้อย">
+                                <Circle size={16} />
+                              </button>
+                            )}
+                          </td>
                           <td className="px-3 py-2.5 whitespace-nowrap">
                             <div className="text-[#1A1A18]">{formatDate(r.issue_date)}</div>
                             <div className="text-[10px] text-[#AAAAAA] mt-0.5">บันทึก {formatDate(r.created_at)}</div>
@@ -687,24 +695,15 @@ export default function WhtPage() {
                                   <Pencil size={15} />
                                 </button>
                               )}
-                              {r.status !== "done" ? (
-                                <>
-                                  <button type="button" onClick={() => handleMarkDone(r.id)} className="p-1.5 rounded-md hover:bg-green-50 text-[#CCCCCC] hover:text-green-500 transition-colors" title="ทำเครื่องหมายว่าเรียบร้อย">
-                                    <CheckCircle size={15} />
-                                  </button>
-                                  <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
-                                    <Trash2 size={15} />
-                                  </button>
-                                </>
-                              ) : (
-                                <button type="button" onClick={() => handleUnmarkDone(r.id)} className="p-1.5 rounded-md hover:bg-amber-50 text-[#CCCCCC] hover:text-amber-500 transition-colors" title="ย้ายกลับรอจัดการ">
-                                  <Undo2 size={15} />
+                              {r.status !== "done" && (
+                                <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
+                                  <Trash2 size={15} />
                                 </button>
                               )}
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 </div>

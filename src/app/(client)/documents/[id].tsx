@@ -437,7 +437,7 @@ export default function DocumentDetailPage() {
         subtotal: doc.subtotal,
         vat_amount: doc.vat_amount,
         total_amount: doc.total_amount,
-        wht_amount: doc.wht_amount,
+        wht_amount: Math.round(payAmount * ((doc.wht_rate || 0) / 100)),
         net_payable: payAmount,
         payment_method: payMethod,
         amount_received: payAmount,

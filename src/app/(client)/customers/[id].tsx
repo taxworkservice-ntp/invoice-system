@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowRight, ChevronDown, MoreVertical, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronDown, MoreVertical, RotateCcw, Search } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -19,7 +19,7 @@ import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
-import type { Customer, Deal, Document } from "../../../types";
+import type { Customer, Deal, Document, DocumentLineItem } from "../../../types";
 
 const AVATAR_PRESET_COLORS = [
   "#378ADD", "#C2410C", "#1E7E34", "#B45309",
@@ -33,11 +33,32 @@ interface DealWithDocs extends Deal {
   documents: Document[];
 }
 
-type DealFilter = "all" | "active" | "done";
+type DealFilter = "all" | "active" | "done" | "partial";
+
+type DealStage = "draft" | "waiting" | "pending_payment" | "partial" | "overdue" | "paid";
+
+const STAGE_LABELS: Record<DealStage, string> = {
+  draft: "ร่าง",
+  waiting: "รอดำเนินการ",
+  pending_payment: "รอเก็บเงิน",
+  partial: "ชำระบางส่วน",
+  overdue: "เกินกำหนด",
+  paid: "ชำระแล้ว",
+};
+
+const STAGE_COLORS: Record<DealStage, string> = {
+  draft: "bg-stone-100 text-stone-500",
+  waiting: "bg-blue-50 text-blue-600",
+  pending_payment: "bg-green-50 text-green-600",
+  partial: "bg-amber-100 text-amber-700",
+  overdue: "bg-red-50 text-red-700",
+  paid: "bg-green-100 text-green-700",
+};
 
 type DealHistoryItem = {
   deal: DealWithDocs;
-  latestDoc: Document | null;
+  representativeDoc: Document | null;
+  stage: DealStage;
   amount: number;
   isDone: boolean;
   latestDate: string;
@@ -46,9 +67,45 @@ type DealHistoryItem = {
 const DEAL_HISTORY_VIEW_STORAGE_KEY = "customer_deal_history_view";
 const SALES_JOB_DOCUMENT_TYPES = new Set(["quotation", "invoice", "tax_invoice_receipt", "delivery_note"]);
 
-function isResolvedDealDocument(doc: Document | null) {
-  if (!doc) return false;
-  return ["paid", "converted", "generated", "issued", "voided"].includes(doc.status);
+const REP_DOC_PRIORITY: Record<string, number> = {
+  billing_note: 5,
+  invoice: 4,
+  tax_invoice_receipt: 3,
+  quotation: 2,
+  delivery_note: 1,
+  receipt: 0,
+};
+
+function getDealStage(docs: Document[]): DealStage {
+  const nonVoided = docs.filter((d) => d.status !== "voided");
+  if (nonVoided.every((d) => d.status === "draft")) return "draft";
+  if (nonVoided.some((d) => d.status === "overdue")) return "overdue";
+  if (nonVoided.some((d) => d.status === "partially_paid")) return "partial";
+
+  const hasSentInvoice = nonVoided.some((d) => d.doc_type === "invoice" && d.status === "sent");
+  const hasBillingNote = nonVoided.some((d) => d.doc_type === "billing_note");
+
+  if (hasBillingNote) {
+    const bnSentOrOverdue = nonVoided.find((d) => d.doc_type === "billing_note" && (d.status === "sent" || d.status === "overdue"));
+    if (bnSentOrOverdue) return "pending_payment";
+  }
+
+  if (hasSentInvoice) return "waiting";
+
+  if (nonVoided.every((d) => ["paid", "generated", "issued"].includes(d.status))) return "paid";
+
+  return "waiting";
+}
+
+function pickRepresentativeDoc(deal: DealWithDocs): Document | null {
+  const docs = (deal.documents || []).filter((d) => d.status !== "voided");
+  if (docs.length === 0) return null;
+  return [...docs].sort((a, b) => (REP_DOC_PRIORITY[b.doc_type] || 0) - (REP_DOC_PRIORITY[a.doc_type] || 0))[0];
+}
+
+function isDealConsideredDone(docs: Document[]): boolean {
+  const stage = getDealStage(docs);
+  return stage === "paid";
 }
 
 function getSortedDocs(deal: DealWithDocs) {
@@ -59,23 +116,27 @@ function getSortedDocs(deal: DealWithDocs) {
 
 function hasSalesJobDocument(deal: DealWithDocs) {
   return (deal.documents || []).some(
-    (doc) => SALES_JOB_DOCUMENT_TYPES.has(doc.doc_type) && doc.status !== "voided",
+    (doc) => SALES_JOB_DOCUMENT_TYPES.has(doc.doc_type) && !["voided", "draft", "converted"].includes(doc.status),
   );
 }
 
 function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
-  const sortedDocs = getSortedDocs(deal);
-  const latestDoc = sortedDocs.find((doc) => doc.status !== "voided") || sortedDocs[0] || null;
-  const billingDoc = sortedDocs.find((doc) => doc.doc_type === "billing_note" && doc.status !== "voided") || null;
-  const amountDoc = billingDoc || latestDoc;
+  const rep = pickRepresentativeDoc(deal);
+  const docs = deal.documents || [];
+  const stage = getDealStage(docs);
+
+  const billingDoc = docs.find((d) => d.doc_type === "billing_note" && d.status !== "voided") || null;
+  const amountDoc = billingDoc || rep;
   const amount = amountDoc?.net_payable || amountDoc?.total_amount || 0;
-  const latestDate = latestDoc?.issue_date || latestDoc?.updated_at || deal.updated_at;
+  const dates = docs.map((d) => d.issue_date || d.updated_at).filter(Boolean).sort();
+  const latestDate = dates.length > 0 ? dates[dates.length - 1] : deal.updated_at;
 
   return {
     deal,
-    latestDoc,
+    representativeDoc: rep,
+    stage,
     amount,
-    isDone: isResolvedDealDocument(latestDoc),
+    isDone: stage === "paid",
     latestDate,
   };
 }
@@ -114,6 +175,8 @@ export default function CustomerDetailPage() {
   const [newSheetOpen, setNewSheetOpen] = useState(false);
 
   const [dealFilter, setDealFilter] = useState<DealFilter>("all");
+  const [dealSearchQuery, setDealSearchQuery] = useState("");
+  const [dealLineItems, setDealLineItems] = useState<Record<string, DocumentLineItem[]>>({});
   const [dealHistoryView, setDealHistoryView] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
     const stored = localStorage.getItem(DEAL_HISTORY_VIEW_STORAGE_KEY);
@@ -147,7 +210,7 @@ export default function CustomerDetailPage() {
         .eq("customer_id", id)
         .eq("is_active", true)
         .order("updated_at", { ascending: false }),
-    ]).then(([custRes, dealsRes]) => {
+    ]).then(async ([custRes, dealsRes]) => {
       if (custRes.error) {
         setError(custRes.error.message);
       } else {
@@ -165,7 +228,23 @@ export default function CustomerDetailPage() {
         setUseCustomAvatar(Boolean(custRes.data.avatar_initials || custRes.data.avatar_color));
       }
       if (dealsRes.data) {
-        setDeals(dealsRes.data as unknown as DealWithDocs[]);
+        const dealsData = dealsRes.data as unknown as DealWithDocs[];
+        setDeals(dealsData);
+
+        const allDocIds = dealsData.flatMap((d) => (d.documents || []).map((doc) => doc.id));
+        if (allDocIds.length > 0) {
+          const { data: lineItemsData } = await supabase
+            .from("document_line_items")
+            .select("*")
+            .in("document_id", allDocIds)
+            .order("sort_order", { ascending: true });
+          const byDoc: Record<string, DocumentLineItem[]> = {};
+          for (const item of (lineItemsData || []) as DocumentLineItem[]) {
+            if (!byDoc[item.document_id]) byDoc[item.document_id] = [];
+            byDoc[item.document_id].push(item);
+          }
+          setDealLineItems(byDoc);
+        }
       }
       setLoading(false);
     });
@@ -286,42 +365,74 @@ export default function CustomerDetailPage() {
     [deals],
   );
 
+  const searchedDealItems = useMemo(() => {
+    if (!dealSearchQuery.trim()) return dealHistoryItems;
+    const q = dealSearchQuery.toLowerCase();
+    return dealHistoryItems.filter((item) => {
+      if (item.deal.title?.toLowerCase().includes(q)) return true;
+      if (item.deal.deal_number?.toLowerCase().includes(q)) return true;
+      if (item.deal.documents?.some((doc) => doc.doc_number?.toLowerCase().includes(q))) return true;
+      if (item.deal.documents?.some((doc) => {
+        const items = dealLineItems[doc.id] || [];
+        return items.some((li) =>
+          li.item_name?.toLowerCase().includes(q) ||
+          (li.line_note || "").toLowerCase().includes(q),
+        );
+      })) return true;
+      return false;
+    });
+  }, [dealHistoryItems, dealSearchQuery, dealLineItems]);
+
   const activeDealItems = useMemo(
-    () => dealHistoryItems.filter((item) => !item.isDone),
-    [dealHistoryItems],
+    () => searchedDealItems.filter((item) => !item.isDone),
+    [searchedDealItems],
   );
 
   const doneDealItems = useMemo(
-    () => dealHistoryItems.filter((item) => item.isDone),
-    [dealHistoryItems],
+    () => searchedDealItems.filter((item) => item.isDone),
+    [searchedDealItems],
+  );
+
+  const partialDealItems = useMemo(
+    () => searchedDealItems.filter((item) => item.stage === "partial"),
+    [searchedDealItems],
   );
 
   const filteredDealItems = useMemo(() => {
     if (dealFilter === "active") return activeDealItems;
     if (dealFilter === "done") return doneDealItems;
+    if (dealFilter === "partial") return partialDealItems;
     return [...activeDealItems, ...doneDealItems];
-  }, [activeDealItems, dealFilter, doneDealItems]);
+  }, [activeDealItems, dealFilter, doneDealItems, partialDealItems]);
 
   const dealRows = useMemo(
     () =>
       filteredDealItems.map((item) => ({
         ...item,
-        title: item.deal.title || "งานขาย",
-        status: item.latestDoc?.status || "",
+        title: item.deal.title || item.deal.deal_number || "งานขาย",
+        status: item.stage,
       })),
     [filteredDealItems],
   );
   type DealSortKey = "title" | "latestDate" | "status" | "amount";
   const dealSort = useTableSort<(typeof dealRows)[number], DealSortKey>(dealRows, { key: "latestDate", dir: "desc" });
 
-  const totalReceived = dealHistoryItems.reduce((sum, item) => {
-    const paidDoc = item.deal.documents?.find((doc) => doc.status === "paid" && doc.doc_type === "billing_note");
+  const totalReceived = searchedDealItems.reduce((sum, item) => {
+    const paidDoc = item.deal.documents?.find(
+      (doc) => (doc.status === "paid" || doc.status === "partially_paid") && doc.doc_type === "billing_note",
+    );
     return sum + (paidDoc?.amount_received || 0);
   }, 0);
 
-  const unpaid = dealHistoryItems.reduce((sum, item) => {
-    const sentDoc = item.deal.documents?.find((doc) => doc.status === "sent" || doc.status === "overdue");
-    return sum + (sentDoc?.net_payable || 0);
+  const unpaid = searchedDealItems.reduce((sum, item) => {
+    const sentDoc = item.deal.documents?.find(
+      (doc) => doc.status === "sent" || doc.status === "overdue" || doc.status === "partially_paid",
+    );
+    if (!sentDoc) return sum;
+    if (sentDoc.status === "partially_paid") {
+      return sum + Math.max(0, (sentDoc.net_payable || 0) - (sentDoc.amount_received || 0));
+    }
+    return sum + (sentDoc.net_payable || 0);
   }, 0);
 
   if (loading) {
@@ -648,6 +759,18 @@ export default function CustomerDetailPage() {
         </Card>
 
         <div>
+
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="ค้นหาจากชื่องาน เลขที่เอกสาร หรือรายการ..."
+              value={dealSearchQuery}
+              onChange={(e) => setDealSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-[#E8E6DF] bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-[11px] uppercase font-semibold text-[#888780]">
@@ -666,8 +789,8 @@ export default function CustomerDetailPage() {
           </div>
 
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {(["all", "active", "done"] as const).map((tab) => {
-              const count = tab === "all" ? dealHistoryItems.length : tab === "active" ? activeDealItems.length : doneDealItems.length;
+            {(["all", "active", "partial", "done"] as const).map((tab) => {
+              const count = tab === "all" ? dealHistoryItems.length : tab === "active" ? activeDealItems.length : tab === "partial" ? partialDealItems.length : doneDealItems.length;
               return (
                 <button
                   key={tab}
@@ -679,7 +802,7 @@ export default function CustomerDetailPage() {
                       : "bg-[#F7F6F3] text-[#888780] hover:bg-[#E8E6DF]"
                   }`}
                 >
-                  {tab === "all" ? "ทั้งหมด" : tab === "active" ? "กำลังดำเนินการ" : "เสร็จสิ้น"} {count}
+                  {tab === "all" ? "ทั้งหมด" : tab === "active" ? "กำลังดำเนินการ" : tab === "partial" ? "ชำระบางส่วน" : "เสร็จสิ้น"} {count}
                 </button>
               );
             })}
@@ -700,23 +823,23 @@ export default function CustomerDetailPage() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
-                        <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
-                          {item.deal.title || "งานขาย"}
+                          <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
+                            {item.deal.title || item.deal.deal_number || "งานขาย"}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-[#888780]">
+                            {item.representativeDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
+                            {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
+                          </div>
                         </div>
-                        <div className="mt-0.5 text-[11px] text-[#888780]">
-                          {item.latestDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
-                          {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
-                        </div>
-                      </div>
                       <div className="ml-3 shrink-0 text-right">
                         <div className={`font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[13px] text-[#1A1A18]"}`}>
                           ฿ {formatCurrency(item.amount)}
                         </div>
-                        {item.latestDoc && (
-                          <div className="mt-1">
-                            <Badge status={item.latestDoc.status} />
-                          </div>
-                        )}
+                        <div className="mt-1">
+                          <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${STAGE_COLORS[item.stage]}`}>
+                            {STAGE_LABELS[item.stage]}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -727,19 +850,11 @@ export default function CustomerDetailPage() {
                   <thead>
                     <tr className={TABLE.theadTr}>
                       <SortableTh
-                        label="งานขาย / เอกสารล่าสุด"
+                        label="งานขาย / เอกสาร"
                         align="left"
                         active={dealSort.sort.key === "title"}
                         dir={dealSort.sort.dir}
                         onClick={() => dealSort.handleSort("title")}
-                        className={TABLE.thSortable}
-                      />
-                      <SortableTh
-                        label="วันที่"
-                        align="left"
-                        active={dealSort.sort.key === "latestDate"}
-                        dir={dealSort.sort.dir}
-                        onClick={() => dealSort.handleSort("latestDate")}
                         className={TABLE.thSortable}
                       />
                       <SortableTh
@@ -758,11 +873,16 @@ export default function CustomerDetailPage() {
                         onClick={() => dealSort.handleSort("amount")}
                         className={TABLE.thSortable}
                       />
-                      <th className={TABLE.thStaticRight}>เปิด</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dealSort.sorted.map((item) => (
+                    {dealSort.sorted.map((item) => {
+                      const rep = item.representativeDoc;
+                      const isPartial = item.stage === "partial";
+                      const partialReceived = isPartial && rep
+                        ? rep.amount_received || 0
+                        : 0;
+                      return (
                       <tr
                         key={item.deal.id}
                         onClick={() => navigate(`/deals/${item.deal.id}`)}
@@ -772,28 +892,29 @@ export default function CustomerDetailPage() {
                       >
                         <td className="px-3 py-2">
                           <div className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-[#8A8478]" : "text-[#111827]"}`}>
-                            {item.deal.title || "งานขาย"}
+                            {item.deal.title || item.deal.deal_number || "งานขาย"}
                           </div>
                           <div className="mt-0.5 truncate text-[11px] text-[#667085]">
-                            {item.latestDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
+                            {rep?.doc_number || "ยังไม่มีเลขเอกสาร"}
+                            {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-[12px] text-[#667085]">
-                          {item.latestDate ? formatBuddhistDate(item.latestDate) : "-"}
-                        </td>
                         <td className="px-3 py-2">
-                          {item.latestDoc ? <Badge status={item.latestDoc.status} /> : <span className="text-[12px] text-[#AAA49A]">-</span>}
+                          <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${STAGE_COLORS[item.stage]}`}>
+                            {STAGE_LABELS[item.stage]}
+                          </span>
                         </td>
-                        <td className={`px-3 py-2 text-right font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[#111827]"}`}>
-                          ฿ {formatCurrency(item.amount)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex justify-end">
-                            <ArrowRight className="h-4 w-4 text-[#AAA49A]" />
-                          </div>
+                        <td className={`px-3 py-2 text-right ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[#111827]"}`}>
+                          <div className="font-semibold">฿ {formatCurrency(item.amount)}</div>
+                          {isPartial && partialReceived > 0 && (
+                            <div className="text-[10px] text-[#667085]">
+                              รับแล้ว ฿{formatCurrency(partialReceived)}
+                            </div>
+                          )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -803,7 +924,7 @@ export default function CustomerDetailPage() {
               {(dealFilter === "all" ? [
                 { key: "active", title: "กำลังดำเนินการ", items: activeDealItems },
                 { key: "done", title: "เสร็จสิ้นแล้ว", items: doneDealItems },
-              ] : [{ key: dealFilter, title: dealFilter === "active" ? "กำลังดำเนินการ" : "เสร็จสิ้นแล้ว", items: filteredDealItems }])
+              ] : [{ key: dealFilter, title: dealFilter === "active" ? "กำลังดำเนินการ" : dealFilter === "partial" ? "ชำระบางส่วน" : "เสร็จสิ้นแล้ว", items: filteredDealItems }])
                 .filter((section) => section.items.length > 0)
                 .map((section) => (
                   <div key={section.key} className="space-y-2">
@@ -821,12 +942,12 @@ export default function CustomerDetailPage() {
                         <div className="flex items-start justify-between">
                           <div className="min-w-0 flex-1">
                             <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
-                              {item.deal.title || "งานขาย"}
+                              {item.deal.title || item.deal.deal_number || "งานขาย"}
                             </div>
-                            {item.latestDoc && (
+                            {item.representativeDoc && (
                               <div className="text-[11px] text-[#888780] mt-0.5">
-                                {item.latestDoc.doc_number || "ยังไม่มีเลขเอกสาร"}
-                                {item.latestDoc.issue_date && ` · ${formatBuddhistDate(item.latestDoc.issue_date)}`}
+                                {item.representativeDoc.doc_number || "ยังไม่มีเลขเอกสาร"}
+                                {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
                               </div>
                             )}
                           </div>
@@ -834,11 +955,11 @@ export default function CustomerDetailPage() {
                             <div className={`font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[13px] text-[#1A1A18]"}`}>
                               ฿ {formatCurrency(item.amount)}
                             </div>
-                            {item.latestDoc && (
-                              <div className="mt-1">
-                                <Badge status={item.latestDoc.status} />
-                              </div>
-                            )}
+                            <div className="mt-1">
+                              <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${STAGE_COLORS[item.stage]}`}>
+                                {STAGE_LABELS[item.stage]}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </Card>

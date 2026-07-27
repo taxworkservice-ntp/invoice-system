@@ -53,12 +53,14 @@ export function ItemDetailsCard({ item }: Props) {
             </span>
           </div>
         )}
-        <div className="flex justify-between py-2.5">
-          <span className="text-[12px] text-[#888780]">แจ้งเตือน</span>
-          <span className="text-[13px] text-[#1A1A18]">
-            เหลือน้อยกว่า {item.low_stock_threshold} {item.base_unit}
-          </span>
-        </div>
+        {item.item_type === "product" && (
+          <div className="flex justify-between py-2.5">
+            <span className="text-[12px] text-[#888780]">แจ้งเตือน</span>
+            <span className="text-[13px] text-[#1A1A18]">
+              เหลือน้อยกว่า {item.low_stock_threshold} {item.base_unit}
+            </span>
+          </div>
+        )}
         <div className="flex justify-between py-2.5">
           <span className="text-[12px] text-[#888780]">สถานะ</span>
           <span

@@ -29,7 +29,8 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; className
 
 function formatDateThai(iso: string) {
   if (!iso) return "-";
-  const [y, m, d] = iso.split("-");
+  const dateStr = iso.slice(0, 10);
+  const [y, m, d] = dateStr.split("-");
   return `${d}/${m}/${Number(y) + 543}`;
 }
 

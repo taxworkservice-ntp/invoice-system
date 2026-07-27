@@ -101,7 +101,6 @@ function isOverdueDocument(doc: Document) {
 
 function getDocumentAmount(doc: Document) {
   if (doc.doc_type === "quotation" || doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt" || doc.doc_type === "delivery_note") return doc.total_amount;
-  if (doc.doc_type === "receipt") return doc.total_amount;
   return doc.net_payable;
 }
 
@@ -526,7 +525,7 @@ export default function DealDetailPage() {
         subtotal: payDocument.subtotal,
         vat_amount: payDocument.vat_amount,
         total_amount: payDocument.total_amount,
-        wht_amount: payDocument.wht_amount,
+        wht_amount: Math.round(amountReceived * ((payDocument.wht_rate || 0) / 100)),
         net_payable: amountReceived,
         payment_method: paymentMethod,
         amount_received: amountReceived,
@@ -1644,7 +1643,8 @@ export default function DealDetailPage() {
                           "mt-1 rounded-full",
                           isCurrent ? "w-3 h-3 bg-primary shadow-[0_0_0_3px_rgba(55,138,221,0.12)]" : "w-2.5 h-2.5",
                           doc.status === "draft" ? "bg-stone-300" : "",
-                          doc.status === "paid" || doc.status === "generated" ? "bg-paid-text" : "",
+                          doc.status === "paid" || doc.status === "generated" || doc.status === "issued" ? "bg-paid-text" : "",
+                          doc.status === "partially_paid" ? "bg-amber-600" : "",
                           doc.status === "converted" ? "bg-stone-400" : "",
                           overdue ? "bg-[#C0392B]" : "",
                           (doc.status === "sent" || doc.status === "in_billing") && !overdue && !isCurrent ? "bg-primary" : "",
@@ -1682,23 +1682,42 @@ export default function DealDetailPage() {
                             ) : null}
                           </div>
                           {(doc.status === "paid" || doc.status === "partially_paid" || doc.status === "generated" || doc.status === "issued") && (
-                            <div className="mt-1 text-[10px] text-green-600">
-                              {doc.doc_type === "receipt" && doc.amount_received != null ? (
+                            <div className="mt-1 text-[10px] leading-relaxed">
+                              {doc.doc_type === "receipt" ? (
                                 <>
-                                  รับจริง ฿{doc.amount_received.toLocaleString()}
-                                  {(doc.total_amount || 0) > (doc.net_payable || 0) && doc.wht_amount != null && doc.wht_amount > 0 && (
-                                    <> • หัก ณ ที่จ่าย ฿{doc.wht_amount.toLocaleString()}</>
+                                  {doc.wht_amount > 0 && (
+                                    <div className="text-amber-600">
+                                      <span className="font-medium">หัก ณ ที่จ่าย</span> ฿{doc.wht_amount.toLocaleString()}
+                                    </div>
                                   )}
+                                  {doc.payment_method && (
+                                    <div className={doc.wht_amount > 0 ? "text-gray-400" : "text-green-600"}>
+                                      {PAYMENT_METHOD_LABELS[doc.payment_method]}
+                                    </div>
+                                  )}
+                                </>
+                              ) : doc.status === "partially_paid" ? (
+                                <>
+                                  <div className="text-green-700">
+                                    <span className="font-medium">เก็บแล้ว</span> ฿{(doc.amount_received || 0).toLocaleString()}
+                                  </div>
+                                  <div className="text-amber-600">
+                                    <span className="font-medium">คงเหลือ</span> ฿{Math.max(0, ((doc.net_payable || 0) - (doc.amount_received || 0))).toLocaleString()}
+                                    {" "}({Math.round(((doc.amount_received || 0) / (doc.net_payable || 1)) * 100)}%)
+                                  </div>
+                                  <div className="text-gray-400">
+                                    {doc.payment_method ? PAYMENT_METHOD_LABELS[doc.payment_method] : ""}
+                                    {doc.payment_method && doc.wht_amount > 0 ? " · " : ""}
+                                    {doc.wht_amount > 0 ? <>WHT ฿{doc.wht_amount.toLocaleString()}</> : ""}
+                                  </div>
                                 </>
                               ) : (
-                                <>
-                                  {doc.status === "partially_paid" ? "ชำระบางส่วน" : "ชำระแล้ว"}{doc.paid_at ? ` ${formatBuddhistDate(doc.paid_at)}` : ""}
-                                  {doc.status === "partially_paid" && doc.amount_received != null && (
-                                    <> • ฿{doc.amount_received.toLocaleString()} / ฿{doc.net_payable.toLocaleString()}</>
-                                  )}
-                                </>
+                                <div className="text-green-600">
+                                  {doc.paid_at ? formatBuddhistDate(doc.paid_at) : ""}
+                                  {doc.payment_method ? ` · ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
+                                  {doc.wht_amount > 0 ? ` · WHT ฿{doc.wht_amount.toLocaleString()}` : ""}
+                                </div>
                               )}
-                              {doc.payment_method ? ` • ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
                             </div>
                           )}
                         </div>
