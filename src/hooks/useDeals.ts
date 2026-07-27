@@ -135,12 +135,12 @@ function getCompletionDoc(docs: DealCardData[]) {
   const paidBilling = [...nonVoided]
     .reverse()
     .find((doc) => doc.doc_type === "billing_note" && doc.status === "paid");
-  if (paidBilling) return paidBilling;
+  if (paidBilling && !isPartial) return paidBilling;
 
   const paidInvoice = [...nonVoided]
     .reverse()
     .find((doc) => doc.doc_type === "invoice" && doc.status === "paid");
-  if (paidInvoice) return paidInvoice;
+  if (paidInvoice && !isPartial) return paidInvoice;
 
   return null;
 }

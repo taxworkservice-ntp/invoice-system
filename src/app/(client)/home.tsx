@@ -227,12 +227,12 @@ function getCompletedAt(documents: DealDoc[]) {
   const paidBilling = [...nonVoided]
     .reverse()
     .find((doc) => doc.doc_type === "billing_note" && doc.status === "paid");
-  if (paidBilling) return paidBilling.paid_at || paidBilling.updated_at;
+  if (paidBilling && !isPartial) return paidBilling.paid_at || paidBilling.updated_at;
 
   const paidInvoice = [...nonVoided]
     .reverse()
     .find((doc) => doc.doc_type === "invoice" && doc.status === "paid");
-  if (paidInvoice) return paidInvoice.paid_at || paidInvoice.updated_at;
+  if (paidInvoice && !isPartial) return paidInvoice.paid_at || paidInvoice.updated_at;
 
   return null;
 }
