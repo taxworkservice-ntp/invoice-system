@@ -746,9 +746,13 @@ export default function HomePage() {
   });
 
   const recentlyDone = useMemo(
-    () =>
-      deals
-        .filter((deal) => deal.isDone && !deal.isEmpty)
+    () => {
+      const done = deals.filter((deal) => deal.isDone && !deal.isEmpty);
+      const partialInDone = done.filter(d => d.documents?.some(doc => doc.status === "partially_paid"));
+      if (partialInDone.length > 0) {
+        console.log("PARTIAL_DEBUG IN DONE SECTION!", partialInDone.map(d => ({ number: d.dealNumber, isDone: d.isDone, statuses: d.documents?.map(doc => doc.status) })));
+      }
+      return done
         .filter((deal) => {
           if (!searchQuery) return true;
           const q = searchQuery.toLowerCase();
@@ -758,7 +762,8 @@ export default function HomePage() {
             (deal.customerCode || "").toLowerCase().includes(q)
           );
         })
-        .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || "")),
+        .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || ""))
+    },
     [deals, searchQuery],
   );
 
