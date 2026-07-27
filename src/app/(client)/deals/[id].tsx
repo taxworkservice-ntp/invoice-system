@@ -743,6 +743,7 @@ export default function DealDetailPage() {
       .update({
         status: "voided" as DocumentStatus,
         voided_at: new Date().toISOString(),
+        doc_number: null,
       })
       .eq("id", activeDoc.document.id);
 
@@ -792,6 +793,7 @@ export default function DealDetailPage() {
       .update({
         status: "voided" as DocumentStatus,
         voided_at: new Date().toISOString(),
+        doc_number: null,
       })
       .eq("id", invoiceId);
 
