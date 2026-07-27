@@ -54,19 +54,19 @@ export default function SettingsDocumentsPage() {
   useEffect(() => {
     if (clientProfile) {
       setLogoKey(clientProfile.logo_url);
-      setLogoSize((clientProfile as any).logo_size || "square");
+      setLogoSize(clientProfile.logo_size || "square");
       setShowLogo(clientProfile.show_logo !== false);
       setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
       setClassicTerms(clientProfile.classic_terms || "");
-      setSignatureKey((clientProfile as any).signature_url || null);
-      setStampKey((clientProfile as any).stamp_url || null);
-      setShowSignatureOnWht((clientProfile as any).show_signature_on_wht !== false);
-      setShowStampOnWht((clientProfile as any).show_stamp_on_wht !== false);
+      setSignatureKey(clientProfile.signature_url || null);
+      setStampKey(clientProfile.stamp_url || null);
+      setShowSignatureOnWht(clientProfile.show_signature_on_wht !== false);
+      setShowStampOnWht(clientProfile.show_stamp_on_wht !== false);
       setShowSignatureOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
         if (t.key === "wht") {
           acc[t.key] = clientProfile.show_signature_on_wht !== false;
         } else {
-          const map = (clientProfile as any).show_signature_on_docs as Record<string, boolean> | null;
+          const map = clientProfile.show_signature_on_docs as Record<string, boolean> | null;
           acc[t.key] = map ? (map[t.key] !== false) : true;
         }
         return acc;
@@ -75,15 +75,15 @@ export default function SettingsDocumentsPage() {
         .filter(t => t.key !== "wht")
         .every(t => showSignatureOnDocs[t.key] !== false);
       // Need computed from above, but above state hasn't updated yet. Compute raw:
-      const sigMap = (clientProfile as any).show_signature_on_docs as Record<string, boolean> | null;
+      const sigMap = clientProfile.show_signature_on_docs as Record<string, boolean> | null;
       setShowSignatureMaster(!sigMap || !Object.values(sigMap).every(v => v === false));
-      const stpMap = (clientProfile as any).show_stamp_on_docs as Record<string, boolean> | null;
+      const stpMap = clientProfile.show_stamp_on_docs as Record<string, boolean> | null;
       setShowStampMaster(!stpMap || !Object.values(stpMap).every(v => v === false));
       setShowStampOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
         if (t.key === "wht") {
           acc[t.key] = clientProfile.show_stamp_on_wht !== false;
         } else {
-          const map = (clientProfile as any).show_stamp_on_docs as Record<string, boolean> | null;
+          const map = clientProfile.show_stamp_on_docs as Record<string, boolean> | null;
           acc[t.key] = map ? (map[t.key] !== false) : true;
         }
         return acc;
@@ -140,10 +140,10 @@ export default function SettingsDocumentsPage() {
     pdfTemplate !== (clientProfile?.pdf_template || "modern") ||
     classicTerms !== (clientProfile?.classic_terms || "") ||
     logoKey !== (clientProfile?.logo_url ?? null) ||
-    logoSize !== ((clientProfile as any)?.logo_size || "square") ||
+    logoSize !== (clientProfile?.logo_size || "square") ||
     showLogo !== (clientProfile?.show_logo !== false) ||
-    signatureKey !== ((clientProfile as any)?.signature_url ?? null) ||
-    stampKey !== ((clientProfile as any)?.stamp_url ?? null);
+    signatureKey !== (clientProfile?.signature_url ?? null) ||
+    stampKey !== (clientProfile?.stamp_url ?? null);
 
   return (
     <AppShell title="ตั้งค่า > รูปแบบเอกสาร">

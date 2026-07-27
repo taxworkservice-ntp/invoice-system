@@ -1,9 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, LogOut } from "lucide-react";
-import { supabase } from "../../lib/supabase";
-import { Modal } from "../ui/Modal";
-import { Button } from "../ui/Button";
+import { ArrowLeft } from "lucide-react";
 
 interface TopBarProps {
   title: string;
@@ -13,12 +10,6 @@ interface TopBarProps {
 
 export function TopBar({ title, showBack, action }: TopBarProps) {
   const navigate = useNavigate();
-  const [logoutOpen, setLogoutOpen] = useState(false);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/login");
-  };
 
   return (
     <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
@@ -37,32 +28,8 @@ export function TopBar({ title, showBack, action }: TopBarProps) {
         </div>
         <div className="flex items-center gap-2">
           {action}
-          <button
-            onClick={() => setLogoutOpen(true)}
-            aria-label="ออกจากระบบ"
-            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">ออกจากระบบ</span>
-          </button>
         </div>
       </div>
-
-      <Modal open={logoutOpen} onClose={() => setLogoutOpen(false)} title="ออกจากระบบ">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            คุณแน่ใจว่าต้องการออกจากระบบใช่หรือไม่?
-          </p>
-          <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setLogoutOpen(false)}>
-              ยกเลิก
-            </Button>
-            <Button variant="danger" onClick={handleLogout}>
-              ออกจากระบบ
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </header>
   );
 }

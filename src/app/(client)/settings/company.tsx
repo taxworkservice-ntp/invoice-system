@@ -34,9 +34,9 @@ export default function SettingsCompanyPage() {
       setTaxId(clientProfile.tax_id || "");
       setAddress(clientProfile.address || "");
       setPhone(clientProfile.phone || "");
-      setContactName((clientProfile as any).contact_name || "");
-      setBankName((clientProfile as any).bank_name || "");
-      setBankAccount((clientProfile as any).bank_account || "");
+      setContactName(clientProfile.contact_name || "");
+      setBankName(clientProfile.bank_name || "");
+      setBankAccount(clientProfile.bank_account || "");
     }
   }, [clientProfile]);
 
@@ -90,9 +90,9 @@ export default function SettingsCompanyPage() {
     taxId !== (clientProfile?.tax_id || "") ||
     address !== (clientProfile?.address || "") ||
     phone !== (clientProfile?.phone || "") ||
-    contactName !== ((clientProfile as any)?.contact_name || "") ||
-    bankName !== ((clientProfile as any)?.bank_name || "") ||
-    bankAccount !== ((clientProfile as any)?.bank_account || "");
+    contactName !== (clientProfile?.contact_name || "") ||
+    bankName !== (clientProfile?.bank_name || "") ||
+    bankAccount !== (clientProfile?.bank_account || "");
 
   return (
     <AppShell title="ตั้งค่า > ข้อมูลบริษัท">

@@ -10,6 +10,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { WHT_RATE_OPTIONS } from "../../../constants";
 import { SettingsTabs } from "./_components/SettingsTabs";
+import type { WhtRate } from "../../../types";
 
 export default function SettingsTaxPage() {
   const { profile } = useAuth();
@@ -18,7 +19,7 @@ export default function SettingsTaxPage() {
 
   const [vatRegistered, setVatRegistered] = useState(false);
   const [vatRate, setVatRate] = useState("7.00");
-  const [defaultWhtRate, setDefaultWhtRate] = useState("0");
+  const [defaultWhtRate, setDefaultWhtRate] = useState<WhtRate>("0");
   const [creditTermDays, setCreditTermDays] = useState(7);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -75,9 +76,9 @@ export default function SettingsTaxPage() {
         ...clientProfile,
         vat_registered: vatRegistered,
         vat_rate: vatRegistered ? parsedVatRate : clientProfile.vat_rate,
-        default_wht_rate: defaultWhtRate as any,
+        default_wht_rate: defaultWhtRate,
         credit_term_days: creditTermDays,
-      } as any);
+      });
     }
     setSaving(false);
   }
@@ -188,7 +189,7 @@ export default function SettingsTaxPage() {
             <Select
               label="อัตราเริ่มต้น WHT"
               value={defaultWhtRate}
-              onChange={(e) => { setDefaultWhtRate(e.target.value); setSaved(false); }}
+              onChange={(e) => { setDefaultWhtRate(e.target.value as WhtRate); setSaved(false); }}
             >
               {WHT_RATE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>

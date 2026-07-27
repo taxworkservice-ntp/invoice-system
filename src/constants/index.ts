@@ -119,12 +119,12 @@ export const SETTINGS_TABS = [
 ];
 
 export const BOTTOM_NAV_ITEMS = [
-  { label: "หน้างานขาย", path: "/home" },
+  { label: "หน้าขาย", path: "/home" },
   { label: "เอกสาร", path: "/documents" },
-  { label: "ศูนย์ดาวน์โหลด", path: "/download-center" },
-  { label: "รายงาน", path: "/reports" },
-  { label: "หัก ณ ที่จ่าย", path: "/wht" },
   { label: "สินค้า", path: "/catalog" },
   { label: "ลูกค้า", path: "/customers" },
+  { label: "รายงาน", path: "/reports" },
+  { label: "หัก ณ ที่จ่าย", path: "/wht" },
+  { label: "ดาวน์โหลด", path: "/download-center" },
   { label: "ตั้งค่า", path: "/settings" },
 ];

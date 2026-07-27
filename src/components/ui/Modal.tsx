@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 
 interface ModalProps {
   open: boolean;
@@ -8,15 +8,29 @@ interface ModalProps {
   className?: string;
 }
 
+let openModalCount = 0;
+
 export function Modal({ open, onClose, title, children, className = "" }: ModalProps) {
+  const wasOpen = useRef(false);
+
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+
+    if (!wasOpen.current) {
+      wasOpen.current = true;
+      openModalCount++;
       document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
     }
+
     return () => {
-      document.body.style.overflow = "";
+      if (wasOpen.current) {
+        wasOpen.current = false;
+        openModalCount--;
+        if (openModalCount <= 0) {
+          openModalCount = 0;
+          document.body.style.overflow = "";
+        }
+      }
     };
   }, [open]);
 

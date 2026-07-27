@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent } from "lucide-react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent, LogOut } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
@@ -8,6 +8,9 @@ import { useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
 import { DevBadge } from "../ui/DevBadge";
 import { getWorkspacePermissions } from "../../lib/permissions";
 import { getProxiedImageUrl } from "../../lib/r2";
+import { supabase } from "../../lib/supabase";
+import { Modal } from "../ui/Modal";
+import { Button } from "../ui/Button";
 import type { ClientMemberRole, ClientProfile } from "../../types";
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -70,6 +73,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
     return true;
   });
   const companyName = clientProfile?.company_name_th?.trim() || "Invoice System";
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const impersonatedUserId = sessionStorage.getItem("impersonate_user_id");
   const impersonatedName = sessionStorage.getItem("impersonate_name");
@@ -81,6 +85,11 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
     sessionStorage.removeItem("impersonate_name");
     sessionStorage.removeItem("impersonate_return");
     navigate(impersonateReturn, { replace: true });
+  }
+
+  function handleLogout() {
+    supabase.auth.signOut();
+    navigate("/login");
   }
 
   function isActive(path: string) {
@@ -128,6 +137,15 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
             </NavLink>
           ))}
         </nav>
+        <div className="border-t border-card-border p-3">
+          <button
+            onClick={() => setLogoutOpen(true)}
+            className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>ออกจากระบบ</span>
+          </button>
+        </div>
       </aside>
 
       <div className="flex-1 min-w-0">
@@ -155,7 +173,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
                 <React.Fragment key={i}>
                   {i > 0 && <ChevronRight className="w-3 h-3 text-gray-400" />}
                   {item.path ? (
-                    <a href={item.path} className="hover:text-primary transition-colors">{item.label}</a>
+                    <Link to={item.path} className="hover:text-primary transition-colors">{item.label}</Link>
                   ) : (
                     <span className="text-gray-700 font-medium">{item.label}</span>
                   )}
@@ -170,6 +188,22 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
       </div>
 
       <BottomNav />
+
+      <Modal open={logoutOpen} onClose={() => setLogoutOpen(false)} title="ออกจากระบบ">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            คุณแน่ใจว่าต้องการออกจากระบบใช่หรือไม่?
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setLogoutOpen(false)}>
+              ยกเลิก
+            </Button>
+            <Button variant="danger" onClick={handleLogout}>
+              ออกจากระบบ
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
