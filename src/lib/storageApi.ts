@@ -59,30 +59,33 @@ export async function recordR2File(
   return result.file;
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
 export async function uploadToR2(key: string, file: File, documentId?: string | null): Promise<string> {
-  const result = await apiFetch<{ uploadUrl: string }>("/api/storage/upload-url", {
+  const result = await apiFetch<{ key: string }>("/api/storage/upload-file", {
     method: "POST",
     body: JSON.stringify({
       key,
+      filename: file.name,
       contentType: file.type || "application/octet-stream",
       sizeBytes: file.size,
+      documentId: documentId || null,
+      dataBase64: arrayBufferToBase64(await file.arrayBuffer()),
     }),
   });
 
-  const response = await fetch(result.uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type || "application/octet-stream",
-    },
-    body: file,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Upload failed (${response.status})`);
-  }
-
-  await recordR2File(key, file, documentId);
-  return key;
+  return result.key;
 }
 
 export async function getR2Object(key: string): Promise<Uint8Array | null> {

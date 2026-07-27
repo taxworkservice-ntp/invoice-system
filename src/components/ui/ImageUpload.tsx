@@ -19,6 +19,19 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
 
   const displayLabel = placeholder || label;
 
+  function uploadErrorMessage(err: unknown): string {
+    if (err instanceof Error) {
+      const status = "status" in err ? err.status : null;
+      if (status === 401 || /session expired|sign in|authorization|invalid session/i.test(err.message)) {
+        return "Session expired. Please sign in again, then retry the upload.";
+      }
+
+      return err.message;
+    }
+
+    return `อัปโหลด${label}ไม่สำเร็จ กรุณาลองใหม่`;
+  }
+
   async function compressImageIfNeeded(file: File): Promise<File> {
     if (file.size <= 2 * 1024 * 1024) return file;
 
@@ -86,11 +99,7 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
       onKeyChange(key);
       setPreview(await getR2PresignedUrl(key));
     } catch (err: unknown) {
-      setUploadError(
-        err instanceof Error
-          ? err.message
-          : `อัปโหลด${label}ไม่สำเร็จ กรุณาลองใหม่`
-      );
+      setUploadError(uploadErrorMessage(err));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";

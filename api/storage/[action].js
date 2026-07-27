@@ -1,6 +1,6 @@
 import { requireStorageAccess, requireUser, validateStorageKey } from "../_lib/auth.js";
 import { ApiError, readJsonBody, sendError, sendJson } from "../_lib/http.js";
-import { deleteR2Object, getDownloadSignedUrl, getUploadSignedUrl } from "../_lib/r2.js";
+import { deleteR2Object, getDownloadSignedUrl, getUploadSignedUrl, putR2Object } from "../_lib/r2.js";
 import { supabaseAdmin } from "../_lib/supabase.js";
 
 const MAX_BYTES_BY_PURPOSE = {
@@ -67,6 +67,57 @@ async function handleUploadUrl(req, res) {
   return sendJson(res, 200, { uploadUrl });
 }
 
+async function upsertFileRecord({ key, filename, contentType, sizeBytes, documentId }) {
+  const { purpose, userId } = validateStorageKey(key);
+  const payload = {
+    user_id: userId,
+    document_id: documentId || null,
+    r2_key: key,
+    purpose,
+    filename: filename || key.split("/").pop() || "file",
+    content_type: contentType || "application/octet-stream",
+    size_bytes: Number(sizeBytes) || 0,
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from("files")
+    .upsert(payload, { onConflict: "r2_key" })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function handleUploadFile(req, res) {
+  method(req, res, "POST");
+
+  const { key, filename, contentType, sizeBytes, documentId, dataBase64 } = readJsonBody(req);
+  if (!key) throw new ApiError(400, "Missing key");
+  if (!dataBase64 || typeof dataBase64 !== "string") {
+    throw new ApiError(400, "Missing file data");
+  }
+
+  validateUpload({ key, contentType, sizeBytes });
+  await requireStorageAccess(req, key);
+
+  let buffer;
+  try {
+    buffer = Buffer.from(dataBase64, "base64");
+  } catch {
+    throw new ApiError(400, "Invalid file data");
+  }
+
+  if (buffer.length !== Number(sizeBytes)) {
+    throw new ApiError(400, "File size mismatch");
+  }
+
+  await putR2Object(key, buffer, contentType);
+  const file = await upsertFileRecord({ key, filename, contentType, sizeBytes, documentId });
+
+  return sendJson(res, 200, { key, file });
+}
+
 async function handleDownloadUrl(req, res) {
   method(req, res, "GET");
 
@@ -114,26 +165,8 @@ async function handleRecordFile(req, res) {
   const { key, filename, contentType, sizeBytes, documentId } = readJsonBody(req);
   if (!key) throw new ApiError(400, "Missing key");
 
-  const { purpose, userId } = validateStorageKey(key);
   await requireStorageAccess(req, key);
-
-  const payload = {
-    user_id: userId,
-    document_id: documentId || null,
-    r2_key: key,
-    purpose,
-    filename: filename || key.split("/").pop() || "file",
-    content_type: contentType || "application/octet-stream",
-    size_bytes: Number(sizeBytes) || 0,
-  };
-
-  const { data, error } = await supabaseAdmin
-    .from("files")
-    .upsert(payload, { onConflict: "r2_key" })
-    .select("*")
-    .single();
-
-  if (error) throw error;
+  const data = await upsertFileRecord({ key, filename, contentType, sizeBytes, documentId });
 
   return sendJson(res, 200, { file: data });
 }
@@ -200,6 +233,7 @@ export default async function handler(req, res) {
     const action = storageAction(req);
 
     if (action === "upload-url") return await handleUploadUrl(req, res);
+    if (action === "upload-file") return await handleUploadFile(req, res);
     if (action === "download-url" || action === "logo-url") return await handleDownloadUrl(req, res);
     if (action === "image-proxy") return await handleImageProxy(req, res);
     if (action === "record-file") return await handleRecordFile(req, res);

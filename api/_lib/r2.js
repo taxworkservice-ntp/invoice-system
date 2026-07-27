@@ -28,6 +28,17 @@ export function getUploadSignedUrl(key, contentType) {
   );
 }
 
+export function putR2Object(key, body, contentType) {
+  return r2.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType || "application/octet-stream",
+    })
+  );
+}
+
 export function getDownloadSignedUrl(key, expiresIn = 3600) {
   return getSignedUrl(
     r2,

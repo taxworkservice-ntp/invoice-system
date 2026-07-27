@@ -1,22 +1,52 @@
 import { supabase } from "./supabase";
 
+const SESSION_REFRESH_MARGIN_MS = 60 * 1000;
+
+export class ApiRequestError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
+
+function isSessionNearExpiry(expiresAt?: number | null): boolean {
+  if (!expiresAt) return true;
+  return expiresAt * 1000 - Date.now() <= SESSION_REFRESH_MARGIN_MS;
+}
+
+async function refreshAccessToken(): Promise<string> {
+  const { data, error } = await supabase.auth.refreshSession();
+  const token = data.session?.access_token;
+
+  if (error || !token) {
+    throw new ApiRequestError(401, "Session expired. Please sign in again.");
+  }
+
+  return token;
+}
+
 async function getAccessToken(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) {
     throw error;
   }
 
-  const token = data.session?.access_token;
+  if (!data.session || isSessionNearExpiry(data.session.expires_at)) {
+    return refreshAccessToken();
+  }
+
+  const token = data.session.access_token;
   if (!token) {
-    throw new Error("No active session");
+    return refreshAccessToken();
   }
 
   return token;
 }
 
-export async function apiFetch<T>(input: string, init: RequestInit = {}): Promise<T> {
-  const token = await getAccessToken();
-
+async function fetchWithToken(input: string, init: RequestInit, token: string): Promise<Response> {
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
 
@@ -24,10 +54,20 @@ export async function apiFetch<T>(input: string, init: RequestInit = {}): Promis
     headers.set("Content-Type", "application/json; charset=utf-8");
   }
 
-  const response = await fetch(input, {
+  return fetch(input, {
     ...init,
     headers,
   });
+}
+
+export async function apiFetch<T>(input: string, init: RequestInit = {}): Promise<T> {
+  let token = await getAccessToken();
+  let response = await fetchWithToken(input, init, token);
+
+  if (response.status === 401) {
+    token = await refreshAccessToken();
+    response = await fetchWithToken(input, init, token);
+  }
 
   const rawText = await response.text();
   const contentType = response.headers.get("content-type") || "";
@@ -50,7 +90,7 @@ export async function apiFetch<T>(input: string, init: RequestInit = {}): Promis
       : null;
 
   if (!response.ok) {
-    throw new Error(payloadError || `Request failed with status ${response.status}`);
+    throw new ApiRequestError(response.status, payloadError || `Request failed with status ${response.status}`);
   }
 
   return payload as T;

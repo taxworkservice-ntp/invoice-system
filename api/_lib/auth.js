@@ -6,13 +6,36 @@ function getBearerToken(req) {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     throw new ApiError(401, "Missing authorization token");
   }
-  return authHeader.slice("Bearer ".length).trim();
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    throw new ApiError(401, "Missing authorization token");
+  }
+  return token;
+}
+
+function logAuthFailure(req, reason, detail) {
+  console.warn("API auth failure", {
+    path: req.url,
+    reason,
+    hasAuthorizationHeader: Boolean(req.headers.authorization || req.headers.Authorization),
+    detail,
+  });
 }
 
 export async function requireUser(req) {
-  const token = getBearerToken(req);
+  let token;
+  try {
+    token = getBearerToken(req);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      logAuthFailure(req, "missing_bearer_token");
+    }
+    throw error;
+  }
+
   const { data, error } = await supabaseAuth.auth.getUser(token);
   if (error || !data.user) {
+    logAuthFailure(req, "invalid_session", error?.name || error?.message);
     throw new ApiError(401, "Invalid session");
   }
   return data.user;
