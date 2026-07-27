@@ -101,6 +101,7 @@ function isOverdueDocument(doc: Document) {
 
 function getDocumentAmount(doc: Document) {
   if (doc.doc_type === "quotation" || doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt" || doc.doc_type === "delivery_note") return doc.total_amount;
+  if (doc.doc_type === "receipt") return doc.total_amount;
   return doc.net_payable;
 }
 
@@ -1629,6 +1630,9 @@ export default function DealDetailPage() {
                 const copiedFromDoc = doc.copied_from_id
                   ? docsWithMeta.find((source) => source.document.id === doc.copied_from_id)?.document
                   : null;
+                const convertedFromDoc = doc.doc_type === "receipt" && doc.converted_from_id
+                  ? docsWithMeta.find((source) => source.document.id === doc.converted_from_id)?.document
+                  : null;
                 const isCurrent = activeDoc?.document.id === doc.id;
                 const overdue = isOverdueDocument(doc);
                 const isDoneStage = item.stage === "done" && !isCurrent;
@@ -1659,6 +1663,9 @@ export default function DealDetailPage() {
                           </div>
                           <div className={`mt-0.5 text-[11px] ${doc.status === "voided" ? "line-through" : "text-gray-500"}`}>
                             {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
+                            {convertedFromDoc && (
+                              <span className="text-gray-400"> • จาก {convertedFromDoc.doc_number || ""}</span>
+                            )}
                           </div>
                           {copiedFromDoc && (
                             <div className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
@@ -1676,11 +1683,22 @@ export default function DealDetailPage() {
                           </div>
                           {(doc.status === "paid" || doc.status === "partially_paid" || doc.status === "generated" || doc.status === "issued") && (
                             <div className="mt-1 text-[10px] text-green-600">
-                              {doc.status === "partially_paid" ? "ชำระบางส่วน" : "ชำระแล้ว"}{doc.paid_at ? ` ${formatBuddhistDate(doc.paid_at)}` : ""}
-                              {doc.payment_method ? ` • ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
-                              {doc.status === "partially_paid" && doc.amount_received != null && (
-                                <> • ฿{doc.amount_received.toLocaleString()} / ฿{doc.net_payable.toLocaleString()}</>
+                              {doc.doc_type === "receipt" && doc.amount_received != null ? (
+                                <>
+                                  รับจริง ฿{doc.amount_received.toLocaleString()}
+                                  {(doc.total_amount || 0) > (doc.net_payable || 0) && doc.wht_amount != null && doc.wht_amount > 0 && (
+                                    <> • หัก ณ ที่จ่าย ฿{doc.wht_amount.toLocaleString()}</>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {doc.status === "partially_paid" ? "ชำระบางส่วน" : "ชำระแล้ว"}{doc.paid_at ? ` ${formatBuddhistDate(doc.paid_at)}` : ""}
+                                  {doc.status === "partially_paid" && doc.amount_received != null && (
+                                    <> • ฿{doc.amount_received.toLocaleString()} / ฿{doc.net_payable.toLocaleString()}</>
+                                  )}
+                                </>
                               )}
+                              {doc.payment_method ? ` • ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
                             </div>
                           )}
                         </div>
