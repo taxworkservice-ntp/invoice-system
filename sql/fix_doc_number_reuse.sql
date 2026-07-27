@@ -13,25 +13,9 @@
 -- 4. New invoice inserted with INV-2607-001 → index ignores voided row, no conflict
 -- 5. Voided INV-2607-001 stays for audit, active INV-2607-001 in use
 
--- Step 1: Drop the existing full-table unique constraint (if it exists)
-DO $$
-DECLARE
-  v_conname text;
-BEGIN
-  SELECT conname INTO v_conname
-  FROM pg_constraint
-  WHERE conrelid = 'public.documents'::regclass
-    AND contype = 'u'
-    AND conkey @> (
-      SELECT array_agg(attnum::int2) FROM pg_attribute
-      WHERE attrelid = 'public.documents'::regclass
-        AND attname IN ('user_id', 'doc_type', 'doc_number')
-    );
-
-  IF v_conname IS NOT NULL THEN
-    EXECUTE format('ALTER TABLE public.documents DROP CONSTRAINT %I', v_conname);
-  END IF;
-END $$;
+-- Step 1: Drop existing full-table unique indexes/constraints on doc_number
+DROP INDEX IF EXISTS public.uq_documents_user_doc_number;
+ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS uq_documents_user_doc_number;
 
 -- Step 2: Create partial unique index (only checks non-voided documents)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_unique_doc_number
