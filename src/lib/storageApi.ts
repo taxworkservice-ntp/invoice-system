@@ -2,16 +2,20 @@ import { apiFetch } from "./api";
 import { supabase } from "./supabase";
 import type { Document, StorageFile, StoragePurpose } from "../types";
 
+function storageVersion(): string {
+  return Date.now().toString(36);
+}
+
 export function logoKey(userId: string, ext: string = "png"): string {
-  return `logos/${userId}/logo.${ext}`;
+  return `logos/${userId}/logo-${storageVersion()}.${ext}`;
 }
 
 export function signatureKey(userId: string, ext: string = "png"): string {
-  return `signatures/${userId}/signature.${ext}`;
+  return `signatures/${userId}/signature-${storageVersion()}.${ext}`;
 }
 
 export function stampKey(userId: string, ext: string = "png"): string {
-  return `stamps/${userId}/stamp.${ext}`;
+  return `stamps/${userId}/stamp-${storageVersion()}.${ext}`;
 }
 
 export function pdfKey(userId: string, documentId: string, variant: string = "original"): string {

@@ -134,6 +134,35 @@ export default function SettingsDocumentsPage() {
     setSaving(false);
   }
 
+  async function saveAssetField(field: "logo_url" | "signature_url" | "stamp_url", key: string | null) {
+    if (!profile || !clientProfile) return;
+
+    setError("");
+    setSaved(false);
+
+    const payload: Record<string, unknown> = { [field]: key };
+    if (field === "logo_url" && key) {
+      payload.show_logo = true;
+    }
+
+    const { error: err } = await supabase
+      .from("client_profiles")
+      .update(payload)
+      .eq("user_id", profile.id);
+
+    if (err) {
+      setError(err.message);
+      toast.error(err.message);
+      return;
+    }
+
+    setSaved(true);
+    setClientProfile({
+      ...clientProfile,
+      ...payload,
+    } as ClientProfile);
+  }
+
   if (loading) return <AppShell title="ตั้งค่า > รูปแบบเอกสาร"><Spinner /></AppShell>;
 
   const isDirty =
@@ -153,7 +182,15 @@ export default function SettingsDocumentsPage() {
         <Card>
           <div className="space-y-3">
             {profile && (
-              <LogoUpload userId={profile.id} currentLogoKey={logoKey} onLogoChange={(k) => { setLogoKey(k); setSaved(false); }} />
+              <LogoUpload
+                userId={profile.id}
+                currentLogoKey={logoKey}
+                onLogoChange={(k) => {
+                  setLogoKey(k);
+                  if (k) setShowLogo(true);
+                  void saveAssetField("logo_url", k);
+                }}
+              />
             )}
 
             {logoKey && (
@@ -229,7 +266,10 @@ export default function SettingsDocumentsPage() {
                     userId={profile!.id}
                     storageKeyFn={signatureKeyFn}
                     currentKey={signatureKey}
-                    onKeyChange={(k) => { setSignatureKey(k); setSaved(false); }}
+                    onKeyChange={(k) => {
+                      setSignatureKey(k);
+                      void saveAssetField("signature_url", k);
+                    }}
                     label="ลายเซ็น"
                   />
                   {signatureKey && (
@@ -279,7 +319,10 @@ export default function SettingsDocumentsPage() {
                     userId={profile!.id}
                     storageKeyFn={stampKeyFn}
                     currentKey={stampKey}
-                    onKeyChange={(k) => { setStampKey(k); setSaved(false); }}
+                    onKeyChange={(k) => {
+                      setStampKey(k);
+                      void saveAssetField("stamp_url", k);
+                    }}
                     label="ตราประทับ"
                   />
                   {stampKey && (
