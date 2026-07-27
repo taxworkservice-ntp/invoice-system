@@ -877,6 +877,7 @@ begin
     where user_id = p_user_id
       and doc_type = p_doc_type
       and doc_number is not null
+      and status != 'voided'
       and extract(year from issue_date)::int = v_year
       and extract(month from issue_date)::int = v_month;
   else
@@ -885,7 +886,8 @@ begin
     from documents
     where user_id = p_user_id
       and doc_type = p_doc_type
-      and doc_number is not null;
+      and doc_number is not null
+      and status != 'voided';
   end if;
 
   v_next_seq := greatest(v_existing_max + 1, coalesce(v_seq.start_sequence, 1));
