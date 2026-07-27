@@ -82,6 +82,7 @@ type DashboardDeal = {
   docTypeLabel: string;
   partialReceived: number;
   isPartiallyPaid: boolean;
+  taxDocNumber: string | null;
 };
 
 type HomeQueue =
@@ -432,6 +433,11 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const partialReceived = partialDoc?.amount_received || 0;
   const isPartiallyPaid = !!partialDoc;
 
+  const taxDoc = (deal.documents || []).find(
+    (d) => d.doc_type === "tax_invoice_receipt" || d.doc_type === "invoice",
+  ) || null;
+  const taxDocNumber = taxDoc?.doc_number || null;
+
   return {
     dealId: deal.id,
     dealNumber: (deal as any).deal_number || null,
@@ -468,6 +474,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     docTypeLabel: latestDocument?.doc_type ? (DOC_TYPE_LABELS[latestDocument.doc_type]?.th || latestDocument.doc_type) : "",
     partialReceived,
     isPartiallyPaid,
+    taxDocNumber,
   };
 }
 
@@ -1146,8 +1153,19 @@ export default function HomePage() {
                               onClick={() => navigate(`/deals/${deal.dealId}`)}
                               className={TABLE.tbodyTr}
                             >
-                               <td className="px-3 py-2 whitespace-nowrap text-[11px] text-[#111827] tabular-nums">
-                                 {deal.dealNumber || "-"}
+                               <td className="px-3 py-2">
+                                 <div className="text-[11px] text-[#111827] font-medium whitespace-nowrap">
+                                   {deal.dealNumber || "-"}
+                                 </div>
+                                 {deal.taxDocNumber ? (
+                                   <div className="text-[10px] text-[#888780] mt-0.5 whitespace-nowrap">
+                                     {deal.taxDocNumber}
+                                   </div>
+                                 ) : (
+                                   <div className="text-[10px] text-[#AAAAAA] italic mt-0.5 whitespace-nowrap">
+                                     ยังไม่มีใบกำกับภาษี
+                                   </div>
+                                 )}
                                </td>
                                <td className="px-3 py-2">
                                  <div className="flex items-center gap-2 min-w-0">
