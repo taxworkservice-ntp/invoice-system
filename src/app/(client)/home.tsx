@@ -808,6 +808,14 @@ export default function HomePage() {
       preset: "overdue",
       hint: "ควรติดตาม",
     },
+    {
+      label: "ชำระบางส่วน",
+      value: summary.partialAmount,
+      count: summary.partialCount,
+      alert: summary.partialCount > 0,
+      preset: "partial",
+      hint: "เก็บเพิ่มให้ครบ",
+    },
   ] as const;
 
   const quickFilters: { label: string; value: HomeFilter; count: number }[] = [
