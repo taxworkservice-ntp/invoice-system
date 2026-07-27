@@ -1316,9 +1316,16 @@ export default function HomePage() {
                                 onClick={() => navigate(`/deals/${deal.dealId}`)}
                                 className={TABLE.tbodyTr}
                               >
-                                 <td className="px-3 py-2 whitespace-nowrap text-[11px] font-mono tabular-nums text-primary">
-                                  {deal.dealNumber || "-"}
-                                </td>
+                                 <td className="px-3 py-2">
+                                   <div className="text-[11px] font-mono tabular-nums text-primary whitespace-nowrap">
+                                     {deal.dealNumber || "-"}
+                                   </div>
+                                   {deal.taxDocNumber && (
+                                     <div className="text-[10px] text-[#888780] mt-0.5 whitespace-nowrap">
+                                       {deal.taxDocNumber}
+                                     </div>
+                                   )}
+                                 </td>
                                 <td className="px-3 py-2">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <CustomerAvatar customer={rowAvatar} size="sm" />
