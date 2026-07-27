@@ -5,6 +5,7 @@ import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
+import { DateInput } from "../ui/DateInput";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { Modal } from "../ui/Modal";
@@ -1049,24 +1050,24 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <Input
+              <label htmlFor="issueDate" className="block text-xs font-medium text-gray-600 mb-1">
+                วันที่ออกใบวางบิล
+              </label>
+              <DateInput
                 id="issueDate"
-                type="date"
-                label="วันที่ออกใบวางบิล"
                 value={issueDate}
                 onChange={(event) => {
                   const nextValue = event.target.value;
                   setIssueDate(nextValue);
-                  if (!dueDate)
-                    setDueDate(
-                      addDaysString(
-                        nextValue,
-                        resolveCreditTermDays(
-                          selectedCustomer,
-                          clientProfile?.credit_term_days,
-                        ),
+                  setDueDate(
+                    addDaysString(
+                      nextValue,
+                      resolveCreditTermDays(
+                        selectedCustomer,
+                        clientProfile?.credit_term_days,
                       ),
-                    );
+                    ),
+                  );
                 }}
                 disabled={readOnly}
               />
@@ -1075,18 +1076,19 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               </div>
             </div>
             <div>
-              <Input
+              <label htmlFor="dueDate" className="block text-xs font-medium text-gray-600 mb-1">
+                ครบกำหนดชำระ
+              </label>
+              <DateInput
                 id="dueDate"
-                type="date"
-                label="ครบกำหนดชำระ"
                 value={dueDate}
                 onChange={(event) => {
                   setDueDate(event.target.value);
                   setErrors((prev) => ({ ...prev, dueDate: "" }));
                 }}
-                error={errors.dueDate}
                 disabled={readOnly}
-              />
+                className={errors.dueDate ? "border-red-400" : ""}
+              />{errors.dueDate && <p className="text-xs text-red-500 mt-1">{errors.dueDate}</p>}
               <div className="mt-1 text-xs text-gray-500">
                 {dueDate ? formatBuddhistDate(dueDate) : "-"}
               </div>

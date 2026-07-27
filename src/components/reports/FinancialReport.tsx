@@ -32,7 +32,7 @@ function SummaryCard({ icon, label, value, alert = false, delta, deltaGood = tru
         {icon}
         {label}
       </div>
-      <div className={`mt-1.5 text-xl font-semibold tabular-nums ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
+      <div className={`mt-1.5 text-lg font-semibold tabular-nums ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
         ฿ {value}
       </div>
       {deltaFormatted && (

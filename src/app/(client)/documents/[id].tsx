@@ -386,13 +386,19 @@ export default function DocumentDetailPage() {
         today: businessToday,
       });
       const receiptInvoiceSources = await getReceiptInvoiceSources(doc, userId);
+
+      const previousTotal = await getTotalReceived(doc);
+      const newTotal = previousTotal + payAmount;
+      const isFullyPaid = newTotal >= (doc.net_payable - 0.01);
+      const newStatus = isFullyPaid ? "paid" : "partially_paid";
+
       await supabase
         .from("documents")
         .update({
-          status: "paid" as DocumentStatus,
+          status: newStatus as DocumentStatus,
           paid_at: paidAt,
           payment_method: payMethod,
-          amount_received: payAmount,
+          amount_received: newTotal,
           wht_certificate_no: payWhtCert || null,
         })
         .eq("id", doc.id);
@@ -404,9 +410,10 @@ export default function DocumentDetailPage() {
           .eq("billing_note_id", doc.id);
 
         if (linked?.length) {
+          const invoiceNewStatus = isFullyPaid ? "paid" : "in_billing";
           await supabase
             .from("documents")
-            .update({ status: "paid" as DocumentStatus, paid_at: paidAt })
+            .update({ status: invoiceNewStatus as DocumentStatus, paid_at: paidAt })
             .in("id", linked.map((item: any) => item.invoice_id));
         }
       }
@@ -446,6 +453,7 @@ export default function DocumentDetailPage() {
             userId,
             sourceDocument: doc,
             invoices: receiptInvoiceSources,
+            actualPaidAmount: payAmount,
           }),
         );
         if (receiptInvoiceError) throw receiptInvoiceError;
@@ -640,13 +648,25 @@ export default function DocumentDetailPage() {
     window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
-  const openPayModal = () => {
+  async function getTotalReceived(doc: Document): Promise<number> {
+    const { data: receipts } = await supabase
+      .from("documents")
+      .select("amount_received")
+      .eq("converted_from_id", doc.id)
+      .eq("doc_type", "receipt")
+      .neq("status", "voided");
+    return (receipts || []).reduce((sum, r) => sum + (r.amount_received || 0), 0);
+  }
+
+  const openPayModal = async () => {
     if (!doc) return;
     if (!permissions.canRecordPayments) {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    setPayAmount(doc.net_payable);
+    const previousTotal = await getTotalReceived(doc);
+    const remaining = Math.max(0, doc.net_payable - previousTotal);
+    setPayAmount(remaining);
     setPayMismatchConfirm(false);
     setPayMethod("bank_transfer");
     setPayWhtCert("");
@@ -689,6 +709,8 @@ export default function DocumentDetailPage() {
   const isConverted = doc.status === "converted";
   const isIssued = doc.status === "issued";
   const isPaid = doc.status === "paid" || doc.status === "generated" || doc.status === "issued";
+  const isPartiallyPaid = doc.status === "partially_paid";
+  const isSettled = isPaid || isPartiallyPaid;
   const isVoided = doc.status === "voided";
   const isOverdue = doc.due_date && isSent && new Date(doc.due_date) < new Date();
   const lineDiscountTotal = doc.line_items?.reduce((sum, item) => sum + (item.discount_amount || 0), 0) || 0;
@@ -1126,30 +1148,36 @@ export default function DocumentDetailPage() {
         </div>
       </DetailCard>
 
-      {isPaid && (doc.payment_method || doc.paid_at || doc.amount_received != null) && (
-        <DetailCard title="ข้อมูลรับเงิน" icon={<CircleDollarSign className="h-4 w-4" />} className="mb-4 border-green-200 bg-green-50">
+      {isSettled && (doc.payment_method || doc.paid_at || doc.amount_received != null) && (
+        <DetailCard title="ข้อมูลรับเงิน" icon={<CircleDollarSign className="h-4 w-4" />} className={`mb-4 ${isPartiallyPaid ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"}`}>
           <div className="space-y-1 text-sm">
           {doc.payment_method && (
             <div className="flex justify-between">
-              <span className="text-green-700">วิธีชำระ:</span>
+              <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>วิธีชำระ:</span>
               <span>{PAYMENT_METHOD_LABELS[doc.payment_method] || doc.payment_method}</span>
             </div>
           )}
           {doc.amount_received != null && (
             <div className="flex justify-between">
-              <span className="text-green-700">จำนวนเงิน:</span>
+              <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>จำนวนเงิน:</span>
               <span>฿{formatCurrency(doc.amount_received)}</span>
+            </div>
+          )}
+          {isPartiallyPaid && (
+            <div className="flex justify-between text-amber-700">
+              <span>คงเหลือ:</span>
+              <span className="font-semibold">฿{formatCurrency(Math.max(0, doc.net_payable - (doc.amount_received || 0)))}</span>
             </div>
           )}
           {doc.paid_at && (
             <div className="flex justify-between">
-              <span className="text-green-700">วันที่:</span>
+              <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>วันที่:</span>
               <span>{formatDate(doc.paid_at)}</span>
             </div>
           )}
           {doc.wht_certificate_no && (
             <div className="flex justify-between">
-              <span className="text-green-700">ใบหักภาษี:</span>
+              <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>ใบหักภาษี:</span>
               <span>{doc.wht_certificate_no}</span>
             </div>
           )}
@@ -1405,10 +1433,10 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && (doc.doc_type === "invoice" || doc.doc_type === "billing_note") && permissions.canRecordPayments && (
+          {(isSent || isPartiallyPaid) && (doc.doc_type === "invoice" || doc.doc_type === "billing_note") && permissions.canRecordPayments && (
             <div className="space-y-2">
               <Button variant="primary" size="md" className="w-full" onClick={openPayModal}>
-                รับเงินแล้ว
+                {isPartiallyPaid ? "รับชำระเพิ่ม" : "รับเงินแล้ว"}
               </Button>
               {doc.doc_type === "invoice" && (
                 <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
@@ -1572,7 +1600,7 @@ export default function DocumentDetailPage() {
                 </div>
                 <p className="mt-3 text-xs text-amber-700">
                   {payAmount < doc.net_payable
-                    ? "คุณกำลังรับเงินน้อยกว่ายอดที่ต้องชำระ ยอดคงเหลือจะไม่ถูกติดตาม"
+                    ? "คุณกำลังรับเงินน้อยกว่ายอดที่ต้องชำระ ยอดคงเหลือจะยังปรากฏในรายงานลูกหนี้จนกว่าจะเก็บครบ"
                     : "คุณกำลังรับเงินมากกว่ายอดที่ต้องชำระ จำนวนที่เกินจะไม่ถูกบันทึกเป็นเครดิต"}
                 </p>
               </div>

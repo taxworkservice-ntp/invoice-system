@@ -17,6 +17,7 @@ export type DocumentStatus =
   | "converted"
   | "in_billing"
   | "paid"
+  | "partially_paid"
   | "overdue"
   | "voided"
   | "generated"

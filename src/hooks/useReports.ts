@@ -317,7 +317,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const vatCollected = paidThisPeriod.reduce((sum, d) => sum + (d.vat_amount || 0), 0);
 
       const isArDoc = (d: any) =>
-        (d.status === "sent" || d.status === "overdue" ||
+        (d.status === "sent" || d.status === "overdue" || d.status === "partially_paid" ||
           (d.doc_type === "tax_invoice_receipt" && d.status === "issued"));
 
       const outstanding = docs
@@ -326,7 +326,12 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
             isArDoc(d) &&
             !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id)),
         )
-        .reduce((sum, d) => sum + (d.net_payable || 0), 0);
+        .reduce((sum, d) => {
+          if (d.status === "partially_paid") {
+            return sum + Math.max(0, (d.net_payable || 0) - (d.amount_received || 0));
+          }
+          return sum + (d.net_payable || 0);
+        }, 0);
 
       setSummary({
         revenue,
@@ -390,6 +395,11 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           isArDoc(d) &&
           !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
       );
+      const arDocAmount = (d: any) =>
+        d.status === "partially_paid"
+          ? Math.max(0, (d.net_payable || 0) - (d.amount_received || 0))
+          : (d.net_payable || 0);
+
       const buckets: ARAgingBucket[] = [
         { label: "1-30 วัน", total: 0, count: 0 },
         { label: "31-60 วัน", total: 0, count: 0 },
@@ -397,8 +407,9 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         { label: "90+ วัน", total: 0, count: 0 },
       ];
       for (const d of overdueDocs) {
+        const amount = arDocAmount(d);
         if (!d.due_date) {
-          buckets[buckets.length - 1].total += d.net_payable || 0;
+          buckets[buckets.length - 1].total += amount;
           buckets[buckets.length - 1].count++;
           continue;
         }
@@ -406,7 +417,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         const diffDays = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays <= 0) continue;
         const idx = diffDays <= 30 ? 0 : diffDays <= 60 ? 1 : diffDays <= 90 ? 2 : 3;
-        buckets[idx].total += d.net_payable || 0;
+        buckets[idx].total += amount;
         buckets[idx].count++;
       }
       setArAging(buckets);
@@ -418,7 +429,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         const cid = d.customer_id as string;
         const cname = d.customer?.name || "ไม่ระบุ";
         const existing = arMap.get(cid) || { customerId: cid, name: cname, total: 0, count: 0, oldestDue: d.due_date || null };
-        existing.total += d.net_payable || 0;
+        existing.total += arDocAmount(d);
         existing.count++;
         if (d.due_date && (!existing.oldestDue || d.due_date < existing.oldestDue)) {
           existing.oldestDue = d.due_date;
@@ -453,7 +464,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           dealNumber: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
           docNumber: d.doc_number || "-",
           docType: docTypeLabelsExport[d.doc_type as string] || d.doc_type,
-          netPayable: d.net_payable || 0,
+          netPayable: arDocAmount(d),
           dueDate,
           daysOverdue,
         };

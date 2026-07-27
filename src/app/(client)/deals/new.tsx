@@ -22,7 +22,7 @@ import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStoc
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
 import { getWorkspacePermissions } from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
-import { AlertTriangle, ChevronDown, Copy, X, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ChevronDown, Copy, PlusCircle, X, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { Document, DocumentLineItem, DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
@@ -64,22 +64,35 @@ interface JobDetailPresetInputProps {
 
 function CommaInput({ value, onChange, ...props }: { value: number; onChange: (val: number) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
   const [focus, setFocus] = useState(false);
-  const display = focus || !value
-    ? (value || value === 0 ? value.toString() : "")
+  const [text, setText] = useState("");
+
+  const formatted = !value
+    ? ""
     : (Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { minimumFractionDigits: 2 }));
+
+  const display = focus ? text : formatted;
 
   return (
     <input
       type="text"
       inputMode="decimal"
       value={display}
-      onFocus={() => setFocus(true)}
-      onBlur={() => setFocus(false)}
-      onChange={(e) => {
-        const raw = e.target.value.replace(/,/g, "");
+      onFocus={() => {
+        setFocus(true);
+        setText(value ? String(value) : "");
+      }}
+      onBlur={() => {
+        setFocus(false);
+        const raw = text.replace(/,/g, "");
         const num = parseFloat(raw);
         if (!isNaN(num)) onChange(num);
         else if (raw === "" || raw === "-") onChange(0);
+      }}
+      onChange={(e) => {
+        const raw = e.target.value.replace(/,/g, "");
+        setText(raw);
+        const num = parseFloat(raw);
+        if (!isNaN(num)) onChange(num);
       }}
       className="w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors border-card-border"
       placeholder="0"
@@ -291,7 +304,7 @@ function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item, jobDe
     carton_unit: catalogItem.carton_unit,
     qty_per_carton: catalogItem.qty_per_carton,
     base_unit_price: catalogItem.unit_price,
-    job_details_open: hasJobDetails ? lineItem.job_details_open : false,
+    job_details_open: hasJobDetails ? true : false,
     job_color: hasJobDetails ? lineItem.job_color : "",
     job_width: hasJobDetails ? lineItem.job_width : "",
     job_height: hasJobDetails ? lineItem.job_height : "",
@@ -398,7 +411,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
-  const [lineItems, setLineItems] = useState<LineItemForm[]>([createEmptyLine()]);
+  const [lineItems, setLineItems] = useState<LineItemForm[]>([]);
   const [serviceJobDetailFields, setServiceJobDetailFields] = useState<Record<string, JobDetailFieldConfig[]>>({});
   const [serviceJobDetailPresets, setServiceJobDetailPresets] = useState<Record<string, JobDetailSuggestions>>({});
   const [vatRegistered, setVatRegistered] = useState(clientProfile?.vat_registered ?? false);
@@ -1639,6 +1652,22 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           <Card>
             <h3 className="text-sm font-medium mb-3">{isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการ"}</h3>
             <div className="space-y-2">
+              {!isUtilityBill && lineItems.some((li) => li.item_name.trim()) && (
+                <div className="flex gap-1 items-end pb-1.5 mb-0.5 border-b border-gray-100">
+                  <div className="flex-1 text-[10px] text-gray-400 font-medium pl-1 pb-0.5">รายการ</div>
+                  <div className="w-[160px] text-[10px] text-gray-400 font-medium pb-0.5">จำนวน</div>
+                  <div className="w-[72px] text-[10px] text-gray-400 font-medium pb-0.5">หน่วย</div>
+                  <div className="w-[160px] text-[10px] text-gray-400 font-medium pb-0.5" style={{ marginLeft: "4px", borderLeft: "1px solid #e5e7eb", paddingLeft: "8px" }}>ราคา/หน่วย</div>
+                  <div className="w-[68px] text-[10px] text-gray-400 font-medium pb-0.5">ส่วนลด</div>
+                  <div className="flex-1 text-right text-[10px] text-gray-400 font-medium min-w-[70px] pb-0.5">จำนวนเงิน</div>
+                  <div className="w-[40px]" />
+                </div>
+              )}
+              {!isUtilityBill && lineItems.length === 0 && (
+                <div className="rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-4 py-4 text-center text-xs text-gray-400">
+                  ยังไม่มีรายการ — เพิ่มสินค้าหรือบริการโดยคลิกปุ่มด้านล่าง
+                </div>
+              )}
               {lineItems.map((item, idx) => {
                 const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
                 const soldByCarton = isCartonUnitSelected(item);
@@ -1680,6 +1709,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
                 return (
                 <div key={item.id} className="pb-3 border-b border-gray-100 last:border-0">
+                  <div className="flex gap-2">
+                    <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-[#F3F8FE] border border-[#B8D7F4] flex items-center justify-center text-[11px] font-semibold text-[#378ADD] leading-none">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
                   <div className="flex gap-1 mb-2">
                     <CatalogAutocomplete
                       items={items}
@@ -1687,7 +1721,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       onChange={(val) => updateLineItem(item.id, "item_name", val)}
                       onSelect={(catalogItem) => selectCatalogItem(item.id, catalogItem)}
                       matched={!!item.item_id}
-                      placeholder="ชื่อรายการ"
+                      placeholder="พิมพ์ชื่อสินค้าหรือบริการ..."
                       onCreate={async (input) => {
                         try {
                           return await addItem(input);
@@ -1800,33 +1834,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   )}
                   <div className="flex gap-1 items-start">
                     <label className="w-[160px] block">
-                      <span className="text-[10px] text-gray-400 block mb-0.5">ราคา</span>
-                      <CommaInput
-                        value={item.unit_price}
-                        onChange={(v) => updateLineItem(item.id, "unit_price", v)}
-                        placeholder="0"
-                      />
-                    </label>
-                    <label className="w-[160px] block">
                       <span className="text-[10px] text-gray-400 block mb-0.5">จำนวน</span>
                       <CommaInput
                         value={item.quantity}
                         onChange={(v) => updateLineItem(item.id, "quantity", v)}
                         placeholder="1"
-                      />
-                    </label>
-                    <label className="w-[68px] block">
-                      <span className="text-[10px] text-gray-400 block mb-0.5">ส่วนลด</span>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        min="0"
-                        max="100"
-                        value={item.discount_percent || ""}
-                        onChange={(e) =>
-                          updateLineItem(item.id, "discount_percent", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full"
                       />
                     </label>
                     <label className="w-[72px] block">
@@ -1838,10 +1850,33 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         className="w-full"
                       />
                     </label>
-                    <div className="flex-1 text-right text-xs font-medium text-gray-700 min-w-[70px] pt-[22px]">
-                      ฿{calculateLineAmounts(item).lineTotal.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })}
+                    <label className="w-[160px] block">
+                      <span className="text-[10px] text-gray-400 block mb-0.5">ราคา/หน่วย</span>
+                      <CommaInput
+                        value={item.unit_price}
+                        onChange={(v) => updateLineItem(item.id, "unit_price", v)}
+                        placeholder="0"
+                      />
+                    </label>
+                    <label className="w-[68px] block">
+                      <span className="text-[10px] text-gray-400 block mb-0.5">ส่วนลด %</span>
+                      <CommaInput
+                        value={item.discount_percent ?? 0}
+                        onChange={(v) => updateLineItem(item.id, "discount_percent", v)}
+                        placeholder="0"
+                      />
+                    </label>
+                    <div className="flex-1 text-right min-w-[70px] pt-[16px]">
+                      <div className="text-xs font-medium text-gray-700">
+                        ฿{calculateLineAmounts(item).lineTotal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </div>
+                      {item.unit_price > 0 && item.quantity > 0 && (
+                        <div className="text-[10px] text-gray-400 leading-tight">
+                          {item.unit_price.toLocaleString()} × {item.quantity.toLocaleString()}
+                        </div>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -1902,12 +1937,19 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       )}
                     </div>
                   )}
+                    </div>
+                  </div>
                 </div>
                 );
               })}
-              <Button variant="secondary" size="sm" onClick={addLineItem}>
-                + เพิ่มรายการ
-              </Button>
+              <button
+                type="button"
+                onClick={addLineItem}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#F3F8FE] border border-[#B8D7F4] px-3 py-1.5 text-xs font-medium text-[#378ADD] hover:bg-[#E1F0FD] transition-colors active:translate-y-[1px]"
+              >
+                <PlusCircle className="h-4 w-4" />
+                เพิ่มสินค้าหรือบริการ
+              </button>
             </div>
             <div className="mt-4 pt-3 border-t border-gray-200 text-right text-sm space-y-0.5">
               {tax.lineDiscountAmount > 0 && (

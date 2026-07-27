@@ -237,7 +237,7 @@ export function PrintDocument({
       )}
 
       {isCopy && (
-        <div className="print-copy-watermark">{COPY_LABELS[copyType]}</div>
+        <div className="print-copy-watermark">ฉบับสำเนา</div>
       )}
     </article>
   );

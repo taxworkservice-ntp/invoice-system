@@ -85,6 +85,7 @@ type HomeQueue =
   | "wait_send"
   | "wait_invoice"
   | "wait_collect"
+  | "partial"
   | "overdue"
   | "progress"
   | "done";
@@ -94,6 +95,7 @@ type HomeFilter =
   | "wait_send_invoice"
   | "wait_invoice"
   | "wait_collect"
+  | "partial"
   | "overdue";
 
 const QUEUE_COLORS: Record<
@@ -114,6 +116,11 @@ const QUEUE_COLORS: Record<
     bg: "bg-[#ECFDF5]",
     text: "text-[#065F46]",
     dot: "bg-emerald-500",
+  },
+  partial: {
+    bg: "bg-[#FFF8EB]",
+    text: "text-[#B45309]",
+    dot: "bg-amber-600",
   },
   overdue: { bg: "bg-[#FEF2F2]", text: "text-[#C0392B]", dot: "bg-[#C0392B]" },
   progress: { bg: "bg-[#EEF6FF]", text: "text-[#0C447C]", dot: "bg-primary" },
@@ -137,7 +144,7 @@ function isOverdueDocument(doc: DealDoc | null) {
   if (doc.doc_type !== "billing_note" || !doc.due_date) return false;
   return (
     new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10)) &&
-    doc.status !== "paid"
+    doc.status !== "paid" && doc.status !== "partially_paid"
   );
 }
 
@@ -183,14 +190,19 @@ function getCompletionDoc(documents: DealDoc[]) {
   return (
     [...nonVoided].reverse().find((doc) => doc.doc_type === "receipt" && (doc.status === "generated" || doc.status === "paid" || doc.status === "issued")) ||
     [...nonVoided].reverse().find((doc) => doc.doc_type === "tax_invoice_receipt" && (doc.status === "issued" || doc.status === "paid")) ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "billing_note" && doc.status === "paid") ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "invoice" && doc.status === "paid") ||
+    [...nonVoided].reverse().find((doc) => doc.doc_type === "billing_note" && (doc.status === "paid" || doc.status === "partially_paid")) ||
+    [...nonVoided].reverse().find((doc) => doc.doc_type === "invoice" && (doc.status === "paid" || doc.status === "partially_paid")) ||
     null
   );
 }
 
+function hasPartialPayment(documents: DealDoc[]) {
+  return documents.some((doc) => doc.status === "partially_paid");
+}
+
 function getCompletedAt(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
+  const isPartial = hasPartialPayment(documents);
 
   const receipt = [...nonVoided]
     .reverse()
@@ -201,7 +213,7 @@ function getCompletedAt(documents: DealDoc[]) {
           doc.status === "paid" ||
           doc.status === "issued"),
     );
-  if (receipt) return receipt.paid_at || receipt.updated_at;
+  if (receipt && !isPartial) return receipt.paid_at || receipt.updated_at;
 
   const combined = [...nonVoided]
     .reverse()
@@ -210,7 +222,7 @@ function getCompletedAt(documents: DealDoc[]) {
         doc.doc_type === "tax_invoice_receipt" &&
         (doc.status === "issued" || doc.status === "paid"),
     );
-  if (combined) return combined.paid_at || combined.updated_at;
+  if (combined && !isPartial) return combined.paid_at || combined.updated_at;
 
   const paidBilling = [...nonVoided]
     .reverse()
@@ -326,6 +338,12 @@ function getStageInfo(
       stageLabel: "เกินกำหนด",
       stageHint: "ต้องติดตาม",
       queue: "overdue" as HomeQueue,
+    };
+  if (hasPartialPayment(documents))
+    return {
+      stageLabel: "ชำระบางส่วน",
+      stageHint: "ยังรับเงินไม่ครบ",
+      queue: "partial" as HomeQueue,
     };
   if (dnWaiting.length > 0) {
     return {
@@ -649,6 +667,10 @@ export default function HomePage() {
           acc.overdueCount += 1;
           acc.overdueAmount += deal.amount || 0;
         }
+        if (deal.queue === "partial") {
+          acc.partialCount += 1;
+          acc.partialAmount += deal.amount || 0;
+        }
         if (deal.queue === "wait_send") {
           acc.waitSendCount += 1;
           if (deal.latestDocument?.doc_type === "invoice")
@@ -663,6 +685,8 @@ export default function HomePage() {
         waitCollectAmount: 0,
         overdueCount: 0,
         overdueAmount: 0,
+        partialCount: 0,
+        partialAmount: 0,
         waitSendCount: 0,
         waitSendInvoiceCount: 0,
       },
@@ -803,6 +827,11 @@ export default function HomePage() {
       label: "รอเก็บเงิน",
       value: "wait_collect",
       count: summary.waitCollectCount,
+    },
+    {
+      label: "ชำระบางส่วน",
+      value: "partial",
+      count: summary.partialCount,
     },
     { label: "เกินกำหนด", value: "overdue", count: summary.overdueCount },
   ];

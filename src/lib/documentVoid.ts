@@ -63,7 +63,7 @@ async function releaseInvoicesFromReceipt(receiptId: string): Promise<void> {
     .from("documents")
     .update({ status: invoiceStatus as DocumentStatus, paid_at: null })
     .in("id", invoiceIds)
-    .eq("status", "paid");
+    .in("status", ["paid", "partially_paid"]);
 
   if (invoiceError) throw invoiceError;
 
@@ -72,7 +72,7 @@ async function releaseInvoicesFromReceipt(receiptId: string): Promise<void> {
       .from("documents")
       .update({ status: "sent" as DocumentStatus, paid_at: null })
       .in("id", billingNoteIds)
-      .eq("status", "paid");
+      .in("status", ["paid", "partially_paid"]);
 
     if (billingError) throw billingError;
   }

@@ -103,6 +103,8 @@ export function PrintDocumentClassicV2({
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
   const isBillingNote = document.doc_type === "billing_note";
+  const isReceiptOrBillingNoteTable =
+    (isBillingNote || (document.doc_type === "receipt" && receiptInvoices.length > 0)) && document.vat_registered;
   const showFooter = pageMode === "single" || pageMode === "last";
   const showHeader = pageMode === "single" || pageMode === "first";
   const showContinuationHeader =
@@ -172,7 +174,7 @@ export function PrintDocumentClassicV2({
       className={
         isCopy
           ? `print-sheet print-theme-classic print-copy${documentClass}`
-          : `print-sheet print-theme-classic${documentClass}`
+          : `print-sheet print-theme-classic print-theme-classic-v2${documentClass}`
       }
     >
       {/* ============== TOP HEADER ============== */}
@@ -187,7 +189,7 @@ export function PrintDocumentClassicV2({
         <>
           <header className="print-classic-top">
             <div className="print-classic-logo">
-              {clientProfile.logo_url ? (
+              {clientProfile.logo_url && clientProfile.show_logo !== false ? (
                 <img
                   src={clientProfile.logo_url}
                   alt={clientProfile.company_name_th}
@@ -195,9 +197,7 @@ export function PrintDocumentClassicV2({
                   className="print-classic-logo-img"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
-              ) : (
-                <div className="print-classic-logo-fallback">logo</div>
-              )}
+              ) : null}
             </div>
             <div className="print-classic-company">
               <div className="print-classic-company-th">
@@ -250,35 +250,23 @@ export function PrintDocumentClassicV2({
                 </div>
                 <div className="print-classic-val">{customer.name}</div>
 
-                {customer.address ? (
-                  <>
-                    <div className="print-classic-label">
-                      <span className="print-classic-label-th">ที่อยู่ :</span>
-                      <span className="print-classic-label-en">ADDRESS</span>
-                    </div>
-                    <div className="print-classic-val">{customer.address}</div>
-                  </>
-                ) : null}
+                <div className="print-classic-label">
+                  <span className="print-classic-label-th">ที่อยู่ :</span>
+                  <span className="print-classic-label-en">ADDRESS</span>
+                </div>
+                <div className="print-classic-val">{customer.address || "—"}</div>
 
-                {customer.phone ? (
-                  <>
-                    <div className="print-classic-label">
-                      <span className="print-classic-label-th">โทรศัพท์ :</span>
-                      <span className="print-classic-label-en">TELEPHONE</span>
-                    </div>
-                    <div className="print-classic-val">{customer.phone}</div>
-                  </>
-                ) : null}
+                <div className="print-classic-label">
+                  <span className="print-classic-label-th">โทรศัพท์ :</span>
+                  <span className="print-classic-label-en">TELEPHONE</span>
+                </div>
+                <div className="print-classic-val">{customer.phone || "—"}</div>
 
-                {customer.tax_id ? (
-                  <>
-                    <div className="print-classic-label">
-                      <span className="print-classic-label-th">เลขภาษี :</span>
-                      <span className="print-classic-label-en">TAX ID NO.</span>
-                    </div>
-                    <div className="print-classic-val">{customer.tax_id}</div>
-                  </>
-                ) : null}
+                <div className="print-classic-label">
+                  <span className="print-classic-label-th">เลขภาษี :</span>
+                  <span className="print-classic-label-en">TAX ID NO.</span>
+                </div>
+                <div className="print-classic-val">{customer.tax_id || "—"}</div>
 
                 {customer.contact_name ? (
                   <>
@@ -399,13 +387,13 @@ export function PrintDocumentClassicV2({
                   <th>
                     วันที่ออก<span className="en">ISSUE DATE</span>
                   </th>
-                  <th>
+                  <th style={{ textAlign: "right" }}>
                     มูลค่า<span className="en">SUBTOTAL</span>
                   </th>
-                  <th>
+                  <th style={{ textAlign: "right" }}>
                     ภาษีมูลค่าเพิ่ม<span className="en">VAT</span>
                   </th>
-                  <th>
+                  <th style={{ textAlign: "right" }}>
                     รวม<span className="en">AMOUNT</span>
                   </th>
                 </tr>
@@ -461,13 +449,13 @@ export function PrintDocumentClassicV2({
                   <th>
                     วันที่ออก<span className="en">ISSUE DATE</span>
                   </th>
-                  <th>
+                  <th style={{ textAlign: "right" }}>
                     มูลค่า<span className="en">SUBTOTAL</span>
                   </th>
-                  <th>
+                  <th style={{ textAlign: "right" }}>
                     ภาษีมูลค่าเพิ่ม<span className="en">VAT</span>
                   </th>
-                  <th>
+                  <th style={{ textAlign: "right" }}>
                     รับชำระ<span className="en">PAID</span>
                   </th>
                 </tr>
@@ -507,12 +495,12 @@ export function PrintDocumentClassicV2({
                 <col
                   style={{ width: hideDeliveryAmounts ? "139mm" : "87mm" }}
                 />
-                <col style={{ width: "20mm" }} />
-                <col style={{ width: "15mm" }} />
+                <col style={{ width: "23mm" }} />
+                <col style={{ width: "14mm" }} />
                 {!hideDeliveryAmounts && (
                   <>
-                    <col style={{ width: "22mm" }} />
-                    <col style={{ width: "26mm" }} />
+                    <col style={{ width: "21mm" }} />
+                    <col style={{ width: "25mm" }} />
                   </>
                 )}
               </colgroup>
@@ -689,7 +677,7 @@ export function PrintDocumentClassicV2({
           ) : null}
 
           {/* ============== NOTE / PAYMENT + TOTALS ============== */}
-          <div className="print-classic-bottom-row">
+          <div className={`print-classic-bottom-row${isReceiptOrBillingNoteTable ? " print-classic-bottom-row-receipt" : ""}`}>
             <div className="print-classic-terms-col">
               {isDeliveryNote ? (
                 <>
@@ -881,7 +869,7 @@ export function PrintDocumentClassicV2({
             </div>
           </div>
 
-          {!isDeliveryNote ? (
+          {!isDeliveryNote && classicTerms.length > 0 ? (
             <div className="print-classic-fine-terms">
               <div className="print-classic-fine-terms-title">
                 เงื่อนไข (TERMS)
@@ -908,6 +896,10 @@ export function PrintDocumentClassicV2({
             ) : null}
           </div>
         </>
+      )}
+
+      {isCopy && (
+        <div className="print-copy-watermark">ฉบับสำเนา</div>
       )}
     </article>
   );

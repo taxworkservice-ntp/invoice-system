@@ -63,13 +63,24 @@ type MainAction =
   | { type: "done"; label: string }
   | null;
 
+async function getTotalReceived(doc: Document): Promise<number> {
+  const { data: receipts } = await supabase
+    .from("documents")
+    .select("amount_received")
+    .eq("converted_from_id", doc.id)
+    .eq("doc_type", "receipt")
+    .neq("status", "voided");
+  return (receipts || []).reduce((sum, r) => sum + (r.amount_received || 0), 0);
+}
+
 function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
   if (doc.status === "voided" || doc.status === "converted") return "done";
   if (doc.doc_type === "quotation") return "quote";
   if (doc.doc_type === "tax_invoice_receipt") return "done";
-  if (doc.doc_type === "invoice" && doc.status !== "paid") return "invoice";
-  if (doc.doc_type === "billing_note" && doc.status !== "paid") return "collect";
+  if (doc.doc_type === "invoice" && doc.status !== "paid" && doc.status !== "partially_paid") return "invoice";
+  if (doc.doc_type === "billing_note" && doc.status !== "paid" && doc.status !== "partially_paid") return "collect";
   if (doc.status === "paid" || doc.status === "generated") return "done";
+  if (doc.status === "partially_paid") return "collect";
   if (doc.doc_type === "delivery_note") {
     return "invoice";
   }
@@ -85,7 +96,7 @@ function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
 function isOverdueDocument(doc: Document) {
   if (doc.status === "overdue") return true;
   if (doc.doc_type !== "billing_note" || !doc.due_date) return false;
-  return new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10)) && doc.status !== "paid";
+  return new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10)) && doc.status !== "paid" && doc.status !== "partially_paid";
 }
 
 function getDocumentAmount(doc: Document) {
@@ -117,6 +128,7 @@ function getStatusPill(doc: Document | null) {
   if (!doc) return { label: "ยังไม่มีเอกสาร", className: "bg-stone-100 text-stone-500" };
   if (doc.status === "draft") return { label: "ร่าง", className: "bg-draft-bg text-draft-text" };
   if (doc.status === "paid") return { label: "ชำระแล้ว", className: "bg-paid-bg text-paid-text" };
+  if (doc.status === "partially_paid") return { label: "ชำระบางส่วน", className: "bg-amber-100 text-amber-700" };
   if (isOverdueDocument(doc)) return { label: "เกินกำหนด", className: "bg-overdue-bg text-overdue-text" };
   if (doc.doc_type === "quotation" && doc.status === "sent") return { label: "รอลูกค้าตอบ", className: "bg-amber-100 text-amber-700" };
   if (doc.doc_type === "invoice" && (doc.status === "sent" || doc.status === "in_billing")) {
@@ -415,13 +427,15 @@ export default function DealDetailPage() {
     }
   };
 
-  const handleOpenPaymentModal = (doc: Document) => {
+  const handleOpenPaymentModal = async (doc: Document) => {
     if (!permissions.canRecordPayments) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
+    const previousTotal = await getTotalReceived(doc);
+    const remaining = Math.max(0, doc.net_payable - previousTotal);
     setPayDocument(doc);
-    setAmountReceived(doc.net_payable);
+    setAmountReceived(remaining);
     setPaymentMismatchConfirm(false);
     setPaymentMethod("bank_transfer");
     setWhtCertificateNo("");
@@ -461,13 +475,18 @@ export default function DealDetailPage() {
       });
       const receiptInvoiceSources = await getReceiptInvoiceSources(payDocument, userId);
 
+      const previousTotal = await getTotalReceived(payDocument);
+      const newTotal = previousTotal + amountReceived;
+      const isFullyPaid = newTotal >= (payDocument.net_payable - 0.01);
+      const newStatus = isFullyPaid ? "paid" : "partially_paid";
+
       await supabase
         .from("documents")
         .update({
-          status: "paid" as DocumentStatus,
+          status: newStatus as DocumentStatus,
           paid_at: paidAt,
           payment_method: paymentMethod,
-          amount_received: amountReceived,
+          amount_received: newTotal,
           wht_certificate_no: whtCertificateNo || null,
         })
         .eq("id", payDocument.id);
@@ -479,9 +498,10 @@ export default function DealDetailPage() {
 
       const linkedInvoiceIds = (linked || []).map((item: { invoice_id: string }) => item.invoice_id);
       if (linkedInvoiceIds.length > 0) {
+        const invoiceNewStatus = isFullyPaid ? "paid" : "in_billing";
         await supabase
           .from("documents")
-          .update({ status: "paid" as DocumentStatus, paid_at: paidAt })
+          .update({ status: invoiceNewStatus as DocumentStatus, paid_at: paidAt })
           .in("id", linkedInvoiceIds);
       }
 
@@ -522,12 +542,13 @@ export default function DealDetailPage() {
             userId,
             sourceDocument: payDocument,
             invoices: receiptInvoiceSources,
+            actualPaidAmount: amountReceived,
           }),
         );
         if (receiptInvoiceError) throw receiptInvoiceError;
       }
 
-      toast.success("บันทึกรับเงินสำเร็จ");
+      toast.success(isFullyPaid ? "บันทึกรับเงินสำเร็จ" : "บันทึกรับเงินบางส่วนสำเร็จ");
       setPaymentModalOpen(false);
       setPaymentMismatchConfirm(false);
       setPayDocument(null);
@@ -1135,6 +1156,10 @@ export default function DealDetailPage() {
         danger: isOverdueDocument(doc),
       };
     }
+    if ((doc.doc_type === "billing_note" || doc.doc_type === "invoice") && doc.status === "partially_paid") {
+      if (!permissions.canRecordPayments) return null;
+      return { type: "collect", doc, label: "รับชำระเพิ่ม" };
+    }
     return null;
   }, [activeDoc, allDone, hasQuotationDeliveryActivity, permissions.canRecordPayments, permissions.canSendDocuments]);
 
@@ -1314,6 +1339,20 @@ export default function DealDetailPage() {
               <span>เอกสารนี้เกินกำหนดชำระแล้ว ตั้งแต่ {formatBuddhistDate(activeDoc.document.due_date)}</span>
             </div>
           )}
+          {(() => {
+            const partialDoc = nonVoidedDocs.find((item) => item.document.status === "partially_paid")?.document;
+            if (!partialDoc) return null;
+            const remaining = (partialDoc.net_payable || 0) - (partialDoc.amount_received || 0);
+            return (
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-800">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-semibold">ชำระบางส่วน</span>
+                  — รับแล้ว ฿{(partialDoc.amount_received || 0).toLocaleString()} จาก ฿{(partialDoc.net_payable || 0).toLocaleString()} คงเหลือ ฿{Math.max(0, remaining).toLocaleString()}
+                </div>
+              </div>
+            );
+          })()}
         </Card>
 
         <EditableDocNumber
@@ -1635,10 +1674,13 @@ export default function DealDetailPage() {
                               </>
                             ) : null}
                           </div>
-                          {(doc.status === "paid" || doc.status === "generated" || doc.status === "issued") && (
+                          {(doc.status === "paid" || doc.status === "partially_paid" || doc.status === "generated" || doc.status === "issued") && (
                             <div className="mt-1 text-[10px] text-green-600">
-                              ชำระแล้ว{doc.paid_at ? ` ${formatBuddhistDate(doc.paid_at)}` : ""}
+                              {doc.status === "partially_paid" ? "ชำระบางส่วน" : "ชำระแล้ว"}{doc.paid_at ? ` ${formatBuddhistDate(doc.paid_at)}` : ""}
                               {doc.payment_method ? ` • ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
+                              {doc.status === "partially_paid" && doc.amount_received != null && (
+                                <> • ฿{doc.amount_received.toLocaleString()} / ฿{doc.net_payable.toLocaleString()}</>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1965,7 +2007,7 @@ export default function DealDetailPage() {
                     </div>
                     <p className="mt-3 text-xs text-amber-700">
                       {amountReceived < payDocument.net_payable
-                        ? "คุณกำลังรับเงินน้อยกว่ายอดที่ต้องชำระ ยอดคงเหลือจะไม่ถูกติดตาม"
+                        ? "คุณกำลังรับเงินน้อยกว่ายอดที่ต้องชำระ ยอดคงเหลือจะยังปรากฏในรายงานลูกหนี้จนกว่าจะเก็บครบ"
                         : "คุณกำลังรับเงินมากกว่ายอดที่ต้องชำระ จำนวนที่เกินจะไม่ถูกบันทึกเป็นเครดิต"}
                     </p>
                   </div>

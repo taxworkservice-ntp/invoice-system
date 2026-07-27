@@ -339,6 +339,7 @@ function DocumentCard({
   const isSent = doc.status === "sent";
   const isPaid =
     doc.status === "paid" ||
+    doc.status === "partially_paid" ||
     doc.status === "generated" ||
     doc.status === "issued";
   const isVoided = doc.status === "voided";
