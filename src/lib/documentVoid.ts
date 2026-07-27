@@ -15,7 +15,6 @@ export async function voidDocumentWithSideEffects(
       status: "voided" as DocumentStatus,
       voided_at: new Date().toISOString(),
       voided_reason: reason || null,
-      doc_number: null,
     })
     .eq("id", document.id);
 
