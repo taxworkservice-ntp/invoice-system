@@ -2115,6 +2115,8 @@ export default function DocumentsPage() {
                 ))}
               </div>
             </div>
+            </div>
+            </div>
 
             {summary.voided > 0 && (
               <div className="flex items-center gap-2 pt-1">
