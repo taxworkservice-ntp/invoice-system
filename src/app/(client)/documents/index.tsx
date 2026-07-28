@@ -2394,7 +2394,6 @@ export default function DocumentsPage() {
                           <td className="px-3 py-2">
                             <Badge status={doc.status} />
                           </td>
-                          </td>
                         </tr>
                       );
                     })}

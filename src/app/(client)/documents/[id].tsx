@@ -36,7 +36,7 @@ import {
   toLocalMiddayIso,
   todayString as realTodayString,
 } from "../../../lib/receiptBackdating";
-import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice } from "../../../types";
+import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice, DocumentType } from "../../../types";
 
 function formatDate(date: string): string {
   return formatBuddhistDate(date);
@@ -830,11 +830,14 @@ export default function DocumentDetailPage() {
             {dealChain.length > 1 && (
               <div className="flex items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {(() => {
-                  const steps = dealChain.map(d => ({
-                    key: d.doc_type,
-                    label: documentTypeLabel(d.doc_type, d.doc_type === "invoice" ? (doc.vat_registered) : d.doc_type === "tax_invoice_receipt" ? true : false).thai,
-                    active: d.id === doc.id,
-                  }));
+                  const steps = dealChain.map(d => {
+                    const vatReg = d.doc_type === "invoice" ? doc.vat_registered : d.doc_type === "tax_invoice_receipt";
+                    return {
+                      key: d.doc_type,
+                      label: documentTypeLabel(d.doc_type, vatReg).thai,
+                      active: d.id === doc.id,
+                    };
+                  });
                   return steps.map((step, i) => (
                     <span key={`${step.key}-${i}`} className="flex items-center gap-1 shrink-0">
                       {i > 0 && <span className="text-[#C4BFB6] text-xs">→</span>}
