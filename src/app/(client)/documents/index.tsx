@@ -44,6 +44,7 @@ import {
   DOC_TYPE_LABELS,
   STATUS_LABELS,
   CHIP_COLORS,
+  PAYMENT_METHOD_LABELS,
 } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
@@ -58,7 +59,7 @@ import type { Document, DocumentStatus, DocumentType } from "../../../types";
 const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
   { label: "ทั้งหมด", value: "all" },
   { label: "ใบเสนอราคา", value: "quotation" },
-  { label: "ใบแจ้งหนี้", value: "invoice" },
+  { label: "ใบแจ้งหนี้หรือใบกำกับภาษี", value: "invoice" },
   { label: "ใบกำกับภาษี/ใบเสร็จรับเงิน", value: "tax_invoice_receipt" },
   { label: "ใบวางบิล", value: "billing_note" },
   { label: "ใบเสร็จรับเงิน", value: "receipt" },
@@ -297,6 +298,7 @@ function DocumentCard({
   onToggleSelect,
   selectMode,
   onOpenDeal,
+  searchQuery,
   permissions,
 }: {
   doc: Document;
@@ -310,6 +312,7 @@ function DocumentCard({
   onToggleSelect?: () => void;
   selectMode?: boolean;
   onOpenDeal?: () => void;
+  searchQuery?: string;
   permissions: WorkspacePermissions;
 }) {
   const menuDropdownRef = useRef<HTMLDivElement>(null);
@@ -422,6 +425,9 @@ function DocumentCard({
                   &middot; ครบกำหนด: {formatBuddhistDate(doc.due_date)}
                 </span>
               ) : null}
+              {doc.updated_at && (
+                <span className="text-[#A8A39B]">&middot; แก้ไขล่าสุด: {formatBuddhistDate(doc.updated_at)}</span>
+              )}
               {onOpenDeal && (
                 <button
                   onClick={(e) => {
@@ -451,8 +457,17 @@ function DocumentCard({
                     >
                       +{remainingItems} more
                     </span>
-                  )}
-                </div>
+            )}
+              </div>
+            </div>
+          </div>
+              </div>
+            )}
+            {searchQuery && doc.line_items?.some((item) => item.item_name.toLowerCase().includes(searchQuery.toLowerCase())) && (
+              <div className="pt-1">
+                <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                  พบในรายการ
+                </span>
               </div>
             )}
           </div>
@@ -468,6 +483,42 @@ function DocumentCard({
             >
               ฿{formatCurrency(getDisplayAmount(doc))}
             </div>
+            {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMenuAction("edit"); }}
+                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                แก้ไข
+              </button>
+            )}
+            {isSent && doc.doc_type === "quotation" && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMenuAction("convert"); }}
+                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                ออกใบแจ้งหนี้
+              </button>
+            )}
+            {(isSent || isActuallyOverdue(doc)) && (doc.doc_type === "invoice" || doc.doc_type === "billing_note") && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMenuAction("pay"); }}
+                className="mt-1.5 rounded-full border border-green-500/30 bg-green-50 px-2.5 py-0.5 text-[10px] font-medium text-green-700 hover:bg-green-100 transition-colors"
+              >
+                รับเงิน
+              </button>
+            )}
+            {isSent && doc.doc_type === "delivery_note" && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMenuAction("invoice_from_dn"); }}
+                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                ออกบิล
+              </button>
+            )}
             <button
               type="button"
               onClick={(e) => {
@@ -784,6 +835,7 @@ function QuickDetailModal({
       value: doc.due_date ? formatBuddhistDate(doc.due_date) : "ไม่มีกำหนด",
       emphasis: overdue,
     },
+    ...(doc.updated_at ? [{ label: "แก้ไขล่าสุด", value: formatBuddhistDate(doc.updated_at) }] : []),
     { label: "ขั้นตอนถัดไป", value: getNextStepText(doc) },
   ];
 
@@ -971,7 +1023,7 @@ function QuickDetailModal({
             )}
             {doc.vat_registered && (
               <div className="flex items-start justify-between gap-4">
-                <span className="text-[#7B766E]">VAT {doc.vat_rate}%</span>
+                <span className="text-[#7B766E] cursor-help" title="ภาษีมูลค่าเพิ่ม คำนวณจากยอดรวมหลังส่วนลด">VAT {doc.vat_rate}%</span>
                 <span className="text-right font-medium text-[#1A1A18]">
                   ฿ {formatCurrency(doc.vat_amount)}
                 </span>
@@ -979,20 +1031,66 @@ function QuickDetailModal({
             )}
             {doc.wht_rate > 0 && (
               <div className="flex items-start justify-between gap-4 text-red-700">
-                <span>หัก ณ ที่จ่าย {doc.wht_rate}%</span>
+                <span className="cursor-help" title="ภาษีหัก ณ ที่จ่าย ลูกค้าหักไว้ก่อนจ่าย">หัก ณ ที่จ่าย {doc.wht_rate}%</span>
                 <span className="text-right font-medium">
                   -฿ {formatCurrency(doc.wht_amount)}
                 </span>
               </div>
             )}
             <div className="flex items-start justify-between gap-4 border-t border-[#F0ECE5] pt-2">
-              <span className="font-medium text-[#1A1A18]">ยอดสุทธิ</span>
+              <span className="font-medium text-[#1A1A18] cursor-help" title="จำนวนเงินที่ลูกค้าต้องจ่ายจริงหลังหักภาษี">ยอดสุทธิ</span>
               <span className="text-right text-base font-semibold text-[#1A1A18]">
                 ฿ {formatCurrency(getDisplayAmount(doc))}
               </span>
             </div>
           </div>
         </div>
+
+        {["paid", "partially_paid", "generated", "issued"].includes(doc.status) && (doc.payment_method || doc.paid_at || doc.amount_received != null) && (
+          <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
+            <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+              ข้อมูลรับเงิน
+            </div>
+            <div className="mt-3 space-y-2 text-sm">
+              {doc.payment_method && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-[#7B766E]">วิธีชำระ</span>
+                  <span className="text-right font-medium text-[#1A1A18]">
+                    {PAYMENT_METHOD_LABELS[doc.payment_method] || doc.payment_method}
+                  </span>
+                </div>
+              )}
+              {doc.amount_received != null && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-[#7B766E]">รับแล้ว</span>
+                  <span className="text-right font-medium text-[#1A1A18]">
+                    ฿ {formatCurrency(doc.amount_received)}
+                  </span>
+                </div>
+              )}
+              {doc.status === "partially_paid" && (
+                <div className="flex items-start justify-between gap-4 text-amber-700">
+                  <span>คงเหลือ</span>
+                  <span className="text-right font-medium">
+                    ฿ {formatCurrency(Math.max(0, doc.net_payable - (doc.amount_received || 0)))}
+                  </span>
+                </div>
+              )}
+              {doc.paid_at && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-[#7B766E]">วันที่</span>
+                  <span className="text-right font-medium text-[#1A1A18]">{formatBuddhistDate(doc.paid_at)}</span>
+                </div>
+              )}
+              {doc.wht_certificate_no && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-[#7B766E]">ใบหักภาษี</span>
+                  <span className="text-right font-medium text-[#1A1A18]">{doc.wht_certificate_no}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {doc.note && (
           <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
@@ -1063,6 +1161,7 @@ export default function DocumentsPage() {
   const [selectedMonth, setSelectedMonth] = useState<number>(CURRENT_MONTH);
   const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [quickDetailLoading, setQuickDetailLoading] = useState(false);
@@ -1436,12 +1535,15 @@ export default function DocumentsPage() {
         const customerName = ((doc as any).customer?.name || "").toLowerCase();
         const docNumber = (doc.doc_number || "").toLowerCase();
         const note = (doc.note || "").toLowerCase();
-        if (
-          !customerName.includes(query) &&
-          !docNumber.includes(query) &&
-          !note.includes(query)
-        )
-          return false;
+        const docMatch =
+          customerName.includes(query) ||
+          docNumber.includes(query) ||
+          note.includes(query);
+        const lineItemMatch =
+          doc.line_items?.some((item) =>
+            item.item_name.toLowerCase().includes(query),
+          ) ?? false;
+        if (!docMatch && !lineItemMatch) return false;
       }
 
       if (dateFrom && doc.issue_date < dateFrom) return false;
@@ -1481,6 +1583,22 @@ export default function DocumentsPage() {
     const voided = filtered.filter((doc) => doc.status === "voided");
     return { active, completed, voided };
   }, [filtered]);
+
+  const docTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const doc of documents) {
+      counts[doc.doc_type] = (counts[doc.doc_type] || 0) + 1;
+    }
+    return counts;
+  }, [documents]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const doc of documents) {
+      counts[doc.status] = (counts[doc.status] || 0) + 1;
+    }
+    return counts;
+  }, [documents]);
 
   type DocSortKey =
     "doc_number" | "doc_type" | "issue_date" | "net_payable" | "status";
@@ -1752,6 +1870,7 @@ export default function DocumentsPage() {
             </div>
 
             <div className="mt-2 flex items-center justify-between gap-3 md:hidden">
+              <ViewToggle value={viewMode} onChange={setViewMode} />
               <span className="text-xs text-[#7D776D]">
                 {filtered.length} รายการ
               </span>
@@ -1953,17 +2072,35 @@ export default function DocumentsPage() {
                     onClick={() => setDocTypeFilter(filter.value)}
                     className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${docTypeFilter === filter.value ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
                   >
-                    {filter.label}
+                    {filter.label}{" "}
+                    <span className={docTypeFilter === filter.value ? "opacity-70" : "text-[#A8A39B]"}>
+                      ({filter.value === "all" ? documents.length : (docTypeCounts[filter.value] || 0)})
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[#666258]">
-                <ArrowUpDown className="h-3.5 w-3.5" />
-                สถานะ
-              </div>
+              <button
+                type="button"
+                onClick={() => setAdvancedFiltersOpen((v) => !v)}
+                className="mb-2 flex w-full items-center justify-between gap-2 text-xs font-medium text-[#666258] md:hidden"
+              >
+                <span className="flex items-center gap-2">
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  ตัวกรองเพิ่มเติม
+                </span>
+                <span className={`transition-transform ${advancedFiltersOpen ? "rotate-180" : ""}`}>
+                  ▾
+                </span>
+              </button>
+              <div className={`${advancedFiltersOpen ? "block" : "hidden"} md:block space-y-4`}>
+              <div>
+                <div className="hidden md:flex items-center gap-2 text-xs font-medium text-[#666258] mb-2">
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  สถานะ
+                </div>
               <div className="flex gap-1.5 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {STATUS_FILTERS.map((filter) => (
                   <button
@@ -1972,7 +2109,10 @@ export default function DocumentsPage() {
                     onClick={() => setStatusFilter(filter.value)}
                     className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${statusFilter === filter.value ? "border-[#3F3B34] bg-[#3F3B34] text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
                   >
-                    {filter.label}
+                    {filter.label}{" "}
+                    <span className={statusFilter === filter.value ? "opacity-70" : "text-[#A8A39B]"}>
+                      ({filter.value === "all" ? documents.length : (statusCounts[filter.value] || 0)})
+                    </span>
                   </button>
                 ))}
               </div>
@@ -2057,14 +2197,29 @@ export default function DocumentsPage() {
         {loading ? (
           <SkeletonTable />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            title="ไม่พบเอกสาร"
-            description={
-              documents.length === 0
-                ? "ยังไม่มีเอกสารในระบบ"
-                : "ลองเปลี่ยนคำค้นหา หรือปรับตัวกรอง"
-            }
-          />
+          documents.length === 0 ? (
+            <EmptyState
+              title="ยังไม่มีเอกสารในระบบ"
+              description="เริ่มต้นด้วยการสร้างงานขาย ระบบจะช่วยสร้างเอกสารที่จำเป็นให้ทีละขั้นตอน"
+              action={
+                <Button onClick={() => navigate("/deals/new")}>
+                  สร้างงานขายแรก
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="ไม่พบเอกสาร"
+              description="ลองเปลี่ยนคำค้นหา หรือปรับตัวกรอง"
+              action={
+                hasFilters ? (
+                  <Button variant="secondary" onClick={clearFilters}>
+                    ล้างตัวกรองทั้งหมด
+                  </Button>
+                ) : undefined
+              }
+            />
+          )
         ) : viewMode !== "list" ? (
           viewMode === "grid" ? (
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -2126,9 +2281,16 @@ export default function DocumentsPage() {
                       )}
                     </div>
                     <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
-                      <span className="text-[11px] text-[#888780]">
-                        {formatBuddhistDate(doc.issue_date)}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[11px] text-[#888780]">
+                          {formatBuddhistDate(doc.issue_date)}
+                        </span>
+                        {doc.updated_at && (
+                          <span className="text-[10px] text-[#A8A39B]">
+                            แก้ไข: {formatBuddhistDate(doc.updated_at)}
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[12px] font-semibold text-[#1A1A18]">
                         ฿ {formatCurrency(getDisplayAmount(doc) || 0)}
                       </span>
@@ -2182,7 +2344,7 @@ export default function DocumentsPage() {
                         active={docSort.sort.key === "status"}
                         dir={docSort.sort.dir}
                         onClick={() => docSort.handleSort("status")}
-                        className={`${TABLE.thSortable} hidden md:table-cell`}
+                        className={TABLE.thSortable}
                       />
                     </tr>
                   </thead>
@@ -2219,15 +2381,19 @@ export default function DocumentsPage() {
                             </span>
                           </td>
                           <td className="px-3 py-2 hidden sm:table-cell text-[#667085] text-[12px]">
-                            {formatBuddhistDate(doc.issue_date)}
+                            <div>{formatBuddhistDate(doc.issue_date)}</div>
+                            {doc.updated_at && (
+                              <div className="text-[10px] text-[#A8A39B]">แก้ไข: {formatBuddhistDate(doc.updated_at)}</div>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-right">
                             <span className="text-[#111827]">
                               ฿ {formatCurrency(getDisplayAmount(doc) || 0)}
                             </span>
                           </td>
-                          <td className="px-3 py-2 hidden md:table-cell">
+                          <td className="px-3 py-2">
                             <Badge status={doc.status} />
+                          </td>
                           </td>
                         </tr>
                       );
@@ -2270,6 +2436,7 @@ export default function DocumentsPage() {
                           : undefined
                       }
                       permissions={permissions}
+                      searchQuery={debouncedSearch || undefined}
                     />
                   ))}
                 </div>

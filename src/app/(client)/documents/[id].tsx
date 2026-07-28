@@ -119,6 +119,7 @@ export default function DocumentDetailPage() {
   const [dnInvoiceRef, setDnInvoiceRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [copiedFromRef, setCopiedFromRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [replacementRef, setReplacementRef] = useState<{ id: string; doc_number: string | null } | null>(null);
+  const [dealChain, setDealChain] = useState<{ id: string; doc_type: DocumentType; doc_number: string | null }[]>([]);
 
   useEffect(() => {
     if (payDate === realTodayString()) setPayDate(businessToday);
@@ -130,7 +131,7 @@ export default function DocumentDetailPage() {
     try {
       const data = await getDocumentDetail(id);
       setDoc(data);
-      const [copiedFromResult, replacementResult] = await Promise.all([
+      const [copiedFromResult, replacementResult, dealChainResult] = await Promise.all([
         data.copied_from_id
           ? supabase
               .from("documents")
@@ -146,9 +147,18 @@ export default function DocumentDetailPage() {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
+        data.deal_id
+          ? supabase
+              .from("documents")
+              .select("id, doc_type, doc_number")
+              .eq("deal_id", data.deal_id)
+              .neq("status", "voided")
+              .order("created_at", { ascending: true })
+          : Promise.resolve({ data: [] }),
       ]);
       setCopiedFromRef(copiedFromResult.data ? { id: (copiedFromResult.data as any).id, doc_number: (copiedFromResult.data as any).doc_number } : null);
       setReplacementRef(replacementResult.data ? { id: (replacementResult.data as any).id, doc_number: (replacementResult.data as any).doc_number } : null);
+      setDealChain((dealChainResult.data || []) as { id: string; doc_type: DocumentType; doc_number: string | null }[]);
       if (data.doc_type === "delivery_note") {
         const { data: link } = await supabase
           .from("invoice_delivery_notes")
@@ -732,7 +742,9 @@ export default function DocumentDetailPage() {
         ? "ส่งของแล้ว / รอออกบิล เอกสารถูกล็อกหลังยืนยันส่งของแล้ว"
         : isPaid
           ? "ปิดงานแล้วและมีข้อมูลรับเงินครบ"
-          : isOverdue
+          : isPartiallyPaid
+            ? "ชำระบางส่วน ยังเหลือยอดค้างชำระ"
+            : isOverdue
             ? "เกินกำหนดแล้ว ควรติดตามการชำระ"
             : isSent || isIssued
               ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
@@ -815,7 +827,33 @@ export default function DocumentDetailPage() {
               )}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            {dealChain.length > 1 && (
+              <div className="flex items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {(() => {
+                  const steps = dealChain.map(d => ({
+                    key: d.doc_type,
+                    label: documentTypeLabel(d.doc_type, d.doc_type === "invoice" ? (doc.vat_registered) : d.doc_type === "tax_invoice_receipt" ? true : false).thai,
+                    active: d.id === doc.id,
+                  }));
+                  return steps.map((step, i) => (
+                    <span key={`${step.key}-${i}`} className="flex items-center gap-1 shrink-0">
+                      {i > 0 && <span className="text-[#C4BFB6] text-xs">→</span>}
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium shrink-0 ${
+                          step.active
+                            ? "bg-primary text-white"
+                            : "bg-white/50 text-[#7D776D] border border-white/50"
+                        }`}
+                      >
+                        {step.label}
+                      </span>
+                    </span>
+                  ));
+                })()}
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
                 <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
                   <UserRound className="h-3.5 w-3.5" />
@@ -836,6 +874,13 @@ export default function DocumentDetailPage() {
                   ครบกำหนด
                 </div>
                 <p className={`mt-2 text-sm font-medium ${isOverdue ? "text-red-700" : "text-[#1A1A18]"}`}>{dueDateLabel}</p>
+              </div>
+              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  แก้ไขล่าสุด
+                </div>
+                <p className="mt-2 text-sm font-medium text-[#1A1A18]">{doc.updated_at ? formatDate(doc.updated_at) : "-"}</p>
               </div>
             </div>
           </div>
@@ -867,9 +912,11 @@ export default function DocumentDetailPage() {
         className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
           isVoided
             ? "border-[#F2D4D4] bg-[#FFF4F4] text-[#8A2020]"
-            : isPaid
-              ? "border-[#CFE7D8] bg-[#EDF8F1] text-[#1E5A38]"
-              : isOverdue
+      : isPaid
+        ? "border-[#CFE7D8] bg-[#EDF8F1] text-[#1E5A38]"
+        : isPartiallyPaid
+          ? "border-[#F5D9A0] bg-[#FFF8EB] text-[#8A5D00]"
+          : isOverdue
                 ? "border-[#F0D0D0] bg-[#FFF0F0] text-[#8A2020]"
                 : isSent || isIssued
                   ? "border-[#D9E7F7] bg-[#EAF4FF] text-[#0C447C]"
