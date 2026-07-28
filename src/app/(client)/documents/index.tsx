@@ -85,16 +85,31 @@ const MONTH_LABELS = [
 const CURRENT_MONTH = new Date().getMonth() + 1;
 const CURRENT_YEAR = new Date().getFullYear();
 
-const STATUS_FILTERS: { label: string; value: DocumentStatus | "all" }[] = [
+const STATUS_GROUPS = {
+  processing: {
+    label: "กำลังดำเนินการ",
+    statuses: ["draft", "sent", "in_billing", "overdue", "converted"] as DocumentStatus[],
+    color: "amber" as const,
+  },
+  done: {
+    label: "เสร็จแล้ว",
+    statuses: ["paid", "partially_paid", "generated", "issued"] as DocumentStatus[],
+    color: "green" as const,
+  },
+  voided: {
+    label: "ยกเลิก",
+    statuses: ["voided"] as DocumentStatus[],
+    color: "red" as const,
+  },
+};
+
+type StatusGroupKey = keyof typeof STATUS_GROUPS;
+
+const STATUS_FILTERS: { label: string; value: DocumentStatus | StatusGroupKey | "all" }[] = [
   { label: "ทั้งหมด", value: "all" },
-  { label: "ร่าง", value: "draft" },
-  { label: "ส่งแล้ว", value: "sent" },
-  { label: "แปลงแล้ว", value: "converted" },
-  { label: "รอวางบิล", value: "in_billing" },
-  { label: "ชำระแล้ว", value: "paid" },
-  { label: "เกินกำหนด", value: "overdue" },
-  { label: "ออกแล้ว", value: "generated" },
-  { label: "ยกเลิก", value: "voided" },
+  { label: STATUS_GROUPS.processing.label, value: "processing" },
+  { label: STATUS_GROUPS.done.label, value: "done" },
+  { label: STATUS_GROUPS.voided.label, value: "voided" },
 ];
 
 type QuickView =
@@ -141,6 +156,11 @@ function isActuallyOverdue(doc: Document) {
     (doc.status === "sent" || doc.status === "overdue") &&
     new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10))
   );
+}
+
+function showUpdatedAt(doc: Document): boolean {
+  if (!doc.updated_at) return false;
+  return doc.updated_at >= doc.issue_date;
 }
 
 function getNextStepText(doc: Document) {
@@ -425,7 +445,7 @@ function DocumentCard({
                   &middot; ครบกำหนด: {formatBuddhistDate(doc.due_date)}
                 </span>
               ) : null}
-              {doc.updated_at && (
+              {showUpdatedAt(doc) && (
                 <span className="text-[#A8A39B]">&middot; แก้ไขล่าสุด: {formatBuddhistDate(doc.updated_at)}</span>
               )}
               {onOpenDeal && (
@@ -833,7 +853,7 @@ function QuickDetailModal({
       value: doc.due_date ? formatBuddhistDate(doc.due_date) : "ไม่มีกำหนด",
       emphasis: overdue,
     },
-    ...(doc.updated_at ? [{ label: "แก้ไขล่าสุด", value: formatBuddhistDate(doc.updated_at) }] : []),
+    ...(showUpdatedAt(doc) ? [{ label: "แก้ไขล่าสุด", value: formatBuddhistDate(doc.updated_at!) }] : []),
     { label: "ขั้นตอนถัดไป", value: getNextStepText(doc) },
   ];
 
@@ -1149,7 +1169,7 @@ export default function DocumentsPage() {
   const [docTypeFilter, setDocTypeFilter] = useState<DocumentType | "all">(
     "all",
   );
-  const [statusFilter, setStatusFilter] = useState<DocumentStatus | "all">(
+  const [statusFilter, setStatusFilter] = useState<DocumentStatus | StatusGroupKey | "all">(
     "all",
   );
   const [quickView, setQuickView] = useState<QuickView>("all");
@@ -1474,7 +1494,14 @@ export default function DocumentsPage() {
     return documents.filter((doc) => {
       if (docTypeFilter !== "all" && doc.doc_type !== docTypeFilter)
         return false;
-      if (statusFilter !== "all" && doc.status !== statusFilter) return false;
+      if (statusFilter !== "all") {
+        if (statusFilter in STATUS_GROUPS) {
+          const group = STATUS_GROUPS[statusFilter as StatusGroupKey];
+          if (!group.statuses.includes(doc.status)) return false;
+        } else if (doc.status !== statusFilter) {
+          return false;
+        }
+      }
 
       if (
         quickView === "attention" &&
@@ -1597,6 +1624,16 @@ export default function DocumentsPage() {
     }
     return counts;
   }, [documents]);
+
+  const processingOverdueCount = useMemo(
+    () =>
+      documents.filter(
+        (d) =>
+          STATUS_GROUPS.processing.statuses.includes(d.status) &&
+          isActuallyOverdue(d),
+      ).length,
+    [documents],
+  );
 
   type DocSortKey =
     "doc_number" | "doc_type" | "issue_date" | "net_payable" | "status";
@@ -2105,11 +2142,22 @@ export default function DocumentsPage() {
                     key={filter.value}
                     type="button"
                     onClick={() => setStatusFilter(filter.value)}
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${statusFilter === filter.value ? "border-[#3F3B34] bg-[#3F3B34] text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                    className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${
+                      statusFilter === filter.value
+                        ? filter.value === "processing" && processingOverdueCount > 0
+                          ? "border-red-400 bg-red-500 text-white"
+                          : "border-[#3F3B34] bg-[#3F3B34] text-white"
+                        : filter.value === "processing" && processingOverdueCount > 0
+                          ? "border-red-200 bg-red-50 text-red-700 hover:border-red-300"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    }`}
                   >
                     {filter.label}{" "}
+                    {filter.value === "processing" && processingOverdueCount > 0 && (
+                      <span className="inline-flex h-2 w-2 rounded-full bg-red-500 align-middle" />
+                    )}{" "}
                     <span className={statusFilter === filter.value ? "opacity-70" : "text-[#A8A39B]"}>
-                      ({filter.value === "all" ? documents.length : (statusCounts[filter.value] || 0)})
+                      ({filter.value === "all" ? documents.length : filter.value in STATUS_GROUPS ? STATUS_GROUPS[filter.value as StatusGroupKey].statuses.reduce((sum, s) => sum + (statusCounts[s] || 0), 0) : (statusCounts[filter.value] || 0)})
                     </span>
                   </button>
                 ))}
@@ -2118,6 +2166,7 @@ export default function DocumentsPage() {
             </div>
             </div>
 
+            <div className="md:hidden">
             {summary.voided > 0 && (
               <div className="flex items-center gap-2 pt-1">
                 <input
@@ -2135,6 +2184,7 @@ export default function DocumentsPage() {
                 </label>
               </div>
             )}
+            </div>
           </div>
 
           <div className="hidden flex-wrap items-center justify-between gap-3 border-t border-[#F0ECE5] pt-3 md:flex">
@@ -2285,7 +2335,7 @@ export default function DocumentsPage() {
                         <span className="text-[11px] text-[#888780]">
                           {formatBuddhistDate(doc.issue_date)}
                         </span>
-                        {doc.updated_at && (
+                        {showUpdatedAt(doc) && (
                           <span className="text-[10px] text-[#A8A39B]">
                             แก้ไข: {formatBuddhistDate(doc.updated_at)}
                           </span>
@@ -2382,7 +2432,7 @@ export default function DocumentsPage() {
                           </td>
                           <td className="px-3 py-2 hidden sm:table-cell text-[#667085] text-[12px]">
                             <div>{formatBuddhistDate(doc.issue_date)}</div>
-                            {doc.updated_at && (
+                            {showUpdatedAt(doc) && (
                               <div className="text-[10px] text-[#A8A39B]">แก้ไข: {formatBuddhistDate(doc.updated_at)}</div>
                             )}
                           </td>
