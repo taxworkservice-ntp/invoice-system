@@ -460,8 +460,6 @@ function DocumentCard({
             )}
               </div>
             </div>
-          </div>
-              </div>
             )}
             {searchQuery && doc.line_items?.some((item) => item.item_name.toLowerCase().includes(searchQuery.toLowerCase())) && (
               <div className="pt-1">
