@@ -63,6 +63,8 @@ type DashboardDeal = {
   itemNames: string[];
   amount: number;
   netPayable: number;
+  amountReceived: number;
+  outstandingAmount: number;
   whtAmount: number;
   completedDocNumber: string | null;
   status: Document["status"];
@@ -155,27 +157,39 @@ function isOverdueDocument(doc: DealDoc | null) {
   );
 }
 
+function sortDocuments(documents: DealDoc[]) {
+  return [...documents].sort((a, b) => {
+    const updated = b.updated_at.localeCompare(a.updated_at);
+    if (updated !== 0) return updated;
+    const created = b.created_at.localeCompare(a.created_at);
+    if (created !== 0) return created;
+    return b.id.localeCompare(a.id);
+  });
+}
+
 function getLatestRelevantDocument(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   if (nonVoided.length === 0) return null;
   const unresolved = nonVoided.filter((doc) => !isResolvedStatus(doc.status));
-  const pool = unresolved.length > 0 ? unresolved : nonVoided;
-  const sorted = [...pool].sort((a, b) =>
-    a.created_at.localeCompare(b.created_at),
-  );
-  return sorted[sorted.length - 1] || null;
+  return sortDocuments(unresolved.length > 0 ? unresolved : nonVoided)[0] || null;
+}
+
+function getMostUrgentDocument(documents: DealDoc[]) {
+  const overdue = documents
+    .filter((doc) => doc.status !== "voided" && isOverdueDocument(doc))
+    .sort((a, b) => (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31"));
+  return overdue[0] || getLatestRelevantDocument(documents);
 }
 
 function getAmountDocument(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
+  const sorted = sortDocuments(nonVoided);
   return (
-    [...nonVoided]
-      .reverse()
-      .find((doc) => doc.doc_type === "tax_invoice_receipt") ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "billing_note") ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "invoice") ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "quotation") ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "delivery_note") ||
+    sorted.find((doc) => doc.doc_type === "tax_invoice_receipt") ||
+    sorted.find((doc) => doc.doc_type === "billing_note") ||
+    sorted.find((doc) => doc.doc_type === "invoice") ||
+    sorted.find((doc) => doc.doc_type === "quotation") ||
+    sorted.find((doc) => doc.doc_type === "delivery_note") ||
     null
   );
 }
@@ -204,7 +218,7 @@ function getDealWhtAmount(documents: DealDoc[]) {
 function getItemPreview(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   const sourceDoc =
-    [...nonVoided].reverse().find((doc) => (doc.line_items || []).length > 0) ||
+    sortDocuments(nonVoided).find((doc) => (doc.line_items || []).length > 0) ||
     nonVoided.find((doc) => (doc.line_items || []).length > 0) ||
     null;
 
@@ -214,12 +228,12 @@ function getItemPreview(documents: DealDoc[]) {
 }
 
 function getCompletionDoc(documents: DealDoc[]) {
-  const nonVoided = documents.filter((doc) => doc.status !== "voided");
+  const nonVoided = sortDocuments(documents.filter((doc) => doc.status !== "voided"));
   return (
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "receipt" && (doc.status === "generated" || doc.status === "paid" || doc.status === "issued")) ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "tax_invoice_receipt" && (doc.status === "issued" || doc.status === "paid")) ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "billing_note" && (doc.status === "paid" || doc.status === "partially_paid")) ||
-    [...nonVoided].reverse().find((doc) => doc.doc_type === "invoice" && (doc.status === "paid" || doc.status === "partially_paid")) ||
+    nonVoided.find((doc) => doc.doc_type === "receipt" && ["generated", "paid", "issued"].includes(doc.status)) ||
+    nonVoided.find((doc) => doc.doc_type === "tax_invoice_receipt" && ["issued", "paid"].includes(doc.status)) ||
+    nonVoided.find((doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status)) ||
+    nonVoided.find((doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status)) ||
     null
   );
 }
@@ -230,48 +244,43 @@ function hasPartialPayment(documents: DealDoc[]) {
 
 function getCompletedAt(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
-  const isPartial = hasPartialPayment(documents);
-
-  const receipt = [...nonVoided]
-    .reverse()
-    .find(
-      (doc) =>
-        doc.doc_type === "receipt" &&
-        (doc.status === "generated" ||
-          doc.status === "paid" ||
-          doc.status === "issued"),
-    );
-  if (receipt && !isPartial) return receipt.paid_at || receipt.updated_at;
-
-  const combined = [...nonVoided]
-    .reverse()
-    .find(
-      (doc) =>
-        doc.doc_type === "tax_invoice_receipt" &&
-        (doc.status === "issued" || doc.status === "paid"),
-    );
-  if (combined && !isPartial) return combined.paid_at || combined.updated_at;
-
-  const paidBilling = [...nonVoided]
-    .reverse()
-    .find((doc) => doc.doc_type === "billing_note" && doc.status === "paid");
-  if (paidBilling && !isPartial) return paidBilling.paid_at || paidBilling.updated_at;
-
-  const paidInvoice = [...nonVoided]
-    .reverse()
-    .find((doc) => doc.doc_type === "invoice" && doc.status === "paid");
-  if (paidInvoice && !isPartial) return paidInvoice.paid_at || paidInvoice.updated_at;
-
-  return null;
+  if (nonVoided.some((doc) => !isResolvedStatus(doc.status))) return null;
+  const completion = getCompletionDoc(nonVoided);
+  return completion?.paid_at || completion?.updated_at || null;
 }
 
 function isDealDone(documents: DealDoc[]) {
-  if (getCompletedAt(documents)) return true;
-
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   if (nonVoided.length === 0) return true;
-
   return nonVoided.every((doc) => isResolvedStatus(doc.status));
+}
+
+function getDealReceivedAmount(documents: DealDoc[]) {
+  const nonVoided = documents.filter((doc) => doc.status !== "voided");
+  const receipts = nonVoided.filter((doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status));
+  if (receipts.length > 0) return receipts.reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
+  return nonVoided
+    .filter((doc) => ["billing_note", "invoice", "tax_invoice_receipt"].includes(doc.doc_type) && ["paid", "partially_paid", "issued"].includes(doc.status))
+    .reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
+}
+
+function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {
+  const queuePriority: Record<HomeQueue, number> = {
+    overdue: 0,
+    partial: 1,
+    wait_collect: 2,
+    wait_invoice: 3,
+    wait_send: 4,
+    progress: 5,
+    done: 6,
+  };
+  const priority = queuePriority[a.queue] - queuePriority[b.queue];
+  if (priority !== 0) return priority;
+  if (a.queue === "overdue" || b.queue === "overdue") {
+    const due = (a.dueDate || "9999-12-31").localeCompare(b.dueDate || "9999-12-31");
+    if (due !== 0) return due;
+  }
+  return b.updatedAt.localeCompare(a.updatedAt);
 }
 
 function getNextActionLabel(doc: DealDoc | null) {
@@ -436,7 +445,7 @@ function getStageInfo(
 }
 
 function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
-  const latestDocument = getLatestRelevantDocument(deal.documents || []);
+  const latestDocument = getMostUrgentDocument(deal.documents || []);
   const amountDocument = getAmountDocument(deal.documents || []);
   const paidAt = getCompletedAt(deal.documents || []);
   const isDone = isDealDone(deal.documents || []);
@@ -453,9 +462,11 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const latestNoteRole =
     (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
 
-  const partialDoc = (deal.documents || []).find((d) => d.status === "partially_paid");
-  const partialReceived = partialDoc?.amount_received || 0;
-  const isPartiallyPaid = !!partialDoc;
+  const amountReceived = getDealReceivedAmount(deal.documents || []);
+  const netPayable = amountDocument?.net_payable ?? amountDocument?.total_amount ?? 0;
+  const outstandingAmount = Math.max(0, netPayable - amountReceived);
+  const partialReceived = amountReceived;
+  const isPartiallyPaid = (deal.documents || []).some((d) => d.status === "partially_paid");
 
   const taxDoc = (deal.documents || []).find(
     (d) => d.doc_type === "tax_invoice_receipt" || d.doc_type === "invoice",
@@ -479,8 +490,10 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
       : null,
     itemSummary: deal.title || latestDocument?.doc_number || "",
     itemNames: getItemPreview(deal.documents || []),
-    amount: amountDocument?.total_amount || amountDocument?.net_payable || 0,
-    netPayable: amountDocument?.net_payable || amountDocument?.total_amount || 0,
+    amount: netPayable,
+    netPayable,
+    amountReceived,
+    outstandingAmount,
     whtAmount: getDealWhtAmount(deal.documents || []),
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     stageLabel: stageInfo.stageLabel,
@@ -712,19 +725,19 @@ export default function HomePage() {
       (acc, deal) => {
         if (deal.queue === "wait_invoice") {
           acc.waitInvoiceCount += 1;
-          acc.waitInvoiceAmount += deal.amount || 0;
+          acc.waitInvoiceAmount += deal.outstandingAmount;
         }
         if (deal.queue === "wait_collect") {
           acc.waitCollectCount += 1;
-          acc.waitCollectAmount += deal.amount || 0;
+          acc.waitCollectAmount += deal.outstandingAmount;
         }
         if (deal.queue === "overdue") {
           acc.overdueCount += 1;
-          acc.overdueAmount += deal.amount || 0;
+          acc.overdueAmount += deal.outstandingAmount;
         }
         if (deal.queue === "partial") {
           acc.partialCount += 1;
-          acc.partialAmount += deal.amount || 0;
+          acc.partialAmount += deal.outstandingAmount;
         }
         if (deal.queue === "wait_send") {
           acc.waitSendCount += 1;
@@ -752,7 +765,7 @@ export default function HomePage() {
     () =>
       deals
         .filter((deal) => !deal.isDone)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        .sort(compareActiveDeals),
     [deals],
   );
 
@@ -846,6 +859,7 @@ export default function HomePage() {
       alert: false,
       preset: "all",
       hint: "ทุกรายการที่ต้องทำ",
+      primary: "count",
     },
     {
       label: "รอเก็บเงิน",
@@ -854,6 +868,7 @@ export default function HomePage() {
       alert: false,
       preset: "wait_collect",
       hint: "ใบวางบิล",
+      primary: "amount",
     },
     {
       label: "เกินกำหนด",
@@ -862,6 +877,7 @@ export default function HomePage() {
       alert: summary.overdueCount > 0,
       preset: "overdue",
       hint: "ควรติดตาม",
+      primary: "amount",
     },
     {
       label: "ชำระบางส่วน",
@@ -870,6 +886,7 @@ export default function HomePage() {
       alert: summary.partialCount > 0,
       preset: "partial",
       hint: "เก็บเพิ่มให้ครบ",
+      primary: "amount",
     },
   ] as const;
 
@@ -1296,6 +1313,7 @@ export default function HomePage() {
                       stageLabel={deal.stageLabel}
                       stageHint={deal.stageHint}
                       docTypeLabel={deal.docTypeLabel}
+                      nextActionLabel={deal.nextActionLabel}
                       internalNote={deal.internalNote}
                       noteAuthorRole={deal.noteAuthorRole}
                       isOverdue={deal.isOverdue}

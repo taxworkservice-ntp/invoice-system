@@ -13,6 +13,7 @@ interface DealCardProps {
   stageLabel: string;
   stageHint?: string;
   docTypeLabel?: string;
+  nextActionLabel?: string;
   internalNote: string;
   noteAuthorRole: string;
   isOverdue?: boolean;
@@ -48,6 +49,7 @@ export function DealCard({
   stageLabel,
   stageHint,
   docTypeLabel,
+  nextActionLabel,
   internalNote,
   noteAuthorRole,
   isOverdue,
@@ -117,6 +119,11 @@ export function DealCard({
           </div>
         </div>
       </div>
+      {nextActionLabel ? (
+        <div className={`mt-2 border-t border-[#F0EFE9] pt-1.5 text-xs font-medium ${isOverdue ? "text-[#C0392B]" : "text-primary"}`}>
+          {nextActionLabel}
+        </div>
+      ) : null}
       {internalNote ? (
         <div className="mt-2 border-t border-[#F0EFE9] pt-1.5 text-xs leading-4 text-[#777166]">
           {roleBadge && (

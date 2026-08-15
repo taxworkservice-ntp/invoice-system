@@ -8,6 +8,7 @@ interface SummaryItem {
   alert?: boolean;
   preset: string;
   hint?: string;
+  primary?: "count" | "amount";
 }
 
 interface SummaryRowProps {
@@ -26,11 +27,11 @@ export function SummaryRow({ items, onCardTap }: SummaryRowProps) {
         >
           <div className="flex items-start justify-between gap-2">
             <div className={`text-[18px] font-semibold tabular-nums leading-none ${item.alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
-              {item.count != null ? item.count : `฿ ${formatCurrency(item.value)}`}
+              {item.primary === "count" ? item.count : `฿ ${formatCurrency(item.value)}`}
             </div>
-            {item.count != null && item.value > 0 && (
+            {item.primary !== "count" && item.count != null && (
               <div className={`text-[11px] tabular-nums ${item.alert ? "text-[#C0392B]" : "text-gray-500"}`}>
-                ฿ {formatCurrency(item.value)}
+                {item.count} รายการ
               </div>
             )}
           </div>
