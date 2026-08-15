@@ -46,6 +46,15 @@ function getDisplayAmount(doc: Document): number {
   return doc.doc_type === "delivery_note" ? doc.total_amount : doc.net_payable;
 }
 
+const CORRECTION_REASONS = [
+  { value: "customer_info", label: "ข้อมูลลูกค้าผิด เช่น ชื่อ เลขภาษี หรือที่อยู่" },
+  { value: "document_info", label: "ข้อมูลเอกสารผิด เช่น วันที่ เลขที่ หรืออ้างอิง" },
+  { value: "items", label: "รายการสินค้า/บริการหรือจำนวนผิด" },
+  { value: "amount_tax", label: "ราคา ส่วนลด หรือภาษีผิด" },
+  { value: "customer_request", label: "ลูกค้าขอเปลี่ยนข้อมูลในเอกสาร" },
+  { value: "other", label: "อื่น ๆ" },
+] as const;
+
 function DocTypeBadge({ docType, vatRegistered }: { docType: Document["doc_type"]; vatRegistered: boolean }) {
   const color = DOC_TYPE_COLORS[docType];
   const label = documentTypeLabel(docType, vatRegistered);
@@ -96,6 +105,7 @@ export default function DocumentDetailPage() {
 
   const [voidModal, setVoidModal] = useState(false);
   const [voidReason, setVoidReason] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
   const [voidAndRecreate, setVoidAndRecreate] = useState(false);
   const [voiding, setVoiding] = useState(false);
 
@@ -245,13 +255,17 @@ export default function DocumentDetailPage() {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    if (voidAndRecreate && !voidReason.trim()) {
-      setError("กรุณาระบุเหตุผลในการแก้ไขโดยออกฉบับใหม่");
+    if (voidAndRecreate && !correctionReason) {
+      setError("กรุณาเลือกสาเหตุการแก้ไข");
       return;
     }
     setVoiding(true);
     try {
-      await voidDocumentWithSideEffects(doc, userId, voidReason);
+      const reasonLabel = CORRECTION_REASONS.find((reason) => reason.value === correctionReason)?.label;
+      const finalReason = voidAndRecreate && reasonLabel
+        ? `${reasonLabel}${voidReason.trim() ? `: ${voidReason.trim()}` : ""}`
+        : voidReason;
+      await voidDocumentWithSideEffects(doc, userId, finalReason);
 
       let recreatedDocId: string | null = null;
       let recreatedIsUtility = false;
@@ -346,6 +360,7 @@ export default function DocumentDetailPage() {
 
       setVoidModal(false);
       setVoidReason("");
+      setCorrectionReason("");
       setVoidAndRecreate(false);
 
       if (recreatedDocId && recreatedIsUtility) {
@@ -1510,6 +1525,7 @@ export default function DocumentDetailPage() {
                   className="w-full"
                   onClick={() => {
                     setVoidReason("");
+                    setCorrectionReason("");
                     setVoidAndRecreate(false);
                     setVoidModal(true);
                   }}
@@ -1522,6 +1538,7 @@ export default function DocumentDetailPage() {
                   className="w-full"
                   onClick={() => {
                     setVoidReason("");
+                    setCorrectionReason("");
                     setVoidAndRecreate(true);
                     setVoidModal(true);
                   }}
@@ -1551,6 +1568,7 @@ export default function DocumentDetailPage() {
                 className="w-full"
                 onClick={() => {
                   setVoidReason("");
+                  setCorrectionReason("");
                   setVoidAndRecreate(true);
                   setVoidModal(true);
                 }}
@@ -1614,20 +1632,35 @@ export default function DocumentDetailPage() {
           </div>
           <p className="text-sm text-gray-600">
             {voidAndRecreate
-              ? "ระบบจะเก็บเอกสารเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข โดยฉบับใหม่จะใช้เลขที่เอกสารใหม่"
+              ? "ฉบับเดิมจะถูกยกเลิกและเก็บไว้เป็นประวัติ จากนั้นระบบจะสร้างฉบับร่างใหม่ให้แก้ไข โดยใช้เลขที่ใหม่"
               : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้?"}
           </p>
           {voidAndRecreate && isCorrectionCandidate && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-              หากเอกสารนี้ผูกกับใบวางบิล ใบเสร็จ หรือใบส่งของ ระบบจะปลดสถานะที่เกี่ยวข้องตามกฎการยกเลิกเดิม และเก็บประวัติไว้ตรวจสอบย้อนหลัง
+              เอกสารที่ออกแล้วแก้ไขทับฉบับเดิมไม่ได้ หากเป็นการลดยอดหรือคืนเงิน ให้ใช้เมนู “ออกใบลดหนี้” แทน
             </div>
           )}
+          {voidAndRecreate && isCorrectionCandidate && (
+            <label className="block text-sm text-gray-700">
+              <span className="mb-1 block font-medium">สาเหตุการแก้ไข *</span>
+              <select
+                value={correctionReason}
+                onChange={(event) => setCorrectionReason(event.target.value)}
+                className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">เลือกสาเหตุ</option>
+                {CORRECTION_REASONS.map((reason) => (
+                  <option key={reason.value} value={reason.value}>{reason.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <Input
-            label="เหตุผลการยกเลิก"
+            label={voidAndRecreate ? "รายละเอียดเพิ่มเติม (ถ้ามี)" : "เหตุผลการยกเลิก"}
             value={voidReason}
             onChange={(e) => setVoidReason(e.target.value)}
-            placeholder={voidAndRecreate ? "เช่น ลูกค้าขอปรับยอด / ออกผิดรายละเอียด" : "ไม่บังคับ"}
-            required={voidAndRecreate}
+            placeholder={voidAndRecreate ? "อธิบายสิ่งที่ต้องแก้ เช่น เปลี่ยนที่อยู่บริษัท" : "ไม่บังคับ"}
+            required={false}
           />
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setVoidModal(false)}>ปิด</Button>
