@@ -1252,6 +1252,42 @@ export default function DealDetailPage() {
     };
   }, [nonVoidedDocs]);
 
+  const financialSummary = useMemo(() => {
+    const collectionDocs = nonVoidedDocs.filter((item) =>
+      ["billing_note", "invoice", "tax_invoice_receipt"].includes(item.document.doc_type),
+    );
+    const source = collectionDocs.find((item) => item.document.doc_type === "billing_note") ||
+      collectionDocs.find((item) => item.document.doc_type === "invoice") ||
+      collectionDocs.find((item) => item.document.doc_type === "tax_invoice_receipt") ||
+      amountDoc;
+    const grossAmount = source?.document.total_amount || 0;
+    const netPayable = source?.document.net_payable || 0;
+    const receipts = nonVoidedDocs.filter(
+      (item) => item.document.doc_type === "receipt" && ["generated", "issued", "paid"].includes(item.document.status),
+    );
+    const receiptReceived = receipts.reduce((sum, item) => sum + (item.document.amount_received || 0), 0);
+    const sourceGroup = collectionDocs.some((item) => item.document.doc_type === "billing_note")
+      ? collectionDocs.filter((item) => item.document.doc_type === "billing_note")
+      : collectionDocs.some((item) => item.document.doc_type === "invoice")
+        ? collectionDocs.filter((item) => item.document.doc_type === "invoice")
+        : collectionDocs.filter((item) => item.document.doc_type === "tax_invoice_receipt");
+    const sourceReceived = sourceGroup.reduce((sum, item) => sum + (item.document.amount_received || 0), 0);
+    const amountReceived = Math.max(receiptReceived, sourceReceived);
+    const whtAmount = receipts.reduce((sum, item) => sum + (item.document.wht_amount || 0), 0) ||
+      nonVoidedDocs
+        .filter((item) => item.document.doc_type === "tax_invoice_receipt" && ["issued", "paid"].includes(item.document.status))
+        .reduce((sum, item) => sum + (item.document.wht_amount || 0), 0);
+
+    return {
+      grossAmount,
+      netPayable,
+      amountReceived,
+      outstanding: Math.max(0, netPayable - amountReceived),
+      whtAmount,
+      receiptCount: receipts.length,
+    };
+  }, [amountDoc, nonVoidedDocs]);
+
   if (authLoading || loading) {
     return (
       <AppShell title="งานขาย" showBack>
@@ -1373,6 +1409,34 @@ export default function DealDetailPage() {
           placeholder="ตั้งเลขที่เอกสารเอง (เว้นว่าง = อัตโนมัติ)"
           className="mb-3"
         />
+
+        <Card className="border-[0.5px]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-[#1A1A18]">สรุปการเงิน</div>
+              <div className="mt-0.5 text-[11px] text-gray-500">
+                {financialSummary.receiptCount > 0 ? `${financialSummary.receiptCount} ใบเสร็จ` : "ยังไม่มีใบเสร็จ"}
+              </div>
+            </div>
+            <div className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
+              {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {[
+              { label: "ยอดรวม", value: financialSummary.grossAmount, className: "text-[#1A1A18]" },
+              { label: "ยอดสุทธิ", value: financialSummary.netPayable, className: "text-[#1A1A18]" },
+              { label: "รับแล้ว", value: financialSummary.amountReceived, className: "text-green-700" },
+              { label: "ค้างรับ", value: financialSummary.outstanding, className: financialSummary.outstanding > 0 ? "text-red-700" : "text-green-700" },
+              { label: "หัก ณ ที่จ่ายสะสม", value: financialSummary.whtAmount, className: financialSummary.whtAmount > 0 ? "text-amber-700" : "text-gray-500" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg bg-[#F8FAFC] px-2.5 py-2">
+                <div className="text-[10px] text-gray-500">{item.label}</div>
+                <div className={`mt-1 text-[13px] font-semibold tabular-nums ${item.className}`}>฿{formatCurrency(item.value)}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
 
         {deliveryProgress && (
           <Card className={`border-[0.5px] ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
@@ -1744,7 +1808,7 @@ export default function DealDetailPage() {
                             }}
                             className="mt-0.5 inline-flex items-center justify-center rounded-md border border-[#378ADD] bg-white px-2.5 py-1 text-[11px] font-medium text-[#378ADD] transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#378ADD]/40"
                           >
-                            Download
+                            ดาวน์โหลด
                           </button>
                         </div>
                       </div>
@@ -1797,7 +1861,7 @@ export default function DealDetailPage() {
                             }}
                             className="mt-0.5 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
                           >
-                            Download
+                            ดาวน์โหลด
                           </button>
                         </div>
                       </div>
@@ -1814,10 +1878,10 @@ export default function DealDetailPage() {
           {activeDoc && (
             <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-5 text-stone-700">
               {activeDoc.document.status === "draft"
-                ? "Draft documents can be edited directly."
+                ? "เอกสารร่างสามารถแก้ไขได้โดยตรง"
                 : activeDoc.document.doc_type === "invoice" || activeDoc.document.doc_type === "tax_invoice_receipt"
                   ? "ระบบจะเก็บเอกสารเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข"
-                  : "For sent or later documents, this action voids the current version and creates a fresh draft copy."}
+                : "เอกสารที่ส่งแล้วจะถูกยกเลิกและสร้างฉบับร่างใหม่ โดยเก็บฉบับเดิมไว้เป็นประวัติ"}
             </div>
           )}
            <div className="mt-3 grid grid-cols-2 gap-2">
