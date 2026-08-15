@@ -191,7 +191,14 @@ function getDealWhtAmount(documents: DealDoc[]) {
     return receipts.reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
   }
 
-  return getAmountDocument(nonVoided)?.wht_amount || 0;
+  const combinedReceipts = nonVoided.filter(
+    (doc) => doc.doc_type === "tax_invoice_receipt" && ["issued", "paid"].includes(doc.status),
+  );
+  if (combinedReceipts.length > 0) {
+    return combinedReceipts.reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
+  }
+
+  return 0;
 }
 
 function getItemPreview(documents: DealDoc[]) {
@@ -1153,7 +1160,7 @@ export default function HomePage() {
                             className={`${TABLE.thSortable} hidden md:table-cell min-w-[110px]`}
                           />
                           <SortableTh
-                            label="หัก ณ ที่จ่าย"
+                            label="หัก ณ ที่จ่ายสะสม"
                             align="right"
                             active={dealSort.sort.key === "whtAmount"}
                             dir={dealSort.sort.dir}
@@ -1326,14 +1333,16 @@ export default function HomePage() {
                   </div>
                   <div className="bg-white border border-card-border rounded-card overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className={TABLE.table}>
+                      <table className={`${TABLE.table} table-fixed min-w-[1050px]`}>
                         <thead>
                           <tr className={TABLE.theadTr}>
-                            <th className={`${TABLE.thStatic} w-[80px]`}>เลขที่ดีล</th>
+                            <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ดีล</th>
                             <th className={TABLE.thStatic}>ลูกค้า</th>
                             <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ใบเสร็จ</th>
-                            <th className={TABLE.thStatic}>วันที่ชำระ</th>
-                            <th className={TABLE.thStatic}>จำนวนเงิน</th>
+                            <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
+                            <th className={`${TABLE.thStatic} w-[125px] text-right`}>จำนวนเงิน</th>
+                            <th className={`${TABLE.thStatic} w-[145px] text-right`}>หัก ณ ที่จ่ายสะสม</th>
+                            <th className={`${TABLE.thStatic} w-[125px] text-right`}>รับสุทธิ</th>
                             <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
                             <th className={`${TABLE.thStatic} w-[60px]`}>สถานะ</th>
                           </tr>
@@ -1380,9 +1389,17 @@ export default function HomePage() {
                                 <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
                                 </td>
+                                  <td className="px-3 py-2 text-right whitespace-nowrap text-[#111827]">
+                                   ฿ {formatCurrency(deal.amount)}
+                                 </td>
+                                 <td className="px-3 py-2 text-right whitespace-nowrap">
+                                   <span className={deal.whtAmount > 0 ? "text-[#C0392B]" : "text-[#98A2B3]"}>
+                                     ฿ {formatCurrency(deal.whtAmount)}
+                                   </span>
+                                 </td>
                                  <td className="px-3 py-2 text-right whitespace-nowrap text-[#111827]">
-                                  ฿ {formatCurrency(deal.amount)}
-                                </td>
+                                   ฿ {formatCurrency(deal.netPayable)}
+                                 </td>
                                 <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px]`}>
                                   <span className="truncate block">
                                     {deal.itemNames?.length
