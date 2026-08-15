@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ElementType } from "react";
-import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Truck } from "lucide-react";
+import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Star, Truck } from "lucide-react";
 import { Modal } from "../ui/Modal";
+import { supabase } from "../../lib/supabase";
 
 interface NewDealSheetProps {
   open: boolean;
@@ -46,37 +47,75 @@ const GROUPS: {
   },
 ];
 
-const RECENT_OPTIONS_KEY = "new_deal_recent_options";
-const QUICK_OPTION_TYPES: NewDealType[] = ["quotation", "invoice", "tax_invoice_receipt"];
+const DEFAULT_FAVORITES: NewDealType[] = ["quotation", "invoice", "tax_invoice_receipt"];
 
 export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: NewDealSheetProps) {
   const [showAllOptions, setShowAllOptions] = useState(false);
-  const [recentTypes, setRecentTypes] = useState<NewDealType[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const stored = JSON.parse(localStorage.getItem(RECENT_OPTIONS_KEY) || "[]");
-      return Array.isArray(stored) ? stored.filter((type): type is NewDealType => GROUPS.some((group) => group.options.some((option) => option.type === type))) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [favoriteTypes, setFavoriteTypes] = useState<NewDealType[]>(DEFAULT_FAVORITES);
+  const [preferencesUserId, setPreferencesUserId] = useState<string | null>(null);
+  const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [preferencesError, setPreferencesError] = useState("");
 
   const allOptions = useMemo(() => GROUPS.flatMap((group) => group.options), []);
   const quickOptions = useMemo(() => {
-    const recent = recentTypes
+    const favorites = favoriteTypes
       .map((type) => allOptions.find((option) => option.type === type))
       .filter((option): option is (typeof allOptions)[number] => Boolean(option));
-    const fallback = QUICK_OPTION_TYPES
-      .map((type) => allOptions.find((option) => option.type === type))
-      .filter((option): option is (typeof allOptions)[number] => Boolean(option));
-    return [...recent, ...fallback].filter((option, index, options) => options.findIndex((item) => item.type === option.type) === index).slice(0, 3);
-  }, [allOptions, recentTypes]);
+    return favorites.slice(0, 3);
+  }, [allOptions, favoriteTypes]);
 
   function handleSelect(type: NewDealType) {
-    const nextRecent = [type, ...recentTypes.filter((item) => item !== type)].slice(0, 3);
-    setRecentTypes(nextRecent);
-    localStorage.setItem(RECENT_OPTIONS_KEY, JSON.stringify(nextRecent));
     onSelect(type);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setPreferencesLoading(true);
+    setPreferencesError("");
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) {
+        if (active) setPreferencesLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("user_preferences")
+        .select("new_deal_favorites")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!active) return;
+      setPreferencesUserId(user.id);
+      if (error) {
+        setPreferencesError("โหลดรายการโปรดไม่สำเร็จ ใช้ค่าเริ่มต้นชั่วคราว");
+      } else if (data?.new_deal_favorites?.length) {
+        const valid = data.new_deal_favorites.filter((type: string): type is NewDealType => allOptions.some((option) => option.type === type));
+        setFavoriteTypes(valid.slice(0, 3));
+      } else {
+        setFavoriteTypes(DEFAULT_FAVORITES);
+      }
+      setPreferencesLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [allOptions, open]);
+
+  async function toggleFavorite(type: NewDealType) {
+    if (!preferencesUserId) return;
+    const isFavorite = favoriteTypes.includes(type);
+    const next = isFavorite
+      ? favoriteTypes.filter((item) => item !== type)
+      : [...favoriteTypes, type].slice(0, 3);
+    setFavoriteTypes(next);
+    setPreferencesError("");
+    const { error } = await supabase.from("user_preferences").upsert({
+      user_id: preferencesUserId,
+      new_deal_favorites: next,
+    });
+    if (error) {
+      setFavoriteTypes(favoriteTypes);
+      setPreferencesError("บันทึกรายการโปรดไม่สำเร็จ");
+    }
   }
 
   function optionTitle(option: (typeof allOptions)[number]) {
@@ -93,13 +132,17 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
 
   function renderOption(option: (typeof allOptions)[number]) {
     const Icon = option.icon;
+    const isFavorite = favoriteTypes.includes(option.type);
     return (
-      <button
+      <div
         key={option.type}
-        onClick={() => handleSelect(option.type)}
-        className="w-full px-3 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-page-bg focus:outline-none focus-visible:bg-blue-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        className="flex items-center gap-2 px-3 py-3 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-page-bg"
       >
-        <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => handleSelect(option.type)}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-primary">
             <Icon className="h-4 w-4" />
           </div>
@@ -113,8 +156,19 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
             <div className="mt-0.5 line-clamp-2 text-xs leading-4 text-gray-500">{optionSubtitle(option)}</div>
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
-        </div>
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleFavorite(option.type)}
+          disabled={preferencesLoading || (!isFavorite && favoriteTypes.length >= 3)}
+          aria-label={isFavorite ? `ยกเลิกโปรด ${optionTitle(option)}` : `เพิ่มรายการโปรด ${optionTitle(option)}`}
+          aria-pressed={isFavorite}
+          title={isFavorite ? "ยกเลิกรายการโปรด" : favoriteTypes.length >= 3 ? "เลือกได้สูงสุด 3 รายการ" : "เพิ่มรายการโปรด"}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-amber-500 hover:bg-amber-50" : "text-gray-300 hover:bg-amber-50 hover:text-amber-500"}`}
+        >
+          <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
+        </button>
+      </div>
     );
   }
 
@@ -127,11 +181,15 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
         <div className="px-1 pb-1 text-base font-semibold text-[#1A1A18]">เริ่มงานแบบไหน?</div>
         <div className="px-1 text-xs leading-5 text-gray-500">เลือกตามสิ่งที่ต้องทำตอนนี้ ระบบจะพาไปขั้นตอนถัดไปให้</div>
         <div className="mt-4">
-          <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">เริ่มเร็ว</div>
+          <div className="flex items-center justify-between px-1 pb-1">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">รายการโปรด</div>
+            <span className="text-[10px] text-gray-400">ปักหมุดได้สูงสุด 3 รายการ</span>
+          </div>
           <div className="divide-y divide-card-border rounded-xl border border-card-border bg-white">
             {quickOptions.map(renderOption)}
           </div>
-          {recentTypes.length > 0 && <div className="mt-1 px-1 text-[10px] text-gray-400">เรียงจากรายการที่คุณใช้ล่าสุด</div>}
+          {preferencesError && <div className="mt-1 px-1 text-[10px] text-amber-700">{preferencesError}</div>}
+          {!preferencesLoading && favoriteTypes.length === 0 && <div className="mt-1 px-1 text-[10px] text-gray-400">ยังไม่มีรายการโปรด เลือกดาวจากตัวเลือกเพิ่มเติม</div>}
         </div>
         <div className="mt-3">
           <button

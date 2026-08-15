@@ -110,6 +110,13 @@ export interface ClientFeature {
   updated_at: string;
 }
 
+export interface UserPreferences {
+  user_id: string;
+  new_deal_favorites: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DocNumberSequence {
   id: string;
   user_id: string;
