@@ -62,6 +62,7 @@ type DashboardDeal = {
   itemSummary: string;
   itemNames: string[];
   amount: number;
+  grossAmount: number;
   netPayable: number;
   amountReceived: number;
   outstandingAmount: number;
@@ -480,6 +481,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
 
   const amountReceived = getDealReceivedAmount(deal.documents || []);
+  const grossAmount = amountDocument?.total_amount ?? amountDocument?.net_payable ?? 0;
   const netPayable = amountDocument?.net_payable ?? amountDocument?.total_amount ?? 0;
   const outstandingAmount = Math.max(0, netPayable - amountReceived);
   const receiptCount = getReceiptDocuments(deal.documents || []).length;
@@ -509,6 +511,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     itemSummary: deal.title || latestDocument?.doc_number || "",
     itemNames: getItemPreview(deal.documents || []),
     amount: netPayable,
+    grossAmount,
     netPayable,
     amountReceived,
     outstandingAmount,
@@ -813,7 +816,7 @@ export default function HomePage() {
     [activeDealsAll, homeFilter, searchQuery],
   );
 
-  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount" | "netPayable" | "whtAmount";
+  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "grossAmount" | "netPayable" | "whtAmount";
   const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, {
     key: "createdAt",
     dir: "desc",
@@ -1127,7 +1130,7 @@ export default function HomePage() {
                           </div>
                           <div className="text-right shrink-0">
                             <div className="text-[13px] font-semibold text-[#1A1A18]">
-                              ฿ {formatCurrency(deal.amount)}
+                              ฿ {formatCurrency(deal.netPayable)}
                             </div>
                             <span
                               className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}
@@ -1188,11 +1191,11 @@ export default function HomePage() {
                             รายการ
                           </th>
                           <SortableTh
-                            label="รับสุทธิ"
+                            label="ยอดรวม"
                             align="right"
-                            active={dealSort.sort.key === "netPayable"}
+                            active={dealSort.sort.key === "grossAmount"}
                             dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("netPayable")}
+                            onClick={() => dealSort.handleSort("grossAmount")}
                             className={`${TABLE.thSortable} hidden md:table-cell min-w-[110px]`}
                           />
                           <SortableTh
@@ -1204,11 +1207,11 @@ export default function HomePage() {
                             className={`${TABLE.thSortable} hidden lg:table-cell min-w-[120px]`}
                           />
                           <SortableTh
-                            label="จำนวนเงิน"
+                            label="รับสุทธิ"
                             align="right"
-                            active={dealSort.sort.key === "amount"}
+                            active={dealSort.sort.key === "netPayable"}
                             dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("amount")}
+                            onClick={() => dealSort.handleSort("netPayable")}
                             className={`${TABLE.thSortable} min-w-[120px]`}
                           />
                         </tr>
@@ -1287,7 +1290,7 @@ export default function HomePage() {
                                 className="px-3 py-2 text-right hidden md:table-cell"
                               >
                                 <span className="text-[#475467] min-w-[100px] inline-block text-right">
-                                  ฿ {formatCurrency(deal.netPayable)}
+                                  ฿ {formatCurrency(deal.grossAmount)}
                                   {deal.isPartiallyPaid && deal.partialReceived > 0 && (
                                     <div className="text-[10px] text-amber-700 font-medium leading-tight">
                                       รับแล้ว ฿{formatCurrency(deal.partialReceived)}
@@ -1302,7 +1305,7 @@ export default function HomePage() {
                               </td>
                                <td className="px-3 py-2 text-right">
                                 <span className="text-[#111827] min-w-[100px] inline-block text-right">
-                                  ฿ {formatCurrency(deal.amount)}
+                                  ฿ {formatCurrency(deal.netPayable)}
                                 </span>
                               </td>
                             </tr>
@@ -1377,7 +1380,7 @@ export default function HomePage() {
                             <th className={TABLE.thStatic}>ลูกค้า</th>
                             <th className={`${TABLE.thStatic} w-[135px]`}>เลขที่ใบเสร็จ</th>
                             <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
-                            <th className={`${TABLE.thStatic} w-[125px] text-right`}>จำนวนเงิน</th>
+                            <th className={`${TABLE.thStatic} w-[125px] text-right`}>ยอดรวม</th>
                             <th className={`${TABLE.thStatic} w-[145px] text-right`}>หัก ณ ที่จ่ายสะสม</th>
                             <th className={`${TABLE.thStatic} w-[125px] text-right`}>รับสุทธิ</th>
                             <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
@@ -1438,7 +1441,7 @@ export default function HomePage() {
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
                                 </td>
                                   <td className="px-3 py-2 text-right whitespace-nowrap text-[#111827]">
-                                   ฿ {formatCurrency(deal.amount)}
+                                    ฿ {formatCurrency(deal.grossAmount)}
                                  </td>
                                  <td className="px-3 py-2 text-right whitespace-nowrap">
                                    <span className={deal.whtAmount > 0 ? "text-[#C0392B]" : "text-[#98A2B3]"}>
