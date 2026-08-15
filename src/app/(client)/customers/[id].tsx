@@ -85,17 +85,22 @@ function getDealStage(docs: Document[]): DealStage {
   if (nonVoided.some((d) => d.status === "overdue")) return "overdue";
   if (nonVoided.some((d) => d.status === "partially_paid")) return "partial";
 
-  const hasSentInvoice = nonVoided.some((d) => d.doc_type === "invoice" && d.status === "sent");
-  const hasBillingNote = nonVoided.some((d) => d.doc_type === "billing_note");
+  // Converted source documents are resolved and must not keep a paid deal active.
+  if (nonVoided.every((d) => ["paid", "converted", "generated", "issued"].includes(d.status))) return "paid";
 
+  const billingNotes = nonVoided.filter((d) => d.doc_type === "billing_note");
+  const hasBillingNote = billingNotes.length > 0;
+
+  // Once invoices are bundled into a billing note, the billing note is the
+  // collection source of truth rather than the original invoice status.
   if (hasBillingNote) {
-    const bnSentOrOverdue = nonVoided.find((d) => d.doc_type === "billing_note" && (d.status === "sent" || d.status === "overdue"));
-    if (bnSentOrOverdue) return "pending_payment";
+    if (billingNotes.every((d) => ["paid", "converted", "generated", "issued"].includes(d.status))) return "paid";
+    if (billingNotes.some((d) => d.status === "sent")) return "pending_payment";
   }
 
-  if (hasSentInvoice) return "waiting";
+  const hasSentInvoice = !hasBillingNote && nonVoided.some((d) => d.doc_type === "invoice" && d.status === "sent");
 
-  if (nonVoided.every((d) => ["paid", "generated", "issued"].includes(d.status))) return "paid";
+  if (hasSentInvoice) return "waiting";
 
   return "waiting";
 }
@@ -121,6 +126,40 @@ function hasSalesJobDocument(deal: DealWithDocs) {
   return (deal.documents || []).some(
     (doc) => SALES_JOB_DOCUMENT_TYPES.has(doc.doc_type) && !["voided", "draft", "converted"].includes(doc.status),
   );
+}
+
+function getDealReceived(docs: Document[]) {
+  const nonVoided = docs.filter((doc) => doc.status !== "voided");
+  const billingNotes = nonVoided.filter(
+    (doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status),
+  );
+  if (billingNotes.length > 0) {
+    return billingNotes.reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
+  }
+
+  const invoices = nonVoided.filter(
+    (doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status),
+  );
+  if (invoices.length > 0) {
+    return invoices.reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
+  }
+
+  return nonVoided
+    .filter((doc) => doc.doc_type === "tax_invoice_receipt" && ["paid", "issued"].includes(doc.status))
+    .reduce((sum, doc) => sum + (doc.amount_received || doc.net_payable || 0), 0);
+}
+
+function getDealOutstanding(docs: Document[]) {
+  const nonVoided = docs.filter((doc) => doc.status !== "voided");
+  const billingNotes = nonVoided.filter((doc) => doc.doc_type === "billing_note");
+  const collectionDocs = billingNotes.length > 0
+    ? billingNotes
+    : nonVoided.filter((doc) => doc.doc_type === "invoice");
+
+  return collectionDocs.reduce((sum, doc) => {
+    if (!["sent", "overdue", "partially_paid"].includes(doc.status)) return sum;
+    return sum + Math.max(0, (doc.net_payable || 0) - (doc.amount_received || 0));
+  }, 0);
 }
 
 function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
@@ -420,23 +459,15 @@ export default function CustomerDetailPage() {
   type DealSortKey = "title" | "latestDate" | "status" | "amount";
   const dealSort = useTableSort<(typeof dealRows)[number], DealSortKey>(dealRows, { key: "latestDate", dir: "desc" });
 
-  const totalReceived = searchedDealItems.reduce((sum, item) => {
-    const paidDoc = item.deal.documents?.find(
-      (doc) => (doc.status === "paid" || doc.status === "partially_paid") && doc.doc_type === "billing_note",
-    );
-    return sum + (paidDoc?.amount_received || 0);
-  }, 0);
+  const totalReceived = dealHistoryItems.reduce(
+    (sum, item) => sum + getDealReceived(item.deal.documents || []),
+    0,
+  );
 
-  const unpaid = searchedDealItems.reduce((sum, item) => {
-    const sentDoc = item.deal.documents?.find(
-      (doc) => doc.status === "sent" || doc.status === "overdue" || doc.status === "partially_paid",
-    );
-    if (!sentDoc) return sum;
-    if (sentDoc.status === "partially_paid") {
-      return sum + Math.max(0, (sentDoc.net_payable || 0) - (sentDoc.amount_received || 0));
-    }
-    return sum + (sentDoc.net_payable || 0);
-  }, 0);
+  const unpaid = dealHistoryItems.reduce(
+    (sum, item) => sum + getDealOutstanding(item.deal.documents || []),
+    0,
+  );
 
   if (loading) {
     return (
