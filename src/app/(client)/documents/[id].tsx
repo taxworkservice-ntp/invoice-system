@@ -372,7 +372,13 @@ export default function DocumentDetailPage() {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    if (payAmount !== doc.net_payable) {
+    const previousTotal = await getTotalReceived(doc);
+    const remaining = Math.max(0, doc.net_payable - previousTotal);
+    if (payAmount > remaining + 0.01) {
+      setError(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+      return;
+    }
+    if (payAmount < remaining - 0.01) {
       setPayMismatchConfirm(true);
       return;
     }
@@ -398,6 +404,10 @@ export default function DocumentDetailPage() {
       const receiptInvoiceSources = await getReceiptInvoiceSources(doc, userId);
 
       const previousTotal = await getTotalReceived(doc);
+      const remaining = Math.max(0, doc.net_payable - previousTotal);
+      if (payAmount <= 0 || payAmount > remaining + 0.01) {
+        throw new Error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+      }
       const newTotal = previousTotal + payAmount;
       const isFullyPaid = newTotal >= (doc.net_payable - 0.01);
       const newStatus = isFullyPaid ? "paid" : "partially_paid";

@@ -146,7 +146,7 @@ function relativeDueLabel(dueDate: string): { text: string; urgent: boolean } {
 function isCollectingStatus(doc: Document) {
   return (
     doc.doc_type === "billing_note" &&
-    (doc.status === "sent" || doc.status === "overdue" || doc.status === "paid")
+    (doc.status === "sent" || doc.status === "overdue" || doc.status === "partially_paid")
   );
 }
 
@@ -681,92 +681,110 @@ function DocumentCard({
 
               {isSent &&
                 doc.doc_type === "quotation" &&
-                permissions.canSendDocuments && (
+                (permissions.canSendDocuments || permissions.canVoidDocuments) && (
                   <>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("convert")}
-                    >
-                      <Copy size={14} />
-                      <span>แปลงเป็นใบแจ้งหนี้</span>
-                    </button>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("void")}
-                    >
-                      <Ban size={14} />
-                      <span>ยกเลิก</span>
-                    </button>
+                    {permissions.canSendDocuments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("convert")}
+                      >
+                        <Copy size={14} />
+                        <span>แปลงเป็นใบแจ้งหนี้</span>
+                      </button>
+                    )}
+                    {permissions.canVoidDocuments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("void")}
+                      >
+                        <Ban size={14} />
+                        <span>ยกเลิก</span>
+                      </button>
+                    )}
                   </>
                 )}
 
               {isSent &&
                 doc.doc_type === "invoice" &&
-                permissions.canRecordPayments && (
+                (permissions.canRecordPayments || permissions.canVoidDocuments) && (
                   <>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("billing")}
-                    >
-                      <FileText size={14} />
-                      <span>วางบิล</span>
-                    </button>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("pay")}
-                    >
-                      <CreditCard size={14} />
-                      <span>รับเงินแล้ว</span>
-                    </button>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("void")}
-                    >
-                      <Ban size={14} />
-                      <span>ยกเลิก</span>
-                    </button>
+                    {permissions.canRecordPayments && (
+                      <>
+                        <button
+                          className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          onClick={() => onMenuAction("billing")}
+                        >
+                          <FileText size={14} />
+                          <span>วางบิล</span>
+                        </button>
+                        <button
+                          className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          onClick={() => onMenuAction("pay")}
+                        >
+                          <CreditCard size={14} />
+                          <span>รับเงินแล้ว</span>
+                        </button>
+                      </>
+                    )}
+                    {permissions.canVoidDocuments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("void")}
+                      >
+                        <Ban size={14} />
+                        <span>ยกเลิก</span>
+                      </button>
+                    )}
                   </>
                 )}
 
               {isSent &&
                 doc.doc_type === "billing_note" &&
-                permissions.canRecordPayments && (
+                (permissions.canRecordPayments || permissions.canVoidDocuments) && (
                   <>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("pay")}
-                    >
-                      <CreditCard size={14} />
-                      <span>รับเงินแล้ว</span>
-                    </button>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("void")}
-                    >
-                      <Ban size={14} />
-                      <span>ยกเลิก</span>
-                    </button>
+                    {permissions.canRecordPayments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("pay")}
+                      >
+                        <CreditCard size={14} />
+                        <span>รับเงินแล้ว</span>
+                      </button>
+                    )}
+                    {permissions.canVoidDocuments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("void")}
+                      >
+                        <Ban size={14} />
+                        <span>ยกเลิก</span>
+                      </button>
+                    )}
                   </>
                 )}
 
               {isSent &&
                 doc.doc_type === "delivery_note" &&
-                permissions.canSendDocuments && (
+                (permissions.canSendDocuments || permissions.canVoidDocuments) && (
                   <>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("invoice_from_dn")}
-                    >
-                      <FileStack size={14} />
-                      <span>ออกใบแจ้งหนี้จากใบนี้</span>
-                    </button>
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      onClick={() => onMenuAction("void")}
-                    >
-                      <Ban size={14} />
-                      <span>ยกเลิก</span>
-                    </button>
+                    {permissions.canSendDocuments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("invoice_from_dn")}
+                      >
+                        <FileStack size={14} />
+                        <span>ออกใบแจ้งหนี้จากใบนี้</span>
+                      </button>
+                    )}
+                    {permissions.canVoidDocuments && (
+                      <button
+                        className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        onClick={() => onMenuAction("void")}
+                      >
+                        <Ban size={14} />
+                        <span>ยกเลิก</span>
+                      </button>
+                    )}
                   </>
                 )}
 
@@ -1520,7 +1538,7 @@ export default function DocumentsPage() {
           doc.doc_type === "billing_note" &&
           (doc.status === "sent" ||
             doc.status === "overdue" ||
-            doc.status === "paid")
+            doc.status === "partially_paid")
         )
       )
         return false;

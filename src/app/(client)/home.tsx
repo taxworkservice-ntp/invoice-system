@@ -185,9 +185,9 @@ function getAmountDocument(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   const sorted = sortDocuments(nonVoided);
   return (
-    sorted.find((doc) => doc.doc_type === "tax_invoice_receipt") ||
     sorted.find((doc) => doc.doc_type === "billing_note") ||
     sorted.find((doc) => doc.doc_type === "invoice") ||
+    sorted.find((doc) => doc.doc_type === "tax_invoice_receipt") ||
     sorted.find((doc) => doc.doc_type === "quotation") ||
     sorted.find((doc) => doc.doc_type === "delivery_note") ||
     null
@@ -258,10 +258,20 @@ function isDealDone(documents: DealDoc[]) {
 function getDealReceivedAmount(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   const receipts = nonVoided.filter((doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status));
-  if (receipts.length > 0) return receipts.reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
-  return nonVoided
-    .filter((doc) => ["billing_note", "invoice", "tax_invoice_receipt"].includes(doc.doc_type) && ["paid", "partially_paid", "issued"].includes(doc.status))
+  const receiptReceived = receipts.reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
+  const billingReceived = nonVoided
+    .filter((doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status))
     .reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
+  const invoiceReceived = nonVoided
+    .filter((doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status))
+    .reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
+  const combinedReceived = nonVoided
+    .filter((doc) => doc.doc_type === "tax_invoice_receipt" && ["paid", "issued"].includes(doc.status))
+    .reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
+
+  // Receipts and source documents can be populated by different workflows;
+  // use the highest authoritative cumulative total without double-counting them.
+  return Math.max(receiptReceived, billingReceived, invoiceReceived, combinedReceived);
 }
 
 function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {

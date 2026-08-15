@@ -451,7 +451,13 @@ export default function DealDetailPage() {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    if (amountReceived !== payDocument.net_payable) {
+    const previousTotal = await getTotalReceived(payDocument);
+    const remaining = Math.max(0, payDocument.net_payable - previousTotal);
+    if (amountReceived > remaining + 0.01) {
+      toast.error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+      return;
+    }
+    if (amountReceived < remaining - 0.01) {
       setPaymentMismatchConfirm(true);
       return;
     }
@@ -476,6 +482,10 @@ export default function DealDetailPage() {
       const receiptInvoiceSources = await getReceiptInvoiceSources(payDocument, userId);
 
       const previousTotal = await getTotalReceived(payDocument);
+      const remaining = Math.max(0, payDocument.net_payable - previousTotal);
+      if (amountReceived <= 0 || amountReceived > remaining + 0.01) {
+        throw new Error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+      }
       const newTotal = previousTotal + amountReceived;
       const isFullyPaid = newTotal >= (payDocument.net_payable - 0.01);
       const newStatus = isFullyPaid ? "paid" : "partially_paid";
