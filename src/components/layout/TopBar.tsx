@@ -6,14 +6,15 @@ interface TopBarProps {
   title: string;
   showBack?: boolean;
   action?: React.ReactNode;
+  wide?: boolean;
 }
 
-export function TopBar({ title, showBack, action }: TopBarProps) {
+export function TopBar({ title, showBack, action, wide = false }: TopBarProps) {
   const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 sm:px-5 lg:px-8">
+      <div className={`mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-5 lg:px-8 ${wide ? "max-w-screen-2xl" : "max-w-7xl"}`}>
         <div className="flex items-center gap-2">
           {showBack && (
             <button

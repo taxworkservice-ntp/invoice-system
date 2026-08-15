@@ -29,10 +29,11 @@ type DealDoc = Pick<
   | "id"
   | "doc_type"
   | "doc_number"
-  | "status"
-  | "total_amount"
-  | "net_payable"
-  | "amount_received"
+   | "status"
+   | "total_amount"
+   | "net_payable"
+   | "wht_amount"
+   | "amount_received"
   | "due_date"
   | "created_at"
   | "updated_at"
@@ -62,6 +63,7 @@ type DashboardDeal = {
   itemNames: string[];
   amount: number;
   netPayable: number;
+  whtAmount: number;
   completedDocNumber: string | null;
   status: Document["status"];
   stageLabel: string;
@@ -458,6 +460,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     itemNames: getItemPreview(deal.documents || []),
     amount: amountDocument?.total_amount || amountDocument?.net_payable || 0,
     netPayable: amountDocument?.net_payable || amountDocument?.total_amount || 0,
+    whtAmount: amountDocument?.wht_amount || 0,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     stageLabel: stageInfo.stageLabel,
     stageHint: stageInfo.stageHint,
@@ -757,7 +760,7 @@ export default function HomePage() {
     [activeDealsAll, homeFilter, searchQuery],
   );
 
-  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount" | "netPayable";
+  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "amount" | "netPayable" | "whtAmount";
   const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, {
     key: "createdAt",
     dir: "desc",
@@ -877,7 +880,7 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <AppShell title="หน้างานขาย">
+      <AppShell title="หน้างานขาย" wide>
         <div className="space-y-4">
           <div className="space-y-1 px-1">
             <Skeleton className="h-5 w-40 rounded-md" />
@@ -907,7 +910,7 @@ export default function HomePage() {
   }
 
   return (
-    <AppShell title="หน้างานขาย">
+    <AppShell title="หน้างานขาย" wide>
       <div
         className="space-y-4"
         onTouchStart={handleTouchStart}
@@ -1136,6 +1139,14 @@ export default function HomePage() {
                             className={`${TABLE.thSortable} hidden md:table-cell min-w-[110px]`}
                           />
                           <SortableTh
+                            label="หัก ณ ที่จ่าย"
+                            align="right"
+                            active={dealSort.sort.key === "whtAmount"}
+                            dir={dealSort.sort.dir}
+                            onClick={() => dealSort.handleSort("whtAmount")}
+                            className={`${TABLE.thSortable} hidden lg:table-cell min-w-[120px]`}
+                          />
+                          <SortableTh
                             label="จำนวนเงิน"
                             align="right"
                             active={dealSort.sort.key === "amount"}
@@ -1225,6 +1236,11 @@ export default function HomePage() {
                                       รับแล้ว ฿{formatCurrency(deal.partialReceived)}
                                     </div>
                                   )}
+                                </span>
+                              </td>
+                              <td className="hidden px-3 py-2 text-right lg:table-cell">
+                                <span className={`inline-block min-w-[100px] text-right ${deal.whtAmount > 0 ? "text-[#C0392B]" : "text-[#98A2B3]"}`}>
+                                  ฿ {formatCurrency(deal.whtAmount)}
                                 </span>
                               </td>
                                <td className="px-3 py-2 text-right">

@@ -34,6 +34,7 @@ interface AppShellProps {
   showBack?: boolean;
   action?: React.ReactNode;
   breadcrumbs?: BreadcrumbItem[];
+  wide?: boolean;
   children: React.ReactNode;
 }
 
@@ -62,7 +63,7 @@ function WorkspaceMark({ profile }: { profile: ClientProfile | null }) {
   return null;
 }
 
-export function AppShell({ title, showBack, action, breadcrumbs, children }: AppShellProps) {
+export function AppShell({ title, showBack, action, breadcrumbs, wide = false, children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
@@ -169,7 +170,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
             </span>
           </div>
         )}
-        <TopBar title={title} showBack={showBack} action={action} />
+        <TopBar title={title} showBack={showBack} action={action} wide={wide} />
         {breadcrumbs && breadcrumbs.length > 0 && (
           <div className="mx-auto w-full max-w-7xl px-4 pt-2 sm:px-5 lg:px-8">
             <nav className="flex items-center gap-1 text-xs text-gray-500">
@@ -186,7 +187,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, children }: App
             </nav>
           </div>
         )}
-        <main className="mx-auto w-full max-w-7xl px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8">
+        <main className={`mx-auto w-full px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8 ${wide ? "max-w-screen-2xl" : "max-w-7xl"}`}>
           {children}
         </main>
       </div>
