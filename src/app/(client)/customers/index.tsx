@@ -411,16 +411,17 @@ export default function CustomersPage() {
         ) : viewMode === "table" ? (
           <div className="bg-white border border-card-border rounded-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className={`${TABLE.table} table-fixed min-w-[920px]`}>
+              <table className={`${TABLE.table} table-fixed min-w-[1050px]`}>
                 <colgroup>
                   <col className="w-[42px]" />
                   <col className="w-auto" />
-                  <col className="w-[132px]" />
-                  <col className="w-[118px]" />
-                  <col className="w-[64px]" />
-                  <col className="w-[64px]" />
-                  <col className="w-[64px]" />
-                  <col className="w-[74px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[145px]" />
+                  <col className="w-[125px]" />
+                  <col className="w-[68px]" />
+                  <col className="w-[68px]" />
+                  <col className="w-[68px]" />
+                  <col className="w-[90px]" />
                 </colgroup>
                 <thead>
                   <tr className={TABLE.theadTr}>
@@ -516,10 +517,10 @@ export default function CustomersPage() {
                         <td className="px-3 py-2 font-mono text-[12px] text-primary truncate">
                           {c.code || <span className="text-[#AAAAAA] italic font-sans">—</span>}
                         </td>
-                        <td className="px-3 py-2 font-mono text-[12px] text-[#475467] truncate">
+                        <td className="px-3 py-2 font-mono text-[12px] text-[#475467] whitespace-nowrap">
                           {c.tax_id || <span className="text-[#AAAAAA] italic font-sans">—</span>}
                         </td>
-                        <td className="px-3 py-2 text-[#475467] truncate">
+                        <td className="px-3 py-2 text-[#475467] whitespace-nowrap">
                           {c.phone || <span className="text-[#AAAAAA] italic">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">

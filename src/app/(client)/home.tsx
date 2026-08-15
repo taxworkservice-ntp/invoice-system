@@ -180,6 +180,20 @@ function getAmountDocument(documents: DealDoc[]) {
   );
 }
 
+function getDealWhtAmount(documents: DealDoc[]) {
+  const nonVoided = documents.filter((doc) => doc.status !== "voided");
+  const receipts = nonVoided.filter(
+    (doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status),
+  );
+
+  // Each receipt represents one payment, so summing receipts handles partial payments correctly.
+  if (receipts.length > 0) {
+    return receipts.reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
+  }
+
+  return getAmountDocument(nonVoided)?.wht_amount || 0;
+}
+
 function getItemPreview(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   const sourceDoc =
@@ -460,7 +474,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     itemNames: getItemPreview(deal.documents || []),
     amount: amountDocument?.total_amount || amountDocument?.net_payable || 0,
     netPayable: amountDocument?.net_payable || amountDocument?.total_amount || 0,
-    whtAmount: amountDocument?.wht_amount || 0,
+    whtAmount: getDealWhtAmount(deal.documents || []),
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     stageLabel: stageInfo.stageLabel,
     stageHint: stageInfo.stageHint,
@@ -535,7 +549,7 @@ export default function HomePage() {
         customers(id, name, code, avatar_initials, avatar_color),
         documents(
           id, doc_type, doc_number, status,
-          total_amount, net_payable, amount_received,
+           total_amount, net_payable, wht_amount, amount_received,
           due_date, paid_at,
           created_at, updated_at
         )
