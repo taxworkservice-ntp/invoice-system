@@ -66,6 +66,7 @@ type DashboardDeal = {
   amountReceived: number;
   outstandingAmount: number;
   whtAmount: number;
+  receiptCount: number;
   completedDocNumber: string | null;
   status: Document["status"];
   stageLabel: string;
@@ -235,6 +236,12 @@ function getCompletionDoc(documents: DealDoc[]) {
     nonVoided.find((doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status)) ||
     nonVoided.find((doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status)) ||
     null
+  );
+}
+
+function getReceiptDocuments(documents: DealDoc[]) {
+  return sortDocuments(documents).filter(
+    (doc) => doc.status !== "voided" && doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status),
   );
 }
 
@@ -475,6 +482,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const amountReceived = getDealReceivedAmount(deal.documents || []);
   const netPayable = amountDocument?.net_payable ?? amountDocument?.total_amount ?? 0;
   const outstandingAmount = Math.max(0, netPayable - amountReceived);
+  const receiptCount = getReceiptDocuments(deal.documents || []).length;
   const partialReceived = amountReceived;
   const isPartiallyPaid = (deal.documents || []).some((d) => d.status === "partially_paid");
 
@@ -505,6 +513,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     amountReceived,
     outstandingAmount,
     whtAmount: getDealWhtAmount(deal.documents || []),
+    receiptCount,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     stageLabel: stageInfo.stageLabel,
     stageHint: stageInfo.stageHint,
@@ -1412,8 +1421,19 @@ export default function HomePage() {
                                   </div>
                                 </td>
                                  <td className="px-3 py-2 text-[#475467] whitespace-nowrap font-mono text-[11px]">
-                                  {deal.completedDocNumber || <span className="text-[#AAAAAA] italic font-sans">—</span>}
-                                </td>
+                                   {deal.completedDocNumber ? (
+                                     <>
+                                       <div>{deal.completedDocNumber}</div>
+                                       {deal.receiptCount > 1 && (
+                                         <div className="mt-0.5 font-sans text-[10px] text-[#667085]">
+                                           +{deal.receiptCount - 1} ใบเสร็จ
+                                         </div>
+                                       )}
+                                     </>
+                                   ) : (
+                                     <span className="text-[#AAAAAA] italic font-sans">—</span>
+                                   )}
+                                 </td>
                                 <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
                                 </td>
