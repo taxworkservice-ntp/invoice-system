@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ElementType } from "react";
-import { ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Star, Truck } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Star, Truck } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { supabase } from "../../lib/supabase";
 
@@ -52,6 +52,7 @@ const DEFAULT_FAVORITES: NewDealType[] = ["quotation", "invoice", "tax_invoice_r
 export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: NewDealSheetProps) {
   const [showAllOptions, setShowAllOptions] = useState(false);
   const [favoriteTypes, setFavoriteTypes] = useState<NewDealType[]>(DEFAULT_FAVORITES);
+  const [hasCustomizedFavorites, setHasCustomizedFavorites] = useState(false);
   const [preferencesUserId, setPreferencesUserId] = useState<string | null>(null);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
   const [preferencesError, setPreferencesError] = useState("");
@@ -90,8 +91,13 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
       } else if (data?.new_deal_favorites?.length) {
         const valid = data.new_deal_favorites.filter((type: string): type is NewDealType => allOptions.some((option) => option.type === type));
         setFavoriteTypes(valid.slice(0, 3));
+        setHasCustomizedFavorites(true);
+      } else if (data) {
+        setFavoriteTypes([]);
+        setHasCustomizedFavorites(true);
       } else {
         setFavoriteTypes(DEFAULT_FAVORITES);
+        setHasCustomizedFavorites(false);
       }
       setPreferencesLoading(false);
     });
@@ -100,13 +106,10 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
     };
   }, [allOptions, open]);
 
-  async function toggleFavorite(type: NewDealType) {
+  async function saveFavorites(next: NewDealType[]) {
     if (!preferencesUserId) return;
-    const isFavorite = favoriteTypes.includes(type);
-    const next = isFavorite
-      ? favoriteTypes.filter((item) => item !== type)
-      : [...favoriteTypes, type].slice(0, 3);
     setFavoriteTypes(next);
+    setHasCustomizedFavorites(true);
     setPreferencesError("");
     const { error } = await supabase.from("user_preferences").upsert({
       user_id: preferencesUserId,
@@ -116,6 +119,23 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
       setFavoriteTypes(favoriteTypes);
       setPreferencesError("บันทึกรายการโปรดไม่สำเร็จ");
     }
+  }
+
+  function toggleFavorite(type: NewDealType) {
+    const isFavorite = favoriteTypes.includes(type);
+    const next = isFavorite
+      ? favoriteTypes.filter((item) => item !== type)
+      : [...favoriteTypes, type].slice(0, 3);
+    void saveFavorites(next);
+  }
+
+  function moveFavorite(type: NewDealType, direction: -1 | 1) {
+    const index = favoriteTypes.indexOf(type);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= favoriteTypes.length) return;
+    const next = [...favoriteTypes];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    void saveFavorites(next);
   }
 
   function optionTitle(option: (typeof allOptions)[number]) {
@@ -133,6 +153,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
   function renderOption(option: (typeof allOptions)[number]) {
     const Icon = option.icon;
     const isFavorite = favoriteTypes.includes(option.type);
+    const favoriteIndex = favoriteTypes.indexOf(option.type);
     return (
       <div
         key={option.type}
@@ -168,6 +189,28 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
         >
           <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
         </button>
+        {isFavorite && (
+          <div className="flex shrink-0 flex-col gap-0.5">
+            <button
+              type="button"
+              onClick={() => moveFavorite(option.type, -1)}
+              disabled={favoriteIndex === 0 || preferencesLoading}
+              aria-label={`เลื่อน ${optionTitle(option)} ขึ้น`}
+              className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-25"
+            >
+              <ArrowUp className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => moveFavorite(option.type, 1)}
+              disabled={favoriteIndex === favoriteTypes.length - 1 || preferencesLoading}
+              aria-label={`เลื่อน ${optionTitle(option)} ลง`}
+              className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-25"
+            >
+              <ArrowDown className="h-3 w-3" />
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -182,14 +225,23 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
         <div className="px-1 text-xs leading-5 text-gray-500">เลือกตามสิ่งที่ต้องทำตอนนี้ ระบบจะพาไปขั้นตอนถัดไปให้</div>
         <div className="mt-4">
           <div className="flex items-center justify-between px-1 pb-1">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">รายการโปรด</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">
+              {hasCustomizedFavorites ? "รายการโปรด" : "แนะนำสำหรับคุณ"}
+            </div>
             <span className="text-[10px] text-gray-400">ปักหมุดได้สูงสุด 3 รายการ</span>
           </div>
-          <div className="divide-y divide-card-border rounded-xl border border-card-border bg-white">
-            {quickOptions.map(renderOption)}
-          </div>
+          {quickOptions.length > 0 ? (
+            <div className="divide-y divide-card-border rounded-xl border border-card-border bg-white">
+              {quickOptions.map(renderOption)}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-card-border bg-[#FAFAF8] px-4 py-4 text-center">
+              <Star className="mx-auto h-5 w-5 text-amber-400" />
+              <div className="mt-2 text-xs font-medium text-gray-700">ยังไม่มีรายการโปรด</div>
+              <div className="mt-1 text-[11px] leading-4 text-gray-500">เลือกดาวจากตัวเลือกเพิ่มเติม เพื่อให้แสดงที่นี่</div>
+            </div>
+          )}
           {preferencesError && <div className="mt-1 px-1 text-[10px] text-amber-700">{preferencesError}</div>}
-          {!preferencesLoading && favoriteTypes.length === 0 && <div className="mt-1 px-1 text-[10px] text-gray-400">ยังไม่มีรายการโปรด เลือกดาวจากตัวเลือกเพิ่มเติม</div>}
         </div>
         <div className="mt-3">
           <button
