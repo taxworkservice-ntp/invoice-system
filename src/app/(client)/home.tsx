@@ -1325,20 +1325,20 @@ export default function HomePage() {
                       </span>
                       <button
                         className="text-[11px] text-gray-400 hover:text-gray-600"
-                        onClick={() => navigate("/documents")}
+                        onClick={() => navigate("/documents?preset=paid")}
                       >
-                        ดูทั้งหมด
+                        ดูเอกสารที่ชำระแล้ว
                       </button>
                     </div>
                   </div>
                   <div className="bg-white border border-card-border rounded-card overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className={`${TABLE.table} table-fixed min-w-[1050px]`}>
+                      <table className={`${TABLE.table} table-fixed min-w-[1100px]`}>
                         <thead>
                           <tr className={TABLE.theadTr}>
                             <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ดีล</th>
                             <th className={TABLE.thStatic}>ลูกค้า</th>
-                            <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ใบเสร็จ</th>
+                            <th className={`${TABLE.thStatic} w-[135px]`}>เลขที่ใบเสร็จ</th>
                             <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
                             <th className={`${TABLE.thStatic} w-[125px] text-right`}>จำนวนเงิน</th>
                             <th className={`${TABLE.thStatic} w-[145px] text-right`}>หัก ณ ที่จ่ายสะสม</th>
@@ -1383,7 +1383,7 @@ export default function HomePage() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-3 py-2 text-[#475467] max-w-[130px] truncate font-mono text-[11px]">
+                                 <td className="px-3 py-2 text-[#475467] whitespace-nowrap font-mono text-[11px]">
                                   {deal.completedDocNumber || <span className="text-[#AAAAAA] italic font-sans">—</span>}
                                 </td>
                                 <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
