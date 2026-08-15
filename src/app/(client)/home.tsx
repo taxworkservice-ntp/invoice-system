@@ -67,6 +67,7 @@ type DashboardDeal = {
   amountReceived: number;
   outstandingAmount: number;
   whtAmount: number;
+  expectedWhtAmount: number;
   receiptCount: number;
   completedDocNumber: string | null;
   status: Document["status"];
@@ -483,6 +484,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const amountReceived = getDealReceivedAmount(deal.documents || []);
   const grossAmount = amountDocument?.total_amount ?? amountDocument?.net_payable ?? 0;
   const netPayable = amountDocument?.net_payable ?? amountDocument?.total_amount ?? 0;
+  const expectedWhtAmount = amountDocument?.wht_amount ?? 0;
   const outstandingAmount = Math.max(0, netPayable - amountReceived);
   const receiptCount = getReceiptDocuments(deal.documents || []).length;
   const partialReceived = amountReceived;
@@ -516,6 +518,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     amountReceived,
     outstandingAmount,
     whtAmount: getDealWhtAmount(deal.documents || []),
+    expectedWhtAmount,
     receiptCount,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
     stageLabel: stageInfo.stageLabel,
@@ -1199,7 +1202,7 @@ export default function HomePage() {
                             className={`${TABLE.thSortable} hidden md:table-cell min-w-[110px]`}
                           />
                           <SortableTh
-                            label="หัก ณ ที่จ่ายสะสม"
+                            label="หัก ณ ที่จ่าย"
                             align="right"
                             active={dealSort.sort.key === "whtAmount"}
                             dir={dealSort.sort.dir}
@@ -1299,8 +1302,13 @@ export default function HomePage() {
                                 </span>
                               </td>
                               <td className="hidden px-3 py-2 text-right lg:table-cell">
-                                <span className={`inline-block min-w-[100px] text-right ${deal.whtAmount > 0 ? "text-[#C0392B]" : "text-[#98A2B3]"}`}>
-                                  ฿ {formatCurrency(deal.whtAmount)}
+                                <span className={`inline-block min-w-[100px] text-right ${deal.expectedWhtAmount > 0 ? "text-[#C0392B]" : "text-[#98A2B3]"}`}>
+                                  ฿ {formatCurrency(deal.expectedWhtAmount)}
+                                  {deal.whtAmount > 0 && deal.whtAmount !== deal.expectedWhtAmount && (
+                                    <span className="block text-[10px] font-medium text-amber-700">
+                                      สะสม ฿{formatCurrency(deal.whtAmount)}
+                                    </span>
+                                  )}
                                 </span>
                               </td>
                                <td className="px-3 py-2 text-right">
