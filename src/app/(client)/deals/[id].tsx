@@ -1137,34 +1137,34 @@ export default function DealDetailPage() {
         doc,
         label:
           doc.doc_type === "quotation"
-            ? "ส่งใบเสนอราคาแล้ว"
+            ? "ส่งใบเสนอราคาให้ลูกค้า"
             : doc.doc_type === "invoice"
-              ? "ส่งใบแจ้งหนี้แล้ว"
+              ? "ส่งใบแจ้งหนี้ให้ลูกค้า"
               : doc.doc_type === "delivery_note"
-                ? "ส่งของแล้ว"
-              : "ส่งใบวางบิลแล้ว",
+                ? "บันทึกว่าส่งของแล้ว"
+              : "ส่งใบวางบิลให้ลูกค้า",
       };
     }
     if (doc.doc_type === "delivery_note" && doc.status === "sent") {
       if (!permissions.canSendDocuments) return null;
-      return { type: "invoice_from_dns", doc, label: "ออกใบแจ้งหนี้จากใบส่งของ" };
+      return { type: "invoice_from_dns", doc, label: "สร้างบิลจากใบส่งของ" };
     }
     if (doc.doc_type === "quotation" && doc.status === "sent") {
       if (!permissions.canSendDocuments) return null;
       return hasQuotationDeliveryActivity
-        ? { type: "delivery_from_quote", doc, label: "ออกใบส่งของจากใบเสนอราคา" }
-        : { type: "convert", doc, label: "ออกใบแจ้งหนี้ทันที" };
+        ? { type: "delivery_from_quote", doc, label: "บันทึกว่าส่งของแล้ว" }
+        : { type: "convert", doc, label: "สร้างบิลต่อ" };
     }
     if (doc.doc_type === "invoice" && doc.status === "sent") {
       if (!permissions.canRecordPayments) return null;
-      return { type: "billing", doc, label: "วางบิล" };
+      return { type: "billing", doc, label: "สร้างใบวางบิล" };
     }
     if (doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue")) {
       if (!permissions.canRecordPayments) return null;
       return {
         type: "collect",
         doc,
-        label: isOverdueDocument(doc) ? "เกินกำหนด — รับเงินแล้ว?" : "รับเงินแล้ว",
+        label: isOverdueDocument(doc) ? "เกินกำหนด — บันทึกรับเงิน" : "บันทึกรับเงิน",
         danger: isOverdueDocument(doc),
       };
     }
@@ -1181,12 +1181,12 @@ export default function DealDetailPage() {
 
     if (doc.doc_type === "quotation" && doc.status === "sent" && permissions.canSendDocuments) {
       return mainAction?.type === "delivery_from_quote"
-        ? { type: "convert" as const, doc, label: "ข้ามใบส่งของ ออกใบแจ้งหนี้" }
-        : { type: "delivery_from_quote" as const, doc, label: "ส่งของก่อน ออกใบส่งของ" };
+        ? { type: "convert" as const, doc, label: "ข้ามส่งของ แล้วสร้างบิล" }
+        : { type: "delivery_from_quote" as const, doc, label: "ส่งของก่อน แล้วบันทึกการส่ง" };
     }
 
     if (doc.doc_type === "invoice" && doc.status === "sent" && permissions.canRecordPayments) {
-      return { type: "collect" as const, doc, label: "ข้ามใบวางบิล รับเงินทันที" };
+      return { type: "collect" as const, doc, label: "ข้ามใบวางบิล แล้วบันทึกรับเงิน" };
     }
 
     return null;
@@ -1199,6 +1199,19 @@ export default function DealDetailPage() {
     }
     return activeDoc.document.doc_number;
   }, [activeDoc]);
+
+  const actionHelper = useMemo(() => {
+    if (!activeDoc || !mainAction) return "";
+    if (mainAction.type === "send_draft" && activeDoc.document.doc_type === "invoice") {
+      return "เมื่อส่งใบแจ้งหนี้ ระบบจะตัดสต็อกสินค้าที่อยู่ในเอกสาร";
+    }
+    if (mainAction.type === "convert") return "ระบบจะสร้างใบแจ้งหนี้จากรายการเดิมให้คุณตรวจสอบ";
+    if (mainAction.type === "billing") return "เลือกใบแจ้งหนี้ที่ต้องการรวม แล้วตรวจสอบยอดก่อนบันทึก";
+    if (mainAction.type === "collect") return "กรอกวันที่และวิธีรับเงิน ระบบจะสร้างใบเสร็จให้โดยอัตโนมัติ";
+    if (mainAction.type === "delivery_from_quote") return "เลือกจำนวนสินค้าที่ส่งในครั้งนี้ แล้วบันทึกใบส่งของ";
+    if (mainAction.type === "invoice_from_dns") return "ระบบจะนำรายการจากใบส่งของมาให้ตรวจสอบก่อนออกบิล";
+    return "";
+  }, [activeDoc, mainAction]);
 
   function handleCopyText(text: string) {
     navigator.clipboard.writeText(text);
@@ -1643,6 +1656,11 @@ export default function DealDetailPage() {
               {actionHint && (
                 <div className={`mt-2 text-center text-[11px] ${isOverdue ? "text-red-700" : "text-gray-500"}`}>{actionHint}</div>
               )}
+              {actionHelper && (
+                <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-center text-[11px] leading-4 text-blue-800">
+                  ขั้นตอนถัดไป: {actionHelper}
+                </div>
+              )}
               {optionalAction && (
                 <Button
                   variant="secondary"
@@ -1874,7 +1892,8 @@ export default function DealDetailPage() {
         </div>
 
         <Card className="border-[0.5px]">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">เพิ่มเติม</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">การจัดการเอกสาร</div>
+          <div className="mt-1 text-xs text-gray-500">แก้ไขเอกสารล่าสุดหรือจัดการเอกสารที่เกี่ยวข้อง</div>
           {activeDoc && (
             <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-5 text-stone-700">
               {activeDoc.document.status === "draft"
@@ -1960,7 +1979,7 @@ export default function DealDetailPage() {
                 className="col-span-2 justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
                 onClick={handleUnlinkAllInvoices}
               >
-                เริ่มรวมใหม่
+                แยกใบแจ้งหนี้ออกจากใบวางบิล
               </Button>
             )}
             {activeDoc?.document.doc_type === "invoice" && hasActiveDnLinks && (
@@ -1969,7 +1988,7 @@ export default function DealDetailPage() {
                 className="col-span-2 justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
                 onClick={handleUnlinkAllDeliveryNotes}
               >
-                เริ่มรวมใหม่
+                แยกใบส่งของออกจากใบแจ้งหนี้
               </Button>
             )}
             {allDone && hasPaidDocs && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (

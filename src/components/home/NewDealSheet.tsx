@@ -185,7 +185,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
           aria-label={isFavorite ? `ยกเลิกโปรด ${optionTitle(option)}` : `เพิ่มรายการโปรด ${optionTitle(option)}`}
           aria-pressed={isFavorite}
           title={isFavorite ? "ยกเลิกรายการโปรด" : favoriteTypes.length >= 3 ? "เลือกได้สูงสุด 3 รายการ" : "เพิ่มรายการโปรด"}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-amber-500 hover:bg-amber-50" : "text-gray-300 hover:bg-amber-50 hover:text-amber-500"}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-amber-500 hover:bg-amber-50" : "text-gray-300 hover:bg-amber-50 hover:text-amber-500"}`}
         >
           <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
         </button>
@@ -226,7 +226,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
         <div className="mt-4">
           <div className="flex items-center justify-between px-1 pb-1">
             <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">
-              {hasCustomizedFavorites ? "รายการโปรด" : "แนะนำสำหรับคุณ"}
+              {hasCustomizedFavorites ? "เริ่มงานด่วน" : "แนะนำสำหรับคุณ"}
             </div>
             <span className="text-[10px] text-gray-400">ปักหมุดได้สูงสุด 3 รายการ</span>
           </div>

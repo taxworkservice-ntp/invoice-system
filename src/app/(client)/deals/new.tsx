@@ -385,6 +385,8 @@ interface NewDealPageProps {
 export default function NewDealPage({ documentId, initialType }: NewDealPageProps = {}) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const isClassicMode = searchParams.get("mode") === "classic";
+  const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
   const requestedType = initialType || searchParams.get("type") || "quotation";
   const isUtilityBill = requestedType === "utility_bill";
   const type = (isUtilityBill ? "invoice" : requestedType) as DocumentType;
@@ -1305,6 +1307,38 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const isIssueDateToday = issueDate === todayString();
   const isPaymentDateToday = paymentDate === todayString();
 
+  function isStepVisible(step: 1 | 2 | 3) {
+    return isClassicMode || formStep === step;
+  }
+
+  function handleNextStep() {
+    setError(null);
+    if (formStep === 1 && !selectedCustomer) {
+      setError("กรุณาเลือกลูกค้าก่อนดำเนินการต่อ");
+      return;
+    }
+    if (formStep === 2) {
+      if (isUtilityBill) {
+        const previous = parseAmount(utilityPreviousReading);
+        const current = parseAmount(utilityCurrentReading);
+        const rate = parseAmount(utilityRate);
+        if (!utilityServiceName.trim() || !utilityPeriodStart || !utilityPeriodEnd || current <= previous || rate <= 0) {
+          setError("กรุณากรอกข้อมูลรอบบิลให้ครบถ้วนและถูกต้อง");
+          return;
+        }
+      } else if (isBillingNote ? selectedInvoiceIds.size === 0 : !lineItems.some((lineItem) => lineItem.item_name.trim())) {
+        setError(isBillingNote ? "กรุณาเลือกใบแจ้งหนี้อย่างน้อย 1 ใบ" : "กรุณาเพิ่มสินค้าหรือบริการอย่างน้อย 1 รายการ");
+        return;
+      }
+    }
+    setFormStep((current) => (current < 3 ? (current + 1) as 1 | 2 | 3 : current));
+  }
+
+  function handlePreviousStep() {
+    setError(null);
+    setFormStep((current) => (current > 1 ? (current - 1) as 1 | 2 | 3 : current));
+  }
+
   if (editLoading) {
     return (
       <AppShell title={label} showBack>
@@ -1315,6 +1349,47 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
   return (
     <AppShell title={label} showBack>
+      {!isClassicMode && (
+        <div className="mb-4 rounded-xl border border-[#E8E6DF] bg-white px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-[#1A1A18]">สร้างเอกสารแบบทีละขั้น</div>
+              <div className="mt-0.5 text-xs text-gray-500">ระบบจะพาคุณทำทีละส่วน ไม่ต้องกรอกทุกอย่างพร้อมกัน</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.set("mode", "classic");
+                navigate(`${window.location.pathname}?${nextParams.toString()}`);
+              }}
+              className="shrink-0 text-[11px] font-medium text-gray-500 underline underline-offset-2"
+            >
+              ใช้แบบเดิม
+            </button>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {["ลูกค้า", "รายการ", "ตรวจสอบ"].map((stepLabel, index) => {
+              const step = (index + 1) as 1 | 2 | 3;
+              const active = formStep === step;
+              const complete = formStep > step;
+              return (
+                <button
+                  key={stepLabel}
+                  type="button"
+                  onClick={() => step < formStep && setFormStep(step)}
+                  disabled={step > formStep}
+                  className={`rounded-lg px-2 py-2 text-center text-xs transition-colors ${
+                    active ? "bg-primary text-white" : complete ? "bg-green-50 text-green-700" : "bg-[#F7F6F3] text-gray-400"
+                  }`}
+                >
+                  <span className="mr-1 font-semibold">{complete ? "✓" : step}</span>{stepLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
           {error}
@@ -1353,7 +1428,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       )}
 
       <div className="space-y-4">
-        <Card>
+        <Card className={!isStepVisible(1) ? "hidden" : ""}>
           <h3 className="text-sm font-medium mb-3">ลูกค้า</h3>
           {selectedCustomer ? (
             <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-[#FAF8F3] p-3">
@@ -1407,7 +1482,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         </Card>
 
         {!isBillingNote && (
-          <Card>
+          <Card className={!isStepVisible(1) ? "hidden" : ""}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-sm font-medium text-[#1A1A18]">
@@ -1513,7 +1588,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         {isUtilityBill && (
-          <Card>
+          <Card className={!isStepVisible(2) ? "hidden" : ""}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-sm font-medium text-[#1A1A18]">ข้อมูลรอบบิล</h3>
@@ -1649,7 +1724,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         {isLineItemDocument && (
-          <Card>
+          <Card className={!isStepVisible(2) ? "hidden" : ""}>
             <h3 className="text-sm font-medium mb-3">{isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการ"}</h3>
             <div className="space-y-2">
               {!isUtilityBill && lineItems.some((li) => li.item_name.trim()) && (
@@ -2049,7 +2124,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         {isBillingNote && (
-          <Card>
+          <Card className={!isStepVisible(2) ? "hidden" : ""}>
             <h3 className="text-sm font-medium mb-3">ใบแจ้งหนี้ที่ยังไม่ได้ชำระ</h3>
             {!selectedCustomer ? (
               <p className="text-sm text-gray-400">กรุณาเลือกลูกค้าก่อน</p>
@@ -2112,7 +2187,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         {isTaxInvoiceReceipt && (
-          <Card>
+          <Card className={!isStepVisible(2) ? "hidden" : ""}>
             <h3 className="text-sm font-medium mb-3">ข้อมูลการรับชำระ</h3>
             <div className="space-y-3">
               <div>
@@ -2143,7 +2218,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           </Card>
         )}
 
-        <Card>
+        <Card className={!isStepVisible(3) ? "hidden" : ""}>
           <h3 className="text-sm font-medium">รายละเอียดเพิ่มเติม</h3>
           <div className="mt-3 space-y-3">
             {isTaxInvoiceReceipt && (
@@ -2194,7 +2269,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         </Card>
 
         {isDeliveryNote && (
-          <Card>
+          <Card className={!isStepVisible(3) ? "hidden" : ""}>
             <label className="flex items-start gap-3 cursor-pointer">
               <div className="relative inline-flex items-center mt-0.5 shrink-0">
                 <input
@@ -2227,17 +2302,30 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           </Card>
         )}
 
-        <EditableDocNumber
-          value={docNumberOverride}
-          onChange={setDocNumberOverride}
-          placeholder="เลขที่เอกสาร (เว้นว่าง = สร้างอัตโนมัติ)"
-          autoGenerate={async () => await resolveDocNumber(userId!, type, isTaxInvoiceReceipt ? paymentDate : issueDate)}
-          className="mb-3"
-        />
+        <div className={!isStepVisible(3) ? "hidden" : ""}>
+          <EditableDocNumber
+            value={docNumberOverride}
+            onChange={setDocNumberOverride}
+            placeholder="เลขที่เอกสาร (เว้นว่าง = สร้างอัตโนมัติ)"
+            autoGenerate={async () => await resolveDocNumber(userId!, type, isTaxInvoiceReceipt ? paymentDate : issueDate)}
+            className="mb-3"
+          />
 
-        <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "ออกเอกสารทันที" : isEditingDraft ? "บันทึกร่าง" : "บันทึก"}
-        </Button>
+          <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
+            {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "ออกเอกสารทันที" : isEditingDraft ? "บันทึกร่าง" : "ตรวจสอบและบันทึก"}
+          </Button>
+        </div>
+
+        {!isClassicMode && (
+          <div className="sticky bottom-3 z-10 flex gap-2 rounded-xl border border-[#E8E6DF] bg-white/95 p-2 shadow-lg backdrop-blur">
+            {formStep > 1 && (
+              <Button variant="secondary" className="flex-1 justify-center" onClick={handlePreviousStep}>ย้อนกลับ</Button>
+            )}
+            {formStep < 3 && (
+              <Button className="flex-1 justify-center" onClick={handleNextStep}>ถัดไป</Button>
+            )}
+          </div>
+        )}
 
         <Modal open={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="ยืนยันการบันทึก">
           <div className="space-y-3">

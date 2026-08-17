@@ -304,24 +304,24 @@ function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {
 
 function getNextActionLabel(doc: DealDoc | null) {
   if (!doc) return "";
-  if (isOverdueDocument(doc)) return "เกินกำหนด — รับเงินแล้วใช่ไหม →";
+  if (isOverdueDocument(doc)) return "เกินกำหนด — บันทึกรับเงิน →";
   if (doc.doc_type === "quotation" && doc.status === "draft")
-    return "ส่งใบเสนอราคาแล้วหรือยัง →";
+    return "ส่งใบเสนอราคาให้ลูกค้า →";
   if (doc.doc_type === "quotation" && doc.status === "sent")
-    return "ลูกค้าตกลงแล้วใช่ไหม →";
+    return "ลูกค้าตกลงแล้ว? สร้างบิลต่อ →";
   if (doc.doc_type === "invoice" && doc.status === "draft")
-    return "ส่งใบแจ้งหนี้แล้วหรือยัง →";
+    return "ส่งใบแจ้งหนี้ให้ลูกค้า →";
   if (doc.doc_type === "invoice" && doc.status === "sent")
-    return "ถึงเวลาวางบิลแล้ว →";
+    return "สร้างใบวางบิล →";
   if (doc.doc_type === "delivery_note" && doc.status === "draft")
-    return "ส่งของแล้วหรือยัง →";
+    return "บันทึกว่าส่งของแล้ว →";
   if (doc.doc_type === "delivery_note" && doc.status === "sent")
-    return "ออกใบแจ้งหนี้จากใบส่งของ →";
+    return "สร้างบิลจากใบส่งของ →";
   if (doc.doc_type === "tax_invoice_receipt") return "";
   if (doc.doc_type === "billing_note" && doc.status === "draft")
-    return "ส่งใบวางบิลแล้วหรือยัง →";
+    return "ส่งใบวางบิลให้ลูกค้า →";
   if (doc.doc_type === "billing_note" && doc.status === "sent")
-    return "รับเงินแล้วใช่ไหม →";
+    return "บันทึกรับเงิน →";
   return "";
 }
 
