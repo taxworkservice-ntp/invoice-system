@@ -435,7 +435,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [utilityRate, setUtilityRate] = useState("");
   const [utilityLastHint, setUtilityLastHint] = useState<string | null>(null);
   const [loadingUtilityLast, setLoadingUtilityLast] = useState(false);
-  const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(true);
+  const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
+  });
+  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
 
   const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
@@ -1306,6 +1310,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const isIssueDateToday = issueDate === todayString();
   const isPaymentDateToday = paymentDate === todayString();
 
+  useEffect(() => {
+    window.localStorage.setItem("invoice-system.hideAmountsOnPrint", String(hideAmountsOnPrint));
+  }, [hideAmountsOnPrint]);
+
   if (editLoading) {
     return (
       <AppShell title={label} showBack>
@@ -2172,8 +2180,19 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         <Card>
-          <h3 className="text-sm font-medium">4. รายละเอียดเพิ่มเติม</h3>
-          <div className="mt-3 space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowAdditionalDetails((current) => !current)}
+            aria-expanded={showAdditionalDetails}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span>
+              <span className="block text-sm font-medium">4. รายละเอียดเพิ่มเติม</span>
+              <span className="mt-0.5 block text-xs text-gray-500">VAT, หัก ณ ที่จ่าย และหมายเหตุ</span>
+            </span>
+            <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${showAdditionalDetails ? "rotate-180" : ""}`} />
+          </button>
+          {showAdditionalDetails && <div className="mt-3 space-y-3">
             {isTaxInvoiceReceipt && (
               <p className="rounded-lg bg-[#FAF8F3] px-3 py-2 text-xs text-gray-600">
                 {vatRegistered
@@ -2218,7 +2237,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary whitespace-pre-line"
               />
             </div>
-          </div>
+          </div>}
         </Card>
 
         {isDeliveryNote && (
