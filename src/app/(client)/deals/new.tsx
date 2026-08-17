@@ -386,7 +386,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isClassicMode = searchParams.get("mode") === "classic";
-  const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
   const requestedType = initialType || searchParams.get("type") || "quotation";
   const isUtilityBill = requestedType === "utility_bill";
   const type = (isUtilityBill ? "invoice" : requestedType) as DocumentType;
@@ -1307,38 +1306,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const isIssueDateToday = issueDate === todayString();
   const isPaymentDateToday = paymentDate === todayString();
 
-  function isStepVisible(step: 1 | 2 | 3) {
-    return isClassicMode || formStep === step;
-  }
-
-  function handleNextStep() {
-    setError(null);
-    if (formStep === 1 && !selectedCustomer) {
-      setError("กรุณาเลือกลูกค้าก่อนดำเนินการต่อ");
-      return;
-    }
-    if (formStep === 2) {
-      if (isUtilityBill) {
-        const previous = parseAmount(utilityPreviousReading);
-        const current = parseAmount(utilityCurrentReading);
-        const rate = parseAmount(utilityRate);
-        if (!utilityServiceName.trim() || !utilityPeriodStart || !utilityPeriodEnd || current <= previous || rate <= 0) {
-          setError("กรุณากรอกข้อมูลรอบบิลให้ครบถ้วนและถูกต้อง");
-          return;
-        }
-      } else if (isBillingNote ? selectedInvoiceIds.size === 0 : !lineItems.some((lineItem) => lineItem.item_name.trim())) {
-        setError(isBillingNote ? "กรุณาเลือกใบแจ้งหนี้อย่างน้อย 1 ใบ" : "กรุณาเพิ่มสินค้าหรือบริการอย่างน้อย 1 รายการ");
-        return;
-      }
-    }
-    setFormStep((current) => (current < 3 ? (current + 1) as 1 | 2 | 3 : current));
-  }
-
-  function handlePreviousStep() {
-    setError(null);
-    setFormStep((current) => (current > 1 ? (current - 1) as 1 | 2 | 3 : current));
-  }
-
   if (editLoading) {
     return (
       <AppShell title={label} showBack>
@@ -1353,8 +1320,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         <div className="mb-4 rounded-xl border border-[#E8E6DF] bg-white px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-[#1A1A18]">สร้างเอกสารแบบทีละขั้น</div>
-              <div className="mt-0.5 text-xs text-gray-500">ระบบจะพาคุณทำทีละส่วน ไม่ต้องกรอกทุกอย่างพร้อมกัน</div>
+              <div className="text-sm font-semibold text-[#1A1A18]">กรอกข้อมูลตามลำดับ</div>
+              <div className="mt-0.5 text-xs text-gray-500">กรอกข้อมูลในแต่ละส่วนจากบนลงล่าง ระบบจะคำนวณยอดให้ทันที</div>
             </div>
             <button
               type="button"
@@ -1368,25 +1335,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               ใช้แบบเดิม
             </button>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {["ลูกค้า", "รายการ", "ตรวจสอบ"].map((stepLabel, index) => {
-              const step = (index + 1) as 1 | 2 | 3;
-              const active = formStep === step;
-              const complete = formStep > step;
-              return (
-                <button
-                  key={stepLabel}
-                  type="button"
-                  onClick={() => step < formStep && setFormStep(step)}
-                  disabled={step > formStep}
-                  className={`rounded-lg px-2 py-2 text-center text-xs transition-colors ${
-                    active ? "bg-primary text-white" : complete ? "bg-green-50 text-green-700" : "bg-[#F7F6F3] text-gray-400"
-                  }`}
-                >
-                  <span className="mr-1 font-semibold">{complete ? "✓" : step}</span>{stepLabel}
-                </button>
-              );
-            })}
+          <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-gray-500">
+            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">1 ลูกค้า</span>
+            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">2 รายการ</span>
+            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">3 ตรวจสอบยอด</span>
+            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">4 บันทึก</span>
           </div>
         </div>
       )}
@@ -1428,8 +1381,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       )}
 
       <div className="space-y-4">
-        <Card className={!isStepVisible(1) ? "hidden" : ""}>
-          <h3 className="text-sm font-medium mb-3">ลูกค้า</h3>
+        <Card>
+          <h3 className="text-sm font-medium mb-3">1. ลูกค้า</h3>
           {selectedCustomer ? (
             <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-[#FAF8F3] p-3">
               <div className="min-w-0">
@@ -1482,11 +1435,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         </Card>
 
         {!isBillingNote && (
-          <Card className={!isStepVisible(1) ? "hidden" : ""}>
+          <Card>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-sm font-medium text-[#1A1A18]">
-                  {isTaxInvoiceReceipt ? "วันที่เอกสารและรับชำระ" : "วันที่ออกเอกสาร"}
+                  {isTaxInvoiceReceipt ? "2. วันที่เอกสารและรับชำระ" : "2. วันที่ออกเอกสาร"}
                 </h3>
                 <p className="mt-1 text-xs text-gray-500">
                   ค่าเริ่มต้นเป็นวันนี้ และเปลี่ยนได้เมื่อต้องการออกย้อนหลัง
@@ -1588,10 +1541,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         {isUtilityBill && (
-          <Card className={!isStepVisible(2) ? "hidden" : ""}>
+          <Card>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-medium text-[#1A1A18]">ข้อมูลรอบบิล</h3>
+                <h3 className="text-sm font-medium text-[#1A1A18]">3. ข้อมูลรอบบิล</h3>
                 <p className="mt-1 text-xs text-gray-500">
                   ระบบจะคำนวณจำนวนหน่วย และบันทึกรายละเอียดไว้ในหมายเหตุรายการ
                 </p>
@@ -1724,8 +1677,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         {isLineItemDocument && (
-          <Card className={!isStepVisible(2) ? "hidden" : ""}>
-            <h3 className="text-sm font-medium mb-3">{isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการ"}</h3>
+          <Card>
+            <h3 className="text-sm font-medium mb-3">{isUtilityBill ? "3. รายการบนใบแจ้งหนี้" : "3. รายการสินค้าและบริการ"}</h3>
             <div className="space-y-2">
               {!isUtilityBill && lineItems.some((li) => li.item_name.trim()) && (
                 <div className="flex gap-1 items-end pb-1.5 mb-0.5 border-b border-gray-100">
@@ -2124,8 +2077,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         {isBillingNote && (
-          <Card className={!isStepVisible(2) ? "hidden" : ""}>
-            <h3 className="text-sm font-medium mb-3">ใบแจ้งหนี้ที่ยังไม่ได้ชำระ</h3>
+          <Card>
+            <h3 className="text-sm font-medium mb-3">3. ใบแจ้งหนี้ที่ยังไม่ได้ชำระ</h3>
             {!selectedCustomer ? (
               <p className="text-sm text-gray-400">กรุณาเลือกลูกค้าก่อน</p>
             ) : loadingInvoices ? (
@@ -2187,8 +2140,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         {isTaxInvoiceReceipt && (
-          <Card className={!isStepVisible(2) ? "hidden" : ""}>
-            <h3 className="text-sm font-medium mb-3">ข้อมูลการรับชำระ</h3>
+          <Card>
+            <h3 className="text-sm font-medium mb-3">4. ข้อมูลการรับชำระ</h3>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -2218,8 +2171,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           </Card>
         )}
 
-        <Card className={!isStepVisible(3) ? "hidden" : ""}>
-          <h3 className="text-sm font-medium">รายละเอียดเพิ่มเติม</h3>
+        <Card>
+          <h3 className="text-sm font-medium">4. รายละเอียดเพิ่มเติม</h3>
           <div className="mt-3 space-y-3">
             {isTaxInvoiceReceipt && (
               <p className="rounded-lg bg-[#FAF8F3] px-3 py-2 text-xs text-gray-600">
@@ -2269,7 +2222,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         </Card>
 
         {isDeliveryNote && (
-          <Card className={!isStepVisible(3) ? "hidden" : ""}>
+          <Card>
             <label className="flex items-start gap-3 cursor-pointer">
               <div className="relative inline-flex items-center mt-0.5 shrink-0">
                 <input
@@ -2302,7 +2255,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           </Card>
         )}
 
-        <div className={!isStepVisible(3) ? "hidden" : ""}>
+        <div className="sticky bottom-3 z-10 rounded-xl bg-page-bg/95 pb-2 pt-1 backdrop-blur">
+          <div className="mb-2 px-1 text-sm font-medium text-[#1A1A18]">5. ตรวจสอบและบันทึก</div>
           <EditableDocNumber
             value={docNumberOverride}
             onChange={setDocNumberOverride}
@@ -2316,16 +2270,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           </Button>
         </div>
 
-        {!isClassicMode && (
-          <div className="sticky bottom-3 z-10 flex gap-2 rounded-xl border border-[#E8E6DF] bg-white/95 p-2 shadow-lg backdrop-blur">
-            {formStep > 1 && (
-              <Button variant="secondary" className="flex-1 justify-center" onClick={handlePreviousStep}>ย้อนกลับ</Button>
-            )}
-            {formStep < 3 && (
-              <Button className="flex-1 justify-center" onClick={handleNextStep}>ถัดไป</Button>
-            )}
-          </div>
-        )}
 
         <Modal open={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="ยืนยันการบันทึก">
           <div className="space-y-3">
