@@ -33,7 +33,7 @@ import { EditableDocNumber } from "../../../components/documents/EditableDocNumb
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
-import { getWorkspacePermissions } from "../../../lib/permissions";
+import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
 import type {
   Document,
   DocumentLineItem,
@@ -289,7 +289,7 @@ export default function DealDetailPage() {
 
   const handleSendDraft = async (doc: Document) => {
     if (!userId) return;
-    if (!permissions.canSendDocuments) {
+    if (!canSendDocumentType(permissions, doc.doc_type)) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
@@ -311,7 +311,7 @@ export default function DealDetailPage() {
 
   const handleConvertToInvoice = async (quotation: Document) => {
     if (!userId || !dealId || !customer) return;
-    if (!permissions.canSendDocuments) {
+    if (!canSendDocumentType(permissions, quotation.doc_type)) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
@@ -1131,7 +1131,7 @@ export default function DealDetailPage() {
     const doc = activeDoc.document;
     if (allDone) return { type: "done", label: "เสร็จสิ้น" };
     if (doc.status === "draft") {
-      if (!permissions.canSendDocuments) return null;
+      if (!canSendDocumentType(permissions, doc.doc_type)) return null;
       return {
         type: "send_draft",
         doc,
@@ -1146,11 +1146,11 @@ export default function DealDetailPage() {
       };
     }
     if (doc.doc_type === "delivery_note" && doc.status === "sent") {
-      if (!permissions.canSendDocuments) return null;
+      if (!canSendDocumentType(permissions, doc.doc_type)) return null;
       return { type: "invoice_from_dns", doc, label: "สร้างบิลจากใบส่งของ" };
     }
     if (doc.doc_type === "quotation" && doc.status === "sent") {
-      if (!permissions.canSendDocuments) return null;
+      if (!canSendDocumentType(permissions, doc.doc_type)) return null;
       return hasQuotationDeliveryActivity
         ? { type: "delivery_from_quote", doc, label: "บันทึกว่าส่งของแล้ว" }
         : { type: "convert", doc, label: "สร้างบิลต่อ" };
@@ -1173,13 +1173,13 @@ export default function DealDetailPage() {
       return { type: "collect", doc, label: "รับชำระเพิ่ม" };
     }
     return null;
-  }, [activeDoc, allDone, hasQuotationDeliveryActivity, permissions.canRecordPayments, permissions.canSendDocuments]);
+  }, [activeDoc, allDone, hasQuotationDeliveryActivity, permissions]);
 
   const optionalAction = useMemo(() => {
     if (!activeDoc || allDone) return null;
     const doc = activeDoc.document;
 
-    if (doc.doc_type === "quotation" && doc.status === "sent" && permissions.canSendDocuments) {
+    if (doc.doc_type === "quotation" && doc.status === "sent" && canSendDocumentType(permissions, doc.doc_type)) {
       return mainAction?.type === "delivery_from_quote"
         ? { type: "convert" as const, doc, label: "ข้ามส่งของ แล้วสร้างบิล" }
         : { type: "delivery_from_quote" as const, doc, label: "ส่งของก่อน แล้วบันทึกการส่ง" };
@@ -1190,7 +1190,7 @@ export default function DealDetailPage() {
     }
 
     return null;
-  }, [activeDoc, allDone, mainAction?.type, permissions.canRecordPayments, permissions.canSendDocuments]);
+  }, [activeDoc, allDone, mainAction?.type, permissions]);
 
   const actionHint = useMemo(() => {
     if (!activeDoc?.document.doc_number) return "";

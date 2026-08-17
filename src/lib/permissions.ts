@@ -1,4 +1,5 @@
 import type { ClientMemberRole } from "../types";
+import type { DocumentType } from "../types";
 
 export type WorkspacePermissionKey =
   | "canManageSettings"
@@ -8,6 +9,9 @@ export type WorkspacePermissionKey =
   | "canManageCustomers"
   | "canCreateEditDocuments"
   | "canSendDocuments"
+  | "canSendQuotations"
+  | "canSendDeliveryNotes"
+  | "canSendFinancialDocuments"
   | "canRecordPayments"
   | "canVoidDocuments"
   | "canDeleteDocuments";
@@ -20,6 +24,9 @@ export interface WorkspacePermissions {
   canManageCustomers: boolean;
   canCreateEditDocuments: boolean;
   canSendDocuments: boolean;
+  canSendQuotations: boolean;
+  canSendDeliveryNotes: boolean;
+  canSendFinancialDocuments: boolean;
   canRecordPayments: boolean;
   canVoidDocuments: boolean;
   canDeleteDocuments: boolean;
@@ -33,8 +40,23 @@ export const PERMISSION_GROUPS: { key: WorkspacePermissionKey; label: string; de
   },
   {
     key: "canSendDocuments",
-    label: "Send/finalize documents",
-    description: "Mark documents as sent, issue credit notes, convert quotations, and create invoices from delivery notes.",
+    label: "Send documents (legacy)",
+    description: "Legacy permission for sending all document types. Use the specific permissions below for new staff access.",
+  },
+  {
+    key: "canSendQuotations",
+    label: "Send quotations",
+    description: "Allow this user to send quotations to customers.",
+  },
+  {
+    key: "canSendDeliveryNotes",
+    label: "Confirm delivery notes",
+    description: "Allow this user to confirm delivery and trigger stock deduction.",
+  },
+  {
+    key: "canSendFinancialDocuments",
+    label: "Send bills and tax documents",
+    description: "Allow invoices, billing notes, tax invoices, receipts, and credit notes.",
   },
   {
     key: "canRecordPayments",
@@ -92,10 +114,20 @@ export function getDefaultWorkspacePermissions(role: ClientMemberRole | null | u
     canManageCustomers: owner || manager || officer,
     canCreateEditDocuments: owner || manager || officer,
     canSendDocuments: operational,
+    canSendQuotations: operational,
+    canSendDeliveryNotes: operational,
+    canSendFinancialDocuments: operational,
     canRecordPayments: operational,
     canVoidDocuments: operational,
     canDeleteDocuments: owner,
   };
+}
+
+export function canSendDocumentType(permissions: WorkspacePermissions, documentType: DocumentType) {
+  if (permissions.canSendDocuments) return true;
+  if (documentType === "quotation") return permissions.canSendQuotations;
+  if (documentType === "delivery_note") return permissions.canSendDeliveryNotes;
+  return permissions.canSendFinancialDocuments;
 }
 
 export function normalizeWorkspacePermissionOverrides(value: unknown): Partial<WorkspacePermissions> {

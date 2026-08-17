@@ -26,7 +26,7 @@ import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
-import { getWorkspacePermissions } from "../../../lib/permissions";
+import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import {
   buildReceiptBackdateFields,
@@ -508,7 +508,7 @@ export default function DocumentDetailPage() {
 
   const handleConvert = async () => {
     if (!doc || !userId) return;
-    if (!permissions.canSendDocuments) {
+    if (!canSendDocumentType(permissions, doc.doc_type)) {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
@@ -1347,7 +1347,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && permissions.canSendDocuments && (
+          {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && canSendDocumentType(permissions, doc.doc_type) && (
             <Button
               variant={doc.doc_type === "delivery_note" ? "primary" : "secondary"}
               size="md"
@@ -1372,7 +1372,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isDraft && doc.doc_type === "credit_note" && permissions.canSendDocuments && (
+          {isDraft && doc.doc_type === "credit_note" && canSendDocumentType(permissions, doc.doc_type) && (
             <Button
               variant="primary"
               size="md"
@@ -1401,7 +1401,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && doc.doc_type === "delivery_note" && permissions.canSendDocuments && (
+          {isSent && doc.doc_type === "delivery_note" && canSendDocumentType(permissions, doc.doc_type) && (
             <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
               เอกสารถูกล็อกหลังยืนยันส่งของแล้ว หากผิดให้ยกเลิกและสร้างใหม่
             </div>
@@ -1496,7 +1496,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && doc.doc_type === "quotation" && !hasQuotationDnActivity && permissions.canSendDocuments && (
+          {isSent && doc.doc_type === "quotation" && !hasQuotationDnActivity && canSendDocumentType(permissions, doc.doc_type) && (
             <Button
               variant="primary"
               size="md"

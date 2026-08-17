@@ -9,6 +9,7 @@ const STATUSES = new Set(["active", "disabled"]);
 const PERMISSION_KEYS = new Set([
   "canManageSettings", "canManageTeam", "canViewReports", "canManageCatalog",
   "canManageCustomers", "canCreateEditDocuments", "canSendDocuments",
+  "canSendQuotations", "canSendDeliveryNotes", "canSendFinancialDocuments",
   "canRecordPayments", "canVoidDocuments", "canDeleteDocuments",
 ]);
 
@@ -37,6 +38,9 @@ const ROLE_PERMISSION_DEFAULTS = {
     canManageCustomers: true,
     canCreateEditDocuments: true,
     canSendDocuments: true,
+    canSendQuotations: true,
+    canSendDeliveryNotes: true,
+    canSendFinancialDocuments: true,
     canRecordPayments: true,
     canVoidDocuments: true,
     canDeleteDocuments: false,
@@ -49,6 +53,9 @@ const ROLE_PERMISSION_DEFAULTS = {
     canManageCustomers: true,
     canCreateEditDocuments: true,
     canSendDocuments: false,
+    canSendQuotations: false,
+    canSendDeliveryNotes: false,
+    canSendFinancialDocuments: false,
     canRecordPayments: false,
     canVoidDocuments: false,
     canDeleteDocuments: false,

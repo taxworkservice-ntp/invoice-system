@@ -1097,6 +1097,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
     setError(null);
 
+    if (!permissions.canCreateEditDocuments) {
+      setError("คุณไม่มีสิทธิ์จัดทำเอกสาร");
+      return;
+    }
+
     if (isUtilityBill) {
       const previous = parseAmount(utilityPreviousReading);
       const current = parseAmount(utilityCurrentReading);
@@ -1688,17 +1693,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           <Card>
             <h3 className="text-sm font-medium mb-3">{isUtilityBill ? "3. รายการบนใบแจ้งหนี้" : "3. รายการสินค้าและบริการ"}</h3>
             <div className="space-y-2">
-              {!isUtilityBill && lineItems.some((li) => li.item_name.trim()) && (
-                <div className="flex gap-1 items-end pb-1.5 mb-0.5 border-b border-gray-100">
-                  <div className="flex-1 text-[10px] text-gray-400 font-medium pl-1 pb-0.5">รายการ</div>
-                  <div className="w-[160px] text-[10px] text-gray-400 font-medium pb-0.5">จำนวน</div>
-                  <div className="w-[72px] text-[10px] text-gray-400 font-medium pb-0.5">หน่วย</div>
-                  <div className="w-[160px] text-[10px] text-gray-400 font-medium pb-0.5" style={{ marginLeft: "4px", borderLeft: "1px solid #e5e7eb", paddingLeft: "8px" }}>ราคา/หน่วย</div>
-                  <div className="w-[68px] text-[10px] text-gray-400 font-medium pb-0.5">ส่วนลด</div>
-                  <div className="flex-1 text-right text-[10px] text-gray-400 font-medium min-w-[70px] pb-0.5">จำนวนเงิน</div>
-                  <div className="w-[40px]" />
-                </div>
-              )}
               {!isUtilityBill && lineItems.length === 0 && (
                 <div className="rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-4 py-4 text-center text-xs text-gray-400">
                   ยังไม่มีรายการ — เพิ่มสินค้าหรือบริการโดยคลิกปุ่มด้านล่าง

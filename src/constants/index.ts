@@ -116,6 +116,7 @@ export const SETTINGS_TABS = [
   { label: "เลขที่เอกสาร", path: "/settings/numbering" },
   { label: "สต็อก", path: "/settings/stock" },
   { label: "บัญชี", path: "/settings/account" },
+  { label: "ทีมงาน", path: "/settings/team" },
 ];
 
 export const BOTTOM_NAV_ITEMS = [

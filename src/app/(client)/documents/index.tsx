@@ -51,6 +51,7 @@ import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
 import {
+  canSendDocumentType,
   getWorkspacePermissions,
   type WorkspacePermissions,
 } from "../../../lib/permissions";
@@ -596,7 +597,7 @@ function DocumentCard({
                 doc.doc_type !== "receipt" &&
                 doc.doc_type !== "credit_note" && (
                   <>
-                    {permissions.canSendDocuments && (
+                    {canSendDocumentType(permissions, doc.doc_type) && (
                       <button
                         className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                         onClick={() => onMenuAction("send")}
@@ -630,7 +631,7 @@ function DocumentCard({
 
               {isDraft && doc.doc_type === "credit_note" && (
                 <>
-                  {permissions.canSendDocuments && (
+                  {canSendDocumentType(permissions, doc.doc_type) && (
                     <button
                       className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                       onClick={() => onMenuAction("issue_cn")}
@@ -681,9 +682,9 @@ function DocumentCard({
 
               {isSent &&
                 doc.doc_type === "quotation" &&
-                (permissions.canSendDocuments || permissions.canVoidDocuments) && (
+                (canSendDocumentType(permissions, doc.doc_type) || permissions.canVoidDocuments) && (
                   <>
-                    {permissions.canSendDocuments && (
+                    {canSendDocumentType(permissions, doc.doc_type) && (
                       <button
                         className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                         onClick={() => onMenuAction("convert")}
@@ -765,9 +766,9 @@ function DocumentCard({
 
               {isSent &&
                 doc.doc_type === "delivery_note" &&
-                (permissions.canSendDocuments || permissions.canVoidDocuments) && (
+                (canSendDocumentType(permissions, doc.doc_type) || permissions.canVoidDocuments) && (
                   <>
-                    {permissions.canSendDocuments && (
+                    {canSendDocumentType(permissions, doc.doc_type) && (
                       <button
                         className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                         onClick={() => onMenuAction("invoice_from_dn")}
@@ -1272,7 +1273,7 @@ export default function DocumentsPage() {
     if (!profile?.id) return;
     if (
       (action === "send" || action === "issue_cn") &&
-      !permissions.canSendDocuments
+      !canSendDocumentType(permissions, doc.doc_type)
     ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
@@ -1338,7 +1339,7 @@ export default function DocumentsPage() {
     }
     if (
       (action === "convert" || action === "invoice_from_dn") &&
-      !permissions.canSendDocuments
+      !canSendDocumentType(permissions, doc.doc_type)
     ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
