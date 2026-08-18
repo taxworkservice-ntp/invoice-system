@@ -12,6 +12,8 @@ import { paginateLineItems } from "../../../lib/pagination";
 
 import { supabase } from "../../../lib/supabase";
 
+type CopyOrder = "original-first" | "copy-first";
+
 export default function DocumentPrintPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -28,10 +30,18 @@ export default function DocumentPrintPreviewPage() {
   const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
   const exportMode = searchParams.get("export") === "pdf";
-  const exportCopyTypes = searchParams.get("copyTypes") === "original,copy"
-    ? ["original", "copy"] as CopyType[]
-    : [searchParams.get("copyType") === "copy" ? "copy" : "original"] as CopyType[];
+  const exportCopyTypes = searchParams.get("copyTypes") === "copy,original"
+    ? ["copy", "original"] as CopyType[]
+    : searchParams.get("copyTypes") === "original,copy"
+      ? ["original", "copy"] as CopyType[]
+      : [searchParams.get("copyType") === "copy" ? "copy" : "original"] as CopyType[];
   const [copyType, setCopyType] = useState<CopyType>(exportCopyTypes[0] || "original");
+  const [copyOrder, setCopyOrder] = useState<CopyOrder>(() => {
+    if (typeof window === "undefined") return "original-first";
+    return window.localStorage.getItem("invoice-system.copy-order") === "copy-first"
+      ? "copy-first"
+      : "original-first";
+  });
 
   useEffect(() => {
     if (!exportMode) return;
@@ -251,7 +261,10 @@ export default function DocumentPrintPreviewPage() {
     setSavingPdf(true);
     setPdfError("");
     try {
-      await triggerDownload(await getServerPdfBlob(["original", "copy"]), pdfFilename(data));
+      const copyTypes: Array<"original" | "copy"> = copyOrder === "copy-first"
+        ? ["copy", "original"]
+        : ["original", "copy"];
+      await triggerDownload(await getServerPdfBlob(copyTypes), pdfFilename(data));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -337,7 +350,7 @@ return (
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">ดาวน์โหลดเอกสาร</div>
           <div className="text-[15px] font-semibold text-[#101828]">{data.document.doc_number || "เอกสาร"}</div>
-          <div className="mt-1 flex items-center gap-1 text-[11px] text-[#667085]">
+           <div className="mt-1 flex items-center gap-1 text-[11px] text-[#667085]">
             <span>ประเภท:</span>
             <div className="inline-flex rounded-md border border-[#D7DEE7] overflow-hidden">
               <button
@@ -355,6 +368,31 @@ return (
                 สำเนา
               </button>
             </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[#667085]">
+              <span>ลำดับเมื่อดาวน์โหลด 2 ฉบับ:</span>
+              <div className="inline-flex overflow-hidden rounded-md border border-[#D7DEE7]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCopyOrder("original-first");
+                    window.localStorage.setItem("invoice-system.copy-order", "original-first");
+                  }}
+                  className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "original-first" ? "bg-[#378ADD] text-white" : "bg-white text-[#475467] hover:bg-gray-50"}`}
+                >
+                  ต้นฉบับ → สำเนา
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCopyOrder("copy-first");
+                    window.localStorage.setItem("invoice-system.copy-order", "copy-first");
+                  }}
+                  className={`border-l border-[#D7DEE7] px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "copy-first" ? "bg-[#378ADD] text-white" : "bg-white text-[#475467] hover:bg-gray-50"}`}
+                >
+                  สำเนา → ต้นฉบับ
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
@@ -368,7 +406,7 @@ return (
             {savingPdf ? "กำลังบันทึก..." : "บันทึกเป็น PDF"}
           </Button>
           <Button onClick={handleSaveBothPdf} disabled={savingPdf} variant="secondary" className="flex-1 sm:flex-none">
-            {savingPdf ? "กำลังบันทึก..." : "ต้นฉบับ+สำเนา"}
+            {savingPdf ? "กำลังบันทึก..." : "ดาวน์โหลด 2 ฉบับ"}
           </Button>
           {pdfError ? (
             <div className="w-full text-right text-[11px] text-red-600">
