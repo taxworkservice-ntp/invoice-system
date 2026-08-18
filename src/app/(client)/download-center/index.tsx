@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useAuth, useClientProfile } from "../../../hooks/useAuth";
+import { useAuth, useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
@@ -9,9 +9,11 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { DOC_TYPE_LABELS } from "../../../constants";
 import { useFinancialReport } from "../../../hooks/useReports";
-import type { DocumentType, Customer } from "../../../types";
+import type { DocumentType } from "../../../types";
 import { Download, FileText, BarChart3, Package } from "lucide-react";
 import { Modal } from "../../../components/ui/Modal";
+import { buildCompanyDataWorkbook } from "../../../lib/companyDataXlsx";
+import type { BillingNoteInvoice, Customer, Deal, Document, DocumentLineItem, Item, StockMovement } from "../../../types";
 
 type ConfirmAction =
   | { type: "preset"; preset: (typeof PRESET_TYPES)[number] }
@@ -44,6 +46,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 export default function DownloadCenterPage() {
   const { profile } = useAuth();
+  const { workspaceRole } = useWorkspaceRole();
   const { clientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
   const userId = profile?.id;
@@ -57,6 +60,7 @@ export default function DownloadCenterPage() {
   const [customCustomerId, setCustomCustomerId] = useState("");
 
   const [reportExporting, setReportExporting] = useState("");
+  const [dataExporting, setDataExporting] = useState(false);
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -72,6 +76,49 @@ export default function DownloadCenterPage() {
   const { summary: finSummary, whtTransactions: finWhtTransactions, transactions: finTransactions, arByCustomer: finArByCustomer, arDetails: finArDetails, arAging: finArAging, topCustomers: finTopCustomers, monthly: finMonthly, byType: finByType, lineItems: finLineItems, dealNotes: finDealNotes, cogs: finCogs, collectionRate: finCollectionRate } = useFinancialReport(userId, finYear, finMonth);
 
   const isVatRegistered = clientProfile?.vat_registered;
+
+  async function handleCompanyDataExport() {
+    if (!userId || workspaceRole !== "owner" || dataExporting) return;
+    setDataExporting(true);
+    try {
+      const [customersRes, itemsRes, dealsRes, documentsRes, movementsRes] = await Promise.all([
+        supabase.from("customers").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+        supabase.from("items").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+        supabase.from("deals").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+        supabase.from("documents").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+        supabase.from("stock_movements").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+      ]);
+      const firstError = [customersRes, itemsRes, dealsRes, documentsRes, movementsRes].find((result) => result.error)?.error;
+      if (firstError) throw firstError;
+
+      const documents = (documentsRes.data || []) as Document[];
+      const documentIds = documents.map((document) => document.id);
+      const billingNoteIds = documents.filter((document) => document.doc_type === "billing_note").map((document) => document.id);
+      const [{ data: lineItems, error: lineItemsError }, { data: billingLinks, error: billingLinksError }] = await Promise.all([
+        documentIds.length ? supabase.from("document_line_items").select("*").in("document_id", documentIds) : Promise.resolve({ data: [], error: null }),
+        billingNoteIds.length ? supabase.from("billing_note_invoices").select("*").in("billing_note_id", billingNoteIds) : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (lineItemsError) throw lineItemsError;
+      if (billingLinksError) throw billingLinksError;
+
+      const buffer = await buildCompanyDataWorkbook({
+        profile: clientProfile,
+        customers: (customersRes.data || []) as Customer[],
+        items: (itemsRes.data || []) as Item[],
+        deals: (dealsRes.data || []) as Deal[],
+        documents,
+        lineItems: (lineItems || []) as DocumentLineItem[],
+        billingLinks: (billingLinks || []) as BillingNoteInvoice[],
+        stockMovements: (movementsRes.data || []) as StockMovement[],
+      });
+      downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `company-data-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.success("ส่งออกข้อมูลบริษัทเรียบร้อยแล้ว");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "ส่งออกข้อมูลบริษัทไม่สำเร็จ");
+    } finally {
+      setDataExporting(false);
+    }
+  }
 
   const quickMonthStart = useMemo(() => {
     const d = new Date(currentYear, currentMonth - 1, 1);
@@ -308,6 +355,20 @@ export default function DownloadCenterPage() {
   return (
     <AppShell title="ศูนย์ดาวน์โหลด">
       <div className="space-y-6">
+        {workspaceRole === "owner" && (
+          <Card>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-[#1A1A18]">สำรองข้อมูลและส่งออก</div>
+                <p className="mt-1 text-xs leading-5 text-gray-500">ดาวน์โหลดสำเนาข้อมูลบริษัทไว้เปิดใน Excel การส่งออกจะไม่ลบหรือเปลี่ยนแปลงข้อมูลในระบบ</p>
+              </div>
+              <Button onClick={handleCompanyDataExport} loading={dataExporting} disabled={dataExporting} className="shrink-0">
+                {dataExporting ? "กำลังสร้างไฟล์..." : "ดาวน์โหลดข้อมูลทั้งหมด (Excel)"}
+              </Button>
+            </div>
+            <div className="mt-2 text-[11px] text-gray-400">รวมข้อมูลบริษัท ลูกค้า สินค้า งานขาย เอกสาร รายการเอกสาร ใบวางบิล และสต็อก</div>
+          </Card>
+        )}
         <div className="rounded-lg border border-blue-100 bg-blue-50/50 px-4 py-2.5 text-[12px] text-gray-600 leading-relaxed">
           เลือกประเภทเอกสารและเดือน <strong className="text-gray-700">ระบบจะรวม PDF เป็น ZIP</strong> ให้ดาวน์โหลดครั้งเดียว — ส่วน<strong className="text-gray-700">รายงาน</strong> ส่งออกเป็นไฟล์ Excel (XLSX) ใช้เปิดในโปรแกรมตารางคำนวณ
         </div>
