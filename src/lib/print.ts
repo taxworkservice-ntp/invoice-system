@@ -37,6 +37,7 @@ export interface PrintDocumentData {
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
   invoiceNumberMap: Record<string, string>;
+  receiptOutstanding?: number;
 }
 
 export interface PrintableDocumentDataBase {
@@ -57,6 +58,7 @@ export interface PrintableDocumentDataBase {
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
   invoiceNumberMap: Record<string, string>;
+  receiptOutstanding?: number;
 }
 
 export function isHtmlPrintTemplate(
@@ -88,6 +90,7 @@ export async function getPrintableDocumentDataBase(
   const clientProfile = clientProfileData as ClientProfile;
 
   let referenceDoc: Document | undefined;
+  let receiptOutstanding: number | undefined;
   const referenceId =
     document.doc_type === "billing_note" || document.doc_type === "receipt"
       ? undefined
@@ -125,6 +128,12 @@ export async function getPrintableDocumentDataBase(
     );
 
     if (billingNote) {
+      if (document.doc_type === "receipt") {
+        const receivedForBillingNote = docList
+          .filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === billingNote.id && doc.status !== "voided")
+          .reduce((sum, receipt) => sum + (receipt.amount_received || 0), 0);
+        receiptOutstanding = Math.max(0, (billingNote.net_payable || billingNote.total_amount || 0) - receivedForBillingNote);
+      }
       const { data: linkedInvoices } = await supabase
         .from("billing_note_invoices")
         .select("invoice_id")
@@ -163,6 +172,12 @@ export async function getPrintableDocumentDataBase(
         }
       }
     } else if (sourceInvoice) {
+      if (document.doc_type === "receipt") {
+        const receivedForInvoice = docList
+          .filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === sourceInvoice.id && doc.status !== "voided")
+          .reduce((sum, receipt) => sum + (receipt.amount_received || 0), 0);
+        receiptOutstanding = Math.max(0, (sourceInvoice.net_payable || sourceInvoice.total_amount || 0) - receivedForInvoice);
+      }
       referenceDoc = sourceInvoice;
       const { data: invItems } = await supabase
         .from("document_line_items")
@@ -282,6 +297,7 @@ export async function getPrintableDocumentDataBase(
     showInlineDeliveryNotes,
     isDeliveryNoteSummaryInvoice,
     invoiceNumberMap,
+    receiptOutstanding,
   };
 }
 

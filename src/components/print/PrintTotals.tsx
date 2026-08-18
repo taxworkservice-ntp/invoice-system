@@ -2,7 +2,7 @@ import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 
 export function PrintTotals({ data }: { data: PrintDocumentData }) {
-  const { document, grossSubtotal, lineDiscountTotal } = data;
+  const { document, grossSubtotal, lineDiscountTotal, receiptOutstanding } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
   const isReceipt = document.doc_type === "receipt";
   const receiptAmount = document.amount_received ?? document.net_payable;
@@ -100,6 +100,15 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
                 </div>
                 <span className="self-center">-{formatCurrency(document.wht_amount)}</span>
               </div>
+              {isReceipt ? (
+                <div className="flex justify-between gap-4 text-[10px] text-[#344054]">
+                  <div className="flex flex-col">
+                    <span>ยอดคงเหลือค้างชำระ</span>
+                    <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
+                  </div>
+                  <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
                 <div className="flex flex-col">
                   <span>{isReceipt ? "ยอดรับสุทธิ" : "ยอดชำระสุทธิ"}</span>
@@ -109,6 +118,16 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
               </div>
             </>
           ) : (
+            <>
+            {isReceipt ? (
+              <div className="flex justify-between gap-4 text-[10px] text-[#344054]">
+                <div className="flex flex-col">
+                  <span>ยอดคงเหลือค้างชำระ</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
+                </div>
+                <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
+              </div>
+            ) : null}
             <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
               <div className="flex flex-col">
                 <span>{isReceipt ? "ยอดรับสุทธิ" : "ยอดชำระสุทธิ"}</span>
@@ -116,6 +135,7 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
               </div>
               <span className="self-center">{formatCurrency(isReceipt ? receiptAmount : document.total_amount)}</span>
             </div>
+            </>
           )}
         </div>
       </div>

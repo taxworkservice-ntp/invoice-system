@@ -93,6 +93,7 @@ export function PrintDocumentClassicV2({
     lineDeliveryNoteMap,
     showInlineDeliveryNotes,
     invoiceNumberMap,
+    receiptOutstanding,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
   const startIndex = batchLineItems
@@ -784,6 +785,15 @@ export function PrintDocumentClassicV2({
                         -{formatCurrency(document.wht_amount)}
                       </div>
                     </div>
+                    {isReceipt ? (
+                      <div className="print-classic-totals-row">
+                        <div className="print-classic-totals-lab">
+                          <div className="print-classic-totals-th">ยอดคงเหลือค้างชำระ</div>
+                          <div className="print-classic-totals-en">BALANCE DUE</div>
+                        </div>
+                        <div className="print-classic-totals-val">{formatCurrency(receiptOutstanding ?? 0)}</div>
+                      </div>
+                    ) : null}
                     <div className="print-classic-totals-row print-classic-totals-row-net">
                       <div className="print-classic-totals-lab">
                         <div className="print-classic-totals-th">
@@ -796,6 +806,23 @@ export function PrintDocumentClassicV2({
                       <div className="print-classic-totals-val">
                         {formatCurrency(isReceipt ? receiptAmount : document.net_payable)}
                       </div>
+                    </div>
+                  </>
+                ) : isReceipt ? (
+                  <>
+                    <div className="print-classic-totals-row">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ยอดคงเหลือค้างชำระ</div>
+                        <div className="print-classic-totals-en">BALANCE DUE</div>
+                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(receiptOutstanding ?? 0)}</div>
+                    </div>
+                    <div className="print-classic-totals-row print-classic-totals-row-net">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ยอดรับสุทธิ</div>
+                        <div className="print-classic-totals-en">NET RECEIVED</div>
+                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(receiptAmount)}</div>
                     </div>
                   </>
                 ) : null}
