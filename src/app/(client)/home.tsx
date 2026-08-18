@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, Search } from "lucide-react";
-import { useAuth, useClientProfile } from "../../hooks/useAuth";
+import { useAuth, useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
 import { AppShell } from "../../components/layout/AppShell";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -23,6 +23,7 @@ import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS } from "../../constants";
 import { TABLE } from "../../lib/tableStyles";
 import type { Deal, Document, Customer, DocumentLineItem } from "../../types";
+import { getWorkspacePermissions } from "../../lib/permissions";
 
 type DealDoc = Pick<
   Document,
@@ -548,6 +549,8 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
 export default function HomePage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
 
@@ -1538,6 +1541,8 @@ export default function HomePage() {
         open={newSheetOpen}
         onClose={() => setNewSheetOpen(false)}
         vatRegistered={clientProfile?.vat_registered}
+        workspaceRole={workspaceRole}
+        workspacePermissions={permissions}
         onSelect={(type) => {
           setNewSheetOpen(false);
           if (type === "billing_note") {

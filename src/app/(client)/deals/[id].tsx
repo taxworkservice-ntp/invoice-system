@@ -1683,7 +1683,11 @@ export default function DealDetailPage() {
               )}
             </>
           ) : (
-            <div className="text-center text-xs text-gray-500">ไม่มีการดำเนินการที่ต้องทำตอนนี้</div>
+            <div className="rounded-lg bg-stone-50 px-3 py-2 text-center text-xs leading-5 text-gray-600">
+              {activeDoc && !allDone
+                ? "รอผู้จัดการดำเนินการต่อ เอกสารนี้ถูกบันทึกเป็นฉบับร่างแล้ว"
+                : "ไม่มีการดำเนินการที่ต้องทำตอนนี้"}
+            </div>
           )}
         </Card>
 
@@ -1941,7 +1945,7 @@ export default function DealDetailPage() {
                    </Modal>
                  </div>
              )}
-            {activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued" ? (
+            {activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued" && canSendDocumentType(permissions, "credit_note") ? (
               <>
                 <Button
                   variant="secondary"
@@ -1991,7 +1995,7 @@ export default function DealDetailPage() {
                 แยกใบส่งของออกจากใบแจ้งหนี้
               </Button>
             )}
-            {allDone && hasPaidDocs && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (
+            {allDone && hasPaidDocs && canSendDocumentType(permissions, "credit_note") && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (
               <Button
                 variant="secondary"
                 className="col-span-2 justify-center !bg-page-bg"

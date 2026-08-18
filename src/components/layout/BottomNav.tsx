@@ -35,6 +35,7 @@ export function BottomNav() {
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canViewReports;
+    if (item.path === "/download-center") return permissions.canViewReports;
     if (item.path === "/settings") return permissions.canManageSettings;
     if (item.path === "/catalog") return permissions.canManageCatalog;
     if (item.path === "/customers") return permissions.canManageCustomers;

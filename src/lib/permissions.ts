@@ -130,6 +130,15 @@ export function canSendDocumentType(permissions: WorkspacePermissions, documentT
   return permissions.canSendFinancialDocuments;
 }
 
+export function getWorkspaceExperience(role: ClientMemberRole | null | undefined, permissions: WorkspacePermissions) {
+  const isOfficer = role === "officer";
+  return {
+    isSimpleMode: isOfficer,
+    canShowAdvancedDealOptions: !isOfficer || permissions.canSendFinancialDocuments,
+    canShowFinancialFields: !isOfficer || permissions.canSendFinancialDocuments || permissions.canRecordPayments,
+  };
+}
+
 export function normalizeWorkspacePermissionOverrides(value: unknown): Partial<WorkspacePermissions> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const record = value as Record<string, unknown>;

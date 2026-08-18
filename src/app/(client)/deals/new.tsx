@@ -20,7 +20,7 @@ import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
-import { getWorkspacePermissions } from "../../../lib/permissions";
+import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle, ChevronDown, Copy, PlusCircle, X, SlidersHorizontal } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
@@ -400,6 +400,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const experience = getWorkspaceExperience(workspaceRole, permissions);
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
   const { hasFeature } = useClientFeatures(userId);
@@ -1101,6 +1102,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       setError("คุณไม่มีสิทธิ์จัดทำเอกสาร");
       return;
     }
+    if (experience.isSimpleMode && !experience.canShowAdvancedDealOptions && !["quotation", "delivery_note"].includes(requestedType)) {
+      setError("งานประเภทนี้ต้องให้ผู้จัดการเป็นผู้จัดทำ");
+      return;
+    }
 
     if (isUtilityBill) {
       const previous = parseAmount(utilityPreviousReading);
@@ -1333,8 +1338,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         <div className="mb-4 rounded-xl border border-[#E8E6DF] bg-white px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-[#1A1A18]">กรอกข้อมูลตามลำดับ</div>
-              <div className="mt-0.5 text-xs text-gray-500">กรอกข้อมูลในแต่ละส่วนจากบนลงล่าง ระบบจะคำนวณยอดให้ทันที</div>
+              <div className="text-sm font-semibold text-[#1A1A18]">{experience.isSimpleMode ? "บันทึกงานขาย" : "กรอกข้อมูลตามลำดับ"}</div>
+              <div className="mt-0.5 text-xs text-gray-500">{experience.isSimpleMode ? "กรอกข้อมูลที่จำเป็น ระบบจะบันทึกเป็นร่างให้ผู้จัดการดำเนินการต่อ" : "กรอกข้อมูลในแต่ละส่วนจากบนลงล่าง ระบบจะคำนวณยอดให้ทันที"}</div>
             </div>
             <button
               type="button"
@@ -2270,16 +2275,16 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         <div className="sticky bottom-3 z-10 rounded-xl bg-page-bg/95 pb-2 pt-1 backdrop-blur">
           <div className="mb-2 px-1 text-sm font-medium text-[#1A1A18]">5. ตรวจสอบและบันทึก</div>
-          <EditableDocNumber
+          {!experience.isSimpleMode && <EditableDocNumber
             value={docNumberOverride}
             onChange={setDocNumberOverride}
             placeholder="เลขที่เอกสาร (เว้นว่าง = สร้างอัตโนมัติ)"
             autoGenerate={async () => await resolveDocNumber(userId!, type, isTaxInvoiceReceipt ? paymentDate : issueDate)}
             className="mb-3"
-          />
+          />}
 
           <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
-            {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "ออกเอกสารทันที" : isEditingDraft ? "บันทึกร่าง" : "ตรวจสอบและบันทึก"}
+            {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "ออกเอกสารทันที" : isEditingDraft ? "บันทึกร่าง" : experience.isSimpleMode ? "บันทึกร่าง" : "ตรวจสอบและบันทึก"}
           </Button>
         </div>
 

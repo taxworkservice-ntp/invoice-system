@@ -24,6 +24,7 @@ const ACTIONS: { key: keyof WorkspacePermissions; label: string; description: st
   { key: "canSendDeliveryNotes", label: "ยืนยันใบส่งของ", description: "ยืนยันการส่งของและตัดสต็อก" },
   { key: "canSendFinancialDocuments", label: "ออกบิลและรับเอกสารการเงิน", description: "ส่งใบแจ้งหนี้ ใบวางบิล และเอกสารภาษี" },
   { key: "canRecordPayments", label: "บันทึกรับเงิน", description: "บันทึกรับชำระและออกใบเสร็จ" },
+  { key: "canViewReports", label: "ดูรายงานและดาวน์โหลด", description: "เปิดรายงาน ศูนย์ดาวน์โหลด และไฟล์ส่งออก" },
   { key: "canVoidDocuments", label: "ยกเลิกเอกสาร", description: "ยกเลิกเอกสารที่ส่งแล้วหรือออกใหม่" },
 ];
 

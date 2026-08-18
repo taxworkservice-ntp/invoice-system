@@ -3,12 +3,17 @@ import type { ElementType } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, ClipboardList, CreditCard, FileStack, FileText, Gauge, GripHorizontal, ReceiptText, Star, Truck } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { supabase } from "../../lib/supabase";
+import type { WorkspacePermissions } from "../../lib/permissions";
+import { getWorkspaceExperience } from "../../lib/permissions";
+import type { ClientMemberRole } from "../../types";
 
 interface NewDealSheetProps {
   open: boolean;
   onClose: () => void;
   onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill") => void;
   vatRegistered?: boolean;
+  workspaceRole?: ClientMemberRole | null;
+  workspacePermissions?: WorkspacePermissions;
 }
 
 type NewDealType = "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill";
@@ -49,7 +54,7 @@ const GROUPS: {
 
 const DEFAULT_FAVORITES: NewDealType[] = ["quotation", "invoice", "tax_invoice_receipt"];
 
-export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: NewDealSheetProps) {
+export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, workspaceRole, workspacePermissions }: NewDealSheetProps) {
   const [showAllOptions, setShowAllOptions] = useState(false);
   const [favoriteTypes, setFavoriteTypes] = useState<NewDealType[]>(DEFAULT_FAVORITES);
   const [hasCustomizedFavorites, setHasCustomizedFavorites] = useState(false);
@@ -58,12 +63,34 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
   const [preferencesError, setPreferencesError] = useState("");
 
   const allOptions = useMemo(() => GROUPS.flatMap((group) => group.options), []);
+  const experience = getWorkspaceExperience(workspaceRole, workspacePermissions || {
+    canManageSettings: false,
+    canManageTeam: false,
+    canViewReports: false,
+    canManageCatalog: false,
+    canManageCustomers: true,
+    canCreateEditDocuments: true,
+    canSendDocuments: false,
+    canSendQuotations: false,
+    canSendDeliveryNotes: false,
+    canSendFinancialDocuments: false,
+    canRecordPayments: false,
+    canVoidDocuments: false,
+    canDeleteDocuments: false,
+  });
+  const visibleOptions = useMemo(
+    () => allOptions.filter((option) => {
+      if (!experience.isSimpleMode || experience.canShowAdvancedDealOptions) return true;
+      return option.type === "quotation" || option.type === "delivery_note";
+    }),
+    [allOptions, experience.canShowAdvancedDealOptions, experience.isSimpleMode],
+  );
   const quickOptions = useMemo(() => {
     const favorites = favoriteTypes
-      .map((type) => allOptions.find((option) => option.type === type))
+      .map((type) => visibleOptions.find((option) => option.type === type))
       .filter((option): option is (typeof allOptions)[number] => Boolean(option));
     return favorites.slice(0, 3);
-  }, [allOptions, favoriteTypes]);
+  }, [allOptions, favoriteTypes, visibleOptions]);
 
   function handleSelect(type: NewDealType) {
     onSelect(type);
@@ -255,14 +282,18 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true }: 
           </button>
           {showAllOptions && (
             <div className="mt-2 space-y-4">
-              {GROUPS.map((group) => (
+              {GROUPS.map((group) => {
+                const options = group.options.filter((option) => visibleOptions.some((visible) => visible.type === option.type));
+                if (options.length === 0) return null;
+                return (
                 <div key={group.title}>
                   <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{group.title}</div>
                   <div className="divide-y divide-card-border rounded-xl border border-card-border bg-white">
-                    {group.options.map(renderOption)}
+                    {options.map(renderOption)}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

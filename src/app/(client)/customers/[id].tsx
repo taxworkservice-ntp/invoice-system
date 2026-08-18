@@ -14,12 +14,13 @@ import { useTableSort } from "../../../components/ui/useTableSort";
 import { NewDealSheet } from "../../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { supabase } from "../../../lib/supabase";
-import { useAuth, useClientProfile } from "../../../hooks/useAuth";
+import { useAuth, useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
 import type { Customer, Deal, Document, DocumentLineItem } from "../../../types";
+import { getWorkspacePermissions } from "../../../lib/permissions";
 
 const AVATAR_PRESET_COLORS = [
   "#378ADD", "#C2410C", "#1E7E34", "#B45309",
@@ -184,6 +185,8 @@ function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
 }
 
 export default function CustomerDetailPage() {
+  const { workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -1027,6 +1030,8 @@ export default function CustomerDetailPage() {
         open={newSheetOpen}
         onClose={() => setNewSheetOpen(false)}
         vatRegistered={clientProfile?.vat_registered}
+        workspaceRole={workspaceRole}
+        workspacePermissions={permissions}
         onSelect={(type) => {
           setNewSheetOpen(false);
           navigate(`/deals/new?type=${type}&customer_id=${customer.id}`);
