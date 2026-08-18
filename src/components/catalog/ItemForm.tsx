@@ -80,23 +80,34 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [unitPresets, setUnitPresets] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem("catalogUnitPresets");
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const [unitPresets, setUnitPresets] = useState<string[]>([]);
 
   function addUnitPreset(value: string) {
     const trimmed = value.trim();
     if (!trimmed) return;
     setUnitPresets((prev) => {
       if (prev.includes(trimmed)) return prev;
-      const next = [...prev, trimmed];
-      localStorage.setItem("catalogUnitPresets", JSON.stringify(next));
-      return next;
+      return [...prev, trimmed];
     });
   }
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    let cancelled = false;
+    supabase
+      .from("items")
+      .select("base_unit, carton_unit")
+      .eq("user_id", profile.id)
+      .eq("is_active", true)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const units = (data || []).flatMap((row) => [row.base_unit, row.carton_unit || ""])
+          .map((unit) => unit.trim())
+          .filter(Boolean);
+        setUnitPresets((current) => Array.from(new Set([...current, ...units])));
+      });
+    return () => { cancelled = true; };
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service" || !profile?.id) return;
@@ -388,8 +399,9 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
 
       <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
         <div className="mb-4 rounded-[10px] border border-[#ECE8DE] bg-[#FBFAF7] px-3 py-3">
-          <div className="text-[11px] uppercase font-semibold tracking-[0.12em] text-[#888780]">
-            SKU
+            <div className="flex items-center gap-2 text-[11px] uppercase font-semibold tracking-[0.12em] text-[#888780]">
+            <span>SKU</span>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-blue-700">จำเป็น</span>
           </div>
           <div className="mt-2 flex items-center gap-3">
             <input
@@ -406,8 +418,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
               Internal ID
             </span>
           </div>
-          <p className="mt-2 text-[11px] text-[#888780]">
-            Use a short code like BOX-001 or PAPER-A4-80G.
+          <p className="mt-2 text-[11px] leading-5 text-[#888780]">
+            ใช้รหัสสั้นที่ไม่ซ้ำกัน เพื่อค้นหาและแยกสินค้าได้ง่าย เช่น BOX-001 หรือ PAPER-A4-80G
           </p>
           {errors.sku && (
             <p className="mt-1 text-[11px] text-[#C0392B]">{errors.sku}</p>
