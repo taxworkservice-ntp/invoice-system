@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, PackageCheck, ExternalLink } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, PackageCheck, ExternalLink, Clock } from "lucide-react";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
@@ -51,6 +51,22 @@ interface DocWithMeta {
   stage: "quote" | "invoice" | "collect" | "done";
   line_items: DocumentLineItem[];
   billing_invoices: BillingNoteInvoice[];
+}
+
+interface DealActivity {
+  id: string;
+  document_id: string | null;
+  actor_name: string;
+  actor_role: string;
+  event_type: string;
+  description: string;
+  metadata: {
+    doc_type?: string;
+    doc_number?: string | null;
+    status?: string;
+    amount?: number | null;
+  };
+  created_at: string;
 }
 
 type MainAction =
@@ -160,6 +176,7 @@ export default function DealDetailPage() {
   const devIssueDate = clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
   const todayString = () => businessToday;
   const [docsWithMeta, setDocsWithMeta] = useState<DocWithMeta[]>([]);
+  const [activities, setActivities] = useState<DealActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [voidModalOpen, setVoidModalOpen] = useState(false);
@@ -224,14 +241,17 @@ export default function DealDetailPage() {
         { data: clientData },
         { data: customerData },
         { data: docsData },
+        { data: activitiesData },
       ] = await Promise.all([
         supabase.from("client_profiles").select("*").eq("user_id", userId).single(),
         supabase.from("customers").select("*").eq("id", currentDeal.customer_id).single(),
         supabase.from("documents").select("*").eq("deal_id", dealId).order("created_at", { ascending: true }),
+        supabase.from("deal_activities").select("*").eq("deal_id", dealId).order("created_at", { ascending: false }),
       ]);
 
       if (clientData) setClientProfile(clientData as ClientProfile);
       if (customerData) setCustomer(customerData as Customer);
+      setActivities((activitiesData || []) as DealActivity[]);
 
       const docs = (docsData || []) as Document[];
       const docIds = docs.map((doc) => doc.id);
@@ -1710,6 +1730,41 @@ export default function DealDetailPage() {
                   <div>{summaryStats.docCount} เอกสาร</div>
                 </div>
               </div>
+            </div>
+          </Card>
+        )}
+
+        {activities.length > 0 && (
+          <Card className="border-[0.5px]">
+            <div className="mb-3 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-gray-400" />
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติการดำเนินงาน</div>
+                <div className="mt-0.5 text-xs text-gray-500">ใครทำอะไรกับงานขายนี้และเมื่อไหร่</div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {activities.map((activity) => {
+                const amount = activity.metadata?.amount;
+                return (
+                  <div key={activity.id} className="flex gap-3">
+                    <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-xs font-medium text-[#1A1A18]">{activity.description}</span>
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(activity.created_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-gray-500">
+                        {activity.actor_name} · {activity.actor_role}
+                        {activity.metadata?.doc_number ? ` · ${activity.metadata.doc_number}` : ""}
+                        {typeof amount === "number" ? ` · ฿${formatCurrency(amount)}` : ""}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
         )}
