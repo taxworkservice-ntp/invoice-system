@@ -4,6 +4,8 @@ import type { PrintDocumentData } from "../../lib/print";
 export function PrintTotals({ data }: { data: PrintDocumentData }) {
   const { document, grossSubtotal, lineDiscountTotal } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
+  const isReceipt = document.doc_type === "receipt";
+  const receiptAmount = document.amount_received ?? document.net_payable;
   const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
 
   if (hideDeliveryAmounts) {
@@ -63,15 +65,15 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
             </div>
           ) : null}
 
-          <div className="flex justify-between gap-4">
-            <div className="flex flex-col">
-              <span>รวมก่อนภาษี</span>
-              <span className="text-[6.5px] text-[#94a3b8]">SUBTOTAL</span>
-            </div>
-            <span className="self-center">{formatCurrency(document.subtotal)}</span>
-          </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                <span>{isReceipt ? "ยอดตามเอกสารอ้างอิง" : "รวมก่อนภาษี"}</span>
+                <span className="text-[6.5px] text-[#94a3b8]">{isReceipt ? "REFERENCE AMOUNT" : "SUBTOTAL"}</span>
+                </div>
+              <span className="self-center">{formatCurrency(isReceipt ? document.total_amount : document.subtotal)}</span>
+              </div>
 
-          {document.vat_registered ? (
+          {!isReceipt && document.vat_registered ? (
             <div className="flex justify-between gap-4">
               <div className="flex flex-col">
                 <span>ภาษีมูลค่าเพิ่ม {document.vat_rate}%</span>
@@ -83,10 +85,10 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
 
           <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
             <div className="flex flex-col">
-              <span>รวมทั้งสิ้น</span>
-              <span className="text-[6.5px] font-normal text-[#94a3b8]">GRAND TOTAL</span>
-            </div>
-            <span className="self-center">{formatCurrency(document.total_amount)}</span>
+                <span>{isReceipt ? "รับชำระครั้งนี้" : "รวมทั้งสิ้น"}</span>
+                <span className="text-[6.5px] font-normal text-[#94a3b8]">{isReceipt ? "AMOUNT RECEIVED" : "GRAND TOTAL"}</span>
+              </div>
+              <span className="self-center">{formatCurrency(isReceipt ? receiptAmount : document.total_amount)}</span>
           </div>
 
           {document.wht_amount > 0 ? (
@@ -100,19 +102,19 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
               </div>
               <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
                 <div className="flex flex-col">
-                  <span>ยอดชำระสุทธิ</span>
-                  <span className="text-[6.5px] font-normal text-[#94a3b8]">NET PAYABLE</span>
+                  <span>{isReceipt ? "ยอดรับสุทธิ" : "ยอดชำระสุทธิ"}</span>
+                  <span className="text-[6.5px] font-normal text-[#94a3b8]">{isReceipt ? "NET RECEIVED" : "NET PAYABLE"}</span>
                 </div>
-                <span className="self-center">{formatCurrency(document.net_payable)}</span>
+                <span className="self-center">{formatCurrency(isReceipt ? receiptAmount : document.net_payable)}</span>
               </div>
             </>
           ) : (
             <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
               <div className="flex flex-col">
-                <span>ยอดชำระสุทธิ</span>
-                <span className="text-[6.5px] font-normal text-[#94a3b8]">NET PAYABLE</span>
+                <span>{isReceipt ? "ยอดรับสุทธิ" : "ยอดชำระสุทธิ"}</span>
+                <span className="text-[6.5px] font-normal text-[#94a3b8]">{isReceipt ? "NET RECEIVED" : "NET PAYABLE"}</span>
               </div>
-              <span className="self-center">{formatCurrency(document.total_amount)}</span>
+              <span className="self-center">{formatCurrency(isReceipt ? receiptAmount : document.total_amount)}</span>
             </div>
           )}
         </div>

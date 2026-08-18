@@ -105,6 +105,8 @@ export function PrintDocumentClassic({
   const isBillingNote = document.doc_type === "billing_note";
   const isReceiptOrBillingNoteTable =
     (isBillingNote || (document.doc_type === "receipt" && receiptInvoices.length > 0)) && document.vat_registered;
+  const isReceipt = document.doc_type === "receipt";
+  const receiptAmount = document.amount_received ?? document.net_payable;
   const showFooter = pageMode === "single" || pageMode === "last";
   const showHeader = pageMode === "single" || pageMode === "first";
   const showContinuationHeader =
@@ -731,14 +733,14 @@ export function PrintDocumentClassic({
               <div className="print-classic-totals-col">
                 <div className="print-classic-totals-row">
                   <div className="print-classic-totals-lab">
-                    <div className="print-classic-totals-th">รวมเงิน</div>
-                    <div className="print-classic-totals-en">SUB TOTAL</div>
+                    <div className="print-classic-totals-th">{isReceipt ? "ยอดตามเอกสารอ้างอิง" : "รวมเงิน"}</div>
+                    <div className="print-classic-totals-en">{isReceipt ? "REFERENCE AMOUNT" : "SUB TOTAL"}</div>
                   </div>
                   <div className="print-classic-totals-val">
-                    {formatCurrency(document.subtotal)}
+                    {formatCurrency(isReceipt ? document.total_amount : document.subtotal)}
                   </div>
                 </div>
-                {document.discount_amount > 0 ? (
+                {!isReceipt && document.discount_amount > 0 ? (
                   <div className="print-classic-totals-row">
                     <div className="print-classic-totals-lab">
                       <div className="print-classic-totals-th">
@@ -754,7 +756,7 @@ export function PrintDocumentClassic({
                     </div>
                   </div>
                 ) : null}
-                {document.vat_registered && document.vat_amount > 0 ? (
+                {!isReceipt && document.vat_registered && document.vat_amount > 0 ? (
                   <div className="print-classic-totals-row">
                     <div className="print-classic-totals-lab">
                       <div className="print-classic-totals-th">
@@ -772,12 +774,12 @@ export function PrintDocumentClassic({
                 <div className="print-classic-totals-row print-classic-totals-row-grand">
                   <div className="print-classic-totals-lab">
                     <div className="print-classic-totals-th">
-                      ยอดรวมทั้งสิ้น
+                      {isReceipt ? "รับชำระครั้งนี้" : "ยอดรวมทั้งสิ้น"}
                     </div>
-                    <div className="print-classic-totals-en">GRAND TOTAL</div>
+                    <div className="print-classic-totals-en">{isReceipt ? "AMOUNT RECEIVED" : "GRAND TOTAL"}</div>
                   </div>
                   <div className="print-classic-totals-val">
-                    {formatCurrency(document.total_amount)}
+                    {formatCurrency(isReceipt ? receiptAmount : document.total_amount)}
                   </div>
                 </div>
                 {document.wht_amount > 0 ? (
@@ -798,14 +800,14 @@ export function PrintDocumentClassic({
                     <div className="print-classic-totals-row print-classic-totals-row-net">
                       <div className="print-classic-totals-lab">
                         <div className="print-classic-totals-th">
-                          ยอดชำระสุทธิ
+                          {isReceipt ? "ยอดรับสุทธิ" : "ยอดชำระสุทธิ"}
                         </div>
                         <div className="print-classic-totals-en">
-                          NET PAYABLE
+                          {isReceipt ? "NET RECEIVED" : "NET PAYABLE"}
                         </div>
                       </div>
                       <div className="print-classic-totals-val">
-                        {formatCurrency(document.net_payable)}
+                        {formatCurrency(isReceipt ? receiptAmount : document.net_payable)}
                       </div>
                     </div>
                   </>
