@@ -583,7 +583,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                   {jobDetailFields.filter((field) => field.is_enabled).map((field) => (
                     <div key={field.field_key} className="rounded-md border border-emerald-100 bg-white px-2.5 py-2 text-xs text-emerald-900">
                       {field.label || "รายละเอียด"}
-                      <span className="ml-1 text-emerald-600">{field.field_type === "dimension" ? "กว้าง x สูง" : "เลือกหรือพิมพ์"}</span>
+                      <span className="ml-1 text-emerald-600">{field.field_type === "dimension" ? `หน่วย ${field.default_unit || "มม."}` : "เลือกหรือพิมพ์"}</span>
                     </div>
                   ))}
                 </div>
