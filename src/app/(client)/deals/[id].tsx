@@ -1317,6 +1317,7 @@ export default function DealDetailPage() {
       amountReceived,
       outstanding: Math.max(0, netPayable - amountReceived),
       whtAmount,
+      expectedWhtAmount: source?.document.wht_amount || 0,
       receiptCount: receipts.length,
     };
   }, [amountDoc, nonVoidedDocs]);
@@ -1455,12 +1456,13 @@ export default function DealDetailPage() {
               {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
             {[
               { label: "ยอดรวม", value: financialSummary.grossAmount, className: "text-[#1A1A18]" },
               { label: "ยอดสุทธิ", value: financialSummary.netPayable, className: "text-[#1A1A18]" },
               { label: "รับแล้ว", value: financialSummary.amountReceived, className: "text-green-700" },
               { label: "ค้างรับ", value: financialSummary.outstanding, className: financialSummary.outstanding > 0 ? "text-red-700" : "text-green-700" },
+              { label: "หัก ณ ที่จ่ายตามเอกสาร", value: financialSummary.expectedWhtAmount, className: financialSummary.expectedWhtAmount > 0 ? "text-amber-700" : "text-gray-500" },
               { label: "หัก ณ ที่จ่ายสะสม", value: financialSummary.whtAmount, className: financialSummary.whtAmount > 0 ? "text-amber-700" : "text-gray-500" },
             ].map((item) => (
               <div key={item.label} className="rounded-lg bg-[#F8FAFC] px-2.5 py-2">
@@ -1468,6 +1470,9 @@ export default function DealDetailPage() {
                 <div className={`mt-1 text-[13px] font-semibold tabular-nums ${item.className}`}>฿{formatCurrency(item.value)}</div>
               </div>
             ))}
+          </div>
+          <div className="mt-2 text-[10px] leading-4 text-gray-400">
+            ตามเอกสาร = จำนวนที่ระบุในใบแจ้งหนี้ · สะสม = จำนวนที่เกิดขึ้นจริงจากใบเสร็จ
           </div>
         </Card>
 
