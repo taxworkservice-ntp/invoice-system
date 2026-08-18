@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent, LogOut } from "lucide-react";
+import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent, LogOut, Menu, PanelLeftClose } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
@@ -69,14 +69,27 @@ export function AppShell({ title, showBack, action, breadcrumbs, wide = false, c
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const { clientProfile } = useClientProfile(profile?.id);
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("invoice-system.sidebar-expanded") !== "false";
+  });
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canViewReports;
+    if (item.path === "/download-center") return permissions.canViewReports;
     if (item.path === "/settings") return permissions.canManageSettings;
     if (item.path === "/catalog") return permissions.canManageCatalog;
     if (item.path === "/customers") return permissions.canManageCustomers;
     return true;
   });
+
+  function toggleSidebar() {
+    setSidebarExpanded((current) => {
+      const next = !current;
+      window.localStorage.setItem("invoice-system.sidebar-expanded", String(next));
+      return next;
+    });
+  }
   const companyName = clientProfile?.company_name_th?.trim() || "Invoice System";
   const [logoutOpen, setLogoutOpen] = useState(false);
 
@@ -107,48 +120,65 @@ export function AppShell({ title, showBack, action, breadcrumbs, wide = false, c
 
   return (
     <div className="md:flex min-h-screen bg-page-bg">
-      <aside className="hidden md:flex md:flex-col md:w-64 md:h-screen md:sticky md:top-0 bg-white border-r border-card-border shrink-0">
+      <aside className={`hidden md:flex md:flex-col md:h-screen md:sticky md:top-0 bg-white border-r border-card-border shrink-0 transition-[width] duration-200 ${sidebarExpanded ? "md:w-64" : "md:w-16"}`}>
         <div className="border-b border-card-border p-3">
-          <button
-            type="button"
-            onClick={() => navigate("/home")}
-            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#F7F6F3] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
-          >
-            <WorkspaceMark profile={clientProfile} />
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center">
-                <h1 className="truncate text-sm font-semibold text-[#1A1A18]" title={companyName}>
-                  {companyName}
-                </h1>
-                <DevBadge />
-              </div>
-              <p className="mt-0.5 truncate text-[11px] font-medium text-[#7B766E]">{workspaceMeta}</p>
-            </div>
-          </button>
+          <div className={`flex items-center gap-2 ${sidebarExpanded ? "" : "flex-col"}`}>
+            <button
+              type="button"
+              onClick={() => navigate("/home")}
+              aria-label={companyName}
+              className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#F7F6F3] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 ${sidebarExpanded ? "" : "justify-center"}`}
+            >
+              <WorkspaceMark profile={clientProfile} />
+              {sidebarExpanded ? (
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center">
+                    <h1 className="truncate text-sm font-semibold text-[#1A1A18]" title={companyName}>
+                      {companyName}
+                    </h1>
+                    <DevBadge />
+                  </div>
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-[#7B766E]">{workspaceMeta}</p>
+                </div>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label={sidebarExpanded ? "ย่อเมนู" : "ขยายเมนู"}
+              title={sidebarExpanded ? "ย่อเมนู" : "ขยายเมนู"}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-[#F7F6F3] hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+            >
+              {sidebarExpanded ? <PanelLeftClose className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-3">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
+              title={sidebarExpanded ? undefined : item.label}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 isActive(item.path)
                   ? "bg-[#EEF6FF] font-medium text-primary"
                   : "text-[#5F5B54] hover:bg-[#F7F6F3] hover:text-[#1A1A18]"
-              }`}
+              } ${sidebarExpanded ? "" : "justify-center px-0"}`}
             >
               {iconMap[item.path] || <Home className="w-5 h-5" />}
-              <span>{item.label}</span>
+              {sidebarExpanded ? <span>{item.label}</span> : null}
             </NavLink>
           ))}
         </nav>
         <div className="border-t border-card-border p-3">
           <button
             onClick={() => setLogoutOpen(true)}
-            className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors"
+            aria-label="ออกจากระบบ"
+            title={sidebarExpanded ? undefined : "ออกจากระบบ"}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50 ${sidebarExpanded ? "" : "justify-center px-0"}`}
           >
             <LogOut className="w-5 h-5" />
-            <span>ออกจากระบบ</span>
+            {sidebarExpanded ? <span>ออกจากระบบ</span> : null}
           </button>
         </div>
       </aside>
