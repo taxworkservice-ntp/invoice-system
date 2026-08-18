@@ -1324,6 +1324,22 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     window.localStorage.setItem("invoice-system.hideAmountsOnPrint", String(hideAmountsOnPrint));
   }, [hideAmountsOnPrint]);
 
+  useEffect(() => {
+    const hasUnsavedInput = Boolean(
+      selectedCustomer ||
+      lineItems.some((lineItem) => lineItem.item_name.trim()) ||
+      note.trim() ||
+      documentDiscountPercent > 0,
+    );
+    if (!hasUnsavedInput || saving) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [documentDiscountPercent, lineItems, note, saving, selectedCustomer]);
+
   if (editLoading) {
     return (
       <AppShell title={label} showBack>
@@ -1341,23 +1357,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               <div className="text-sm font-semibold text-[#1A1A18]">{experience.isSimpleMode ? "บันทึกงานขาย" : "กรอกข้อมูลตามลำดับ"}</div>
               <div className="mt-0.5 text-xs text-gray-500">{experience.isSimpleMode ? "กรอกข้อมูลที่จำเป็น ระบบจะบันทึกเป็นร่างให้ผู้จัดการดำเนินการต่อ" : "กรอกข้อมูลในแต่ละส่วนจากบนลงล่าง ระบบจะคำนวณยอดให้ทันที"}</div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                const nextParams = new URLSearchParams(searchParams);
-                nextParams.set("mode", "classic");
-                navigate(`${window.location.pathname}?${nextParams.toString()}`);
-              }}
-              className="shrink-0 text-[11px] font-medium text-gray-500 underline underline-offset-2"
-            >
-              ใช้แบบเดิม
-            </button>
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-gray-500">
             <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">1 ลูกค้า</span>
-            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">2 รายการ</span>
-            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">3 ตรวจสอบยอด</span>
-            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">4 บันทึก</span>
+            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">2 วันที่</span>
+            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">3 รายการ</span>
+            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">4 รายละเอียด</span>
+            <span className="rounded-full bg-[#F7F6F3] px-2.5 py-1">5 ตรวจสอบและบันทึก</span>
           </div>
         </div>
       )}
@@ -1400,7 +1406,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
       <div className="space-y-4">
         <Card>
-          <h3 className="text-sm font-medium mb-3">1. ลูกค้า</h3>
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
+            <span>1. ลูกค้า</span>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">จำเป็น</span>
+          </h3>
           {selectedCustomer ? (
             <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-[#FAF8F3] p-3">
               <div className="min-w-0">
@@ -1696,7 +1705,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         {isLineItemDocument && (
           <Card>
-            <h3 className="text-sm font-medium mb-3">{isUtilityBill ? "3. รายการบนใบแจ้งหนี้" : "3. รายการสินค้าและบริการ"}</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
+              <span>{isUtilityBill ? "3. รายการบนใบแจ้งหนี้" : "3. รายการสินค้าและบริการ"}</span>
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">จำเป็น</span>
+            </h3>
             <div className="space-y-2">
               {!isUtilityBill && lineItems.length === 0 && (
                 <div className="rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-4 py-4 text-center text-xs text-gray-400">
@@ -1712,6 +1724,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS
                   : DEFAULT_JOB_DETAIL_FIELDS;
                 const jobDetailsSummary = getJobDetailsSummary(item, jobDetailFields);
+                const enabledJobDetailFields = jobDetailFields.filter((field) => field.is_enabled);
+                const filledJobDetailFields = enabledJobDetailFields.filter((field) => {
+                  if (field.field_type === "dimension") {
+                    const dimension = getJobDetailDimension(item, field.field_key);
+                    return Boolean(dimension.width.trim() || dimension.height.trim());
+                  }
+                  return Boolean(getJobDetailValue(item, field.field_key).trim());
+                }).length;
 
                 if (isUtilityBill && idx === 0) {
                   const amounts = calculateLineAmounts(item);
@@ -1774,30 +1794,21 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   ) : jobDetailsEnabled ? (
                     <div className="mb-2 rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => toggleJobDetails(item.id)}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1A1A18] transition-colors hover:text-primary"
-                        >
-                          <SlidersHorizontal className="h-3.5 w-3.5" />
-                          {jobDetailsSummary ? "รายละเอียดงาน" : "เพิ่มรายละเอียด"}
-                        </button>
-                        {jobDetailsSummary ? (
-                          <span className="max-w-full truncate text-[11px] text-[#5F5A52]">
-                            {jobDetailsSummary}
-                          </span>
-                        ) : null}
+                          <button
+                            type="button"
+                            onClick={() => toggleJobDetails(item.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#D7DEE7] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1A1A18] transition-colors hover:border-primary hover:text-primary"
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                            {jobDetailsSummary ? "แก้ไขรายละเอียดงาน" : "เพิ่มรายละเอียดงาน"}
+                          </button>
+                        <span className="max-w-full truncate text-[11px] text-[#5F5A52]">
+                          {filledJobDetailFields}/{enabledJobDetailFields.length} ช่อง
+                          {jobDetailsSummary ? ` · ${jobDetailsSummary}` : " · ยังไม่มีรายละเอียด"}
+                        </span>
                       </div>
                       {item.job_details_open && (
                         <div className="mt-3 grid gap-2 md:grid-cols-2">
-                          <label className="block">
-                            <span className="mb-1 block text-[10px] text-gray-400">เทคนิค</span>
-                            <input
-                              value={item.item_name}
-                              readOnly
-                              className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#5F5A52]"
-                            />
-                          </label>
                           {matchedItem?.id ? (
                             jobDetailFields.map((field) => {
                               if (field.field_type === "dimension") {
@@ -1867,8 +1878,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       className="mb-2 w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#1A1A18] placeholder:text-gray-400 focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
                     />
                   )}
-                  <div className="flex gap-1 items-start">
-                    <label className="w-[160px] block">
+                  <div className="grid grid-cols-2 gap-2 items-start sm:flex sm:gap-1">
+                    <label className="col-span-1 block sm:w-[160px]">
                       <span className="text-[10px] text-gray-400 block mb-0.5">จำนวน</span>
                       <CommaInput
                         value={item.quantity}
@@ -1876,7 +1887,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         placeholder="1"
                       />
                     </label>
-                    <label className="w-[72px] block">
+                    <label className="col-span-1 block sm:w-[72px]">
                       <span className="text-[10px] text-gray-400 block mb-0.5">หน่วย</span>
                       <Input
                         placeholder="ชิ้น"
@@ -1885,7 +1896,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         className="w-full"
                       />
                     </label>
-                    <label className="w-[160px] block">
+                    <label className="col-span-1 block sm:w-[160px]">
                       <span className="text-[10px] text-gray-400 block mb-0.5">ราคา/หน่วย</span>
                       <CommaInput
                         value={item.unit_price}
@@ -1893,7 +1904,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         placeholder="0"
                       />
                     </label>
-                    <label className="w-[68px] block">
+                    <label className="col-span-1 block sm:w-[68px]">
                       <span className="text-[10px] text-gray-400 block mb-0.5">ส่วนลด %</span>
                       <CommaInput
                         value={item.discount_percent ?? 0}
@@ -1901,7 +1912,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         placeholder="0"
                       />
                     </label>
-                    <div className="flex-1 text-right min-w-[70px] pt-[16px]">
+                    <div className="col-span-2 flex items-center justify-between text-right sm:flex-1 sm:min-w-[70px] sm:block sm:pt-[16px]">
                       <div className="text-xs font-medium text-gray-700">
                         ฿{calculateLineAmounts(item).lineTotal.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
@@ -1913,25 +1924,27 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         </div>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      className="px-1 pt-[22px] text-gray-400 transition-colors hover:text-primary"
-                      onClick={() => duplicateLineItem(item.id)}
-                      aria-label="ทำซ้ำรายการ"
-                      title="ทำซ้ำรายการ"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-                    {lineItems.length > 1 && (
+                    <div className="col-span-2 flex justify-end gap-2 sm:contents">
                       <button
                         type="button"
-                        className="text-gray-400 hover:text-red-500 px-1 text-sm pt-[22px]"
-                        onClick={() => removeLineItem(item.id)}
-                        aria-label="Remove line"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E8E6DF] text-gray-400 transition-colors hover:border-primary hover:text-primary sm:h-auto sm:w-auto sm:rounded-none sm:border-0"
+                        onClick={() => duplicateLineItem(item.id)}
+                        aria-label="ทำซ้ำรายการ"
+                        title="ทำซ้ำรายการ"
                       >
-                        ×
+                        <Copy className="h-4 w-4" />
                       </button>
-                    )}
+                      {lineItems.length > 1 && (
+                        <button
+                          type="button"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 text-sm text-gray-400 hover:text-red-500 sm:h-auto sm:w-auto sm:rounded-none sm:border-0"
+                          onClick={() => removeLineItem(item.id)}
+                          aria-label="ลบรายการ"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {hasCartonOption(item) && (
                     <div className="mt-2 rounded-lg border border-[#ECE8DE] bg-[#FBFAF7] px-3 py-2 text-xs text-gray-600">
@@ -2274,7 +2287,18 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         <div className="sticky bottom-3 z-10 rounded-xl bg-page-bg/95 pb-2 pt-1 backdrop-blur">
-          <div className="mb-2 px-1 text-sm font-medium text-[#1A1A18]">5. ตรวจสอบและบันทึก</div>
+          <div className="mb-2 flex items-end justify-between gap-3 px-1">
+            <div>
+              <div className="text-sm font-medium text-[#1A1A18]">5. ตรวจสอบและบันทึก</div>
+              <div className="mt-0.5 text-[11px] text-gray-500">
+                {selectedCustomer?.name || "ยังไม่ได้เลือกลูกค้า"} · {isBillingNote ? `${selectedInvoiceIds.size} ใบแจ้งหนี้` : `${lineItems.filter((line) => line.item_name.trim()).length} รายการ`}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[10px] text-gray-500">ยอดสุทธิ</div>
+              <div className="text-base font-semibold tabular-nums text-[#1A1A18]">฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            </div>
+          </div>
           {!experience.isSimpleMode && <EditableDocNumber
             value={docNumberOverride}
             onChange={setDocNumberOverride}
