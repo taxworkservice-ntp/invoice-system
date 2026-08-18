@@ -172,9 +172,7 @@ export function PrintDocumentClassicV2({
   return (
     <article
       className={
-        isCopy
-          ? `print-sheet print-theme-classic print-copy${documentClass}`
-          : `print-sheet print-theme-classic print-theme-classic-v2${documentClass}`
+        `print-sheet print-theme-classic print-theme-classic-v2${isCopy ? " print-copy" : ""}${documentClass}`
       }
     >
       {/* ============== TOP HEADER ============== */}
