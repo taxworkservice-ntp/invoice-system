@@ -1356,8 +1356,8 @@ export default function DealDetailPage() {
         </button>
       )}
     >
-      <div className="space-y-3">
-        <Card className="border-[0.5px]">
+      <div className="flex flex-col space-y-3">
+        <Card className="order-1 border-[0.5px]">
           <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {deal?.deal_number && (
@@ -1440,10 +1440,10 @@ export default function DealDetailPage() {
           value={docNumberOverride}
           onChange={setDocNumberOverride}
           placeholder="ตั้งเลขที่เอกสารเอง (เว้นว่าง = อัตโนมัติ)"
-          className="mb-3"
+          className="order-7 mb-3"
         />
 
-        <Card className="border-[0.5px]">
+        <Card className="order-5 border-[0.5px]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold text-[#1A1A18]">สรุปการเงิน</div>
@@ -1472,7 +1472,7 @@ export default function DealDetailPage() {
         </Card>
 
         {deliveryProgress && (
-          <Card className={`border-[0.5px] ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
+          <Card className={`order-3 border-[0.5px] ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -1599,7 +1599,7 @@ export default function DealDetailPage() {
           </Card>
         )}
 
-        <Card className="border-[0.5px]">
+        <Card className="order-2 border-[0.5px]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ขั้นตอน</div>
             <div className="text-[11px] text-gray-400">{currentStage}/4</div>
@@ -1712,7 +1712,7 @@ export default function DealDetailPage() {
         </Card>
 
         {allDone && summaryStats && (
-          <Card className="border-[0.5px] border-green-200 bg-green-50">
+          <Card className="order-2 border-[0.5px] border-green-200 bg-green-50">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
               <div className="min-w-0 flex-1">
@@ -1735,7 +1735,7 @@ export default function DealDetailPage() {
         )}
 
         {activities.length > 0 && (
-          <Card className="border-[0.5px]">
+          <Card className="order-4 border-[0.5px]">
             <div className="mb-3 flex items-center gap-2">
               <Clock className="h-4 w-4 text-gray-400" />
               <div>
@@ -1769,7 +1769,7 @@ export default function DealDetailPage() {
           </Card>
         )}
 
-        <div>
+        <div className="order-6">
           <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
           {nonVoidedDocs.length === 0 ? (
             <Card className="border-[0.5px]">
@@ -1950,7 +1950,7 @@ export default function DealDetailPage() {
           )}
         </div>
 
-        <Card className="border-[0.5px]">
+        <Card className="order-8 border-[0.5px]">
           <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">การจัดการเอกสาร</div>
           <div className="mt-1 text-xs text-gray-500">แก้ไขเอกสารล่าสุดหรือจัดการเอกสารที่เกี่ยวข้อง</div>
           {activeDoc && (
