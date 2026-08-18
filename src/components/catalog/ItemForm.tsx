@@ -534,18 +534,21 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
               onChange={(event) => setHasJobDetails(event.target.checked)}
               className="mt-1 h-4 w-4 rounded border-[#D7DEE7] text-primary focus:ring-primary"
             />
-            <span>
-              <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#1A1A18]">
-                <span>บริการนี้มีรายละเอียดงาน</span>
+              <span>
+                <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#1A1A18]">
+                <span>เก็บรายละเอียดงานของบริการนี้</span>
                 <span className="inline-flex items-center rounded-full border border-[#B8D7F1] bg-[#EAF4FF] px-2 py-0.5 text-[10px] font-medium text-[#0C447C]">
-                  Business Feature
+                  ฟีเจอร์รายละเอียดงาน
                 </span>
               </span>
               <span className="mt-1 block text-xs leading-5 text-[#888780]">
-                แสดงช่องกรอกรายละเอียดบนรายการเอกสาร เช่น สี/ฟอยล์ ขนาด ตำแหน่ง วัสดุ และหมายเหตุ
+                แสดงช่องกรอกรายละเอียดบนเอกสาร เช่น สี/ฟอยล์ ขนาด ตำแหน่ง วัสดุ และหมายเหตุ
               </span>
               <span className="mt-2 block rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2 text-xs leading-5 text-[#5F5A52]">
                 เหมาะกับบริการงานผลิต/งานพิมพ์ที่ต้องระบุสเปกต่อรายการ หากเป็นบริการทั่วไปให้ปิดไว้เพื่อให้ฟอร์มเอกสารสั้นและใช้งานเร็ว
+              </span>
+              <span className="mt-2 block rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+                การเปลี่ยนช่องรายละเอียดมีผลกับผู้ใช้ทุกคนที่เลือกบริการนี้ในงานขายใหม่ เอกสารเดิมจะไม่ถูกเปลี่ยนแปลง
               </span>
             </span>
           </label>
@@ -553,9 +556,9 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
           {hasJobDetails && (
             <div className="border-t border-[#ECE8DE] pt-4">
               <div className="mb-3">
-                <div className="text-sm font-medium text-[#1A1A18]">ตัวเลือกเริ่มต้น</div>
+                <div className="text-sm font-medium text-[#1A1A18]">ช่องรายละเอียดและตัวเลือกที่ใช้บ่อย</div>
                 <p className="mt-1 text-xs leading-5 text-[#888780]">
-                  กำหนดช่องรายละเอียดของบริการนี้ แล้วเพิ่มค่าที่ใช้บ่อยใต้แต่ละช่อง ผู้ใช้ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
+                  กำหนดช่องที่ต้องการให้กรอกในเอกสาร แล้วเพิ่มค่าที่ใช้บ่อยใต้แต่ละช่อง ผู้ใช้ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
                 </p>
                 {loadingJobDetailPresets && (
                   <p className="mt-2 rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#888780]">
@@ -572,6 +575,18 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                     ยังไม่มีตัวเลือกที่บันทึกไว้ เพิ่มค่าด้านล่างแล้วกดบันทึก รายการจะกลับมาเป็นปุ่มให้ลบ/แก้ไขครั้งต่อไป
                   </p>
                 )}
+              </div>
+
+              <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-3">
+                <div className="text-xs font-semibold text-emerald-900">ตัวอย่างที่ผู้ใช้จะเห็นตอนสร้างงานขาย</div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {jobDetailFields.filter((field) => field.is_enabled).map((field) => (
+                    <div key={field.field_key} className="rounded-md border border-emerald-100 bg-white px-2.5 py-2 text-xs text-emerald-900">
+                      {field.label || "รายละเอียด"}
+                      <span className="ml-1 text-emerald-600">{field.field_type === "dimension" ? "กว้าง x สูง" : "เลือกหรือพิมพ์"}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-4">
