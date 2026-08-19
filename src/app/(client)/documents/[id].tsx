@@ -28,6 +28,7 @@ import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { getReceiptTotalsForDocument } from "../../../lib/receiptTotals";
+import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
 import {
@@ -103,6 +104,7 @@ export default function DocumentDetailPage() {
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
+  const { active: bankAccounts, primary: primaryBank, loading: bankLoading } = useBankAccounts(userId);
   const businessToday = businessTodayString(clientProfile);
   const devIssueDate = clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
   const todayString = () => businessToday;
@@ -120,6 +122,7 @@ export default function DocumentDetailPage() {
 
   const [payModal, setPayModal] = useState(false);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("bank_transfer");
+  const [payBankAccountId, setPayBankAccountId] = useState<string | null>(null);
   const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
   const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
   const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>(getReceiptInputBasisPreference);
@@ -420,6 +423,10 @@ export default function DocumentDetailPage() {
       setError("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
       return;
     }
+    if (payMethod === "bank_transfer" && !payBankAccountId) {
+      setError("กรุณาเลือกบัญชีที่รับโอนเงิน");
+      return;
+    }
     setPaying(true);
     try {
       const paidAt = toLocalMiddayIso(payDate);
@@ -457,6 +464,7 @@ export default function DocumentDetailPage() {
           status: newStatus as DocumentStatus,
           paid_at: paidAt,
           payment_method: payMethod,
+          bank_account_id: payMethod === "bank_transfer" ? payBankAccountId : null,
           amount_received: previousTotals.amountReceived + allocation.netAmount,
           wht_certificate_no: payWhtCert || null,
         })
@@ -499,6 +507,7 @@ export default function DocumentDetailPage() {
         wht_amount: allocation.whtAmount,
         net_payable: allocation.netAmount,
         payment_method: payMethod,
+        bank_account_id: payMethod === "bank_transfer" ? payBankAccountId : null,
         amount_received: allocation.netAmount,
         wht_certificate_no: payWhtCert || null,
         ...receiptBackdateFields,
@@ -679,6 +688,7 @@ export default function DocumentDetailPage() {
     setPaymentPreviousWht(previousWht);
     setPayMismatchConfirm(false);
     setPayMethod("bank_transfer");
+    setPayBankAccountId(primaryBank?.id ?? null);
     setPayWhtCert("");
     setPayDate(todayString());
     setPayBackdateReason("");
@@ -1728,6 +1738,26 @@ export default function DocumentDetailPage() {
               <option key={key} value={key}>{value}</option>
             ))}
           </Select>
+          {payMethod === "bank_transfer" && (
+            <Select
+              label="รับเข้าบัญชี"
+              value={payBankAccountId ?? ""}
+              onChange={(e) => setPayBankAccountId(e.target.value || null)}
+            >
+              {bankLoading ? (
+                <option value="" disabled>กำลังโหลดบัญชี...</option>
+              ) : bankAccounts.length === 0 ? (
+                <option value="" disabled>ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า</option>
+              ) : (
+                bankAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.bank_name} · {account.account_number}
+                    {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
+                  </option>
+                ))
+              )}
+            </Select>
+          )}
           <Input
             label="เลขที่ใบหักภาษี ณ ที่จ่าย (ถ้ามี)"
             value={payWhtCert}

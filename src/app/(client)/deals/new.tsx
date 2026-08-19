@@ -4,6 +4,7 @@ import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useCustomers } from "../../../hooks/useCustomers";
 import { useItems } from "../../../hooks/useItems";
 import { useClientFeatures } from "../../../hooks/useClientFeatures";
+import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -406,6 +407,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const { hasFeature } = useClientFeatures(userId);
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const { items, addItem } = useItems(userId);
+  const { active: bankAccounts, primary: primaryBank } = useBankAccounts(userId);
   const jobDetailsFeatureEnabled = hasFeature("service_job_details");
   const businessToday = businessTodayString(clientProfile);
   const todayString = () => businessToday;
@@ -421,9 +423,16 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [whtRate, setWhtRate] = useState<WhtRate>(clientProfile?.default_wht_rate ?? "0");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
+  const [paymentBankAccountId, setPaymentBankAccountId] = useState<string | null>(primaryBank?.id ?? null);
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [paymentDate, setPaymentDate] = useState(() => businessTodayString(clientProfile));
   const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
+
+  useEffect(() => {
+    if (!paymentBankAccountId && primaryBank) {
+      setPaymentBankAccountId(primaryBank.id);
+    }
+  }, [primaryBank, paymentBankAccountId]);
   const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
   const [note, setNote] = useState("");
   const [utilityServiceItemId, setUtilityServiceItemId] = useState<string | null>(null);
@@ -1201,6 +1210,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         wht_amount: tax.whtAmount,
         net_payable: tax.netPayable,
         payment_method: isTaxInvoiceReceipt ? paymentMethod : null,
+        bank_account_id: isTaxInvoiceReceipt && paymentMethod === "bank_transfer" ? paymentBankAccountId : null,
         paid_at: isTaxInvoiceReceipt ? new Date(`${paymentDate}T00:00:00`).toISOString() : null,
         amount_received: isTaxInvoiceReceipt ? tax.netPayable : null,
         note: note.trim() ? note : null,
@@ -2168,6 +2178,31 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   ))}
                 </select>
               </div>
+              {paymentMethod === "bank_transfer" && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    รับเข้าบัญชี
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
+                    value={paymentBankAccountId ?? ""}
+                    onChange={(e) => setPaymentBankAccountId(e.target.value || null)}
+                  >
+                    {bankAccounts.length === 0 ? (
+                      <option value="" disabled>
+                        ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า
+                      </option>
+                    ) : (
+                      bankAccounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.bank_name} · {account.account_number}
+                          {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              )}
               <div className="rounded-lg bg-stone-50 px-3 py-3 text-sm text-stone-700">
                 <div className="flex items-center justify-between">
                   <span>ยอดที่จะบันทึกรับชำระ</span>

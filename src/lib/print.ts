@@ -1,4 +1,5 @@
 import type {
+  BankAccount,
   BillingNoteInvoice,
   ClientProfile,
   Customer,
@@ -40,6 +41,7 @@ export interface PrintDocumentData {
   receiptOutstanding?: number;
   receiptPaymentNumber?: number;
   receiptCumulativePaid?: number;
+  bankAccount?: BankAccount;
 }
 
 export interface PrintableDocumentDataBase {
@@ -63,6 +65,7 @@ export interface PrintableDocumentDataBase {
   receiptOutstanding?: number;
   receiptPaymentNumber?: number;
   receiptCumulativePaid?: number;
+  bankAccount?: BankAccount;
 }
 
 export function isHtmlPrintTemplate(
@@ -92,6 +95,18 @@ export async function getPrintableDocumentDataBase(
   }
 
   const clientProfile = clientProfileData as ClientProfile;
+
+  let bankAccount: BankAccount | undefined;
+  if (document.bank_account_id) {
+    const { data: bankAccountData } = await supabase
+      .from("bank_accounts")
+      .select("*")
+      .eq("id", document.bank_account_id)
+      .single();
+    if (bankAccountData) {
+      bankAccount = bankAccountData as BankAccount;
+    }
+  }
 
   let referenceDoc: Document | undefined;
   let receiptOutstanding: number | undefined;
@@ -314,6 +329,7 @@ export async function getPrintableDocumentDataBase(
     receiptOutstanding,
     receiptPaymentNumber,
     receiptCumulativePaid,
+    bankAccount,
   };
 }
 

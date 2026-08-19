@@ -4,6 +4,7 @@ import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, Che
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
+import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -160,6 +161,7 @@ export default function DealDetailPage() {
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const [userEmail, setUserEmail] = useState("");
+  const { active: bankAccounts, primary: primaryBank, loading: bankLoading } = useBankAccounts(userId);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -187,6 +189,7 @@ export default function DealDetailPage() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [payDocument, setPayDocument] = useState<Document | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
+  const [paymentBankAccountId, setPaymentBankAccountId] = useState<string | null>(null);
   const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
   const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
   const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>(getReceiptInputBasisPreference);
@@ -463,6 +466,7 @@ export default function DealDetailPage() {
     setPaymentPreviousWht(previousWht);
     setPaymentMismatchConfirm(false);
     setPaymentMethod("bank_transfer");
+    setPaymentBankAccountId(primaryBank?.id ?? null);
     setWhtCertificateNo("");
     setPaymentDate(todayString());
     setPaymentBackdateReason("");
@@ -494,6 +498,10 @@ export default function DealDetailPage() {
     if (!payDocument || !userId || !dealId) return;
     if (isPastDate(paymentDate, businessToday) && !paymentBackdateReason) {
       toast.error("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
+      return;
+    }
+    if (paymentMethod === "bank_transfer" && !paymentBankAccountId) {
+      toast.error("กรุณาเลือกบัญชีที่รับโอนเงิน");
       return;
     }
     setPaying(true);
@@ -533,6 +541,7 @@ export default function DealDetailPage() {
           status: newStatus as DocumentStatus,
           paid_at: paidAt,
           payment_method: paymentMethod,
+          bank_account_id: paymentMethod === "bank_transfer" ? paymentBankAccountId : null,
           amount_received: previousTotals.amountReceived + allocation.netAmount,
           wht_certificate_no: whtCertificateNo || null,
         })
@@ -575,6 +584,7 @@ export default function DealDetailPage() {
         wht_amount: allocation.whtAmount,
         net_payable: allocation.netAmount,
         payment_method: paymentMethod,
+        bank_account_id: paymentMethod === "bank_transfer" ? paymentBankAccountId : null,
         amount_received: allocation.netAmount,
         wht_certificate_no: whtCertificateNo || null,
         paid_at: paidAt,
@@ -2348,6 +2358,30 @@ export default function DealDetailPage() {
                   ))}
                 </select>
               </div>
+
+              {paymentMethod === "bank_transfer" && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">รับเข้าบัญชี</label>
+                  <select
+                    className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
+                    value={paymentBankAccountId ?? ""}
+                    onChange={(e) => setPaymentBankAccountId(e.target.value || null)}
+                  >
+                    {bankLoading ? (
+                      <option value="" disabled>กำลังโหลดบัญชี...</option>
+                    ) : bankAccounts.length === 0 ? (
+                      <option value="" disabled>ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า</option>
+                    ) : (
+                      bankAccounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.bank_name} · {account.account_number}
+                          {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              )}
 
               <Input
                 label="เลขที่ใบหักภาษี ณ ที่จ่าย"

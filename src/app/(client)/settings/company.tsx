@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
+import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
@@ -8,12 +9,19 @@ import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { SettingsTabs } from "./_components/SettingsTabs";
-import type { ClientProfile } from "../../../types";
+import type { ClientProfile, BankAccount } from "../../../types";
 
 export default function SettingsCompanyPage() {
   const { profile } = useAuth();
   const { clientProfile, loading, setClientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
+  const {
+    bankAccounts,
+    loading: bankLoading,
+    refetch: refetchBankAccounts,
+    updateBankAccountLocal,
+    removeBankAccountLocal,
+  } = useBankAccounts(profile?.id);
 
   const [companyNameTh, setCompanyNameTh] = useState("");
   const [companyNameEn, setCompanyNameEn] = useState("");
@@ -21,11 +29,15 @@ export default function SettingsCompanyPage() {
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [contactName, setContactName] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [bankAccount, setBankAccount] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+
+  const [bankName, setBankName] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
+  const [accountHolder, setAccountHolder] = useState("");
+  const [savingBank, setSavingBank] = useState(false);
+  const [editingBankId, setEditingBankId] = useState<string | null>(null);
 
   useEffect(() => {
     if (clientProfile) {
@@ -35,10 +47,139 @@ export default function SettingsCompanyPage() {
       setAddress(clientProfile.address || "");
       setPhone(clientProfile.phone || "");
       setContactName(clientProfile.contact_name || "");
-      setBankName(clientProfile.bank_name || "");
-      setBankAccount(clientProfile.bank_account || "");
     }
   }, [clientProfile]);
+
+  function startAddBank() {
+    setEditingBankId(null);
+    setBankName("");
+    setBankAccount("");
+    setAccountHolder("");
+  }
+
+  function startEditBank(account: BankAccount) {
+    setEditingBankId(account.id);
+    setBankName(account.bank_name);
+    setBankAccount(account.account_number);
+    setAccountHolder(account.account_holder_name || "");
+  }
+
+  async function syncLegacyBank(userId: string, account: BankAccount | null) {
+    const payload: Partial<ClientProfile> = {
+      bank_name: account?.bank_name || null,
+      bank_account: account?.account_number || null,
+    };
+    await supabase.from("client_profiles").update(payload).eq("user_id", userId);
+    setClientProfile((prev: ClientProfile | null) => ({ ...(prev as ClientProfile), ...payload }));
+  }
+
+  async function handleSaveBank() {
+    if (!profile) return;
+    if (!bankName.trim() || !bankAccount.trim()) {
+      setError("กรุณากรอกชื่อธนาคารและเลขที่บัญชี");
+      return;
+    }
+    setSavingBank(true);
+    setError("");
+
+    if (!editingBankId) {
+      const { data, error: err } = await supabase
+        .from("bank_accounts")
+        .insert({
+          user_id: profile.id,
+          bank_name: bankName.trim(),
+          account_number: bankAccount.trim(),
+          account_holder_name: accountHolder.trim() || null,
+          is_primary: bankAccounts.length === 0,
+          sort_order: bankAccounts.length,
+        })
+        .select("*")
+        .single();
+
+      if (err) {
+        setError(err.message);
+        toast.error(err.message);
+      } else {
+        await refetchBankAccounts();
+        if (bankAccounts.length === 0) {
+          await syncLegacyBank(profile.id, data as BankAccount);
+        }
+        toast.success("เพิ่มบัญชีธนาคารแล้ว");
+      }
+    } else {
+      const { error: err } = await supabase
+        .from("bank_accounts")
+        .update({
+          bank_name: bankName.trim(),
+          account_number: bankAccount.trim(),
+          account_holder_name: accountHolder.trim() || null,
+        })
+        .eq("id", editingBankId);
+
+      if (err) {
+        setError(err.message);
+        toast.error(err.message);
+      } else {
+        updateBankAccountLocal(editingBankId, {
+          bank_name: bankName.trim(),
+          account_number: bankAccount.trim(),
+          account_holder_name: accountHolder.trim() || null,
+        });
+        const updated = bankAccounts.find((b) => b.id === editingBankId);
+        if (updated?.is_primary) {
+          await syncLegacyBank(profile.id, {
+            ...updated,
+            bank_name: bankName.trim(),
+            account_number: bankAccount.trim(),
+          } as BankAccount);
+        }
+        toast.success("บันทึกบัญชีธนาคารแล้ว");
+      }
+    }
+    setSavingBank(false);
+  }
+
+  async function handleSetPrimary(account: BankAccount) {
+    if (!profile) return;
+    const { error: err } = await supabase
+      .from("bank_accounts")
+      .update({ is_primary: false })
+      .eq("user_id", profile.id)
+      .eq("is_primary", true);
+    if (err) {
+      toast.error(err.message);
+      return;
+    }
+    const { error: err2 } = await supabase
+      .from("bank_accounts")
+      .update({ is_primary: true })
+      .eq("id", account.id);
+    if (err2) {
+      toast.error(err2.message);
+      return;
+    }
+    await refetchBankAccounts();
+    await syncLegacyBank(profile.id, account);
+    toast.success("ตั้งเป็นบัญชีหลักแล้ว");
+  }
+
+  async function handleDeleteBank(account: BankAccount) {
+    if (!profile) return;
+    if (account.is_primary) {
+      toast.error("ไม่สามารถลบบัญชีหลักได้ ตั้งบัญชีอื่นเป็นหลักก่อน");
+      return;
+    }
+    const { error: err } = await supabase
+      .from("bank_accounts")
+      .delete()
+      .eq("id", account.id);
+    if (err) {
+      toast.error(err.message);
+      return;
+    }
+    removeBankAccountLocal(account.id);
+    toast.success("ลบบัญชีธนาคารแล้ว");
+  }
 
   async function handleSave() {
     if (!profile || !clientProfile) return;
@@ -59,8 +200,6 @@ export default function SettingsCompanyPage() {
       address: address || null,
       phone: phone || null,
       contact_name: contactName.trim() || null,
-      bank_name: bankName.trim() || null,
-      bank_account: bankAccount.trim() || null,
     };
 
     const { error: err } = await supabase
@@ -90,9 +229,7 @@ export default function SettingsCompanyPage() {
     taxId !== (clientProfile?.tax_id || "") ||
     address !== (clientProfile?.address || "") ||
     phone !== (clientProfile?.phone || "") ||
-    contactName !== (clientProfile?.contact_name || "") ||
-    bankName !== (clientProfile?.bank_name || "") ||
-    bankAccount !== (clientProfile?.bank_account || "");
+    contactName !== (clientProfile?.contact_name || "");
 
   return (
     <AppShell title="ตั้งค่า > ข้อมูลบริษัท">
@@ -154,19 +291,95 @@ export default function SettingsCompanyPage() {
             </p>
 
             <div className="border-t border-[#E8E6DF] pt-3">
-              <p className="text-[11px] font-semibold text-[#888780] mb-2">ข้อมูลธนาคาร</p>
-              <Input
-                label="ชื่อธนาคาร"
-                value={bankName}
-                onChange={(e) => { setBankName(e.target.value); setSaved(false); }}
-                placeholder="ธนาคารกสิกรไทย"
-              />
-              <Input
-                label="เลขที่บัญชี"
-                value={bankAccount}
-                onChange={(e) => { setBankAccount(e.target.value); setSaved(false); }}
-                placeholder="XXX-X-XXXXX-X"
-              />
+              <p className="text-[11px] font-semibold text-[#888780] mb-2">บัญชีธนาคาร</p>
+              <p className="text-[11px] text-[#888780] mb-2">
+                เพิ่มบัญชีธนาคารได้หลายบัญชี เลือกตอนรับชำระเงินแบบโอนและแสดงบนเอกสาร
+              </p>
+              {bankLoading ? (
+                <Spinner />
+              ) : bankAccounts.length === 0 ? (
+                <p className="text-xs text-[#888780] mb-2">
+                  ยังไม่มีบัญชีธนาคาร เพิ่มบัญชีแรกด้านล่าง
+                </p>
+              ) : (
+                <div className="space-y-2 mb-3">
+                  {bankAccounts.map((account) => (
+                    <div
+                      key={account.id}
+                      className="flex items-center justify-between rounded-lg border border-[#E8E6DF] px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-gray-800 truncate">
+                            {account.bank_name}
+                          </p>
+                          {account.is_primary && (
+                            <span className="rounded bg-[#378ADD]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#378ADD]">
+                              บัญชีหลัก
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate">
+                          {account.account_number}
+                          {account.account_holder_name
+                            ? ` · ${account.account_holder_name}`
+                            : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {!account.is_primary && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSetPrimary(account)}
+                          >
+                            ตั้งหลัก
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => startEditBank(account)}>
+                          แก้ไข
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteBank(account)}>
+                          ลบ
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="rounded-lg border border-[#E8E6DF] p-3">
+                <p className="text-[11px] font-semibold text-[#888780] mb-2">
+                  {editingBankId ? "แก้ไขบัญชีธนาคาร" : "เพิ่มบัญชีธนาคาร"}
+                </p>
+                <Input
+                  label="ชื่อธนาคาร"
+                  value={bankName}
+                  onChange={(e) => { setBankName(e.target.value); setSaved(false); }}
+                  placeholder="ธนาคารกสิกรไทย"
+                />
+                <Input
+                  label="เลขที่บัญชี"
+                  value={bankAccount}
+                  onChange={(e) => { setBankAccount(e.target.value); setSaved(false); }}
+                  placeholder="XXX-X-XXXXX-X"
+                />
+                <Input
+                  label="ชื่อบัญชี"
+                  value={accountHolder}
+                  onChange={(e) => { setAccountHolder(e.target.value); setSaved(false); }}
+                  placeholder="บจก. ... (ไม่บังคับ)"
+                />
+                <div className="mt-2 flex gap-2">
+                  <Button onClick={handleSaveBank} disabled={savingBank} variant="secondary" size="sm">
+                    {savingBank ? "กำลังบันทึก..." : editingBankId ? "บันทึก" : "เพิ่ม"}
+                  </Button>
+                  {editingBankId && (
+                    <Button onClick={startAddBank} variant="ghost" size="sm">
+                      ยกเลิก
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {error && <p className="text-xs text-red-500">{error}</p>}

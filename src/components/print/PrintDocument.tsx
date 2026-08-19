@@ -9,7 +9,7 @@ import { PrintTotals } from "./PrintTotals";
 import { PrintContinuationHeader } from "./PrintContinuationHeader";
 import type { PageMode } from "../../lib/pagination";
 
-const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note"]);
+const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note", "receipt"]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
 
 export type CopyType = "original" | "copy";
@@ -54,8 +54,13 @@ export function PrintDocument({
   totalPages?: number;
   batchLineItems?: DocumentLineItem[];
 }) {
-  const showBank = SHOW_BANK_TYPES.has(data.document.doc_type);
+  const showBank = SHOW_BANK_TYPES.has(data.document.doc_type) &&
+    (data.document.doc_type !== "receipt" || !!data.bankAccount);
   const showPaymentMethod = SHOW_PAYMENT_METHOD_TYPES.has(data.document.doc_type);
+  const bankAccount = data.bankAccount;
+  const bankName = bankAccount?.bank_name ?? data.clientProfile.bank_name;
+  const bankAccountNumber = bankAccount?.account_number ?? data.clientProfile.bank_account;
+  const bankAccountHolder = bankAccount?.account_holder_name;
   const showFooter = pageMode === "single" || pageMode === "last";
   const showContinuationHeader = pageMode === "continuation" || pageMode === "last";
   const isFirst = pageMode === "first" || pageMode === "single";
@@ -171,8 +176,9 @@ export function PrintDocument({
                 </>
               ) : (
                 <>
-                  {showBank && data.clientProfile.bank_name ? <div>ธนาคาร: {data.clientProfile.bank_name}</div> : null}
-                  {showBank && data.clientProfile.bank_account ? <div>เลขที่บัญชี: {data.clientProfile.bank_account}</div> : null}
+                  {showBank && bankName ? <div>ธนาคาร: {bankName}</div> : null}
+                  {showBank && bankAccountNumber ? <div>เลขที่บัญชี: {bankAccountNumber}</div> : null}
+                  {showBank && bankAccountHolder ? <div>ชื่อบัญชี: {bankAccountHolder}</div> : null}
                   {hasPayment ? <div className="border-t-[0.5px] border-[#E8ECF2] my-0.5" /> : null}
                   {showPaymentMethod && data.document.payment_method ? <div>วิธีชำระเงิน: {PAYMENT_METHOD_LABELS[data.document.payment_method] || data.document.payment_method}</div> : null}
                   {data.document.wht_certificate_no ? <div>เลขที่หนังสือรับรองหัก ณ ที่จ่าย: {data.document.wht_certificate_no}</div> : null}

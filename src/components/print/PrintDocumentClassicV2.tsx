@@ -42,6 +42,7 @@ const SHOW_BANK_TYPES = new Set([
   "invoice",
   "tax_invoice_receipt",
   "billing_note",
+  "receipt",
 ]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set([
   "invoice",
@@ -96,6 +97,7 @@ export function PrintDocumentClassicV2({
     receiptOutstanding,
     receiptPaymentNumber,
     receiptCumulativePaid,
+    bankAccount,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
   const startIndex = batchLineItems
@@ -122,8 +124,12 @@ export function PrintDocumentClassicV2({
   const showContinuationHeader =
     pageMode === "continuation" || pageMode === "last";
   const documentClass = isDeliveryNote ? " print-delivery-note" : "";
-  const showBank = SHOW_BANK_TYPES.has(document.doc_type);
+  const showBank = SHOW_BANK_TYPES.has(document.doc_type) &&
+    (document.doc_type !== "receipt" || !!bankAccount);
   const showPaymentMethod = SHOW_PAYMENT_METHOD_TYPES.has(document.doc_type);
+  const bankName = bankAccount?.bank_name ?? clientProfile.bank_name;
+  const bankAccountNumber = bankAccount?.account_number ?? clientProfile.bank_account;
+  const bankAccountHolder = bankAccount?.account_holder_name;
   const signatureUrl = clientProfile.signature_url;
   const stampUrl = clientProfile.stamp_url;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
@@ -146,11 +152,14 @@ export function PrintDocumentClassicV2({
   );
   const noteText = document.note?.trim();
   const paymentLines = [
-    clientProfile.bank_name && showBank
-      ? `ธนาคาร: ${clientProfile.bank_name}`
+    bankName && showBank
+      ? `ธนาคาร: ${bankName}`
       : null,
-    clientProfile.bank_account && showBank
-      ? `เลขที่บัญชี: ${clientProfile.bank_account}`
+    bankAccountNumber && showBank
+      ? `เลขที่บัญชี: ${bankAccountNumber}`
+      : null,
+    bankAccountHolder && showBank
+      ? `ชื่อบัญชี: ${bankAccountHolder}`
       : null,
     showPaymentMethod && document.payment_method
       ? `วิธีชำระเงิน: ${PAYMENT_METHOD_LABELS[document.payment_method] || document.payment_method}`

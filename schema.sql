@@ -253,6 +253,44 @@ create policy "Admin reads all client profiles"
   on client_profiles for select
   using (public.is_admin());
 
+create table bank_accounts (
+  id                   uuid primary key default uuid_generate_v4(),
+  user_id              uuid not null references profiles(id) on delete cascade,
+
+  bank_name            text not null,
+  account_number       text not null,
+  account_holder_name  text,
+
+  is_primary           boolean not null default false,
+  is_active            boolean not null default true,
+  sort_order           integer not null default 0,
+
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+alter table bank_accounts enable row level security;
+
+create policy "Client manages workspace bank accounts"
+  on bank_accounts for all
+  using (public.is_client_workspace_member(user_id))
+  with check (public.is_client_workspace_member(user_id));
+
+create policy "Admin reads all bank accounts"
+  on bank_accounts for select
+  using (public.is_admin());
+
+create trigger trg_bank_accounts_updated_at
+  before update on bank_accounts
+  for each row execute function handle_updated_at();
+
+create index idx_bank_accounts_user on bank_accounts(user_id);
+
+-- At most one primary account per workspace
+create unique index uq_bank_accounts_primary
+  on bank_accounts(user_id)
+  where is_primary;
+
 create table client_features (
   id          uuid primary key default uuid_generate_v4(),
   user_id     uuid not null references profiles(id) on delete cascade,
@@ -561,6 +599,7 @@ create table documents (
 
   -- Receipt-specific fields
   payment_method      payment_method,
+  bank_account_id     uuid references bank_accounts(id) on delete set null,
   wht_certificate_no  text,
   paid_at             timestamptz,
   amount_received     numeric(15,2),               -- net payable actually received

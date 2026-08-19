@@ -68,6 +68,19 @@ export interface ClientMember {
   updated_at: string;
 }
 
+export interface BankAccount {
+  id: string;
+  user_id: string;
+  bank_name: string;
+  account_number: string;
+  account_holder_name: string | null;
+  is_primary: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ClientProfile {
   id: string;
   user_id: string;
@@ -289,6 +302,7 @@ export interface Document {
   net_payable: number;
   note: string | null;
   payment_method: PaymentMethod | null;
+  bank_account_id: string | null;
   wht_certificate_no: string | null;
   paid_at: string | null;
   amount_received: number | null;
