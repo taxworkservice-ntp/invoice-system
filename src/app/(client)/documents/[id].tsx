@@ -22,6 +22,7 @@ import { businessTodayString } from "../../../lib/devDate";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import { EditableDocNumber, EditableDocNumberInline } from "../../../components/documents/EditableDocNumber";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { AmountRow } from "../../../components/ui/AmountRow";
 import { PAYMENT_METHOD_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
@@ -1120,59 +1121,41 @@ export default function DocumentDetailPage() {
       )}
 
       <DetailCard title="สรุปยอด" icon={<CircleDollarSign className="h-4 w-4" />} className="mb-4">
-        <div className="space-y-1 text-sm">
+        <div className="space-y-2">
           {lineDiscountTotal > 0 && (
             <>
-              <div className="flex justify-between">
-                <span className="text-gray-500">ยอดก่อนส่วนลด</span>
-                <span className="text-gray-700">฿{formatCurrency(grossSubtotal)}</span>
-              </div>
-              <div className="flex justify-between text-red-600">
-                <span>ส่วนลดรายการ</span>
-                <span>-฿{formatCurrency(lineDiscountTotal)}</span>
-              </div>
+              <AmountRow label="ยอดก่อนส่วนลด" value={`฿${formatCurrency(grossSubtotal)}`} tone="muted" />
+              <AmountRow label="ส่วนลดรายการ" value={`-฿${formatCurrency(lineDiscountTotal)}`} tone="red" />
             </>
           )}
           {doc.discount_amount > 0 && (
-            <div className="flex justify-between text-red-600">
-              <span>ส่วนลดท้ายบิล {doc.discount_percent > 0 ? `(${doc.discount_percent}%)` : ""}</span>
-              <span>-฿{formatCurrency(doc.discount_amount)}</span>
-            </div>
+            <AmountRow
+              label={`ส่วนลดท้ายบิล ${doc.discount_percent > 0 ? `(${doc.discount_percent}%)` : ""}`}
+              value={`-฿${formatCurrency(doc.discount_amount)}`}
+              tone="red"
+            />
           )}
           {!doc.vat_registered && (
-            <div className="flex justify-between font-semibold">
-              <span className="text-gray-700">รวมทั้งสิ้น</span>
-              <span className="text-gray-800">฿{formatCurrency(doc.total_amount)}</span>
+            <div className="rounded-lg bg-paper-field px-3 py-2">
+              <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" />
             </div>
           )}
           {doc.vat_registered && (
-            <>
-              <div className="flex justify-between">
-                <span className="text-gray-500">ราคารวม</span>
-                <span className="text-gray-700">฿{formatCurrency(doc.subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">VAT {doc.vat_rate}%</span>
-                <span className="text-gray-700">฿{formatCurrency(doc.vat_amount)}</span>
-              </div>
-              <div className="flex justify-between font-semibold pt-1 border-t border-gray-100">
-                <span className="text-gray-700">รวมทั้งสิ้น</span>
-                <span className="text-gray-800">฿{formatCurrency(doc.total_amount)}</span>
-              </div>
-            </>
+            <div className="rounded-lg bg-paper-field px-3 py-2">
+              <AmountRow label="ยอดก่อน VAT" value={`฿${formatCurrency(doc.subtotal)}`} tone="default" />
+              <AmountRow label={`VAT ${doc.vat_rate}%`} value={`฿${formatCurrency(doc.vat_amount)}`} tone="default" className="mt-1.5" />
+              <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" className="mt-2 border-t border-line-soft pt-2" />
+            </div>
           )}
           {doc.wht_rate > 0 && (
-            <>
-              <div className="flex justify-between text-red-600">
-                <span>หัก ณ ที่จ่าย {doc.wht_rate}%</span>
-                <span>-฿{formatCurrency(doc.wht_amount)}</span>
-              </div>
-              <div className="flex justify-between font-semibold text-base pt-1 border-t border-gray-100">
-                <span className="text-gray-800">ยอดที่ต้องชำระ</span>
-                <span className="text-gray-900">฿{formatCurrency(getDisplayAmount(doc))}</span>
-              </div>
-            </>
+            <AmountRow label={`หัก ณ ที่จ่าย ${doc.wht_rate}%`} value={`-฿${formatCurrency(doc.wht_amount)}`} tone="red" />
           )}
+          <AmountRow
+            label="ยอดที่ต้องชำระ"
+            value={`฿${formatCurrency(getDisplayAmount(doc))}`}
+            tone="strong"
+            className="border-t border-line-strong pt-2 text-base"
+          />
         </div>
       </DetailCard>
 
