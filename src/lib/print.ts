@@ -136,7 +136,7 @@ export async function getPrintableDocumentDataBase(
     if (billingNote) {
       if (document.doc_type === "receipt") {
         const receivedForBillingNote = docList
-          .filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === billingNote.id && doc.status !== "voided")
+          .filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === billingNote.id && doc.status !== "voided" && doc.created_at <= document.created_at)
           .reduce((sum, receipt) => sum + (receipt.amount_received || 0), 0);
         receiptOutstanding = Math.max(0, (billingNote.net_payable || billingNote.total_amount || 0) - receivedForBillingNote);
       }
@@ -180,7 +180,7 @@ export async function getPrintableDocumentDataBase(
     } else if (sourceInvoice) {
       if (document.doc_type === "receipt") {
         const receivedForInvoice = docList
-          .filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === sourceInvoice.id && doc.status !== "voided")
+          .filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === sourceInvoice.id && doc.status !== "voided" && doc.created_at <= document.created_at)
           .reduce((sum, receipt) => sum + (receipt.amount_received || 0), 0);
         receiptOutstanding = Math.max(0, (sourceInvoice.net_payable || sourceInvoice.total_amount || 0) - receivedForInvoice);
       }
