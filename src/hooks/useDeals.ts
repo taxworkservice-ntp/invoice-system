@@ -18,7 +18,7 @@ export function useDeals(userId: string | undefined) {
     const [{ data: docs, error }, { data: paidMonth }] = await Promise.all([
       supabase
         .from("documents")
-        .select("id, deal_id, doc_type, doc_number, status, net_payable, customer_id, created_at, updated_at, customer:customer_id(name)")
+        .select("id, deal_id, doc_type, doc_number, status, total_amount, net_payable, customer_id, created_at, updated_at, customer:customer_id(name)")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false }),
       supabase

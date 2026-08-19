@@ -119,6 +119,10 @@ function getDisplayAmount(doc: Document): number {
   return doc.doc_type === "delivery_note" ? doc.total_amount : doc.net_payable;
 }
 
+function getDisplayAmountLabel(doc: Document): string {
+  return doc.doc_type === "delivery_note" ? "มูลค่าอ้างอิง" : "ยอดสุทธิ";
+}
+
 const DOC_TYPE_BORDER: Record<DocumentType, string> = {
   quotation: "border-l-purple-400",
   invoice: "border-l-blue-400",
@@ -486,7 +490,7 @@ function DocumentCard({
             className={`shrink-0 pl-2 text-right ml-auto ${isTerminal ? "opacity-60" : ""}`}
           >
             <div className="text-[11px] uppercase tracking-[0.12em] text-ink-300">
-              ยอดสุทธิ
+              {getDisplayAmountLabel(doc)}
             </div>
             <div
               className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-ink-900"}`}
@@ -892,7 +896,7 @@ function QuickDetailModal({
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
-                ยอดสุทธิ
+                {getDisplayAmountLabel(doc)}
               </div>
               <div className="mt-1 text-3xl font-semibold text-ink-900">
                 ฿ {formatCurrency(getDisplayAmount(doc))}
@@ -1051,7 +1055,7 @@ function QuickDetailModal({
                 </span>
               </div>
             )}
-            {doc.vat_registered && (
+            {doc.vat_registered && doc.doc_type !== "delivery_note" && (
               <div className="flex items-start justify-between gap-4">
                 <span className="text-ink-400 cursor-help" title="ภาษีมูลค่าเพิ่ม คำนวณจากยอดรวมหลังส่วนลด">VAT {doc.vat_rate}%</span>
                 <span className="text-right font-medium text-ink-900">
@@ -1059,7 +1063,7 @@ function QuickDetailModal({
                 </span>
               </div>
             )}
-            {doc.wht_rate > 0 && (
+            {doc.wht_rate > 0 && doc.doc_type !== "delivery_note" && (
               <div className="flex items-start justify-between gap-4 text-red-700">
                 <span className="cursor-help" title="ภาษีหัก ณ ที่จ่าย ลูกค้าหักไว้ก่อนจ่าย">หัก ณ ที่จ่าย {doc.wht_rate}%</span>
                 <span className="text-right font-medium">
@@ -1068,7 +1072,7 @@ function QuickDetailModal({
               </div>
             )}
             <div className="flex items-start justify-between gap-4 border-t border-line-faint pt-2">
-              <span className="font-medium text-ink-900 cursor-help" title="จำนวนเงินที่ลูกค้าต้องจ่ายจริงหลังหักภาษี">ยอดสุทธิ</span>
+              <span className="font-medium text-ink-900 cursor-help" title={doc.doc_type === "delivery_note" ? "มูลค่าสินค้าอ้างอิงสำหรับออกใบแจ้งหนี้ภายหลัง" : "จำนวนเงินที่ลูกค้าต้องจ่ายจริงหลังหักภาษี"}>{getDisplayAmountLabel(doc)}</span>
               <span className="text-right text-base font-semibold text-ink-900">
                 ฿ {formatCurrency(getDisplayAmount(doc))}
               </span>
@@ -1693,7 +1697,7 @@ export default function DocumentsPage() {
       (doc as any).customer?.name || "",
       doc.issue_date,
       doc.due_date || "",
-      doc.net_payable.toString(),
+      getDisplayAmount(doc).toString(),
     ]);
     const csv = [
       headers.join(","),

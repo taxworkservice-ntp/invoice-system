@@ -612,13 +612,19 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
           </div>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-ink-300">ยอดรวม</span>
+              <span className="text-ink-300">ยอดก่อน VAT</span>
               <span>฿{tax.subtotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
             </div>
             {vatRegistered && (
               <div className="flex justify-between">
                 <span className="text-ink-300">VAT {vatRate}%</span>
                 <span>฿{tax.vatAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {vatRegistered && (
+              <div className="flex justify-between">
+                <span className="text-ink-300">รวมทั้งสิ้น</span>
+                <span>฿{tax.total.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
             )}
             {whtRate > 0 && (

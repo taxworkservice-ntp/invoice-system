@@ -25,6 +25,8 @@ export function calculateReceiptWhtAmount({
   const remaining = Math.max(0, round2(expected - previousWht));
   if (expected <= 0 || netPayable <= 0 || paymentAmount <= 0) return 0;
   if (isFullyPaid) return remaining;
+  // expectedWht comes from the source document's taxable subtotal. The net
+  // payable is only the allocation base for partial receipts, never the WHT base.
   return Math.min(remaining, round2(expected * paymentAmount / netPayable));
 }
 

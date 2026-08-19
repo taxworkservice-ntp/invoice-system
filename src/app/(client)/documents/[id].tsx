@@ -50,6 +50,11 @@ function getDisplayAmount(doc: Document): number {
   return doc.doc_type === "delivery_note" ? doc.total_amount : doc.net_payable;
 }
 
+function getDisplayAmountLabel(doc: Document): string {
+  if (doc.doc_type === "delivery_note") return "มูลค่าอ้างอิง";
+  return doc.wht_rate > 0 ? "ยอดสุทธิหลังหัก ณ ที่จ่าย" : "ยอดที่ต้องชำระ";
+}
+
 const CORRECTION_REASONS = [
   { value: "customer_info", label: "ข้อมูลลูกค้าผิด เช่น ชื่อ เลขภาษี หรือที่อยู่" },
   { value: "document_info", label: "ข้อมูลเอกสารผิด เช่น วันที่ เลขที่ หรืออ้างอิง" },
@@ -873,7 +878,7 @@ export default function DocumentDetailPage() {
               ยอดสำคัญ
             </div>
             <div className="mt-3 text-3xl font-semibold text-ink-900">฿ {formatCurrency(getDisplayAmount(doc))}</div>
-            <p className="mt-1 text-sm text-ink-600">{doc.wht_rate > 0 ? "ยอดสุทธิหลังหัก ณ ที่จ่าย" : "ยอดรวมเอกสารนี้"}</p>
+            <p className="mt-1 text-sm text-ink-600">{getDisplayAmountLabel(doc)}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {canEditDocument && (
                 <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
@@ -1135,23 +1140,31 @@ export default function DocumentDetailPage() {
               tone="red"
             />
           )}
-          {!doc.vat_registered && (
+          {doc.doc_type === "delivery_note" ? (
             <div className="rounded-lg bg-paper-field px-3 py-2">
-              <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" />
+              <AmountRow label="มูลค่าอ้างอิง" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" />
             </div>
+          ) : (
+            <>
+              {!doc.vat_registered && (
+                <div className="rounded-lg bg-paper-field px-3 py-2">
+                  <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" />
+                </div>
+              )}
+              {doc.vat_registered && (
+                <div className="rounded-lg bg-paper-field px-3 py-2">
+                  <AmountRow label="ยอดก่อน VAT" value={`฿${formatCurrency(doc.subtotal)}`} tone="default" />
+                  <AmountRow label={`VAT ${doc.vat_rate}%`} value={`฿${formatCurrency(doc.vat_amount)}`} tone="default" className="mt-1.5" />
+                  <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" className="mt-2 border-t border-line-soft pt-2" />
+                </div>
+              )}
+            </>
           )}
-          {doc.vat_registered && (
-            <div className="rounded-lg bg-paper-field px-3 py-2">
-              <AmountRow label="ยอดก่อน VAT" value={`฿${formatCurrency(doc.subtotal)}`} tone="default" />
-              <AmountRow label={`VAT ${doc.vat_rate}%`} value={`฿${formatCurrency(doc.vat_amount)}`} tone="default" className="mt-1.5" />
-              <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" className="mt-2 border-t border-line-soft pt-2" />
-            </div>
-          )}
-          {doc.wht_rate > 0 && (
+          {doc.wht_rate > 0 && doc.doc_type !== "delivery_note" && (
             <AmountRow label={`หัก ณ ที่จ่าย ${doc.wht_rate}%`} value={`-฿${formatCurrency(doc.wht_amount)}`} tone="red" />
           )}
           <AmountRow
-            label="ยอดที่ต้องชำระ"
+            label={getDisplayAmountLabel(doc)}
             value={`฿${formatCurrency(getDisplayAmount(doc))}`}
             tone="strong"
             className="border-t border-line-strong pt-2 text-base"

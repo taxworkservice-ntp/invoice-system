@@ -1307,10 +1307,13 @@ export default function DealDetailPage() {
         : collectionDocs.filter((item) => item.document.doc_type === "tax_invoice_receipt");
     const sourceReceived = sourceGroup.reduce((sum, item) => sum + (item.document.amount_received || 0), 0);
     const amountReceived = Math.max(receiptReceived, sourceReceived);
-    const whtAmount = receipts.reduce((sum, item) => sum + (item.document.wht_amount || 0), 0) ||
-      nonVoidedDocs
-        .filter((item) => item.document.doc_type === "tax_invoice_receipt" && ["issued", "paid"].includes(item.document.status))
-        .reduce((sum, item) => sum + (item.document.wht_amount || 0), 0);
+    const expectedWhtAmount = source?.document.wht_amount || 0;
+    // Recalculate accumulated WHT from the source document and collected
+    // amount so receipts created by the old net-payable bug do not distort
+    // the completed-deal summary.
+    const whtAmount = expectedWhtAmount > 0 && netPayable > 0
+      ? Math.min(expectedWhtAmount, Math.round(expectedWhtAmount * amountReceived / netPayable * 100) / 100)
+      : 0;
 
     return {
       grossAmount,
@@ -1318,7 +1321,7 @@ export default function DealDetailPage() {
       amountReceived,
       outstanding: Math.max(0, netPayable - amountReceived),
       whtAmount,
-      expectedWhtAmount: source?.document.wht_amount || 0,
+      expectedWhtAmount,
       receiptCount: receipts.length,
     };
   }, [amountDoc, nonVoidedDocs]);
@@ -1779,6 +1782,7 @@ export default function DealDetailPage() {
                 const isCurrent = activeDoc?.document.id === doc.id;
                 const overdue = isOverdueDocument(doc);
                 const isDoneStage = item.stage === "done" && !isCurrent;
+                const isFinancialDocument = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
                 return (
                   <div key={doc.id} className={`flex gap-3 ${isDoneStage ? "opacity-80" : ""}`}>
                     <div className="w-7 flex flex-col items-center shrink-0">
@@ -1824,8 +1828,15 @@ export default function DealDetailPage() {
                                 <span className={overdue ? "text-red-700" : ""}>{formatBuddhistDate(doc.due_date)}</span>
                               </>
                             ) : null}
-                          </div>
-                          {(doc.status === "paid" || doc.status === "partially_paid" || doc.status === "generated" || doc.status === "issued") && (
+                           </div>
+                           {isFinancialDocument && (
+                             <div className="mt-1 flex flex-wrap gap-x-2 text-2xs leading-relaxed text-gray-400">
+                               <span>ก่อน VAT ฿{formatCurrency(doc.subtotal)}</span>
+                               {doc.vat_registered && <span>VAT ฿{formatCurrency(doc.vat_amount)}</span>}
+                               {doc.wht_amount > 0 && <span className="text-amber-600">WHT -฿{formatCurrency(doc.wht_amount)}</span>}
+                             </div>
+                           )}
+                           {(doc.status === "paid" || doc.status === "partially_paid" || doc.status === "generated" || doc.status === "issued") && (
                             <div className="mt-1 text-2xs leading-relaxed">
                               {doc.doc_type === "receipt" ? (
                                 <>
@@ -1849,24 +1860,30 @@ export default function DealDetailPage() {
                                     <span className="font-medium">คงเหลือ</span> ฿{Math.max(0, ((doc.net_payable || 0) - (doc.amount_received || 0))).toLocaleString()}
                                     {" "}({Math.round(((doc.amount_received || 0) / (doc.net_payable || 1)) * 100)}%)
                                   </div>
-                                  <div className="text-gray-400">
-                                    {doc.payment_method ? PAYMENT_METHOD_LABELS[doc.payment_method] : ""}
-                                    {doc.payment_method && doc.wht_amount > 0 ? " · " : ""}
-                                    {doc.wht_amount > 0 ? <>WHT ฿{doc.wht_amount.toLocaleString()}</> : ""}
-                                  </div>
+                                   <div className="text-gray-400">
+                                     {doc.payment_method ? PAYMENT_METHOD_LABELS[doc.payment_method] : ""}
+                                     {!isFinancialDocument && doc.payment_method && doc.wht_amount > 0 ? " · " : ""}
+                                     {!isFinancialDocument && doc.wht_amount > 0 ? <>WHT ฿{formatCurrency(doc.wht_amount)}</> : ""}
+                                   </div>
                                 </>
                               ) : (
                                 <div className="text-green-600">
-                                  {doc.paid_at ? formatBuddhistDate(doc.paid_at) : ""}
-                                  {doc.payment_method ? ` · ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
-                                     {doc.wht_amount > 0 ? <> · WHT ฿{doc.wht_amount.toLocaleString()}</> : ""}
-                                </div>
+                                   {doc.paid_at ? formatBuddhistDate(doc.paid_at) : ""}
+                                   {doc.payment_method ? ` · ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
+                                   {!isFinancialDocument && doc.wht_amount > 0 ? <> · WHT ฿{formatCurrency(doc.wht_amount)}</> : ""}
+                                 </div>
                               )}
                             </div>
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <div className="text-sm font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
+                          <div className="text-right">
+                            <div className="text-2xs text-gray-400">{isFinancialDocument && doc.wht_amount > 0 ? "รวม" : "ยอดรวม"}</div>
+                            <div className="text-sm font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
+                            {isFinancialDocument && doc.wht_amount > 0 && (
+                              <div className="mt-0.5 text-2xs font-medium text-ink-500">สุทธิ ฿{formatCurrency(doc.net_payable)}</div>
+                            )}
+                          </div>
                           <Badge status={overdue ? "overdue" : doc.status} />
                           <button
                             type="button"
@@ -2100,7 +2117,7 @@ export default function DealDetailPage() {
           <p className="text-sm text-gray-600">คุณต้องการแปลงใบเสนอราคาเป็นใบแจ้งหนี้ใช่หรือไม่?</p>
           {confirmConvertDoc && (
             <p className="text-sm">
-              ยอดรวม: <span className="font-semibold">฿{formatCurrency(confirmConvertDoc.net_payable)}</span>
+              ยอดรวม: <span className="font-semibold">฿{formatCurrency(confirmConvertDoc.total_amount ?? confirmConvertDoc.net_payable)}</span>
             </p>
           )}
           <div className="flex gap-2 pt-2">

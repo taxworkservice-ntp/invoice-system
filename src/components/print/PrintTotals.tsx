@@ -65,6 +65,25 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
             </div>
           ) : null}
 
+          {isDeliveryNote ? (
+            <>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                  <span>มูลค่าอ้างอิง</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">REFERENCE VALUE</span>
+                </div>
+                <span className="self-center">{formatCurrency(document.total_amount)}</span>
+              </div>
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
+                <div className="flex flex-col">
+                  <span>รวมทั้งสิ้น</span>
+                  <span className="text-[6.5px] font-normal text-[#94a3b8]">GRAND TOTAL</span>
+                </div>
+                <span className="self-center">{formatCurrency(document.total_amount)}</span>
+              </div>
+            </>
+          ) : (
+            <>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
                 <span>{isReceipt ? "ยอดตามเอกสารอ้างอิง" : "รวมก่อนภาษี"}</span>
@@ -135,6 +154,8 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
               </div>
               <span className="self-center">{formatCurrency(isReceipt ? receiptAmount : document.total_amount)}</span>
             </div>
+            </>
+          )}
             </>
           )}
         </div>

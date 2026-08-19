@@ -59,3 +59,42 @@ if (failures > 0) {
 } else {
   console.log("Launch preflight passed.");
 }
+
+// Canonical tax contract regression:
+//   VAT  = subtotal * vatRate / 100
+//   total = subtotal + VAT
+//   WHT  = subtotal * whtRate / 100   (base is the PRE-VAT taxable subtotal,
+//          never the net payable / VAT-inclusive total)
+//   net  = total - WHT
+const taxChecks = [
+  { name: "reported deal (subtotal 5,050,000, VAT 7%, WHT 3%)", subtotal: 5050000, vatRate: 7, whtRate: 3, vat: 353500, total: 5403500, wht: 151500, net: 5252000 },
+  { name: "small non-VAT doc (no WHT)", subtotal: 1000, vatRate: 0, whtRate: 0, vat: 0, total: 1000, wht: 0, net: 1000 },
+  { name: "WHT must not use net payable as base", subtotal: 5050000, vatRate: 7, whtRate: 3, vat: 353500, total: 5403500, wht: 151500, net: 5252000 },
+];
+
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}
+
+let taxFailures = 0;
+for (const c of taxChecks) {
+  const vat = round2(c.subtotal * c.vatRate / 100);
+  const total = round2(c.subtotal + vat);
+  const wht = round2(c.subtotal * c.whtRate / 100);
+  const net = round2(total - wht);
+  const wrongBaseWht = round2(net * c.whtRate / 100);
+  const ok = vat === c.vat && total === c.total && wht === c.wht && net === c.net && (wht === 0 || wht !== wrongBaseWht);
+  if (!ok) {
+    taxFailures += 1;
+    console.error(`FAIL tax ${c.name}: got vat=${vat} total=${total} wht=${wht} net=${net}`);
+  } else {
+    console.log(`PASS tax ${c.name}`);
+  }
+}
+
+if (taxFailures > 0) {
+  process.exitCode = 1;
+  console.error(`${taxFailures} tax regression check(s) failed.`);
+} else {
+  console.log("Tax contract regression passed.");
+}

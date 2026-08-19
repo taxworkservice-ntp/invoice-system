@@ -152,7 +152,7 @@ function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     return ws;
   }
 
-  const headers = ["วันที่", "เลขที่ดีล", "เลขที่เอกสาร", "ประเภท", "ลูกค้า", "เลขผู้เสียภาษี", "ที่อยู่", "ยอดรวม", "WHT %", "หัก ณ ที่จ่าย", "ใบรับรอง WHT", "วันที่ชำระ"];
+  const headers = ["วันที่", "เลขที่ดีล", "เลขที่เอกสาร", "ประเภท", "ลูกค้า", "เลขผู้เสียภาษี", "ที่อยู่", "ยอดรวม", "ก่อน VAT", "WHT %", "หัก ณ ที่จ่าย", "ใบรับรอง WHT", "วันที่ชำระ"];
   let row = 1;
   headers.forEach((h, i) => {
     applyHeader(ws.getCell(row, i + 1));
@@ -179,25 +179,28 @@ function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     ws.getCell(row, 8).value = t.total_amount;
     ws.getCell(row, 8).numFmt = CURRENCY_FMT;
     applyBody(ws.getCell(row, 9), { right: true });
-    ws.getCell(row, 9).value = t.wht_rate != null ? `${t.wht_rate}%` : "—";
-    applyBody(ws.getCell(row, 10), { right: true, color: RED_TEXT });
-    ws.getCell(row, 10).value = t.wht_amount;
-    ws.getCell(row, 10).numFmt = CURRENCY_FMT;
-    applyBody(ws.getCell(row, 11));
-    ws.getCell(row, 11).value = t.wht_certificate_no || "-";
+    ws.getCell(row, 9).value = t.subtotal || 0;
+    ws.getCell(row, 9).numFmt = CURRENCY_FMT;
+    applyBody(ws.getCell(row, 10), { right: true });
+    ws.getCell(row, 10).value = t.wht_rate != null ? `${t.wht_rate}%` : "—";
+    applyBody(ws.getCell(row, 11), { right: true, color: RED_TEXT });
+    ws.getCell(row, 11).value = t.wht_amount;
+    ws.getCell(row, 11).numFmt = CURRENCY_FMT;
     applyBody(ws.getCell(row, 12));
-    ws.getCell(row, 12).value = t.paid_at ? (() => { const d = new Date(t.paid_at!); return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear() + 543}`; })() : "-";
+    ws.getCell(row, 12).value = t.wht_certificate_no || "-";
+    applyBody(ws.getCell(row, 13));
+    ws.getCell(row, 13).value = t.paid_at ? (() => { const d = new Date(t.paid_at!); return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear() + 543}`; })() : "-";
     row++;
   }
 
   const totalWht = whtTransactions.reduce((s, t) => s + t.wht_amount, 0);
   applyBody(ws.getCell(row, 1), { bold: true });
   ws.getCell(row, 1).value = "รวม";
-  applyBody(ws.getCell(row, 10), { right: true, bold: true, color: RED_TEXT });
-  ws.getCell(row, 10).value = totalWht;
-  ws.getCell(row, 10).numFmt = CURRENCY_FMT;
+  applyBody(ws.getCell(row, 11), { right: true, bold: true, color: RED_TEXT });
+  ws.getCell(row, 11).value = totalWht;
+  ws.getCell(row, 11).numFmt = CURRENCY_FMT;
 
-  setColumnWidths(ws, [12, 14, 16, 16, 22, 14, 22, 14, 8, 14, 14, 12]);
+  setColumnWidths(ws, [12, 14, 16, 16, 22, 14, 22, 14, 14, 8, 14, 14, 12]);
   applyPageSetup(ws);
   return ws;
 }
