@@ -722,6 +722,7 @@ export function PrintDocumentClassicV2({
           ) : null}
 
           {/* ============== NOTE / PAYMENT + TOTALS ============== */}
+          {showFooter && (
           <div className={`print-classic-bottom-row${isReceiptOrBillingNoteTable ? " print-classic-bottom-row-receipt" : ""}`}>
             <div className="print-classic-terms-col">
               {isDeliveryNote ? (
@@ -912,6 +913,7 @@ export function PrintDocumentClassicV2({
               </div>
             )}
           </div>
+          )}
         </div>
       </section>
 
