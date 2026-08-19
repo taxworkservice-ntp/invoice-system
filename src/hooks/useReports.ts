@@ -186,6 +186,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [byType, setByType] = useState<RevenueByType[]>([]);
   const [monthly, setMonthly] = useState<MonthlyRevenue[]>([]);
+  const [monthlyTrend, setMonthlyTrend] = useState<MonthlyRevenue[]>([]);
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
   const [arAging, setArAging] = useState<ARAgingBucket[]>([]);
   const [arByCustomer, setArByCustomer] = useState<ARByCustomer[]>([]);
@@ -363,20 +364,23 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       );
 
       const months = getMonthsBack(6);
-      const monthlyData: MonthlyRevenue[] = [];
-      for (const m of months) {
+      const trendMonths = getMonthsBack(12);
+      const monthlyTrendData: MonthlyRevenue[] = [];
+      for (const m of trendMonths) {
         const { start: ms, end: me } = getMonthRange(m.year, m.month);
         const inMonth = dedupedSalesDocs.filter((d) => {
           const recognitionDate = getRecognitionDate(d);
           return recognitionDate >= ms && recognitionDate <= me;
         });
-        monthlyData.push({
+        const row = {
           month: `${m.month}`.padStart(2, "0"),
           year: m.year,
           total: inMonth.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0),
-        });
+        };
+        monthlyTrendData.push(row);
       }
-      setMonthly(monthlyData);
+      setMonthly(monthlyTrendData.slice(-months.length));
+      setMonthlyTrend(monthlyTrendData);
 
       const custMap = new Map<string, { name: string; total: number; count: number }>();
       for (const d of paidThisPeriod) {
@@ -540,7 +544,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       // MoM revenue delta
       const prevM = month === 1 ? 12 : month - 1;
       const prevY = month === 1 ? year - 1 : year;
-      const prevMonthData = monthlyData.find((m) => parseInt(m.month, 10) === prevM && m.year === prevY);
+      const prevMonthData = monthlyTrendData.find((m) => parseInt(m.month, 10) === prevM && m.year === prevY);
       setRevenueDelta(prevMonthData && prevMonthData.total > 0 ? ((revenue - prevMonthData.total) / prevMonthData.total) * 100 : null);
 
       // COGS from stock auto_out
@@ -571,7 +575,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
     fetchData();
   }, [fetchData]);
 
-  return { summary, byType, monthly, topCustomers, arAging, arByCustomer, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error, refetch: fetchData };
+  return { summary, byType, monthly, monthlyTrend, topCustomers, arAging, arByCustomer, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error, refetch: fetchData };
 }
 
 export function useStockReport(userId: string | undefined, dateFrom: string, dateTo: string) {

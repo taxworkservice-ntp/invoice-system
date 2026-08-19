@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CircleDollarSign, TrendingUp, Wallet, FileText, Download, BarChart3, Percent, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../ui/Card";
@@ -12,6 +12,14 @@ import { TransactionTable } from "./TransactionTable";
 const MONTH_NAMES_TH = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
   "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+];
+
+type ChartRange = "6m" | "ytd" | "12m";
+
+const CHART_RANGES: { key: ChartRange; label: string }[] = [
+  { key: "6m", label: "6 เดือน" },
+  { key: "ytd", label: "YTD" },
+  { key: "12m", label: "12 เดือน" },
 ];
 
 function monthLabel(m: string) {
@@ -94,15 +102,30 @@ interface FinancialReportProps {
 export function FinancialReport({ userId }: FinancialReportProps) {
   const navigate = useNavigate();
   const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const { summary, monthly, arByCustomer, arAging, topCustomers, byType, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error } = useFinancialReport(userId, year, month);
+  const [chartRange, setChartRange] = useState<ChartRange>("6m");
+  const { summary, monthly, monthlyTrend, arByCustomer, arAging, topCustomers, byType, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error } = useFinancialReport(userId, year, month);
 
   const today = new Date();
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
 
-  const maxMonthly = Math.max(...monthly.map((m) => m.total), 1);
-  const activeIndex = monthly.findIndex((m) => parseInt(m.month, 10) === month && m.year === year);
+  const chartMonths = useMemo(() => {
+    if (chartRange === "12m") return monthlyTrend;
+    if (chartRange === "ytd") {
+      return monthlyTrend.filter((m) => m.year === currentYear && parseInt(m.month, 10) <= currentMonth);
+    }
+    return monthlyTrend.slice(-6);
+  }, [chartRange, monthlyTrend, currentYear, currentMonth]);
+  const maxMonthly = Math.max(...chartMonths.map((m) => m.total), 1);
+  const activeIndex = chartMonths.findIndex((m) => parseInt(m.month, 10) === month && m.year === year);
+  const chartTitle = chartRange === "ytd"
+    ? `รายได้สะสมปี ${currentYear + 543}`
+    : chartRange === "12m"
+      ? "รายได้ 12 เดือนย้อนหลัง"
+      : "รายได้ 6 เดือนย้อนหลัง";
 
   async function handleExportExcel() {
     try {
@@ -207,12 +230,28 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         </div>
       )}
 
-      {monthly.length > 0 && (
+      {chartMonths.length > 0 && (
         <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">รายได้ 6 เดือนย้อนหลัง</h3>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">{chartTitle}</h3>
+            <div className="flex items-center gap-0.5 rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-0.5" role="tablist" aria-label="ช่วงเวลาของกราฟรายได้">
+              {CHART_RANGES.map((range) => (
+                <button
+                  key={range.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={chartRange === range.key}
+                  onClick={() => setChartRange(range.key)}
+                  className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${chartRange === range.key ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#475467]"}`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <BarChart
-            data={monthly.map((m) => ({
-              label: `${monthLabel(m.month)}`,
+            data={chartMonths.map((m) => ({
+              label: `${monthLabel(m.month)}${chartRange === "12m" ? ` ${String(m.year + 543).slice(-2)}` : ""}`,
               value: m.total,
               month: parseInt(m.month, 10),
               year: m.year,
