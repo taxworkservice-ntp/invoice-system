@@ -36,6 +36,7 @@ import {
   convertReceiptInputToPreTax,
   type ReceiptInputBasis,
 } from "../../../lib/tax";
+import { getReceiptInputBasisPreference, setReceiptInputBasisPreference } from "../../../lib/receiptInputBasis";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
@@ -188,7 +189,7 @@ export default function DealDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
   const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
   const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
-  const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>("pre_tax");
+  const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>(getReceiptInputBasisPreference);
   const [paymentPreviousWht, setPaymentPreviousWht] = useState(0);
   const [whtCertificateNo, setWhtCertificateNo] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => realTodayString());
@@ -458,7 +459,7 @@ export default function DealDetailPage() {
     setPayDocument(doc);
     setPaymentBaseAmount(remaining);
     setPaymentBaseRemaining(remaining);
-    setPaymentInputBasis("pre_tax");
+    setPaymentInputBasis(getReceiptInputBasisPreference());
     setPaymentPreviousWht(previousWht);
     setPaymentMismatchConfirm(false);
     setPaymentMethod("bank_transfer");
@@ -2319,6 +2320,7 @@ export default function DealDetailPage() {
                        whtRate: payDocument.wht_rate,
                      }));
                      setPaymentInputBasis(nextBasis);
+                     setReceiptInputBasisPreference(nextBasis);
                    }}
                  >
                    <option value="pre_tax">ยอดชำระก่อน VAT</option>

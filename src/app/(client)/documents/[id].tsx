@@ -36,6 +36,7 @@ import {
   convertReceiptInputToPreTax,
   type ReceiptInputBasis,
 } from "../../../lib/tax";
+import { getReceiptInputBasisPreference, setReceiptInputBasisPreference } from "../../../lib/receiptInputBasis";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import {
   buildReceiptBackdateFields,
@@ -121,7 +122,7 @@ export default function DocumentDetailPage() {
   const [payMethod, setPayMethod] = useState<PaymentMethod>("bank_transfer");
   const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
   const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
-  const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>("pre_tax");
+  const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>(getReceiptInputBasisPreference);
   const [paymentPreviousWht, setPaymentPreviousWht] = useState(0);
   const toast = useToast();
   const [payWhtCert, setPayWhtCert] = useState("");
@@ -674,7 +675,7 @@ export default function DocumentDetailPage() {
     const remaining = Math.max(0, doc.subtotal - previousTotal);
     setPaymentBaseAmount(remaining);
     setPaymentBaseRemaining(remaining);
-    setPaymentInputBasis("pre_tax");
+    setPaymentInputBasis(getReceiptInputBasisPreference());
     setPaymentPreviousWht(previousWht);
     setPayMismatchConfirm(false);
     setPayMethod("bank_transfer");
@@ -1697,6 +1698,7 @@ export default function DocumentDetailPage() {
                   whtRate: doc.wht_rate,
                 }));
                 setPaymentInputBasis(nextBasis);
+                setReceiptInputBasisPreference(nextBasis);
               }}
             >
               <option value="pre_tax">ยอดชำระก่อน VAT</option>
