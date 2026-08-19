@@ -8,6 +8,47 @@ function clampAmount(value: number, max: number): number {
   return Math.max(0, Math.min(round2(value), round2(max)));
 }
 
+export type ReceiptInputBasis = "pre_tax" | "gross" | "net_cash";
+
+export function convertReceiptInputToPreTax({
+  amount,
+  basis,
+  vatRate,
+  whtRate,
+}: {
+  amount: number;
+  basis: ReceiptInputBasis;
+  vatRate: number;
+  whtRate: number;
+}) {
+  const vatFactor = 1 + vatRate / 100;
+  const netFactor = vatFactor - whtRate / 100;
+  if (basis === "gross") return round2(amount / vatFactor);
+  if (basis === "net_cash") return round2(amount / netFactor);
+  return round2(amount);
+}
+
+export function convertReceiptInputAmount({
+  amount,
+  from,
+  to,
+  vatRate,
+  whtRate,
+}: {
+  amount: number;
+  from: ReceiptInputBasis;
+  to: ReceiptInputBasis;
+  vatRate: number;
+  whtRate: number;
+}) {
+  const preTax = convertReceiptInputToPreTax({ amount, basis: from, vatRate, whtRate });
+  const gross = round2(preTax * (1 + vatRate / 100));
+  const netCash = round2(gross - preTax * whtRate / 100);
+  if (to === "gross") return gross;
+  if (to === "net_cash") return netCash;
+  return preTax;
+}
+
 export function calculateReceiptAllocation({
   preTaxAmount,
   vatRate,
@@ -37,6 +78,33 @@ export function calculateReceiptAllocation({
   const netAmount = round2(grossAmount - whtAmount);
 
   return { preTax, vatAmount, grossAmount, whtAmount, netAmount };
+}
+
+export function calculateReceiptAllocationFromInput({
+  amount,
+  basis,
+  vatRate,
+  whtRate,
+  expectedWht = 0,
+  previousWht = 0,
+  isFullyPaid = false,
+}: {
+  amount: number;
+  basis: ReceiptInputBasis;
+  vatRate: number;
+  whtRate: number;
+  expectedWht?: number;
+  previousWht?: number;
+  isFullyPaid?: boolean;
+}) {
+  return calculateReceiptAllocation({
+    preTaxAmount: convertReceiptInputToPreTax({ amount, basis, vatRate, whtRate }),
+    vatRate,
+    whtRate,
+    expectedWht,
+    previousWht,
+    isFullyPaid,
+  });
 }
 
 type TaxLineInput = Partial<Pick<DocumentLineItem, "unit_price" | "quantity" | "discount_percent" | "discount_amount" | "line_total">>;

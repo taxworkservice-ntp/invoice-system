@@ -30,7 +30,12 @@ import {
   todayString as realTodayString,
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
-import { calculateReceiptAllocation } from "../../../lib/tax";
+import {
+  calculateReceiptAllocationFromInput,
+  convertReceiptInputAmount,
+  convertReceiptInputToPreTax,
+  type ReceiptInputBasis,
+} from "../../../lib/tax";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
@@ -183,6 +188,7 @@ export default function DealDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
   const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
   const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
+  const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>("pre_tax");
   const [paymentPreviousWht, setPaymentPreviousWht] = useState(0);
   const [whtCertificateNo, setWhtCertificateNo] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => realTodayString());
@@ -452,6 +458,7 @@ export default function DealDetailPage() {
     setPayDocument(doc);
     setPaymentBaseAmount(remaining);
     setPaymentBaseRemaining(remaining);
+    setPaymentInputBasis("pre_tax");
     setPaymentPreviousWht(previousWht);
     setPaymentMismatchConfirm(false);
     setPaymentMethod("bank_transfer");
@@ -470,11 +477,12 @@ export default function DealDetailPage() {
     }
     const { preTaxAmount: previousTotal } = await getReceiptTotalsForDocument(payDocument, userId);
     const remaining = Math.max(0, payDocument.subtotal - previousTotal);
-    if (paymentBaseAmount > remaining + 0.01) {
+    const requestedPreTax = convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: payDocument.vat_rate, whtRate: payDocument.wht_rate });
+    if (requestedPreTax > remaining + 0.01) {
       toast.error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
       return;
     }
-    if (paymentBaseAmount < remaining - 0.01) {
+    if (requestedPreTax < remaining - 0.01) {
       setPaymentMismatchConfirm(true);
       return;
     }
@@ -502,20 +510,21 @@ export default function DealDetailPage() {
       const previousTotal = previousTotals.preTaxAmount;
       const previousWht = previousTotals.whtAmount;
       const remaining = Math.max(0, payDocument.subtotal - previousTotal);
-      if (paymentBaseAmount <= 0 || paymentBaseAmount > remaining + 0.01) {
-        throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
-      }
-      const newTotal = previousTotal + paymentBaseAmount;
-      const isFullyPaid = newTotal >= (payDocument.subtotal - 0.01);
-      const newStatus = isFullyPaid ? "paid" : "partially_paid";
-      const allocation = calculateReceiptAllocation({
-        preTaxAmount: paymentBaseAmount,
+      const allocation = calculateReceiptAllocationFromInput({
+        amount: paymentBaseAmount,
+        basis: paymentInputBasis,
         vatRate: payDocument.vat_rate,
         whtRate: payDocument.wht_rate,
         expectedWht: payDocument.wht_amount || 0,
         previousWht,
-        isFullyPaid,
+        isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: payDocument.vat_rate, whtRate: payDocument.wht_rate }) >= payDocument.subtotal - 0.01,
       });
+      if (paymentBaseAmount <= 0 || allocation.preTax > remaining + 0.01) {
+        throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+      }
+      const newTotal = previousTotal + allocation.preTax;
+      const isFullyPaid = newTotal >= (payDocument.subtotal - 0.01);
+      const newStatus = isFullyPaid ? "paid" : "partially_paid";
 
       await supabase
         .from("documents")
@@ -1354,13 +1363,14 @@ export default function DealDetailPage() {
   }
 
   const paymentPreview = payDocument
-    ? calculateReceiptAllocation({
-        preTaxAmount: paymentBaseAmount,
+    ? calculateReceiptAllocationFromInput({
+        amount: paymentBaseAmount,
+        basis: paymentInputBasis,
         vatRate: payDocument.vat_rate,
         whtRate: payDocument.wht_rate,
         expectedWht: payDocument.wht_amount || 0,
         previousWht: paymentPreviousWht,
-        isFullyPaid: paymentBaseAmount >= payDocument.subtotal - 0.01,
+        isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: payDocument.vat_rate, whtRate: payDocument.wht_rate }) >= payDocument.subtotal - 0.01,
       })
     : null;
 
@@ -2250,16 +2260,16 @@ export default function DealDetailPage() {
                          <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseRemaining)}</span>
                       </div>
                       <div className="flex justify-between">
-                         <span className="text-amber-700">ยอดก่อน VAT งวดนี้</span>
-                         <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseAmount)}</span>
+                         <span className="text-amber-700">ยอดก่อน VAT ของงวดนี้</span>
+                         <span className="font-medium text-amber-900">฿{formatCurrency(paymentPreview?.preTax || 0)}</span>
                       </div>
                       <div className="border-t border-amber-200 pt-1.5 flex justify-between">
                         <span className="text-amber-700">ส่วนต่าง</span>
-                         <span className="font-bold text-amber-900">{paymentBaseAmount > paymentBaseRemaining ? "+" : ""}฿{formatCurrency(paymentBaseAmount - paymentBaseRemaining)}</span>
+                         <span className="font-bold text-amber-900">{(paymentPreview?.preTax || 0) > paymentBaseRemaining ? "+" : ""}฿{formatCurrency((paymentPreview?.preTax || 0) - paymentBaseRemaining)}</span>
                       </div>
                     </div>
                     <p className="mt-3 text-xs text-amber-700">
-                       {paymentBaseAmount < paymentBaseRemaining
+                       {(paymentPreview?.preTax || 0) < paymentBaseRemaining
                          ? "คุณกำลังบันทึกชำระบางส่วน ยอดคงเหลือจะแสดงในรายงานลูกหนี้จนกว่าจะชำระครบ"
                          : "ยอดก่อน VAT เกินยอดคงเหลือ ระบบจะไม่บันทึกยอดส่วนเกิน"}
                     </p>
@@ -2277,8 +2287,8 @@ export default function DealDetailPage() {
                    <span className="font-semibold">฿{formatCurrency(paymentBaseRemaining)}</span>
                  </div>
                  <div className="mt-2 flex items-center justify-between">
-                   <span className="text-gray-500">ยอดก่อน VAT งวดนี้</span>
-                   <span className="font-medium text-gray-700">฿{formatCurrency(paymentBaseAmount)}</span>
+                   <span className="text-gray-500">ยอดก่อน VAT ของงวดนี้</span>
+                   <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.preTax || 0)}</span>
                  </div>
                  <div className="mt-2 flex items-center justify-between">
                    <span className="text-gray-500">ยอดรวมก่อน WHT</span>
@@ -2294,9 +2304,31 @@ export default function DealDetailPage() {
                 </div>
               </div>
 
-              <Input
-                 label="ยอดชำระก่อน VAT"
-                type="number"
+               <div>
+                 <label className="block text-xs font-medium text-gray-500 mb-1">กรอกยอดโดยอ้างอิงจาก</label>
+                 <select
+                   className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
+                   value={paymentInputBasis}
+                   onChange={(e) => {
+                     const nextBasis = e.target.value as ReceiptInputBasis;
+                     setPaymentBaseAmount(convertReceiptInputAmount({
+                       amount: paymentBaseAmount,
+                       from: paymentInputBasis,
+                       to: nextBasis,
+                       vatRate: payDocument.vat_rate,
+                       whtRate: payDocument.wht_rate,
+                     }));
+                     setPaymentInputBasis(nextBasis);
+                   }}
+                 >
+                   <option value="pre_tax">ยอดชำระก่อน VAT</option>
+                   <option value="gross">ยอดรวมก่อนหัก WHT</option>
+                   <option value="net_cash">ยอดโอนจริงหลังหัก WHT</option>
+                 </select>
+               </div>
+               <Input
+                 label={paymentInputBasis === "pre_tax" ? "ยอดชำระก่อน VAT" : paymentInputBasis === "gross" ? "ยอดรวมก่อนหัก WHT" : "ยอดโอนจริงหลังหัก WHT"}
+                 type="number"
                 step="0.01"
                  value={paymentBaseAmount || ""}
                  onChange={(e) => setPaymentBaseAmount(parseFloat(e.target.value) || 0)}

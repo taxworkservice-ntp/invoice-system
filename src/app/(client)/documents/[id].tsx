@@ -30,7 +30,12 @@ import { formatCurrency } from "../../../lib/format";
 import { getReceiptTotalsForDocument } from "../../../lib/receiptTotals";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
-import { calculateReceiptAllocation } from "../../../lib/tax";
+import {
+  calculateReceiptAllocationFromInput,
+  convertReceiptInputAmount,
+  convertReceiptInputToPreTax,
+  type ReceiptInputBasis,
+} from "../../../lib/tax";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import {
   buildReceiptBackdateFields,
@@ -116,6 +121,7 @@ export default function DocumentDetailPage() {
   const [payMethod, setPayMethod] = useState<PaymentMethod>("bank_transfer");
   const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
   const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
+  const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>("pre_tax");
   const [paymentPreviousWht, setPaymentPreviousWht] = useState(0);
   const toast = useToast();
   const [payWhtCert, setPayWhtCert] = useState("");
@@ -394,11 +400,12 @@ export default function DocumentDetailPage() {
     }
     const { preTaxAmount: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
     const remaining = Math.max(0, doc.subtotal - previousTotal);
-    if (paymentBaseAmount > remaining + 0.01) {
+    const requestedPreTax = convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate });
+    if (requestedPreTax > remaining + 0.01) {
       setError(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
       return;
     }
-    if (paymentBaseAmount < remaining - 0.01) {
+    if (requestedPreTax < remaining - 0.01) {
       setPayMismatchConfirm(true);
       return;
     }
@@ -427,20 +434,21 @@ export default function DocumentDetailPage() {
       const previousTotal = previousTotals.preTaxAmount;
       const previousWht = previousTotals.whtAmount;
       const remaining = Math.max(0, doc.subtotal - previousTotal);
-      if (paymentBaseAmount <= 0 || paymentBaseAmount > remaining + 0.01) {
-        throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
-      }
-      const newTotal = previousTotal + paymentBaseAmount;
-      const isFullyPaid = newTotal >= (doc.subtotal - 0.01);
-      const newStatus = isFullyPaid ? "paid" : "partially_paid";
-      const allocation = calculateReceiptAllocation({
-        preTaxAmount: paymentBaseAmount,
+      const allocation = calculateReceiptAllocationFromInput({
+        amount: paymentBaseAmount,
+        basis: paymentInputBasis,
         vatRate: doc.vat_rate,
         whtRate: doc.wht_rate,
         expectedWht: doc.wht_amount || 0,
         previousWht,
-        isFullyPaid,
+        isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate }) >= doc.subtotal - 0.01,
       });
+      if (paymentBaseAmount <= 0 || allocation.preTax > remaining + 0.01) {
+        throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+      }
+      const newTotal = previousTotal + allocation.preTax;
+      const isFullyPaid = newTotal >= (doc.subtotal - 0.01);
+      const newStatus = isFullyPaid ? "paid" : "partially_paid";
 
       await supabase
         .from("documents")
@@ -666,6 +674,7 @@ export default function DocumentDetailPage() {
     const remaining = Math.max(0, doc.subtotal - previousTotal);
     setPaymentBaseAmount(remaining);
     setPaymentBaseRemaining(remaining);
+    setPaymentInputBasis("pre_tax");
     setPaymentPreviousWht(previousWht);
     setPayMismatchConfirm(false);
     setPayMethod("bank_transfer");
@@ -739,13 +748,14 @@ export default function DocumentDetailPage() {
             : isSent || isIssued
               ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
               : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
-  const paymentPreview = calculateReceiptAllocation({
-    preTaxAmount: paymentBaseAmount,
+  const paymentPreview = calculateReceiptAllocationFromInput({
+    amount: paymentBaseAmount,
+    basis: paymentInputBasis,
     vatRate: doc.vat_rate,
     whtRate: doc.wht_rate,
     expectedWht: doc.wht_amount || 0,
     previousWht: paymentPreviousWht,
-    isFullyPaid: paymentBaseAmount >= doc.subtotal - 0.01,
+    isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate }) >= doc.subtotal - 0.01,
   });
 
   return (
@@ -1647,16 +1657,16 @@ export default function DocumentDetailPage() {
                     <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseRemaining)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-amber-700">ยอดก่อน VAT งวดนี้</span>
-                    <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseAmount)}</span>
+                    <span className="text-amber-700">ยอดก่อน VAT ของงวดนี้</span>
+                    <span className="font-medium text-amber-900">฿{formatCurrency(paymentPreview.preTax)}</span>
                   </div>
                   <div className="border-t border-amber-200 pt-1.5 flex justify-between">
                     <span className="text-amber-700">ส่วนต่าง</span>
-                    <span className="font-bold text-amber-900">{paymentBaseAmount > paymentBaseRemaining ? "+" : ""}฿{formatCurrency(paymentBaseAmount - paymentBaseRemaining)}</span>
+                    <span className="font-bold text-amber-900">{paymentPreview.preTax > paymentBaseRemaining ? "+" : ""}฿{formatCurrency(paymentPreview.preTax - paymentBaseRemaining)}</span>
                   </div>
                 </div>
                 <p className="mt-3 text-xs text-amber-700">
-                  {paymentBaseAmount < paymentBaseRemaining
+                  {paymentPreview.preTax < paymentBaseRemaining
                     ? "คุณกำลังบันทึกชำระบางส่วน ยอดคงเหลือจะแสดงในรายงานลูกหนี้จนกว่าจะชำระครบ"
                     : "ยอดก่อน VAT เกินยอดคงเหลือ ระบบจะไม่บันทึกยอดส่วนเกิน"}
                 </p>
@@ -1672,8 +1682,30 @@ export default function DocumentDetailPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">ยอดก่อน VAT คงเหลือ</label>
             <p className="text-lg font-semibold">฿{formatCurrency(paymentBaseRemaining)}</p>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">กรอกยอดโดยอ้างอิงจาก</label>
+            <select
+              className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
+              value={paymentInputBasis}
+              onChange={(e) => {
+                const nextBasis = e.target.value as ReceiptInputBasis;
+                setPaymentBaseAmount(convertReceiptInputAmount({
+                  amount: paymentBaseAmount,
+                  from: paymentInputBasis,
+                  to: nextBasis,
+                  vatRate: doc.vat_rate,
+                  whtRate: doc.wht_rate,
+                }));
+                setPaymentInputBasis(nextBasis);
+              }}
+            >
+              <option value="pre_tax">ยอดชำระก่อน VAT</option>
+              <option value="gross">ยอดรวมก่อนหัก WHT</option>
+              <option value="net_cash">ยอดโอนจริงหลังหัก WHT</option>
+            </select>
+          </div>
           <Input
-            label="ยอดชำระก่อน VAT"
+            label={paymentInputBasis === "pre_tax" ? "ยอดชำระก่อน VAT" : paymentInputBasis === "gross" ? "ยอดรวมก่อนหัก WHT" : "ยอดโอนจริงหลังหัก WHT"}
             type="number"
             step="0.01"
             value={paymentBaseAmount || ""}
