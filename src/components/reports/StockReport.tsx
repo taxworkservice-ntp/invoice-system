@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Package, AlertTriangle, TrendingDown, Download, Loader2, BarChart3, DollarSign, History } from "lucide-react";
+import { Package, AlertTriangle, TrendingDown, Download, Loader2, BarChart3, DollarSign, History, CalendarDays } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
@@ -34,14 +34,16 @@ function formatDate(date: string) {
 function SummaryCard({ icon, label, value, alert = false, onClick }: { icon: React.ReactNode; label: string; value: string; alert?: boolean; onClick?: () => void }) {
   return (
     <Card
-      className={`min-h-[78px] border-[0.5px] p-3 shadow-sm ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+      className={`min-h-[78px] border-[#E8E6DF] p-3 shadow-sm ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
       onClick={onClick}
     >
-      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500">
-        {icon}
+      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#888780]">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EAF4FF] text-primary">
+          {icon}
+        </span>
         {label}
       </div>
-      <div className={`mt-1.5 text-xl font-semibold tabular-nums ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
+      <div className={`mt-2 text-xl font-semibold leading-tight tabular-nums ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
         {value}
       </div>
     </Card>
@@ -137,8 +139,37 @@ export function StockReport({ userId }: StockReportProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <Button variant="secondary" size="sm" onClick={handleExportXLSX} disabled={exporting}>
+      <div className="flex flex-col gap-3 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#888780]">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            <span>ช่วงวันที่</span>
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <label className="min-w-0">
+              <span className="sr-only">วันที่เริ่มต้น</span>
+              <input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-full min-w-0 rounded-lg border border-[#E8E6DF] bg-white px-2.5 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </label>
+            <span className="text-xs text-[#888780]">ถึง</span>
+            <label className="min-w-0">
+              <span className="sr-only">วันที่สิ้นสุด</span>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-full min-w-0 rounded-lg border border-[#E8E6DF] bg-white px-2.5 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </label>
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" onClick={handleExportXLSX} disabled={exporting} className="w-full sm:w-auto">
           {exporting ? (
             <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
           ) : (
@@ -153,12 +184,15 @@ export function StockReport({ userId }: StockReportProps) {
         </div>
       )}
 
-      <div className="flex gap-1 overflow-x-auto rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="มุมมองรายงานสต็อก">
         {SUB_TABS.map((tab) => {
           const active = subTab === tab.key;
           return (
             <button
               key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
               onClick={() => setSubTab(tab.key)}
               className={`flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                 active ? "bg-white text-[#1A1A18] shadow-sm" : "text-gray-500 hover:text-[#475467]"

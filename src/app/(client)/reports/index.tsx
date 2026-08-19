@@ -35,15 +35,18 @@ export default function ReportsPage() {
   return (
     <AppShell title="รายงาน">
       <div className="space-y-4">
-        <div className="flex gap-1 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-1">
+        <div className="flex gap-1 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-1" role="tablist" aria-label="ประเภทรายงาน">
           {TABS.map((tab) => (
             <button
               key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? "bg-white text-[#1A1A18] shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  : "text-[#888780] hover:bg-white/60 hover:text-[#475467]"
               }`}
             >
               {tab.icon}

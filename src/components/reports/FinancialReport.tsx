@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CircleDollarSign, TrendingUp, Wallet, FileText, Download, BarChart3, Percent } from "lucide-react";
+import { CircleDollarSign, TrendingUp, Wallet, FileText, Download, BarChart3, Percent, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -27,12 +27,14 @@ function SummaryCard({ icon, label, value, alert = false, delta, deltaGood = tru
       ? "text-[#1E5A38]"
       : "text-[#C0392B]";
   return (
-    <Card className="min-h-[96px] border-[0.5px] p-3 shadow-sm">
-      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500">
-        {icon}
+    <Card className="min-h-[96px] border-[#E8E6DF] p-3 shadow-sm">
+      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#888780]">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EAF4FF] text-primary">
+          {icon}
+        </span>
         {label}
       </div>
-      <div className={`mt-1.5 text-lg font-semibold tabular-nums truncate ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
+      <div className={`mt-2 text-lg font-semibold leading-tight tabular-nums truncate ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`} title={`฿ ${value}`}>
         ฿ {value}
       </div>
       {deltaFormatted && (
@@ -159,28 +161,36 @@ export function FinancialReport({ userId }: FinancialReportProps) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="rounded-lg border border-[#D4D0C8] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            {MONTH_NAMES_TH.map((name, i) => (
-              <option key={i + 1} value={i + 1}>{name}</option>
-            ))}
-          </select>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="rounded-lg border border-[#D4D0C8] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>{y + 543}</option>
-            ))}
-          </select>
+      <div className="flex flex-col gap-3 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#888780]">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            <span>ช่วงเวลา</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <select
+              aria-label="เดือนของรายงาน"
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              className="min-w-0 rounded-lg border border-[#E8E6DF] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              {MONTH_NAMES_TH.map((name, i) => (
+                <option key={i + 1} value={i + 1}>{name}</option>
+              ))}
+            </select>
+            <select
+              aria-label="ปีของรายงาน"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="min-w-0 rounded-lg border border-[#E8E6DF] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>{y + 543}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <Button variant="secondary" size="sm" onClick={handleExportExcel}>
+        <Button variant="secondary" size="sm" onClick={handleExportExcel} className="w-full sm:w-auto">
           <Download className="mr-1.5 h-4 w-4" />
           ส่งออก Excel
         </Button>
