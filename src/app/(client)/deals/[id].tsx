@@ -169,6 +169,7 @@ export default function DealDetailPage() {
   const todayString = () => businessToday;
   const [docsWithMeta, setDocsWithMeta] = useState<DocWithMeta[]>([]);
   const [activities, setActivities] = useState<DealActivity[]>([]);
+  const [showAllActivities, setShowAllActivities] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [voidModalOpen, setVoidModalOpen] = useState(false);
@@ -1708,7 +1709,7 @@ export default function DealDetailPage() {
               </div>
             </div>
             <div className="space-y-3">
-              {activities.map((activity) => {
+              {(showAllActivities ? activities : activities.slice(0, 5)).map((activity) => {
                 const amount = activity.metadata?.amount;
                 return (
                   <div key={activity.id} className="flex gap-3">
@@ -1720,9 +1721,14 @@ export default function DealDetailPage() {
                           {new Date(activity.created_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}
                         </span>
                       </div>
-                      <div className="mt-0.5 text-[11px] text-gray-500">
-                        {activity.actor_name} · {activity.actor_role}
-                        {activity.metadata?.doc_number ? ` · ${activity.metadata.doc_number}` : ""}
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+                        <span>{activity.actor_name} · {activity.actor_role}</span>
+                        {activity.metadata?.doc_type && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-cool-25 px-2 py-0.5 text-2xs font-medium text-gray-600">
+                            {DOC_TYPE_LABELS[activity.metadata.doc_type as DocumentType]?.th || activity.metadata.doc_type}
+                            {activity.metadata.doc_number ? ` · ${activity.metadata.doc_number}` : ""}
+                          </span>
+                        )}
                         {typeof amount === "number" ? ` · ฿${formatCurrency(amount)}` : ""}
                       </div>
                     </div>
@@ -1730,6 +1736,25 @@ export default function DealDetailPage() {
                 );
               })}
             </div>
+            {activities.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setShowAllActivities((v) => !v)}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-700"
+              >
+                {showAllActivities ? (
+                  <>
+                    <ChevronUp className="h-3.5 w-3.5" />
+                    แสดงน้อยลง
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                    ดูเพิ่มเติม ({activities.length - 5} รายการ)
+                  </>
+                )}
+              </button>
+            )}
           </Card>
         )}
         <Card>
