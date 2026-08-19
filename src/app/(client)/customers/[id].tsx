@@ -776,21 +776,21 @@ export default function CustomerDetailPage() {
         )}
 
         <Card>
-          <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3 sm:gap-3">
             <div>
-              <div className="text-[20px] font-bold text-[#1A1A18]">{dealHistoryItems.length}</div>
-              <div className="text-[11px] text-[#888780]">งานขายทั้งหมด</div>
+              <div className="text-[18px] font-bold leading-none tabular-nums text-[#1A1A18] sm:text-[20px]">{dealHistoryItems.length}</div>
+              <div className="mt-1 text-[11px] text-[#888780]">งานขายทั้งหมด</div>
               <div className="mt-0.5 text-[10px] text-[#AAA49A]">กำลังทำ {activeDealItems.length} · เสร็จแล้ว {doneDealItems.length}</div>
             </div>
             <div>
-              <div className="text-[20px] font-bold text-[#1A1A18]">฿ {formatCurrency(totalReceived)}</div>
-              <div className="text-[11px] text-[#888780]">รับแล้วทั้งหมด</div>
+              <div className="text-[18px] font-bold leading-none tabular-nums text-[#1A1A18] sm:text-[20px]">฿ {formatCurrency(totalReceived)}</div>
+              <div className="mt-1 text-[11px] text-[#888780]">รับแล้วทั้งหมด</div>
             </div>
             <div>
-              <div className={`text-[20px] font-bold ${unpaid > 0 ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
+              <div className={`text-[18px] font-bold leading-none tabular-nums sm:text-[20px] ${unpaid > 0 ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
                 ฿ {formatCurrency(unpaid)}
               </div>
-              <div className="text-[11px] text-[#888780]">ค้างชำระ</div>
+              <div className="mt-1 text-[11px] text-[#888780]">ค้างชำระ</div>
             </div>
           </div>
         </Card>
