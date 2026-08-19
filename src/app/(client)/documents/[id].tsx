@@ -26,6 +26,7 @@ import { PAYMENT_METHOD_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { getReceiptTotalsForDocument } from "../../../lib/receiptTotals";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
 import { calculateReceiptWhtAmount } from "../../../lib/tax";
@@ -383,7 +384,7 @@ export default function DocumentDetailPage() {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const previousTotal = await getTotalReceived(doc);
+    const { amountReceived: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
     const remaining = Math.max(0, doc.net_payable - previousTotal);
     if (payAmount > remaining + 0.01) {
       setError(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
@@ -414,8 +415,9 @@ export default function DocumentDetailPage() {
       });
       const receiptInvoiceSources = await getReceiptInvoiceSources(doc, userId);
 
-      const previousTotal = await getTotalReceived(doc);
-      const previousWht = await getTotalWhtReceived(doc);
+      const previousTotals = await getReceiptTotalsForDocument(doc, userId);
+      const previousTotal = previousTotals.amountReceived;
+      const previousWht = previousTotals.whtAmount;
       const remaining = Math.max(0, doc.net_payable - previousTotal);
       if (payAmount <= 0 || payAmount > remaining + 0.01) {
         throw new Error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
@@ -645,33 +647,13 @@ export default function DocumentDetailPage() {
     window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
-  async function getTotalReceived(doc: Document): Promise<number> {
-    const { data: receipts } = await supabase
-      .from("documents")
-      .select("amount_received")
-      .eq("converted_from_id", doc.id)
-      .eq("doc_type", "receipt")
-      .neq("status", "voided");
-    return (receipts || []).reduce((sum, r) => sum + (r.amount_received || 0), 0);
-  }
-
-  async function getTotalWhtReceived(doc: Document): Promise<number> {
-    const { data: receipts } = await supabase
-      .from("documents")
-      .select("wht_amount")
-      .eq("converted_from_id", doc.id)
-      .eq("doc_type", "receipt")
-      .neq("status", "voided");
-    return (receipts || []).reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
-  }
-
   const openPayModal = async () => {
-    if (!doc) return;
+    if (!doc || !userId) return;
     if (!permissions.canRecordPayments) {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const previousTotal = await getTotalReceived(doc);
+    const { amountReceived: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
     const remaining = Math.max(0, doc.net_payable - previousTotal);
     setPayAmount(remaining);
     setPayMismatchConfirm(false);

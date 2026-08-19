@@ -16,6 +16,7 @@ import { resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { getReceiptTotalsForDocument } from "../../../lib/receiptTotals";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
@@ -79,26 +80,6 @@ type MainAction =
   | { type: "collect"; doc: Document; label: string; danger?: boolean }
   | { type: "done"; label: string }
   | null;
-
-async function getTotalReceived(doc: Document): Promise<number> {
-  const { data: receipts } = await supabase
-    .from("documents")
-    .select("amount_received")
-    .eq("converted_from_id", doc.id)
-    .eq("doc_type", "receipt")
-    .neq("status", "voided");
-  return (receipts || []).reduce((sum, r) => sum + (r.amount_received || 0), 0);
-}
-
-async function getTotalWhtReceived(doc: Document): Promise<number> {
-  const { data: receipts } = await supabase
-    .from("documents")
-    .select("wht_amount")
-    .eq("converted_from_id", doc.id)
-    .eq("doc_type", "receipt")
-    .neq("status", "voided");
-  return (receipts || []).reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
-}
 
 function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
   if (doc.status === "voided" || doc.status === "converted") return "done";
@@ -459,11 +440,11 @@ export default function DealDetailPage() {
   };
 
   const handleOpenPaymentModal = async (doc: Document) => {
-    if (!permissions.canRecordPayments) {
+    if (!userId || !permissions.canRecordPayments) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const previousTotal = await getTotalReceived(doc);
+    const { amountReceived: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
     const remaining = Math.max(0, doc.net_payable - previousTotal);
     setPayDocument(doc);
     setAmountReceived(remaining);
@@ -482,7 +463,7 @@ export default function DealDetailPage() {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const previousTotal = await getTotalReceived(payDocument);
+    const { amountReceived: previousTotal } = await getReceiptTotalsForDocument(payDocument, userId);
     const remaining = Math.max(0, payDocument.net_payable - previousTotal);
     if (amountReceived > remaining + 0.01) {
       toast.error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
@@ -512,8 +493,9 @@ export default function DealDetailPage() {
       });
       const receiptInvoiceSources = await getReceiptInvoiceSources(payDocument, userId);
 
-      const previousTotal = await getTotalReceived(payDocument);
-      const previousWht = await getTotalWhtReceived(payDocument);
+      const previousTotals = await getReceiptTotalsForDocument(payDocument, userId);
+      const previousTotal = previousTotals.amountReceived;
+      const previousWht = previousTotals.whtAmount;
       const remaining = Math.max(0, payDocument.net_payable - previousTotal);
       if (amountReceived <= 0 || amountReceived > remaining + 0.01) {
         throw new Error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
@@ -1877,7 +1859,7 @@ export default function DealDetailPage() {
                                 <div className="text-green-600">
                                   {doc.paid_at ? formatBuddhistDate(doc.paid_at) : ""}
                                   {doc.payment_method ? ` · ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
-                                  {doc.wht_amount > 0 ? ` · WHT ฿{doc.wht_amount.toLocaleString()}` : ""}
+                                     {doc.wht_amount > 0 ? <> · WHT ฿{doc.wht_amount.toLocaleString()}</> : ""}
                                 </div>
                               )}
                             </div>
