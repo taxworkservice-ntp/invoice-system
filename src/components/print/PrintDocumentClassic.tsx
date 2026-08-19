@@ -116,6 +116,7 @@ export function PrintDocumentClassic({
   const receiptAmount = isReceipt ? document.total_amount : receiptCash;
   const receiptWhtTotal = isReceipt ? document.wht_amount || 0 : 0;
   const receiptReferenceAmount = referenceDoc?.total_amount ?? document.total_amount;
+  const receiptPaidInFull = isReceipt && receiptOutstanding !== undefined && receiptOutstanding <= 0.01;
   const showFooter = pageMode === "single" || pageMode === "last";
   const showHeader = pageMode === "single" || pageMode === "first";
   const showContinuationHeader =
@@ -798,6 +799,12 @@ export function PrintDocumentClassic({
                       </div>
                       <div className="print-classic-totals-val">{formatCurrency(receiptAmount - receiptWhtTotal)}</div>
                     </div>
+                    {receiptPaidInFull ? (
+                      <div className="print-classic-payment-status">
+                        <div>ชำระครบถ้วน</div>
+                        <div className="print-classic-payment-status-en">PAID IN FULL</div>
+                      </div>
+                    ) : null}
                     <div className="print-classic-totals-row print-classic-totals-block-sep">
                       <div className="print-classic-totals-lab">
                         <div className="print-classic-totals-th">ยอดตามเอกสารอ้างอิง</div>
@@ -807,8 +814,8 @@ export function PrintDocumentClassic({
                     </div>
                     <div className="print-classic-totals-row">
                       <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ยอดชำระสะสม</div>
-                        <div className="print-classic-totals-en">TOTAL PAID</div>
+                        <div className="print-classic-totals-th">ยอดชำระสะสมก่อนหัก WHT</div>
+                        <div className="print-classic-totals-en">TOTAL SETTLED (GROSS)</div>
                       </div>
                       <div className="print-classic-totals-val">{formatCurrency(receiptCumulativePaid ?? 0)}</div>
                     </div>

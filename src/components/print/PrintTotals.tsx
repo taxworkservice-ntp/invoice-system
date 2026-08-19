@@ -12,6 +12,7 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
   const receiptAmount = isReceipt ? document.total_amount : receiptCash;
   const receiptWhtTotal = isReceipt ? document.wht_amount || 0 : 0;
   const receiptReferenceAmount = referenceDoc?.total_amount ?? document.total_amount;
+  const receiptPaidInFull = isReceipt && receiptOutstanding !== undefined && receiptOutstanding <= 0.01;
   const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
 
   if (hideDeliveryAmounts) {
@@ -135,6 +136,13 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
                 <span className="self-center">{formatCurrency(receiptAmount - receiptWhtTotal)}</span>
               </div>
 
+              {receiptPaidInFull ? (
+                <div className="mt-2 rounded border border-[#B7E3CB] bg-[#F0FBF4] px-2 py-1.5 text-center font-semibold text-[#176B3A]">
+                  <div>ชำระครบถ้วน</div>
+                  <div className="text-[6.5px] font-medium tracking-[0.08em] text-[#5B9B75]">PAID IN FULL</div>
+                </div>
+              ) : null}
+
               <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2">
                 <div className="flex flex-col">
                   <span>ยอดตามเอกสารอ้างอิง</span>
@@ -144,8 +152,8 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
               </div>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
-                  <span>ยอดชำระสะสม</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">TOTAL PAID</span>
+                  <span>ยอดชำระสะสมก่อนหัก WHT</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">TOTAL SETTLED (GROSS)</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptCumulativePaid ?? 0)}</span>
               </div>

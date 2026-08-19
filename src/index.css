@@ -872,6 +872,23 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-totals-block-sep {
   border-top: 1.4px solid #9aa4af;
 }
+.print-classic-payment-status {
+  margin-top: 1.5mm;
+  padding: 1.3mm 1.5mm;
+  border: 0.5px solid #b7e3cb;
+  border-radius: 1mm;
+  background: #f0fbf4;
+  color: #176b3a;
+  text-align: center;
+  font-size: 8.5pt;
+  font-weight: 700;
+}
+.print-classic-payment-status-en {
+  color: #5b9b75;
+  font-size: 6.5pt;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
 
 /* BOTTOM BAND (signatures) */
 .print-classic-bottom-band {
@@ -999,4 +1016,3 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   border-radius: 8px;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
 }
-
