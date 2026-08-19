@@ -8,6 +8,26 @@ function clampAmount(value: number, max: number): number {
   return Math.max(0, Math.min(round2(value), round2(max)));
 }
 
+export function calculateReceiptWhtAmount({
+  expectedWht,
+  netPayable,
+  paymentAmount,
+  previousWht = 0,
+  isFullyPaid = false,
+}: {
+  expectedWht: number;
+  netPayable: number;
+  paymentAmount: number;
+  previousWht?: number;
+  isFullyPaid?: boolean;
+}) {
+  const expected = Math.max(0, round2(expectedWht));
+  const remaining = Math.max(0, round2(expected - previousWht));
+  if (expected <= 0 || netPayable <= 0 || paymentAmount <= 0) return 0;
+  if (isFullyPaid) return remaining;
+  return Math.min(remaining, round2(expected * paymentAmount / netPayable));
+}
+
 type TaxLineInput = Partial<Pick<DocumentLineItem, "unit_price" | "quantity" | "discount_percent" | "discount_amount" | "line_total">>;
 
 interface DiscountOptions {

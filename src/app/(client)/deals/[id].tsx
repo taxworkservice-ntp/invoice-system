@@ -29,6 +29,7 @@ import {
   todayString as realTodayString,
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
+import { calculateReceiptWhtAmount } from "../../../lib/tax";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
@@ -87,6 +88,16 @@ async function getTotalReceived(doc: Document): Promise<number> {
     .eq("doc_type", "receipt")
     .neq("status", "voided");
   return (receipts || []).reduce((sum, r) => sum + (r.amount_received || 0), 0);
+}
+
+async function getTotalWhtReceived(doc: Document): Promise<number> {
+  const { data: receipts } = await supabase
+    .from("documents")
+    .select("wht_amount")
+    .eq("converted_from_id", doc.id)
+    .eq("doc_type", "receipt")
+    .neq("status", "voided");
+  return (receipts || []).reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
 }
 
 function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
@@ -502,6 +513,7 @@ export default function DealDetailPage() {
       const receiptInvoiceSources = await getReceiptInvoiceSources(payDocument, userId);
 
       const previousTotal = await getTotalReceived(payDocument);
+      const previousWht = await getTotalWhtReceived(payDocument);
       const remaining = Math.max(0, payDocument.net_payable - previousTotal);
       if (amountReceived <= 0 || amountReceived > remaining + 0.01) {
         throw new Error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
@@ -509,6 +521,13 @@ export default function DealDetailPage() {
       const newTotal = previousTotal + amountReceived;
       const isFullyPaid = newTotal >= (payDocument.net_payable - 0.01);
       const newStatus = isFullyPaid ? "paid" : "partially_paid";
+      const receiptWhtAmount = calculateReceiptWhtAmount({
+        expectedWht: payDocument.wht_amount || 0,
+        netPayable: payDocument.net_payable,
+        paymentAmount: amountReceived,
+        previousWht,
+        isFullyPaid,
+      });
 
       await supabase
         .from("documents")
@@ -555,7 +574,7 @@ export default function DealDetailPage() {
         subtotal: payDocument.subtotal,
         vat_amount: payDocument.vat_amount,
         total_amount: payDocument.total_amount,
-        wht_amount: Math.round(amountReceived * ((payDocument.wht_rate || 0) / 100)),
+         wht_amount: receiptWhtAmount,
         net_payable: amountReceived,
         payment_method: paymentMethod,
         amount_received: amountReceived,

@@ -27,6 +27,7 @@ import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
+import { calculateReceiptWhtAmount } from "../../../lib/tax";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import {
   buildReceiptBackdateFields,
@@ -419,6 +420,7 @@ export default function DocumentDetailPage() {
       const receiptInvoiceSources = await getReceiptInvoiceSources(doc, userId);
 
       const previousTotal = await getTotalReceived(doc);
+      const previousWht = await getTotalWhtReceived(doc);
       const remaining = Math.max(0, doc.net_payable - previousTotal);
       if (payAmount <= 0 || payAmount > remaining + 0.01) {
         throw new Error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
@@ -426,6 +428,13 @@ export default function DocumentDetailPage() {
       const newTotal = previousTotal + payAmount;
       const isFullyPaid = newTotal >= (doc.net_payable - 0.01);
       const newStatus = isFullyPaid ? "paid" : "partially_paid";
+      const receiptWhtAmount = calculateReceiptWhtAmount({
+        expectedWht: doc.wht_amount || 0,
+        netPayable: doc.net_payable,
+        paymentAmount: payAmount,
+        previousWht,
+        isFullyPaid,
+      });
 
       await supabase
         .from("documents")
@@ -472,7 +481,7 @@ export default function DocumentDetailPage() {
         subtotal: doc.subtotal,
         vat_amount: doc.vat_amount,
         total_amount: doc.total_amount,
-        wht_amount: Math.round(payAmount * ((doc.wht_rate || 0) / 100)),
+         wht_amount: receiptWhtAmount,
         net_payable: payAmount,
         payment_method: payMethod,
         amount_received: payAmount,
@@ -691,6 +700,16 @@ export default function DocumentDetailPage() {
       .eq("doc_type", "receipt")
       .neq("status", "voided");
     return (receipts || []).reduce((sum, r) => sum + (r.amount_received || 0), 0);
+  }
+
+  async function getTotalWhtReceived(doc: Document): Promise<number> {
+    const { data: receipts } = await supabase
+      .from("documents")
+      .select("wht_amount")
+      .eq("converted_from_id", doc.id)
+      .eq("doc_type", "receipt")
+      .neq("status", "voided");
+    return (receipts || []).reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
   }
 
   const openPayModal = async () => {
