@@ -1,6 +1,7 @@
 import { formatCurrency } from "../../lib/format";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
+import { calculateReceiptBreakdown } from "../../lib/tax";
 import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type { Customer, DocumentLineItem } from "../../types";
@@ -109,10 +110,14 @@ export function PrintDocumentClassicV2({
   const isReceiptOrBillingNoteTable =
     (isBillingNote || (document.doc_type === "receipt" && receiptInvoices.length > 0)) && document.vat_registered;
   const isReceipt = document.doc_type === "receipt";
-  const receiptAmount = document.amount_received ?? document.net_payable;
-  const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && receiptAmount > 0;
-  const receiptPreTax = receiptTaxable ? Math.round((receiptAmount / (1 + document.vat_rate / 100)) * 100) / 100 : 0;
-  const receiptVatAmount = receiptTaxable ? Math.round((receiptAmount - receiptPreTax) * 100) / 100 : 0;
+  const receiptCash = document.amount_received ?? document.net_payable;
+  const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && receiptCash > 0;
+  const receiptBreakdown = receiptTaxable
+    ? calculateReceiptBreakdown({ paymentAmount: receiptCash, vatRate: document.vat_rate, whtRate: document.wht_rate })
+    : null;
+  const receiptPreTax = receiptBreakdown?.preTax ?? 0;
+  const receiptVatAmount = receiptBreakdown?.vatAmount ?? 0;
+  const receiptAmount = receiptBreakdown?.gross ?? receiptCash;
   const receiptWhtTotal = isReceipt ? document.wht_amount || 0 : 0;
   const showFooter = pageMode === "single" || pageMode === "last";
   const showHeader = pageMode === "single" || pageMode === "first";

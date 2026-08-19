@@ -27,9 +27,28 @@ export function calculateReceiptWhtAmount({
   const remaining = Math.max(0, round2(expected - previousWht));
   if (expected <= 0 || whtRate <= 0 || paymentAmount <= 0) return 0;
   if (isFullyPaid) return remaining;
-  // WHT is withheld on the VAT-exclusive portion of the received amount.
-  const vatExclusiveAmount = paymentAmount / (1 + vatRate / 100);
-  return Math.min(remaining, round2(vatExclusiveAmount * whtRate / 100));
+  // WHT is withheld on the pre-tax portion of the received amount,
+  // where the received amount is the net cash (gross portion minus WHT):
+  //   net = preTax * (1 + vatRate - whtRate)
+  const preTax = paymentAmount / (1 + vatRate / 100 - whtRate / 100);
+  return Math.min(remaining, round2(preTax * whtRate / 100));
+}
+
+export function calculateReceiptBreakdown({
+  paymentAmount,
+  vatRate,
+  whtRate,
+}: {
+  paymentAmount: number;
+  vatRate: number;
+  whtRate: number;
+}) {
+  const v = Number(vatRate || 0);
+  const w = Number(whtRate || 0);
+  const preTax = round2(paymentAmount / (1 + v / 100 - w / 100));
+  const vatAmount = round2(preTax * v / 100);
+  const gross = round2(preTax + vatAmount);
+  return { preTax, vatAmount, gross };
 }
 
 type TaxLineInput = Partial<Pick<DocumentLineItem, "unit_price" | "quantity" | "discount_percent" | "discount_amount" | "line_total">>;

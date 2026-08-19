@@ -1,11 +1,15 @@
--- Receipts created before the WHT fix stored wht_amount = rate x amount_received
--- (the received cash includes the VAT portion), instead of rate x pre-VAT subtotal.
+-- Receipts store amount_received = the net cash paid (the customer pays net of
+-- the 3% withholding tax). To be audit-correct, the WHT must be derived on the
+-- pre-tax billed portion so that, across all receipts for a source:
+--   sum(pre-tax) = source subtotal, sum(VAT) = source VAT,
+--   sum(gross received) = source total, sum(WHT) = source WHT,
+--   sum(net cash) = sum(amount_received) = source net payable.
 --
--- Recompute each receipt's WHT from its source document the professional way:
---   expected WHT      = source.wht_amount (rate x source subtotal)
---   per receipt       = expected WHT x amount_received / source.net_payable
---   final receipt     = takes the remainder so the sum of WHT across receipts
---                       for a source equals the full expected WHT
+-- For each cash payment N (vat v, wht w):
+--   pre-tax P  = N / (1 + v - w)
+--   per receipt WHT = P x w
+--   final receipt    = takes the remainder so the sum of WHT across receipts
+--                      for a source equals the full expected WHT
 --
 -- The action-permission trigger blocks edits to issued documents outside the
 -- app flow, and auth.uid() is null when run from the SQL editor, so the trigger
@@ -20,8 +24,16 @@ with ranked as (
     r.id,
     r.converted_from_id,
     r.amount_received,
+    r.vat_rate,
+    r.wht_rate,
     s.wht_amount as expected_wht,
     s.net_payable,
+    round(
+      r.amount_received
+        / nullif(1 + coalesce(r.vat_rate, 0) / 100 - coalesce(r.wht_rate, 0) / 100, 0)
+        * coalesce(r.wht_rate, 0) / 100
+        * 100
+    ) / 100 as direct_wht,
     row_number() over (
       partition by r.converted_from_id
       order by r.created_at, r.id
@@ -40,12 +52,12 @@ allocated as (
     id,
     case
       when rn = total_receipts and total_received >= net_payable - 0.01
-        then round((expected_wht - coalesce(sum(round(expected_wht * amount_received / nullif(net_payable, 0) * 100) / 100) over (
+        then round((expected_wht - coalesce(sum(direct_wht) over (
           partition by converted_from_id
           order by rn
           rows between unbounded preceding and 1 preceding
         ), 0)) * 100) / 100
-      else round(expected_wht * amount_received / nullif(net_payable, 0) * 100) / 100
+      else direct_wht
     end as new_wht
   from ranked
 )
