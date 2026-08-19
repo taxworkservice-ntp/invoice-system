@@ -247,6 +247,12 @@ export function PrintDocumentClassic({
             {titleEn ? (
               <div className="print-classic-doc-title-en">{titleEn}</div>
             ) : null}
+            {isReceipt && receiptPaymentNumber ? (
+              <div className="print-classic-doc-title-sub">
+                ชำระครั้งที่ {receiptPaymentNumber}
+                <span className="print-classic-doc-title-sub-en"> · PAYMENT {receiptPaymentNumber}</span>
+              </div>
+            ) : null}
           </div>
 
           {/* ============== INFO BAND ============== */}
@@ -738,144 +744,42 @@ export function PrintDocumentClassic({
             </div>
             {!hideDeliveryAmounts && (
               <div className="print-classic-totals-col">
-                <div className="print-classic-totals-row">
-                  <div className="print-classic-totals-lab">
-                    <div className="print-classic-totals-th">{isReceipt ? "ยอดตามเอกสารอ้างอิง" : "รวมเงิน"}</div>
-                    <div className="print-classic-totals-en">{isReceipt ? "REFERENCE AMOUNT" : "SUB TOTAL"}</div>
-                  </div>
-                  <div className="print-classic-totals-val">
-                    {formatCurrency(isReceipt ? document.total_amount : document.subtotal)}
-                  </div>
-                </div>
-                {isReceipt && receiptTaxable ? (
+                {isReceipt ? (
                   <>
-                    <div className="print-classic-totals-row">
-                      <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ยอดก่อนภาษี</div>
-                        <div className="print-classic-totals-en">AMOUNT BEFORE TAX</div>
-                      </div>
-                      <div className="print-classic-totals-val">{formatCurrency(receiptPreTax)}</div>
-                    </div>
-                    <div className="print-classic-totals-row">
-                      <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ภาษีมูลค่าเพิ่ม {document.vat_rate}%</div>
-                        <div className="print-classic-totals-en">VAT {document.vat_rate}%</div>
-                      </div>
-                      <div className="print-classic-totals-val">{formatCurrency(receiptVatAmount)}</div>
-                    </div>
-                  </>
-                ) : null}
-                {!isReceipt && document.discount_amount > 0 ? (
-                  <div className="print-classic-totals-row">
-                    <div className="print-classic-totals-lab">
-                      <div className="print-classic-totals-th">
-                        ส่วนลดท้ายบิล
-                        {document.discount_percent
-                          ? ` (${document.discount_percent}%)`
-                          : ""}
-                      </div>
-                      <div className="print-classic-totals-en">DISCOUNT</div>
-                    </div>
-                    <div className="print-classic-totals-val">
-                      -{formatCurrency(document.discount_amount)}
-                    </div>
-                  </div>
-                ) : null}
-                {!isReceipt && document.vat_registered && document.vat_amount > 0 ? (
-                  <div className="print-classic-totals-row">
-                    <div className="print-classic-totals-lab">
-                      <div className="print-classic-totals-th">
-                        ภาษีมูลค่าเพิ่ม {document.vat_rate}%
-                      </div>
-                      <div className="print-classic-totals-en">
-                        VAT {document.vat_rate}%
-                      </div>
-                    </div>
-                    <div className="print-classic-totals-val">
-                      {formatCurrency(document.vat_amount)}
-                    </div>
-                  </div>
-                ) : null}
-                <div className="print-classic-totals-row print-classic-totals-row-grand">
-                  <div className="print-classic-totals-lab">
-                    <div className="print-classic-totals-th">
-                      {isReceipt
-                        ? receiptPaymentNumber
-                          ? `รับชำระครั้งนี้ (ครั้งที่ ${receiptPaymentNumber})`
-                          : "รับชำระครั้งนี้"
-                        : "ยอดรวมทั้งสิ้น"}
-                    </div>
-                    <div className="print-classic-totals-en">{isReceipt ? (receiptPaymentNumber ? `AMOUNT RECEIVED · PAYMENT ${receiptPaymentNumber}` : "AMOUNT RECEIVED") : "GRAND TOTAL"}</div>
-                  </div>
-                  <div className="print-classic-totals-val">
-                    {formatCurrency(isReceipt ? receiptAmount : document.total_amount)}
-                  </div>
-                </div>
-                {document.wht_amount > 0 ? (
-                  <>
-                    <div className="print-classic-totals-row">
-                      <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">
-                          หัก ณ ที่จ่าย {document.wht_rate}%
+                    {receiptTaxable ? (
+                      <>
+                        <div className="print-classic-totals-row">
+                          <div className="print-classic-totals-lab">
+                            <div className="print-classic-totals-th">ยอดก่อนภาษี</div>
+                            <div className="print-classic-totals-en">AMOUNT BEFORE TAX</div>
+                          </div>
+                          <div className="print-classic-totals-val">{formatCurrency(receiptPreTax)}</div>
                         </div>
-                        <div className="print-classic-totals-en">
-                          WHT {document.wht_rate}%
+                        <div className="print-classic-totals-row">
+                          <div className="print-classic-totals-lab">
+                            <div className="print-classic-totals-th">ภาษีมูลค่าเพิ่ม {document.vat_rate}%</div>
+                            <div className="print-classic-totals-en">VAT {document.vat_rate}%</div>
+                          </div>
+                          <div className="print-classic-totals-val">{formatCurrency(receiptVatAmount)}</div>
                         </div>
+                      </>
+                    ) : null}
+                    <div className="print-classic-totals-row print-classic-totals-row-grand">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">รับชำระครั้งนี้</div>
+                        <div className="print-classic-totals-en">AMOUNT RECEIVED</div>
                       </div>
-                      <div className="print-classic-totals-val">
-                        -{formatCurrency(document.wht_amount)}
-                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(receiptAmount)}</div>
                     </div>
-                    {isReceipt && receiptCumulativePaid !== undefined ? (
+                    {document.wht_amount > 0 ? (
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
-                          <div className="print-classic-totals-th">ยอดชำระสะสม</div>
-                          <div className="print-classic-totals-en">TOTAL PAID</div>
+                          <div className="print-classic-totals-th">หัก ณ ที่จ่าย {document.wht_rate}%</div>
+                          <div className="print-classic-totals-en">WHT {document.wht_rate}%</div>
                         </div>
-                        <div className="print-classic-totals-val">{formatCurrency(receiptCumulativePaid)}</div>
+                        <div className="print-classic-totals-val">-{formatCurrency(document.wht_amount)}</div>
                       </div>
                     ) : null}
-                    {isReceipt ? (
-                      <div className="print-classic-totals-row">
-                        <div className="print-classic-totals-lab">
-                          <div className="print-classic-totals-th">ยอดคงเหลือค้างชำระ</div>
-                          <div className="print-classic-totals-en">BALANCE DUE</div>
-                        </div>
-                        <div className="print-classic-totals-val">{formatCurrency(receiptOutstanding ?? 0)}</div>
-                      </div>
-                    ) : null}
-                    <div className="print-classic-totals-row print-classic-totals-row-net">
-                      <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">
-                          {isReceipt ? "ยอดรับสุทธิ" : "ยอดชำระสุทธิ"}
-                        </div>
-                        <div className="print-classic-totals-en">
-                          {isReceipt ? "NET RECEIVED" : "NET PAYABLE"}
-                        </div>
-                      </div>
-                      <div className="print-classic-totals-val">
-                        {formatCurrency(isReceipt ? receiptAmount - receiptWhtTotal : document.net_payable)}
-                      </div>
-                    </div>
-                  </>
-                ) : isReceipt ? (
-                  <>
-                    {receiptCumulativePaid !== undefined ? (
-                      <div className="print-classic-totals-row">
-                        <div className="print-classic-totals-lab">
-                          <div className="print-classic-totals-th">ยอดชำระสะสม</div>
-                          <div className="print-classic-totals-en">TOTAL PAID</div>
-                        </div>
-                        <div className="print-classic-totals-val">{formatCurrency(receiptCumulativePaid)}</div>
-                      </div>
-                    ) : null}
-                    <div className="print-classic-totals-row">
-                      <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ยอดคงเหลือค้างชำระ</div>
-                        <div className="print-classic-totals-en">BALANCE DUE</div>
-                      </div>
-                      <div className="print-classic-totals-val">{formatCurrency(receiptOutstanding ?? 0)}</div>
-                    </div>
                     <div className="print-classic-totals-row print-classic-totals-row-net">
                       <div className="print-classic-totals-lab">
                         <div className="print-classic-totals-th">ยอดรับสุทธิ</div>
@@ -883,8 +787,103 @@ export function PrintDocumentClassic({
                       </div>
                       <div className="print-classic-totals-val">{formatCurrency(receiptAmount - receiptWhtTotal)}</div>
                     </div>
+                    <div className="print-classic-totals-row print-classic-totals-block-sep">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ยอดตามเอกสารอ้างอิง</div>
+                        <div className="print-classic-totals-en">REFERENCE AMOUNT</div>
+                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(document.total_amount)}</div>
+                    </div>
+                    <div className="print-classic-totals-row">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ยอดชำระสะสม</div>
+                        <div className="print-classic-totals-en">TOTAL PAID</div>
+                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(receiptCumulativePaid ?? 0)}</div>
+                    </div>
+                    <div className="print-classic-totals-row">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ยอดคงเหลือค้างชำระ</div>
+                        <div className="print-classic-totals-en">BALANCE DUE</div>
+                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(receiptOutstanding ?? 0)}</div>
+                    </div>
                   </>
-                ) : null}
+                ) : (
+                  <>
+                    <div className="print-classic-totals-row">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">รวมเงิน</div>
+                        <div className="print-classic-totals-en">SUB TOTAL</div>
+                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(document.subtotal)}</div>
+                    </div>
+                    {document.discount_amount > 0 ? (
+                      <div className="print-classic-totals-row">
+                        <div className="print-classic-totals-lab">
+                          <div className="print-classic-totals-th">
+                            ส่วนลดท้ายบิล
+                            {document.discount_percent
+                              ? ` (${document.discount_percent}%)`
+                              : ""}
+                          </div>
+                          <div className="print-classic-totals-en">DISCOUNT</div>
+                        </div>
+                        <div className="print-classic-totals-val">
+                          -{formatCurrency(document.discount_amount)}
+                        </div>
+                      </div>
+                    ) : null}
+                    {document.vat_registered && document.vat_amount > 0 ? (
+                      <div className="print-classic-totals-row">
+                        <div className="print-classic-totals-lab">
+                          <div className="print-classic-totals-th">
+                            ภาษีมูลค่าเพิ่ม {document.vat_rate}%
+                          </div>
+                          <div className="print-classic-totals-en">
+                            VAT {document.vat_rate}%
+                          </div>
+                        </div>
+                        <div className="print-classic-totals-val">
+                          {formatCurrency(document.vat_amount)}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="print-classic-totals-row print-classic-totals-row-grand">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ยอดรวมทั้งสิ้น</div>
+                        <div className="print-classic-totals-en">GRAND TOTAL</div>
+                      </div>
+                      <div className="print-classic-totals-val">
+                        {formatCurrency(document.total_amount)}
+                      </div>
+                    </div>
+                    {document.wht_amount > 0 ? (
+                      <div className="print-classic-totals-row">
+                        <div className="print-classic-totals-lab">
+                          <div className="print-classic-totals-th">
+                            หัก ณ ที่จ่าย {document.wht_rate}%
+                          </div>
+                          <div className="print-classic-totals-en">
+                            WHT {document.wht_rate}%
+                          </div>
+                        </div>
+                        <div className="print-classic-totals-val">
+                          -{formatCurrency(document.wht_amount)}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="print-classic-totals-row print-classic-totals-row-net">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ยอดชำระสุทธิ</div>
+                        <div className="print-classic-totals-en">NET PAYABLE</div>
+                      </div>
+                      <div className="print-classic-totals-val">
+                        {formatCurrency(document.wht_amount > 0 ? document.net_payable : document.total_amount)}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

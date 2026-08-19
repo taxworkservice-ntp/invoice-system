@@ -2,7 +2,7 @@ import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 
 export function PrintTotals({ data }: { data: PrintDocumentData }) {
-  const { document, grossSubtotal, lineDiscountTotal, receiptOutstanding, receiptPaymentNumber, receiptCumulativePaid } = data;
+  const { document, grossSubtotal, lineDiscountTotal, receiptOutstanding, receiptCumulativePaid } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
   const isReceipt = document.doc_type === "receipt";
   const receiptAmount = document.amount_received ?? document.net_payable;
@@ -86,17 +86,9 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
                 <span className="self-center">{formatCurrency(document.total_amount)}</span>
               </div>
             </>
-          ) : (
+          ) : isReceipt ? (
             <>
-              <div className="flex justify-between gap-4">
-                <div className="flex flex-col">
-                <span>{isReceipt ? "ยอดตามเอกสารอ้างอิง" : "รวมก่อนภาษี"}</span>
-                <span className="text-[6.5px] text-[#94a3b8]">{isReceipt ? "REFERENCE AMOUNT" : "SUBTOTAL"}</span>
-                </div>
-              <span className="self-center">{formatCurrency(isReceipt ? document.total_amount : document.subtotal)}</span>
-              </div>
-
-              {isReceipt && receiptTaxable ? (
+              {receiptTaxable ? (
                 <>
                   <div className="flex justify-between gap-4">
                     <div className="flex flex-col">
@@ -115,112 +107,99 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
                 </>
               ) : null}
 
-          {!isReceipt && document.vat_registered ? (
-            <div className="flex justify-between gap-4">
-              <div className="flex flex-col">
-                <span>ภาษีมูลค่าเพิ่ม {document.vat_rate}%</span>
-                <span className="text-[6.5px] text-[#94a3b8]">VAT {document.vat_rate}%</span>
-              </div>
-              <span className="self-center">{formatCurrency(document.vat_amount)}</span>
-            </div>
-          ) : null}
-
-          <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
-            <div className="flex flex-col">
-                <span>{isReceipt
-                  ? receiptPaymentNumber
-                    ? `รับชำระครั้งนี้ (ครั้งที่ ${receiptPaymentNumber})`
-                    : "รับชำระครั้งนี้"
-                  : "รวมทั้งสิ้น"}</span>
-                <span className="text-[6.5px] font-normal text-[#94a3b8]">{isReceipt ? (receiptPaymentNumber ? `AMOUNT RECEIVED · PAYMENT ${receiptPaymentNumber}` : "AMOUNT RECEIVED") : "GRAND TOTAL"}</span>
-              </div>
-              <span className="self-center">{formatCurrency(isReceipt ? receiptAmount : document.total_amount)}</span>
-          </div>
-
-          {document.wht_amount > 0 ? (
-            <>
-              <div className="flex justify-between gap-4 text-[#B54708]">
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
                 <div className="flex flex-col">
-                  <span>หัก ณ ที่จ่าย {document.wht_rate}%</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">WHT {document.wht_rate}%</span>
+                  <span>รับชำระครั้งนี้</span>
+                  <span className="text-[6.5px] font-normal text-[#94a3b8]">AMOUNT RECEIVED</span>
                 </div>
-                <span className="self-center">-{formatCurrency(document.wht_amount)}</span>
+                <span className="self-center">{formatCurrency(receiptAmount)}</span>
               </div>
-              {isReceipt && receiptCumulativePaid !== undefined ? (
-                <div className="flex justify-between gap-4">
+
+              {document.wht_amount > 0 ? (
+                <div className="flex justify-between gap-4 text-[#B54708]">
                   <div className="flex flex-col">
-                    <span>ยอดชำระสะสม</span>
-                    <span className="text-[6.5px] text-[#94a3b8]">TOTAL PAID</span>
+                    <span>หัก ณ ที่จ่าย {document.wht_rate}%</span>
+                    <span className="text-[6.5px] text-[#94a3b8]">WHT {document.wht_rate}%</span>
                   </div>
-                  <span className="self-center">{formatCurrency(receiptCumulativePaid)}</span>
+                  <span className="self-center">-{formatCurrency(document.wht_amount)}</span>
                 </div>
               ) : null}
-{isReceipt ? (
-                <>
-                  {receiptCumulativePaid !== undefined ? (
-                    <div className="flex justify-between gap-4">
-                      <div className="flex flex-col">
-                        <span>ยอดชำระสะสม</span>
-                        <span className="text-[6.5px] text-[#94a3b8]">TOTAL PAID</span>
-                      </div>
-                      <span className="self-center">{formatCurrency(receiptCumulativePaid)}</span>
-                    </div>
-                  ) : null}
-                  <div className="flex justify-between gap-4 text-[10px] text-[#344054]">
-                    <div className="flex flex-col">
-                      <span>ยอดคงเหลือค้างชำระ</span>
-                      <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
-                    </div>
-                    <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
-                  </div>
-                  <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[12px] font-semibold text-[#111827]">
-                    <div className="flex flex-col">
-                      <span>ยอดรับสุทธิ</span>
-                      <span className="text-[6.5px] font-normal text-[#94a3b8]">NET RECEIVED</span>
-                    </div>
-                    <span className="self-center">{formatCurrency(receiptAmount - receiptWhtTotal)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
-                  <div className="flex flex-col">
-                    <span>ยอดชำระสุทธิ</span>
-                    <span className="text-[6.5px] font-normal text-[#94a3b8]">NET PAYABLE</span>
-                  </div>
-                  <span className="self-center">{formatCurrency(document.net_payable)}</span>
+
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[12px] font-semibold text-[#111827]">
+                <div className="flex flex-col">
+                  <span>ยอดรับสุทธิ</span>
+                  <span className="text-[6.5px] font-normal text-[#94a3b8]">NET RECEIVED</span>
                 </div>
-              )}
+                <span className="self-center">{formatCurrency(receiptAmount - receiptWhtTotal)}</span>
+              </div>
+
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2">
+                <div className="flex flex-col">
+                  <span>ยอดตามเอกสารอ้างอิง</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">REFERENCE AMOUNT</span>
+                </div>
+                <span className="self-center">{formatCurrency(document.total_amount)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                  <span>ยอดชำระสะสม</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">TOTAL PAID</span>
+                </div>
+                <span className="self-center">{formatCurrency(receiptCumulativePaid ?? 0)}</span>
+              </div>
+              <div className="flex justify-between gap-4 text-[10px] text-[#344054]">
+                <div className="flex flex-col">
+                  <span>ยอดคงเหลือค้างชำระ</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
+                </div>
+                <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
+              </div>
             </>
           ) : (
             <>
-            {isReceipt ? (
-                <>
-                  <div className="flex justify-between gap-4 text-[10px] text-[#344054]">
-                    <div className="flex flex-col">
-                      <span>ยอดคงเหลือค้างชำระ</span>
-                      <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
-                    </div>
-                    <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
-                  </div>
-                  <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[12px] font-semibold text-[#111827]">
-                    <div className="flex flex-col">
-                      <span>ยอดรับสุทธิ</span>
-                      <span className="text-[6.5px] font-normal text-[#94a3b8]">NET RECEIVED</span>
-                    </div>
-                    <span className="self-center">{formatCurrency(receiptAmount - receiptWhtTotal)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
-                  <div className="flex flex-col">
-                    <span>ยอดชำระสุทธิ</span>
-                    <span className="text-[6.5px] font-normal text-[#94a3b8]">NET PAYABLE</span>
-                  </div>
-                  <span className="self-center">{formatCurrency(document.total_amount)}</span>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                  <span>รวมก่อนภาษี</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">SUBTOTAL</span>
                 </div>
-              )}
-            </>
-          )}
+                <span className="self-center">{formatCurrency(document.subtotal)}</span>
+              </div>
+
+              {document.vat_registered ? (
+                <div className="flex justify-between gap-4">
+                  <div className="flex flex-col">
+                    <span>ภาษีมูลค่าเพิ่ม {document.vat_rate}%</span>
+                    <span className="text-[6.5px] text-[#94a3b8]">VAT {document.vat_rate}%</span>
+                  </div>
+                  <span className="self-center">{formatCurrency(document.vat_amount)}</span>
+                </div>
+              ) : null}
+
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
+                <div className="flex flex-col">
+                  <span>รวมทั้งสิ้น</span>
+                  <span className="text-[6.5px] font-normal text-[#94a3b8]">GRAND TOTAL</span>
+                </div>
+                <span className="self-center">{formatCurrency(document.total_amount)}</span>
+              </div>
+
+              {document.wht_amount > 0 ? (
+                <div className="flex justify-between gap-4 text-[#B54708]">
+                  <div className="flex flex-col">
+                    <span>หัก ณ ที่จ่าย {document.wht_rate}%</span>
+                    <span className="text-[6.5px] text-[#94a3b8]">WHT {document.wht_rate}%</span>
+                  </div>
+                  <span className="self-center">-{formatCurrency(document.wht_amount)}</span>
+                </div>
+              ) : null}
+
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
+                <div className="flex flex-col">
+                  <span>ยอดชำระสุทธิ</span>
+                  <span className="text-[6.5px] font-normal text-[#94a3b8]">NET PAYABLE</span>
+                </div>
+                <span className="self-center">{formatCurrency(document.wht_amount > 0 ? document.net_payable : document.total_amount)}</span>
+              </div>
             </>
           )}
         </div>

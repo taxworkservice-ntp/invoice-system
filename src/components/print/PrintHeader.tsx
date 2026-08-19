@@ -18,7 +18,7 @@ function formatDate(date: string | null | undefined) {
 }
 
 export function PrintHeader({ data, copyType = "original" }: { data: PrintDocumentData; copyType?: CopyType }) {
-  const { clientProfile, customer, document, referenceDoc } = data;
+  const { clientProfile, customer, document, referenceDoc, receiptPaymentNumber } = data;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = copyType === "copy" ? "สำเนา" : "ต้นฉบับ";
 
@@ -91,6 +91,12 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
               </div>
             </>
           )}
+          {document.doc_type === "receipt" && receiptPaymentNumber ? (
+            <div className="mt-1 text-[9px] font-semibold text-[#475467]">
+              ชำระครั้งที่ {receiptPaymentNumber}
+              <span className="ml-1 text-[6.5px] font-medium text-[#94a3b8]">· PAYMENT {receiptPaymentNumber}</span>
+            </div>
+          ) : null}
 
           <div className="mt-2 space-y-1 text-[10px] text-left">
             <div className="flex justify-between gap-2">
