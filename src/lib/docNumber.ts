@@ -20,7 +20,10 @@ export function getDocNumberErrorMessage(error: unknown): string {
   ) {
     return DOC_NUMBER_SETUP_ERROR;
   }
-  return error instanceof Error ? error.message : "สร้างเลขเอกสารไม่สำเร็จ";
+  if (error instanceof Error) return error.message;
+  const rawMessage = (error as { message?: string } | null | undefined)?.message;
+  if (rawMessage && rawMessage !== "[object Object]") return rawMessage;
+  return message !== "[object Object]" && message !== "" ? message : "สร้างเลขเอกสารไม่สำเร็จ";
 }
 
 export async function assertDocNumberAvailable(

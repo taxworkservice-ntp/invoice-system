@@ -130,14 +130,20 @@ as $$
 declare
   document_user_id uuid;
   document_status text;
+  document_type text;
 begin
-  select user_id, status::text
-    into document_user_id, document_status
+  select user_id, status::text, doc_type::text
+    into document_user_id, document_status, document_type
   from public.documents
   where id = coalesce(new.document_id, old.document_id);
 
-  if document_status <> 'draft' or not public.client_workspace_can(document_user_id, 'canCreateEditDocuments') then
-    raise exception 'Only permitted users can edit draft line items';
+  if document_status = 'draft' then
+    if not public.client_workspace_can(document_user_id, 'canCreateEditDocuments') then
+      raise exception 'Only permitted users can edit draft line items';
+    end if;
+  elsif tg_op <> 'INSERT'
+     and not public.client_workspace_can(document_user_id, public.document_type_permission(document_type)) then
+    raise exception 'You do not have permission to edit line items of this document';
   end if;
 
   if tg_op = 'DELETE' then
