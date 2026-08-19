@@ -12,6 +12,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { FieldGuidance } from "../../../components/ui/FieldGuidance";
 import { supabase } from "../../../lib/supabase";
 import { resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
@@ -2316,7 +2317,15 @@ export default function DealDetailPage() {
               </div>
 
                <div>
-                 <label className="block text-xs font-medium text-gray-500 mb-1">กรอกยอดโดยอ้างอิงจาก</label>
+                 <FieldGuidance
+                   title="กรอกยอดโดยอ้างอิงจาก"
+                   items={[
+                     { label: "ยอดชำระก่อน VAT", description: "ใช้เมื่อกำหนดงวดผ่อนก่อนคิด VAT เช่น งวดละ 200,000 บาท" },
+                     { label: "ยอดรวมก่อนหัก WHT", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
+                     { label: "ยอดโอนจริงหลังหัก WHT", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
+                   ]}
+                   tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, WHT และยอดโอนจริงให้อัตโนมัติ"
+                 />
                  <select
                    className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
                    value={paymentInputBasis}

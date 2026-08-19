@@ -8,6 +8,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { Input, Select } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { Spinner } from "../../../components/ui/Spinner";
+import { FieldGuidance } from "../../../components/ui/FieldGuidance";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { getDocumentDetail, saveLineItems } from "../../../hooks/useDocuments";
@@ -1694,7 +1695,15 @@ export default function DocumentDetailPage() {
             <p className="text-lg font-semibold">฿{formatCurrency(paymentBaseRemaining)}</p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">กรอกยอดโดยอ้างอิงจาก</label>
+            <FieldGuidance
+              title="กรอกยอดโดยอ้างอิงจาก"
+              items={[
+                { label: "ยอดชำระก่อน VAT", description: "ใช้เมื่อกำหนดงวดผ่อนก่อนคิด VAT เช่น งวดละ 200,000 บาท" },
+                { label: "ยอดรวมก่อนหัก WHT", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
+                { label: "ยอดโอนจริงหลังหัก WHT", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
+              ]}
+              tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, WHT และยอดโอนจริงให้อัตโนมัติ"
+            />
             <select
               className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
               value={paymentInputBasis}
