@@ -42,8 +42,6 @@ set
 where id = 'eae3cec8-ca05-410f-b8af-5d1abf7fb194'
   and doc_number = 'RC-2026-08-007';
 
-alter table public.documents enable trigger trg_enforce_document_action_permission;
-
 update public.receipt_invoices
 set paid_amount = 208000
 where receipt_id = '1fa51b2f-11fc-43d3-ae79-97c536ed84cf';
@@ -62,6 +60,8 @@ set amount_received = 1040000,
     net_payable = 1040000
 where id = '5b03a93e-35a4-4587-bd31-f25e264d6f10'
   and doc_number = 'BN-2026-08-004';
+
+alter table public.documents enable trigger trg_enforce_document_action_permission;
 
 commit;
 
