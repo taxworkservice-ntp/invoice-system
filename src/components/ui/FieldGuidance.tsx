@@ -14,15 +14,9 @@ interface FieldGuidanceProps {
 
 export function FieldGuidance({ title, items, tip }: FieldGuidanceProps) {
   const [open, setOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const visible = open || hovered;
 
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    <div className="relative">
       <div className="flex items-center gap-1.5 mb-1">
         <label className="block text-xs font-medium text-gray-600">
           {title}
@@ -36,7 +30,7 @@ export function FieldGuidance({ title, items, tip }: FieldGuidanceProps) {
           <CircleHelp size={14} className="shrink-0" />
         </button>
       </div>
-      {visible && (
+      {open && (
         <div className="mb-1 rounded-lg border border-[#DCE7F7] bg-[#F3F8FF] px-3 py-2.5">
           <div className="space-y-1.5">
             {items.map((item) => (
