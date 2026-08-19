@@ -1,6 +1,10 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
-import type { DocumentLineItem } from "../../types";
+import type {
+  BillingNoteInvoice,
+  DocumentLineItem,
+  ReceiptInvoice,
+} from "../../types";
 import type { PageMode } from "../../lib/pagination";
 
 const MIN_MODERN_ITEM_ROWS = 6;
@@ -32,23 +36,29 @@ function getPrintableLineNote(note: string | null | undefined) {
 export function PrintLineItemsTable({
   data,
   lineItems: lineItemsOverride,
+  billingNoteInvoices: billingNoteInvoicesOverride,
+  receiptInvoices: receiptInvoicesOverride,
   startIndex = 1,
   pageMode = "single",
 }: {
   data: PrintDocumentData;
   lineItems?: DocumentLineItem[];
+  billingNoteInvoices?: BillingNoteInvoice[];
+  receiptInvoices?: ReceiptInvoice[];
   startIndex?: number;
   pageMode?: PageMode;
 }) {
   const {
     document,
-    billingNoteInvoices,
-    receiptInvoices,
+    billingNoteInvoices: dataBillingNoteInvoices,
+    receiptInvoices: dataReceiptInvoices,
     lineDeliveryNoteMap,
     showInlineDeliveryNotes,
     invoiceNumberMap,
   } = data;
   const lineItems = lineItemsOverride ?? data.lineItems;
+  const billingNoteInvoices = billingNoteInvoicesOverride ?? dataBillingNoteInvoices;
+  const receiptInvoices = receiptInvoicesOverride ?? dataReceiptInvoices;
   const isDeliveryNote = document.doc_type === "delivery_note";
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
@@ -56,14 +66,12 @@ export function PrintLineItemsTable({
   const blankLineCount = isLastOrSingle
     ? Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length)
     : 0;
-  const billingBlankCount = Math.max(
-    0,
-    MIN_MODERN_BILLING_NOTE_ROWS - billingNoteInvoices.length,
-  );
-  const receiptBlankCount = Math.max(
-    0,
-    MIN_MODERN_RECEIPT_ROWS - receiptInvoices.length,
-  );
+  const billingBlankCount = isLastOrSingle
+    ? Math.max(0, MIN_MODERN_BILLING_NOTE_ROWS - billingNoteInvoices.length)
+    : 0;
+  const receiptBlankCount = isLastOrSingle
+    ? Math.max(0, MIN_MODERN_RECEIPT_ROWS - receiptInvoices.length)
+    : 0;
 
   if (document.doc_type === "billing_note" && document.vat_registered) {
     return (

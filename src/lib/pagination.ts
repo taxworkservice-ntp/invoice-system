@@ -8,36 +8,53 @@ export interface PageBatch {
   startIndex: number; // 1-based item number for the first item in this batch
 }
 
-const MODERN_FIRST_PAGE_ITEMS = 20;
-const MODERN_CONTINUATION_ITEMS = 26;
-const MODERN_LAST_PAGE_ITEMS = 14;
+type PaginationKind = "line_items" | "summary_rows";
 
-const CLASSIC_FIRST_PAGE_ITEMS = 18;
-const CLASSIC_CONTINUATION_ITEMS = 22;
-const CLASSIC_LAST_PAGE_ITEMS = 12;
+const LINE_ITEM_CAPACITY = {
+  modern: { first: 20, continuation: 26, last: 14 },
+  classic: { first: 18, continuation: 22, last: 12 },
+};
+
+// Summary tables share the page with the document header and final totals.
+// Keep their capacity lower so payment details never get pushed off-page.
+const SUMMARY_ROW_CAPACITY = {
+  modern: { first: 12, continuation: 18, last: 8 },
+  classic: { first: 12, continuation: 16, last: 8 },
+};
+
+export interface GenericPageBatch<T> {
+  items: T[];
+  mode: PageMode;
+  startIndex: number;
+}
 
 /**
  * Split line items into page batches.
  * Distributions are even across continuation pages — no sparse almost-empty pages.
  */
-export function paginateLineItems(
-  lineItems: DocumentLineItem[],
+export function paginateRows<T>(
+  rows: T[],
   template: "modern" | "classic" | "classic_v2",
-): PageBatch[] {
-  const fp = template === "modern" ? MODERN_FIRST_PAGE_ITEMS : CLASSIC_FIRST_PAGE_ITEMS;
-  const cp = template === "modern" ? MODERN_CONTINUATION_ITEMS : CLASSIC_CONTINUATION_ITEMS;
-  const lp = template === "modern" ? MODERN_LAST_PAGE_ITEMS : CLASSIC_LAST_PAGE_ITEMS;
+  kind: PaginationKind = "line_items",
+): GenericPageBatch<T>[] {
+  const templateKind = template === "modern" ? "modern" : "classic";
+  const capacity = kind === "summary_rows"
+    ? SUMMARY_ROW_CAPACITY[templateKind]
+    : LINE_ITEM_CAPACITY[templateKind];
+  const fp = capacity.first;
+  const cp = capacity.continuation;
+  const lp = capacity.last;
 
-  if (lineItems.length <= fp) {
-    return [{ items: lineItems, mode: "single", startIndex: 1 }];
+  if (rows.length <= fp) {
+    return [{ items: rows, mode: "single", startIndex: 1 }];
   }
 
-  const batches: PageBatch[] = [];
+  const batches: GenericPageBatch<T>[] = [];
 
   // First page
-  batches.push({ items: lineItems.slice(0, fp), mode: "first", startIndex: 1 });
+  batches.push({ items: rows.slice(0, fp), mode: "first", startIndex: 1 });
 
-  const remaining = lineItems.slice(fp);
+  const remaining = rows.slice(fp);
   const lastCount = Math.min(lp, remaining.length);
   const contTotal = remaining.length - lastCount;
 
@@ -67,6 +84,13 @@ export function paginateLineItems(
   }
 
   return batches;
+}
+
+export function paginateLineItems(
+  lineItems: DocumentLineItem[],
+  template: "modern" | "classic" | "classic_v2",
+): PageBatch[] {
+  return paginateRows(lineItems, template) as PageBatch[];
 }
 
 export function getTotalPages(batches: PageBatch[]): number {

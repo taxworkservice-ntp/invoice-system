@@ -3,7 +3,12 @@ import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
 import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
-import type { Customer, DocumentLineItem } from "../../types";
+import type {
+  BillingNoteInvoice,
+  Customer,
+  DocumentLineItem,
+  ReceiptInvoice,
+} from "../../types";
 import type { PageMode } from "../../lib/pagination";
 import { PrintContinuationHeader } from "./PrintContinuationHeader";
 
@@ -73,6 +78,9 @@ interface PrintDocumentClassicProps {
   pageIndex?: number;
   totalPages?: number;
   batchLineItems?: DocumentLineItem[];
+  batchBillingNoteInvoices?: BillingNoteInvoice[];
+  batchReceiptInvoices?: ReceiptInvoice[];
+  summaryStartIndex?: number;
 }
 
 export function PrintDocumentClassicV2({
@@ -82,6 +90,9 @@ export function PrintDocumentClassicV2({
   pageIndex = 1,
   totalPages = 1,
   batchLineItems,
+  batchBillingNoteInvoices,
+  batchReceiptInvoices,
+  summaryStartIndex = 1,
 }: PrintDocumentClassicProps) {
   const {
     document,
@@ -100,16 +111,18 @@ export function PrintDocumentClassicV2({
     bankAccount,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
+  const billingRows = batchBillingNoteInvoices ?? billingNoteInvoices;
+  const receiptRows = batchReceiptInvoices ?? receiptInvoices;
   const startIndex = batchLineItems
     ? data.lineItems.indexOf(batchLineItems[0]) + 1
-    : 1;
+    : summaryStartIndex;
   const isCopy = copyType === "copy";
   const isDeliveryNote = document.doc_type === "delivery_note";
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
   const isBillingNote = document.doc_type === "billing_note";
   const isReceiptOrBillingNoteTable =
-    (isBillingNote || (document.doc_type === "receipt" && receiptInvoices.length > 0)) && document.vat_registered;
+    (isBillingNote || (document.doc_type === "receipt" && receiptRows.length > 0)) && document.vat_registered;
   const isReceipt = document.doc_type === "receipt";
   const receiptCash = document.amount_received ?? document.net_payable;
   const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && document.subtotal > 0;
@@ -142,14 +155,12 @@ export function PrintDocumentClassicV2({
   const blankLineCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length)
     : 0;
-  const billingBlankCount = Math.max(
-    0,
-    MIN_CLASSIC_BILLING_NOTE_ROWS - billingNoteInvoices.length,
-  );
-  const receiptBlankCount = Math.max(
-    0,
-    MIN_CLASSIC_RECEIPT_ROWS - receiptInvoices.length,
-  );
+  const billingBlankCount = isLastOrSingle
+    ? Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - billingRows.length)
+    : 0;
+  const receiptBlankCount = isLastOrSingle
+    ? Math.max(0, MIN_CLASSIC_RECEIPT_ROWS - receiptRows.length)
+    : 0;
   const noteText = document.note?.trim();
   const paymentLines = [
     bankName && showBank
@@ -385,7 +396,7 @@ export function PrintDocumentClassicV2({
             รายการใบแจ้งหนี้ (INVOICES)
           </div>
         ) : document.doc_type === "receipt" &&
-          receiptInvoices.length > 0 &&
+          receiptRows.length > 0 &&
           document.vat_registered ? (
           <div className="print-classic-items-title">
             รายการที่ชำระ (PAID INVOICES)
@@ -433,9 +444,9 @@ export function PrintDocumentClassicV2({
                 </tr>
               </thead>
               <tbody>
-                {billingNoteInvoices.map((inv, i) => (
+                {billingRows.map((inv, i) => (
                   <tr key={inv.id}>
-                    <td className="center">{i + 1}</td>
+                    <td className="center">{startIndex + i}</td>
                     <td>{inv.invoice_number}</td>
                     <td>{formatDateBuddhist(inv.issue_date)}</td>
                     <td className="right">{formatCurrency(inv.subtotal)}</td>
@@ -461,7 +472,7 @@ export function PrintDocumentClassicV2({
               </tbody>
             </table>
           ) : document.doc_type === "receipt" &&
-            receiptInvoices.length > 0 &&
+            receiptRows.length > 0 &&
             document.vat_registered ? (
             <table className="print-classic-items-table">
               <colgroup>
@@ -495,9 +506,9 @@ export function PrintDocumentClassicV2({
                 </tr>
               </thead>
               <tbody>
-                {receiptInvoices.map((inv, i) => (
+                {receiptRows.map((inv, i) => (
                   <tr key={inv.id}>
-                    <td className="center">{i + 1}</td>
+                    <td className="center">{startIndex + i}</td>
                     <td>{inv.invoice_number}</td>
                     <td>{formatDateBuddhist(inv.issue_date)}</td>
                     <td className="right">{formatCurrency(inv.subtotal)}</td>
@@ -624,8 +635,8 @@ export function PrintDocumentClassicV2({
                             </div>
                           ) : null}
                           {!document.vat_registered &&
-                          (receiptInvoices.length > 1 ||
-                            billingNoteInvoices.length > 1) &&
+                          (receiptRows.length > 1 ||
+                            billingRows.length > 1) &&
                           invoiceNumberMap[item.document_id] ? (
                             <div className="print-classic-dn-note">
                               ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}

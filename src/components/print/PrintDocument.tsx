@@ -1,7 +1,12 @@
 import { formatCurrency } from "../../lib/format";
 import { splitTerms } from "../../lib/terms";
 import type { PrintDocumentData } from "../../lib/print";
-import type { DocumentType, DocumentLineItem } from "../../types";
+import type {
+  BillingNoteInvoice,
+  DocumentType,
+  DocumentLineItem,
+  ReceiptInvoice,
+} from "../../types";
 import { PAYMENT_METHOD_LABELS } from "../../constants";
 import { PrintHeader } from "./PrintHeader";
 import { PrintLineItemsTable } from "./PrintLineItemsTable";
@@ -46,6 +51,9 @@ export function PrintDocument({
   pageIndex = 1,
   totalPages = 1,
   batchLineItems,
+  batchBillingNoteInvoices,
+  batchReceiptInvoices,
+  summaryStartIndex = 1,
 }: {
   data: PrintDocumentData;
   copyType?: CopyType;
@@ -53,6 +61,9 @@ export function PrintDocument({
   pageIndex?: number;
   totalPages?: number;
   batchLineItems?: DocumentLineItem[];
+  batchBillingNoteInvoices?: BillingNoteInvoice[];
+  batchReceiptInvoices?: ReceiptInvoice[];
+  summaryStartIndex?: number;
 }) {
   const showBank = SHOW_BANK_TYPES.has(data.document.doc_type) &&
     (data.document.doc_type !== "receipt" || !!data.bankAccount);
@@ -75,6 +86,8 @@ export function PrintDocument({
     ? []
     : splitTerms(data.clientProfile.classic_terms, data.clientProfile.company_name_th);
   const lineItems = batchLineItems ?? data.lineItems;
+  const billingNoteInvoices = batchBillingNoteInvoices ?? data.billingNoteInvoices;
+  const receiptInvoices = batchReceiptInvoices ?? data.receiptInvoices;
   const startIndex = batchLineItems ? (pageMode === "single" ? 1 : data.lineItems.indexOf(batchLineItems[0]) + 1) : 1;
   const continuedLine = lineItems.length > 0 && pageMode !== "single" && pageMode !== "last"
     ? "รายการต่อไป… (CONTINUED)"
@@ -91,7 +104,14 @@ export function PrintDocument({
         <PrintContinuationHeader data={data} pageIndex={pageIndex} totalPages={totalPages} />
       )}
       {isFirst && <PrintHeader data={data} copyType={copyType} />}
-      <PrintLineItemsTable data={data} lineItems={lineItems} startIndex={startIndex} pageMode={pageMode} />
+      <PrintLineItemsTable
+        data={data}
+        lineItems={lineItems}
+        billingNoteInvoices={billingNoteInvoices}
+        receiptInvoices={receiptInvoices}
+        startIndex={batchLineItems ? startIndex : summaryStartIndex}
+        pageMode={pageMode}
+      />
       {continuedLine && (
         <div className="mt-1.5 text-center text-[8.5px] text-[#94a3b8] tracking-[0.08em] border-b-[0.5px] border-[#E6EBF2] pb-1">
           {continuedLine}

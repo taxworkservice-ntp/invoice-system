@@ -8,11 +8,40 @@ import { PrintDocumentClassic } from "../../../components/print/PrintDocumentCla
 import { PrintDocumentClassicV2 } from "../../../components/print/PrintDocumentClassicV2";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
-import { paginateLineItems } from "../../../lib/pagination";
+import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
+import type {
+  BillingNoteInvoice,
+  DocumentLineItem,
+  ReceiptInvoice,
+} from "../../../types";
 
 import { supabase } from "../../../lib/supabase";
 
 type CopyOrder = "original-first" | "copy-first";
+
+type PrintBatch =
+  | { kind: "line_items"; batch: GenericPageBatch<DocumentLineItem> }
+  | { kind: "billing_invoices"; batch: GenericPageBatch<BillingNoteInvoice> }
+  | { kind: "receipt_invoices"; batch: GenericPageBatch<ReceiptInvoice> };
+
+function getPrintBatches(data: PrintDocumentData): PrintBatch[] {
+  if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
+    return paginateRows(data.billingNoteInvoices, data.template, "summary_rows")
+      .map((batch) => ({ kind: "billing_invoices", batch }));
+  }
+
+  if (
+    data.document.doc_type === "receipt" &&
+    data.document.vat_registered &&
+    data.receiptInvoices.length > 0
+  ) {
+    return paginateRows(data.receiptInvoices, data.template, "summary_rows")
+      .map((batch) => ({ kind: "receipt_invoices", batch }));
+  }
+
+  return paginateRows(data.lineItems, data.template)
+    .map((batch) => ({ kind: "line_items", batch }));
+}
 
 export default function DocumentPrintPreviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -298,12 +327,12 @@ export default function DocumentPrintPreviewPage() {
   }
 
   if (exportMode) {
-    const batches = paginateLineItems(data.lineItems, data.template);
+    const batches = getPrintBatches(data);
     return (
       <div className="print-export-stack">
         <PrintErrorBoundary onError={() => {}}>
           {exportCopyTypes.flatMap((type) =>
-            batches.map((batch, i) => (
+            batches.map(({ kind, batch }, i) => (
               <div className="print-export-page" key={`${type}-p${i}`}>
                 {data.template === "classic" ? (
                   <PrintDocumentClassic
@@ -312,7 +341,10 @@ export default function DocumentPrintPreviewPage() {
                     pageMode={batch.mode}
                     pageIndex={i + 1}
                     totalPages={batches.length}
-                    batchLineItems={batch.items}
+                    batchLineItems={kind === "line_items" ? batch.items : undefined}
+                    batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
+                    batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
+                    summaryStartIndex={batch.startIndex}
                   />
                 ) : data.template === "classic_v2" ? (
                   <PrintDocumentClassicV2
@@ -321,7 +353,10 @@ export default function DocumentPrintPreviewPage() {
                     pageMode={batch.mode}
                     pageIndex={i + 1}
                     totalPages={batches.length}
-                    batchLineItems={batch.items}
+                    batchLineItems={kind === "line_items" ? batch.items : undefined}
+                    batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
+                    batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
+                    summaryStartIndex={batch.startIndex}
                   />
                 ) : (
                   <PrintDocument
@@ -330,7 +365,10 @@ export default function DocumentPrintPreviewPage() {
                     pageMode={batch.mode}
                     pageIndex={i + 1}
                     totalPages={batches.length}
-                    batchLineItems={batch.items}
+                    batchLineItems={kind === "line_items" ? batch.items : undefined}
+                    batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
+                    batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
+                    summaryStartIndex={batch.startIndex}
                   />
                 )}
               </div>
@@ -437,8 +475,8 @@ return (
           >
             <PrintErrorBoundary onError={() => {}}>
               {(() => {
-                const batches = paginateLineItems(data.lineItems, data.template);
-                return batches.map((batch, i) => {
+                const batches = getPrintBatches(data);
+                return batches.map(({ kind, batch }, i) => {
                   const props = {
                     key: `p${i}`,
                     data,
@@ -446,7 +484,10 @@ return (
                     pageMode: batch.mode,
                     pageIndex: i + 1,
                     totalPages: batches.length,
-                    batchLineItems: batch.items,
+                    batchLineItems: kind === "line_items" ? batch.items : undefined,
+                    batchBillingNoteInvoices: kind === "billing_invoices" ? batch.items : undefined,
+                    batchReceiptInvoices: kind === "receipt_invoices" ? batch.items : undefined,
+                    summaryStartIndex: batch.startIndex,
                   };
                   return data.template === "classic" ? (
                     <PrintDocumentClassic {...props} />
