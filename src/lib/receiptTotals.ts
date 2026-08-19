@@ -2,6 +2,8 @@ import type { Document } from "../types";
 import { supabase } from "./supabase";
 
 export interface ReceiptTotals {
+  preTaxAmount: number;
+  grossAmount: number;
   amountReceived: number;
   whtAmount: number;
 }
@@ -45,11 +47,11 @@ export async function getReceiptTotalsForDocument(sourceDocument: Document, user
     }
   }
 
-  if (receiptIds.size === 0) return { amountReceived: 0, whtAmount: 0 };
+  if (receiptIds.size === 0) return { preTaxAmount: 0, grossAmount: 0, amountReceived: 0, whtAmount: 0 };
 
   const { data: receipts, error: receiptError } = await supabase
     .from("documents")
-    .select("amount_received, wht_amount")
+    .select("subtotal, total_amount, amount_received, wht_amount")
     .eq("user_id", userId)
     .in("id", Array.from(receiptIds))
     .eq("doc_type", "receipt")
@@ -58,9 +60,11 @@ export async function getReceiptTotalsForDocument(sourceDocument: Document, user
 
   return (receipts || []).reduce(
     (totals, receipt) => ({
+      preTaxAmount: totals.preTaxAmount + (receipt.subtotal || 0),
+      grossAmount: totals.grossAmount + (receipt.total_amount || 0),
       amountReceived: totals.amountReceived + (receipt.amount_received || 0),
       whtAmount: totals.whtAmount + (receipt.wht_amount || 0),
     }),
-    { amountReceived: 0, whtAmount: 0 },
+    { preTaxAmount: 0, grossAmount: 0, amountReceived: 0, whtAmount: 0 },
   );
 }

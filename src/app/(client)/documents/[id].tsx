@@ -30,7 +30,7 @@ import { formatCurrency } from "../../../lib/format";
 import { getReceiptTotalsForDocument } from "../../../lib/receiptTotals";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
-import { calculateReceiptWhtAmount } from "../../../lib/tax";
+import { calculateReceiptAllocation } from "../../../lib/tax";
 import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
 import {
   buildReceiptBackdateFields,
@@ -114,7 +114,9 @@ export default function DocumentDetailPage() {
 
   const [payModal, setPayModal] = useState(false);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("bank_transfer");
-  const [payAmount, setPayAmount] = useState(0);
+  const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
+  const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
+  const [paymentPreviousWht, setPaymentPreviousWht] = useState(0);
   const toast = useToast();
   const [payWhtCert, setPayWhtCert] = useState("");
   const [payDate, setPayDate] = useState(() => realTodayString());
@@ -385,18 +387,18 @@ export default function DocumentDetailPage() {
   };
 
   const handlePay = async () => {
-    if (!doc || !userId || payAmount <= 0) return;
+    if (!doc || !userId || paymentBaseAmount <= 0) return;
     if (!permissions.canRecordPayments) {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const { amountReceived: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
-    const remaining = Math.max(0, doc.net_payable - previousTotal);
-    if (payAmount > remaining + 0.01) {
-      setError(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+    const { preTaxAmount: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
+    const remaining = Math.max(0, doc.subtotal - previousTotal);
+    if (paymentBaseAmount > remaining + 0.01) {
+      setError(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
       return;
     }
-    if (payAmount < remaining - 0.01) {
+    if (paymentBaseAmount < remaining - 0.01) {
       setPayMismatchConfirm(true);
       return;
     }
@@ -422,20 +424,20 @@ export default function DocumentDetailPage() {
       const receiptInvoiceSources = await getReceiptInvoiceSources(doc, userId);
 
       const previousTotals = await getReceiptTotalsForDocument(doc, userId);
-      const previousTotal = previousTotals.amountReceived;
+      const previousTotal = previousTotals.preTaxAmount;
       const previousWht = previousTotals.whtAmount;
-      const remaining = Math.max(0, doc.net_payable - previousTotal);
-      if (payAmount <= 0 || payAmount > remaining + 0.01) {
-        throw new Error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+      const remaining = Math.max(0, doc.subtotal - previousTotal);
+      if (paymentBaseAmount <= 0 || paymentBaseAmount > remaining + 0.01) {
+        throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
       }
-      const newTotal = previousTotal + payAmount;
-      const isFullyPaid = newTotal >= (doc.net_payable - 0.01);
+      const newTotal = previousTotal + paymentBaseAmount;
+      const isFullyPaid = newTotal >= (doc.subtotal - 0.01);
       const newStatus = isFullyPaid ? "paid" : "partially_paid";
-      const receiptWhtAmount = calculateReceiptWhtAmount({
-        expectedWht: doc.wht_amount || 0,
+      const allocation = calculateReceiptAllocation({
+        preTaxAmount: paymentBaseAmount,
         vatRate: doc.vat_rate,
         whtRate: doc.wht_rate,
-        paymentAmount: payAmount,
+        expectedWht: doc.wht_amount || 0,
         previousWht,
         isFullyPaid,
       });
@@ -446,7 +448,7 @@ export default function DocumentDetailPage() {
           status: newStatus as DocumentStatus,
           paid_at: paidAt,
           payment_method: payMethod,
-          amount_received: newTotal,
+          amount_received: previousTotals.amountReceived + allocation.netAmount,
           wht_certificate_no: payWhtCert || null,
         })
         .eq("id", doc.id);
@@ -482,13 +484,13 @@ export default function DocumentDetailPage() {
         wht_rate: doc.wht_rate,
         discount_percent: doc.discount_percent,
         discount_amount: doc.discount_amount,
-        subtotal: doc.subtotal,
-        vat_amount: doc.vat_amount,
-        total_amount: doc.total_amount,
-         wht_amount: receiptWhtAmount,
-        net_payable: payAmount,
+        subtotal: allocation.preTax,
+        vat_amount: allocation.vatAmount,
+        total_amount: allocation.grossAmount,
+        wht_amount: allocation.whtAmount,
+        net_payable: allocation.netAmount,
         payment_method: payMethod,
-        amount_received: payAmount,
+        amount_received: allocation.netAmount,
         wht_certificate_no: payWhtCert || null,
         ...receiptBackdateFields,
       }).select("id").single();
@@ -501,7 +503,7 @@ export default function DocumentDetailPage() {
             userId,
             sourceDocument: doc,
             invoices: receiptInvoiceSources,
-            actualPaidAmount: payAmount,
+            actualPaidAmount: allocation.netAmount,
           }),
         );
         if (receiptInvoiceError) throw receiptInvoiceError;
@@ -660,9 +662,11 @@ export default function DocumentDetailPage() {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const { amountReceived: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
-    const remaining = Math.max(0, doc.net_payable - previousTotal);
-    setPayAmount(remaining);
+    const { preTaxAmount: previousTotal, whtAmount: previousWht } = await getReceiptTotalsForDocument(doc, userId);
+    const remaining = Math.max(0, doc.subtotal - previousTotal);
+    setPaymentBaseAmount(remaining);
+    setPaymentBaseRemaining(remaining);
+    setPaymentPreviousWht(previousWht);
     setPayMismatchConfirm(false);
     setPayMethod("bank_transfer");
     setPayWhtCert("");
@@ -735,6 +739,14 @@ export default function DocumentDetailPage() {
             : isSent || isIssued
               ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
               : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
+  const paymentPreview = calculateReceiptAllocation({
+    preTaxAmount: paymentBaseAmount,
+    vatRate: doc.vat_rate,
+    whtRate: doc.wht_rate,
+    expectedWht: doc.wht_amount || 0,
+    previousWht: paymentPreviousWht,
+    isFullyPaid: paymentBaseAmount >= doc.subtotal - 0.01,
+  });
 
   return (
     <AppShell
@@ -1628,25 +1640,25 @@ export default function DocumentDetailPage() {
           {payMismatchConfirm ? (
             <>
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-semibold text-amber-900">จำนวนเงินที่รับไม่ตรงกับยอดที่ต้องชำระ</p>
+                <p className="text-sm font-semibold text-amber-900">ยอดก่อน VAT ไม่ตรงกับยอดคงเหลือ</p>
                 <div className="mt-3 space-y-1.5 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-amber-700">ยอดที่ต้องชำระ</span>
-                    <span className="font-medium text-amber-900">฿{formatCurrency(doc.net_payable)}</span>
+                    <span className="text-amber-700">ยอดก่อน VAT คงเหลือ</span>
+                    <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseRemaining)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-amber-700">จำนวนเงินที่รับ</span>
-                    <span className="font-medium text-amber-900">฿{formatCurrency(payAmount)}</span>
+                    <span className="text-amber-700">ยอดก่อน VAT งวดนี้</span>
+                    <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseAmount)}</span>
                   </div>
                   <div className="border-t border-amber-200 pt-1.5 flex justify-between">
                     <span className="text-amber-700">ส่วนต่าง</span>
-                    <span className="font-bold text-amber-900">{payAmount > doc.net_payable ? "+" : ""}฿{formatCurrency(payAmount - doc.net_payable)}</span>
+                    <span className="font-bold text-amber-900">{paymentBaseAmount > paymentBaseRemaining ? "+" : ""}฿{formatCurrency(paymentBaseAmount - paymentBaseRemaining)}</span>
                   </div>
                 </div>
                 <p className="mt-3 text-xs text-amber-700">
-                  {payAmount < doc.net_payable
-                    ? "คุณกำลังรับเงินน้อยกว่ายอดที่ต้องชำระ ยอดคงเหลือจะยังปรากฏในรายงานลูกหนี้จนกว่าจะเก็บครบ"
-                    : "คุณกำลังรับเงินมากกว่ายอดที่ต้องชำระ จำนวนที่เกินจะไม่ถูกบันทึกเป็นเครดิต"}
+                  {paymentBaseAmount < paymentBaseRemaining
+                    ? "คุณกำลังบันทึกชำระบางส่วน ยอดคงเหลือจะแสดงในรายงานลูกหนี้จนกว่าจะชำระครบ"
+                    : "ยอดก่อน VAT เกินยอดคงเหลือ ระบบจะไม่บันทึกยอดส่วนเกิน"}
                 </p>
               </div>
               <div className="flex gap-2 justify-end">
@@ -1657,16 +1669,22 @@ export default function DocumentDetailPage() {
           ) : (
             <>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">ยอดที่ต้องชำระ</label>
-            <p className="text-lg font-semibold">฿{formatCurrency(doc.net_payable)}</p>
+            <label className="block text-xs font-medium text-gray-600 mb-1">ยอดก่อน VAT คงเหลือ</label>
+            <p className="text-lg font-semibold">฿{formatCurrency(paymentBaseRemaining)}</p>
           </div>
           <Input
-            label="จำนวนเงินที่รับ"
+            label="ยอดชำระก่อน VAT"
             type="number"
             step="0.01"
-            value={payAmount || ""}
-            onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
+            value={paymentBaseAmount || ""}
+            onChange={(e) => setPaymentBaseAmount(parseFloat(e.target.value) || 0)}
           />
+          <div className="rounded-lg border border-card-border bg-stone-50 px-3 py-3 text-sm">
+            <div className="flex justify-between"><span className="text-gray-500">VAT</span><span>฿{formatCurrency(paymentPreview.vatAmount)}</span></div>
+            <div className="mt-1 flex justify-between"><span className="text-gray-500">ยอดรวมก่อน WHT</span><span>฿{formatCurrency(paymentPreview.grossAmount)}</span></div>
+            <div className="mt-1 flex justify-between"><span className="text-gray-500">WHT</span><span>฿{formatCurrency(paymentPreview.whtAmount)}</span></div>
+            <div className="mt-2 flex justify-between border-t border-card-border pt-2 font-semibold"><span>ยอดโอนจริงหลังหัก WHT</span><span>฿{formatCurrency(paymentPreview.netAmount)}</span></div>
+          </div>
           <Select
             label="วิธีชำระเงิน"
             value={payMethod}
@@ -1721,7 +1739,7 @@ export default function DocumentDetailPage() {
           )}
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setPayModal(false)}>ปิด</Button>
-            <Button variant="primary" onClick={handlePay} loading={paying} disabled={payAmount <= 0}>ยืนยัน</Button>
+          <Button variant="primary" onClick={handlePay} loading={paying} disabled={paymentBaseAmount <= 0}>ยืนยัน</Button>
           </div>
             </>
           )}

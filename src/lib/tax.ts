@@ -8,47 +8,35 @@ function clampAmount(value: number, max: number): number {
   return Math.max(0, Math.min(round2(value), round2(max)));
 }
 
-export function calculateReceiptWhtAmount({
-  expectedWht,
+export function calculateReceiptAllocation({
+  preTaxAmount,
   vatRate,
   whtRate,
-  paymentAmount,
+  expectedWht = 0,
   previousWht = 0,
   isFullyPaid = false,
 }: {
-  expectedWht: number;
+  preTaxAmount: number;
   vatRate: number;
   whtRate: number;
-  paymentAmount: number;
+  expectedWht?: number;
   previousWht?: number;
   isFullyPaid?: boolean;
 }) {
+  const preTax = round2(Math.max(0, preTaxAmount));
+  const vatAmount = round2(preTax * vatRate / 100);
+  const grossAmount = round2(preTax + vatAmount);
   const expected = Math.max(0, round2(expectedWht));
-  const remaining = Math.max(0, round2(expected - previousWht));
-  if (expected <= 0 || whtRate <= 0 || paymentAmount <= 0) return 0;
-  if (isFullyPaid) return remaining;
-  // WHT is withheld on the pre-tax portion of the received amount,
-  // where the received amount is the net cash (gross portion minus WHT):
-  //   net = preTax * (1 + vatRate - whtRate)
-  const preTax = paymentAmount / (1 + vatRate / 100 - whtRate / 100);
-  return Math.min(remaining, round2(preTax * whtRate / 100));
-}
+  const remainingWht = Math.max(0, round2(expected - previousWht));
+  const calculatedWht = round2(preTax * whtRate / 100);
+  const whtAmount = expected <= 0 || whtRate <= 0
+    ? 0
+    : isFullyPaid
+      ? remainingWht
+      : Math.min(remainingWht, calculatedWht);
+  const netAmount = round2(grossAmount - whtAmount);
 
-export function calculateReceiptBreakdown({
-  paymentAmount,
-  vatRate,
-  whtRate,
-}: {
-  paymentAmount: number;
-  vatRate: number;
-  whtRate: number;
-}) {
-  const v = Number(vatRate || 0);
-  const w = Number(whtRate || 0);
-  const preTax = round2(paymentAmount / (1 + v / 100 - w / 100));
-  const vatAmount = round2(preTax * v / 100);
-  const gross = round2(preTax + vatAmount);
-  return { preTax, vatAmount, gross };
+  return { preTax, vatAmount, grossAmount, whtAmount, netAmount };
 }
 
 type TaxLineInput = Partial<Pick<DocumentLineItem, "unit_price" | "quantity" | "discount_percent" | "discount_amount" | "line_total">>;

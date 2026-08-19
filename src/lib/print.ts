@@ -142,7 +142,7 @@ export async function getPrintableDocumentDataBase(
     if (billingNote) {
       if (document.doc_type === "receipt") {
         const priorReceipts = docList.filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === billingNote.id && doc.status !== "voided" && doc.created_at <= document.created_at);
-        const receivedForBillingNote = priorReceipts.reduce((sum, receipt) => sum + (receipt.amount_received || 0) + (receipt.wht_amount || 0), 0);
+        const receivedForBillingNote = priorReceipts.reduce((sum, receipt) => sum + (receipt.total_amount || (receipt.amount_received || 0) + (receipt.wht_amount || 0)), 0);
         receiptOutstanding = Math.max(0, (billingNote.total_amount || billingNote.net_payable || 0) - receivedForBillingNote);
         receiptPaymentNumber = priorReceipts.length;
         receiptCumulativePaid = receivedForBillingNote;
@@ -187,7 +187,7 @@ export async function getPrintableDocumentDataBase(
     } else if (sourceInvoice) {
       if (document.doc_type === "receipt") {
         const priorReceipts = docList.filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === sourceInvoice.id && doc.status !== "voided" && doc.created_at <= document.created_at);
-        const receivedForInvoice = priorReceipts.reduce((sum, receipt) => sum + (receipt.amount_received || 0) + (receipt.wht_amount || 0), 0);
+        const receivedForInvoice = priorReceipts.reduce((sum, receipt) => sum + (receipt.total_amount || (receipt.amount_received || 0) + (receipt.wht_amount || 0)), 0);
         receiptOutstanding = Math.max(0, (sourceInvoice.total_amount || sourceInvoice.net_payable || 0) - receivedForInvoice);
         receiptPaymentNumber = priorReceipts.length;
         receiptCumulativePaid = receivedForInvoice;

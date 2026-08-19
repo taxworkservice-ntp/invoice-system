@@ -30,7 +30,7 @@ import {
   todayString as realTodayString,
 } from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
-import { calculateReceiptWhtAmount } from "../../../lib/tax";
+import { calculateReceiptAllocation } from "../../../lib/tax";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
@@ -181,7 +181,9 @@ export default function DealDetailPage() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [payDocument, setPayDocument] = useState<Document | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
-  const [amountReceived, setAmountReceived] = useState(0);
+  const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
+  const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
+  const [paymentPreviousWht, setPaymentPreviousWht] = useState(0);
   const [whtCertificateNo, setWhtCertificateNo] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => realTodayString());
   const [paymentBackdateReason, setPaymentBackdateReason] = useState("");
@@ -445,10 +447,12 @@ export default function DealDetailPage() {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const { amountReceived: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
-    const remaining = Math.max(0, doc.net_payable - previousTotal);
+    const { preTaxAmount: previousTotal, whtAmount: previousWht } = await getReceiptTotalsForDocument(doc, userId);
+    const remaining = Math.max(0, doc.subtotal - previousTotal);
     setPayDocument(doc);
-    setAmountReceived(remaining);
+    setPaymentBaseAmount(remaining);
+    setPaymentBaseRemaining(remaining);
+    setPaymentPreviousWht(previousWht);
     setPaymentMismatchConfirm(false);
     setPaymentMethod("bank_transfer");
     setWhtCertificateNo("");
@@ -464,13 +468,13 @@ export default function DealDetailPage() {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const { amountReceived: previousTotal } = await getReceiptTotalsForDocument(payDocument, userId);
-    const remaining = Math.max(0, payDocument.net_payable - previousTotal);
-    if (amountReceived > remaining + 0.01) {
-      toast.error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+    const { preTaxAmount: previousTotal } = await getReceiptTotalsForDocument(payDocument, userId);
+    const remaining = Math.max(0, payDocument.subtotal - previousTotal);
+    if (paymentBaseAmount > remaining + 0.01) {
+      toast.error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
       return;
     }
-    if (amountReceived < remaining - 0.01) {
+    if (paymentBaseAmount < remaining - 0.01) {
       setPaymentMismatchConfirm(true);
       return;
     }
@@ -495,20 +499,20 @@ export default function DealDetailPage() {
       const receiptInvoiceSources = await getReceiptInvoiceSources(payDocument, userId);
 
       const previousTotals = await getReceiptTotalsForDocument(payDocument, userId);
-      const previousTotal = previousTotals.amountReceived;
+      const previousTotal = previousTotals.preTaxAmount;
       const previousWht = previousTotals.whtAmount;
-      const remaining = Math.max(0, payDocument.net_payable - previousTotal);
-      if (amountReceived <= 0 || amountReceived > remaining + 0.01) {
-        throw new Error(`รับเงินเกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
+      const remaining = Math.max(0, payDocument.subtotal - previousTotal);
+      if (paymentBaseAmount <= 0 || paymentBaseAmount > remaining + 0.01) {
+        throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
       }
-      const newTotal = previousTotal + amountReceived;
-      const isFullyPaid = newTotal >= (payDocument.net_payable - 0.01);
+      const newTotal = previousTotal + paymentBaseAmount;
+      const isFullyPaid = newTotal >= (payDocument.subtotal - 0.01);
       const newStatus = isFullyPaid ? "paid" : "partially_paid";
-      const receiptWhtAmount = calculateReceiptWhtAmount({
-        expectedWht: payDocument.wht_amount || 0,
+      const allocation = calculateReceiptAllocation({
+        preTaxAmount: paymentBaseAmount,
         vatRate: payDocument.vat_rate,
         whtRate: payDocument.wht_rate,
-        paymentAmount: amountReceived,
+        expectedWht: payDocument.wht_amount || 0,
         previousWht,
         isFullyPaid,
       });
@@ -519,7 +523,7 @@ export default function DealDetailPage() {
           status: newStatus as DocumentStatus,
           paid_at: paidAt,
           payment_method: paymentMethod,
-          amount_received: newTotal,
+          amount_received: previousTotals.amountReceived + allocation.netAmount,
           wht_certificate_no: whtCertificateNo || null,
         })
         .eq("id", payDocument.id);
@@ -555,13 +559,13 @@ export default function DealDetailPage() {
         wht_rate: payDocument.wht_rate,
         discount_percent: payDocument.discount_percent,
         discount_amount: payDocument.discount_amount,
-        subtotal: payDocument.subtotal,
-        vat_amount: payDocument.vat_amount,
-        total_amount: payDocument.total_amount,
-         wht_amount: receiptWhtAmount,
-        net_payable: amountReceived,
+        subtotal: allocation.preTax,
+        vat_amount: allocation.vatAmount,
+        total_amount: allocation.grossAmount,
+        wht_amount: allocation.whtAmount,
+        net_payable: allocation.netAmount,
         payment_method: paymentMethod,
-        amount_received: amountReceived,
+        amount_received: allocation.netAmount,
         wht_certificate_no: whtCertificateNo || null,
         paid_at: paidAt,
         ...receiptBackdateFields,
@@ -575,7 +579,7 @@ export default function DealDetailPage() {
             userId,
             sourceDocument: payDocument,
             invoices: receiptInvoiceSources,
-            actualPaidAmount: amountReceived,
+            actualPaidAmount: allocation.netAmount,
           }),
         );
         if (receiptInvoiceError) throw receiptInvoiceError;
@@ -1348,6 +1352,17 @@ export default function DealDetailPage() {
       </AppShell>
     );
   }
+
+  const paymentPreview = payDocument
+    ? calculateReceiptAllocation({
+        preTaxAmount: paymentBaseAmount,
+        vatRate: payDocument.vat_rate,
+        whtRate: payDocument.wht_rate,
+        expectedWht: payDocument.wht_amount || 0,
+        previousWht: paymentPreviousWht,
+        isFullyPaid: paymentBaseAmount >= payDocument.subtotal - 0.01,
+      })
+    : null;
 
   return (
     <AppShell
@@ -2228,25 +2243,25 @@ export default function DealDetailPage() {
               {paymentMismatchConfirm ? (
                 <>
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                    <p className="text-sm font-semibold text-amber-900">จำนวนเงินที่รับไม่ตรงกับยอดที่ต้องชำระ</p>
+                       <p className="text-sm font-semibold text-amber-900">ยอดก่อน VAT ไม่ตรงกับยอดคงเหลือ</p>
                     <div className="mt-3 space-y-1.5 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-amber-700">ยอดที่ต้องชำระ</span>
-                        <span className="font-medium text-amber-900">฿{formatCurrency(payDocument.net_payable)}</span>
+                         <span className="text-amber-700">ยอดก่อน VAT คงเหลือ</span>
+                         <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseRemaining)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-amber-700">จำนวนเงินที่รับ</span>
-                        <span className="font-medium text-amber-900">฿{formatCurrency(amountReceived)}</span>
+                         <span className="text-amber-700">ยอดก่อน VAT งวดนี้</span>
+                         <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseAmount)}</span>
                       </div>
                       <div className="border-t border-amber-200 pt-1.5 flex justify-between">
                         <span className="text-amber-700">ส่วนต่าง</span>
-                        <span className="font-bold text-amber-900">{amountReceived > payDocument.net_payable ? "+" : ""}฿{formatCurrency(amountReceived - payDocument.net_payable)}</span>
+                         <span className="font-bold text-amber-900">{paymentBaseAmount > paymentBaseRemaining ? "+" : ""}฿{formatCurrency(paymentBaseAmount - paymentBaseRemaining)}</span>
                       </div>
                     </div>
                     <p className="mt-3 text-xs text-amber-700">
-                      {amountReceived < payDocument.net_payable
-                        ? "คุณกำลังรับเงินน้อยกว่ายอดที่ต้องชำระ ยอดคงเหลือจะยังปรากฏในรายงานลูกหนี้จนกว่าจะเก็บครบ"
-                        : "คุณกำลังรับเงินมากกว่ายอดที่ต้องชำระ จำนวนที่เกินจะไม่ถูกบันทึกเป็นเครดิต"}
+                       {paymentBaseAmount < paymentBaseRemaining
+                         ? "คุณกำลังบันทึกชำระบางส่วน ยอดคงเหลือจะแสดงในรายงานลูกหนี้จนกว่าจะชำระครบ"
+                         : "ยอดก่อน VAT เกินยอดคงเหลือ ระบบจะไม่บันทึกยอดส่วนเกิน"}
                     </p>
                   </div>
                   <div className="flex gap-2 justify-end">
@@ -2257,26 +2272,34 @@ export default function DealDetailPage() {
               ) : (
                 <>
               <div className="rounded-lg bg-stone-50 border border-card-border px-4 py-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">ยอดในใบวางบิล</span>
-                  <span className="font-semibold">฿{formatCurrency(payDocument.net_payable)}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-gray-500">หัก ณ ที่จ่าย</span>
-                  <span className="font-medium text-gray-700">฿{formatCurrency(payDocument.wht_amount)}</span>
-                </div>
-                <div className="mt-3 border-t border-card-border pt-2 flex items-center justify-between">
-                  <span className="font-medium text-gray-700">ยอดที่รับจริง</span>
-                  <span className="text-base font-semibold">฿{formatCurrency(amountReceived)}</span>
+                 <div className="flex items-center justify-between">
+                   <span className="text-gray-500">ยอดก่อน VAT คงเหลือ</span>
+                   <span className="font-semibold">฿{formatCurrency(paymentBaseRemaining)}</span>
+                 </div>
+                 <div className="mt-2 flex items-center justify-between">
+                   <span className="text-gray-500">ยอดก่อน VAT งวดนี้</span>
+                   <span className="font-medium text-gray-700">฿{formatCurrency(paymentBaseAmount)}</span>
+                 </div>
+                 <div className="mt-2 flex items-center justify-between">
+                   <span className="text-gray-500">ยอดรวมก่อน WHT</span>
+                   <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.grossAmount || 0)}</span>
+                 </div>
+                 <div className="mt-2 flex items-center justify-between">
+                   <span className="text-gray-500">หัก ณ ที่จ่าย</span>
+                   <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.whtAmount || 0)}</span>
+                 </div>
+                 <div className="mt-3 border-t border-card-border pt-2 flex items-center justify-between">
+                   <span className="font-medium text-gray-700">ยอดโอนจริงหลังหัก WHT</span>
+                   <span className="text-base font-semibold">฿{formatCurrency(paymentPreview?.netAmount || 0)}</span>
                 </div>
               </div>
 
               <Input
-                label="จำนวนเงินที่รับ"
+                 label="ยอดชำระก่อน VAT"
                 type="number"
                 step="0.01"
-                value={amountReceived || ""}
-                onChange={(e) => setAmountReceived(parseFloat(e.target.value) || 0)}
+                 value={paymentBaseAmount || ""}
+                 onChange={(e) => setPaymentBaseAmount(parseFloat(e.target.value) || 0)}
               />
 
               <div>
@@ -2343,7 +2366,7 @@ export default function DealDetailPage() {
                 <Button variant="secondary" onClick={() => setPaymentModalOpen(false)}>
                   ปิด
                 </Button>
-                <Button onClick={handleConfirmPayment} disabled={paying || amountReceived <= 0}>
+                 <Button onClick={handleConfirmPayment} disabled={paying || paymentBaseAmount <= 0}>
                   {paying ? "กำลังบันทึก..." : "ยืนยันการรับเงิน"}
                 </Button>
               </div>

@@ -1,20 +1,17 @@
 import { formatCurrency } from "../../lib/format";
-import { calculateReceiptBreakdown } from "../../lib/tax";
 import type { PrintDocumentData } from "../../lib/print";
 
 export function PrintTotals({ data }: { data: PrintDocumentData }) {
-  const { document, grossSubtotal, lineDiscountTotal, receiptOutstanding, receiptCumulativePaid } = data;
+  const { document, referenceDoc, grossSubtotal, lineDiscountTotal, receiptOutstanding, receiptCumulativePaid } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
   const isReceipt = document.doc_type === "receipt";
   const receiptCash = document.amount_received ?? document.net_payable;
-  const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && receiptCash > 0;
-  const receiptBreakdown = receiptTaxable
-    ? calculateReceiptBreakdown({ paymentAmount: receiptCash, vatRate: document.vat_rate, whtRate: document.wht_rate })
-    : null;
-  const receiptPreTax = receiptBreakdown?.preTax ?? 0;
-  const receiptVatAmount = receiptBreakdown?.vatAmount ?? 0;
-  const receiptAmount = receiptBreakdown?.gross ?? receiptCash;
+  const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && document.subtotal > 0;
+  const receiptPreTax = isReceipt ? document.subtotal : 0;
+  const receiptVatAmount = isReceipt ? document.vat_amount : 0;
+  const receiptAmount = isReceipt ? document.total_amount : receiptCash;
   const receiptWhtTotal = isReceipt ? document.wht_amount || 0 : 0;
+  const receiptReferenceAmount = referenceDoc?.total_amount ?? document.total_amount;
   const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
 
   if (hideDeliveryAmounts) {
@@ -81,7 +78,7 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
                   <span>มูลค่าอ้างอิง</span>
                   <span className="text-[6.5px] text-[#94a3b8]">REFERENCE VALUE</span>
                 </div>
-                <span className="self-center">{formatCurrency(document.total_amount)}</span>
+                  <span className="self-center">{formatCurrency(document.total_amount)}</span>
               </div>
               <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
                 <div className="flex flex-col">
@@ -143,7 +140,7 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
                   <span>ยอดตามเอกสารอ้างอิง</span>
                   <span className="text-[6.5px] text-[#94a3b8]">REFERENCE AMOUNT</span>
                 </div>
-                <span className="self-center">{formatCurrency(document.total_amount)}</span>
+                <span className="self-center">{formatCurrency(receiptReferenceAmount)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
