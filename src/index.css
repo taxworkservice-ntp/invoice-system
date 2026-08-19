@@ -508,16 +508,6 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   letter-spacing: 0.02em;
   margin-top: 1mm;
 }
-.print-classic-doc-title-sub {
-  margin-top: 1.2mm;
-  font-size: 9pt;
-  font-weight: 600;
-  color: #475467;
-}
-.print-classic-doc-title-sub-en {
-  font-weight: 500;
-  color: #94a3b8;
-}
 
 /* INFO BAND */
 .print-classic-info-band {

@@ -245,12 +245,6 @@ export function PrintDocumentClassicV2({
             {titleEn ? (
               <div className="print-classic-doc-title-en">{titleEn}</div>
             ) : null}
-            {isReceipt && receiptPaymentNumber ? (
-              <div className="print-classic-doc-title-sub">
-                ชำระครั้งที่ {receiptPaymentNumber}
-                <span className="print-classic-doc-title-sub-en"> · PAYMENT {receiptPaymentNumber}</span>
-              </div>
-            ) : null}
           </div>
 
           {/* ============== INFO BAND ============== */}
@@ -320,6 +314,21 @@ export function PrintDocumentClassicV2({
                       {document.doc_number || "-"}
                     </td>
                   </tr>
+                  {isReceipt && receiptPaymentNumber ? (
+                    <tr>
+                      <th>
+                        <span className="print-classic-meta-th-th">
+                          ชำระครั้งที่
+                        </span>
+                        <span className="print-classic-meta-th-en">
+                          PAYMENT NO.
+                        </span>
+                      </th>
+                      <td className="print-classic-meta-val">
+                        {receiptPaymentNumber}
+                      </td>
+                    </tr>
+                  ) : null}
                   {referenceDoc && refLabel ? (
                     <tr>
                       <th>

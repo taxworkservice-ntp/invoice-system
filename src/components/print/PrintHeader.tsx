@@ -92,9 +92,12 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
             </>
           )}
           {document.doc_type === "receipt" && receiptPaymentNumber ? (
-            <div className="mt-1 text-[9px] font-semibold text-[#475467]">
-              ชำระครั้งที่ {receiptPaymentNumber}
-              <span className="ml-1 text-[6.5px] font-medium text-[#94a3b8]">· PAYMENT {receiptPaymentNumber}</span>
+            <div className="flex justify-between gap-2">
+              <div className="flex flex-col">
+                <span className="text-[#6B7280]">ชำระครั้งที่</span>
+                <span className="text-[6.5px] text-[#94a3b8]">PAYMENT NO.</span>
+              </div>
+              <span className="text-right font-medium text-[#111827] self-center">{receiptPaymentNumber}</span>
             </div>
           ) : null}
 
