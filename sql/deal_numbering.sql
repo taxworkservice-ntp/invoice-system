@@ -17,27 +17,28 @@ CREATE OR REPLACE FUNCTION generate_deal_number(p_user_id uuid)
 RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 DECLARE
   v_year     int;
   v_seq      int;
-  v_existing deal_number_sequences%ROWTYPE;
+  v_existing public.deal_number_sequences%ROWTYPE;
 BEGIN
   v_year  := extract(year from now())::int;
 
-  SELECT * INTO v_existing FROM deal_number_sequences WHERE user_id = p_user_id FOR UPDATE;
+  SELECT * INTO v_existing FROM public.deal_number_sequences WHERE user_id = p_user_id FOR UPDATE;
 
   IF NOT FOUND THEN
     v_seq := 1;
-    INSERT INTO deal_number_sequences (user_id, last_year, last_month, last_sequence)
+    INSERT INTO public.deal_number_sequences (user_id, last_year, last_month, last_sequence)
     VALUES (p_user_id, v_year, 0, 1);
   ELSE
     IF v_existing.last_year = v_year THEN
       v_seq := v_existing.last_sequence + 1;
-      UPDATE deal_number_sequences SET last_sequence = v_seq WHERE id = v_existing.id;
+      UPDATE public.deal_number_sequences SET last_sequence = v_seq WHERE id = v_existing.id;
     ELSE
       v_seq := 1;
-      UPDATE deal_number_sequences SET last_year = v_year, last_month = 0, last_sequence = 1 WHERE id = v_existing.id;
+      UPDATE public.deal_number_sequences SET last_year = v_year, last_month = 0, last_sequence = 1 WHERE id = v_existing.id;
     END IF;
   END IF;
 
@@ -49,10 +50,11 @@ CREATE OR REPLACE FUNCTION set_deal_number()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 BEGIN
   IF NEW.deal_number IS NULL THEN
-    NEW.deal_number := generate_deal_number(NEW.user_id);
+    NEW.deal_number := public.generate_deal_number(NEW.user_id);
   END IF;
   RETURN NEW;
 END;
