@@ -420,15 +420,15 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         <Card>
           <div className="space-y-3">
             <div>
-              <span className="text-[11px] text-[#888780]">ลูกค้า</span>
+              <span className="text-[11px] text-ink-300">ลูกค้า</span>
               <p className="text-sm font-medium">{customer?.name || "-"}</p>
             </div>
 
-            <div className="rounded-xl border border-[#E7E5DE] bg-[#FBFAF7] px-4 py-3">
+            <div className="rounded-xl border border-line-soft bg-paper-field px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">วันที่ที่ใช้บนเอกสาร</div>
-                  <div className="mt-1 text-sm font-semibold text-[#1A1A18]">{formatBuddhistDate(issueDate)}</div>
+                  <div className="mt-1 text-sm font-semibold text-ink-900">{formatBuddhistDate(issueDate)}</div>
                 </div>
                 {!isReadOnly && (
                   <div className="flex gap-2">
@@ -439,7 +439,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
                           setIssueDate(todayString());
                           setShowIssueDatePicker(false);
                         }}
-                        className="rounded-lg border border-[#D7DEE7] px-3 py-2 text-xs font-medium text-[#475467] transition-colors hover:bg-white"
+                        className="rounded-lg border border-cool-200 px-3 py-2 text-xs font-medium text-cool-500 transition-colors hover:bg-white"
                       >
                         ใช้วันนี้
                       </button>
@@ -447,7 +447,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
                     <button
                       type="button"
                       onClick={() => setShowIssueDatePicker((prev) => !prev)}
-                      className="rounded-lg border border-[#D7DEE7] bg-white px-3 py-2 text-xs font-medium text-[#1A1A18] transition-colors hover:bg-gray-50"
+                      className="rounded-lg border border-cool-200 bg-white px-3 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-gray-50"
                     >
                       {showIssueDatePicker || issueDate !== todayString() ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
                     </button>
@@ -455,7 +455,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
                 )}
               </div>
               {(showIssueDatePicker || issueDate !== todayString()) && !isReadOnly && (
-                <div className="mt-3 border-t border-[#ECE8DE] pt-3">
+                <div className="mt-3 border-t border-line-faint pt-3">
                   <Input
                     id="creditNoteIssueDate"
                     label="วันที่ออกเอกสาร"
@@ -484,8 +484,8 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
 
             {isEditing && refInvoiceId && (
               <div>
-                <span className="text-[11px] text-[#888780]">อ้างอิง</span>
-                <p className="text-sm text-[#888780]">
+                <span className="text-[11px] text-ink-300">อ้างอิง</span>
+                <p className="text-sm text-ink-300">
                   {refInvoiceLines.length > 0
                     ? (paidInvoices.find((d) => d.id === refInvoiceId)?.doc_number || refInvoiceId)
                     : refInvoiceId}
@@ -497,26 +497,26 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
 
         {paidInvoices.length === 0 && !isEditing && (
           <Card>
-            <p className="text-sm text-[#888780] text-center py-4">
+            <p className="text-sm text-ink-300 text-center py-4">
               ไม่มีเอกสารที่ชำระแล้วในงานขายนี้
             </p>
           </Card>
         )}
 
         <Card>
-          <div className="text-[11px] uppercase font-semibold text-[#888780] tracking-wide mb-3">
+          <div className="text-[11px] uppercase font-semibold text-ink-300 tracking-wide mb-3">
             รายการ
           </div>
 
           {items.length === 0 ? (
-            <p className="text-sm text-[#888780] text-center py-4">
+            <p className="text-sm text-ink-300 text-center py-4">
               ยังไม่มีรายการ — เลือกอ้างอิงใบแจ้งหนี้ด้านบนหรือเพิ่มรายการจากแค็ตตาล็อก
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-[#E8E6DF] text-[#888780]">
+                  <tr className="border-b border-card-border text-ink-300">
                     <th className="text-left py-2 pr-1 w-8">#</th>
                     <th className="text-left py-2 pr-2">รายการ</th>
                     <th className="text-right py-2 pr-2 w-16">จำนวน</th>
@@ -527,14 +527,14 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
                 </thead>
                 <tbody>
                   {items.map((it, idx) => (
-                    <tr key={it.key} className="border-b border-[#E8E6DF]/50">
-                      <td className="py-2 pr-1 text-[#888780]">{idx + 1}</td>
+                    <tr key={it.key} className="border-b border-card-border/50">
+                      <td className="py-2 pr-1 text-ink-300">{idx + 1}</td>
                       <td className="py-2 pr-2">
-                        <div className="text-[13px] font-medium truncate max-w-[160px]">
+                        <div className="text-sm font-medium truncate max-w-[160px]">
                           {it.itemName}
                         </div>
-                        {it.lineNote ? <div className="mt-0.5 text-[10px] text-[#888780]">{it.lineNote}</div> : null}
-                        <div className="text-[10px] text-[#888780]">{it.unit}</div>
+                        {it.lineNote ? <div className="mt-0.5 text-2xs text-ink-300">{it.lineNote}</div> : null}
+                        <div className="text-2xs text-ink-300">{it.unit}</div>
                       </td>
                       <td className="py-2 pr-2">
                         {isReadOnly ? (
@@ -607,27 +607,27 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         </Card>
 
         <Card>
-          <div className="text-[11px] uppercase font-semibold text-[#888780] tracking-wide mb-3">
+          <div className="text-[11px] uppercase font-semibold text-ink-300 tracking-wide mb-3">
             สรุปยอดเงิน
           </div>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-[#888780]">ยอดรวม</span>
+              <span className="text-ink-300">ยอดรวม</span>
               <span>฿{tax.subtotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
             </div>
             {vatRegistered && (
               <div className="flex justify-between">
-                <span className="text-[#888780]">VAT {vatRate}%</span>
+                <span className="text-ink-300">VAT {vatRate}%</span>
                 <span>฿{tax.vatAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
             )}
             {whtRate > 0 && (
               <div className="flex justify-between">
-                <span className="text-[#888780]">หัก ณ ที่จ่าย {whtRate}%</span>
+                <span className="text-ink-300">หัก ณ ที่จ่าย {whtRate}%</span>
                 <span>฿{tax.whtAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
             )}
-            <div className="border-t border-[#E8E6DF] pt-1 flex justify-between font-semibold">
+            <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
               <span>ยอดสุทธิ</span>
               <span>฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
             </div>
@@ -644,7 +644,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
             placeholder="เหตุผลการลดหนี้ (เช่น สินค้าเสียหาย, คืนเงินบางส่วน)"
             rows={3}
             disabled={isReadOnly}
-            className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 placeholder:text-gray-400 resize-none disabled:bg-gray-50"
+            className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400 resize-none disabled:bg-gray-50"
           />
         </div>
 

@@ -489,9 +489,9 @@ export function InvoiceFromDeliveryNotesForm() {
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-xs font-medium text-gray-600">ลูกค้า</label>
                 {selectedCustomer ? (
-                  <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-[#FAF8F3] p-3">
+                  <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-paper-soft p-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-[#1A1A18]">{selectedCustomer.name}</div>
+                      <div className="text-sm font-medium text-ink-900">{selectedCustomer.name}</div>
                       {selectedCustomer.tax_id && <div className="mt-1 text-xs text-gray-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</div>}
                       {selectedCustomer.address && <div className="mt-1 line-clamp-2 text-xs text-gray-500">{selectedCustomer.address}</div>}
                       {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
@@ -574,7 +574,7 @@ export function InvoiceFromDeliveryNotesForm() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-[#1A1A18]">{dn.doc_number || "ไม่มีเลขเอกสาร"}</span>
+                        <span className="font-medium text-ink-900">{dn.doc_number || "ไม่มีเลขเอกสาร"}</span>
                         <span className="text-xs text-gray-500">{formatBuddhistDate(dn.issue_date)}</span>
                       </div>
                       <div className="mt-1 text-xs leading-5 text-gray-500">{buildItemSummary(dn.line_items)}</div>
@@ -596,7 +596,7 @@ export function InvoiceFromDeliveryNotesForm() {
               <h3 className="text-sm font-medium">รายการที่จะออกบิล</h3>
               <p className="mt-1 text-xs text-gray-500">แสดงสรุปยอดตามใบส่งของที่เลือกก่อนสร้างใบแจ้งหนี้</p>
             </div>
-            <div className="rounded-full bg-[#F3F0E8] px-2.5 py-1 text-xs text-[#5F5A52]">
+            <div className="rounded-full bg-paper-warm px-2.5 py-1 text-xs text-ink-600">
               {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการต้นทาง
             </div>
           </div>
@@ -604,25 +604,25 @@ export function InvoiceFromDeliveryNotesForm() {
           {selectedLines.length === 0 ? (
             <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบส่งของด้านบนเพื่อดูรายการทั้งหมดก่อนสร้างใบแจ้งหนี้" />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-[#E8E6DF]">
-              <div className="hidden bg-[#FAF8F3] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:gap-3">
+            <div className="overflow-hidden rounded-xl border border-card-border">
+              <div className="hidden bg-paper-soft px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:gap-3">
                 <div>ใบส่งของ</div>
                 <div>รายละเอียด</div>
                 <div className="text-right">จำนวน</div>
                 <div className="text-right">ยอด</div>
               </div>
-              <div className="divide-y divide-[#E8E6DF]">
+              <div className="divide-y divide-card-border">
                 {selectedDeliveryNotes.map((dn) => (
                   <div
                     key={dn.id}
                     className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:items-center sm:gap-3"
                   >
                     <div className="min-w-0">
-                      <div className="truncate font-medium text-[#1A1A18]">{dn.doc_number || "ไม่มีเลขเอกสาร"}</div>
+                      <div className="truncate font-medium text-ink-900">{dn.doc_number || "ไม่มีเลขเอกสาร"}</div>
                       <div className="mt-0.5 text-xs text-gray-500">{formatBuddhistDate(dn.issue_date)}</div>
                     </div>
                     <div className="min-w-0">
-                      <div className="break-words text-[#1A1A18]">ใบส่งของ {dn.doc_number || dn.id.slice(0, 8)}</div>
+                      <div className="break-words text-ink-900">ใบส่งของ {dn.doc_number || dn.id.slice(0, 8)}</div>
                       <div className="mt-0.5 text-xs text-gray-500">{buildItemSummary(dn.line_items)}</div>
                     </div>
                     <div className="flex items-center justify-between gap-3 text-sm sm:block sm:text-right">
@@ -631,7 +631,7 @@ export function InvoiceFromDeliveryNotesForm() {
                         1 ใบ
                       </span>
                     </div>
-                    <div className="flex items-center justify-between gap-3 font-medium text-[#1A1A18] sm:block sm:text-right">
+                    <div className="flex items-center justify-between gap-3 font-medium text-ink-900 sm:block sm:text-right">
                       <span className="text-xs font-normal text-gray-500 sm:hidden">ยอด</span>
                       <span>฿{formatCurrency(getDeliveryNoteSubtotal(dn))}</span>
                     </div>
@@ -653,7 +653,7 @@ export function InvoiceFromDeliveryNotesForm() {
               ))}
             </Select>
             <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบส่งของประจำเดือนนี้" />
-            <div className="rounded-xl border border-[#E8E6DF] bg-[#FAF8F3] p-3 text-sm">
+            <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
                 <FileStack className="h-3.5 w-3.5" />
                 รวม {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการต้นทาง
@@ -663,7 +663,7 @@ export function InvoiceFromDeliveryNotesForm() {
                 {clientProfile?.vat_registered && <div className="flex justify-between"><span>VAT {clientProfile.vat_rate}%</span><span>฿{formatCurrency(tax.vatAmount)}</span></div>}
                 <div className="flex justify-between font-medium"><span>รวมทั้งสิ้น</span><span>฿{formatCurrency(tax.total)}</span></div>
                 {tax.whtAmount > 0 && <div className="flex justify-between text-red-600"><span>หัก ณ ที่จ่าย {whtRate}%</span><span>-฿{formatCurrency(tax.whtAmount)}</span></div>}
-                <div className="flex justify-between border-t border-[#E1DDD3] pt-2 text-base font-semibold"><span>ยอดชำระสุทธิ</span><span>฿{formatCurrency(tax.netPayable)}</span></div>
+                <div className="flex justify-between border-t border-line-strong pt-2 text-base font-semibold"><span>ยอดชำระสุทธิ</span><span>฿{formatCurrency(tax.netPayable)}</span></div>
               </div>
             </div>
             <EditableDocNumber

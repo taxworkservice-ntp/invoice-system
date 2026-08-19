@@ -298,7 +298,7 @@ export default function EditUtilityBillPage() {
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-medium text-[#1A1A18]">เอกสาร</h3>
+              <h3 className="text-sm font-medium text-ink-900">เอกสาร</h3>
               <p className="mt-0.5 text-xs text-gray-500">
                 {doc.doc_number} — {(doc as any).customer?.name || "ไม่ระบุลูกค้า"}
               </p>
@@ -310,7 +310,7 @@ export default function EditUtilityBillPage() {
         <Card>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-medium text-[#1A1A18]">ข้อมูลรอบบิล</h3>
+              <h3 className="text-sm font-medium text-ink-900">ข้อมูลรอบบิล</h3>
               <p className="mt-1 text-xs text-gray-500">
                 ระบบจะคำนวณจำนวนหน่วย และบันทึกรายละเอียดไว้ในหมายเหตุรายการ
               </p>
@@ -319,7 +319,7 @@ export default function EditUtilityBillPage() {
 
           <div className="mt-4 space-y-4">
             <label className="block">
-              <span className="mb-1 block text-[13px] text-[#1A1A18]">ค่าบริการ</span>
+              <span className="mb-1 block text-sm text-ink-900">ค่าบริการ</span>
               <CatalogAutocomplete
                 items={serviceItems}
                 value={utilityServiceName}
@@ -341,7 +341,7 @@ export default function EditUtilityBillPage() {
             </label>
 
             <div>
-              <span className="mb-1.5 block text-[13px] text-[#1A1A18]">รอบบิล</span>
+              <span className="mb-1.5 block text-sm text-ink-900">รอบบิล</span>
               <div className="grid grid-cols-2 gap-3">
                 <Input
                   label="เริ่ม"
@@ -360,7 +360,7 @@ export default function EditUtilityBillPage() {
             </div>
 
             <div>
-              <span className="mb-1.5 block text-[13px] text-[#1A1A18]">มาตรวัด</span>
+              <span className="mb-1.5 block text-sm text-ink-900">มาตรวัด</span>
               <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                 <Input
                   label="เลขก่อนหน้า"
@@ -407,10 +407,10 @@ export default function EditUtilityBillPage() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl border border-[#E7E5DE] bg-[#FAF8F3] px-4 py-3">
+          <div className="mt-4 rounded-xl border border-line-soft bg-paper-soft px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-gray-600">ยอดก่อนภาษี</span>
-              <span className="text-base font-semibold text-[#1A1A18]">
+              <span className="text-base font-semibold text-ink-900">
                 ฿{(usage * parseAmount(utilityRate)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>

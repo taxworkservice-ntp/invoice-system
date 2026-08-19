@@ -989,7 +989,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               <Spinner />
             )
           ) : selectedCustomer ? (
-            <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-[#FAF8F3] p-3">
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-paper-soft p-3">
               <div className="min-w-0">
                 <div className="text-sm font-medium text-gray-900">
                   {selectedCustomer.name}
@@ -1222,7 +1222,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 {selectedInvoices.map((invoice) => (
                   <div
                     key={invoice.id}
-                    className="border-b border-[#F1EFE8] pb-2 last:border-0"
+                    className="border-b border-draft-bg pb-2 last:border-0"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>

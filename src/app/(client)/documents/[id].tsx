@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, CalendarDays, CircleDollarSign, FileStack, NotebookText, Printer, UserRound } from "lucide-react";
+import { ArrowRight, CalendarDays, CircleDollarSign, ClipboardList, FileStack, FileText, NotebookText, Pencil, Printer, Send, UserRound } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
@@ -21,7 +21,8 @@ import { assertDocNumberAvailable, resolveDocNumber } from "../../../lib/docNumb
 import { businessTodayString } from "../../../lib/devDate";
 import { deductStockOnDocumentSent } from "../../../lib/stock";
 import { EditableDocNumber, EditableDocNumberInline } from "../../../components/documents/EditableDocNumber";
-import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, DOC_TYPE_COLORS } from "../../../constants";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { PAYMENT_METHOD_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
@@ -57,13 +58,7 @@ const CORRECTION_REASONS = [
 ] as const;
 
 function DocTypeBadge({ docType, vatRegistered }: { docType: Document["doc_type"]; vatRegistered: boolean }) {
-  const color = DOC_TYPE_COLORS[docType];
-  const label = documentTypeLabel(docType, vatRegistered);
-  return (
-    <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${color.bg} ${color.text}`}>
-      {label.thai}
-    </span>
-  );
+  return <StatusBadge docType={docType} vatRegistered={vatRegistered} />;
 }
 
 function DetailCard({
@@ -78,10 +73,10 @@ function DetailCard({
   className?: string;
 }) {
   return (
-    <section className={`rounded-[22px] border border-[#E8E6DF] bg-white p-4 sm:p-5 ${className}`}>
+    <section className={`rounded-sheet border border-card-border bg-white p-4 sm:p-5 ${className}`}>
       <div className="mb-4 flex items-center gap-2">
-        {icon ? <span className="text-[#8A8478]">{icon}</span> : null}
-        <h3 className="text-sm font-semibold text-[#1A1A18]">{title}</h3>
+        {icon ? <span className="text-ink-300">{icon}</span> : null}
+        <h3 className="text-sm font-semibold text-ink-900">{title}</h3>
       </div>
       {children}
     </section>
@@ -810,7 +805,7 @@ export default function DocumentDetailPage() {
         </div>
       )}
 
-      <div className="mb-4 rounded-[26px] border border-[#E8E6DF] bg-[linear-gradient(135deg,#FFFDF8_0%,#F5F1E8_100%)] p-5 sm:p-6">
+      <div className="mb-4 rounded-hero border border-card-border bg-[linear-gradient(135deg,theme(colors.paper.glow)_0%,theme(colors.paper.warm2)_100%)] p-5 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -824,7 +819,7 @@ export default function DocumentDetailPage() {
             </div>
 
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-[#1A1A18] sm:text-3xl">
+              <h2 className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
                 <EditableDocNumberInline
                   value={doc.doc_number || "-"}
                   onSave={async (newValue) => {
@@ -847,9 +842,8 @@ export default function DocumentDetailPage() {
                 placeholder="ตั้งเลขที่เอง (เว้นว่าง = อัตโนมัติ)"
                 className="mt-2 max-w-xs"
               />
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#625C52]">{statusMessage}</p>
               {isVoided && doc.voided_reason && (
-                <p className="mt-1 text-xs text-[#9A9690] italic">เหตุผลการยกเลิก: {doc.voided_reason}</p>
+                <p className="mt-1 text-xs text-ink-300 italic">เหตุผลการยกเลิก: {doc.voided_reason}</p>
               )}
               {copiedFromRef && (
                 <button
@@ -884,12 +878,12 @@ export default function DocumentDetailPage() {
                   });
                   return steps.map((step, i) => (
                     <span key={`${step.key}-${i}`} className="flex items-center gap-1 shrink-0">
-                      {i > 0 && <span className="text-[#C4BFB6] text-xs">→</span>}
+                      {i > 0 && <span className="text-ink-100 text-xs">→</span>}
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium shrink-0 ${
                           step.active
                             ? "bg-primary text-white"
-                            : "bg-white/50 text-[#7D776D] border border-white/50"
+                            : "bg-white/50 text-ink-400 border border-white/50"
                         }`}
                       >
                         {step.label}
@@ -902,43 +896,43 @@ export default function DocumentDetailPage() {
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
                   <UserRound className="h-3.5 w-3.5" />
                   ลูกค้า
                 </div>
-                <p className="mt-2 text-sm font-medium text-[#1A1A18]">{customerName}</p>
+                <p className="mt-2 text-sm font-medium text-ink-900">{customerName}</p>
               </div>
               <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
                   <CalendarDays className="h-3.5 w-3.5" />
                   วันที่ออก
                 </div>
-                <p className="mt-2 text-sm font-medium text-[#1A1A18]">{issueDateLabel}</p>
+                <p className="mt-2 text-sm font-medium text-ink-900">{issueDateLabel}</p>
               </div>
               <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
                   <ArrowRight className="h-3.5 w-3.5" />
                   ครบกำหนด
                 </div>
-                <p className={`mt-2 text-sm font-medium ${isOverdue ? "text-red-700" : "text-[#1A1A18]"}`}>{dueDateLabel}</p>
+                <p className={`mt-2 text-sm font-medium ${isOverdue ? "text-red-700" : "text-ink-900"}`}>{dueDateLabel}</p>
               </div>
               <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
                   <CalendarDays className="h-3.5 w-3.5" />
                   แก้ไขล่าสุด
                 </div>
-                <p className="mt-2 text-sm font-medium text-[#1A1A18]">{doc.updated_at ? formatDate(doc.updated_at) : "-"}</p>
+                <p className="mt-2 text-sm font-medium text-ink-900">{doc.updated_at ? formatDate(doc.updated_at) : "-"}</p>
               </div>
             </div>
           </div>
 
-          <div className="w-full max-w-sm rounded-[24px] border border-[#E5DED2] bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+          <div className="w-full max-w-sm rounded-2xl border border-line-soft bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
               <CircleDollarSign className="h-4 w-4" />
               ยอดสำคัญ
             </div>
-            <div className="mt-3 text-3xl font-semibold text-[#1A1A18]">฿ {formatCurrency(getDisplayAmount(doc))}</div>
-            <p className="mt-1 text-sm text-[#6B655C]">{doc.wht_rate > 0 ? "ยอดสุทธิหลังหัก ณ ที่จ่าย" : "ยอดรวมเอกสารนี้"}</p>
+            <div className="mt-3 text-3xl font-semibold text-ink-900">฿ {formatCurrency(getDisplayAmount(doc))}</div>
+            <p className="mt-1 text-sm text-ink-600">{doc.wht_rate > 0 ? "ยอดสุทธิหลังหัก ณ ที่จ่าย" : "ยอดรวมเอกสารนี้"}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {canEditDocument && (
                 <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
@@ -958,16 +952,16 @@ export default function DocumentDetailPage() {
       <div
         className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
           isVoided
-            ? "border-[#F2D4D4] bg-[#FFF4F4] text-[#8A2020]"
+            ? "border-danger-border bg-danger-soft text-danger-text"
       : isPaid
-        ? "border-[#CFE7D8] bg-[#EDF8F1] text-[#1E5A38]"
+        ? "border-success-border bg-success-soft text-success-text"
         : isPartiallyPaid
-          ? "border-[#F5D9A0] bg-[#FFF8EB] text-[#8A5D00]"
+          ? "border-warning-border bg-warning-soft text-warning-text"
           : isOverdue
-                ? "border-[#F0D0D0] bg-[#FFF0F0] text-[#8A2020]"
+                ? "border-danger-border bg-danger-soft text-danger-text"
                 : isSent || isIssued
-                  ? "border-[#D9E7F7] bg-[#EAF4FF] text-[#0C447C]"
-                  : "border-[#E5E1D9] bg-[#F6F2EA] text-[#4C463D]"
+                  ? "border-sent-bg bg-primary-soft text-primary-deep"
+                  : "border-line-strong bg-paper-warm text-ink-700"
         }`}
       >
         {statusMessage}
@@ -1017,8 +1011,8 @@ export default function DocumentDetailPage() {
             <tbody>
               {lineItemSort.sorted.map((item, index) => (
                 <tr key={item.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-[#667085]">{index + 1}</td>
-                  <td className="px-4 py-2 text-[#475467]">
+                  <td className="px-4 py-2 text-cool-400">{index + 1}</td>
+                  <td className="px-4 py-2 text-cool-500">
                     <div>{item.item_name}</div>
                     {item.line_note ? <div className="mt-1 text-xs text-gray-500">{item.line_note}</div> : null}
                     {item.discount_amount > 0 && (
@@ -1027,9 +1021,9 @@ export default function DocumentDetailPage() {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right text-[#475467]">{item.quantity} {item.unit}</td>
-                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(item.unit_price)}</td>
-                  <td className="px-4 py-2 text-right text-[#475467] font-medium">฿{formatCurrency(item.line_total)}</td>
+                  <td className="px-4 py-2 text-right text-cool-500">{item.quantity} {item.unit}</td>
+                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(item.unit_price)}</td>
+                  <td className="px-4 py-2 text-right text-cool-500 font-medium">฿{formatCurrency(item.line_total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1081,10 +1075,10 @@ export default function DocumentDetailPage() {
             <tbody>
               {billingInvoiceSort.sorted.map((invoice) => (
                 <tr key={invoice.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-[#475467]">{invoice.invoice_number}</td>
-                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(invoice.subtotal)}</td>
-                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(invoice.vat_amount)}</td>
-                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(invoice.total_amount)}</td>
+                  <td className="px-4 py-2 text-cool-500">{invoice.invoice_number}</td>
+                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(invoice.subtotal)}</td>
+                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(invoice.vat_amount)}</td>
+                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(invoice.total_amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1128,9 +1122,9 @@ export default function DocumentDetailPage() {
             <tbody>
               {receiptInvoiceSort.sorted.map((invoice) => (
                 <tr key={invoice.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-[#475467]">{invoice.invoice_number}</td>
-                  <td className="px-4 py-2 text-[#475467]">{invoice.issue_date ? formatDate(invoice.issue_date) : "-"}</td>
-                  <td className="px-4 py-2 text-right text-[#475467] font-medium">฿{formatCurrency(invoice.paid_amount)}</td>
+                  <td className="px-4 py-2 text-cool-500">{invoice.invoice_number}</td>
+                  <td className="px-4 py-2 text-cool-500">{invoice.issue_date ? formatDate(invoice.issue_date) : "-"}</td>
+                  <td className="px-4 py-2 text-right text-cool-500 font-medium">฿{formatCurrency(invoice.paid_amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1174,9 +1168,9 @@ export default function DocumentDetailPage() {
             <tbody>
               {deliveryNoteSort.sorted.map((deliveryNote) => (
                 <tr key={deliveryNote.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-[#475467]">{deliveryNote.delivery_note_number}</td>
-                  <td className="px-4 py-2 text-[#475467]">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>
-                  <td className="px-4 py-2 text-right text-[#475467]">฿{formatCurrency(deliveryNote.total_amount)}</td>
+                  <td className="px-4 py-2 text-cool-500">{deliveryNote.delivery_note_number}</td>
+                  <td className="px-4 py-2 text-cool-500">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>
+                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(deliveryNote.total_amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1315,23 +1309,21 @@ export default function DocumentDetailPage() {
       )}
 
       <div className="bg-white border-t border-card-border px-4 py-3 md:static md:border-0 md:bg-transparent md:p-0">
-        <div className="mx-auto w-full max-w-7xl space-y-2 rounded-[24px] border border-[#E8E6DF] bg-white p-3 shadow-[0_12px_30px_rgba(26,26,24,0.08)] md:p-4">
+        <div className="mx-auto w-full max-w-7xl space-y-2 rounded-2xl border border-card-border bg-white p-3 shadow-[0_12px_30px_rgba(26,26,24,0.08)] md:p-4">
           <div className="pb-1">
-            <h3 className="text-sm font-semibold text-[#1A1A18]">การดำเนินการถัดไป</h3>
-            <p className="mt-1 text-xs leading-5 text-[#6F6A61]">{statusMessage}</p>
+            <h3 className="text-sm font-semibold text-ink-900">การดำเนินการถัดไป</h3>
+            <p className="mt-1 text-xs leading-5 text-ink-500">{statusMessage}</p>
           </div>
-          {(
-            <div className="space-y-2">
-              <Button
-                variant="primary"
-                size="md"
-                className="w-full"
-                onClick={handleGeneratePdf}
-              >
-                ดาวน์โหลดเอกสาร
-              </Button>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Button
+              variant="primary"
+              size="md"
+              className="w-full"
+              onClick={handleGeneratePdf}
+            >
+              ดาวน์โหลดเอกสาร
+            </Button>
+          </div>
 
           {isDraft && isUtilityBill && (
             <Button
@@ -1340,7 +1332,8 @@ export default function DocumentDetailPage() {
               className="w-full"
               onClick={() => navigate(`/documents/${doc.id}/edit-utility`)}
             >
-              ✏️ แก้ไข
+              <Pencil className="h-4 w-4 mr-1.5" />
+              แก้ไข
             </Button>
           )}
 
@@ -1387,7 +1380,8 @@ export default function DocumentDetailPage() {
               }}
               loading={actionLoading === "send"}
             >
-              {doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "📤 ทำเครื่องหมายว่าส่งแล้ว"}
+              <Send className="h-4 w-4 mr-1.5" />
+              {doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว"}
             </Button>
           )}
 
@@ -1416,7 +1410,8 @@ export default function DocumentDetailPage() {
               }}
               loading={actionLoading === "send"}
             >
-              📄 ออกใบลดหนี้
+              <FileText className="h-4 w-4 mr-1.5" />
+              ออกใบลดหนี้
             </Button>
           )}
 
@@ -1431,8 +1426,8 @@ export default function DocumentDetailPage() {
               {isDraft
                 ? doc.doc_type === "delivery_note"
                   ? "ใบส่งของฉบับร่างยังแก้ไขหรือลบได้ก่อนยืนยันส่งของ"
-                  : "Drafts can be deleted permanently."
-                : "Sent invoices should be voided to preserve history. Use the void actions below instead of deleting."}
+                  : "ฉบับร่างสามารถลบได้ถาวร"
+                : "ใบแจ้งหนี้ที่ส่งแล้วควรยกเลิกเพื่อเก็บประวัติ ใช้เมนูยกเลิกด้านล่างแทนการลบ"}
             </div>
           )}
 
@@ -1505,7 +1500,8 @@ export default function DocumentDetailPage() {
               className="w-full"
               onClick={() => navigate(`/documents/new?type=billing_note&dealId=${doc.deal_id || ""}`)}
             >
-              📋 วางบิล
+              <ClipboardList className="h-4 w-4 mr-1.5" />
+              วางบิล
             </Button>
           )}
 
@@ -1665,7 +1661,7 @@ export default function DocumentDetailPage() {
               <select
                 value={correctionReason}
                 onChange={(event) => setCorrectionReason(event.target.value)}
-                className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full rounded-lg border border-card-border bg-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">เลือกสาเหตุ</option>
                 {CORRECTION_REASONS.map((reason) => (

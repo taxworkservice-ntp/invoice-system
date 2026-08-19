@@ -27,6 +27,7 @@ import { Card } from "../../../components/ui/Card";
 import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SkeletonCard, SkeletonTable } from "../../../components/ui/Skeleton";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { ViewToggle } from "../../../components/ui/ViewToggle";
 import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { SortableTh } from "../../../components/ui/SortableTh";
@@ -40,13 +41,11 @@ import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { deleteDocumentFiles } from "../../../lib/r2";
 import { businessTodayString } from "../../../lib/devDate";
 import {
-  DOC_TYPE_COLORS,
   DOC_TYPE_LABELS,
   STATUS_LABELS,
   CHIP_COLORS,
   PAYMENT_METHOD_LABELS,
 } from "../../../constants";
-import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
@@ -193,15 +192,7 @@ function DocTypeBadge({
   docType: DocumentType;
   vatRegistered?: boolean;
 }) {
-  const color = DOC_TYPE_COLORS[docType];
-  const label = documentTypeLabel(docType, vatRegistered);
-  return (
-    <span
-      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${color.bg} ${color.text}`}
-    >
-      {label.thai}
-    </span>
-  );
+  return <StatusBadge docType={docType} vatRegistered={vatRegistered} />;
 }
 
 function SummaryCard({
@@ -223,27 +214,27 @@ function SummaryCard({
 }) {
   const tones = {
     blue: active
-      ? "border-[#378ADD] bg-[#F2F8FF] text-[#0C447C]"
-      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+      ? "border-primary bg-primary-soft text-primary-deep"
+      : "border-line-strong bg-white text-ink-700",
     amber: active
-      ? "border-[#D89A1D] bg-[#FFF8EA] text-[#7A4A00]"
-      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+      ? "border-warning-border bg-warning-soft text-warning-text"
+      : "border-line-strong bg-white text-ink-700",
     red: active
-      ? "border-[#D14343] bg-[#FFF5F5] text-[#8A2020]"
-      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+      ? "border-danger-strong bg-danger-soft text-danger-text"
+      : "border-line-strong bg-white text-ink-700",
     green: active
-      ? "border-[#3E8D5D] bg-[#F1FAF4] text-[#1E5A38]"
-      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+      ? "border-success-strong bg-success-soft text-success-text"
+      : "border-line-strong bg-white text-ink-700",
     gray: active
-      ? "border-[#5E5A52] bg-[#F5F3EF] text-[#3F3B34]"
-      : "border-[#E5E1D9] bg-white text-[#4D493F]",
+      ? "border-ink-700 bg-paper-warm text-ink-800"
+      : "border-line-strong bg-white text-ink-700",
   };
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-3 py-3 text-left shadow-sm transition-colors hover:border-[#B9B2A6] ${tones[tone]}`}
+      className={`rounded-xl border px-3 py-3 text-left shadow-sm transition-colors hover:border-ink-200 ${tones[tone]}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
@@ -274,7 +265,7 @@ function SectionHeader({
 }) {
   const dotColor =
     tone === "attention"
-      ? "bg-[#C0392B]"
+      ? "bg-danger"
       : tone === "active"
         ? "bg-primary"
         : "bg-gray-300";
@@ -287,19 +278,19 @@ function SectionHeader({
         )}
         <div>
           <h2
-            className={`text-sm font-semibold ${tone === "muted" ? "text-gray-400" : "text-[#1A1A18]"}`}
+            className={`text-sm font-semibold ${tone === "muted" ? "text-gray-400" : "text-ink-900"}`}
           >
             {title}
           </h2>
           <p
-            className={`mt-1 text-xs ${tone === "muted" ? "text-gray-300" : "text-[#6F6A61]"}`}
+            className={`mt-1 text-xs ${tone === "muted" ? "text-gray-300" : "text-ink-500"}`}
           >
             {hint}
           </p>
         </div>
       </div>
       <span
-        className={`shrink-0 text-xs ${tone === "muted" ? "text-gray-300" : "text-[#888780]"}`}
+        className={`shrink-0 text-xs ${tone === "muted" ? "text-gray-300" : "text-ink-300"}`}
       >
         {count} รายการ
       </span>
@@ -402,7 +393,7 @@ function DocumentCard({
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`text-sm font-semibold ${isVoided ? "line-through text-gray-400" : "text-[#1A1A18]"}`}
+                className={`text-sm font-semibold ${isVoided ? "line-through text-gray-400" : "text-ink-900"}`}
               >
                 {doc.doc_number || "-"}
               </span>
@@ -424,16 +415,16 @@ function DocumentCard({
               <span className="inline-flex sm:hidden">
                 <Badge status={doc.status} />
               </span>
-              <p className="truncate text-sm text-[#444441]">{customerName}</p>
-              <p className="text-xs text-[#7D776D]">{getNextStepText(doc)}</p>
+              <p className="truncate text-sm text-ink-700">{customerName}</p>
+              <p className="text-xs text-ink-400">{getNextStepText(doc)}</p>
               {isVoided && doc.voided_reason && (
-                <p className="text-xs text-[#9A9690] italic">
+                <p className="text-xs text-ink-300 italic">
                   เหตุผล: {doc.voided_reason}
                 </p>
               )}
             </div>
 
-            <div className="flex flex-col gap-1 text-xs text-[#888780] sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+            <div className="flex flex-col gap-1 text-xs text-ink-300 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
               <span>ออกเอกสาร: {formatBuddhistDate(doc.issue_date)}</span>
               {doc.due_date && dueRel?.text ? (
                 <span
@@ -447,7 +438,7 @@ function DocumentCard({
                 </span>
               ) : null}
               {showUpdatedAt(doc) && (
-                <span className="text-[#A8A39B]">&middot; แก้ไขล่าสุด: {formatBuddhistDate(doc.updated_at)}</span>
+                <span className="text-ink-200">&middot; แก้ไขล่าสุด: {formatBuddhistDate(doc.updated_at)}</span>
               )}
               {onOpenDeal && (
                 <button
@@ -476,7 +467,7 @@ function DocumentCard({
                     <span
                       className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${CHIP_COLORS[previewItems.length % CHIP_COLORS.length]} opacity-80`}
                     >
-                      +{remainingItems} more
+                      +{remainingItems} รายการ
                     </span>
             )}
               </div>
@@ -484,7 +475,7 @@ function DocumentCard({
             )}
             {searchQuery && doc.line_items?.some((item) => item.item_name.toLowerCase().includes(searchQuery.toLowerCase())) && (
               <div className="pt-1">
-                <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary">
                   พบในรายการ
                 </span>
               </div>
@@ -494,11 +485,11 @@ function DocumentCard({
           <div
             className={`shrink-0 pl-2 text-right ml-auto ${isTerminal ? "opacity-60" : ""}`}
           >
-            <div className="text-[11px] uppercase tracking-[0.12em] text-[#888780]">
+            <div className="text-[11px] uppercase tracking-[0.12em] text-ink-300">
               ยอดสุทธิ
             </div>
             <div
-              className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-[#1A1A18]"}`}
+              className={`mt-1 text-sm font-semibold ${overdue ? "text-red-700" : isPaid ? "text-green-700" : "text-ink-900"}`}
             >
               ฿{formatCurrency(getDisplayAmount(doc))}
             </div>
@@ -506,7 +497,7 @@ function DocumentCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMenuAction("edit"); }}
-                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-2xs font-medium text-primary hover:bg-primary/10 transition-colors"
               >
                 แก้ไข
               </button>
@@ -515,7 +506,7 @@ function DocumentCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMenuAction("convert"); }}
-                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-2xs font-medium text-primary hover:bg-primary/10 transition-colors"
               >
                 ออกใบแจ้งหนี้
               </button>
@@ -524,7 +515,7 @@ function DocumentCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMenuAction("pay"); }}
-                className="mt-1.5 rounded-full border border-green-500/30 bg-green-50 px-2.5 py-0.5 text-[10px] font-medium text-green-700 hover:bg-green-100 transition-colors"
+                className="mt-1.5 rounded-full border border-green-500/30 bg-green-50 px-2.5 py-0.5 text-2xs font-medium text-green-700 hover:bg-green-100 transition-colors"
               >
                 รับเงิน
               </button>
@@ -533,7 +524,7 @@ function DocumentCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMenuAction("invoice_from_dn"); }}
-                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                className="mt-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-2xs font-medium text-primary hover:bg-primary/10 transition-colors"
               >
                 ออกบิล
               </button>
@@ -549,7 +540,7 @@ function DocumentCard({
             >
               <MoreHorizontal
                 size={15}
-                className={menuLoading ? "text-gray-300" : "text-[#9A968F]"}
+                className={menuLoading ? "text-gray-300" : "text-ink-300"}
               />
             </button>
           </div>
@@ -884,7 +875,7 @@ function QuickDetailModal({
       className="md:max-w-3xl"
     >
       <div className="space-y-4">
-        <div className="rounded-[22px] border border-[#E8E6DF] bg-[linear-gradient(135deg,#FFFDF8_0%,#F6F2EA_100%)] p-4">
+        <div className="rounded-sheet border border-card-border bg-[linear-gradient(135deg,theme(colors.paper.glow)_0%,theme(colors.paper.warm)_100%)] p-4">
           <div className="flex flex-wrap items-center gap-2">
             <DocTypeBadge
               docType={doc.doc_type}
@@ -900,17 +891,19 @@ function QuickDetailModal({
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
                 ยอดสุทธิ
               </div>
-              <div className="mt-1 text-3xl font-semibold text-[#1A1A18]">
+              <div className="mt-1 text-3xl font-semibold text-ink-900">
                 ฿ {formatCurrency(getDisplayAmount(doc))}
               </div>
             </div>
             {doc.deal_id && (
               <Button
+                tone="amber"
+                solid
                 onClick={onOpenDeal}
-                className="w-full sm:w-auto !border-amber-500 !bg-amber-500 !text-white shadow-sm hover:!bg-amber-600"
+                className="w-full sm:w-auto shadow-sm"
               >
                 ดูเอกสารในงานขายนี้
               </Button>
@@ -918,16 +911,16 @@ function QuickDetailModal({
           </div>
         </div>
 
-        <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
+        <div className="rounded-sheet border border-card-border bg-white p-4">
           <div className="space-y-3 text-sm">
             {detailRows.map((row) => (
               <div
                 key={row.label}
                 className="flex items-start justify-between gap-4"
               >
-                <span className="text-[#7B766E]">{row.label}</span>
+                <span className="text-ink-400">{row.label}</span>
                 <span
-                  className={`text-right font-medium ${row.emphasis ? "text-red-700" : "text-[#1A1A18]"}`}
+                  className={`text-right font-medium ${row.emphasis ? "text-red-700" : "text-ink-900"}`}
                 >
                   {row.value}
                 </span>
@@ -937,12 +930,12 @@ function QuickDetailModal({
         </div>
 
         {items.length > 0 && (
-          <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-3.5 sm:p-4">
+          <div className="rounded-sheet border border-card-border bg-white p-3.5 sm:p-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
                 รายการ
               </div>
-              <div className="text-xs text-[#7B766E]">
+              <div className="text-xs text-ink-400">
                 {items.length} รายการ
               </div>
             </div>
@@ -951,24 +944,24 @@ function QuickDetailModal({
               {items.slice(0, 4).map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-[18px] border border-[#F0ECE5] bg-[#FCFBF8] px-3 py-2.5"
+                  className="rounded-soft border border-line-faint bg-paper-tint px-3 py-2.5"
                 >
                   <div className="flex items-start justify-between gap-2.5">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-sm font-medium leading-5 text-[#1A1A18]">
+                        <p className="truncate text-sm font-medium leading-5 text-ink-900">
                           {item.item_name}
                         </p>
                         <div className="shrink-0 text-right">
-                          <div className="text-[10px] uppercase tracking-[0.12em] text-[#8A8478]">
+                          <div className="text-2xs uppercase tracking-[0.12em] text-ink-300">
                             รวม
                           </div>
-                          <div className="text-sm font-semibold leading-5 text-[#1A1A18]">
+                          <div className="text-sm font-semibold leading-5 text-ink-900">
                             ฿ {formatCurrency(item.line_total)}
                           </div>
                         </div>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-[#7B766E]">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-ink-400">
                         <span>
                           {item.quantity} {item.unit}
                         </span>
@@ -986,21 +979,21 @@ function QuickDetailModal({
               ))}
             </div>
 
-            <div className="mt-2.5 hidden overflow-hidden rounded-2xl border border-[#F0ECE5] sm:block">
-              <div className="grid grid-cols-[minmax(0,1.7fr)_0.8fr_0.9fr] gap-3 bg-[#FAF8F3] px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+            <div className="mt-2.5 hidden overflow-hidden rounded-2xl border border-line-faint sm:block">
+              <div className="grid grid-cols-[minmax(0,1.7fr)_0.8fr_0.9fr] gap-3 bg-paper-soft px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.12em] text-ink-300">
                 <div>รายการ</div>
                 <div className="text-right">จำนวน x ราคา</div>
-                <div className="text-right">Total</div>
+                <div className="text-right">รวม</div>
               </div>
               {items.slice(0, 4).map((item, index) => (
                 <div
                   key={item.id}
                   className={`grid grid-cols-[minmax(0,1.7fr)_0.8fr_0.9fr] gap-3 px-4 py-3 ${
-                    index === 0 ? "" : "border-t border-[#F0ECE5]"
+                    index === 0 ? "" : "border-t border-line-faint"
                   }`}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium leading-5 text-[#1A1A18]">
+                    <p className="truncate text-sm font-medium leading-5 text-ink-900">
                       {item.item_name}
                     </p>
                     {item.discount_amount > 0 && (
@@ -1010,13 +1003,13 @@ function QuickDetailModal({
                       </p>
                     )}
                   </div>
-                  <div className="text-right text-sm leading-5 text-[#5F5A52]">
+                  <div className="text-right text-sm leading-5 text-ink-600">
                     {item.quantity} {item.unit}
-                    <div className="mt-0.5 text-[11px] leading-4 text-[#8A8478]">
+                    <div className="mt-0.5 text-[11px] leading-4 text-ink-300">
                       x ฿ {formatCurrency(item.unit_price)}
                     </div>
                   </div>
-                  <div className="text-right text-sm font-semibold leading-5 text-[#1A1A18]">
+                  <div className="text-right text-sm font-semibold leading-5 text-ink-900">
                     ฿ {formatCurrency(item.line_total)}
                   </div>
                 </div>
@@ -1024,21 +1017,21 @@ function QuickDetailModal({
             </div>
 
             {items.length > 4 && (
-              <div className="mt-3 text-center text-xs text-[#7B766E]">
+              <div className="mt-3 text-center text-xs text-ink-400">
                 และอีก {items.length - 4} รายการในหน้ารายละเอียดเต็ม
               </div>
             )}
           </div>
         )}
 
-        <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
-          <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+        <div className="rounded-sheet border border-card-border bg-white p-4">
+          <div className="text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
             สรุปยอด
           </div>
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex items-start justify-between gap-4">
-              <span className="text-[#7B766E]">Subtotal</span>
-              <span className="text-right font-medium text-[#1A1A18]">
+              <span className="text-ink-400">ยอดก่อนภาษี</span>
+              <span className="text-right font-medium text-ink-900">
                 ฿ {formatCurrency(doc.subtotal)}
               </span>
             </div>
@@ -1060,8 +1053,8 @@ function QuickDetailModal({
             )}
             {doc.vat_registered && (
               <div className="flex items-start justify-between gap-4">
-                <span className="text-[#7B766E] cursor-help" title="ภาษีมูลค่าเพิ่ม คำนวณจากยอดรวมหลังส่วนลด">VAT {doc.vat_rate}%</span>
-                <span className="text-right font-medium text-[#1A1A18]">
+                <span className="text-ink-400 cursor-help" title="ภาษีมูลค่าเพิ่ม คำนวณจากยอดรวมหลังส่วนลด">VAT {doc.vat_rate}%</span>
+                <span className="text-right font-medium text-ink-900">
                   ฿ {formatCurrency(doc.vat_amount)}
                 </span>
               </div>
@@ -1074,9 +1067,9 @@ function QuickDetailModal({
                 </span>
               </div>
             )}
-            <div className="flex items-start justify-between gap-4 border-t border-[#F0ECE5] pt-2">
-              <span className="font-medium text-[#1A1A18] cursor-help" title="จำนวนเงินที่ลูกค้าต้องจ่ายจริงหลังหักภาษี">ยอดสุทธิ</span>
-              <span className="text-right text-base font-semibold text-[#1A1A18]">
+            <div className="flex items-start justify-between gap-4 border-t border-line-faint pt-2">
+              <span className="font-medium text-ink-900 cursor-help" title="จำนวนเงินที่ลูกค้าต้องจ่ายจริงหลังหักภาษี">ยอดสุทธิ</span>
+              <span className="text-right text-base font-semibold text-ink-900">
                 ฿ {formatCurrency(getDisplayAmount(doc))}
               </span>
             </div>
@@ -1084,23 +1077,23 @@ function QuickDetailModal({
         </div>
 
         {["paid", "partially_paid", "generated", "issued"].includes(doc.status) && (doc.payment_method || doc.paid_at || doc.amount_received != null) && (
-          <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
-            <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+          <div className="rounded-sheet border border-card-border bg-white p-4">
+            <div className="text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
               ข้อมูลรับเงิน
             </div>
             <div className="mt-3 space-y-2 text-sm">
               {doc.payment_method && (
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-[#7B766E]">วิธีชำระ</span>
-                  <span className="text-right font-medium text-[#1A1A18]">
+                  <span className="text-ink-400">วิธีชำระ</span>
+                  <span className="text-right font-medium text-ink-900">
                     {PAYMENT_METHOD_LABELS[doc.payment_method] || doc.payment_method}
                   </span>
                 </div>
               )}
               {doc.amount_received != null && (
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-[#7B766E]">รับแล้ว</span>
-                  <span className="text-right font-medium text-[#1A1A18]">
+                  <span className="text-ink-400">รับแล้ว</span>
+                  <span className="text-right font-medium text-ink-900">
                     ฿ {formatCurrency(doc.amount_received)}
                   </span>
                 </div>
@@ -1115,14 +1108,14 @@ function QuickDetailModal({
               )}
               {doc.paid_at && (
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-[#7B766E]">วันที่</span>
-                  <span className="text-right font-medium text-[#1A1A18]">{formatBuddhistDate(doc.paid_at)}</span>
+                  <span className="text-ink-400">วันที่</span>
+                  <span className="text-right font-medium text-ink-900">{formatBuddhistDate(doc.paid_at)}</span>
                 </div>
               )}
               {doc.wht_certificate_no && (
                 <div className="flex items-start justify-between gap-4">
-                  <span className="text-[#7B766E]">ใบหักภาษี</span>
-                  <span className="text-right font-medium text-[#1A1A18]">{doc.wht_certificate_no}</span>
+                  <span className="text-ink-400">ใบหักภาษี</span>
+                  <span className="text-right font-medium text-ink-900">{doc.wht_certificate_no}</span>
                 </div>
               )}
             </div>
@@ -1130,17 +1123,17 @@ function QuickDetailModal({
         )}
 
         {doc.note && (
-          <div className="rounded-[22px] border border-[#E8E6DF] bg-white p-4">
-            <div className="text-xs font-medium uppercase tracking-[0.12em] text-[#8A8478]">
+          <div className="rounded-sheet border border-card-border bg-white p-4">
+            <div className="text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
               หมายเหตุ
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#4F4A42]">
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink-700">
               {doc.note}
             </p>
           </div>
         )}
 
-        <div className="space-y-2 border-t border-[#F0ECE5] pt-3">
+        <div className="space-y-2 border-t border-line-faint pt-3">
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
             <Button
               variant="secondary"
@@ -1777,17 +1770,17 @@ export default function DocumentsPage() {
   return (
     <AppShell title="เอกสาร">
       <div className="space-y-4 sm:space-y-5">
-        <section className="rounded-2xl border border-[#E8E6DF] bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-card-border bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-[#1A1A18]">
+              <h2 className="text-base font-semibold text-ink-900">
                 คลังเอกสาร
               </h2>
-              <p className="mt-1 text-sm leading-6 text-[#6F6A61]">
+              <p className="mt-1 text-sm leading-6 text-ink-500">
                 ค้นหา พิมพ์ ส่งออก และตรวจสอบเอกสารย้อนหลัง
               </p>
             </div>
-            <div className="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[#7D776D] sm:block">
+            <div className="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-ink-400 sm:block">
               {filtered.length} จาก {documents.length} รายการ
             </div>
           </div>
@@ -1889,7 +1882,7 @@ export default function DocumentsPage() {
                   key={filter.value}
                   type="button"
                   onClick={() => setQuickView(filter.value)}
-                  className={`shrink-0 rounded-full border px-3 py-2 text-sm transition-colors ${quickView === filter.value ? "border-primary bg-primary text-white" : "border-[#DDD7CC] bg-white text-[#4D493F]"}`}
+                  className={`shrink-0 rounded-full border px-3 py-2 text-sm transition-colors ${quickView === filter.value ? "border-primary bg-primary text-white" : "border-line-soft bg-white text-ink-700"}`}
                 >
                   {filter.label} ({filter.count})
                 </button>
@@ -1898,11 +1891,11 @@ export default function DocumentsPage() {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-[22px] border border-[#E8E6DF] bg-white p-4">
-          <div className="sticky top-[72px] z-20 -mx-4 border-b border-[#F0ECE5] bg-white px-4 pb-3 pt-1 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:pb-0 md:pt-0">
+        <section className="space-y-4 rounded-sheet border border-card-border bg-white p-4">
+          <div className="sticky top-[72px] z-20 -mx-4 border-b border-line-faint bg-white px-4 pb-3 pt-1 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:pb-0 md:pt-0">
             <div className="flex items-center gap-2 md:hidden">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A968F]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
                 <Input
                   id="search-mobile"
                   className="pl-9"
@@ -1925,7 +1918,7 @@ export default function DocumentsPage() {
 
             <div className="mt-2 flex items-center justify-between gap-3 md:hidden">
               <ViewToggle value={viewMode} onChange={setViewMode} />
-              <span className="text-xs text-[#7D776D]">
+              <span className="text-xs text-ink-400">
                 {filtered.length} รายการ
               </span>
               {hasFilters && (
@@ -1942,11 +1935,11 @@ export default function DocumentsPage() {
 
           <div className="hidden flex-col gap-3 md:flex md:flex-row md:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-[#666258]">
+              <label className="mb-1 block text-xs font-medium text-ink-600">
                 ค้นหาเอกสาร
               </label>
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A968F]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
                 <Input
                   id="search"
                   className="pl-9"
@@ -1977,7 +1970,7 @@ export default function DocumentsPage() {
 
           <div className="hidden md:flex items-end gap-3">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-[#666258]">
+              <label className="mb-1 block text-xs font-medium text-ink-600">
                 เดือน
               </label>
               <div className="flex gap-1.5 flex-wrap">
@@ -2034,7 +2027,7 @@ export default function DocumentsPage() {
               />
               <label
                 htmlFor="hideVoided"
-                className="text-[11px] text-[#888780] select-none cursor-pointer"
+                className="text-[11px] text-ink-300 select-none cursor-pointer"
               >
                 ซ่อนเอกสารที่ยกเลิก ({summary.voided})
               </label>
@@ -2068,7 +2061,7 @@ export default function DocumentsPage() {
             </div>
 
             <div className="md:hidden">
-              <label className="mb-1 block text-xs font-medium text-[#666258]">
+              <label className="mb-1 block text-xs font-medium text-ink-600">
                 เดือน
               </label>
               <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -2114,7 +2107,7 @@ export default function DocumentsPage() {
             </div>
 
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[#666258]">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-ink-600">
                 <FileText className="h-3.5 w-3.5" />
                 ประเภทเอกสาร
               </div>
@@ -2127,7 +2120,7 @@ export default function DocumentsPage() {
                     className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${docTypeFilter === filter.value ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
                   >
                     {filter.label}{" "}
-                    <span className={docTypeFilter === filter.value ? "opacity-70" : "text-[#A8A39B]"}>
+                    <span className={docTypeFilter === filter.value ? "opacity-70" : "text-ink-200"}>
                       ({filter.value === "all" ? documents.length : (docTypeCounts[filter.value] || 0)})
                     </span>
                   </button>
@@ -2139,7 +2132,7 @@ export default function DocumentsPage() {
               <button
                 type="button"
                 onClick={() => setAdvancedFiltersOpen((v) => !v)}
-                className="mb-2 flex w-full items-center justify-between gap-2 text-xs font-medium text-[#666258] md:hidden"
+                className="mb-2 flex w-full items-center justify-between gap-2 text-xs font-medium text-ink-600 md:hidden"
               >
                 <span className="flex items-center gap-2">
                   <ArrowUpDown className="h-3.5 w-3.5" />
@@ -2151,7 +2144,7 @@ export default function DocumentsPage() {
               </button>
               <div className={`${advancedFiltersOpen ? "block" : "hidden"} md:block space-y-4`}>
               <div>
-                <div className="hidden md:flex items-center gap-2 text-xs font-medium text-[#666258] mb-2">
+                <div className="hidden md:flex items-center gap-2 text-xs font-medium text-ink-600 mb-2">
                   <ArrowUpDown className="h-3.5 w-3.5" />
                   สถานะ
                 </div>
@@ -2165,7 +2158,7 @@ export default function DocumentsPage() {
                       statusFilter === filter.value
                         ? filter.value === "processing" && processingOverdueCount > 0
                           ? "border-red-400 bg-red-500 text-white"
-                          : "border-[#3F3B34] bg-[#3F3B34] text-white"
+                          : "border-ink-800 bg-ink-800 text-white"
                         : filter.value === "processing" && processingOverdueCount > 0
                           ? "border-red-200 bg-red-50 text-red-700 hover:border-red-300"
                           : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
@@ -2175,7 +2168,7 @@ export default function DocumentsPage() {
                     {filter.value === "processing" && processingOverdueCount > 0 && (
                       <span className="inline-flex h-2 w-2 rounded-full bg-red-500 align-middle" />
                     )}{" "}
-                    <span className={statusFilter === filter.value ? "opacity-70" : "text-[#A8A39B]"}>
+                    <span className={statusFilter === filter.value ? "opacity-70" : "text-ink-200"}>
                       ({filter.value === "all" ? documents.length : filter.value in STATUS_GROUPS ? STATUS_GROUPS[filter.value as StatusGroupKey].statuses.reduce((sum, s) => sum + (statusCounts[s] || 0), 0) : (statusCounts[filter.value] || 0)})
                     </span>
                   </button>
@@ -2197,7 +2190,7 @@ export default function DocumentsPage() {
                 />
                 <label
                   htmlFor="hideVoidedMobile"
-                  className="text-[11px] text-[#888780] select-none cursor-pointer"
+                  className="text-[11px] text-ink-300 select-none cursor-pointer"
                 >
                   ซ่อนเอกสารที่ยกเลิก ({summary.voided})
                 </label>
@@ -2206,10 +2199,10 @@ export default function DocumentsPage() {
             </div>
           </div>
 
-          <div className="hidden flex-wrap items-center justify-between gap-3 border-t border-[#F0ECE5] pt-3 md:flex">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-[#7D776D]">
+          <div className="hidden flex-wrap items-center justify-between gap-3 border-t border-line-faint pt-3 md:flex">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-ink-400">
               {quickView !== "all" && (
-                <span className="rounded-full bg-[#EEF5FC] px-2.5 py-1 text-[#1A5A92]">
+                <span className="rounded-full bg-primary-soft px-2.5 py-1 text-primary-deep">
                   กำลังดูแบบลัด
                 </span>
               )}
@@ -2225,7 +2218,7 @@ export default function DocumentsPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[#7D776D]">
+              <span className="text-xs text-ink-400">
                 {filtered.length} จาก {documents.length} รายการ
               </span>
               <ViewToggle value={viewMode} onChange={setViewMode} />
@@ -2302,7 +2295,7 @@ export default function DocumentsPage() {
                   <Card
                     key={doc.id}
                     onClick={() => openDocModal(doc)}
-                    className={`cursor-pointer !p-3.5 flex flex-col gap-2.5 min-h-[110px] relative ${isVoided ? "opacity-50" : ""} ${overdue ? "border-l-4 border-l-[#C0392B]" : ""} ${selectedDocIds.has(doc.id) ? "ring-2 ring-primary bg-primary/5" : ""}`}
+                    className={`cursor-pointer !p-3.5 flex flex-col gap-2.5 min-h-[110px] relative ${isVoided ? "opacity-50" : ""} ${overdue ? "border-l-4 border-l-danger" : ""} ${selectedDocIds.has(doc.id) ? "ring-2 ring-primary bg-primary/5" : ""}`}
                   >
                     {selectedDocIds.size > 0 && (
                       <div
@@ -2323,17 +2316,17 @@ export default function DocumentsPage() {
                           isVoided
                             ? "bg-gray-300"
                             : overdue
-                              ? "bg-[#C0392B]"
+                              ? "bg-danger"
                               : doc.status === "draft"
-                                ? "bg-[#888780]"
+                                ? "bg-ink-300"
                                 : "bg-primary"
                         }`}
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[12px] font-semibold text-[#1A1A18] truncate">
+                        <div className="text-[12px] font-semibold text-ink-900 truncate">
                           {doc.doc_number || "-"}
                         </div>
-                        <div className="text-[12px] text-[#444441] line-clamp-2 leading-tight mt-0.5">
+                        <div className="text-[12px] text-ink-700 line-clamp-2 leading-tight mt-0.5">
                           {customerName}
                         </div>
                       </div>
@@ -2344,23 +2337,23 @@ export default function DocumentsPage() {
                         vatRegistered={doc.vat_registered}
                       />
                       {overdue && (
-                        <span className="text-[10px] text-[#C0392B] font-medium">
+                        <span className="text-2xs text-danger font-medium">
                           เกินกำหนด
                         </span>
                       )}
                     </div>
-                    <div className="mt-auto flex items-end justify-between pt-2 border-t border-[#F0EFE9]">
+                    <div className="mt-auto flex items-end justify-between pt-2 border-t border-line-faint">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-[11px] text-[#888780]">
+                        <span className="text-[11px] text-ink-300">
                           {formatBuddhistDate(doc.issue_date)}
                         </span>
                         {showUpdatedAt(doc) && (
-                          <span className="text-[10px] text-[#A8A39B]">
+                          <span className="text-2xs text-ink-200">
                             แก้ไข: {formatBuddhistDate(doc.updated_at)}
                           </span>
                         )}
                       </div>
-                      <span className="text-[12px] font-semibold text-[#1A1A18]">
+                      <span className="text-[12px] font-semibold text-ink-900">
                         ฿ {formatCurrency(getDisplayAmount(doc) || 0)}
                       </span>
                     </div>
@@ -2431,11 +2424,11 @@ export default function DocumentsPage() {
                           className={`${TABLE.tbodyTr} ${isVoided ? "opacity-50" : ""} ${selectedDocIds.has(doc.id) ? "bg-primary/5" : ""}`}
                         >
                           <td className="px-3 py-2">
-                            <span className="text-[#111827]">
+                            <span className="text-cool-900">
                               {doc.doc_number || "-"}
                             </span>
                             {overdue && (
-                              <span className="ml-1.5 w-2 h-2 rounded-full bg-[#C0392B] inline-block" />
+                              <span className="ml-1.5 w-2 h-2 rounded-full bg-danger inline-block" />
                             )}
                           </td>
                           <td className="px-3 py-2">
@@ -2445,18 +2438,18 @@ export default function DocumentsPage() {
                             />
                           </td>
                           <td className="px-3 py-2">
-                            <span className="text-[#475467] truncate block max-w-[180px]">
+                            <span className="text-cool-500 truncate block max-w-[180px]">
                               {customerName}
                             </span>
                           </td>
-                          <td className="px-3 py-2 hidden sm:table-cell text-[#667085] text-[12px]">
+                          <td className="px-3 py-2 hidden sm:table-cell text-cool-400 text-[12px]">
                             <div>{formatBuddhistDate(doc.issue_date)}</div>
                             {showUpdatedAt(doc) && (
-                              <div className="text-[10px] text-[#A8A39B]">แก้ไข: {formatBuddhistDate(doc.updated_at)}</div>
+                              <div className="text-2xs text-ink-200">แก้ไข: {formatBuddhistDate(doc.updated_at)}</div>
                             )}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <span className="text-[#111827]">
+                            <span className="text-cool-900">
                               ฿ {formatCurrency(getDisplayAmount(doc) || 0)}
                             </span>
                           </td>

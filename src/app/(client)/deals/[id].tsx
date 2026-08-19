@@ -1377,7 +1377,7 @@ export default function DealDetailPage() {
       )}
     >
       <div className="flex flex-col space-y-3">
-        <Card className="order-1 border-[0.5px]">
+        <Card>
           <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {deal?.deal_number && (
@@ -1392,7 +1392,7 @@ export default function DealDetailPage() {
                         e.stopPropagation();
                         navigate(`/customers/${customer.id}`);
                       }}
-                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-[#378ADD] hover:bg-[#EAF4FF] transition-colors"
+                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-primary hover:bg-primary-soft transition-colors"
                       title="เปิดหน้าลูกค้า"
                       aria-label="เปิดหน้าลูกค้า"
                     >
@@ -1455,175 +1455,7 @@ export default function DealDetailPage() {
             );
           })()}
         </Card>
-
-        <EditableDocNumber
-          value={docNumberOverride}
-          onChange={setDocNumberOverride}
-          placeholder="ตั้งเลขที่เอกสารเอง (เว้นว่าง = อัตโนมัติ)"
-          className="order-7 mb-3"
-        />
-
-        <Card className="order-5 border-[0.5px]">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-[#1A1A18]">สรุปการเงิน</div>
-              <div className="mt-0.5 text-[11px] text-gray-500">
-                {financialSummary.receiptCount > 0 ? `${financialSummary.receiptCount} ใบเสร็จ` : "ยังไม่มีใบเสร็จ"}
-              </div>
-            </div>
-            <div className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
-              {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
-            {[
-              { label: "ยอดรวม", value: financialSummary.grossAmount, className: "text-[#1A1A18]" },
-              { label: "ยอดสุทธิ", value: financialSummary.netPayable, className: "text-[#1A1A18]" },
-              { label: "รับแล้ว", value: financialSummary.amountReceived, className: "text-green-700" },
-              { label: "ค้างรับ", value: financialSummary.outstanding, className: financialSummary.outstanding > 0 ? "text-red-700" : "text-green-700" },
-              { label: "หัก ณ ที่จ่ายตามเอกสาร", value: financialSummary.expectedWhtAmount, className: financialSummary.expectedWhtAmount > 0 ? "text-amber-700" : "text-gray-500" },
-              { label: "หัก ณ ที่จ่ายสะสม", value: financialSummary.whtAmount, className: financialSummary.whtAmount > 0 ? "text-amber-700" : "text-gray-500" },
-            ].map((item) => (
-              <div key={item.label} className="rounded-lg bg-[#F8FAFC] px-2.5 py-2">
-                <div className="text-[10px] text-gray-500">{item.label}</div>
-                <div className={`mt-1 text-[13px] font-semibold tabular-nums ${item.className}`}>฿{formatCurrency(item.value)}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-[10px] leading-4 text-gray-400">
-            ตามเอกสาร = จำนวนที่ระบุในใบแจ้งหนี้ · สะสม = จำนวนที่เกิดขึ้นจริงจากใบเสร็จ
-          </div>
-        </Card>
-
-        {deliveryProgress && (
-          <Card className={`order-3 border-[0.5px] ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <PackageCheck className="h-4 w-4 text-[#0F9AA8]" />
-                  <div className="text-sm font-semibold text-[#1A1A18]">ความคืบหน้าการส่งของจากใบเสนอราคา</div>
-                </div>
-                <div className="mt-1 text-xs leading-5 text-gray-500">
-                  {deliveryProgress.quotation.doc_number || "ใบเสนอราคา"} • ส่งแล้ว {formatQty(deliveryProgress.totalDelivered)} / เสนอราคา {formatQty(deliveryProgress.totalQuoted)}
-                  {deliveryProgress.totalPending > 0 ? ` • ร่างค้าง ${formatQty(deliveryProgress.totalPending)}` : ""}
-                </div>
-              </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                deliveryProgress.allDelivered
-                  ? "bg-green-100 text-green-700"
-                  : deliveryProgress.hasOverDelivery
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-blue-100 text-blue-700"
-              }`}>
-                {deliveryProgress.allDelivered ? "ส่งครบแล้ว" : deliveryProgress.hasOverDelivery ? "มีส่งเกิน" : "กำลังส่ง"}
-              </span>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              {deliveryProgress.rows.slice(0, 4).map((row) => (
-                <div key={row.line.id} className="rounded-lg border border-white/70 bg-white/70 px-3 py-2">
-                  <div className="flex items-start justify-between gap-3 text-xs">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-[#1A1A18]">{row.line.item_name}</div>
-                      <div className="mt-0.5 text-gray-500">
-                        ส่งแล้ว {formatQty(row.delivered)} / {formatQty(row.line.quantity)} {row.line.unit}
-                        {row.pending > 0 ? ` • ร่างค้าง ${formatQty(row.pending)}` : ""}
-                      </div>
-                    </div>
-                    <div className={`shrink-0 text-right font-medium ${row.remaining < 0 ? "text-amber-700" : "text-gray-700"}`}>
-                      คงเหลือ {formatQty(row.remaining)} {row.line.unit}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {deliveryProgress.rows.length > 4 && (
-                <div className="text-center text-[11px] text-gray-500">และอีก {deliveryProgress.rows.length - 4} รายการ</div>
-            )}
-          </div>
-
-            {dnAction && (
-              <Button
-                variant="secondary"
-                disabled={dnAction.disabled}
-                className={`mt-3 w-full justify-center ${
-                  dnAction.disabled
-                    ? "!bg-gray-50 !text-gray-500 !border-gray-200 hover:!bg-gray-50"
-                    : "!bg-teal-50 !text-teal-700 !border-teal-200 hover:!bg-teal-100"
-                }`}
-                onClick={() => {
-                  if (dnAction.disabled || !dnAction.target) return;
-                  if (dnAction.target.type === "form") {
-                    const params = new URLSearchParams({
-                      type: "delivery_note_from_quotation",
-                      quotationId: dnAction.target.quotationId,
-                    });
-                    navigate(`/documents/new?${params.toString()}`);
-                  } else {
-                    navigate(`/documents/${dnAction.target.id}`);
-                  }
-                }}
-              >
-                {dnAction.label}
-                {dnAction.badge && (
-                  <span
-                    className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      dnAction.disabled
-                        ? "bg-white/70 text-gray-500"
-                        : "bg-white/70 text-[#0F9AA8]"
-                    }`}
-                  >
-                    {dnAction.badge}
-                  </span>
-                )}
-              </Button>
-            )}
-
-            {deliveryNotes.length > 0 && (
-              <div className="mt-3 space-y-1.5">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
-                  ใบส่งของในดีลนี้ ({deliveryNotes.length})
-                </div>
-                {deliveryNotes.map((item) => {
-                  const doc = item.document;
-                  const isDraft = doc.status === "draft";
-                  const isConverted = doc.status === "converted";
-                  return (
-                    <button
-                      key={doc.id}
-                      type="button"
-                      onClick={() => navigate(`/documents/${doc.id}`)}
-                      className="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-left transition-colors hover:bg-white"
-                    >
-                      <div className="flex items-center justify-between gap-3 text-xs">
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium text-[#1A1A18]">
-                            {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
-                          </div>
-                          <div className="mt-0.5 text-gray-500">
-                            {formatBuddhistDate(doc.issue_date)}
-                          </div>
-                        </div>
-                        <span
-                          className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium ${
-                            isDraft
-                              ? "bg-amber-100 text-amber-700"
-                              : isConverted
-                                ? "bg-stone-100 text-stone-600"
-                                : "bg-paid-bg text-paid-text"
-                          }`}
-                        >
-                          {isDraft ? "ร่าง" : isConverted ? "รวมในบิลแล้ว" : "ส่งแล้ว"}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-        )}
-
-        <Card className="order-2 border-[0.5px]">
+        <Card>
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ขั้นตอน</div>
             <div className="text-[11px] text-gray-400">{currentStage}/4</div>
@@ -1656,13 +1488,13 @@ export default function DealDetailPage() {
                     >
                       {isSkipped ? "–" : isDone ? <CheckCircle2 className="h-4 w-4" /> : stage.step}
                     </div>
-                    <div className={`mt-1.5 text-[10px] leading-4 text-center ${isDone ? "text-paid-text" : isActive ? "text-primary font-semibold" : "text-gray-500"}`}>
+                    <div className={`mt-1.5 text-2xs leading-4 text-center ${isDone ? "text-paid-text" : isActive ? "text-primary font-semibold" : "text-gray-500"}`}>
                       {stage.top}
                       <br />
                       {stage.bottom}
                     </div>
                     {isDone && stageDoc?.document.doc_number && (
-                      <div className="mt-0.5 max-w-[64px] truncate text-[9px] text-paid-text">{stageDoc.document.doc_number}</div>
+                      <div className="mt-0.5 max-w-[64px] truncate text-3xs text-paid-text">{stageDoc.document.doc_number}</div>
                     )}
                   </div>
                   {index < 3 && (
@@ -1678,7 +1510,8 @@ export default function DealDetailPage() {
           ) : mainAction ? (
             <>
               <Button
-                className={`w-full justify-center py-3 text-sm ${"danger" in mainAction && mainAction.danger ? "!bg-[#C0392B] hover:!bg-[#A93226]" : ""}`}
+                variant={"danger" in mainAction && mainAction.danger ? "danger" : "primary"}
+                className="w-full justify-center py-3 text-sm"
                 loading={actionLoadingId === mainAction.doc.id}
                 onClick={() => {
                   if (mainAction.type === "send_draft") handleSendDraft(mainAction.doc);
@@ -1734,9 +1567,8 @@ export default function DealDetailPage() {
             </div>
           )}
         </Card>
-
         {allDone && summaryStats && (
-          <Card className="order-2 border-[0.5px] border-green-200 bg-green-50">
+          <Card className=" border-green-200 bg-green-50">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
               <div className="min-w-0 flex-1">
@@ -1757,9 +1589,132 @@ export default function DealDetailPage() {
             </div>
           </Card>
         )}
+        {deliveryProgress && (
+          <Card className={` ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <PackageCheck className="h-4 w-4 text-accent-teal" />
+                  <div className="text-sm font-semibold text-ink-900">ความคืบหน้าการส่งของจากใบเสนอราคา</div>
+                </div>
+                <div className="mt-1 text-xs leading-5 text-gray-500">
+                  {deliveryProgress.quotation.doc_number || "ใบเสนอราคา"} • ส่งแล้ว {formatQty(deliveryProgress.totalDelivered)} / เสนอราคา {formatQty(deliveryProgress.totalQuoted)}
+                  {deliveryProgress.totalPending > 0 ? ` • ร่างค้าง ${formatQty(deliveryProgress.totalPending)}` : ""}
+                </div>
+              </div>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                deliveryProgress.allDelivered
+                  ? "bg-green-100 text-green-700"
+                  : deliveryProgress.hasOverDelivery
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-blue-100 text-blue-700"
+              }`}>
+                {deliveryProgress.allDelivered ? "ส่งครบแล้ว" : deliveryProgress.hasOverDelivery ? "มีส่งเกิน" : "กำลังส่ง"}
+              </span>
+            </div>
 
+            <div className="mt-3 space-y-2">
+              {deliveryProgress.rows.slice(0, 4).map((row) => (
+                <div key={row.line.id} className="rounded-lg border border-white/70 bg-white/70 px-3 py-2">
+                  <div className="flex items-start justify-between gap-3 text-xs">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-ink-900">{row.line.item_name}</div>
+                      <div className="mt-0.5 text-gray-500">
+                        ส่งแล้ว {formatQty(row.delivered)} / {formatQty(row.line.quantity)} {row.line.unit}
+                        {row.pending > 0 ? ` • ร่างค้าง ${formatQty(row.pending)}` : ""}
+                      </div>
+                    </div>
+                    <div className={`shrink-0 text-right font-medium ${row.remaining < 0 ? "text-amber-700" : "text-gray-700"}`}>
+                      คงเหลือ {formatQty(row.remaining)} {row.line.unit}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {deliveryProgress.rows.length > 4 && (
+                <div className="text-center text-[11px] text-gray-500">และอีก {deliveryProgress.rows.length - 4} รายการ</div>
+            )}
+          </div>
+
+            {dnAction && (
+              <Button
+                variant="secondary"
+                tone={dnAction.disabled ? "slate" : "teal"}
+                disabled={dnAction.disabled}
+                className="mt-3 w-full justify-center"
+                onClick={() => {
+                  if (dnAction.disabled || !dnAction.target) return;
+                  if (dnAction.target.type === "form") {
+                    const params = new URLSearchParams({
+                      type: "delivery_note_from_quotation",
+                      quotationId: dnAction.target.quotationId,
+                    });
+                    navigate(`/documents/new?${params.toString()}`);
+                  } else {
+                    navigate(`/documents/${dnAction.target.id}`);
+                  }
+                }}
+              >
+                {dnAction.label}
+                {dnAction.badge && (
+                  <span
+                    className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium ${
+                      dnAction.disabled
+                        ? "bg-white/70 text-gray-500"
+                        : "bg-white/70 text-accent-teal"
+                    }`}
+                  >
+                    {dnAction.badge}
+                  </span>
+                )}
+              </Button>
+            )}
+
+            {deliveryNotes.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
+                  ใบส่งของในดีลนี้ ({deliveryNotes.length})
+                </div>
+                {deliveryNotes.map((item) => {
+                  const doc = item.document;
+                  const isDraft = doc.status === "draft";
+                  const isConverted = doc.status === "converted";
+                  return (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => navigate(`/documents/${doc.id}`)}
+                      className="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-left transition-colors hover:bg-white"
+                    >
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium text-ink-900">
+                            {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
+                          </div>
+                          <div className="mt-0.5 text-gray-500">
+                            {formatBuddhistDate(doc.issue_date)}
+                          </div>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-md px-2 py-0.5 text-2xs font-medium ${
+                            isDraft
+                              ? "bg-amber-100 text-amber-700"
+                              : isConverted
+                                ? "bg-stone-100 text-stone-600"
+                                : "bg-paid-bg text-paid-text"
+                          }`}
+                        >
+                          {isDraft ? "ร่าง" : isConverted ? "รวมในบิลแล้ว" : "ส่งแล้ว"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        )}
         {activities.length > 0 && (
-          <Card className="order-4 border-[0.5px]">
+          <Card>
             <div className="mb-3 flex items-center gap-2">
               <Clock className="h-4 w-4 text-gray-400" />
               <div>
@@ -1775,8 +1730,8 @@ export default function DealDetailPage() {
                     <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span className="text-xs font-medium text-[#1A1A18]">{activity.description}</span>
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-xs font-medium text-ink-900">{activity.description}</span>
+                        <span className="text-2xs text-gray-400">
                           {new Date(activity.created_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}
                         </span>
                       </div>
@@ -1792,8 +1747,38 @@ export default function DealDetailPage() {
             </div>
           </Card>
         )}
-
-        <div className="order-6">
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-ink-900">สรุปการเงิน</div>
+              <div className="mt-0.5 text-[11px] text-gray-500">
+                {financialSummary.receiptCount > 0 ? `${financialSummary.receiptCount} ใบเสร็จ` : "ยังไม่มีใบเสร็จ"}
+              </div>
+            </div>
+            <div className={`rounded-full px-2.5 py-1 text-2xs font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
+              {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
+            {[
+              { label: "ยอดรวม", value: financialSummary.grossAmount, className: "text-ink-900" },
+              { label: "ยอดสุทธิ", value: financialSummary.netPayable, className: "text-ink-900" },
+              { label: "รับแล้ว", value: financialSummary.amountReceived, className: "text-green-700" },
+              { label: "ค้างรับ", value: financialSummary.outstanding, className: financialSummary.outstanding > 0 ? "text-red-700" : "text-green-700" },
+              { label: "หัก ณ ที่จ่ายตามเอกสาร", value: financialSummary.expectedWhtAmount, className: financialSummary.expectedWhtAmount > 0 ? "text-amber-700" : "text-gray-500" },
+              { label: "หัก ณ ที่จ่ายสะสม", value: financialSummary.whtAmount, className: financialSummary.whtAmount > 0 ? "text-amber-700" : "text-gray-500" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg bg-cool-25 px-2.5 py-2">
+                <div className="text-2xs text-gray-500">{item.label}</div>
+                <div className={`mt-1 text-sm font-semibold tabular-nums ${item.className}`}>฿{formatCurrency(item.value)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-2xs leading-4 text-gray-400">
+            ตามเอกสาร = จำนวนที่ระบุในใบแจ้งหนี้ · สะสม = จำนวนที่เกิดขึ้นจริงจากใบเสร็จ
+          </div>
+        </Card>
+        <div>
           <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
           {nonVoidedDocs.length === 0 ? (
             <Card className="border-[0.5px]">
@@ -1823,14 +1808,14 @@ export default function DealDetailPage() {
                           doc.status === "paid" || doc.status === "generated" || doc.status === "issued" ? "bg-paid-text" : "",
                           doc.status === "partially_paid" ? "bg-amber-600" : "",
                           doc.status === "converted" ? "bg-stone-400" : "",
-                          overdue ? "bg-[#C0392B]" : "",
+                          overdue ? "bg-danger" : "",
                           (doc.status === "sent" || doc.status === "in_billing") && !overdue && !isCurrent ? "bg-primary" : "",
                         ].join(" ")}
                       />
                       {index < nonVoidedDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
                     </div>
                     <Card
-                      className={`mb-2 flex-1 border-[0.5px] ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-[#FAFAF8]" : ""}`}
+                      className={`mb-2 flex-1 ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-paper-field" : ""}`}
                       onClick={() => navigate(`/documents/${doc.id}`)}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1845,11 +1830,11 @@ export default function DealDetailPage() {
                             )}
                           </div>
                           {copiedFromDoc && (
-                            <div className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                            <div className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700">
                               ออกแทน {copiedFromDoc.doc_number || "เอกสารเดิม"}
                             </div>
                           )}
-                          <div className="mt-1 text-[10px] text-gray-400">
+                          <div className="mt-1 text-2xs text-gray-400">
                             {formatBuddhistDate(doc.issue_date)}
                             {doc.due_date ? (
                               <>
@@ -1859,7 +1844,7 @@ export default function DealDetailPage() {
                             ) : null}
                           </div>
                           {(doc.status === "paid" || doc.status === "partially_paid" || doc.status === "generated" || doc.status === "issued") && (
-                            <div className="mt-1 text-[10px] leading-relaxed">
+                            <div className="mt-1 text-2xs leading-relaxed">
                               {doc.doc_type === "receipt" ? (
                                 <>
                                   {doc.wht_amount > 0 && (
@@ -1899,7 +1884,7 @@ export default function DealDetailPage() {
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <div className="text-[13px] font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
+                          <div className="text-sm font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
                           <Badge status={overdue ? "overdue" : doc.status} />
                           <button
                             type="button"
@@ -1907,7 +1892,7 @@ export default function DealDetailPage() {
                               event.stopPropagation();
                               handleOpenPreview(doc);
                             }}
-                            className="mt-0.5 inline-flex items-center justify-center rounded-md border border-[#378ADD] bg-white px-2.5 py-1 text-[11px] font-medium text-[#378ADD] transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#378ADD]/40"
+                            className="mt-0.5 inline-flex items-center justify-center rounded-md border border-primary bg-white px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                           >
                             ดาวน์โหลด
                           </button>
@@ -1936,23 +1921,23 @@ export default function DealDetailPage() {
                     <div className="w-7 flex flex-col items-center shrink-0">
                       <div className="mt-1 w-2.5 h-2.5 rounded-full bg-stone-300" />
                     </div>
-                    <Card className="mb-2 flex-1 border-[0.5px]">
+                    <Card className="mb-2 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="text-xs font-semibold text-gray-700">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</div>
                           <div className="mt-0.5 text-[11px] text-gray-500 line-through">{doc.doc_number || "ยังไม่มีเลขเอกสาร"}</div>
                           {replacementDoc && (
-                            <div className="mt-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                            <div className="mt-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-2xs font-medium text-amber-800">
                               ออกใหม่เป็น {replacementDoc.doc_number || "ฉบับใหม่"}
                             </div>
                           )}
-                          <div className="mt-1 text-[10px] text-gray-400">{formatBuddhistDate(doc.issue_date)}</div>
+                          <div className="mt-1 text-2xs text-gray-400">{formatBuddhistDate(doc.issue_date)}</div>
                           {doc.voided_reason && (
-                            <div className="mt-0.5 text-[10px] text-gray-400 italic">เหตุผล: {doc.voided_reason}</div>
+                            <div className="mt-0.5 text-2xs text-gray-400 italic">เหตุผล: {doc.voided_reason}</div>
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
-                          <div className="text-[13px] font-semibold text-gray-800">฿{formatCurrency(getDocumentAmount(doc))}</div>
+                          <div className="text-sm font-semibold text-gray-800">฿{formatCurrency(getDocumentAmount(doc))}</div>
                           <Badge status="voided" />
                           <button
                             type="button"
@@ -1973,8 +1958,13 @@ export default function DealDetailPage() {
             </div>
           )}
         </div>
-
-        <Card className="order-8 border-[0.5px]">
+        <EditableDocNumber
+          value={docNumberOverride}
+          onChange={setDocNumberOverride}
+          placeholder="ตั้งเลขที่เอกสารเอง (เว้นว่าง = อัตโนมัติ)"
+          className=" mb-3"
+        />
+        <Card>
           <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">การจัดการเอกสาร</div>
           <div className="mt-1 text-xs text-gray-500">แก้ไขเอกสารล่าสุดหรือจัดการเอกสารที่เกี่ยวข้อง</div>
           {activeDoc && (
@@ -1991,7 +1981,8 @@ export default function DealDetailPage() {
                  <div className="col-span-2">
                    <Button
                      variant="secondary"
-                     className="w-full justify-center !bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100"
+                     tone="blue"
+                     className="w-full justify-center"
                      onClick={() => setShowDocList(true)}
                    >
                      ดาวน์โหลดเอกสาร ({nonVoidedDocs.length})
@@ -2009,7 +2000,7 @@ export default function DealDetailPage() {
                              className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-stone-50 transition-colors text-left"
                            >
                              <div className="min-w-0">
-                               <div className="text-[13px] font-medium text-gray-900">
+                               <div className="text-sm font-medium text-gray-900">
                                  {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
                                </div>
                                <div className="text-[12px] text-gray-500">
@@ -2028,14 +2019,16 @@ export default function DealDetailPage() {
               <>
                 <Button
                   variant="secondary"
-                  className="justify-center !bg-amber-50 !text-amber-800 !border-amber-200 hover:!bg-amber-100"
+                  tone="amber"
+                  className="justify-center"
                   onClick={handleCreateCreditNote}
                 >
                   ออกใบลดหนี้
                 </Button>
                 <Button
                   variant="secondary"
-                  className="justify-center !bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100"
+                  tone="blue"
+                  className="justify-center"
                   onClick={() => handleOpenVoidModal(activeDoc.document, true)}
                 >
                   ยกเลิกและออกฉบับใหม่
@@ -2044,7 +2037,8 @@ export default function DealDetailPage() {
             ) : (
               <Button
                 variant="secondary"
-                className={`col-span-2 justify-center ${activeDoc?.document.status !== "draft" ? "!bg-blue-50 !text-blue-700 !border-blue-200 hover:!bg-blue-100" : "!bg-page-bg"}`}
+                tone={activeDoc?.document.status !== "draft" ? "blue" : "slate"}
+                className="col-span-2 justify-center"
                 onClick={handleCurrentDocAction}
               >
                 {activeDoc?.document.status === "draft"
@@ -2059,7 +2053,8 @@ export default function DealDetailPage() {
             {activeDoc?.document.doc_type === "billing_note" && activeDoc.billing_invoices.length > 0 && (
               <Button
                 variant="secondary"
-                className="col-span-2 justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
+                tone="red"
+                className="col-span-2 justify-center"
                 onClick={handleUnlinkAllInvoices}
               >
                 แยกใบแจ้งหนี้ออกจากใบวางบิล
@@ -2068,7 +2063,8 @@ export default function DealDetailPage() {
             {activeDoc?.document.doc_type === "invoice" && hasActiveDnLinks && (
               <Button
                 variant="secondary"
-                className="col-span-2 justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
+                tone="red"
+                className="col-span-2 justify-center"
                 onClick={handleUnlinkAllDeliveryNotes}
               >
                 แยกใบส่งของออกจากใบแจ้งหนี้
@@ -2077,7 +2073,8 @@ export default function DealDetailPage() {
             {allDone && hasPaidDocs && canSendDocumentType(permissions, "credit_note") && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (
               <Button
                 variant="secondary"
-                className="col-span-2 justify-center !bg-page-bg"
+                tone="slate"
+                className="col-span-2 justify-center"
                 onClick={handleCreateCreditNote}
               >
                 ออกใบลดหนี้
@@ -2087,7 +2084,8 @@ export default function DealDetailPage() {
               <div className="col-span-2 mt-2 pt-2 border-t border-amber-200">
                 <Button
                   variant="secondary"
-                  className="w-full justify-center !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100"
+                  tone="red"
+                  className="w-full justify-center"
                   onClick={() => setRevertConfirmOpen(true)}
                 >
                   ลบงานขายนี้ทั้งชุด (Dev)
@@ -2347,10 +2345,10 @@ export default function DealDetailPage() {
               ยกเลิก
             </Button>
             <Button
+              variant="danger"
               onClick={handleRevertDeal}
               disabled={reverting}
               loading={reverting}
-              className="!bg-red-600 !text-white hover:!bg-red-700"
             >
               {reverting ? "กำลังลบ..." : "ลบงานขายนี้"}
             </Button>

@@ -434,7 +434,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-xs font-medium uppercase tracking-[0.12em] text-gray-500">อ้างอิงใบเสนอราคา</div>
-              <div className="mt-1 text-lg font-semibold text-[#1A1A18]">{quotation.doc_number || "-"}</div>
+              <div className="mt-1 text-lg font-semibold text-ink-900">{quotation.doc_number || "-"}</div>
               <div className="mt-1 text-sm text-gray-500">{quotation.customer?.name || "ลูกค้า"}</div>
             </div>
             <div className="text-right text-xs text-gray-500">
@@ -485,7 +485,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                 >
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:items-start">
                     <div className="min-w-0">
-                      <div className="font-medium text-[#1A1A18]">{line.source.item_name}</div>
+                      <div className="font-medium text-ink-900">{line.source.item_name}</div>
                       {line.source.item_sku && <div className="mt-0.5 text-xs text-gray-500">SKU: {line.source.item_sku}</div>}
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
                         <div>
@@ -539,7 +539,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               onChange={(event) => setNote(event.target.value)}
               placeholder="เช่น ส่งบางส่วนจากใบเสนอราคา"
             />
-            <div className="rounded-xl border border-[#E8E6DF] bg-[#FAF8F3] p-3 text-sm">
+            <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
                 <PackageCheck className="h-3.5 w-3.5" />
                 สรุปภายในระบบ
@@ -586,7 +586,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
             </div>
             <div>
               <span className="text-sm font-medium text-gray-800">ซ่อนจำนวนเงินใน PDF</span>
-              <span className="text-[11px] text-gray-400 ml-2">Hide amounts on print</span>
+              <span className="text-[11px] text-gray-400 ml-2">ซ่อนยอดเงินเมื่อพิมพ์</span>
               <p className="mt-1 text-xs leading-5 text-gray-500">
                 เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม
               </p>

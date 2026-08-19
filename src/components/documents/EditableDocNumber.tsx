@@ -48,7 +48,7 @@ export function EditableDocNumber({
           disabled={generating}
           className="shrink-0 rounded-md border border-amber-300 bg-amber-100 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-200 disabled:opacity-50"
         >
-          {generating ? "..." : "Generate"}
+          {generating ? "..." : "สร้างเลขที่"}
         </button>
       )}
     </div>
@@ -85,7 +85,7 @@ export function EditableDocNumberInline({
       await onSave(draft.trim());
       setEditing(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save document number");
+      setError(err instanceof Error ? err.message : "บันทึกเลขที่เอกสารไม่สำเร็จ");
     } finally {
       setSaving(false);
     }
@@ -117,14 +117,14 @@ export function EditableDocNumberInline({
             disabled={saving}
             className="text-xs font-medium text-amber-700 hover:text-amber-900 disabled:opacity-50"
           >
-            Save
+            บันทึก
           </button>
           <button
             type="button"
             onClick={handleCancel}
             className="text-xs text-gray-400 hover:text-gray-600"
           >
-            Cancel
+            ยกเลิก
           </button>
         </span>
         {error && <span className="text-xs font-normal text-red-600">{error}</span>}
@@ -139,7 +139,7 @@ export function EditableDocNumberInline({
         setDraft(value);
         setEditing(true);
       }}
-      title="Click to edit (DEV mode)"
+      title="คลิกเพื่อแก้ไข (โหมด DEV)"
     >
       {value || "-"}
     </span>

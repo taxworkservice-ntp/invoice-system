@@ -4,29 +4,29 @@
 /** Old warm-stone table tokens (backup) */
 export const TABLE_OLD = {
   table: "w-full text-[13px]",
-  theadTr: "bg-[#F7F6F3] border-b border-card-border text-left text-[11px] uppercase tracking-wide text-[#888780]",
-  thSortable: "!text-[#888780] !text-[11px] !font-semibold !tracking-wide !uppercase",
+  theadTr: "bg-page-bg border-b border-card-border text-left text-[11px] uppercase tracking-wide text-ink-300",
+  thSortable: "!text-ink-300 !text-[11px] !font-semibold !tracking-wide !uppercase",
   thStatic: "px-3 py-2 font-semibold",
   thStaticRight: "px-3 py-2 font-semibold text-right",
-  tbodyTr: "border-b border-[#F0EFE9] last:border-0 hover:bg-[#FAFAF7] cursor-pointer transition-colors",
-  tdDimmed: "px-3 py-2 text-[#888780]",
-  tdRegular: "px-3 py-2 text-[#444441]",
-  tdPrimary: "px-3 py-2 text-[#1A1A18] font-medium",
+  tbodyTr: "border-b border-line-faint last:border-0 hover:bg-paper-field cursor-pointer transition-colors",
+  tdDimmed: "px-3 py-2 text-ink-300",
+  tdRegular: "px-3 py-2 text-ink-700",
+  tdPrimary: "px-3 py-2 text-ink-900 font-medium",
 } as const;
 
 /** New clean-blue table tokens (active) */
 export const TABLE = {
   table: "w-full text-[11px]",
-  theadTr: "border-b border-[#E6EBF2] bg-[#F4F7FB]",
-  thSortable: "!text-[#111827] !text-[11px] !font-semibold",
-  thStatic: "px-3 py-2 text-[11px] font-semibold text-[#111827]",
-  thStaticRight: "px-3 py-2 text-[11px] font-semibold text-[#111827] text-right",
-  tbodyTr: "border-b border-[#E6EBF2] hover:bg-[#F8FAFC] cursor-pointer transition-colors",
-  tdDimmed: "px-3 py-2 text-[#667085]",
-  tdRegular: "px-3 py-2 text-[#475467]",
-  tdPrimary: "px-3 py-2 text-[#111827] font-medium",
+  theadTr: "border-b border-cool-100 bg-cool-50",
+  thSortable: "!text-cool-900 !text-[11px] !font-semibold",
+  thStatic: "px-3 py-2 text-[11px] font-semibold text-cool-900",
+  thStaticRight: "px-3 py-2 text-[11px] font-semibold text-cool-900 text-right",
+  tbodyTr: "border-b border-cool-100 hover:bg-cool-25 cursor-pointer transition-colors",
+  tdDimmed: "px-3 py-2 text-cool-400",
+  tdRegular: "px-3 py-2 text-cool-500",
+  tdPrimary: "px-3 py-2 text-cool-900 font-medium",
   /** Tfoot row style */
-  tfootTr: "border-t-[1.5px] border-[#C9D5E3] bg-[#F8FAFC] font-semibold text-[#111827]",
+  tfootTr: "border-t-[1.5px] border-cool-300 bg-cool-25 font-semibold text-cool-900",
   /** Status pill badge */
   statusPill: "text-[10px] px-1.5 py-0.5 rounded font-medium",
   /** Table wrapper card */

@@ -70,3 +70,13 @@ export function formatBuddhistDateFull(isoDate: string): string {
   const year = toBuddhistYear(date.getFullYear());
   return `${day} ${month} ${year}`;
 }
+
+export function relativeTimeThai(dateStr: string): string {
+  if (!dateStr) return "";
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return "เมื่อสักครู่";
+  if (diff < 3600) return `เมื่อ ${Math.floor(diff / 60)} นาทีที่แล้ว`;
+  if (diff < 86400) return `เมื่อ ${Math.floor(diff / 3600)} ชั่วโมงที่แล้ว`;
+  if (diff < 172800) return "เมื่อวานนี้";
+  return `เมื่อ ${Math.floor(diff / 86400)} วันที่แล้ว`;
+}
