@@ -143,7 +143,10 @@ async function handleImageProxy(req, res) {
   const key = typeof req.query.key === "string" ? req.query.key : "";
   if (!key) throw new ApiError(400, "Missing key");
 
-  validateStorageKey(key);
+   const { purpose } = validateStorageKey(key);
+   if (!["logos", "signatures", "stamps"].includes(purpose)) {
+     throw new ApiError(403, "Image proxy is only available for branding assets");
+   }
 
   const signedUrl = await getDownloadSignedUrl(key);
   const imgRes = await fetch(signedUrl);

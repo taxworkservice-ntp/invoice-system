@@ -19,7 +19,7 @@ import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { deleteDocumentFiles } from "../../../lib/r2";
 import { assertDocNumberAvailable, resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
-import { deductStockOnDocumentSent } from "../../../lib/stock";
+import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import { EditableDocNumber, EditableDocNumberInline } from "../../../components/documents/EditableDocNumber";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { PAYMENT_METHOD_LABELS } from "../../../constants";
@@ -517,72 +517,30 @@ export default function DocumentDetailPage() {
       return;
     }
     setActionLoading("convert");
+    let convertedInvoiceId: string | null = null;
     try {
       const issueDate = doc.issue_date || todayString();
-      const docNumber = await resolveDocNumber(userId, "invoice", issueDate, docNumberOverride);
-      const { data: invoice } = await supabase
-        .from("documents")
-        .insert({
-          user_id: userId,
-          deal_id: doc.deal_id,
-          customer_id: doc.customer_id,
-          doc_type: "invoice",
-          doc_number: docNumber,
-          status: "sent" as DocumentStatus,
-          issue_date: issueDate,
-          due_date: doc.due_date,
-          vat_registered: doc.vat_registered,
-          vat_rate: doc.vat_rate,
-          wht_rate: doc.wht_rate,
-          discount_percent: doc.discount_percent,
-          discount_amount: doc.discount_amount,
-          subtotal: doc.subtotal,
-          vat_amount: doc.vat_amount,
-          total_amount: doc.total_amount,
-          wht_amount: doc.wht_amount,
-          net_payable: doc.net_payable,
-          note: doc.note,
-          converted_from_id: doc.id,
-        })
-        .select("*")
-        .single();
+      const { data: invoiceId, error: conversionError } = await supabase.rpc("convert_quotation_to_invoice", {
+        p_user_id: userId,
+        p_quotation_id: doc.id,
+        p_doc_number: docNumberOverride.trim() || null,
+        p_issue_date: issueDate,
+      });
+      if (conversionError || !invoiceId) throw conversionError || new Error("แปลงใบเสนอราคาไม่สำเร็จ");
+      convertedInvoiceId = invoiceId as string;
 
-      if (invoice && doc.line_items?.length) {
-        await saveLineItems(
-          doc.line_items.map((lineItem, index) => ({
-            document_id: invoice.id,
-            user_id: userId,
-            item_id: lineItem.item_id,
-            item_name: lineItem.item_name,
-            line_note: lineItem.line_note || null,
-            item_sku: lineItem.item_sku,
-            item_type: lineItem.item_type,
-            unit: lineItem.unit,
-            unit_price: lineItem.unit_price,
-            quantity: lineItem.quantity,
-            base_quantity: lineItem.base_quantity,
-            discount_percent: lineItem.discount_percent,
-            discount_amount: lineItem.discount_amount,
-            qty_carton: lineItem.qty_carton,
-            carton_unit: lineItem.carton_unit,
-            source_document_id: lineItem.source_document_id || doc.id,
-            source_line_item_id: lineItem.source_line_item_id || lineItem.id,
-            line_total: lineItem.line_total,
-            sort_order: index,
-          }))
-        );
-        await deductStockOnDocumentSent(invoice.id, userId);
-      }
-
-      await supabase
-        .from("documents")
-        .update({ status: "converted" as DocumentStatus })
-        .eq("id", doc.id);
+      await deductStockOnDocumentSent(invoiceId as string, userId);
 
       setConvertModal(false);
-      navigate(`/documents/${invoice.id}`);
+      navigate(`/documents/${invoiceId}`);
     } catch (err: any) {
-      setError(err.message);
+      if (convertedInvoiceId) {
+        await restoreStockOnVoid(convertedInvoiceId, userId).catch(() => undefined);
+        await supabase.from("document_line_items").delete().eq("document_id", convertedInvoiceId);
+        await supabase.from("documents").delete().eq("id", convertedInvoiceId).eq("user_id", userId);
+        await supabase.from("documents").update({ status: "sent" }).eq("id", doc.id).eq("user_id", userId);
+      }
+      setError(err.message || "แปลงใบเสนอราคาไม่สำเร็จ");
     } finally {
       setActionLoading(null);
     }

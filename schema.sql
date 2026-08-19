@@ -608,6 +608,13 @@ create unique index uq_documents_dn_draft_per_source
   on documents (user_id, converted_from_id)
   where doc_type = 'delivery_note' and status = 'draft';
 
+-- At most one active invoice conversion per quotation.
+create unique index uq_documents_active_invoice_per_quotation
+  on documents (user_id, converted_from_id)
+  where doc_type = 'invoice'
+    and converted_from_id is not null
+    and status <> 'voided';
+
 
 -- ============================================================
 -- FILE METADATA

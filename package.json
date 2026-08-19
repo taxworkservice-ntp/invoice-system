@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "qa:launch": "node scripts/qa-launch-preflight.mjs",
     "preview": "vite preview",
     "test:print-layout": "node scripts/print-layout-regression.mjs",
     "test:print-layout:update": "node scripts/print-layout-regression.mjs --update",

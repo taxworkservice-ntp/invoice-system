@@ -450,6 +450,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [editLoading, setEditLoading] = useState(Boolean(documentId));
   const [editingDealId, setEditingDealId] = useState<string | null>(null);
+  const useAtomicCreate = !documentId && !editingDealId && !isBillingNote && isLineItemDocument;
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
@@ -1162,7 +1163,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     let createdDocumentId: string | null = null;
     try {
       let dealId: string | null = editingDealId;
-      if (!documentId && !isBillingNote) {
+      if (!documentId && !isBillingNote && !useAtomicCreate) {
         const { data: deal, error: dealError } = await supabase
           .from("deals")
           .insert({
@@ -1207,7 +1208,43 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       };
 
       let savedDocumentId = documentId || "";
-      if (documentId) {
+      if (useAtomicCreate) {
+        const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
+        const lineItemRecords = validItems.map((lineItem, idx) => {
+          const lineCalc = calculateLineAmounts(lineItem);
+          const baseQuantity = getLineBaseQuantity(lineItem);
+          const soldByCarton = isCartonUnitSelected(lineItem);
+          return {
+            item_id: lineItem.item_id,
+            item_name: lineItem.item_name,
+            line_note: lineItem.line_note.trim() || null,
+            item_sku: lineItem.item_sku || null,
+            item_type: lineItem.item_type,
+            unit: lineItem.unit,
+            unit_price: lineItem.unit_price,
+            quantity: lineItem.quantity,
+            base_quantity: baseQuantity,
+            discount_percent: lineItem.discount_percent || 0,
+            discount_amount: lineCalc.discountAmount,
+            qty_carton: soldByCarton ? lineItem.quantity : null,
+            carton_unit: soldByCarton ? lineItem.carton_unit : null,
+            line_total: lineCalc.lineTotal,
+            sort_order: idx,
+          };
+        });
+        const { data: created, error: createError } = await supabase.rpc("create_deal_document", {
+          p_user_id: userId,
+          p_customer_id: selectedCustomer.id,
+          p_document: docPayload,
+          p_line_items: lineItemRecords,
+          p_title: null,
+        });
+        const createdRecord = Array.isArray(created) ? created[0] : created;
+        if (createError || !createdRecord?.document_id) throw createError || new Error("ไม่สามารถสร้างเอกสารได้");
+        savedDocumentId = createdRecord.document_id;
+        createdDocumentId = createdRecord.document_id;
+        createdDealId = createdRecord.deal_id;
+      } else if (documentId) {
         const { error: docError } = await supabase
           .from("documents")
           .update(docPayload)
@@ -1231,7 +1268,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         createdDocumentId = document.id;
       }
 
-      if (isLineItemDocument) {
+      if (isLineItemDocument && !useAtomicCreate) {
         const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
         if (validItems.length > 0) {
           const lineItemRecords = validItems.map((lineItem, idx) => {
