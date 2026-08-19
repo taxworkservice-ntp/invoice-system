@@ -342,42 +342,44 @@ export default function DocumentPrintPreviewPage() {
   }
 
 return (
-    <div className="print-preview-shell min-h-screen bg-[#EEF2F6] px-2 py-3 sm:px-4 sm:py-6">
+    <div className="print-preview-shell min-h-screen bg-cool-75 px-2 py-3 sm:px-4 sm:py-6">
       <div
-        className="print-toolbar mx-auto mb-3 flex w-full max-w-[230mm] flex-col gap-3 rounded-[20px] border border-[#D7DEE7] bg-white px-3 py-3 shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:px-4"
+        className="print-toolbar mx-auto mb-3 flex w-full max-w-[230mm] flex-col gap-3 rounded-xl border border-cool-200 bg-white px-3 py-3 shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:px-4"
         style={previewViewportWidth ? { maxWidth: `${previewViewportWidth}px` } : undefined}
       >
         <div>
-          <div className="text-[11px] uppercase tracking-[0.16em] text-[#667085]">ดาวน์โหลดเอกสาร</div>
-          <div className="text-[15px] font-semibold text-[#101828]">{data.document.doc_number || "เอกสาร"}</div>
-           <div className="mt-1 flex items-center gap-1 text-[11px] text-[#667085]">
-            <span>ประเภท:</span>
-            <div className="inline-flex rounded-md border border-[#D7DEE7] overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setCopyType("original")}
-                className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${copyType === "original" ? "bg-[#378ADD] text-white" : "bg-white text-[#475467] hover:bg-gray-50"}`}
-              >
-                ต้นฉบับ
-              </button>
-              <button
-                type="button"
-                onClick={() => setCopyType("copy")}
-                className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors border-l border-[#D7DEE7] ${copyType === "copy" ? "bg-[#378ADD] text-white" : "bg-white text-[#475467] hover:bg-gray-50"}`}
-              >
-                สำเนา
-              </button>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-cool-400">ดาวน์โหลดเอกสาร</div>
+          <div className="text-[15px] font-semibold text-ink-900">{data.document.doc_number || "เอกสาร"}</div>
+          <div className="mt-2 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
+              <span>ประเภท:</span>
+              <div className="inline-flex overflow-hidden rounded-md border border-cool-200">
+                <button
+                  type="button"
+                  onClick={() => setCopyType("original")}
+                  className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${copyType === "original" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
+                >
+                  ต้นฉบับ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCopyType("copy")}
+                  className={`border-l border-cool-200 px-2.5 py-0.5 text-[10px] font-medium transition-colors ${copyType === "copy" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
+                >
+                  สำเนา
+                </button>
+              </div>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[#667085]">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
               <span>ลำดับเมื่อดาวน์โหลด 2 ฉบับ:</span>
-              <div className="inline-flex overflow-hidden rounded-md border border-[#D7DEE7]">
+              <div className="inline-flex overflow-hidden rounded-md border border-cool-200">
                 <button
                   type="button"
                   onClick={() => {
                     setCopyOrder("original-first");
                     window.localStorage.setItem("invoice-system.copy-order", "original-first");
                   }}
-                  className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "original-first" ? "bg-[#378ADD] text-white" : "bg-white text-[#475467] hover:bg-gray-50"}`}
+                  className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "original-first" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
                 >
                   ต้นฉบับ → สำเนา
                 </button>
@@ -387,7 +389,7 @@ return (
                     setCopyOrder("copy-first");
                     window.localStorage.setItem("invoice-system.copy-order", "copy-first");
                   }}
-                  className={`border-l border-[#D7DEE7] px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "copy-first" ? "bg-[#378ADD] text-white" : "bg-white text-[#475467] hover:bg-gray-50"}`}
+                  className={`border-l border-cool-200 px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "copy-first" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
                 >
                   สำเนา → ต้นฉบับ
                 </button>
