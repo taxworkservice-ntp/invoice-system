@@ -38,6 +38,8 @@ export interface PrintDocumentData {
   isDeliveryNoteSummaryInvoice: boolean;
   invoiceNumberMap: Record<string, string>;
   receiptOutstanding?: number;
+  receiptPaymentNumber?: number;
+  receiptCumulativePaid?: number;
 }
 
 export interface PrintableDocumentDataBase {
@@ -59,6 +61,8 @@ export interface PrintableDocumentDataBase {
   isDeliveryNoteSummaryInvoice: boolean;
   invoiceNumberMap: Record<string, string>;
   receiptOutstanding?: number;
+  receiptPaymentNumber?: number;
+  receiptCumulativePaid?: number;
 }
 
 export function isHtmlPrintTemplate(
@@ -91,6 +95,8 @@ export async function getPrintableDocumentDataBase(
 
   let referenceDoc: Document | undefined;
   let receiptOutstanding: number | undefined;
+  let receiptPaymentNumber: number | undefined;
+  let receiptCumulativePaid: number | undefined;
   const referenceId =
     document.doc_type === "billing_note" || document.doc_type === "receipt"
       ? undefined
@@ -135,10 +141,11 @@ export async function getPrintableDocumentDataBase(
 
     if (billingNote) {
       if (document.doc_type === "receipt") {
-        const receivedForBillingNote = docList
-          .filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === billingNote.id && doc.status !== "voided" && doc.created_at <= document.created_at)
-          .reduce((sum, receipt) => sum + (receipt.amount_received || 0), 0);
+        const priorReceipts = docList.filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === billingNote.id && doc.status !== "voided" && doc.created_at <= document.created_at);
+        const receivedForBillingNote = priorReceipts.reduce((sum, receipt) => sum + (receipt.amount_received || 0), 0);
         receiptOutstanding = Math.max(0, (billingNote.net_payable || billingNote.total_amount || 0) - receivedForBillingNote);
+        receiptPaymentNumber = priorReceipts.length;
+        receiptCumulativePaid = receivedForBillingNote;
       }
       const { data: linkedInvoices } = await supabase
         .from("billing_note_invoices")
@@ -179,10 +186,11 @@ export async function getPrintableDocumentDataBase(
       }
     } else if (sourceInvoice) {
       if (document.doc_type === "receipt") {
-        const receivedForInvoice = docList
-          .filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === sourceInvoice.id && doc.status !== "voided" && doc.created_at <= document.created_at)
-          .reduce((sum, receipt) => sum + (receipt.amount_received || 0), 0);
+        const priorReceipts = docList.filter((doc) => doc.doc_type === "receipt" && doc.converted_from_id === sourceInvoice.id && doc.status !== "voided" && doc.created_at <= document.created_at);
+        const receivedForInvoice = priorReceipts.reduce((sum, receipt) => sum + (receipt.amount_received || 0), 0);
         receiptOutstanding = Math.max(0, (sourceInvoice.net_payable || sourceInvoice.total_amount || 0) - receivedForInvoice);
+        receiptPaymentNumber = priorReceipts.length;
+        receiptCumulativePaid = receivedForInvoice;
       }
       referenceDoc = sourceInvoice;
       const { data: invItems } = await supabase
@@ -304,6 +312,8 @@ export async function getPrintableDocumentDataBase(
     isDeliveryNoteSummaryInvoice,
     invoiceNumberMap,
     receiptOutstanding,
+    receiptPaymentNumber,
+    receiptCumulativePaid,
   };
 }
 

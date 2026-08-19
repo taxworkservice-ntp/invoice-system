@@ -94,6 +94,8 @@ export function PrintDocumentClassic({
     showInlineDeliveryNotes,
     invoiceNumberMap,
     receiptOutstanding,
+    receiptPaymentNumber,
+    receiptCumulativePaid,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
   const startIndex = batchLineItems
@@ -797,9 +799,13 @@ export function PrintDocumentClassic({
                 <div className="print-classic-totals-row print-classic-totals-row-grand">
                   <div className="print-classic-totals-lab">
                     <div className="print-classic-totals-th">
-                      {isReceipt ? "รับชำระครั้งนี้" : "ยอดรวมทั้งสิ้น"}
+                      {isReceipt
+                        ? receiptPaymentNumber
+                          ? `รับชำระครั้งนี้ (ครั้งที่ ${receiptPaymentNumber})`
+                          : "รับชำระครั้งนี้"
+                        : "ยอดรวมทั้งสิ้น"}
                     </div>
-                    <div className="print-classic-totals-en">{isReceipt ? "AMOUNT RECEIVED" : "GRAND TOTAL"}</div>
+                    <div className="print-classic-totals-en">{isReceipt ? (receiptPaymentNumber ? `AMOUNT RECEIVED · PAYMENT ${receiptPaymentNumber}` : "AMOUNT RECEIVED") : "GRAND TOTAL"}</div>
                   </div>
                   <div className="print-classic-totals-val">
                     {formatCurrency(isReceipt ? receiptAmount : document.total_amount)}
@@ -820,6 +826,15 @@ export function PrintDocumentClassic({
                         -{formatCurrency(document.wht_amount)}
                       </div>
                     </div>
+                    {isReceipt && receiptCumulativePaid !== undefined ? (
+                      <div className="print-classic-totals-row">
+                        <div className="print-classic-totals-lab">
+                          <div className="print-classic-totals-th">ยอดชำระสะสม</div>
+                          <div className="print-classic-totals-en">TOTAL PAID</div>
+                        </div>
+                        <div className="print-classic-totals-val">{formatCurrency(receiptCumulativePaid)}</div>
+                      </div>
+                    ) : null}
                     {isReceipt ? (
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
@@ -845,6 +860,15 @@ export function PrintDocumentClassic({
                   </>
                 ) : isReceipt ? (
                   <>
+                    {receiptCumulativePaid !== undefined ? (
+                      <div className="print-classic-totals-row">
+                        <div className="print-classic-totals-lab">
+                          <div className="print-classic-totals-th">ยอดชำระสะสม</div>
+                          <div className="print-classic-totals-en">TOTAL PAID</div>
+                        </div>
+                        <div className="print-classic-totals-val">{formatCurrency(receiptCumulativePaid)}</div>
+                      </div>
+                    ) : null}
                     <div className="print-classic-totals-row">
                       <div className="print-classic-totals-lab">
                         <div className="print-classic-totals-th">ยอดคงเหลือค้างชำระ</div>
