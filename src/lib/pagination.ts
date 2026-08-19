@@ -1,4 +1,10 @@
 import type { DocumentLineItem } from "../types";
+import { getBaseRowMm } from "./printRowHeight";
+
+// Floating-point tolerance (mm) so that a page whose row heights sum to exactly
+// its height budget (e.g. uniform single-line rows filling the tuned capacity)
+// is not wrongly pushed to another page by binary rounding.
+const HEIGHT_EPSILON = 0.01;
 
 export type PageMode = "single" | "first" | "continuation" | "last";
 
@@ -28,14 +34,31 @@ export interface GenericPageBatch<T> {
   startIndex: number;
 }
 
+export interface PaginateOptions<T> {
+  /**
+   * Estimated rendered height in mm for each row. When provided, pages are
+   * broken by height as well as count so that tall rows (multi-line notes,
+   * wrapped names, classic DN headers) never overflow the fixed sheet and the
+   * last page always has room for the totals footer. When omitted, the tuned
+   * count-based capacities are used unchanged.
+   */
+  estimateHeight?: (row: T, index: number) => number;
+}
+
 /**
- * Split line items into page batches.
+ * Split rows into page batches.
  * Distributions are even across continuation pages — no sparse almost-empty pages.
+ *
+ * When an `estimateHeight` is provided the rows are paginated height-aware:
+ * every page (first, continuation, last) is capped by an estimated rendered
+ * height budget so content never clips off the fixed 297mm sheet, and the last
+ * page is guaranteed room for the totals/signature footer.
  */
 export function paginateRows<T>(
   rows: T[],
   template: "modern" | "classic" | "classic_v2",
   kind: PaginationKind = "line_items",
+  options: PaginateOptions<T> = {},
 ): GenericPageBatch<T>[] {
   const templateKind = template === "modern" ? "modern" : "classic";
   const capacity = kind === "summary_rows"
@@ -45,6 +68,19 @@ export function paginateRows<T>(
   const cp = capacity.continuation;
   const lp = capacity.last;
 
+  if (options.estimateHeight) {
+    return paginateRowsByHeight(rows, template, fp, cp, lp, options.estimateHeight);
+  }
+
+  return paginateRowsByCount(rows, fp, cp, lp);
+}
+
+function paginateRowsByCount<T>(
+  rows: T[],
+  fp: number,
+  cp: number,
+  lp: number,
+): GenericPageBatch<T>[] {
   if (rows.length <= fp) {
     return [{ items: rows, mode: "single", startIndex: 1 }];
   }
@@ -80,6 +116,97 @@ export function paginateRows<T>(
       items: remaining.slice(head),
       mode: "last",
       startIndex: fp + head + 1,
+    });
+  }
+
+  return batches;
+}
+
+function paginateRowsByHeight<T>(
+  rows: T[],
+  template: "modern" | "classic" | "classic_v2",
+  fp: number,
+  cp: number,
+  lp: number,
+  estimateHeight: (row: T, index: number) => number,
+): GenericPageBatch<T>[] {
+  const baseMm = getBaseRowMm(template);
+  const budgets = {
+    first: fp * baseMm,
+    continuation: cp * baseMm,
+    last: lp * baseMm,
+  };
+  const heights = rows.map((row, i) => estimateHeight(row, i));
+  const totalHeight = heights.reduce((sum, h) => sum + h, 0);
+
+  if (rows.length <= fp && totalHeight <= budgets.first + HEIGHT_EPSILON) {
+    return [{ items: rows, mode: "single", startIndex: 1 }];
+  }
+
+  const fitFromStart = (from: number, budget: number, maxCount: number): number => {
+    if (from >= heights.length) return 0;
+    let acc = 0;
+    let n = 0;
+    while (n < maxCount && from + n < heights.length) {
+      const h = heights[from + n];
+      if (n > 0 && acc + h > budget + HEIGHT_EPSILON) break;
+      acc += h;
+      n++;
+    }
+    return Math.max(1, n);
+  };
+
+  const fitFromEnd = (end: number, budget: number, maxCount: number): number => {
+    if (end <= 0) return 0;
+    let acc = 0;
+    let n = 0;
+    while (n < maxCount && end - n > 0) {
+      const h = heights[end - 1 - n];
+      if (n > 0 && acc + h > budget + HEIGHT_EPSILON) break;
+      acc += h;
+      n++;
+    }
+    return Math.max(1, n);
+  };
+
+  const batches: GenericPageBatch<T>[] = [];
+
+  const firstCount = fitFromStart(0, budgets.first, fp);
+  batches.push({
+    items: rows.slice(0, firstCount),
+    mode: "first",
+    startIndex: 1,
+  });
+
+  const rest = rows.length - firstCount;
+  const lastCount = fitFromEnd(rows.length, budgets.last, Math.min(lp, rest));
+  const midEnd = rows.length - lastCount;
+  const midCount = midEnd - firstCount;
+
+  let head = 0;
+
+  if (midCount > 0) {
+    const contPages = Math.ceil(midCount / cp);
+    const perPage = Math.ceil(midCount / contPages);
+
+    for (let i = 0; i < contPages + midCount && head < midCount; i++) {
+      const idx = firstCount + head;
+      const take = fitFromStart(idx, budgets.continuation, Math.min(perPage, midCount - head));
+      if (take <= 0) break;
+      batches.push({
+        items: rows.slice(idx, idx + take),
+        mode: "continuation",
+        startIndex: idx + 1,
+      });
+      head += take;
+    }
+  }
+
+  if (lastCount > 0) {
+    batches.push({
+      items: rows.slice(midEnd),
+      mode: "last",
+      startIndex: midEnd + 1,
     });
   }
 

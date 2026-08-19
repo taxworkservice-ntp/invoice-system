@@ -9,6 +9,10 @@ import { PrintDocumentClassicV2 } from "../../../components/print/PrintDocumentC
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { getPrintDocumentData, type PrintDocumentData } from "../../../lib/print";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
+import {
+  estimateLineItemHeight,
+  estimateSummaryRowHeight,
+} from "../../../lib/printRowHeight";
 import type {
   BillingNoteInvoice,
   DocumentLineItem,
@@ -26,8 +30,12 @@ type PrintBatch =
 
 function getPrintBatches(data: PrintDocumentData): PrintBatch[] {
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
-    return paginateRows(data.billingNoteInvoices, data.template, "summary_rows")
-      .map((batch) => ({ kind: "billing_invoices", batch }));
+    return paginateRows(
+      data.billingNoteInvoices,
+      data.template,
+      "summary_rows",
+      { estimateHeight: () => estimateSummaryRowHeight(data.template) },
+    ).map((batch) => ({ kind: "billing_invoices", batch }));
   }
 
   if (
@@ -35,12 +43,22 @@ function getPrintBatches(data: PrintDocumentData): PrintBatch[] {
     data.document.vat_registered &&
     data.receiptInvoices.length > 0
   ) {
-    return paginateRows(data.receiptInvoices, data.template, "summary_rows")
-      .map((batch) => ({ kind: "receipt_invoices", batch }));
+    return paginateRows(
+      data.receiptInvoices,
+      data.template,
+      "summary_rows",
+      { estimateHeight: () => estimateSummaryRowHeight(data.template) },
+    ).map((batch) => ({ kind: "receipt_invoices", batch }));
   }
 
-  return paginateRows(data.lineItems, data.template)
-    .map((batch) => ({ kind: "line_items", batch }));
+  const hideDeliveryAmounts =
+    data.document.doc_type === "delivery_note" &&
+    data.document.hide_amounts_on_print !== false;
+
+  return paginateRows(data.lineItems, data.template, "line_items", {
+    estimateHeight: (item) =>
+      estimateLineItemHeight(item, data.template, { hideDeliveryAmounts }),
+  }).map((batch) => ({ kind: "line_items", batch }));
 }
 
 export default function DocumentPrintPreviewPage() {
