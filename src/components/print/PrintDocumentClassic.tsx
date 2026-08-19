@@ -108,6 +108,10 @@ export function PrintDocumentClassic({
     (isBillingNote || (document.doc_type === "receipt" && receiptInvoices.length > 0)) && document.vat_registered;
   const isReceipt = document.doc_type === "receipt";
   const receiptAmount = document.amount_received ?? document.net_payable;
+  const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && receiptAmount > 0;
+  const receiptPreTax = receiptTaxable ? Math.round((receiptAmount / (1 + document.vat_rate / 100)) * 100) / 100 : 0;
+  const receiptVatAmount = receiptTaxable ? Math.round((receiptAmount - receiptPreTax) * 100) / 100 : 0;
+  const receiptWhtTotal = isReceipt ? document.wht_amount || 0 : 0;
   const showFooter = pageMode === "single" || pageMode === "last";
   const showHeader = pageMode === "single" || pageMode === "first";
   const showContinuationHeader =
@@ -741,6 +745,24 @@ export function PrintDocumentClassic({
                     {formatCurrency(isReceipt ? document.total_amount : document.subtotal)}
                   </div>
                 </div>
+                {isReceipt && receiptTaxable ? (
+                  <>
+                    <div className="print-classic-totals-row">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ยอดก่อนภาษี</div>
+                        <div className="print-classic-totals-en">AMOUNT BEFORE TAX</div>
+                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(receiptPreTax)}</div>
+                    </div>
+                    <div className="print-classic-totals-row">
+                      <div className="print-classic-totals-lab">
+                        <div className="print-classic-totals-th">ภาษีมูลค่าเพิ่ม {document.vat_rate}%</div>
+                        <div className="print-classic-totals-en">VAT {document.vat_rate}%</div>
+                      </div>
+                      <div className="print-classic-totals-val">{formatCurrency(receiptVatAmount)}</div>
+                    </div>
+                  </>
+                ) : null}
                 {!isReceipt && document.discount_amount > 0 ? (
                   <div className="print-classic-totals-row">
                     <div className="print-classic-totals-lab">
@@ -817,7 +839,7 @@ export function PrintDocumentClassic({
                         </div>
                       </div>
                       <div className="print-classic-totals-val">
-                        {formatCurrency(isReceipt ? receiptAmount : document.net_payable)}
+                        {formatCurrency(isReceipt ? receiptAmount - receiptWhtTotal : document.net_payable)}
                       </div>
                     </div>
                   </>
@@ -835,7 +857,7 @@ export function PrintDocumentClassic({
                         <div className="print-classic-totals-th">ยอดรับสุทธิ</div>
                         <div className="print-classic-totals-en">NET RECEIVED</div>
                       </div>
-                      <div className="print-classic-totals-val">{formatCurrency(receiptAmount)}</div>
+                      <div className="print-classic-totals-val">{formatCurrency(receiptAmount - receiptWhtTotal)}</div>
                     </div>
                   </>
                 ) : null}

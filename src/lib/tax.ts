@@ -10,24 +10,26 @@ function clampAmount(value: number, max: number): number {
 
 export function calculateReceiptWhtAmount({
   expectedWht,
-  netPayable,
+  vatRate,
+  whtRate,
   paymentAmount,
   previousWht = 0,
   isFullyPaid = false,
 }: {
   expectedWht: number;
-  netPayable: number;
+  vatRate: number;
+  whtRate: number;
   paymentAmount: number;
   previousWht?: number;
   isFullyPaid?: boolean;
 }) {
   const expected = Math.max(0, round2(expectedWht));
   const remaining = Math.max(0, round2(expected - previousWht));
-  if (expected <= 0 || netPayable <= 0 || paymentAmount <= 0) return 0;
+  if (expected <= 0 || whtRate <= 0 || paymentAmount <= 0) return 0;
   if (isFullyPaid) return remaining;
-  // expectedWht comes from the source document's taxable subtotal. The net
-  // payable is only the allocation base for partial receipts, never the WHT base.
-  return Math.min(remaining, round2(expected * paymentAmount / netPayable));
+  // WHT is withheld on the VAT-exclusive portion of the received amount.
+  const vatExclusiveAmount = paymentAmount / (1 + vatRate / 100);
+  return Math.min(remaining, round2(vatExclusiveAmount * whtRate / 100));
 }
 
 type TaxLineInput = Partial<Pick<DocumentLineItem, "unit_price" | "quantity" | "discount_percent" | "discount_amount" | "line_total">>;

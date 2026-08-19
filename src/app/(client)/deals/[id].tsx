@@ -506,7 +506,8 @@ export default function DealDetailPage() {
       const newStatus = isFullyPaid ? "paid" : "partially_paid";
       const receiptWhtAmount = calculateReceiptWhtAmount({
         expectedWht: payDocument.wht_amount || 0,
-        netPayable: payDocument.net_payable,
+        vatRate: payDocument.vat_rate,
+        whtRate: payDocument.wht_rate,
         paymentAmount: amountReceived,
         previousWht,
         isFullyPaid,
