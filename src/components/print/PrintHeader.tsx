@@ -52,7 +52,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
 
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0 text-[9.5px] text-[#475467]">
             {clientProfile.tax_id ? <div>เลขประจำตัวผู้เสียภาษี: {clientProfile.tax_id}</div> : null}
-            {clientProfile.phone ? <div>โทร: {clientProfile.phone}</div> : null}
+            {clientProfile.phone ? <div>ติดต่อ: {clientProfile.phone}</div> : null}
           </div>
 
           <div className="mt-5 border-l-2 pl-3" style={{ borderColor: "var(--doc-accent, #2f6fed)" }}>

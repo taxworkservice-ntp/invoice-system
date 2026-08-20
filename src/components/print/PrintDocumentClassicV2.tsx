@@ -217,26 +217,30 @@ export function PrintDocumentClassicV2({
       )}
       {showHeader && (
         <>
-          <header className="print-classic-top">
+          <header className={`print-classic-top${clientProfile.show_company_name === false ? " print-classic-top--no-name" : ""}`}>
             <div className="print-classic-logo">
               {clientProfile.logo_url && clientProfile.show_logo !== false ? (
                 <img
                   src={clientProfile.logo_url}
                   alt={clientProfile.company_name_th}
-                  style={{ width: getLogoPx(clientProfile.logo_size) }}
+                  style={clientProfile.show_company_name === false ? undefined : { width: getLogoPx(clientProfile.logo_size) }}
                   className="print-classic-logo-img"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               ) : null}
             </div>
             <div className="print-classic-company">
-              <div className="print-classic-company-th">
-                {clientProfile.company_name_th}
-              </div>
-              {clientProfile.company_name_en ? (
-                <div className="print-classic-company-en">
-                  {clientProfile.company_name_en}
-                </div>
+              {clientProfile.show_company_name !== false ? (
+                <>
+                  <div className="print-classic-company-th">
+                    {clientProfile.company_name_th}
+                  </div>
+                  {clientProfile.company_name_en ? (
+                    <div className="print-classic-company-en">
+                      {clientProfile.company_name_en}
+                    </div>
+                  ) : null}
+                </>
               ) : null}
               <div className="print-classic-company-meta">
                 {clientProfile.address ? (
@@ -245,10 +249,10 @@ export function PrintDocumentClassicV2({
                   </>
                 ) : null}
                 {clientProfile.tax_id ? (
-                  <div>เลขภาษี : {clientProfile.tax_id}</div>
+                  <div>เลขประจำตัวผู้เสียภาษี : {clientProfile.tax_id}</div>
                 ) : null}
                 {clientProfile.phone ? (
-                  <div>โทร: {clientProfile.phone}</div>
+                  <div>ติดต่อ: {clientProfile.phone}</div>
                 ) : null}
               </div>
             </div>
@@ -293,7 +297,7 @@ export function PrintDocumentClassicV2({
                 <div className="print-classic-val">{customer.phone || "—"}</div>
 
                 <div className="print-classic-label">
-                  <span className="print-classic-label-th">เลขภาษี :</span>
+                  <span className="print-classic-label-th">เลขประจำตัวผู้เสียภาษี :</span>
                   <span className="print-classic-label-en">TAX ID NO.</span>
                 </div>
                 <div className="print-classic-val">{customer.tax_id || "—"}</div>

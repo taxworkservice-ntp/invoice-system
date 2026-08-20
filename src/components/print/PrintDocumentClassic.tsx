@@ -247,10 +247,10 @@ export function PrintDocumentClassic({
                   </>
                 ) : null}
                 {clientProfile.tax_id ? (
-                  <div>เลขภาษี : {clientProfile.tax_id}</div>
+                  <div>เลขประจำตัวผู้เสียภาษี : {clientProfile.tax_id}</div>
                 ) : null}
                 {clientProfile.phone ? (
-                  <div>โทร: {clientProfile.phone}</div>
+                  <div>ติดต่อ: {clientProfile.phone}</div>
                 ) : null}
               </div>
             </div>
@@ -295,7 +295,7 @@ export function PrintDocumentClassic({
                 <div className="print-classic-val">{customer.phone || "—"}</div>
 
                 <div className="print-classic-label">
-                  <span className="print-classic-label-th">เลขภาษี :</span>
+                  <span className="print-classic-label-th">เลขประจำตัวผู้เสียภาษี :</span>
                   <span className="print-classic-label-en">TAX ID NO.</span>
                 </div>
                 <div className="print-classic-val">{customer.tax_id || "—"}</div>

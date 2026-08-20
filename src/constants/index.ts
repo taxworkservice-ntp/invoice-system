@@ -82,6 +82,7 @@ export const PDF_TEMPLATE_OPTIONS: { value: string; label: string; desc: string 
 export const LOGO_SIZE_OPTIONS: { value: string; label: string; px: number }[] = [
   { value: "square", label: "สี่เหลี่ยมจัตุรัส", px: 64 },
   { value: "rectangle", label: "สี่เหลี่ยมผืนผ้า", px: 128 },
+  { value: "large", label: "ใหญ่ (แทนชื่อบริษัท)", px: 200 },
 ];
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {

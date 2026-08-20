@@ -8,6 +8,7 @@ export type WorkspacePermissionKey =
   | "canManageCatalog"
   | "canManageCustomers"
   | "canCreateEditDocuments"
+  | "canManageWht"
   | "canSendDocuments"
   | "canSendQuotations"
   | "canSendDeliveryNotes"
@@ -23,6 +24,7 @@ export interface WorkspacePermissions {
   canManageCatalog: boolean;
   canManageCustomers: boolean;
   canCreateEditDocuments: boolean;
+  canManageWht: boolean;
   canSendDocuments: boolean;
   canSendQuotations: boolean;
   canSendDeliveryNotes: boolean;
@@ -37,6 +39,11 @@ export const PERMISSION_GROUPS: { key: WorkspacePermissionKey; label: string; de
     key: "canCreateEditDocuments",
     label: "Create/edit drafts",
     description: "Prepare quotations, invoices, delivery notes, and other draft documents.",
+  },
+  {
+    key: "canManageWht",
+    label: "ออกหนังสือหัก ณ ที่จ่าย",
+    description: "จัดทำ แก้ไข และออกเอกสารหัก ณ ที่จ่าย",
   },
   {
     key: "canSendDocuments",
@@ -105,20 +112,22 @@ export function getDefaultWorkspacePermissions(role: ClientMemberRole | null | u
   const manager = role === "manager";
   const officer = role === "officer";
   const operational = owner || manager;
+  const officerWorkflow = owner || manager || officer;
 
   return {
     canManageSettings: owner,
     canManageTeam: owner,
     canViewReports: operational,
     canManageCatalog: operational,
-    canManageCustomers: owner || manager || officer,
-    canCreateEditDocuments: owner || manager || officer,
-    canSendDocuments: operational,
-    canSendQuotations: operational,
-    canSendDeliveryNotes: operational,
-    canSendFinancialDocuments: operational,
-    canRecordPayments: operational,
-    canVoidDocuments: operational,
+    canManageCustomers: operational,
+    canCreateEditDocuments: officerWorkflow,
+    canManageWht: officerWorkflow,
+    canSendDocuments: officerWorkflow,
+    canSendQuotations: officerWorkflow,
+    canSendDeliveryNotes: officerWorkflow,
+    canSendFinancialDocuments: officerWorkflow,
+    canRecordPayments: officerWorkflow,
+    canVoidDocuments: officerWorkflow,
     canDeleteDocuments: owner,
   };
 }

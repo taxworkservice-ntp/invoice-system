@@ -20,6 +20,9 @@ interface TeamMember {
 
 const ACTIONS: { key: keyof WorkspacePermissions; label: string; description: string }[] = [
   { key: "canCreateEditDocuments", label: "จัดทำและแก้ไขร่าง", description: "สร้างงานขายและแก้ไขเอกสารร่าง" },
+  { key: "canManageCustomers", label: "จัดการลูกค้า", description: "สร้างและแก้ไขข้อมูลลูกค้า" },
+  { key: "canManageCatalog", label: "จัดการสินค้าและสต็อก", description: "เพิ่มสินค้า แก้ไขรายการ และจัดการสต็อก" },
+  { key: "canManageWht", label: "ออกหนังสือหัก ณ ที่จ่าย", description: "จัดทำ แก้ไข และออกเอกสารหัก ณ ที่จ่าย" },
   { key: "canSendQuotations", label: "ส่งใบเสนอราคา", description: "ส่งใบเสนอราคาให้ลูกค้า" },
   { key: "canSendDeliveryNotes", label: "ยืนยันใบส่งของ", description: "ยืนยันการส่งของและตัดสต็อก" },
   { key: "canSendFinancialDocuments", label: "ออกบิลและรับเอกสารการเงิน", description: "ส่งใบแจ้งหนี้ ใบวางบิล และเอกสารภาษี" },

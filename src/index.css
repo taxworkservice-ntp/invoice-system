@@ -429,6 +429,36 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   max-width: 30mm;
   height: auto;
 }
+/* When the company name is hidden, the large logo sits on top with the
+   company meta (address/tax/phone) below it, and the copy badge on the right. */
+.print-classic-top--no-name {
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "logo badge"
+    "meta meta";
+  gap: 0 5mm;
+}
+.print-classic-top--no-name .print-classic-logo {
+  grid-area: logo;
+  justify-content: flex-start;
+}
+.print-classic-top--no-name .print-classic-company {
+  grid-area: meta;
+  margin-top: 0;
+}
+.print-classic-top--no-name .print-classic-company-meta {
+  margin-top: 0;
+}
+.print-classic-top--no-name .print-classic-top-right {
+  grid-area: badge;
+}
+.print-classic-top--no-name .print-classic-logo-img {
+  max-width: 81mm;
+  max-height: 18mm;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
 .print-classic-logo-fallback {
   width: 30mm;
   height: 30mm;

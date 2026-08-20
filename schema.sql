@@ -1226,6 +1226,9 @@ create policy "Admin toggles client dev mode"
 -- Add show_logo toggle to client_profiles
 alter table client_profiles add column if not exists show_logo boolean not null default true;
 
+-- Add show_company_name toggle to client_profiles
+alter table client_profiles add column if not exists show_company_name boolean not null default true;
+
 -- Add default_unit to item_job_detail_fields
 alter table item_job_detail_fields add column if not exists default_unit text;
 

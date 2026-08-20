@@ -93,8 +93,8 @@ export default function App() {
             <Route path="/customers/:id" element={permissions.canManageCustomers ? <CustomerDetailPage /> : <Navigate to="/home" replace />} />
             <Route path="/reports" element={permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />} />
             <Route path="/download-center" element={permissions.canViewReports ? <DownloadCenterPage /> : <Navigate to="/home" replace />} />
-            <Route path="/wht" element={permissions.canViewReports ? <WhtPage /> : <Navigate to="/home" replace />} />
-            <Route path="/wht/print" element={<WhtPrintPage />} />
+            <Route path="/wht" element={permissions.canManageWht ? <WhtPage /> : <Navigate to="/home" replace />} />
+            <Route path="/wht/print" element={permissions.canManageWht ? <WhtPrintPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/company" element={permissions.canManageSettings ? <SettingsCompanyPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/documents" element={permissions.canManageSettings ? <SettingsDocumentsPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/tax" element={permissions.canManageSettings ? <SettingsTaxPage /> : <Navigate to="/home" replace />} />

@@ -37,6 +37,7 @@ export default function SettingsDocumentsPage() {
   const [logoKey, setLogoKey] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(LOGO_SIZE_OPTIONS[0].value);
   const [showLogo, setShowLogo] = useState(true);
+  const [showCompanyName, setShowCompanyName] = useState(true);
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic" | "classic_v2">("modern");
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
@@ -56,6 +57,7 @@ export default function SettingsDocumentsPage() {
       setLogoKey(clientProfile.logo_url);
       setLogoSize(clientProfile.logo_size || "square");
       setShowLogo(clientProfile.show_logo !== false);
+      setShowCompanyName(clientProfile.show_company_name !== false);
       setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
       setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey(clientProfile.signature_url || null);
@@ -101,6 +103,7 @@ export default function SettingsDocumentsPage() {
       logo_url: logoKey,
       logo_size: logoSize,
       show_logo: showLogo,
+      show_company_name: showCompanyName,
       pdf_template: pdfTemplate,
       classic_terms: classicTerms.trim() || null,
       signature_url: signatureKey,
@@ -171,6 +174,7 @@ export default function SettingsDocumentsPage() {
     logoKey !== (clientProfile?.logo_url ?? null) ||
     logoSize !== (clientProfile?.logo_size || "square") ||
     showLogo !== (clientProfile?.show_logo !== false) ||
+    showCompanyName !== (clientProfile?.show_company_name !== false) ||
     signatureKey !== (clientProfile?.signature_url ?? null) ||
     stampKey !== (clientProfile?.stamp_url ?? null);
 
@@ -215,6 +219,21 @@ export default function SettingsDocumentsPage() {
                 />
                 <span className="text-xs text-gray-600">แสดงโลโก้ในเอกสาร</span>
               </label>
+            )}
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showCompanyName}
+                onChange={(e) => { setShowCompanyName(e.target.checked); setSaved(false); }}
+                className="w-3.5 h-3.5 accent-primary rounded"
+              />
+              <span className="text-xs text-gray-600">แสดงชื่อบริษัทในเอกสาร</span>
+            </label>
+            {!showCompanyName && (
+              <p className="text-[11px] text-[#888780] -mt-1">
+                เมื่อปิดชื่อบริษัท โลโก้จะถูกใช้แทน ให้เลือกขนาด "ใหญ่ (แทนชื่อบริษัท)" และอัปโหลดโลโก้ที่มีรายละเอียดครบ
+              </p>
             )}
 
             <div className="border-t border-[#E8E6DF] pt-3">
