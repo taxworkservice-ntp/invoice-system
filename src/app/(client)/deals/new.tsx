@@ -23,7 +23,7 @@ import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStoc
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
-import { AlertTriangle, ChevronDown, Copy, PlusCircle, X, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ChevronDown, Copy, PlusCircle, X, SlidersHorizontal, Eye, EyeOff } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { Document, DocumentLineItem, DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
@@ -50,6 +50,7 @@ interface LineItemForm {
   job_material: string;
   job_remark: string;
   job_detail_values: Record<string, string>;
+  hide_amounts_on_print: boolean;
 }
 
 type JobDetailSuggestions = Record<string, string[]>;
@@ -119,7 +120,7 @@ function JobDetailPresetInput({
 
   return (
     <label className="relative block">
-      <span className="mb-1 block text-2xs text-gray-400">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-gray-700">{label}</span>
       <div className="relative">
         <input
           value={value}
@@ -215,6 +216,7 @@ function createEmptyLine(): LineItemForm {
     job_material: "",
     job_remark: "",
     job_detail_values: {},
+    hide_amounts_on_print: false,
   };
 }
 
@@ -352,7 +354,7 @@ function buildJobDetailsNote(lineItem: LineItemForm, fields = DEFAULT_JOB_DETAIL
       if (field.field_type === "dimension") {
         const { width, height } = getJobDetailDimension(lineItem, field.field_key);
         const size = [width.trim(), height.trim()].filter(Boolean).join(" x ");
-        const unit = lineItem.job_detail_values[`${field.field_key}_unit`] || "มม.";
+        const unit = lineItem.job_detail_values[`${field.field_key}_unit`] || field.default_unit || "มม.";
         return size ? `${field.label}: ${size} ${unit}` : "";
       }
       const value = getJobDetailValue(lineItem, field.field_key).trim();
@@ -369,7 +371,8 @@ function getJobDetailsSummary(lineItem: LineItemForm, fields = DEFAULT_JOB_DETAI
       if (field.field_type === "dimension") {
         const { width, height } = getJobDetailDimension(lineItem, field.field_key);
         const size = [width.trim(), height.trim()].filter(Boolean).join("x");
-        return size ? `${size} mm` : "";
+        const unit = lineItem.job_detail_values[`${field.field_key}_unit`] || field.default_unit || "มม.";
+        return size ? `${size} ${unit}` : "";
       }
       return getJobDetailValue(lineItem, field.field_key).trim();
     })
@@ -393,7 +396,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const isEditingDraft = Boolean(documentId);
   const label = isEditingDraft && type === "invoice"
     ? "แก้ไขร่างใบแจ้งหนี้"
-    : isUtilityBill ? "ออกบิลประจำรอบ" : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
+    : isEditingDraft && type === "delivery_note"
+      ? "แก้ไขร่างใบส่งของ"
+      : isUtilityBill ? "ออกบิลประจำรอบ" : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
   const isBillingNote = type === "billing_note";
   const isTaxInvoiceReceipt = type === "tax_invoice_receipt";
   const isDeliveryNote = type === "delivery_note";
@@ -520,8 +525,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         if (lineError) throw lineError;
 
         const draftDoc = documentData as Document & { customer?: Customer };
-        if (draftDoc.doc_type !== "invoice" || draftDoc.status !== "draft") {
-          throw new Error("แก้ไขได้เฉพาะร่างใบแจ้งหนี้");
+        if (draftDoc.doc_type !== "invoice" && draftDoc.doc_type !== "delivery_note") {
+          throw new Error("แก้ไขได้เฉพาะร่างใบแจ้งหนี้หรือใบส่งของ");
+        }
+        if (draftDoc.status !== "draft") {
+          throw new Error("แก้ไขได้เฉพาะเอกสารฉบับร่าง");
         }
 
         if (cancelled) return;
@@ -534,6 +542,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         setDocumentDiscountPercent(draftDoc.discount_percent || 0);
         setNote(draftDoc.note || "");
         setDocNumberOverride(draftDoc.doc_number || "");
+        if (draftDoc.doc_type === "delivery_note" && draftDoc.hide_amounts_on_print != null) {
+          setHideAmountsOnPrint(draftDoc.hide_amounts_on_print);
+        }
         setLineItems(((lineData || []) as DocumentLineItem[]).map((line) => ({
           id: line.id || crypto.randomUUID(),
           item_id: line.item_id,
@@ -557,6 +568,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           job_material: "",
           job_remark: "",
           job_detail_values: {},
+          hide_amounts_on_print: line.hide_amounts_on_print,
         })));
       } catch (err: any) {
         if (!cancelled) setError(err.message || "โหลดร่างใบแจ้งหนี้ไม่สำเร็จ");
@@ -951,7 +963,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     };
   }, [isUtilityBill, utilityPreviousReading, utilityCurrentReading, utilityRate, utilityPeriodStart, utilityPeriodEnd]);
 
-  const updateLineItem = (id: string, field: keyof LineItemForm, value: string | number) => {
+  const updateLineItem = (id: string, field: keyof LineItemForm, value: string | number | boolean) => {
     setLineItems((prev) =>
       prev.map((lineItem) => {
         if (lineItem.id !== id) return lineItem;
@@ -1239,6 +1251,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             qty_carton: soldByCarton ? lineItem.quantity : null,
             carton_unit: soldByCarton ? lineItem.carton_unit : null,
             line_total: lineCalc.lineTotal,
+            hide_amounts_on_print: lineItem.hide_amounts_on_print,
             sort_order: idx,
           };
         });
@@ -1260,7 +1273,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           .update(docPayload)
           .eq("id", documentId)
           .eq("user_id", userId)
-          .eq("doc_type", "invoice")
+          .eq("doc_type", type)
           .eq("status", "draft");
 
         if (docError) throw docError;
@@ -1302,6 +1315,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               qty_carton: soldByCarton ? lineItem.quantity : null,
               carton_unit: soldByCarton ? lineItem.carton_unit : null,
               line_total: lineCalc.lineTotal,
+              hide_amounts_on_print: lineItem.hide_amounts_on_print,
               sort_order: idx,
             };
           });
@@ -1333,7 +1347,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       }
 
       if (documentId) {
-        toast.success("บันทึกร่างใบแจ้งหนี้แล้ว");
+        toast.success(type === "delivery_note" ? "บันทึกร่างใบส่งของแล้ว" : "บันทึกร่างใบแจ้งหนี้แล้ว");
         navigate(`/documents/${documentId}`);
       } else if (dealId) {
         toast.success("บันทึกงานขายสำเร็จ");
@@ -1862,7 +1876,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                 const { width, height } = getJobDetailDimension(item, field.field_key);
                                 return (
                                   <div key={field.field_key}>
-                                    <span className="mb-1 block text-2xs text-gray-400">{field.label}</span>
+                                    <span className="mb-1 block text-xs font-medium text-gray-700">{field.label}</span>
                                     <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
                                       <input
                                         type="number"
@@ -1972,6 +1986,19 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       )}
                     </div>
                     <div className="col-span-2 flex justify-end gap-2 sm:contents">
+                      <button
+                        type="button"
+                        className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors sm:h-auto sm:w-auto sm:rounded-none sm:border-0 ${
+                          item.hide_amounts_on_print
+                            ? "border-amber-300 bg-amber-50 text-amber-700"
+                            : "border-card-border text-gray-400 hover:border-primary hover:text-primary"
+                        }`}
+                        onClick={() => updateLineItem(item.id, "hide_amounts_on_print", !item.hide_amounts_on_print)}
+                        aria-label="ซ่อนจำนวนเงินในเอกสาร"
+                        title={item.hide_amounts_on_print ? "ซ่อนจำนวนเงินแล้ว (คลิกเพื่อแสดง)" : "ซ่อนจำนวนเงินของรายการนี้ในเอกสาร"}
+                      >
+                        {item.hide_amounts_on_print ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                       <button
                         type="button"
                         className="flex h-9 w-9 items-center justify-center rounded-lg border border-card-border text-gray-400 transition-colors hover:border-primary hover:text-primary sm:h-auto sm:w-auto sm:rounded-none sm:border-0"

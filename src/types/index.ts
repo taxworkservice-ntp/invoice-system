@@ -358,6 +358,7 @@ export interface DocumentLineItem {
   source_document_id: string | null;
   source_line_item_id: string | null;
   line_total: number;
+  hide_amounts_on_print: boolean;
   sort_order: number;
   created_at: string;
 }

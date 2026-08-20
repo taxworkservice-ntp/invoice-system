@@ -249,7 +249,7 @@ export function PrintDocumentClassicV2({
                   </>
                 ) : null}
                 {clientProfile.tax_id ? (
-                  <div>เลขประจำตัวผู้เสียภาษี : {clientProfile.tax_id}</div>
+                  <div>เลขที่ผู้เสียภาษี : {clientProfile.tax_id}</div>
                 ) : null}
                 {clientProfile.phone ? (
                   <div>ติดต่อ: {clientProfile.phone}</div>
@@ -297,7 +297,7 @@ export function PrintDocumentClassicV2({
                 <div className="print-classic-val">{customer.phone || "—"}</div>
 
                 <div className="print-classic-label">
-                  <span className="print-classic-label-th">เลขประจำตัวผู้เสียภาษี :</span>
+                  <span className="print-classic-label-th">เลขที่ผู้เสียภาษี :</span>
                   <span className="print-classic-label-en">TAX ID NO.</span>
                 </div>
                 <div className="print-classic-val">{customer.tax_id || "—"}</div>
@@ -622,7 +622,7 @@ export function PrintDocumentClassicV2({
                               {printableNote}
                             </div>
                           ) : null}
-                          {hasLineDiscount && !hideDeliveryAmounts ? (
+                          {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print ? (
                             <div className="print-classic-discount-note">
                               ส่วนลด {item.discount_percent || 0}%
                               {item.discount_amount > 0
@@ -652,10 +652,10 @@ export function PrintDocumentClassicV2({
                         {!hideDeliveryAmounts && (
                           <>
                             <td className="right">
-                              {formatCurrency(item.unit_price)}
+                              {item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
                             </td>
                             <td className="right bold">
-                              {formatCurrency(item.line_total)}
+                              {item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                             </td>
                           </>
                         )}

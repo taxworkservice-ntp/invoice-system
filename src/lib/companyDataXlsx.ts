@@ -105,6 +105,7 @@ export async function buildCompanyDataWorkbook(data: CompanyDataExport) {
     { key: "unit", header: "หน่วย", width: 14 }, { key: "quantity", header: "จำนวน", width: 14 },
     { key: "unit_price", header: "ราคาต่อหน่วย", width: 16 }, { key: "discount_amount", header: "ส่วนลด", width: 16 },
     { key: "line_total", header: "รวมรายการ", width: 16 }, { key: "line_note", header: "หมายเหตุรายการ", width: 40 },
+    { key: "hide_amounts_on_print", header: "ซ่อนราคาในเอกสาร", width: 20 },
   ], data.lineItems);
 
   addSheet(workbook, "ใบวางบิลที่เชื่อมโยง", [

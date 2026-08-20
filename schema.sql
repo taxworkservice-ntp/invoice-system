@@ -724,6 +724,8 @@ create table document_line_items (
 
   line_total      numeric(15,2) not null,     -- unit_price × quantity, stored at save time
 
+  hide_amounts_on_print boolean not null default false, -- per-line: hide price/discount/amount on printed doc
+
   sort_order      int not null default 0,
 
   created_at      timestamptz not null default now()

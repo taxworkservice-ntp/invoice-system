@@ -338,7 +338,7 @@ export function PrintLineItemsTable({
                       {printableNote}
                     </div>
                   ) : null}
-                  {hasLineDiscount && !hideDeliveryAmounts ? (
+                  {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print ? (
                     <div className="mt-0.5 text-[9px] text-[#B54708]">
                       ส่วนลด {item.discount_percent || 0}%
                       {item.discount_amount > 0
@@ -372,13 +372,13 @@ export function PrintLineItemsTable({
                 {!hideDeliveryAmounts && (
                   <>
                     <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                      {formatCurrency(item.unit_price)}
+                      {item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
                     </td>
                     <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                      {hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
+                      {item.hide_amounts_on_print ? "-" : hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
                     </td>
                     <td className="px-2 py-1.5 text-right text-[10px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                      {formatCurrency(item.line_total)}
+                      {item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                     </td>
                   </>
                 )}
