@@ -1436,7 +1436,7 @@ export default function DealDetailPage() {
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopyText(customer.tax_id!); }}
                       className="shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                      title="คัดลอกเลขประจำตัวผู้เสียภาษี"
+                      title="คัดลอกเลขที่ผู้เสียภาษี"
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </button>

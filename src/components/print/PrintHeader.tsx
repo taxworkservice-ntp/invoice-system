@@ -51,7 +51,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
           ) : null}
 
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0 text-[9.5px] text-[#475467]">
-            {clientProfile.tax_id ? <div>เลขประจำตัวผู้เสียภาษี: {clientProfile.tax_id}</div> : null}
+            {clientProfile.tax_id ? <div>เลขที่ผู้เสียภาษี: {clientProfile.tax_id}</div> : null}
             {clientProfile.phone ? <div>ติดต่อ: {clientProfile.phone}</div> : null}
           </div>
 
@@ -62,7 +62,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
             </div>
             <div className="mt-0.5 font-semibold text-[12px]">{customer.name}</div>
             <div className="mt-0.5 space-y-0.5 text-[9.5px] text-[#475467]">
-              {customer.tax_id ? <div>เลขประจำตัวผู้เสียภาษี: {customer.tax_id}</div> : null}
+              {customer.tax_id ? <div>เลขที่ผู้เสียภาษี: {customer.tax_id}</div> : null}
               {customer.address ? <div className="whitespace-pre-line leading-[15px]">{customer.address}</div> : null}
               {customer.phone ? <div>โทร: {customer.phone}</div> : null}
             </div>

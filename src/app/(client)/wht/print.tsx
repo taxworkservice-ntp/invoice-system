@@ -321,7 +321,7 @@ function CleanPage({
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: "10px", color: "#666", marginBottom: "1mm" }}>ผู้จ่ายเงิน (Payer)</div>
             <div style={{ fontSize: "13px", fontWeight: 600 }}>{profile.company_name_th || "-"}</div>
-            <div style={{ fontSize: "10px", color: "#666" }}>เลขประจำตัวผู้เสียภาษี: {splitTaxid(profile.tax_id)}</div>
+            <div style={{ fontSize: "10px", color: "#666" }}>เลขที่ผู้เสียภาษี: {splitTaxid(profile.tax_id)}</div>
             <div style={{ fontSize: "10px", color: "#666" }}>{profile.address || ""}</div>
           </div>
           <div style={{ width: "40mm", textAlign: "right" }}>
@@ -342,7 +342,7 @@ function CleanPage({
       <div style={{ marginBottom: "3mm" }}>
         <div style={{ fontSize: "10px", color: "#666", marginBottom: "1mm" }}>ผู้ถูกหักภาษี ณ ที่จ่าย (Payee)</div>
         <div style={{ fontSize: "13px", fontWeight: 600 }}>{record.vendor?.name || "-"}</div>
-        <div style={{ fontSize: "10px", color: "#666" }}>เลขประจำตัวผู้เสียภาษี: {splitTaxid(record.vendor?.tax_id)}</div>
+        <div style={{ fontSize: "10px", color: "#666" }}>เลขที่ผู้เสียภาษี: {splitTaxid(record.vendor?.tax_id)}</div>
         <div style={{ fontSize: "10px", color: "#666" }}>{record.vendor?.address || ""}</div>
       </div>
 

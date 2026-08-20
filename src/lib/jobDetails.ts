@@ -15,7 +15,7 @@ export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
   {
     field_key: "color",
     label: "สี / ฟอยล์",
-    placeholder: "เช่น ฟอยล์ทอง",
+    placeholder: "",
     field_type: "text",
     sort_order: 0,
     is_enabled: true,
@@ -23,8 +23,8 @@ export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
   },
   {
     field_key: "size",
-    label: "ขนาด กว้าง x สูง",
-    placeholder: "24 x 35",
+    label: "ขนาดใบพิมพ์ กว้าง x ยาว",
+    placeholder: "",
     field_type: "dimension",
     sort_order: 1,
     is_enabled: true,
@@ -34,7 +34,7 @@ export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
   {
     field_key: "position",
     label: "ตำแหน่ง",
-    placeholder: "เช่น ด้านหน้า",
+    placeholder: "",
     field_type: "text",
     sort_order: 2,
     is_enabled: true,
@@ -43,7 +43,7 @@ export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
   {
     field_key: "material",
     label: "วัสดุ",
-    placeholder: "เช่น กล่องกระดาษ",
+    placeholder: "",
     field_type: "text",
     sort_order: 3,
     is_enabled: true,
@@ -52,7 +52,7 @@ export const DEFAULT_JOB_DETAIL_FIELDS: JobDetailFieldConfig[] = [
   {
     field_key: "remark",
     label: "หมายเหตุ",
-    placeholder: "เช่น ตามแบบลูกค้า",
+    placeholder: "",
     field_type: "text",
     sort_order: 4,
     is_enabled: true,
@@ -72,7 +72,7 @@ export function normalizeJobDetailFields(fields?: ItemJobDetailField[] | null): 
       return {
         field_key: field.field_key,
         label: field.label || defaultField?.label || "รายละเอียด",
-        placeholder: defaultField?.placeholder || "กรอกรายละเอียด",
+        placeholder: defaultField?.placeholder || "",
         field_type: field.field_type,
         sort_order: field.sort_order,
         is_enabled: field.is_enabled,
@@ -87,7 +87,7 @@ export function createCustomJobDetailField(label = ""): JobDetailFieldConfig {
   return {
     field_key: `custom_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
     label,
-    placeholder: "กรอกรายละเอียด",
+    placeholder: "",
     field_type: "text",
     sort_order: DEFAULT_JOB_DETAIL_FIELDS.length,
     is_enabled: true,

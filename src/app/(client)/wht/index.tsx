@@ -487,7 +487,7 @@ export default function WhtPage() {
         {tab === TAB_RECORDS ? (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขประจำตัวผู้เสียภาษี เลขใบรับรอง..." className="flex-1 min-w-[200px]" />
+              <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขที่ผู้เสียภาษี เลขใบรับรอง..." className="flex-1 min-w-[200px]" />
               <select value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                 <option value="">ทุกเดือน</option>
                 {availableMonths.map((m) => (
@@ -623,7 +623,7 @@ export default function WhtPage() {
                           className="px-3 py-2.5"
                         />
                         <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">ผู้ขาย</th>
-                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">เลขประจำตัวผู้เสียภาษี</th>
+                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">เลขที่ผู้เสียภาษี</th>
                         <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">รายละเอียด</th>
                         <SortableTh
                           label="แบบ"

@@ -18,6 +18,7 @@ import { useAuth, useClientProfile, useWorkspaceRole } from "../../../hooks/useA
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { businessTodayString, addDaysString, monthStartString } from "../../../lib/devDate";
 import { TABLE } from "../../../lib/tableStyles";
 import type { Customer, Deal, Document, DocumentLineItem } from "../../../types";
 import { getWorkspacePermissions } from "../../../lib/permissions";
@@ -35,6 +36,26 @@ interface DealWithDocs extends Deal {
 }
 
 type DealFilter = "all" | "active" | "done" | "partial";
+
+type RangePreset = "all" | "thisMonth" | "last90" | "ytd" | "1year" | "custom";
+
+const RANGE_PRESETS: { key: RangePreset; label: string }[] = [
+  { key: "all", label: "ทั้งหมด" },
+  { key: "thisMonth", label: "เดือนนี้" },
+  { key: "last90", label: "90 วัน" },
+  { key: "ytd", label: "ปีนี้" },
+  { key: "1year", label: "1 ปี" },
+  { key: "custom", label: "กำหนดเอง" },
+];
+
+function getRangeBounds(preset: RangePreset, today: string): { from: string; to: string } {
+  const to = today;
+  if (preset === "all") return { from: "", to: "" };
+  if (preset === "thisMonth") return { from: monthStartString(today), to };
+  if (preset === "last90") return { from: addDaysString(today, -90), to };
+  if (preset === "ytd") return { from: `${today.slice(0, 4)}-01-01`, to };
+  return { from: addDaysString(today, -365), to };
+}
 
 type DealStage = "draft" | "waiting" | "pending_payment" | "partial" | "overdue" | "paid" | "voided";
 
@@ -220,6 +241,18 @@ export default function CustomerDetailPage() {
   const [newSheetOpen, setNewSheetOpen] = useState(false);
 
   const [dealFilter, setDealFilter] = useState<DealFilter>("all");
+  const businessToday = businessTodayString(clientProfile);
+  const [rangePreset, setRangePreset] = useState<RangePreset>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  function applyRangePreset(preset: RangePreset) {
+    setRangePreset(preset);
+    if (preset === "custom") return;
+    const { from, to } = getRangeBounds(preset, businessToday);
+    setDateFrom(from);
+    setDateTo(to);
+  }
   const [dealSearchQuery, setDealSearchQuery] = useState("");
   const [dealLineItems, setDealLineItems] = useState<Record<string, DocumentLineItem[]>>({});
   const [dealHistoryView, setDealHistoryView] = useState<ViewMode>(() => {
@@ -410,10 +443,20 @@ export default function CustomerDetailPage() {
     [deals],
   );
 
-  const searchedDealItems = useMemo(() => {
-    if (!dealSearchQuery.trim()) return dealHistoryItems;
-    const q = dealSearchQuery.toLowerCase();
+  const periodFilteredDealItems = useMemo(() => {
+    if (!dateFrom && !dateTo) return dealHistoryItems;
+    const from = dateFrom ? new Date(dateFrom + "T00:00:00").getTime() : -Infinity;
+    const to = dateTo ? new Date(dateTo + "T23:59:59").getTime() : Infinity;
     return dealHistoryItems.filter((item) => {
+      const d = item.latestDate ? new Date(item.latestDate).getTime() : 0;
+      return d >= from && d <= to;
+    });
+  }, [dealHistoryItems, dateFrom, dateTo]);
+
+  const searchedDealItems = useMemo(() => {
+    if (!dealSearchQuery.trim()) return periodFilteredDealItems;
+    const q = dealSearchQuery.toLowerCase();
+    return periodFilteredDealItems.filter((item) => {
       if (item.deal.title?.toLowerCase().includes(q)) return true;
       if (item.deal.deal_number?.toLowerCase().includes(q)) return true;
       if (item.deal.documents?.some((doc) => doc.doc_number?.toLowerCase().includes(q))) return true;
@@ -426,7 +469,7 @@ export default function CustomerDetailPage() {
       })) return true;
       return false;
     });
-  }, [dealHistoryItems, dealSearchQuery, dealLineItems]);
+  }, [periodFilteredDealItems, dealSearchQuery, dealLineItems]);
 
   const activeDealItems = useMemo(
     () => searchedDealItems.filter((item) => !item.isDone),
@@ -462,12 +505,12 @@ export default function CustomerDetailPage() {
   type DealSortKey = "title" | "latestDate" | "status" | "amount";
   const dealSort = useTableSort<(typeof dealRows)[number], DealSortKey>(dealRows, { key: "latestDate", dir: "desc" });
 
-  const totalReceived = dealHistoryItems.reduce(
+  const totalReceived = periodFilteredDealItems.reduce(
     (sum, item) => sum + getDealReceived(item.deal.documents || []),
     0,
   );
 
-  const unpaid = dealHistoryItems.reduce(
+  const unpaid = periodFilteredDealItems.reduce(
     (sum, item) => sum + getDealOutstanding(item.deal.documents || []),
     0,
   );
@@ -776,9 +819,55 @@ export default function CustomerDetailPage() {
         )}
 
         <Card>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#1A1A18]">ช่วงเวลา</span>
+              <span className="text-[11px] text-[#888780]">งานขายตามรอบเวลา</span>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-wrap gap-1.5">
+                {RANGE_PRESETS.map((range) => (
+                  <button
+                    key={range.key}
+                    type="button"
+                    onClick={() => applyRangePreset(range.key)}
+                    className={`shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      rangePreset === range.key
+                        ? "border-primary bg-primary text-white shadow-sm"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-primary/40 hover:bg-blue-50/40"
+                    }`}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+              {rangePreset === "custom" && (
+                <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1">
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={(e) => { setDateFrom(e.target.value); setRangePreset("custom"); }}
+                    className="rounded-md border border-[#E8E6DF] bg-white px-2 py-1 text-[11px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <span className="text-[11px] text-gray-400">ถึง</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(e) => { setDateTo(e.target.value); setRangePreset("custom"); }}
+                    className="rounded-md border border-[#E8E6DF] bg-white px-2 py-1 text-[11px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        <Card>
           <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3 sm:gap-3">
             <div>
-              <div className="text-[18px] font-bold leading-none tabular-nums text-[#1A1A18] sm:text-[20px]">{dealHistoryItems.length}</div>
+              <div className="text-[18px] font-bold leading-none tabular-nums text-[#1A1A18] sm:text-[20px]">{periodFilteredDealItems.length}</div>
               <div className="mt-1 text-[11px] text-[#888780]">งานขายทั้งหมด</div>
               <div className="mt-0.5 text-[10px] text-[#AAA49A]">กำลังทำ {activeDealItems.length} · เสร็จแล้ว {doneDealItems.length}</div>
             </div>

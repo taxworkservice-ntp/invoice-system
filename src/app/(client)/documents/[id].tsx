@@ -64,7 +64,7 @@ function getDisplayAmountLabel(doc: Document): string {
 }
 
 const CORRECTION_REASONS = [
-  { value: "customer_info", label: "ข้อมูลลูกค้าผิด เช่น ชื่อ เลขประจำตัวผู้เสียภาษี หรือที่อยู่" },
+  { value: "customer_info", label: "ข้อมูลลูกค้าผิด เช่น ชื่อ เลขที่ผู้เสียภาษี หรือที่อยู่" },
   { value: "document_info", label: "ข้อมูลเอกสารผิด เช่น วันที่ เลขที่ หรืออ้างอิง" },
   { value: "items", label: "รายการสินค้า/บริการหรือจำนวนผิด" },
   { value: "amount_tax", label: "ราคา ส่วนลด หรือภาษีผิด" },
