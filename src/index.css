@@ -444,7 +444,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-top--no-name .print-classic-company {
   grid-area: meta;
-  margin-top: 0;
+  margin-top: 2mm;
 }
 .print-classic-top--no-name .print-classic-company-meta {
   margin-top: 0;
