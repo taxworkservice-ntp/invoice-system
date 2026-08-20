@@ -33,6 +33,15 @@ function defaultDeliveryNoteStartString(today = localTodayString()) {
   return localTodayString(date);
 }
 
+type DeliveryDatePreset = "thisMonth" | "previousMonth" | "last90Days" | "all" | "custom";
+
+function monthRange(today: string, offset: number) {
+  const [year, month] = today.split("-").map(Number);
+  const start = new Date(year, month - 1 + offset, 1);
+  const end = new Date(year, month + offset, 0);
+  return { from: localTodayString(start), to: localTodayString(end) };
+}
+
 function buildItemSummary(items: DocumentLineItem[]) {
   if (!items.length) return "ไม่มีรายการ";
   const summary = items.slice(0, 2).map((item) => `${item.item_name} × ${item.quantity}`).join(", ");
@@ -82,6 +91,7 @@ export function InvoiceFromDeliveryNotesForm() {
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState(() => defaultDeliveryNoteStartString(businessTodayString(clientProfile)));
   const [dateTo, setDateTo] = useState(() => businessTodayString(clientProfile));
+  const [datePreset, setDatePreset] = useState<DeliveryDatePreset>("last90Days");
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
   const [note, setNote] = useState("");
@@ -150,16 +160,19 @@ export function InvoiceFromDeliveryNotesForm() {
       setLoadingDns(true);
       setError("");
 
-      const { data: docs, error: docsError } = await supabase
+      let query = supabase
         .from("documents")
         .select("*")
         .eq("user_id", userId)
         .eq("customer_id", selectedCustomerId)
         .eq("doc_type", "delivery_note")
         .eq("status", "sent")
-        .gte("issue_date", dateFrom)
-        .lte("issue_date", dateTo)
         .order("issue_date", { ascending: true });
+
+      if (dateFrom) query = query.gte("issue_date", dateFrom);
+      if (dateTo) query = query.lte("issue_date", dateTo);
+
+      const { data: docs, error: docsError } = await query;
 
       if (docsError) {
         if (!cancelled) setError(docsError.message);
@@ -516,10 +529,73 @@ export function InvoiceFromDeliveryNotesForm() {
                 />
               </div>
               <Input label="วันที่ใบแจ้งหนี้" type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} />
-              <Input label="ตั้งแต่วันที่ส่งของ" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
-              <Input label="ถึงวันที่ส่งของ" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+              <div className="sm:col-span-2 rounded-xl border border-card-border bg-paper-soft p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-xs font-medium text-gray-700">ช่วงวันที่ส่งของ</div>
+                    <div className="mt-0.5 text-[11px] text-gray-500">ใช้กรองใบส่งของที่พร้อมนำมาออกใบแจ้งหนี้</div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      ["thisMonth", "เดือนนี้"],
+                      ["previousMonth", "เดือนก่อน"],
+                      ["last90Days", "ย้อนหลัง 90 วัน"],
+                      ["all", "ทั้งหมด"],
+                    ] as const).map(([preset, label]) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          setDatePreset(preset);
+                          if (preset === "all") {
+                            setDateFrom("");
+                            setDateTo("");
+                          } else if (preset === "last90Days") {
+                            setDateFrom(defaultDeliveryNoteStartString(businessToday));
+                            setDateTo(businessToday);
+                          } else {
+                            const range = monthRange(businessToday, preset === "previousMonth" ? -1 : 0);
+                            setDateFrom(range.from);
+                            setDateTo(preset === "thisMonth" ? businessToday : range.to);
+                          }
+                        }}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          datePreset === preset
+                            ? "border-primary bg-primary text-white"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-primary/40"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Input
+                    label="ตั้งแต่วันที่"
+                    type="date"
+                    value={dateFrom}
+                    onChange={(event) => {
+                      setDatePreset("custom");
+                      setDateFrom(event.target.value);
+                    }}
+                  />
+                  <Input
+                    label="ถึงวันที่"
+                    type="date"
+                    value={dateTo}
+                    onChange={(event) => {
+                      setDatePreset("custom");
+                      setDateTo(event.target.value);
+                    }}
+                  />
+                </div>
+                {datePreset === "all" ? (
+                  <div className="mt-2 text-[11px] text-gray-500">แสดงใบส่งของที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
+                ) : null}
+              </div>
               <p className="text-xs leading-5 text-gray-500 sm:col-span-2">
-                ระบบแสดงใบส่งของที่ยืนยันแล้วในช่วงวันที่นี้ ค่าเริ่มต้นย้อนหลัง 90 วัน และจะรวมใบที่เลือกจากปุ่มลัดไว้เสมอ
+                ระบบแสดงเฉพาะใบส่งของที่ยืนยันแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้
               </p>
             </div>
           )}
