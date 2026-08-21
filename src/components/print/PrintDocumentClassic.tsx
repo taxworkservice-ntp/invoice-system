@@ -343,7 +343,7 @@ export function PrintDocumentClassic({
                       {document.doc_number || "-"}
                     </td>
                   </tr>
-                  {isReceipt && receiptPaymentNumber ? (
+                  {isReceipt && receiptPaymentNumber && !receiptPaidInFull ? (
                     <tr>
                       <th>
                         <span className="print-classic-meta-th-th">
@@ -773,7 +773,34 @@ export function PrintDocumentClassic({
                       </ul>
                     </section>
                   ) : null}
-                  {!noteText && paymentLines.length === 0 ? (
+                  {isReceipt ? (
+                    <section className="print-classic-terms-section">
+                      <div className="print-classic-settle-head">
+                        <div className="print-classic-terms-title">
+                          ข้อมูลการชำระเงิน (SETTLEMENT)
+                        </div>
+                        {receiptPaidInFull ? (
+                          <span className="print-classic-paid-badge">
+                            <span>ชำระครบถ้วน</span>
+                            <span className="print-classic-paid-badge-en">PAID IN FULL</span>
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="print-classic-settle-row">
+                        <span>ยอดตามเอกสารอ้างอิง (REFERENCE AMOUNT)</span>
+                        <span>{formatCurrency(receiptReferenceAmount)}</span>
+                      </div>
+                      <div className="print-classic-settle-row">
+                        <span>ยอดชำระสะสมก่อนหัก WHT (TOTAL SETTLED)</span>
+                        <span>{formatCurrency(receiptCumulativePaid ?? 0)}</span>
+                      </div>
+                      <div className="print-classic-settle-row">
+                        <span>ยอดคงเหลือค้างชำระ (BALANCE DUE)</span>
+                        <span>{formatCurrency(receiptOutstanding ?? 0)}</span>
+                      </div>
+                    </section>
+                  ) : null}
+                  {!noteText && paymentLines.length === 0 && !isReceipt ? (
                     <div className="print-classic-terms-body">-</div>
                   ) : null}
                 </>
@@ -823,33 +850,6 @@ export function PrintDocumentClassic({
                         <div className="print-classic-totals-en">NET RECEIVED</div>
                       </div>
                       <div className="print-classic-totals-val">{formatCurrency(receiptAmount - receiptWhtTotal)}</div>
-                    </div>
-                    {receiptPaidInFull ? (
-                      <div className="print-classic-payment-status">
-                        <div>ชำระครบถ้วน</div>
-                        <div className="print-classic-payment-status-en">PAID IN FULL</div>
-                      </div>
-                    ) : null}
-                    <div className="print-classic-totals-row print-classic-totals-block-sep">
-                      <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ยอดตามเอกสารอ้างอิง</div>
-                        <div className="print-classic-totals-en">REFERENCE AMOUNT</div>
-                      </div>
-                      <div className="print-classic-totals-val">{formatCurrency(receiptReferenceAmount)}</div>
-                    </div>
-                    <div className="print-classic-totals-row">
-                      <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ยอดชำระสะสมก่อนหัก WHT</div>
-                        <div className="print-classic-totals-en">TOTAL SETTLED (GROSS)</div>
-                      </div>
-                      <div className="print-classic-totals-val">{formatCurrency(receiptCumulativePaid ?? 0)}</div>
-                    </div>
-                    <div className="print-classic-totals-row">
-                      <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ยอดคงเหลือค้างชำระ</div>
-                        <div className="print-classic-totals-en">BALANCE DUE</div>
-                      </div>
-                      <div className="print-classic-totals-val">{formatCurrency(receiptOutstanding ?? 0)}</div>
                     </div>
                   </>
                 ) : isDeliveryNote && !showFullTotals ? (
@@ -967,6 +967,7 @@ export function PrintDocumentClassic({
               </div>
               <div className="print-classic-sig-line"></div>
               <div className="print-classic-sig-dt">วันที่ / DATE</div>
+              <div className="print-classic-sig-date-line" />
               <div className="print-classic-sig-role">
                 {isDeliveryNote
                   ? "ผู้รับของ / RECEIVED BY"
@@ -976,6 +977,7 @@ export function PrintDocumentClassic({
             <div className="print-classic-sig-cell print-classic-sig-cell-mid">
               <div className="print-classic-sig-line"></div>
               <div className="print-classic-sig-dt">วันที่ / DATE</div>
+              <div className="print-classic-sig-date-line" />
               <div className="print-classic-sig-role">
                 {isDeliveryNote
                   ? "ผู้ส่งของ / DELIVERED BY"
@@ -1000,8 +1002,17 @@ export function PrintDocumentClassic({
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 ) : null}
+                {stampUrl ? (
+                  <img
+                    src={stampUrl}
+                    alt="ตราประทับ"
+                    className="print-classic-sig-stamp"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : null}
               </div>
               <div className="print-classic-sig-dt">วันที่ / DATE</div>
+              <div className="print-classic-sig-date-line" />
               <div className="print-classic-sig-role">
                 ผู้มีอำนาจลงนาม / AUTHORIZED BY
               </div>
@@ -1022,18 +1033,6 @@ export function PrintDocumentClassic({
           ) : null}
 
           {/* ============== FOOTER ============== */}
-          <div className="print-classic-footer">
-            {stampUrl ? (
-              <div className="print-classic-stamp">
-                <img
-                  src={stampUrl}
-                  alt="ตราประทับ"
-                  className="print-classic-stamp-img"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              </div>
-            ) : null}
-          </div>
         </>
       )}
 

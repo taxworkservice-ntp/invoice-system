@@ -156,28 +156,45 @@ export function PrintDocument({
             <div className="mt-5 border-b-[0.5px] border-[#98A2B3] pb-3" />
             <div className="mt-1 text-center">ผู้ส่งสินค้า</div>
             <div className="text-center text-[6.5px] text-[#94a3b8]">DELIVERED BY</div>
-            <div className="mt-0.5 text-center text-[9px] text-[#667085]">วันที่ / DATE</div>
+            <div className="mt-1 flex items-center justify-center gap-1 text-[9px] text-[#667085]">
+              วันที่
+              <span className="inline-block h-3 w-12 border-b-[0.5px] border-[#98A2B3]" />
+            </div>
           </div>
           <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
             <div className="mt-5 border-b-[0.5px] border-[#98A2B3] pb-3" />
             <div className="mt-1 text-center">ผู้รับสินค้า</div>
             <div className="text-center text-[6.5px] text-[#94a3b8]">RECEIVED BY</div>
-            <div className="mt-0.5 text-center text-[9px] text-[#667085]">วันที่ / DATE</div>
+            <div className="mt-1 flex items-center justify-center gap-1 text-[9px] text-[#667085]">
+              วันที่
+              <span className="inline-block h-3 w-12 border-b-[0.5px] border-[#98A2B3]" />
+            </div>
           </div>
           <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
-            <div className="relative mt-5 border-b-[0.5px] border-[#98A2B3] pb-3">
-              {signatureUrl && (
-                <img
-                  src={signatureUrl}
-                  alt="ลายเซ็น"
-                  className="absolute left-1/2 bottom-0 h-[40px] -translate-x-1/2 object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              )}
-            </div>
+              <div className="relative mt-5 border-b-[0.5px] border-[#98A2B3] pb-3">
+                {signatureUrl && (
+                  <img
+                    src={signatureUrl}
+                    alt="ลายเซ็น"
+                    className="absolute left-1/2 bottom-0 h-[40px] -translate-x-1/2 object-contain"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                )}
+                {stampUrl && (
+                  <img
+                    src={stampUrl}
+                    alt="ตราประทับ"
+                    className="pointer-events-none absolute left-1/2 top-1/2 h-[44px] w-auto -translate-x-1/2 -translate-y-1/2 object-contain opacity-90"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                )}
+              </div>
             <div className="mt-1 text-center">ผู้มีอำนาจลงนาม</div>
             <div className="text-center text-[6.5px] text-[#94a3b8]">AUTHORIZED BY</div>
-            <div className="mt-0.5 text-center text-[9px] text-[#667085]">วันที่ / DATE</div>
+            <div className="mt-1 flex items-center justify-center gap-1 text-[9px] text-[#667085]">
+              วันที่
+              <span className="inline-block h-3 w-12 border-b-[0.5px] border-[#98A2B3]" />
+            </div>
           </div>
         </footer>
       )}
@@ -209,16 +226,6 @@ export function PrintDocument({
                 </>
               )}
             </div>
-            {!isDeliveryNote && stampUrl && (
-              <div className="mt-2">
-                <img
-                  src={stampUrl}
-                  alt="ตราประทับ"
-                  className="h-[44px] w-auto object-contain opacity-90"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              </div>
-            )}
           </div>
 
           <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
@@ -239,6 +246,14 @@ export function PrintDocument({
                       src={signatureUrl}
                       alt="ลายเซ็น"
                       className="absolute left-1/2 bottom-0 h-[40px] -translate-x-1/2 object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  )}
+                  {stampUrl && (
+                    <img
+                      src={stampUrl}
+                      alt="ตราประทับ"
+                      className="pointer-events-none absolute left-1/2 top-1/2 h-[44px] w-auto -translate-x-1/2 -translate-y-1/2 object-contain opacity-90"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   )}

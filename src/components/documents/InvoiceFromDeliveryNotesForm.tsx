@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, FileStack, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, FileStack, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -112,9 +112,10 @@ export function InvoiceFromDeliveryNotesForm() {
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
-  const [dateFrom, setDateFrom] = useState(() => defaultDeliveryNoteStartString(businessTodayString(clientProfile)));
-  const [dateTo, setDateTo] = useState(() => businessTodayString(clientProfile));
-  const [datePreset, setDatePreset] = useState<DeliveryDatePreset>("last90Days");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [datePreset, setDatePreset] = useState<DeliveryDatePreset>("all");
+  const [dateExpanded, setDateExpanded] = useState(false);
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
   const [note, setNote] = useState("");
@@ -171,6 +172,17 @@ export function InvoiceFromDeliveryNotesForm() {
     () => customers.find((customer) => customer.id === selectedCustomerId) || null,
     [customers, selectedCustomerId],
   );
+
+  const dateRangeSummary = (() => {
+    if (datePreset === "all") return "ทั้งหมด (แสดงทุกใบส่งของ)";
+    if (datePreset === "custom") return `ตั้งแต่ ${dateFrom || "-"} ถึง ${dateTo || "-"}`;
+    const presetLabels: Record<Exclude<DeliveryDatePreset, "all" | "custom">, string> = {
+      thisMonth: "เดือนนี้",
+      previousMonth: "เดือนก่อน",
+      last90Days: "ย้อนหลัง 90 วัน",
+    };
+    return presetLabels[datePreset];
+  })();
 
   useEffect(() => {
     if (!selectedCustomerId || !userId) {
@@ -728,70 +740,80 @@ export function InvoiceFromDeliveryNotesForm() {
                 />
               </div>
               <Input label="วันที่ใบแจ้งหนี้" type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} />
-              <div className="sm:col-span-2 rounded-xl border border-card-border bg-paper-soft p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="sm:col-span-2 overflow-hidden rounded-xl border border-card-border bg-paper-soft">
+                <button
+                  type="button"
+                  onClick={() => setDateExpanded((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-3 p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                >
                   <div>
                     <div className="text-xs font-medium text-gray-700">ช่วงวันที่ส่งของ</div>
-                    <div className="mt-0.5 text-[11px] text-gray-500">ใช้กรองใบส่งของที่พร้อมนำมาออกใบแจ้งหนี้</div>
+                    <div className="mt-0.5 text-[11px] text-gray-500">{dateRangeSummary}</div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {([
-                      ["thisMonth", "เดือนนี้"],
-                      ["previousMonth", "เดือนก่อน"],
-                      ["last90Days", "ย้อนหลัง 90 วัน"],
-                      ["all", "ทั้งหมด"],
-                    ] as const).map(([preset, label]) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => {
-                          setDatePreset(preset);
-                          if (preset === "all") {
-                            setDateFrom("");
-                            setDateTo("");
-                          } else if (preset === "last90Days") {
-                            setDateFrom(defaultDeliveryNoteStartString(businessToday));
-                            setDateTo(businessToday);
-                          } else {
-                            const range = monthRange(businessToday, preset === "previousMonth" ? -1 : 0);
-                            setDateFrom(range.from);
-                            setDateTo(preset === "thisMonth" ? businessToday : range.to);
-                          }
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {dateExpanded && (
+                  <div className="border-t border-card-border p-3">
+                    <div className="mb-2 text-[11px] text-gray-500">ใช้กรองใบส่งของที่พร้อมนำมาออกใบแจ้งหนี้</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        ["thisMonth", "เดือนนี้"],
+                        ["previousMonth", "เดือนก่อน"],
+                        ["last90Days", "ย้อนหลัง 90 วัน"],
+                        ["all", "ทั้งหมด"],
+                      ] as const).map(([preset, label]) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            setDatePreset(preset);
+                            if (preset === "all") {
+                              setDateFrom("");
+                              setDateTo("");
+                            } else if (preset === "last90Days") {
+                              setDateFrom(defaultDeliveryNoteStartString(businessToday));
+                              setDateTo(businessToday);
+                            } else {
+                              const range = monthRange(businessToday, preset === "previousMonth" ? -1 : 0);
+                              setDateFrom(range.from);
+                              setDateTo(preset === "thisMonth" ? businessToday : range.to);
+                            }
+                          }}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                            datePreset === preset
+                              ? "border-primary bg-primary text-white"
+                              : "border-gray-200 bg-white text-gray-600 hover:border-primary/40"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <Input
+                        label="ตั้งแต่วันที่"
+                        type="date"
+                        value={dateFrom}
+                        onChange={(event) => {
+                          setDatePreset("custom");
+                          setDateFrom(event.target.value);
                         }}
-                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                          datePreset === preset
-                            ? "border-primary bg-primary text-white"
-                            : "border-gray-200 bg-white text-gray-600 hover:border-primary/40"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                      />
+                      <Input
+                        label="ถึงวันที่"
+                        type="date"
+                        value={dateTo}
+                        onChange={(event) => {
+                          setDatePreset("custom");
+                          setDateTo(event.target.value);
+                        }}
+                      />
+                    </div>
+                    {datePreset === "all" ? (
+                      <div className="mt-2 text-[11px] text-gray-500">แสดงใบส่งของที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
+                    ) : null}
                   </div>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <Input
-                    label="ตั้งแต่วันที่"
-                    type="date"
-                    value={dateFrom}
-                    onChange={(event) => {
-                      setDatePreset("custom");
-                      setDateFrom(event.target.value);
-                    }}
-                  />
-                  <Input
-                    label="ถึงวันที่"
-                    type="date"
-                    value={dateTo}
-                    onChange={(event) => {
-                      setDatePreset("custom");
-                      setDateTo(event.target.value);
-                    }}
-                  />
-                </div>
-                {datePreset === "all" ? (
-                  <div className="mt-2 text-[11px] text-gray-500">แสดงใบส่งของที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
-                ) : null}
+                )}
               </div>
               <p className="text-xs leading-5 text-gray-500 sm:col-span-2">
                 ระบบแสดงเฉพาะรายการที่ยังไม่ถูกออกใบแจ้งหนี้ (คงเหลือหลังหักยอดที่ออกไปแล้ว) สามารถออกบิลทีละส่วนได้

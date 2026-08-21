@@ -919,6 +919,51 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   font-weight: 500;
   letter-spacing: 0.08em;
 }
+.print-classic-settle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2mm;
+}
+.print-classic-settle-head .print-classic-terms-title {
+  margin-bottom: 0;
+}
+.print-classic-paid-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 1mm;
+  padding: 0.4mm 1.5mm;
+  border: 0.4px solid #b7e3cb;
+  border-radius: 3mm;
+  background: #f0fbf4;
+  color: #176b3a;
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.print-classic-paid-badge-en {
+  color: #5b9b75;
+  font-size: 5.5pt;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+.print-classic-settle-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 3mm;
+  font-size: 7.5pt;
+  color: #344054;
+  padding: 0.4mm 0;
+}
+.print-classic-settle-row span:first-child {
+  color: #475467;
+}
+.print-classic-settle-row span:last-child {
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+}
 
 /* BOTTOM BAND (signatures) */
 .print-classic-bottom-band {
@@ -983,6 +1028,12 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   color: #6b7280;
   text-align: center;
 }
+.print-classic-sig-date-line {
+  width: 60%;
+  border-bottom: 0.5pt dotted #9ca3af;
+  height: 5mm;
+  margin: 1mm auto 0;
+}
 .print-classic-sig-role {
   text-align: center;
   font-weight: 600;
@@ -1034,6 +1085,17 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   width: auto;
   object-fit: contain;
   opacity: 0.9;
+}
+.print-classic-sig-stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  height: 15mm;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.85;
+  pointer-events: none;
 }
 .print-classic-footer-row {
   font-size: 7.5pt;

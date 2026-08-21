@@ -44,6 +44,45 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
         <div className="mt-1 min-h-[10mm] whitespace-pre-line text-[9.5px] leading-[14px] text-[#475467]">
           {document.note?.trim() || "-"}
         </div>
+        {isReceipt ? (
+          <div className="mt-3">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[9px] tracking-[0.12em] text-[#667085]">ข้อมูลการชำระเงิน</div>
+                <div className="text-[6.5px] text-[#94a3b8]">SETTLEMENT</div>
+              </div>
+              {receiptPaidInFull ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#B7E3CB] bg-[#F0FBF4] px-2 py-0.5 text-[9px] font-semibold text-[#176B3A]">
+                  <span>ชำระครบถ้วน</span>
+                  <span className="text-[7px] font-medium tracking-[0.08em] text-[#5B9B75]">PAID IN FULL</span>
+                </span>
+              ) : null}
+            </div>
+            <div className="space-y-1 text-[10px] text-[#344054]">
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2">
+                <div className="flex flex-col">
+                  <span>ยอดตามเอกสารอ้างอิง</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">REFERENCE AMOUNT</span>
+                </div>
+                <span className="self-center">{formatCurrency(receiptReferenceAmount)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                  <span>ยอดชำระสะสมก่อนหัก WHT</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">TOTAL SETTLED (GROSS)</span>
+                </div>
+                <span className="self-center">{formatCurrency(receiptCumulativePaid ?? 0)}</span>
+              </div>
+              <div className="flex justify-between gap-4 text-[10px] text-[#344054]">
+                <div className="flex flex-col">
+                  <span>ยอดคงเหลือค้างชำระ</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
+                </div>
+                <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="border-t-[0.5px] border-[#C9D5E3] pt-2">
@@ -130,35 +169,6 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                   <span className="text-[6.5px] font-normal text-[#94a3b8]">NET RECEIVED</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptAmount - receiptWhtTotal)}</span>
-              </div>
-
-              {receiptPaidInFull ? (
-                <div className="mt-2 rounded border border-[#B7E3CB] bg-[#F0FBF4] px-2 py-1.5 text-center font-semibold text-[#176B3A]">
-                  <div>ชำระครบถ้วน</div>
-                  <div className="text-[6.5px] font-medium tracking-[0.08em] text-[#5B9B75]">PAID IN FULL</div>
-                </div>
-              ) : null}
-
-              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2">
-                <div className="flex flex-col">
-                  <span>ยอดตามเอกสารอ้างอิง</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">REFERENCE AMOUNT</span>
-                </div>
-                <span className="self-center">{formatCurrency(receiptReferenceAmount)}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <div className="flex flex-col">
-                  <span>ยอดชำระสะสมก่อนหัก WHT</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">TOTAL SETTLED (GROSS)</span>
-                </div>
-                <span className="self-center">{formatCurrency(receiptCumulativePaid ?? 0)}</span>
-              </div>
-              <div className="flex justify-between gap-4 text-[10px] text-[#344054]">
-                <div className="flex flex-col">
-                  <span>ยอดคงเหลือค้างชำระ</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
-                </div>
-                <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
               </div>
             </>
           ) : (
