@@ -92,6 +92,15 @@ async function releaseInvoicesFromBillingNote(billingNoteId: string): Promise<vo
 
   if (invoiceIds.length === 0) return;
 
+  // Release this billing note's links so the invoice can be re-billed
+  // (the DB guard only blocks invoices that still have an active link).
+  const { error: releaseError } = await supabase
+    .from("billing_note_invoices")
+    .update({ released_at: new Date().toISOString() })
+    .eq("billing_note_id", billingNoteId);
+
+  if (releaseError) throw releaseError;
+
   const { error: updateError } = await supabase
     .from("documents")
     .update({ status: "sent" as DocumentStatus })

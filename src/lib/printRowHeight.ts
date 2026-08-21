@@ -16,6 +16,13 @@ export const BASE_ROW_MM = { modern: 6.9, classic: 6.5 };
 const TEXT_LINE_MM = { modern: 3.7, classic: 3.4 };
 // Height of a line_note line (smaller font than the item name).
 const NOTE_LINE_MM = { modern: 3.7, classic: 3.4 };
+// Height of each extra "sub-line" rendered under a normal row: the line
+// discount note (ส่วนลด X%), the inline delivery-note reference
+// (อ้างอิง ใบส่งของ …), and the invoice-number reference (ใบแจ้งหนี้ …).
+const SUBLINE_MM = { modern: 3.7, classic: 3.4 };
+// Conservative per-row fudge so section gaps / rounding never pack a page
+// tighter than it can render.
+const ROW_SAFETY_MM = 0.8;
 // Classic DN header rows render at 11pt (taller than a normal 7.5pt row).
 const DN_HEADER_MM = { modern: 6.9, classic: 8.1 };
 // Conservative characters per line for the description column, used to
@@ -52,7 +59,12 @@ function countLines(text: string, charsPerLine: number): number {
 export function estimateLineItemHeight(
   item: DocumentLineItem,
   template: PrintTemplate,
-  opts: { hideDeliveryAmounts?: boolean } = {},
+  opts: {
+    hideDeliveryAmounts?: boolean;
+    hasLineDiscount?: boolean;
+    hasInlineDnRef?: boolean;
+    hasInvoiceRef?: boolean;
+  } = {},
 ): number {
   const isClassic = template !== "modern";
   const key = isClassic ? "classic" : "modern";
@@ -76,9 +88,16 @@ export function estimateLineItemHeight(
   const noteText = getPrintableLineNote(item.line_note);
   const noteLines = noteText ? countLines(noteText, charsPerLine) : 0;
 
+  // Extra sub-lines that PrintLineItemsTable may render under the row.
+  let subLines = 0;
+  if (opts.hasLineDiscount) subLines += 1;
+  if (opts.hasInlineDnRef) subLines += 1;
+  if (opts.hasInvoiceRef) subLines += 1;
+
   const nameMm = base + (nameLines - 1) * TEXT_LINE_MM[key];
   const noteMm = noteLines * NOTE_LINE_MM[key];
-  return nameMm + noteMm;
+  const subMm = subLines * SUBLINE_MM[key];
+  return nameMm + noteMm + subMm + ROW_SAFETY_MM;
 }
 
 export function estimateSummaryRowHeight(template: PrintTemplate): number {

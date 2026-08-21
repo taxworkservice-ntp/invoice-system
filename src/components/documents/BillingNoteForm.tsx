@@ -359,9 +359,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           const links = linkByInvoiceId.get(invoice.id) || [];
           const activeOtherLink = links.find(
             (link) =>
-              link.billingNoteId !== currentDocId &&
-              link.status !== "voided" &&
-              link.status !== "paid",
+              link.billingNoteId !== currentDocId && link.status !== "voided",
           );
           const isCurrentLinked = currentLinkIds.has(invoice.id);
 
@@ -693,7 +691,12 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         const { error: linkError } = await supabase
           .from("billing_note_invoices")
           .insert(linkRows);
-        if (linkError) throw linkError;
+        if (linkError) {
+          // Roll back the orphaned billing-note document if its links were
+          // rejected (e.g. the DB guard blocked a duplicate active link).
+          await supabase.from("documents").delete().eq("id", savedDoc.id);
+          throw linkError;
+        }
 
         if (currentlySelectedIds.length > 0) {
           const { error: selectedStatusError } = await supabase

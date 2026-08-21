@@ -18,7 +18,7 @@ import { NewDealSheet } from "../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
 import { formatCurrency } from "../../lib/format";
-import { formatBuddhistDate, formatBuddhistDateTime } from "../../lib/dates";
+import { formatBuddhistDate, formatBuddhistDateTime, formatBuddhistDateTimeParts } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS } from "../../constants";
 import { TABLE } from "../../lib/tableStyles";
@@ -40,6 +40,7 @@ type DealDoc = Pick<
   | "updated_at"
   | "paid_at"
   | "line_items"
+  | "converted_from_id"
 >;
 
 type DealWithRelations = Deal & {
@@ -50,6 +51,21 @@ type DealWithRelations = Deal & {
   documents: DealDoc[];
   deal_number: string | null;
 };
+
+const DONE_MONTH_OPTIONS = [
+  { value: "01", label: "ม.ค." },
+  { value: "02", label: "ก.พ." },
+  { value: "03", label: "มี.ค." },
+  { value: "04", label: "เม.ย." },
+  { value: "05", label: "พ.ค." },
+  { value: "06", label: "มิ.ย." },
+  { value: "07", label: "ก.ค." },
+  { value: "08", label: "ส.ค." },
+  { value: "09", label: "ก.ย." },
+  { value: "10", label: "ต.ค." },
+  { value: "11", label: "พ.ย." },
+  { value: "12", label: "ธ.ค." },
+];
 
 type DashboardDeal = {
   dealId: string;
@@ -148,6 +164,30 @@ function firstNameFromCompanyName(name: string | null | undefined) {
 function isResolvedStatus(status: Document["status"]) {
   return ["paid", "converted", "generated", "voided", "issued"].includes(
     status,
+  );
+}
+
+// A quotation whose pipeline has moved past it (a delivery note or invoice was
+// created from it) must not keep the deal open — its stored status may stay
+// "sent" forever, but the deal can still be considered done.
+function getQuotationsWithDownstream(documents: DealDoc[]) {
+  const downstream = new Set<string>();
+  for (const doc of documents) {
+    if (doc.doc_type !== "quotation" && doc.converted_from_id) {
+      downstream.add(doc.converted_from_id);
+    }
+    if (doc.doc_type === "quotation") continue;
+    for (const line of doc.line_items || []) {
+      if (line.source_document_id) downstream.add(line.source_document_id);
+    }
+  }
+  return downstream;
+}
+
+function isQuotationResolved(doc: DealDoc, downstreamQuotes: Set<string>) {
+  return (
+    (doc.doc_type === "quotation" && downstreamQuotes.has(doc.id)) ||
+    isResolvedStatus(doc.status)
   );
 }
 
@@ -254,7 +294,8 @@ function hasPartialPayment(documents: DealDoc[]) {
 
 function getCompletedAt(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
-  if (nonVoided.some((doc) => !isResolvedStatus(doc.status))) return null;
+  const downstreamQuotes = getQuotationsWithDownstream(nonVoided);
+  if (nonVoided.some((doc) => !isQuotationResolved(doc, downstreamQuotes))) return null;
   const completion = getCompletionDoc(nonVoided);
   return completion?.paid_at || completion?.updated_at || null;
 }
@@ -262,7 +303,8 @@ function getCompletedAt(documents: DealDoc[]) {
 function isDealDone(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   if (nonVoided.length === 0) return true;
-  return nonVoided.every((doc) => isResolvedStatus(doc.status));
+  const downstreamQuotes = getQuotationsWithDownstream(nonVoided);
+  return nonVoided.every((doc) => isQuotationResolved(doc, downstreamQuotes));
 }
 
 function getDealReceivedAmount(documents: DealDoc[]) {
@@ -426,9 +468,13 @@ function getStageInfo(
             : latestDocument.doc_type === "billing_note"
               ? "รอส่งใบวางบิล"
               : "รอส่งเอกสาร";
+    const draftCount = documents.filter((doc) => doc.status === "draft").length;
     return {
       stageLabel: label,
-      stageHint: "ฉบับร่าง",
+      stageHint:
+        draftCount > 1
+          ? `ฉบับร่าง • มี ${draftCount} ร่างค้าง`
+          : "ฉบับร่าง",
       queue: "wait_send" as HomeQueue,
     };
   }
@@ -526,7 +572,13 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     stageHint: stageInfo.stageHint,
     queue: stageInfo.queue,
     createdAt: deal.created_at,
-    updatedAt: latestDocument?.updated_at || deal.updated_at,
+    // Most recent activity across the deal itself and any of its documents, so
+    // editing the deal (without touching documents) still surfaces it on top.
+    updatedAt:
+      [deal.updated_at, latestDocument?.updated_at]
+        .filter(Boolean)
+        .sort()
+        .slice(-1)[0] || deal.updated_at,
     dueDate: latestDocument?.due_date || null,
     paidAt,
     latestDocument,
@@ -562,6 +614,9 @@ export default function HomePage() {
   const [homeFilter, setHomeFilter] = useState<HomeFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [donePage, setDonePage] = useState(1);
+  const [doneSort, setDoneSort] = useState<"updatedAt" | "paidAt">("updatedAt");
+  const [doneYear, setDoneYear] = useState<string>("all");
+  const [doneMonth, setDoneMonth] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
     const stored = window.localStorage.getItem("homeViewMode");
@@ -596,7 +651,7 @@ export default function HomePage() {
         *,
         customers(id, name, code, avatar_initials, avatar_color),
         documents(
-          id, doc_type, doc_number, status,
+          id, doc_type, doc_number, status, converted_from_id,
            total_amount, net_payable, wht_amount, amount_received,
           due_date, paid_at,
           created_at, updated_at
@@ -828,22 +883,55 @@ export default function HomePage() {
     dir: "desc",
   });
 
-  const recentlyDone = useMemo(
-    () =>
-      deals
-        .filter((deal) => deal.isDone && !deal.isEmpty)
-        .filter((deal) => {
-          if (!searchQuery) return true;
-          const q = searchQuery.toLowerCase();
-          return (
-            deal.customerName.toLowerCase().includes(q) ||
-            (deal.dealNumber || "").toLowerCase().includes(q) ||
-            (deal.customerCode || "").toLowerCase().includes(q)
-          );
-        })
-        .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || "")),
-    [deals, searchQuery],
+  const recentlyDone = useMemo(() => {
+    const sortKey = doneSort;
+    return deals
+      .filter((deal) => deal.isDone && !deal.isEmpty)
+      .filter((deal) => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+          deal.customerName.toLowerCase().includes(q) ||
+          (deal.dealNumber || "").toLowerCase().includes(q) ||
+          (deal.customerCode || "").toLowerCase().includes(q)
+        );
+      })
+      .filter((deal) => {
+        if (doneYear === "all" && doneMonth === "all") return true;
+        const d = (deal[sortKey] as string) || "";
+        if (!d) return false;
+        if (doneYear !== "all" && d.slice(0, 4) !== doneYear) return false;
+        if (doneMonth !== "all" && d.slice(5, 7) !== doneMonth) return false;
+        return true;
+      })
+      .sort((a, b) =>
+        (b[sortKey] || "").localeCompare(a[sortKey] || ""),
+      );
+  }, [deals, searchQuery, doneSort, doneYear, doneMonth]);
+
+  const doneYearOptions = useMemo(() => {
+    const years = new Set<string>();
+    deals.forEach((deal) => {
+      if (!(deal.isDone && !deal.isEmpty)) return;
+      [deal.paidAt, deal.updatedAt].forEach((value) => {
+        const year = (value || "").slice(0, 4);
+        if (year) years.add(year);
+      });
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [deals]);
+
+  const hasAnyDone = useMemo(
+    () => deals.some((deal) => deal.isDone && !deal.isEmpty),
+    [deals],
   );
+
+  const clearDoneFilters = () => {
+    setDoneYear("all");
+    setDoneMonth("all");
+    setSearchQuery("");
+    setDonePage(1);
+  };
 
   const DONE_PAGE_SIZE = 15;
   const totalDonePages = Math.max(1, Math.ceil(recentlyDone.length / DONE_PAGE_SIZE));
@@ -1229,6 +1317,7 @@ export default function HomePage() {
                             avatar_initials: null,
                             avatar_color: null,
                           };
+                          const createdAtParts = formatBuddhistDateTimeParts(deal.createdAt);
                           return (
                             <tr
                               key={deal.dealId}
@@ -1279,9 +1368,10 @@ export default function HomePage() {
                                 )}
                               </td>
                               <td className={TABLE.tdDimmed}>
-                                <span className="whitespace-nowrap tabular-nums">
-                                  {formatBuddhistDateTime(deal.createdAt)}
-                                </span>
+                                <div className="tabular-nums leading-tight">
+                                  <div>{createdAtParts.date}</div>
+                                  <div className="text-[10px]">เวลา {createdAtParts.time}</div>
+                                </div>
                               </td>
                               <td
                                 className={`${TABLE.tdDimmed} hidden sm:table-cell`}
@@ -1359,7 +1449,7 @@ export default function HomePage() {
               )}
             </section>
 
-            {recentlyDone.length > 0 && (
+            {hasAnyDone && (
               <>
                 <div className="border-t border-card-border pt-1" />
                 <section>
@@ -1382,7 +1472,66 @@ export default function HomePage() {
                       </button>
                     </div>
                   </div>
-                  <div className="bg-white border border-card-border rounded-card overflow-hidden">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] text-gray-500">เรียงตาม</span>
+                    <select
+                      value={doneSort}
+                      onChange={(e) => {
+                        setDoneSort(e.target.value as "updatedAt" | "paidAt");
+                        setDonePage(1);
+                      }}
+                      className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="updatedAt">แก้ไขล่าสุด</option>
+                      <option value="paidAt">วันที่ชำระ</option>
+                    </select>
+
+                    <span className="text-[11px] text-gray-500">ปี</span>
+                    <select
+                      value={doneYear}
+                      onChange={(e) => {
+                        setDoneYear(e.target.value);
+                        setDonePage(1);
+                      }}
+                      className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="all">ทุกปี</option>
+                      {doneYearOptions.map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+
+                    <span className="text-[11px] text-gray-500">เดือน</span>
+                    <select
+                      value={doneMonth}
+                      onChange={(e) => {
+                        setDoneMonth(e.target.value);
+                        setDonePage(1);
+                      }}
+                      className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="all">ทุกเดือน</option>
+                      {DONE_MONTH_OPTIONS.map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                    {(doneYear !== "all" || doneMonth !== "all" || searchQuery) && (
+                      <button
+                        type="button"
+                        onClick={clearDoneFilters}
+                        className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
+                      >
+                        ล้างตัวกรอง
+                      </button>
+                    )}
+                  </div>
+                  {recentlyDone.length > 0 ? (
+                    <>
+                      <div className="bg-white border border-card-border rounded-card overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className={`${TABLE.table} table-fixed min-w-[1100px]`}>
                         <thead>
@@ -1528,6 +1677,15 @@ export default function HomePage() {
                       >
                         →
                       </button>
+                    </div>
+                  )}
+                  </>
+                  ) : (
+                    <div className="rounded-card border border-card-border bg-white p-8">
+                      <EmptyState
+                        title="ไม่พบรายการในช่วงที่เลือก"
+                        description="ลองเปลี่ยนเดือน/ปี หรือกด “ล้างตัวกรอง”"
+                      />
                     </div>
                   )}
                 </section>

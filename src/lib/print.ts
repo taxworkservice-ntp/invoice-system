@@ -12,6 +12,7 @@ import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
 import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
+import { estimateLineItemHeight } from "./printRowHeight";
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -33,7 +34,7 @@ export interface PrintDocumentData {
   grossSubtotal: number;
   lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation" }
   >;
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
@@ -57,7 +58,7 @@ export interface PrintableDocumentDataBase {
   grossSubtotal: number;
   lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation" }
   >;
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
@@ -72,6 +73,28 @@ export function isHtmlPrintTemplate(
   template: string | null | undefined,
 ): template is HtmlPrintTemplate {
   return template === "modern" || template === "classic" || template === "classic_v2";
+}
+
+function makeLineItemEstimate(
+  data: PrintableDocumentDataBase,
+  template: HtmlPrintTemplate,
+) {
+  const hideDeliveryAmounts =
+    data.document.doc_type === "delivery_note" &&
+    data.document.hide_amounts_on_print !== false;
+  const hasMultiInvoiceRefs =
+    !data.document.vat_registered &&
+    (data.receiptInvoices.length > 1 || data.billingNoteInvoices.length > 1);
+  return (item: DocumentLineItem) =>
+    estimateLineItemHeight(item, template, {
+      hideDeliveryAmounts,
+      hasLineDiscount:
+        (item.discount_amount ?? 0) > 0 || (item.discount_percent ?? 0) > 0,
+      hasInlineDnRef:
+        !!data.showInlineDeliveryNotes && !!data.lineDeliveryNoteMap[item.id],
+      hasInvoiceRef:
+        hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],
+    });
 }
 
 export async function getPrintableDocumentDataBase(
@@ -270,9 +293,36 @@ export async function getPrintableDocumentDataBase(
   for (const dn of invoiceDeliveryNotes) {
     dnBySourceId.set(dn.delivery_note_id, dn);
   }
+
+  const linkedSourceIds = new Set(dnBySourceId.keys());
+  const otherSourceIds = [
+    ...new Set(
+      lineItems
+        .map((item) => item.source_document_id)
+        .filter((id): id is string => !!id && !linkedSourceIds.has(id)),
+    ),
+  ];
+  const sourceDocInfo = new Map<
+    string,
+    { number: string; issue_date: string | null; kind: "delivery_note" | "quotation" }
+  >();
+  if (otherSourceIds.length > 0) {
+    const { data: sourceDocs } = await supabase
+      .from("documents")
+      .select("id, doc_number, issue_date, doc_type")
+      .in("id", otherSourceIds);
+    for (const sd of sourceDocs || []) {
+      sourceDocInfo.set(sd.id, {
+        number: sd.doc_number || sd.id.slice(0, 8),
+        issue_date: sd.issue_date,
+        kind: sd.doc_type === "quotation" ? "quotation" : "delivery_note",
+      });
+    }
+  }
+
   const lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation" }
   > = {};
   for (const item of lineItems) {
     const dn = item.source_document_id
@@ -282,7 +332,15 @@ export async function getPrintableDocumentDataBase(
       lineDeliveryNoteMap[item.id] = {
         number: dn.delivery_note_number,
         issue_date: dn.issue_date,
+        kind: "delivery_note",
       };
+    } else {
+      const info = item.source_document_id
+        ? sourceDocInfo.get(item.source_document_id)
+        : undefined;
+      if (info) {
+        lineDeliveryNoteMap[item.id] = info;
+      }
     }
   }
   const summarySourceIds = new Set(
@@ -454,7 +512,9 @@ async function renderModernPrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
-  const batches = paginateLineItems(data.lineItems, "modern");
+  const batches = paginateLineItems(data.lineItems, "modern", {
+    estimateHeight: makeLineItemEstimate(data, "modern"),
+  });
   if (batches.length <= 1) {
     return [await renderModernPrintCanvas(data, copyType)];
   }
@@ -623,7 +683,9 @@ async function renderClassicPrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
-  const batches = paginateLineItems(data.lineItems, "classic");
+  const batches = paginateLineItems(data.lineItems, "classic", {
+    estimateHeight: makeLineItemEstimate(data, "classic"),
+  });
   if (batches.length <= 1) {
     return [await renderClassicPrintCanvas(data, copyType)];
   }
@@ -817,7 +879,9 @@ async function renderClassicV2PrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
-  const batches = paginateLineItems(data.lineItems, "classic");
+  const batches = paginateLineItems(data.lineItems, "classic", {
+    estimateHeight: makeLineItemEstimate(data, "classic"),
+  });
   if (batches.length <= 1) {
     return [await renderClassicV2PrintCanvas(data, copyType)];
   }

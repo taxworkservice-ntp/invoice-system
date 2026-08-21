@@ -1,4 +1,5 @@
 import { formatCurrency } from "../../lib/format";
+import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
 import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS } from "../../constants";
@@ -166,16 +167,13 @@ export function PrintDocumentClassic({
     ? Math.max(0, MIN_CLASSIC_RECEIPT_ROWS - receiptRows.length)
     : 0;
   const noteText = document.note?.trim();
-  const paymentLines = [
-    bankName && showBank
-      ? `ธนาคาร: ${bankName}`
-      : null,
-    bankAccountNumber && showBank
-      ? `เลขที่บัญชี: ${bankAccountNumber}`
-      : null,
-    bankAccountHolder && showBank
-      ? `ชื่อบัญชี: ${bankAccountHolder}`
-      : null,
+  const bankInfo = [
+    bankName && showBank ? `ธนาคาร: ${bankName}` : null,
+    bankAccountNumber && showBank ? `เลขที่บัญชี: ${bankAccountNumber}` : null,
+    bankAccountHolder && showBank ? `ชื่อบัญชี: ${bankAccountHolder}` : null,
+  ].filter(Boolean) as string[];
+
+  const payInfo = [
     showPaymentMethod && document.payment_method
       ? `วิธีชำระเงิน: ${PAYMENT_METHOD_LABELS[document.payment_method] || document.payment_method}`
       : null,
@@ -185,6 +183,11 @@ export function PrintDocumentClassic({
     document.wht_certificate_no
       ? `เลขที่หนังสือรับรองหัก ณ ที่จ่าย: ${document.wht_certificate_no}`
       : null,
+  ].filter(Boolean) as string[];
+
+  const paymentLines = [
+    bankInfo.length > 0 ? bankInfo.join(" · ") : null,
+    payInfo.length > 0 ? payInfo.join(" · ") : null,
   ].filter(Boolean) as string[];
 
   const titleTh = label.thai;
@@ -645,6 +648,20 @@ export function PrintDocumentClassic({
                                 : ""}
                             </div>
                           ) : null}
+                          {document.show_dn_variance && item.source_document_id ? (() => {
+                            const parts = getDnVarianceParts({
+                              deliveredQty: item.source_delivered_qty,
+                              billedQty: Number(item.quantity) || 0,
+                              unit: item.unit || "ชิ้น",
+                              dnUnitPrice: item.source_unit_price,
+                              unitPrice: Number(item.unit_price) || 0,
+                              dnDocNumber: deliveryNoteRef?.number,
+                              sourceKind: deliveryNoteRef?.kind,
+                            });
+                            return parts.length ? (
+                              <div className="print-classic-dn-note">{parts.join(" | ")}</div>
+                            ) : null;
+                          })() : null}
                           {!document.vat_registered &&
                           (receiptRows.length > 1 ||
                             billingRows.length > 1) &&
@@ -791,7 +808,7 @@ export function PrintDocumentClassic({
                         <span>{formatCurrency(receiptReferenceAmount)}</span>
                       </div>
                       <div className="print-classic-settle-row">
-                        <span>ยอดชำระสะสมก่อนหัก WHT (TOTAL SETTLED)</span>
+                        <span>ยอดชำระสะสมก่อนหักภาษี ณ ที่จ่าย (TOTAL SETTLED)</span>
                         <span>{formatCurrency(receiptCumulativePaid ?? 0)}</span>
                       </div>
                       <div className="print-classic-settle-row">
@@ -839,7 +856,7 @@ export function PrintDocumentClassic({
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">หัก ณ ที่จ่าย {document.wht_rate}%</div>
-                          <div className="print-classic-totals-en">WHT {document.wht_rate}%</div>
+                          <div className="print-classic-totals-en">หัก ณ ที่จ่าย {document.wht_rate}%</div>
                         </div>
                         <div className="print-classic-totals-val">-{formatCurrency(document.wht_amount)}</div>
                       </div>
@@ -918,7 +935,7 @@ export function PrintDocumentClassic({
                             หัก ณ ที่จ่าย {document.wht_rate}%
                           </div>
                           <div className="print-classic-totals-en">
-                            WHT {document.wht_rate}%
+                            หัก ณ ที่จ่าย {document.wht_rate}%
                           </div>
                         </div>
                         <div className="print-classic-totals-val">

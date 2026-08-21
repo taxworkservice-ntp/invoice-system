@@ -181,7 +181,7 @@ body.print-export-document #root {
 .print-sheet {
   position: relative;
   width: 210mm;
-  height: 297mm;
+  min-height: 297mm;
   margin: 0 auto;
   padding: 10mm 8mm;
   background: #ffffff;
@@ -189,8 +189,18 @@ body.print-export-document #root {
   border-radius: 0;
   box-shadow: none;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-x: hidden;
   font-family: "Sarabun", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+/* Modern template: stack regions as a flex column so the signature/terms
+   footer is pinned to the bottom and never overlaps the line items. */
+.print-theme-modern.print-sheet {
+  display: flex;
+  flex-direction: column;
+}
+.print-theme-modern.print-sheet > footer {
+  margin-top: auto;
 }
 
 .print-theme-modern {
@@ -364,8 +374,28 @@ html[data-accent-mode="gradient"] .print-theme-modern {
     width: 100%;
     min-height: auto;
     margin: 0;
-    padding: 0;
+    padding: 10mm 8mm;
     background: white;
+  }
+
+  /* Let content flow across physical pages instead of clipping. */
+  .print-theme-modern.print-sheet {
+    display: block;
+  }
+
+  /* Repeat the table header on every printed page. */
+  .print-table thead {
+    display: table-header-group;
+  }
+
+  /* Never split a line item or the footer/terms across pages. */
+  .print-table tbody tr {
+    break-inside: avoid;
+  }
+
+  .print-sheet > footer,
+  .print-sheet > section {
+    break-inside: avoid;
   }
 
   .print-only {

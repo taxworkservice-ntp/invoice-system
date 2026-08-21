@@ -469,6 +469,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           line_total: calc.lineTotal,
           source_document_id: line.source ? quotation.id : null,
           source_line_item_id: line.source ? line.source.id : null,
+          source_delivered_qty: line.source ? Number(line.source.quantity) || 0 : null,
+          source_unit_price: line.source ? Number(line.source.unit_price) || 0 : null,
           hide_amounts_on_print: line.hide_amounts_on_print,
           sort_order: index,
         };

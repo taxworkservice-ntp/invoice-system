@@ -63,6 +63,19 @@ export function formatBuddhistDateTime(isoDate: string): string {
   return `${day} ${month} ${year} เวลา ${time}`;
 }
 
+export function formatBuddhistDateTimeParts(isoDate: string): { date: string; time: string } {
+  const date = new Date(isoDate);
+  const day = date.getDate();
+  const month = THAI_MONTHS_ABBR[date.getMonth()];
+  const year = toBuddhistYear(date.getFullYear());
+  const time = date.toLocaleTimeString("th-TH", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return { date: `${day} ${month} ${year}`, time };
+}
+
 export function formatBuddhistDateFull(isoDate: string): string {
   const date = new Date(isoDate);
   const day = date.getDate();

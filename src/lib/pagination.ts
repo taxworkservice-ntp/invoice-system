@@ -216,8 +216,11 @@ function paginateRowsByHeight<T>(
 export function paginateLineItems(
   lineItems: DocumentLineItem[],
   template: "modern" | "classic" | "classic_v2",
+  opts: { estimateHeight?: (item: DocumentLineItem) => number } = {},
 ): PageBatch[] {
-  return paginateRows(lineItems, template) as PageBatch[];
+  return paginateRows(lineItems, template, "line_items", {
+    estimateHeight: opts.estimateHeight,
+  }) as PageBatch[];
 }
 
 export function getTotalPages(batches: PageBatch[]): number {

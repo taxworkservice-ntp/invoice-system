@@ -68,7 +68,7 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
               </div>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
-                  <span>ยอดชำระสะสมก่อนหัก WHT</span>
+                  <span>ยอดชำระสะสมก่อนหักภาษี ณ ที่จ่าย</span>
                   <span className="text-[6.5px] text-[#94a3b8]">TOTAL SETTLED (GROSS)</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptCumulativePaid ?? 0)}</span>
@@ -157,7 +157,7 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                 <div className="flex justify-between gap-4 text-[#B54708]">
                   <div className="flex flex-col">
                     <span>หัก ณ ที่จ่าย {document.wht_rate}%</span>
-                    <span className="text-[6.5px] text-[#94a3b8]">WHT {document.wht_rate}%</span>
+                    <span className="text-[6.5px] text-[#94a3b8]">หัก ณ ที่จ่าย {document.wht_rate}%</span>
                   </div>
                   <span className="self-center">-{formatCurrency(document.wht_amount)}</span>
                 </div>
@@ -203,7 +203,7 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                 <div className="flex justify-between gap-4 text-[#B54708]">
                   <div className="flex flex-col">
                     <span>หัก ณ ที่จ่าย {document.wht_rate}%</span>
-                    <span className="text-[6.5px] text-[#94a3b8]">WHT {document.wht_rate}%</span>
+                    <span className="text-[6.5px] text-[#94a3b8]">หัก ณ ที่จ่าย {document.wht_rate}%</span>
                   </div>
                   <span className="self-center">-{formatCurrency(document.wht_amount)}</span>
                 </div>

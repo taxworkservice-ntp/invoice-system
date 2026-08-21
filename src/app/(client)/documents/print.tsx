@@ -56,9 +56,19 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false): PrintBatch
     data.document.hide_amounts_on_print !== false;
   const effectiveHideAmounts = blankForm ? false : hideDeliveryAmounts;
 
+  const hasMultiInvoiceRefs =
+    !data.document.vat_registered &&
+    (data.receiptInvoices.length > 1 || data.billingNoteInvoices.length > 1);
+
   return paginateRows(data.lineItems, data.template, "line_items", {
     estimateHeight: (item) =>
-      estimateLineItemHeight(item, data.template, { hideDeliveryAmounts: effectiveHideAmounts }),
+      estimateLineItemHeight(item, data.template, {
+        hideDeliveryAmounts: effectiveHideAmounts,
+        hasLineDiscount:
+          (item.discount_amount ?? 0) > 0 || (item.discount_percent ?? 0) > 0,
+        hasInlineDnRef: !!data.showInlineDeliveryNotes && !!data.lineDeliveryNoteMap[item.id],
+        hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],
+      }),
   }).map((batch) => ({ kind: "line_items", batch }));
 }
 

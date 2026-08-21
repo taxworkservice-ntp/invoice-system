@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, CalendarDays, CircleDollarSign, ClipboardList, FileStack, FileText, NotebookText, Pencil, Printer, Send, UserRound } from "lucide-react";
+import { ArrowRight, CalendarDays, CircleDollarSign, FileStack, FileText, NotebookText, Pencil, Printer, UserRound } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
@@ -15,7 +15,6 @@ import { getDocumentDetail, saveLineItems } from "../../../hooks/useDocuments";
 import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
-import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { deleteDocumentFiles } from "../../../lib/r2";
 import { assertDocNumberAvailable, resolveDocNumber } from "../../../lib/docNumber";
@@ -139,9 +138,7 @@ export default function DocumentDetailPage() {
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const [convertModal, setConvertModal] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
-  const [hasQuotationDnActivity, setHasQuotationDnActivity] = useState(false);
   const [dnInvoiceRef, setDnInvoiceRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [copiedFromRef, setCopiedFromRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [replacementRef, setReplacementRef] = useState<{ id: string; doc_number: string | null } | null>(null);
@@ -196,28 +193,6 @@ export default function DocumentDetailPage() {
         setDnInvoiceRef(invoice ? { id: invoice.id, doc_number: invoice.doc_number } : null);
       } else {
         setDnInvoiceRef(null);
-      }
-      if (data.doc_type === "quotation") {
-        const [{ data: dnDocs }, { data: dnLines }] = await Promise.all([
-          supabase
-            .from("documents")
-            .select("id")
-            .eq("converted_from_id", data.id)
-            .eq("doc_type", "delivery_note")
-            .neq("status", "voided")
-            .limit(1),
-          supabase
-            .from("document_line_items")
-            .select("id, document:document_id(id, doc_type, status)")
-            .eq("source_document_id", data.id)
-            .limit(1),
-        ]);
-        const hasSourceDnLine = ((dnLines || []) as any[]).some(
-          (line) => line.document?.doc_type === "delivery_note" && line.document?.status !== "voided",
-        );
-        setHasQuotationDnActivity(Boolean(dnDocs?.length || hasSourceDnLine));
-      } else {
-        setHasQuotationDnActivity(false);
       }
     } catch (err: any) {
       setError(err.message);
@@ -537,42 +512,6 @@ export default function DocumentDetailPage() {
       setError(err.message);
     } finally {
       setPaying(false);
-    }
-  };
-
-  const handleConvert = async () => {
-    if (!doc || !userId) return;
-    if (!canSendDocumentType(permissions, doc.doc_type)) {
-      setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
-      return;
-    }
-    setActionLoading("convert");
-    let convertedInvoiceId: string | null = null;
-    try {
-      const issueDate = doc.issue_date || todayString();
-      const { data: invoiceId, error: conversionError } = await supabase.rpc("convert_quotation_to_invoice", {
-        p_user_id: userId,
-        p_quotation_id: doc.id,
-        p_doc_number: docNumberOverride.trim() || null,
-        p_issue_date: issueDate,
-      });
-      if (conversionError || !invoiceId) throw conversionError || new Error("แปลงใบเสนอราคาไม่สำเร็จ");
-      convertedInvoiceId = invoiceId as string;
-
-      await deductStockOnDocumentSent(invoiceId as string, userId);
-
-      setConvertModal(false);
-      navigate(`/documents/${invoiceId}`);
-    } catch (err: any) {
-      if (convertedInvoiceId) {
-        await restoreStockOnVoid(convertedInvoiceId, userId).catch(() => undefined);
-        await supabase.from("document_line_items").delete().eq("document_id", convertedInvoiceId);
-        await supabase.from("documents").delete().eq("id", convertedInvoiceId).eq("user_id", userId);
-        await supabase.from("documents").update({ status: "sent" }).eq("id", doc.id).eq("user_id", userId);
-      }
-      setError(err.message || "แปลงใบเสนอราคาไม่สำเร็จ");
-    } finally {
-      setActionLoading(null);
     }
   };
 
@@ -935,8 +874,14 @@ export default function DocumentDetailPage() {
                 </Button>
               )}
               {doc.deal_id && (
-                <Button variant="secondary" size="sm" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
-              ไปที่หน้างานขาย
+                <Button
+                  tone="amber"
+                  solid
+                  size="sm"
+                  className="shadow-sm"
+                  onClick={() => navigate(`/deals/${doc.deal_id}`)}
+                >
+                  ไปที่หน้างานขาย
                 </Button>
               )}
             </div>
@@ -1308,6 +1253,21 @@ export default function DocumentDetailPage() {
             >
               ดาวน์โหลดเอกสาร
             </Button>
+            {doc.deal_id && (isSent || isPartiallyPaid) && (
+              <div className="space-y-1.5">
+                <p className="text-center text-[11px] leading-4 text-gray-500">
+                  การดำเนินการถัดไป (ออกใบแจ้งหนี้ / วางบิล / รับชำระ) ทำบนหน้างานขาย
+                </p>
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="w-full"
+                  onClick={() => navigate(`/deals/${doc.deal_id}`)}
+                >
+                  เปิดงานขายเพื่อดำเนินการต่อ
+                </Button>
+              </div>
+            )}
           </div>
 
           {isDraft && isUtilityBill && (
@@ -1341,32 +1301,6 @@ export default function DocumentDetailPage() {
               onClick={() => navigate(`/documents/${doc.id}/edit`)}
             >
               แก้ไขฉบับร่าง
-            </Button>
-          )}
-
-          {isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && canSendDocumentType(permissions, doc.doc_type) && (
-            <Button
-              variant={doc.doc_type === "delivery_note" ? "primary" : "secondary"}
-              size="md"
-              className="w-full"
-              onClick={async () => {
-                setActionLoading("send");
-                try {
-                  const { warnings } = await sendDocumentWithSideEffects(doc, userId!, { issueDate: devIssueDate });
-                  warnings.forEach((w) =>
-                    toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
-                  );
-                  await fetchDoc();
-                } catch (err: any) {
-                  setError(err.message);
-                } finally {
-                  setActionLoading(null);
-                }
-              }}
-              loading={actionLoading === "send"}
-            >
-              <Send className="h-4 w-4 mr-1.5" />
-              {doc.doc_type === "delivery_note" ? "ยืนยันส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว"}
             </Button>
           )}
 
@@ -1418,22 +1352,9 @@ export default function DocumentDetailPage() {
 
           {isSent && doc.doc_type === "delivery_note" && (
             <div className="space-y-2">
-              <Button
-                variant="primary"
-                size="md"
-                className="w-full"
-                onClick={() => navigate(`/documents/new?type=invoice_from_delivery_notes&dnId=${doc.id}`)}
-              >
-                ออกใบแจ้งหนี้จากใบนี้
-              </Button>
-              <Button
-                variant="secondary"
-                size="md"
-                className="w-full"
-                onClick={() => navigate(`/documents/new?type=invoice_from_delivery_notes&dnId=${doc.id}`)}
-              >
-                รวมกับใบส่งของอื่น
-              </Button>
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+                เอกสารถูกล็อคหลังยืนยันส่งของแล้ว หากผิดให้ยกเลิกและสร้างใหม่ การออกใบแจ้งหนี้ทำได้จากหน้างานขาย
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 {permissions.canVoidDocuments && (
                   <>
@@ -1478,41 +1399,22 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {isSent && doc.doc_type === "invoice" && permissions.canRecordPayments && (
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full"
-              onClick={() => navigate(`/documents/new?type=billing_note&dealId=${doc.deal_id || ""}`)}
-            >
-              <ClipboardList className="h-4 w-4 mr-1.5" />
-              วางบิล
-            </Button>
-          )}
-
           {isDraft && permissions.canDeleteDocuments && (
             <Button variant="danger" size="md" className="w-full" onClick={() => setDeleteModal(true)}>
               ลบเอกสาร
             </Button>
           )}
 
-          {isSent && doc.doc_type === "quotation" && !hasQuotationDnActivity && canSendDocumentType(permissions, doc.doc_type) && (
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full"
-              loading={actionLoading === "convert"}
-              onClick={() => setConvertModal(true)}
-            >
-              แปลงเป็นใบแจ้งหนี้
-            </Button>
-          )}
-
           {(isSent || isPartiallyPaid) && (doc.doc_type === "invoice" || doc.doc_type === "billing_note") && permissions.canRecordPayments && (
             <div className="space-y-2">
-              <Button variant="primary" size="md" className="w-full" onClick={openPayModal}>
-                {isPartiallyPaid ? "รับชำระเพิ่ม" : "รับเงินแล้ว"}
-              </Button>
+              {!doc.deal_id && (
+                <>
+                  <Button variant="primary" size="md" className="w-full" onClick={openPayModal}>
+                    {isPartiallyPaid ? "รับชำระเพิ่ม" : "รับเงินแล้ว"}
+                  </Button>
+                  <p className="text-xs leading-5 text-gray-500">เอกสารนี้ไม่ผูกกับงานขาย จึงบันทึกการรับชำระได้จากหน้านี้</p>
+                </>
+              )}
               {doc.doc_type === "invoice" && (
                 <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
                   ระบบจะเก็บใบเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข เลขที่ใบเดิมจะไม่ถูกนำกลับมาใช้ซ้ำ
@@ -1593,7 +1495,7 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
-          {doc.deal_id && (
+          {doc.deal_id && !isSent && !isPartiallyPaid && (
             <Button
               variant="secondary"
               size="md"
@@ -1713,10 +1615,10 @@ export default function DocumentDetailPage() {
               title="กรอกยอดโดยอ้างอิงจาก"
               items={[
                 { label: "ยอดชำระก่อน VAT", description: "ใช้เมื่อกำหนดงวดผ่อนก่อนคิด VAT เช่น งวดละ 200,000 บาท" },
-                { label: "ยอดรวมก่อนหัก WHT", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
-                { label: "ยอดโอนจริงหลังหัก WHT", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
+                { label: "ยอดรวมก่อนหักภาษี ณ ที่จ่าย", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
+                { label: "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
               ]}
-              tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, WHT และยอดโอนจริงให้อัตโนมัติ"
+              tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, หัก ณ ที่จ่าย และยอดโอนจริงให้อัตโนมัติ"
             />
             <select
               className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
@@ -1735,12 +1637,12 @@ export default function DocumentDetailPage() {
               }}
             >
               <option value="pre_tax">ยอดชำระก่อน VAT</option>
-              <option value="gross">ยอดรวมก่อนหัก WHT</option>
-              <option value="net_cash">ยอดโอนจริงหลังหัก WHT</option>
+              <option value="gross">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</option>
+              <option value="net_cash">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</option>
             </select>
           </div>
           <Input
-            label={paymentInputBasis === "pre_tax" ? "ยอดชำระก่อน VAT" : paymentInputBasis === "gross" ? "ยอดรวมก่อนหัก WHT" : "ยอดโอนจริงหลังหัก WHT"}
+            label={paymentInputBasis === "pre_tax" ? "ยอดชำระก่อน VAT" : paymentInputBasis === "gross" ? "ยอดรวมก่อนหักภาษี ณ ที่จ่าย" : "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย"}
             type="number"
             step="0.01"
             value={paymentBaseAmount || ""}
@@ -1748,9 +1650,9 @@ export default function DocumentDetailPage() {
           />
           <div className="rounded-lg border border-card-border bg-stone-50 px-3 py-3 text-sm">
             <div className="flex justify-between"><span className="text-gray-500">VAT</span><span>฿{formatCurrency(paymentPreview.vatAmount)}</span></div>
-            <div className="mt-1 flex justify-between"><span className="text-gray-500">ยอดรวมก่อน WHT</span><span>฿{formatCurrency(paymentPreview.grossAmount)}</span></div>
-            <div className="mt-1 flex justify-between"><span className="text-gray-500">WHT</span><span>฿{formatCurrency(paymentPreview.whtAmount)}</span></div>
-            <div className="mt-2 flex justify-between border-t border-card-border pt-2 font-semibold"><span>ยอดโอนจริงหลังหัก WHT</span><span>฿{formatCurrency(paymentPreview.netAmount)}</span></div>
+            <div className="mt-1 flex justify-between"><span className="text-gray-500">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</span><span>฿{formatCurrency(paymentPreview.grossAmount)}</span></div>
+            <div className="mt-1 flex justify-between"><span className="text-gray-500">หัก ณ ที่จ่าย</span><span>฿{formatCurrency(paymentPreview.whtAmount)}</span></div>
+            <div className="mt-2 flex justify-between border-t border-card-border pt-2 font-semibold"><span>ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</span><span>฿{formatCurrency(paymentPreview.netAmount)}</span></div>
           </div>
           <Select
             label="วิธีชำระเงิน"
@@ -1845,20 +1747,6 @@ export default function DocumentDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={convertModal} onClose={() => setConvertModal(false)} title="แปลงเป็นใบแจ้งหนี้">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            คุณต้องการแปลงใบเสนอราคาเป็นใบแจ้งหนี้ใช่หรือไม่?
-          </p>
-          <p className="text-sm">
-            ยอดรวม: <span className="font-semibold">฿{formatCurrency(getDisplayAmount(doc))}</span>
-          </p>
-          <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setConvertModal(false)}>ยกเลิก</Button>
-            <Button variant="primary" onClick={handleConvert} loading={actionLoading === "convert"}>ยืนยัน</Button>
-          </div>
-        </div>
-      </Modal>
     </AppShell>
   );
 }

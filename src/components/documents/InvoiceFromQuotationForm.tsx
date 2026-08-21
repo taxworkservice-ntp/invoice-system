@@ -25,14 +25,14 @@ import { EditableDocNumber } from "./EditableDocNumber";
 const EPS = 1e-9;
 const MANUAL_MAX = 1e9;
 
-type DnLineWithRemaining = DocumentLineItem & {
-  deliveredQty: number;
+type QtLineWithRemaining = DocumentLineItem & {
+  quotedQty: number;
   billedQty: number;
   remaining: number;
 };
 
-type DeliveryNoteOption = Omit<Document, "line_items"> & {
-  line_items: DnLineWithRemaining[];
+type QuotationOption = Omit<Document, "line_items"> & {
+  line_items: QtLineWithRemaining[];
   hasBillable: boolean;
 };
 
@@ -40,7 +40,7 @@ type EditableInvoiceLine = {
   key: string;
   source_document_id: string;
   source_line_item_id: string;
-  dnDocNumber: string;
+  qtDocNumber: string;
   item_name: string;
   unit: string;
   unit_price: number;
@@ -53,20 +53,20 @@ type EditableInvoiceLine = {
   qty_carton: number | null;
   carton_unit: string | null;
   base_quantity: number | null;
-  deliveredQty: number;
+  quotedQty: number;
   billedQty: number;
   maxQty: number;
-  dnUnitPrice: number;
+  qtUnitPrice: number;
 };
 
-function defaultDeliveryNoteStartString(today = localTodayString()) {
+function defaultQuotationStartString(today = localTodayString()) {
   const [year, month, day] = today.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() - 90);
   return localTodayString(date);
 }
 
-type DeliveryDatePreset = "thisMonth" | "previousMonth" | "last90Days" | "all" | "custom";
+type QuotationDatePreset = "thisMonth" | "previousMonth" | "last90Days" | "all" | "custom";
 
 function monthRange(today: string, offset: number) {
   const [year, month] = today.split("-").map(Number);
@@ -81,16 +81,16 @@ function buildItemSummary(items: DocumentLineItem[]) {
   return items.length > 2 ? `${summary} และอีก ${items.length - 2} รายการ` : summary;
 }
 
-function getDeliveryNoteSubtotal(dn: DeliveryNoteOption) {
-  const subtotal = Number(dn.subtotal);
+function getQuotationSubtotal(qt: QuotationOption) {
+  const subtotal = Number(qt.subtotal);
   if (Number.isFinite(subtotal) && subtotal > 0) return subtotal;
-  return dn.line_items.reduce((sum, l) => sum + Number(l.line_total || 0), 0);
+  return qt.line_items.reduce((sum, l) => sum + Number(l.line_total || 0), 0);
 }
 
-function getDeliveryNoteTotal(dn: DeliveryNoteOption) {
-  const total = Number(dn.total_amount);
+function getQuotationTotal(qt: QuotationOption) {
+  const total = Number(qt.total_amount);
   if (Number.isFinite(total) && total > 0) return total;
-  return getDeliveryNoteSubtotal(dn);
+  return getQuotationSubtotal(qt);
 }
 
 function lineNetAmount(l: EditableInvoiceLine) {
@@ -99,10 +99,10 @@ function lineNetAmount(l: EditableInvoiceLine) {
   return Math.max(0, base - discount);
 }
 
-export function InvoiceFromDeliveryNotesForm() {
+export function InvoiceFromQuotationForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const preselectedDnId = searchParams.get("dnId");
+  const preselectedQtId = searchParams.get("quotationId");
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
@@ -115,19 +115,19 @@ export function InvoiceFromDeliveryNotesForm() {
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [datePreset, setDatePreset] = useState<DeliveryDatePreset>("all");
+  const [datePreset, setDatePreset] = useState<QuotationDatePreset>("all");
   const [dateExpanded, setDateExpanded] = useState(false);
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
   const [note, setNote] = useState("");
 
-  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteOption[]>([]);
+  const [quotations, setQuotations] = useState<QuotationOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [invoiceLines, setInvoiceLines] = useState<EditableInvoiceLine[]>([]);
-  const [loadingDns, setLoadingDns] = useState(false);
+  const [loadingQts, setLoadingQts] = useState(false);
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
-  const [showDnVariance, setShowDnVariance] = useState(false);
+  const [showVariance, setShowVariance] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -140,35 +140,35 @@ export function InvoiceFromDeliveryNotesForm() {
     const realToday = businessTodayString(null);
     if (dateTo === realToday) setDateTo(businessToday);
     if (issueDate === realToday) setIssueDate(businessToday);
-    if (dateFrom === defaultDeliveryNoteStartString(realToday)) {
-      setDateFrom(defaultDeliveryNoteStartString(businessToday));
+    if (dateFrom === defaultQuotationStartString(realToday)) {
+      setDateFrom(defaultQuotationStartString(businessToday));
     }
   }, [businessToday, dateFrom, dateTo, issueDate]);
 
   useEffect(() => {
-    if (!preselectedDnId || !userId) return;
+    if (!preselectedQtId || !userId) return;
 
     let cancelled = false;
-    async function loadPreselectedDeliveryNote() {
-      const { data: dn } = await supabase
+    async function loadPreselectedQuotation() {
+      const { data: qt } = await supabase
         .from("documents")
         .select("id, customer_id")
-        .eq("id", preselectedDnId)
+        .eq("id", preselectedQtId)
         .eq("user_id", userId)
-        .eq("doc_type", "delivery_note")
+        .eq("doc_type", "quotation")
         .eq("status", "sent")
         .maybeSingle();
 
-      if (!cancelled && dn?.customer_id) {
-        setSelectedCustomerId(dn.customer_id);
+      if (!cancelled && qt?.customer_id) {
+        setSelectedCustomerId(qt.customer_id);
       }
     }
 
-    loadPreselectedDeliveryNote();
+    loadPreselectedQuotation();
     return () => {
       cancelled = true;
     };
-  }, [preselectedDnId, userId]);
+  }, [preselectedQtId, userId]);
 
   const selectedCustomer = useMemo(
     () => customers.find((customer) => customer.id === selectedCustomerId) || null,
@@ -176,9 +176,9 @@ export function InvoiceFromDeliveryNotesForm() {
   );
 
   const dateRangeSummary = (() => {
-    if (datePreset === "all") return "ทั้งหมด (แสดงทุกใบส่งของ)";
+    if (datePreset === "all") return "ทั้งหมด (แสดงทุกใบเสนอราคา)";
     if (datePreset === "custom") return `ตั้งแต่ ${dateFrom || "-"} ถึง ${dateTo || "-"}`;
-    const presetLabels: Record<Exclude<DeliveryDatePreset, "all" | "custom">, string> = {
+    const presetLabels: Record<Exclude<QuotationDatePreset, "all" | "custom">, string> = {
       thisMonth: "เดือนนี้",
       previousMonth: "เดือนก่อน",
       last90Days: "ย้อนหลัง 90 วัน",
@@ -188,14 +188,14 @@ export function InvoiceFromDeliveryNotesForm() {
 
   useEffect(() => {
     if (!selectedCustomerId || !userId) {
-      setDeliveryNotes([]);
+      setQuotations([]);
       setSelectedIds(new Set());
       return;
     }
 
     let cancelled = false;
-    async function loadDeliveryNotes() {
-      setLoadingDns(true);
+    async function loadQuotations() {
+      setLoadingQts(true);
       setError("");
 
       let query = supabase
@@ -203,7 +203,7 @@ export function InvoiceFromDeliveryNotesForm() {
         .select("*")
         .eq("user_id", userId)
         .eq("customer_id", selectedCustomerId)
-        .eq("doc_type", "delivery_note")
+        .eq("doc_type", "quotation")
         .eq("status", "sent")
         .order("issue_date", { ascending: true });
 
@@ -214,41 +214,38 @@ export function InvoiceFromDeliveryNotesForm() {
 
       if (docsError) {
         if (!cancelled) setError(docsError.message);
-        if (!cancelled) setLoadingDns(false);
+        if (!cancelled) setLoadingQts(false);
         return;
       }
 
-      let docList = (docs || []) as DeliveryNoteOption[];
-      if (preselectedDnId && !docList.some((doc) => doc.id === preselectedDnId)) {
+      let docList = (docs || []) as QuotationOption[];
+      if (preselectedQtId && !docList.some((doc) => doc.id === preselectedQtId)) {
         const { data: preselectedDoc } = await supabase
           .from("documents")
           .select("*")
-          .eq("id", preselectedDnId)
+          .eq("id", preselectedQtId)
           .eq("user_id", userId)
           .eq("customer_id", selectedCustomerId)
-          .eq("doc_type", "delivery_note")
+          .eq("doc_type", "quotation")
           .eq("status", "sent")
           .maybeSingle();
         if (preselectedDoc) {
-          docList = [...docList, preselectedDoc as DeliveryNoteOption].sort((a, b) =>
+          docList = [...docList, preselectedDoc as QuotationOption].sort((a, b) =>
             (a.issue_date || "").localeCompare(b.issue_date || ""),
           );
         }
       }
       const docIds = docList.map((doc) => doc.id);
 
-      const [{ data: lineItems }, { data: activeLinks }] = await Promise.all([
+      const { data: lineItems } = await Promise.resolve(
         docIds.length
           ? supabase.from("document_line_items").select("*").in("document_id", docIds).order("sort_order", { ascending: true })
           : Promise.resolve({ data: [] as DocumentLineItem[] }),
-        docIds.length
-          ? supabase.from("invoice_delivery_notes").select("delivery_note_id, invoice_id").in("delivery_note_id", docIds).is("released_at", null)
-          : Promise.resolve({ data: [] as { delivery_note_id: string; invoice_id: string }[] }),
-      ]);
+      );
 
       if (cancelled) return;
 
-      // Delivered vs already-billed per delivery-note line (keyed by dn::line).
+      // Quoted vs already-billed per quotation line (keyed by qt::line).
       const linesByDoc = new Map<string, DocumentLineItem[]>();
       ((lineItems || []) as DocumentLineItem[]).forEach((line) => {
         const current = linesByDoc.get(line.document_id) || [];
@@ -256,21 +253,21 @@ export function InvoiceFromDeliveryNotesForm() {
         linesByDoc.set(line.document_id, current);
       });
 
-      // Billed quantity = sum of invoice line items that reference each DN line,
-      // excluding voided/draft invoices.
+      // Billed quantity = sum of invoice line items that reference each quotation
+      // line, excluding voided/draft invoices.
       const refPairs = ((lineItems || []) as DocumentLineItem[])
         .filter((l) => l.id)
-        .map((l) => ({ dnId: l.document_id, lineId: l.id }));
-      const dnLineIds = refPairs.map((p) => p.lineId);
-      const dnIds = refPairs.map((p) => p.dnId);
+        .map((l) => ({ qtId: l.document_id, lineId: l.id }));
+      const qtLineIds = refPairs.map((p) => p.lineId);
+      const qtIds = refPairs.map((p) => p.qtId);
 
       let billedByLine = new Map<string, number>();
-      if (dnLineIds.length) {
+      if (qtLineIds.length) {
         const { data: invLines } = await supabase
           .from("document_line_items")
           .select("source_document_id, source_line_item_id, quantity, document_id")
-          .in("source_line_item_id", dnLineIds)
-          .in("source_document_id", dnIds);
+          .in("source_line_item_id", qtLineIds)
+          .in("source_document_id", qtIds);
         const invIds = Array.from(new Set(((invLines || []) as any[]).map((r) => r.document_id).filter(Boolean)));
         let validInvIds = new Set<string>();
         if (invIds.length) {
@@ -291,13 +288,11 @@ export function InvoiceFromDeliveryNotesForm() {
         });
       }
 
-      void activeLinks;
-
       const options = docList
         .map((doc) => {
           const lines = (linesByDoc.get(doc.id) || []).map((line) => ({
             ...line,
-            deliveredQty: Number(line.quantity) || 0,
+            quotedQty: Number(line.quantity) || 0,
             billedQty: billedByLine.get(`${doc.id}::${line.id}`) || 0,
             remaining: (Number(line.quantity) || 0) - (billedByLine.get(`${doc.id}::${line.id}`) || 0),
           }));
@@ -305,55 +300,55 @@ export function InvoiceFromDeliveryNotesForm() {
             ...doc,
             line_items: lines,
             hasBillable: lines.some((l) => l.remaining > EPS),
-          } as DeliveryNoteOption;
+          } as QuotationOption;
         })
         .filter((doc) => doc.hasBillable);
 
       if (cancelled) return;
 
-      setDeliveryNotes(options);
+      setQuotations(options);
       setSelectedIds(
-        preselectedDnId && options.some((doc) => doc.id === preselectedDnId)
-          ? new Set([preselectedDnId])
+        preselectedQtId && options.some((doc) => doc.id === preselectedQtId)
+          ? new Set([preselectedQtId])
           : new Set(options.map((doc) => doc.id)),
       );
-      setLoadingDns(false);
+      setLoadingQts(false);
     }
 
-    loadDeliveryNotes();
+    loadQuotations();
     return () => {
       cancelled = true;
     };
-  }, [dateFrom, dateTo, preselectedDnId, selectedCustomerId, userId]);
+  }, [dateFrom, dateTo, preselectedQtId, selectedCustomerId, userId]);
 
-  const selectedDeliveryNotes = useMemo(
-    () => deliveryNotes.filter((doc) => selectedIds.has(doc.id)),
-    [deliveryNotes, selectedIds],
+  const selectedQuotations = useMemo(
+    () => quotations.filter((doc) => selectedIds.has(doc.id)),
+    [quotations, selectedIds],
   );
 
-  // Rebuild editable invoice lines from the selected delivery notes, preserving
+  // Rebuild editable invoice lines from the selected quotations, preserving
   // any manual edits the user already made to lines that are still present.
   useEffect(() => {
     setInvoiceLines((prev) => {
-      // Keep any manually-added lines (not linked to a delivery note) untouched.
+      // Keep any manually-added lines (not linked to a quotation) untouched.
       const manualLines = prev.filter((l) => !l.source_document_id);
       const prevByKey = new Map(
         prev.filter((l) => l.source_document_id).map((l) => [`${l.source_document_id}::${l.source_line_item_id}`, l]),
       );
       const next: EditableInvoiceLine[] = [...manualLines];
-      for (const dn of selectedDeliveryNotes) {
-        for (const l of dn.line_items) {
+      for (const qt of selectedQuotations) {
+        for (const l of qt.line_items) {
           if (l.remaining <= EPS) continue;
-          const key = `${dn.id}::${l.id}`;
+          const key = `${qt.id}::${l.id}`;
           const existing = prevByKey.get(key);
           if (existing) {
             next.push({ ...existing, maxQty: l.remaining, quantity: Math.min(existing.quantity, l.remaining) });
           } else {
             next.push({
               key,
-              source_document_id: dn.id,
+              source_document_id: qt.id,
               source_line_item_id: l.id || "",
-              dnDocNumber: dn.doc_number || dn.id.slice(0, 8),
+              qtDocNumber: qt.doc_number || qt.id.slice(0, 8),
               item_name: l.item_name,
               unit: l.unit || "ชิ้น",
               unit_price: Number(l.unit_price) || 0,
@@ -366,32 +361,32 @@ export function InvoiceFromDeliveryNotesForm() {
               qty_carton: l.qty_carton ? Number(l.qty_carton) : null,
               carton_unit: l.carton_unit || null,
               base_quantity: l.base_quantity ? Number(l.base_quantity) : null,
-              deliveredQty: l.deliveredQty,
+              quotedQty: l.quotedQty,
               billedQty: l.billedQty,
               maxQty: l.remaining,
-              dnUnitPrice: Number(l.unit_price) || 0,
+              qtUnitPrice: Number(l.unit_price) || 0,
             });
           }
         }
       }
       return next;
     });
-  }, [selectedDeliveryNotes]);
+  }, [selectedQuotations]);
 
   const selectedDealId = useMemo(() => {
-    const dealIds = Array.from(new Set(selectedDeliveryNotes.map((doc) => doc.deal_id).filter(Boolean)));
+    const dealIds = Array.from(new Set(selectedQuotations.map((doc) => doc.deal_id).filter(Boolean)));
     return dealIds.length === 1 ? dealIds[0] : null;
-  }, [selectedDeliveryNotes]);
+  }, [selectedQuotations]);
 
   const selectedDealIds = useMemo(
-    () => Array.from(new Set(selectedDeliveryNotes.map((doc) => doc.deal_id).filter(Boolean))),
-    [selectedDeliveryNotes],
+    () => Array.from(new Set(selectedQuotations.map((doc) => doc.deal_id).filter(Boolean))),
+    [selectedQuotations],
   );
 
   const hasMixedDeals = selectedDealIds.length > 1;
 
   const taxSnapshot = useMemo(() => {
-    if (selectedDeliveryNotes.length === 0) {
+    if (selectedQuotations.length === 0) {
       return {
         vatRegistered: clientProfile?.vat_registered ?? false,
         vatRate: clientProfile?.vat_rate ?? VAT_DEFAULT,
@@ -399,8 +394,8 @@ export function InvoiceFromDeliveryNotesForm() {
       };
     }
 
-    const first = selectedDeliveryNotes[0];
-    const mixed = selectedDeliveryNotes.some(
+    const first = selectedQuotations[0];
+    const mixed = selectedQuotations.some(
       (doc) => doc.vat_registered !== first.vat_registered || Number(doc.vat_rate) !== Number(first.vat_rate),
     );
 
@@ -409,7 +404,7 @@ export function InvoiceFromDeliveryNotesForm() {
       vatRate: first.vat_rate ?? VAT_DEFAULT,
       mixed,
     };
-  }, [clientProfile?.vat_rate, clientProfile?.vat_registered, selectedDeliveryNotes]);
+  }, [clientProfile?.vat_rate, clientProfile?.vat_registered, selectedQuotations]);
 
   const billableLines = useMemo(() => invoiceLines.filter((l) => l.quantity > EPS), [invoiceLines]);
 
@@ -427,7 +422,7 @@ export function InvoiceFromDeliveryNotesForm() {
     );
   }, [billableLines, taxSnapshot.vatRate, taxSnapshot.vatRegistered, whtRate]);
 
-  const toggleDn = (id: string) => {
+  const toggleQt = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -447,7 +442,7 @@ export function InvoiceFromDeliveryNotesForm() {
         key: `manual-${Date.now()}-${prev.length}`,
         source_document_id: "",
         source_line_item_id: "",
-        dnDocNumber: "รายการเพิ่มเติม",
+        qtDocNumber: "รายการเพิ่มเติม",
         item_name: "",
         unit: "ชิ้น",
         unit_price: 0,
@@ -460,10 +455,10 @@ export function InvoiceFromDeliveryNotesForm() {
         qty_carton: null,
         carton_unit: null,
         base_quantity: null,
-        deliveredQty: 0,
+        quotedQty: 0,
         billedQty: 0,
         maxQty: MANUAL_MAX,
-        dnUnitPrice: 0,
+        qtUnitPrice: 0,
       },
     ]);
   };
@@ -473,16 +468,16 @@ export function InvoiceFromDeliveryNotesForm() {
   };
 
   const handleSave = async () => {
-    if (!userId || !selectedCustomer || selectedDeliveryNotes.length === 0) return;
+    if (!userId || !selectedCustomer || selectedQuotations.length === 0) return;
     if (billableLines.length === 0) {
       setError("ยังไม่มีรายการที่จะออกบิล (ระบุจำนวนที่มากกว่า 0)");
       return;
     }
 
-    // Guardrail: never bill more than the remaining (delivered - already billed) qty.
+    // Guardrail: never bill more than the remaining (quoted - already billed) qty.
     for (const l of billableLines) {
       if (l.quantity > l.maxQty + EPS) {
-        setError(`จำนวนที่จะออกบิล cho "${l.item_name}" มากกว่ายอดคงเหลือ (${l.maxQty})`);
+        setError(`จำนวนที่จะออกบิลของ "${l.item_name}" มากกว่ายอดคงเหลือ (${l.maxQty})`);
         return;
       }
     }
@@ -531,7 +526,8 @@ export function InvoiceFromDeliveryNotesForm() {
           wht_amount: tax.whtAmount,
           net_payable: tax.netPayable,
           note: note || null,
-          show_dn_variance: showDnVariance,
+          show_dn_variance: showVariance,
+          converted_from_id: selectedQuotations[0]?.id || null,
         })
         .select("*")
         .single();
@@ -541,13 +537,13 @@ export function InvoiceFromDeliveryNotesForm() {
 
       const lineRecords: any[] = [];
       let sortIndex = 0;
-      for (const dn of selectedDeliveryNotes) {
+      for (const qt of selectedQuotations) {
         lineRecords.push({
           document_id: invoice.id,
           user_id: userId,
           item_id: null,
-          item_name: `ใบส่งของ ${dn.doc_number || dn.id.slice(0, 8)}`,
-          line_note: dn.issue_date ? `วันที่ส่งของ: ${formatBuddhistDate(dn.issue_date)}` : null,
+          item_name: `ใบเสนอราคา ${qt.doc_number || qt.id.slice(0, 8)}`,
+          line_note: qt.issue_date ? `วันที่เสนอราคา: ${formatBuddhistDate(qt.issue_date)}` : null,
           item_sku: null,
           item_type: "service",
           unit: "",
@@ -559,11 +555,11 @@ export function InvoiceFromDeliveryNotesForm() {
           qty_carton: null,
           carton_unit: null,
           line_total: 0,
-          source_document_id: dn.id,
+          source_document_id: qt.id,
           source_line_item_id: null,
           sort_order: sortIndex++,
         });
-        for (const l of invoiceLines.filter((il) => il.source_document_id === dn.id && il.quantity > EPS)) {
+        for (const l of invoiceLines.filter((il) => il.source_document_id === qt.id && il.quantity > EPS)) {
           lineRecords.push({
             document_id: invoice.id,
             user_id: userId,
@@ -583,14 +579,14 @@ export function InvoiceFromDeliveryNotesForm() {
             line_total: lineNetAmount(l),
             source_document_id: l.source_document_id,
             source_line_item_id: l.source_line_item_id || null,
-            source_delivered_qty: l.deliveredQty,
-            source_unit_price: l.dnUnitPrice,
+            source_delivered_qty: l.quotedQty,
+            source_unit_price: l.qtUnitPrice,
             sort_order: sortIndex++,
           });
         }
       }
 
-      // Manual lines (not linked to any delivery note) — e.g. freight / surcharges.
+      // Manual lines (not linked to any quotation) — e.g. freight / surcharges.
       for (const l of invoiceLines.filter((il) => !il.source_document_id && il.quantity > EPS)) {
         lineRecords.push({
           document_id: invoice.id,
@@ -618,58 +614,20 @@ export function InvoiceFromDeliveryNotesForm() {
       const { error: lineError } = await supabase.from("document_line_items").insert(lineRecords);
       if (lineError) throw lineError;
 
-      const linkRecords = selectedDeliveryNotes.map((dn) => ({
-        invoice_id: invoice.id,
-        delivery_note_id: dn.id,
-        user_id: userId,
-        delivery_note_number: dn.doc_number || dn.id.slice(0, 8),
-        issue_date: dn.issue_date || null,
-        subtotal: getDeliveryNoteSubtotal(dn),
-        vat_amount: dn.vat_amount || 0,
-        total_amount: getDeliveryNoteTotal(dn),
-      }));
-
-      const { error: linkError } = await supabase.from("invoice_delivery_notes").insert(linkRecords);
-      if (linkError) throw linkError;
-
-      // Mark each delivery note as fully converted only when every line is now
+      // Mark each quotation as fully converted only when every line is now
       // fully billed; otherwise keep it "sent" for further partial invoices.
-      for (const dn of selectedDeliveryNotes) {
-        const allCovered = dn.line_items.every((l) => {
+      for (const qt of selectedQuotations) {
+        const allCovered = qt.line_items.every((l) => {
           const thisQty = invoiceLines.find(
-            (il) => il.source_document_id === dn.id && il.source_line_item_id === l.id,
+            (il) => il.source_document_id === qt.id && il.source_line_item_id === l.id,
           )?.quantity || 0;
-          return l.deliveredQty - (l.billedQty + thisQty) <= EPS;
+          return l.quotedQty - (l.billedQty + thisQty) <= EPS;
         });
         const { error: updateError } = await supabase
           .from("documents")
           .update({ status: (allCovered ? "converted" : "sent") as DocumentStatus, deal_id: invoiceDealId })
-          .eq("id", dn.id);
+          .eq("id", qt.id);
         if (updateError) throw updateError;
-      }
-
-      // A quotation whose every delivery note is now fully converted is done:
-      // mark it converted so stored statuses stay self-consistent (otherwise a
-      // QT -> DN -> INV deal would keep the quotation "sent" forever).
-      const sourceQuotationIds = [
-        ...new Set(selectedDeliveryNotes.map((dn) => dn.converted_from_id).filter(Boolean)),
-      ] as string[];
-      for (const qtId of sourceQuotationIds) {
-        const { data: siblingDns, error: siblingsError } = await supabase
-          .from("documents")
-          .select("id, status")
-          .eq("user_id", userId)
-          .eq("doc_type", "delivery_note")
-          .eq("converted_from_id", qtId);
-        if (siblingsError) throw siblingsError;
-        const dns = siblingDns || [];
-        if (dns.length > 0 && dns.every((d) => d.status === "converted")) {
-          const { error: qtUpdateError } = await supabase
-            .from("documents")
-            .update({ status: "converted" as DocumentStatus })
-            .eq("id", qtId);
-          if (qtUpdateError) throw qtUpdateError;
-        }
       }
 
       // Stock deduction (per stock_deduct_trigger). The invoice was inserted
@@ -677,11 +635,12 @@ export function InvoiceFromDeliveryNotesForm() {
       // send flow.
       await deductStockOnDocumentSent(invoice.id, userId);
 
-      toast.success("สร้างใบแจ้งหนี้จากใบส่งของแล้ว");
+      toast.success("สร้างใบแจ้งหนี้จากใบเสนอราคาแล้ว");
       navigate(`/deals/${invoiceDealId}`);
     } catch (err: any) {
       if (invoiceId) {
         await restoreStockOnVoid(invoiceId, userId).catch(() => undefined);
+        await supabase.from("document_line_items").delete().eq("document_id", invoiceId);
         await supabase.from("documents").delete().eq("id", invoiceId);
       }
       if (createdDealId) {
@@ -694,10 +653,10 @@ export function InvoiceFromDeliveryNotesForm() {
     }
   };
 
-  const canSave = Boolean(selectedCustomer && selectedDeliveryNotes.length > 0 && billableLines.length > 0);
+  const canSave = Boolean(selectedCustomer && selectedQuotations.length > 0 && billableLines.length > 0);
 
   return (
-    <AppShell title="ออกใบแจ้งหนี้จากใบส่งของ" showBack>
+    <AppShell title="ออกใบแจ้งหนี้จากใบเสนอราคา" showBack>
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
           {error}
@@ -709,7 +668,7 @@ export function InvoiceFromDeliveryNotesForm() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">โปรดยืนยันเวลาการออกใบกำกับภาษีกับบัญชีของคุณ</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบรองรับการรวมใบส่งของหลายใบเพื่อออกใบกำกับภาษีภายหลัง แต่กิจการ VAT ควรตรวจสอบจุดรับรู้ภาษีให้ถูกต้อง</p>
+            <p className="mt-0.5 text-xs leading-5">ระบบรองรับการรวมใบเสนอราคาหลายใบเพื่อออกใบกำกับภาษีภายหลัง แต่กิจการ VAT ควรตรวจสอบจุดรับรู้ภาษีให้ถูกต้อง</p>
           </div>
         </div>
       )}
@@ -718,8 +677,8 @@ export function InvoiceFromDeliveryNotesForm() {
         <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="font-medium">ใบส่งของที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบจะใช้การตั้งค่าภาษีจากใบส่งของใบแรกในรายการ โปรดตรวจสอบก่อนสร้างใบแจ้งหนี้</p>
+            <p className="font-medium">ใบเสนอราคาที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน</p>
+            <p className="mt-0.5 text-xs leading-5">ระบบจะใช้การตั้งค่าภาษีจากใบเสนอราคาใบแรกในรายการ โปรดตรวจสอบก่อนสร้างใบแจ้งหนี้</p>
           </div>
         </div>
       )}
@@ -728,8 +687,8 @@ export function InvoiceFromDeliveryNotesForm() {
         <div className="mb-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
           <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="font-medium">ใบส่งของที่เลือกมาจากหลายงานขาย</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบส่งของทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็นขั้นตอนเอกสารต่อเนื่องบนหน้าหลัก</p>
+            <p className="font-medium">ใบเสนอราคาที่เลือกมาจากหลายงานขาย</p>
+            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบเสนอราคาทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็นขั้นตอนเอกสารต่อเนื่องบนหน้าหลัก</p>
           </div>
         </div>
       )}
@@ -778,14 +737,14 @@ export function InvoiceFromDeliveryNotesForm() {
                   className="flex w-full items-center justify-between gap-3 p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
                   <div>
-                    <div className="text-xs font-medium text-gray-700">ช่วงวันที่ส่งของ</div>
+                    <div className="text-xs font-medium text-gray-700">ช่วงวันที่เสนอราคา</div>
                     <div className="mt-0.5 text-[11px] text-gray-500">{dateRangeSummary}</div>
                   </div>
                   <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`} />
                 </button>
                 {dateExpanded && (
                   <div className="border-t border-card-border p-3">
-                    <div className="mb-2 text-[11px] text-gray-500">ใช้กรองใบส่งของที่พร้อมนำมาออกใบแจ้งหนี้</div>
+                    <div className="mb-2 text-[11px] text-gray-500">ใช้กรองใบเสนอราคาที่พร้อมนำมาออกใบแจ้งหนี้</div>
                     <div className="flex flex-wrap gap-1.5">
                       {([
                         ["thisMonth", "เดือนนี้"],
@@ -802,7 +761,7 @@ export function InvoiceFromDeliveryNotesForm() {
                               setDateFrom("");
                               setDateTo("");
                             } else if (preset === "last90Days") {
-                              setDateFrom(defaultDeliveryNoteStartString(businessToday));
+                              setDateFrom(defaultQuotationStartString(businessToday));
                               setDateTo(businessToday);
                             } else {
                               const range = monthRange(businessToday, preset === "previousMonth" ? -1 : 0);
@@ -841,7 +800,7 @@ export function InvoiceFromDeliveryNotesForm() {
                       />
                     </div>
                     {datePreset === "all" ? (
-                      <div className="mt-2 text-[11px] text-gray-500">แสดงใบส่งของที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
+                      <div className="mt-2 text-[11px] text-gray-500">แสดงใบเสนอราคาที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
                     ) : null}
                   </div>
                 )}
@@ -856,38 +815,38 @@ export function InvoiceFromDeliveryNotesForm() {
         <Card>
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-medium">ใบส่งของที่พร้อมออกใบแจ้งหนี้</h3>
-              <p className="mt-1 text-xs text-gray-500">เลือกใบส่งของที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)</p>
+              <h3 className="text-sm font-medium">ใบเสนอราคาที่พร้อมออกใบแจ้งหนี้</h3>
+              <p className="mt-1 text-xs text-gray-500">เลือกใบเสนอราคาที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)</p>
             </div>
-            {deliveryNotes.length > 0 && (
+            {quotations.length > 0 && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  if (selectedIds.size === deliveryNotes.length) setSelectedIds(new Set());
-                  else setSelectedIds(new Set(deliveryNotes.map((dn) => dn.id)));
+                  if (selectedIds.size === quotations.length) setSelectedIds(new Set());
+                  else setSelectedIds(new Set(quotations.map((qt) => qt.id)));
                 }}
               >
-                {selectedIds.size === deliveryNotes.length ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
+                {selectedIds.size === quotations.length ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
               </Button>
             )}
           </div>
 
-          {loadingDns ? (
+          {loadingQts ? (
             <Spinner />
           ) : !selectedCustomerId ? (
-            <EmptyState title="เลือกลูกค้าก่อน" description="ระบบจะแสดงใบส่งของที่ส่งแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้" />
-          ) : deliveryNotes.length === 0 ? (
-            <EmptyState title="ไม่พบใบส่งของที่พร้อมออกใบแจ้งหนี้" description="ใบส่งของทั้งหมดอาจถูกออกใบแจ้งหนี้ครบแล้ว หรือลองเปลี่ยนช่วงวันที่" />
+            <EmptyState title="เลือกลูกค้าก่อน" description="ระบบจะแสดงใบเสนอราคาที่ส่งแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้" />
+          ) : quotations.length === 0 ? (
+            <EmptyState title="ไม่พบใบเสนอราคาที่พร้อมออกใบแจ้งหนี้" description="ใบเสนอราคาทั้งหมดอาจถูกออกใบแจ้งหนี้ครบแล้ว หรือลองเปลี่ยนช่วงวันที่" />
           ) : (
             <div className="space-y-2">
-              {deliveryNotes.map((dn) => (
+              {quotations.map((qt) => (
                 <button
-                  key={dn.id}
+                  key={qt.id}
                   type="button"
-                  onClick={() => toggleDn(dn.id)}
+                  onClick={() => toggleQt(qt.id)}
                   className={`w-full rounded-xl border p-3 text-left transition-colors ${
-                    selectedIds.has(dn.id)
+                    selectedIds.has(qt.id)
                       ? "border-primary bg-blue-50"
                       : "border-card-border bg-white hover:bg-gray-50"
                   }`}
@@ -895,23 +854,23 @@ export function InvoiceFromDeliveryNotesForm() {
                   <div className="flex items-start gap-3">
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(dn.id)}
-                      onChange={() => toggleDn(dn.id)}
+                      checked={selectedIds.has(qt.id)}
+                      onChange={() => toggleQt(qt.id)}
                       onClick={(event) => event.stopPropagation()}
                       className="mt-1"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-ink-900">{dn.doc_number || "ไม่มีเลขเอกสาร"}</span>
-                        <span className="text-xs text-gray-500">{formatBuddhistDate(dn.issue_date)}</span>
+                        <span className="font-medium text-ink-900">{qt.doc_number || "ไม่มีเลขเอกสาร"}</span>
+                        <span className="text-xs text-gray-500">{formatBuddhistDate(qt.issue_date)}</span>
                       </div>
                       <div className="mt-1 text-xs leading-5 text-gray-500">
-                        {buildItemSummary(dn.line_items.map((l) => ({ ...l, quantity: l.remaining })))}
+                        {buildItemSummary(qt.line_items.map((l) => ({ ...l, quantity: l.remaining })))}
                       </div>
                     </div>
                     <div className="shrink-0 text-right text-xs text-gray-500">
-                      <div>{dn.line_items.length} รายการ</div>
-                      <div className="mt-1 font-medium text-gray-700">฿{formatCurrency(dn.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0))}</div>
+                      <div>{qt.line_items.length} รายการ</div>
+                      <div className="mt-1 font-medium text-gray-700">฿{formatCurrency(qt.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0))}</div>
                     </div>
                   </div>
                 </button>
@@ -924,36 +883,36 @@ export function InvoiceFromDeliveryNotesForm() {
           <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 className="text-sm font-medium">รายการที่จะออกบิล</h3>
-              <p className="mt-1 text-xs text-gray-500">รายการคัดลอกจากใบส่งของ สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้</p>
+              <p className="mt-1 text-xs text-gray-500">รายการคัดลอกจากใบเสนอราคา สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้</p>
             </div>
             <div className="rounded-full bg-paper-warm px-2.5 py-1 text-xs text-ink-600">
-              {selectedDeliveryNotes.length} ใบส่งของ / {invoiceLines.length} รายการต้นทาง
+              {selectedQuotations.length} ใบเสนอราคา / {invoiceLines.length} รายการต้นทาง
             </div>
           </div>
 
           <div className="mb-3 flex items-center gap-2">
             <input
               type="checkbox"
-              id="show-dn-variance"
-              checked={showDnVariance}
-              onChange={(event) => setShowDnVariance(event.target.checked)}
+              id="show-qt-variance"
+              checked={showVariance}
+              onChange={(event) => setShowVariance(event.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <label htmlFor="show-dn-variance" className="text-xs text-gray-600">
-              แสดงส่วนต่างจากใบส่งของในใบกำกับภาษี (จำนวน/ราคาที่เปลี่ยนไปจากใบส่งของ)
+            <label htmlFor="show-qt-variance" className="text-xs text-gray-600">
+              แสดงส่วนต่างจากใบเสนอราคาในใบกำกับภาษี (จำนวน/ราคาที่เปลี่ยนไปจากใบเสนอราคา)
             </label>
           </div>
 
           {billableLines.length === 0 ? (
-            <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบส่งของด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)" />
+            <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบเสนอราคาด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)" />
           ) : (
             <div className="space-y-3">
               {invoiceLines.map((l) => (
                 <div key={l.key} className="rounded-xl border border-card-border p-3">
                   <div className="mb-2 flex items-center justify-between text-[11px] text-gray-500">
-                    <span>{l.source_document_id ? `ใบส่งของ ${l.dnDocNumber}` : "รายการเพิ่มเติม (นอกเหนือจากใบส่งของ)"}</span>
+                    <span>{l.source_document_id ? `ใบเสนอราคา ${l.qtDocNumber}` : "รายการเพิ่มเติม (นอกเหนือจากใบเสนอราคา)"}</span>
                     <div className="flex items-center gap-2">
-                      {l.source_document_id && <span>ส่งแล้ว {l.deliveredQty} / คงเหลือ {l.maxQty}</span>}
+                      {l.source_document_id && <span>เสนอราคา {l.quotedQty} / คงเหลือ {l.maxQty}</span>}
                       <button
                         type="button"
                         onClick={() => removeLine(l.key)}
@@ -1042,11 +1001,11 @@ export function InvoiceFromDeliveryNotesForm() {
                 </option>
               ))}
             </Select>
-            <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบส่งของประจำเดือนนี้" />
+            <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้" />
             <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
                 <FileStack className="h-3.5 w-3.5" />
-                รวม {selectedDeliveryNotes.length} ใบส่งของ / {billableLines.length} รายการที่ออกบิล
+                รวม {selectedQuotations.length} ใบเสนอราคา / {billableLines.length} รายการที่ออกบิล
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between"><span>รวมก่อนภาษี</span><span>฿{formatCurrency(tax.subtotal)}</span></div>
@@ -1064,7 +1023,7 @@ export function InvoiceFromDeliveryNotesForm() {
               className="mb-3"
             />
             <Button className="w-full justify-center" disabled={!canSave || saving} loading={saving} onClick={handleSave}>
-              สร้างใบแจ้งหนี้จากใบส่งของ
+              สร้างใบแจ้งหนี้จากใบเสนอราคา
             </Button>
           </div>
         </Card>
@@ -1073,7 +1032,7 @@ export function InvoiceFromDeliveryNotesForm() {
   );
 }
 
-function lineNetFromLine(l: DnLineWithRemaining) {
+function lineNetFromLine(l: QtLineWithRemaining) {
   const base = (Number(l.unit_price) || 0) * Math.max(0, l.remaining);
   return Math.max(0, base - (l.discount_percent > 0 ? (base * l.discount_percent) / 100 : Number(l.discount_amount) || 0));
 }

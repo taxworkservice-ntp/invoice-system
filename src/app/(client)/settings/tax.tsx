@@ -187,7 +187,7 @@ export default function SettingsTaxPage() {
             </div>
 
             <Select
-              label="อัตราเริ่มต้น WHT"
+              label="อัตราเริ่มต้นหัก ณ ที่จ่าย"
               value={defaultWhtRate}
               onChange={(e) => { setDefaultWhtRate(e.target.value as WhtRate); setSaved(false); }}
             >

@@ -3,6 +3,7 @@ import { BillingNoteForm } from "../../../components/documents/BillingNoteForm";
 import { CreditNoteForm } from "../../../components/documents/CreditNoteForm";
 import { DeliveryNoteFromQuotationForm } from "../../../components/documents/DeliveryNoteFromQuotationForm";
 import { InvoiceFromDeliveryNotesForm } from "../../../components/documents/InvoiceFromDeliveryNotesForm";
+import { InvoiceFromQuotationForm } from "../../../components/documents/InvoiceFromQuotationForm";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 
@@ -30,6 +31,10 @@ export default function NewDocumentPage() {
 
   if (type === "invoice_from_delivery_notes") {
     return <InvoiceFromDeliveryNotesForm />;
+  }
+
+  if (type === "invoice_from_quotation") {
+    return <InvoiceFromQuotationForm />;
   }
 
   if (type === "delivery_note_from_quotation" && quotationId) {

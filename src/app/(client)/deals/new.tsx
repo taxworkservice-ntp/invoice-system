@@ -247,7 +247,10 @@ function addDaysString(value: string, days: number) {
   const parsed = new Date(`${value}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return "";
   parsed.setDate(parsed.getDate() + days);
-  return parsed.toISOString().slice(0, 10);
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, "0");
+  const d = String(parsed.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function daysBetween(start: string, end: string) {
@@ -255,6 +258,11 @@ function daysBetween(start: string, end: string) {
   const e = new Date(`${end}T00:00:00`);
   if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 0;
   return Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function lineItemAmount(li: LineItemForm) {
+  const discount = (li.discount_percent || 0) / 100;
+  return li.unit_price * li.quantity * (1 - discount);
 }
 
 function getUsageBillDetail(note: string) {
@@ -1559,6 +1567,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     )}
                     <button
                       type="button"
+                      onClick={() => setIssueDate(addDaysString(issueDate, 1))}
+                      className="rounded-lg border border-cool-200 px-3 py-2 text-xs font-medium text-cool-500 transition-colors hover:bg-white"
+                    >
+                      เลือกวันถัดไป
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setShowIssueDatePicker((prev) => !prev)}
                       className="rounded-lg border border-cool-200 bg-white px-3 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-gray-50"
                     >
@@ -1568,14 +1583,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 </div>
                 {(showIssueDatePicker || !isIssueDateToday) && (
                   <div className="mt-3 border-t border-line-faint pt-3">
-                    <Input
-                      id="issueDate"
-                      label="วันที่ออกเอกสาร"
-                      type="date"
-                      value={issueDate}
-                      max={todayString()}
-                      onChange={(e) => setIssueDate(e.target.value)}
-                    />
+                      <Input
+                        id="issueDate"
+                        label="วันที่ออกเอกสาร"
+                        type="date"
+                        value={issueDate}
+                        max={addDaysString(todayString(), 365)}
+                        onChange={(e) => setIssueDate(e.target.value)}
+                      />
                   </div>
                 )}
               </div>
@@ -1601,6 +1616,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     )}
                     <button
                       type="button"
+                      onClick={() => setPaymentDate(addDaysString(paymentDate, 1))}
+                      className="rounded-lg border border-cool-200 px-3 py-2 text-xs font-medium text-cool-500 transition-colors hover:bg-white"
+                    >
+                      เลือกวันถัดไป
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setShowPaymentDatePicker((prev) => !prev)}
                       className="rounded-lg border border-cool-200 bg-white px-3 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-gray-50"
                     >
@@ -1610,14 +1632,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 </div>
                 {(showPaymentDatePicker || !isPaymentDateToday) && (
                   <div className="mt-3 border-t border-line-faint pt-3">
-                    <Input
-                      id="paymentDateSummary"
-                      label="วันที่รับชำระ"
-                      type="date"
-                      value={paymentDate}
-                      max={todayString()}
-                      onChange={(e) => setPaymentDate(e.target.value)}
-                    />
+                      <Input
+                        id="paymentDateSummary"
+                        label="วันที่รับชำระ"
+                        type="date"
+                        value={paymentDate}
+                        max={addDaysString(todayString(), 365)}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                      />
                   </div>
                 )}
               </div>
@@ -2397,21 +2419,55 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
 
         <Modal open={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="ยืนยันการบันทึก">
-          <div className="space-y-3">
-            <div className="rounded-lg border border-card-border bg-paper-field p-3 text-sm space-y-1.5">
-              <div className="flex justify-between"><span className="text-gray-500">ลูกค้า</span><span className="font-medium text-ink-900">{selectedCustomer?.name}</span></div>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-card-border bg-paper-field p-3 text-sm">
               <div className="flex justify-between"><span className="text-gray-500">ประเภท</span><span className="font-medium text-ink-900">{DOC_TYPE_LABELS[type]?.th || type}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">รายการ</span><span className="font-medium text-ink-900">{isBillingNote ? `${selectedInvoiceIds.size} ใบแจ้งหนี้` : `${lineItems.filter((li) => li.item_name.trim()).length} รายการ`}</span></div>
-              <div className="border-t border-card-border pt-1.5 mt-1.5">
-                <div className="flex justify-between"><span className="text-gray-500">ก่อน VAT</span><span className="font-medium text-ink-900">฿{tax.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
-                {vatRegistered && tax.vatAmount > 0 && (
-                  <div className="flex justify-between"><span className="text-gray-500">VAT {vatRate}%</span><span className="font-medium text-ink-900">฿{tax.vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
-                )}
-                {tax.whtAmount > 0 && (
-                  <div className="flex justify-between"><span className="text-gray-500">หัก ณ ที่จ่าย</span><span className="font-medium text-danger">-฿{tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
-                )}
-                <div className="flex justify-between border-t border-card-border pt-1.5 mt-1.5"><span className="text-gray-700 font-medium">ยอดสุทธิ</span><span className="font-semibold text-ink-900">฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              <div className="flex justify-between mt-1.5"><span className="text-gray-500">เลขที่เอกสาร</span><span className="font-medium text-ink-900">{docNumberOverride.trim() || "สร้างอัตโนมัติ"}</span></div>
+              <div className="flex justify-between mt-1.5">
+                <span className="text-gray-500">วันที่ออกเอกสาร</span>
+                <span className="font-medium text-ink-900">
+                  {formatBuddhistDate(issueDate)}
+                  {!isIssueDateToday && (
+                    <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">{issueDate > todayString() ? "ล่วงหน้า" : "ย้อนหลัง"}</span>
+                  )}
+                </span>
               </div>
+              <div className="flex justify-between mt-1.5"><span className="text-gray-500">ลูกค้า</span><span className="font-medium text-ink-900 text-right">{selectedCustomer?.name}</span></div>
+            </div>
+
+            {isBillingNote ? (
+              <div className="rounded-lg border border-card-border p-3 text-sm">
+                <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">ใบแจ้งหนี้ที่รวม ({selectedInvoiceIds.size})</div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-card-border p-3 text-sm">
+                <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-gray-500">รายการ ({lineItems.filter((li) => li.item_name.trim()).length})</div>
+                <div className="space-y-2">
+                  {lineItems.filter((li) => li.item_name.trim()).map((li) => (
+                    <div key={li.id} className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-ink-900">{li.item_name}</div>
+                        <div className="text-[11px] text-gray-500">{li.quantity} {li.unit || li.base_unit} × ฿{li.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                      </div>
+                      <div className="shrink-0 font-medium text-ink-900">฿{lineItemAmount(li).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-lg border border-card-border bg-paper-field p-3 text-sm space-y-1.5">
+              <div className="flex justify-between"><span className="text-gray-500">ก่อน VAT</span><span className="font-medium text-ink-900">฿{tax.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              {vatRegistered && tax.vatAmount > 0 && (
+                <div className="flex justify-between"><span className="text-gray-500">VAT {vatRate}%</span><span className="font-medium text-ink-900">฿{tax.vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              )}
+              {vatRegistered && tax.vatAmount > 0 && (
+                <div className="flex justify-between"><span className="text-gray-500">ยอดรวม</span><span className="font-medium text-ink-900">฿{(tax.subtotal + tax.vatAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              )}
+              {tax.whtAmount > 0 && (
+                <div className="flex justify-between"><span className="text-gray-500">หัก ณ ที่จ่าย</span><span className="font-medium text-danger">-฿{tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              )}
+              <div className="flex justify-between border-t border-card-border pt-1.5 mt-1.5"><span className="text-gray-700 font-medium">ยอดสุทธิ</span><span className="font-semibold text-ink-900">฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="secondary" onClick={() => setShowConfirmModal(false)} disabled={saving}>ยกเลิก</Button>

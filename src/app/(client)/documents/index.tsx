@@ -924,7 +924,7 @@ function QuickDetailModal({
                 onClick={onOpenDeal}
                 className="w-full sm:w-auto shadow-sm"
               >
-                ดูเอกสารในงานขายนี้
+                ไปที่หน้างานขาย
               </Button>
             )}
           </div>
@@ -1375,6 +1375,10 @@ export default function DocumentsPage() {
       return;
     }
     if (action === "billing") {
+      if (doc.doc_type !== "invoice" || doc.status !== "sent") {
+        toast.error("สามารถวางบิลได้เฉพาะใบแจ้งหนี้ที่ยังไม่ถูกวางบิล");
+        return;
+      }
       setOpenMenuId(null);
       navigate(`/documents/new?type=billing_note&dealId=${doc.deal_id || ""}`);
       return;

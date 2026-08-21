@@ -21,7 +21,7 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; className
   { key: "subtotal", label: "ก่อน VAT", align: "right" },
   { key: "vat_amount", label: "VAT", align: "right" },
   { key: "total_amount", label: "ยอดรวม", align: "right" },
-  { key: "wht_amount", label: "WHT", align: "right" },
+  { key: "wht_amount", label: "หัก ณ ที่จ่าย", align: "right" },
   { key: "net_payable", label: "ยอดสุทธิ", align: "right" },
   { key: "paid_at", label: "วันที่ชำระ", align: "left" },
   { key: "status", label: "สถานะ", align: "left" },

@@ -238,7 +238,7 @@ export default function WhtPage() {
       });
       setShowAddRecord(false);
       resetNewRecord();
-      toast.success("เพิ่มรายการ WHT แล้ว");
+      toast.success("เพิ่มรายการหัก ณ ที่จ่ายแล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
     } finally {
@@ -260,7 +260,7 @@ export default function WhtPage() {
         note: editRecordForm.note || null,
       });
       closeEditRecord();
-      toast.success("อัปเดตรายการ WHT แล้ว");
+      toast.success("อัปเดตรายการหัก ณ ที่จ่ายแล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
     } finally {
@@ -320,7 +320,7 @@ export default function WhtPage() {
   }
 
   async function handleDeleteRecord(id: string) {
-    if (!confirm("ลบรายการ WHT นี้?")) return;
+    if (!confirm("ลบรายการหัก ณ ที่จ่ายนี้?")) return;
     try {
       await deleteRecord(id);
       toast.success("ลบรายการแล้ว");
@@ -447,7 +447,7 @@ export default function WhtPage() {
   }
 
   async function handleDeleteVendor(id: string) {
-    if (!confirm("ลบผู้ขายนี้? รายการ WHT ที่เชื่อมโยงจะยังคงอยู่")) return;
+    if (!confirm("ลบผู้ขายนี้? รายการหัก ณ ที่จ่ายที่เชื่อมโยงจะยังคงอยู่")) return;
     try {
       await deleteVendor(id);
       toast.success("ลบผู้ขายแล้ว");

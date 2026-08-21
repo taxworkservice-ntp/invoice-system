@@ -1,4 +1,5 @@
 import { formatCurrency } from "../../lib/format";
+import { getDnVarianceParts } from "../../lib/dnVariance";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
   BillingNoteInvoice,
@@ -334,7 +335,7 @@ export function PrintLineItemsTable({
                 <td className="px-2 py-1.5 text-[10px] text-[#667085] border-t-[0.5px] border-[#E6EBF2]">
                   {startIndex + index}
                 </td>
-                <td className="px-2 py-1.5 text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
+                <td className="px-2 py-1.5 text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2] break-words">
                   <div className="leading-[14px]">{item.item_name}</div>
                   {printableNote ? (
                     <div className="mt-0.5 whitespace-pre-line text-[9px] leading-[12px] text-[#667085]">
@@ -357,6 +358,22 @@ export function PrintLineItemsTable({
                         : ""}
                     </div>
                   ) : null}
+                  {document.show_dn_variance && item.source_document_id ? (() => {
+                    const parts = getDnVarianceParts({
+                      deliveredQty: item.source_delivered_qty,
+                      billedQty: Number(item.quantity) || 0,
+                      unit: item.unit || "ชิ้น",
+                      dnUnitPrice: item.source_unit_price,
+                      unitPrice: Number(item.unit_price) || 0,
+                      dnDocNumber: lineDeliveryNoteMap[item.id]?.number,
+                      sourceKind: lineDeliveryNoteMap[item.id]?.kind,
+                    });
+                    return parts.length ? (
+                      <div className="mt-0.5 text-[9px] text-[#B54708]">
+                        {parts.join(" | ")}
+                      </div>
+                    ) : null;
+                  })() : null}
                   {!document.vat_registered &&
                   (receiptInvoices.length > 1 ||
                     billingNoteInvoices.length > 1) &&

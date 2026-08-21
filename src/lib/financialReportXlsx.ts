@@ -95,7 +95,7 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("รายการธุรกรรม");
   const { transactions } = opts;
 
-  const headers = ["วันที่", "เลขที่", "เลขที่ดีล", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "WHT", "ยอดสุทธิ", "วันที่ชำระ", "สถานะ"];
+  const headers = ["วันที่", "เลขที่", "เลขที่ดีล", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "หัก ณ ที่จ่าย", "ยอดสุทธิ", "วันที่ชำระ", "สถานะ"];
   let row = 1;
   headers.forEach((h, i) => {
     const cell = ws.getCell(row, i + 1);
@@ -152,7 +152,7 @@ function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     return ws;
   }
 
-  const headers = ["วันที่", "เลขที่ดีล", "เลขที่เอกสาร", "ประเภท", "ลูกค้า", "เลขผู้เสียภาษี", "ที่อยู่", "ยอดรวม", "ก่อน VAT", "WHT %", "หัก ณ ที่จ่าย", "ใบรับรอง WHT", "วันที่ชำระ"];
+  const headers = ["วันที่", "เลขที่ดีล", "เลขที่เอกสาร", "ประเภท", "ลูกค้า", "เลขผู้เสียภาษี", "ที่อยู่", "ยอดรวม", "ก่อน VAT", "หัก ณ ที่จ่าย %", "หัก ณ ที่จ่าย", "ใบรับรองหัก ณ ที่จ่าย", "วันที่ชำระ"];
   let row = 1;
   headers.forEach((h, i) => {
     applyHeader(ws.getCell(row, i + 1));

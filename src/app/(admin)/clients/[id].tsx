@@ -620,7 +620,7 @@ export default function AdminClientDetailPage() {
                 </p>
               </div>
               <div>
-                <span className="text-[11px] text-[#888780]">WHT เริ่มต้น</span>
+                <span className="text-[11px] text-[#888780]">หัก ณ ที่จ่าย เริ่มต้น</span>
                 <p className="text-[13px] text-[#1A1A18]">
                   {clientProfile.default_wht_rate === "0" ? "ไม่มี" : `${clientProfile.default_wht_rate}%`}
                 </p>

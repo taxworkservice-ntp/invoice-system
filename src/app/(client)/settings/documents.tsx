@@ -24,7 +24,7 @@ const DOC_VISIBILITY_TYPES = [
   { key: "receipt", label: "ใบเสร็จ" },
   { key: "delivery_note", label: "ใบส่งของ" },
   { key: "credit_note", label: "ใบลดหนี้" },
-  { key: "wht", label: "WHT (ภ.ง.ด.)" },
+  { key: "wht", label: "หัก ณ ที่จ่าย (ภ.ง.ด.)" },
 ];
 
 export default function SettingsDocumentsPage() {

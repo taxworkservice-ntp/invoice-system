@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, PackageCheck, ExternalLink, Clock } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileText, PackageCheck, ExternalLink, Clock } from "lucide-react";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
@@ -43,6 +43,7 @@ import { EditableDocNumber } from "../../../components/documents/EditableDocNumb
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
+import { getDnVarianceParts, getSourceVarianceLabel, hasDnVariance } from "../../../lib/dnVariance";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
 import type {
   Document,
@@ -202,7 +203,6 @@ export default function DealDetailPage() {
   const [paying, setPaying] = useState(false);
   const [paymentMismatchConfirm, setPaymentMismatchConfirm] = useState(false);
 
-  const [confirmConvertDoc, setConfirmConvertDoc] = useState<Document | null>(null);
   const [showVoided, setShowVoided] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copyingDeal, setCopyingDeal] = useState(false);
@@ -289,10 +289,31 @@ export default function DealDetailPage() {
         billingByDoc.set(item.billing_note_id, current);
       });
 
+      // A quotation whose pipeline has moved past it (a delivery note or
+      // invoice was created from it) must not keep the deal open — its stage
+      // becomes "done" even though its stored status stays "sent".
+      const quotationsWithDownstream = new Set<string>();
+      for (const doc of docs) {
+        if (doc.status === "voided") continue;
+        if (doc.converted_from_id && doc.doc_type !== "quotation") {
+          quotationsWithDownstream.add(doc.converted_from_id);
+        }
+      }
+      for (const line of (lineItemsData || []) as DocumentLineItem[]) {
+        if (!line.source_document_id) continue;
+        const parent = docs.find((d) => d.id === line.document_id);
+        if (parent && parent.status !== "voided" && parent.doc_type !== "quotation") {
+          quotationsWithDownstream.add(line.source_document_id);
+        }
+      }
+
       setDocsWithMeta(
         docs.map((doc) => ({
           document: doc,
-          stage: getDocStage(doc),
+          stage:
+            doc.doc_type === "quotation" && quotationsWithDownstream.has(doc.id)
+              ? ("done" as const)
+              : getDocStage(doc),
           line_items: lineItemsByDoc.get(doc.id) || [],
           billing_invoices: billingByDoc.get(doc.id) || [],
         }))
@@ -329,124 +350,6 @@ export default function DealDetailPage() {
       toast.success("อัปเดตสถานะเอกสารแล้ว");
       fetchDealData();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  const handleConvertToInvoice = async (quotation: Document) => {
-    if (!userId || !dealId || !customer) return;
-    if (!canSendDocumentType(permissions, quotation.doc_type)) {
-      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
-      return;
-    }
-    setActionLoadingId(quotation.id);
-    let createdInvoiceId: string | null = null;
-    try {
-      if (quotation.status !== "sent") {
-        throw new Error("แปลงได้เฉพาะใบเสนอราคาที่ส่งแล้วเท่านั้น");
-      }
-
-      const existingInvoice = docsWithMeta.find(
-        (item) =>
-          item.document.doc_type === "invoice" &&
-          item.document.converted_from_id === quotation.id &&
-          item.document.status !== "voided",
-      );
-      if (existingInvoice) {
-        throw new Error("ใบเสนอราคานี้ถูกแปลงเป็นใบแจ้งหนี้แล้ว");
-      }
-
-      const { data: persistedInvoice, error: existingInvoiceError } = await supabase
-        .from("documents")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("converted_from_id", quotation.id)
-        .eq("doc_type", "invoice")
-        .neq("status", "voided")
-        .limit(1)
-        .maybeSingle();
-      if (existingInvoiceError) throw existingInvoiceError;
-      if (persistedInvoice) {
-        throw new Error("ใบเสนอราคานี้ถูกแปลงเป็นใบแจ้งหนี้แล้ว");
-      }
-
-      const issueDate = quotation.issue_date || todayString();
-      const docNumber = await resolveDocNumber(userId, "invoice", issueDate, docNumberOverride);
-
-      const lineItems = docsWithMeta.find((item) => item.document.id === quotation.id)?.line_items || [];
-
-      const { data: invoiceDoc, error } = await supabase
-        .from("documents")
-        .insert({
-          user_id: userId,
-          deal_id: dealId,
-          customer_id: customer.id,
-          doc_type: "invoice",
-          doc_number: docNumber,
-          status: "sent",
-          issue_date: issueDate,
-          vat_registered: quotation.vat_registered,
-          vat_rate: quotation.vat_rate,
-          wht_rate: quotation.wht_rate,
-          discount_percent: quotation.discount_percent,
-          discount_amount: quotation.discount_amount,
-          subtotal: quotation.subtotal,
-          vat_amount: quotation.vat_amount,
-          total_amount: quotation.total_amount,
-          wht_amount: quotation.wht_amount,
-          net_payable: quotation.net_payable,
-          converted_from_id: quotation.id,
-        })
-        .select("*")
-        .single();
-      if (error) throw error;
-      createdInvoiceId = invoiceDoc.id;
-
-      if (lineItems.length > 0) {
-        const { error: lineError } = await supabase.from("document_line_items").insert(
-          lineItems.map((li, idx) => ({
-            document_id: invoiceDoc.id,
-            user_id: userId,
-            item_id: li.item_id,
-            item_name: li.item_name,
-            line_note: li.line_note || null,
-            item_sku: li.item_sku,
-            item_type: li.item_type,
-            unit: li.unit,
-            unit_price: li.unit_price,
-            quantity: li.quantity,
-            base_quantity: li.base_quantity,
-            discount_percent: li.discount_percent,
-            discount_amount: li.discount_amount,
-            qty_carton: li.qty_carton,
-            carton_unit: li.carton_unit,
-            source_document_id: quotation.id,
-            source_line_item_id: li.id,
-            line_total: li.line_total,
-            sort_order: idx,
-          }))
-        );
-        if (lineError) throw lineError;
-      }
-
-      await deductStockOnDocumentSent(invoiceDoc.id, userId);
-
-      const { error: quotationUpdateError } = await supabase
-        .from("documents")
-        .update({ status: "converted" as DocumentStatus })
-        .eq("id", quotation.id);
-      if (quotationUpdateError) throw quotationUpdateError;
-
-      toast.success("แปลงเป็นใบแจ้งหนี้สำเร็จ");
-      fetchDealData();
-    } catch (err: unknown) {
-      if (createdInvoiceId) {
-        await restoreStockOnVoid(createdInvoiceId, userId).catch(() => undefined);
-        await supabase.from("document_line_items").delete().eq("document_id", createdInvoiceId);
-        await supabase.from("documents").delete().eq("id", createdInvoiceId);
-      }
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setActionLoadingId(null);
@@ -1548,7 +1451,7 @@ export default function DealDetailPage() {
                 loading={actionLoadingId === mainAction.doc.id}
                 onClick={() => {
                   if (mainAction.type === "send_draft") handleSendDraft(mainAction.doc);
-                  if (mainAction.type === "convert") setConfirmConvertDoc(mainAction.doc);
+                  if (mainAction.type === "convert") navigate(`/documents/new?type=invoice_from_quotation&quotationId=${mainAction.doc.id}`);
                   if (mainAction.type === "delivery_from_quote") {
                     const params = new URLSearchParams({
                       type: "delivery_note_from_quotation",
@@ -1577,7 +1480,7 @@ export default function DealDetailPage() {
                   className="mt-2 w-full justify-center py-3 text-sm"
                   loading={actionLoadingId === optionalAction.doc.id}
                   onClick={() => {
-                    if (optionalAction.type === "convert") setConfirmConvertDoc(optionalAction.doc);
+                    if (optionalAction.type === "convert") navigate(`/documents/new?type=invoice_from_quotation&quotationId=${optionalAction.doc.id}`);
                     if (optionalAction.type === "delivery_from_quote") {
                       const params = new URLSearchParams({
                         type: "delivery_note_from_quotation",
@@ -1600,6 +1503,38 @@ export default function DealDetailPage() {
             </div>
           )}
         </Card>
+        {!allDone && (() => {
+          const pendingDrafts = docsWithMeta.filter((item) => item.document.status === "draft");
+          if (pendingDrafts.length === 0) return null;
+          return (
+            <Card className="border-amber-200 bg-amber-50">
+              <div className="flex items-start gap-3">
+                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-amber-900">
+                    มีฉบับร่างค้าง {pendingDrafts.length} รายการ
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    ฉบับร่างจะทำให้งานขายยังไม่ปิด — เปิดส่งต่อ หรือลบออกหากไม่ต้องใช้
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    {pendingDrafts.map((item) => (
+                      <button
+                        key={item.document.id}
+                        type="button"
+                        onClick={() => navigate(`/documents/${item.document.id}`)}
+                        className="block w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-left text-xs font-medium text-ink-900 transition-colors hover:bg-amber-100"
+                      >
+                        {DOC_TYPE_LABELS[item.document.doc_type]?.th || item.document.doc_type}
+                        {item.document.doc_number ? ` · ${item.document.doc_number}` : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
         {allDone && summaryStats && (
           <Card className=" border-green-200 bg-green-50">
             <div className="flex items-start gap-3">
@@ -1622,7 +1557,7 @@ export default function DealDetailPage() {
             </div>
           </Card>
         )}
-        {deliveryProgress && (
+        {deliveryProgress && !allDone && (
           <Card className={` ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -1897,6 +1832,57 @@ export default function DealDetailPage() {
                               ฟอร์มเปล่า
                             </div>
                           ) : null}
+                          {isFinancialDocument ? (() => {
+                            const sourceDocById = new Map(
+                              docsWithMeta
+                                .filter((d) => d.document.doc_type === "delivery_note" || d.document.doc_type === "quotation")
+                                .map((d) => [d.document.id, {
+                                  number: d.document.doc_number || d.document.id.slice(0, 8),
+                                  kind: (d.document.doc_type === "quotation" ? "quotation" : "delivery_note") as "quotation" | "delivery_note",
+                                }]),
+                            );
+                            const varianceLines = (item.line_items || [])
+                              .filter((li) =>
+                                li.source_document_id &&
+                                hasDnVariance({
+                                  deliveredQty: li.source_delivered_qty,
+                                  billedQty: Number(li.quantity) || 0,
+                                  unit: li.unit || "ชิ้น",
+                                  dnUnitPrice: li.source_unit_price,
+                                  unitPrice: Number(li.unit_price) || 0,
+                                }),
+                              )
+                              .map((li) => ({
+                                name: li.item_name,
+                                parts: getDnVarianceParts({
+                                  deliveredQty: li.source_delivered_qty,
+                                  billedQty: Number(li.quantity) || 0,
+                                  unit: li.unit || "ชิ้น",
+                                  dnUnitPrice: li.source_unit_price,
+                                  unitPrice: Number(li.unit_price) || 0,
+                                  dnDocNumber: sourceDocById.get(li.source_document_id || "")?.number,
+                                  sourceKind: sourceDocById.get(li.source_document_id || "")?.kind,
+                                }),
+                                kind: sourceDocById.get(li.source_document_id || "")?.kind ?? "delivery_note",
+                              }));
+                            if (varianceLines.length === 0) return null;
+                            const uniqueKinds = [...new Set(varianceLines.map((vl) => vl.kind))];
+                            const badgeLabel = uniqueKinds.length === 1 ? getSourceVarianceLabel(uniqueKinds[0]) : "ส่วนต่างจากเอกสารต้นฉบับ";
+                            return (
+                              <div className="mt-1">
+                                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-2xs font-medium text-amber-700">
+                                  {badgeLabel}
+                                </span>
+                                <ul className="mt-1 space-y-0.5">
+                                  {varianceLines.map((vl, vi) => (
+                                    <li key={vi} className="text-2xs leading-snug text-amber-800">
+                                      <span className="font-medium">{vl.name}</span> — {vl.parts.join(" | ")}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            );
+                          })() : null}
                           <div className="mt-1 text-2xs text-gray-400">
                             {formatBuddhistDate(doc.issue_date)}
                             {doc.due_date ? (
@@ -1910,7 +1896,7 @@ export default function DealDetailPage() {
                              <div className="mt-1 flex flex-wrap gap-x-2 text-2xs leading-relaxed text-gray-400">
                                <span>ก่อน VAT ฿{formatCurrency(doc.subtotal)}</span>
                                {doc.vat_registered && <span>VAT ฿{formatCurrency(doc.vat_amount)}</span>}
-                               {doc.wht_amount > 0 && <span className="text-amber-600">WHT -฿{formatCurrency(doc.wht_amount)}</span>}
+                               {doc.wht_amount > 0 && <span className="text-amber-600">หัก ณ ที่จ่าย -฿{formatCurrency(doc.wht_amount)}</span>}
                              </div>
                            )}
                            {(doc.status === "paid" || doc.status === "partially_paid" || doc.status === "generated" || doc.status === "issued") && (
@@ -1940,14 +1926,14 @@ export default function DealDetailPage() {
                                    <div className="text-gray-400">
                                      {doc.payment_method ? PAYMENT_METHOD_LABELS[doc.payment_method] : ""}
                                      {!isFinancialDocument && doc.payment_method && doc.wht_amount > 0 ? " · " : ""}
-                                     {!isFinancialDocument && doc.wht_amount > 0 ? <>WHT ฿{formatCurrency(doc.wht_amount)}</> : ""}
+                                     {!isFinancialDocument && doc.wht_amount > 0 ? <>หัก ณ ที่จ่าย ฿{formatCurrency(doc.wht_amount)}</> : ""}
                                    </div>
                                 </>
                               ) : (
                                 <div className="text-green-600">
                                    {doc.paid_at ? formatBuddhistDate(doc.paid_at) : ""}
                                    {doc.payment_method ? ` · ${PAYMENT_METHOD_LABELS[doc.payment_method]}` : ""}
-                                   {!isFinancialDocument && doc.wht_amount > 0 ? <> · WHT ฿{formatCurrency(doc.wht_amount)}</> : ""}
+                                   {!isFinancialDocument && doc.wht_amount > 0 ? <> · หัก ณ ที่จ่าย ฿{formatCurrency(doc.wht_amount)}</> : ""}
                                  </div>
                               )}
                             </div>
@@ -1955,6 +1941,9 @@ export default function DealDetailPage() {
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <div className="text-right">
+                            {(isFinancialDocument || doc.doc_type === "billing_note" || doc.doc_type === "receipt") && (
+                              <div className="text-2xs text-gray-400">ก่อน VAT ฿{formatCurrency(doc.subtotal)}</div>
+                            )}
                             <div className="text-2xs text-gray-400">{isFinancialDocument && doc.wht_amount > 0 ? "รวม" : "ยอดรวม"}</div>
                             <div className="text-sm font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
                             {isFinancialDocument && doc.wht_amount > 0 && (
@@ -2189,33 +2178,6 @@ export default function DealDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={confirmConvertDoc !== null} onClose={() => setConfirmConvertDoc(null)} title="ยืนยันการแปลงเป็นใบแจ้งหนี้">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">คุณต้องการแปลงใบเสนอราคาเป็นใบแจ้งหนี้ใช่หรือไม่?</p>
-          {confirmConvertDoc && (
-            <p className="text-sm">
-              ยอดรวม: <span className="font-semibold">฿{formatCurrency(confirmConvertDoc.total_amount ?? confirmConvertDoc.net_payable)}</span>
-            </p>
-          )}
-          <div className="flex gap-2 pt-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setConfirmConvertDoc(null)}>ยกเลิก</Button>
-            <Button
-              variant="primary"
-              className="flex-1"
-              disabled={actionLoadingId === confirmConvertDoc?.id}
-              onClick={() => {
-                if (confirmConvertDoc) {
-                  handleConvertToInvoice(confirmConvertDoc);
-                  setConfirmConvertDoc(null);
-                }
-              }}
-            >
-              {actionLoadingId === confirmConvertDoc?.id ? "..." : "ยืนยัน"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       <Modal
         open={voidModalOpen}
         onClose={() => setVoidModalOpen(false)}
@@ -2317,7 +2279,7 @@ export default function DealDetailPage() {
                    <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.preTax || 0)}</span>
                  </div>
                  <div className="mt-2 flex items-center justify-between">
-                   <span className="text-gray-500">ยอดรวมก่อน WHT</span>
+                   <span className="text-gray-500">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</span>
                    <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.grossAmount || 0)}</span>
                  </div>
                  <div className="mt-2 flex items-center justify-between">
@@ -2325,7 +2287,7 @@ export default function DealDetailPage() {
                    <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.whtAmount || 0)}</span>
                  </div>
                  <div className="mt-3 border-t border-card-border pt-2 flex items-center justify-between">
-                   <span className="font-medium text-gray-700">ยอดโอนจริงหลังหัก WHT</span>
+                   <span className="font-medium text-gray-700">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</span>
                    <span className="text-base font-semibold">฿{formatCurrency(paymentPreview?.netAmount || 0)}</span>
                 </div>
               </div>
@@ -2335,10 +2297,10 @@ export default function DealDetailPage() {
                    title="กรอกยอดโดยอ้างอิงจาก"
                    items={[
                      { label: "ยอดชำระก่อน VAT", description: "ใช้เมื่อกำหนดงวดผ่อนก่อนคิด VAT เช่น งวดละ 200,000 บาท" },
-                     { label: "ยอดรวมก่อนหัก WHT", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
-                     { label: "ยอดโอนจริงหลังหัก WHT", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
+                     { label: "ยอดรวมก่อนหักภาษี ณ ที่จ่าย", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
+                     { label: "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
                    ]}
-                   tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, WHT และยอดโอนจริงให้อัตโนมัติ"
+                   tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, หัก ณ ที่จ่าย และยอดโอนจริงให้อัตโนมัติ"
                  />
                  <select
                    className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
@@ -2357,12 +2319,12 @@ export default function DealDetailPage() {
                    }}
                  >
                    <option value="pre_tax">ยอดชำระก่อน VAT</option>
-                   <option value="gross">ยอดรวมก่อนหัก WHT</option>
-                   <option value="net_cash">ยอดโอนจริงหลังหัก WHT</option>
+                   <option value="gross">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</option>
+                   <option value="net_cash">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</option>
                  </select>
                </div>
                <Input
-                 label={paymentInputBasis === "pre_tax" ? "ยอดชำระก่อน VAT" : paymentInputBasis === "gross" ? "ยอดรวมก่อนหัก WHT" : "ยอดโอนจริงหลังหัก WHT"}
+                 label={paymentInputBasis === "pre_tax" ? "ยอดชำระก่อน VAT" : paymentInputBasis === "gross" ? "ยอดรวมก่อนหักภาษี ณ ที่จ่าย" : "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย"}
                  type="number"
                 step="0.01"
                  value={paymentBaseAmount || ""}

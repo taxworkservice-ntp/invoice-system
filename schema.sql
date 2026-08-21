@@ -603,6 +603,9 @@ create table documents (
   is_blank_form       boolean not null default false, -- delivery note issued as blank form (handwritten qty/price at delivery, filled in later)
   show_full_totals    boolean not null default false, -- delivery note: show full invoice-style totals (VAT/WHT/NET PAYABLE) instead of goods-value total
 
+  -- Invoice generated from delivery notes: print the variance (qty/price diff vs DN) on the tax invoice.
+  show_dn_variance     boolean not null default false,
+
   -- Receipt-specific fields
   payment_method      payment_method,
   bank_account_id     uuid references bank_accounts(id) on delete set null,
@@ -653,12 +656,12 @@ create unique index uq_documents_dn_draft_per_source
   on documents (user_id, converted_from_id)
   where doc_type = 'delivery_note' and status = 'draft';
 
--- At most one active invoice conversion per quotation.
-create unique index uq_documents_active_invoice_per_quotation
-  on documents (user_id, converted_from_id)
-  where doc_type = 'invoice'
-    and converted_from_id is not null
-    and status <> 'voided';
+-- Partial invoicing from a quotation is allowed while it is still 'sent'
+-- (parity with the delivery-note flow). A guard trigger blocks any new active
+-- invoice whose source quotation is already fully billed ('converted').
+create trigger trg_guard_invoice_per_quotation
+  before insert or update of status, converted_from_id on documents
+  for each row execute function public.guard_invoice_per_quotation();
 
 
 -- ============================================================
@@ -727,6 +730,11 @@ create table document_line_items (
   -- Source document tracing for generated invoices (e.g. invoice lines copied from DNs)
   source_document_id uuid references documents(id) on delete set null,
   source_line_item_id uuid references document_line_items(id) on delete set null,
+
+  -- Snapshot of the source line at invoicing time, so the recorded variance
+  -- (delivered qty / original price) stays correct even if the DN is edited/voided later.
+  source_delivered_qty numeric(15,3),
+  source_unit_price numeric(15,2),
 
   line_total      numeric(15,2) not null,     -- unit_price × quantity, stored at save time
 
@@ -814,12 +822,80 @@ create table billing_note_invoices (
   vat_amount          numeric(15,2) not null,
   total_amount        numeric(15,2) not null,
 
+  -- Set when the billing note is voided, releasing the invoice for re-billing.
+  -- A paid (or open) billing note leaves this null, which blocks any further
+  -- active billing-note link for the same invoice.
+  released_at         timestamptz,
+
   unique (billing_note_id, invoice_id),
 
   created_at          timestamptz not null default now()
 );
 
 alter table billing_note_invoices enable row level security;
+
+-- Guard: an invoice may only be linked to one ACTIVE billing note. Enforced in
+-- the database so every code path (form, deal page, API) is protected.
+create or replace function prevent_duplicate_active_billing_note()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.released_at is not null then
+    return new;
+  end if;
+
+  if exists (
+    select 1
+    from billing_note_invoices
+    where invoice_id = new.invoice_id
+      and released_at is null
+      and billing_note_id <> new.billing_note_id
+  ) then
+    raise exception 'invoice % is already linked to an active billing note', new.invoice_id
+      using errcode = 'unique_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_duplicate_active_billing_note
+  on billing_note_invoices;
+
+create trigger trg_prevent_duplicate_active_billing_note
+  before insert or update on billing_note_invoices
+  for each row
+  execute function prevent_duplicate_active_billing_note();
+
+-- Guard: partial invoicing from a quotation is allowed while it is still
+-- 'sent' (parity with the delivery-note flow), but no new active invoice may
+-- reference a quotation that is already fully billed ('converted').
+create or replace function public.guard_invoice_per_quotation()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_source_status text;
+begin
+  if new.doc_type = 'invoice'
+     and new.converted_from_id is not null
+     and new.status <> 'voided' then
+    select status into v_source_status
+      from public.documents
+      where id = new.converted_from_id
+        and user_id = new.user_id
+        and doc_type = 'quotation';
+
+    if v_source_status = 'converted' then
+      raise exception 'ใบเสนอราคานี้ถูกออกใบแจ้งหนี้ครบแล้ว';
+    end if;
+  end if;
+  return new;
+end;
+$$;
 
 create policy "Client manages workspace billing note invoices"
   on billing_note_invoices for all
@@ -923,7 +999,7 @@ create or replace function generate_doc_number(
 )
 returns text as $$
 declare
-  v_seq         doc_number_sequences%rowtype;
+   v_seq         public.doc_number_sequences%rowtype;
   v_effective_date date := coalesce(p_issue_date, current_date);
   v_year        int := extract(year from v_effective_date)::int;
   v_month       int := extract(month from v_effective_date)::int;
@@ -932,7 +1008,7 @@ declare
   v_doc_number  text;
 begin
   select * into v_seq
-  from doc_number_sequences
+  from public.doc_number_sequences
   where user_id = p_user_id and doc_type = p_doc_type
   for update;
 
@@ -941,29 +1017,41 @@ begin
   end if;
 
   if v_seq.reset_yearly then
-    select coalesce(max(substring(doc_number from '([0-9]+)$')::int), 0)
-      into v_existing_max
-    from documents
-    where user_id = p_user_id
-      and doc_type = p_doc_type
-      and doc_number is not null
-      and status != 'voided'
-      and extract(year from issue_date)::int = v_year
-      and extract(month from issue_date)::int = v_month;
+    select coalesce(
+      max(case when length(t.trail) <= 9 then t.trail::bigint else 0 end),
+      0
+    )::int
+    into v_existing_max
+    from (
+      select substring(doc_number from '([0-9]+)$') as trail
+      from public.documents
+      where user_id = p_user_id
+        and doc_type = p_doc_type
+        and doc_number is not null
+        and status != 'voided'
+        and extract(year from issue_date)::int = v_year
+        and extract(month from issue_date)::int = v_month
+    ) t;
   else
-    select coalesce(max(substring(doc_number from '([0-9]+)$')::int), 0)
-      into v_existing_max
-    from documents
-    where user_id = p_user_id
-      and doc_type = p_doc_type
-      and doc_number is not null
-      and status != 'voided';
+    select coalesce(
+      max(case when length(t.trail) <= 9 then t.trail::bigint else 0 end),
+      0
+    )::int
+    into v_existing_max
+    from (
+      select substring(doc_number from '([0-9]+)$') as trail
+      from public.documents
+      where user_id = p_user_id
+        and doc_type = p_doc_type
+        and doc_number is not null
+        and status != 'voided'
+    ) t;
   end if;
 
   v_next_seq := greatest(v_existing_max + 1, coalesce(v_seq.start_sequence, 1));
 
   -- Update sequence record
-  update doc_number_sequences
+  update public.doc_number_sequences
   set last_sequence = v_next_seq,
       last_year     = v_year,
       last_month    = v_month
@@ -974,7 +1062,7 @@ begin
 
   return v_doc_number;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = '';
 
 
 -- Repair document numbers for an existing client by rebuilding them from issue_date

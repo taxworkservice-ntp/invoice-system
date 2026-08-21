@@ -23,7 +23,7 @@ const TONES: Record<ButtonTone, string> = {
 const SOLID_TONES: Record<ButtonTone, string> = {
   blue: "bg-blue-500 text-white hover:bg-blue-600",
   green: "bg-green-500 text-white hover:bg-green-600",
-  amber: "bg-amber-500 text-white hover:bg-amber-600",
+  amber: "bg-amber-500 text-black hover:bg-amber-600",
   red: "bg-danger text-white hover:bg-red-700",
   teal: "bg-teal-500 text-white hover:bg-teal-600",
   slate: "bg-stone-500 text-white hover:bg-stone-600",

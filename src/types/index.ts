@@ -318,6 +318,7 @@ export interface Document {
   hide_amounts_on_print?: boolean;
   is_blank_form?: boolean;
   show_full_totals?: boolean;
+  show_dn_variance?: boolean;
   created_at: string;
   updated_at: string;
   customer?: Customer;
@@ -360,6 +361,8 @@ export interface DocumentLineItem {
   carton_unit: string | null;
   source_document_id: string | null;
   source_line_item_id: string | null;
+  source_delivered_qty: number | null;
+  source_unit_price: number | null;
   line_total: number;
   hide_amounts_on_print: boolean;
   sort_order: number;
