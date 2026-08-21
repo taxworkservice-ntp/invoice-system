@@ -10,6 +10,10 @@ export const DOC_TYPE_LABELS: Record<DocumentType, { th: string; en: string }> =
   credit_note: { th: "ใบลดหนี้", en: "Credit Note" },
 };
 
+export const DOC_TYPE_NOTES: Partial<Record<DocumentType, string>> = {
+  invoice: "สำหรับธุรกิจที่จดทะเบียน VAT ใบแจ้งหนี้นี้ทำหน้าที่เป็นใบกำกับภาษี (ต้องแสดง VAT)",
+};
+
 export const DOC_TYPE_SHORT: Record<DocumentType, string> = {
   quotation: "QT",
   invoice: "INV",
@@ -99,10 +103,6 @@ export const NEW_DEAL_OPTIONS = [
   {
     value: "invoice",
     label: "ออกใบแจ้งหนี้ทันที",
-  },
-  {
-    value: "tax_invoice_receipt",
-    label: "รับเงินแล้ว ออกใบกำกับภาษี/ใบเสร็จรับเงินเลย",
   },
   {
     value: "billing_note",

@@ -1,7 +1,7 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 
-export function PrintTotals({ data }: { data: PrintDocumentData }) {
+export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentData; blankForm?: boolean }) {
   const { document, referenceDoc, grossSubtotal, lineDiscountTotal, receiptOutstanding, receiptCumulativePaid } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
   const isReceipt = document.doc_type === "receipt";
@@ -14,13 +14,18 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
   const receiptReferenceAmount = referenceDoc?.total_amount ?? document.total_amount;
   const receiptPaidInFull = isReceipt && receiptOutstanding !== undefined && receiptOutstanding <= 0.01;
   const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
+  const showFullTotals = isDeliveryNote && document.show_full_totals === true;
 
-  if (hideDeliveryAmounts) {
+  if (hideDeliveryAmounts || blankForm) {
     return (
       <section className="print-block mt-3">
         <div>
-          <div className="text-[9px] tracking-[0.12em] text-[#667085]">หมายเหตุการส่งของ</div>
-          <div className="text-[6.5px] text-[#94a3b8]">DELIVERY REMARKS</div>
+          <div className="text-[9px] tracking-[0.12em] text-[#667085]">
+            {isDeliveryNote ? "หมายเหตุการส่งของ" : "หมายเหตุ"}
+          </div>
+          <div className="text-[6.5px] text-[#94a3b8]">
+            {isDeliveryNote ? "DELIVERY REMARKS" : "NOTE"}
+          </div>
         </div>
         <div className="mt-1 min-h-[10mm] whitespace-pre-line text-[9.5px] leading-[14px] text-[#475467]">
           {document.note?.trim() || "-"}
@@ -72,23 +77,14 @@ export function PrintTotals({ data }: { data: PrintDocumentData }) {
             </div>
           ) : null}
 
-          {isDeliveryNote ? (
-            <>
-              <div className="flex justify-between gap-4">
-                <div className="flex flex-col">
-                  <span>มูลค่าอ้างอิง</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">REFERENCE VALUE</span>
-                </div>
-                  <span className="self-center">{formatCurrency(document.total_amount)}</span>
+          {isDeliveryNote && !showFullTotals ? (
+            <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
+              <div className="flex flex-col">
+                <span>มูลค่ารวม</span>
+                <span className="text-[6.5px] font-normal text-[#94a3b8]">TOTAL VALUE</span>
               </div>
-              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
-                <div className="flex flex-col">
-                  <span>รวมทั้งสิ้น</span>
-                  <span className="text-[6.5px] font-normal text-[#94a3b8]">GRAND TOTAL</span>
-                </div>
-                <span className="self-center">{formatCurrency(document.total_amount)}</span>
-              </div>
-            </>
+              <span className="self-center">{formatCurrency(document.subtotal)}</span>
+            </div>
           ) : isReceipt ? (
             <>
               {receiptTaxable ? (

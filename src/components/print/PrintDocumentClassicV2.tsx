@@ -81,6 +81,7 @@ interface PrintDocumentClassicProps {
   batchBillingNoteInvoices?: BillingNoteInvoice[];
   batchReceiptInvoices?: ReceiptInvoice[];
   summaryStartIndex?: number;
+  blankForm?: boolean;
 }
 
 export function PrintDocumentClassicV2({
@@ -93,6 +94,7 @@ export function PrintDocumentClassicV2({
   batchBillingNoteInvoices,
   batchReceiptInvoices,
   summaryStartIndex = 1,
+  blankForm = false,
 }: PrintDocumentClassicProps) {
   const {
     document,
@@ -120,6 +122,8 @@ export function PrintDocumentClassicV2({
   const isDeliveryNote = document.doc_type === "delivery_note";
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
+  const showAmountColumns = blankForm || !hideDeliveryAmounts;
+  const showFullTotals = isDeliveryNote && document.show_full_totals === true;
   const isBillingNote = document.doc_type === "billing_note";
   const isReceiptOrBillingNoteTable =
     (isBillingNote || (document.doc_type === "receipt" && receiptRows.length > 0)) && document.vat_registered;
@@ -505,7 +509,7 @@ export function PrintDocumentClassicV2({
                     ภาษีมูลค่าเพิ่ม<span className="en">VAT</span>
                   </th>
                   <th style={{ textAlign: "right" }}>
-                    รับชำระ<span className="en">PAID</span>
+                    จำนวนเงิน<span className="en">AMOUNT</span>
                   </th>
                 </tr>
               </thead>
@@ -518,7 +522,7 @@ export function PrintDocumentClassicV2({
                     <td className="right">{formatCurrency(inv.subtotal)}</td>
                     <td className="right">{formatCurrency(inv.vat_amount)}</td>
                     <td className="right bold">
-                      {formatCurrency(inv.paid_amount)}
+                      {formatCurrency(inv.total_amount)}
                     </td>
                   </tr>
                 ))}
@@ -542,11 +546,11 @@ export function PrintDocumentClassicV2({
               <colgroup>
                 <col style={{ width: "12mm" }} />
                 <col
-                  style={{ width: hideDeliveryAmounts ? "139mm" : "87mm" }}
+                  style={{ width: showAmountColumns ? "87mm" : "139mm" }}
                 />
                 <col style={{ width: "23mm" }} />
                 <col style={{ width: "14mm" }} />
-                {!hideDeliveryAmounts && (
+                {showAmountColumns && (
                   <>
                     <col style={{ width: "21mm" }} />
                     <col style={{ width: "25mm" }} />
@@ -567,7 +571,7 @@ export function PrintDocumentClassicV2({
                   <th style={{ textAlign: "center" }}>
                     หน่วย<span className="en">UNIT</span>
                   </th>
-                  {!hideDeliveryAmounts && (
+                  {showAmountColumns && (
                     <>
                       <th style={{ textAlign: "right" }}>
                         ราคา/หน่วย<span className="en">UNIT PRICE</span>
@@ -596,7 +600,7 @@ export function PrintDocumentClassicV2({
                           <td className="print-classic-dn-header-label">{item.item_name}{dateStr ? ` — ${dateStr}` : ""}</td>
                           <td className="center">&nbsp;</td>
                           <td className="center">&nbsp;</td>
-                          {!hideDeliveryAmounts && (
+                          {showAmountColumns && (
                             <>
                               <td className="right">&nbsp;</td>
                               <td className="right">&nbsp;</td>
@@ -622,7 +626,7 @@ export function PrintDocumentClassicV2({
                               {printableNote}
                             </div>
                           ) : null}
-                          {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print ? (
+                          {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print && !blankForm ? (
                             <div className="print-classic-discount-note">
                               ส่วนลด {item.discount_percent || 0}%
                               {item.discount_amount > 0
@@ -647,15 +651,15 @@ export function PrintDocumentClassicV2({
                             </div>
                           ) : null}
                         </td>
-                        <td className="center">{item.quantity.toLocaleString("th-TH")}</td>
+                        <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
                         <td className="center">{item.unit}</td>
-                        {!hideDeliveryAmounts && (
+                        {showAmountColumns && (
                           <>
                             <td className="right">
-                              {item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
+                              {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
                             </td>
                             <td className="right bold">
-                              {item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
+                              {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                             </td>
                           </>
                         )}
@@ -672,7 +676,7 @@ export function PrintDocumentClassicV2({
                     <td className="print-classic-item-name">&nbsp;</td>
                     <td className="center">&nbsp;</td>
                     <td className="center">&nbsp;</td>
-                    {!hideDeliveryAmounts && (
+                    {showAmountColumns && (
                       <>
                         <td className="right">&nbsp;</td>
                         <td className="right">&nbsp;</td>
@@ -766,7 +770,7 @@ export function PrintDocumentClassicV2({
                 </>
               )}
             </div>
-            {!hideDeliveryAmounts && (
+            {!hideDeliveryAmounts && !blankForm && (
               <div className="print-classic-totals-col">
                 {isReceipt ? (
                   <>
@@ -839,6 +843,16 @@ export function PrintDocumentClassicV2({
                       <div className="print-classic-totals-val">{formatCurrency(receiptOutstanding ?? 0)}</div>
                     </div>
                   </>
+                ) : isDeliveryNote && !showFullTotals ? (
+                  <div className="print-classic-totals-row print-classic-totals-row-grand">
+                    <div className="print-classic-totals-lab">
+                      <div className="print-classic-totals-th">มูลค่ารวม</div>
+                      <div className="print-classic-totals-en">TOTAL VALUE</div>
+                    </div>
+                    <div className="print-classic-totals-val">
+                      {formatCurrency(document.subtotal)}
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="print-classic-totals-row">

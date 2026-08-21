@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, FileStack } from "lucide-react";
+import { AlertTriangle, FileStack, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -17,13 +17,45 @@ import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
 import { formatCurrency } from "../../lib/format";
+import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../lib/stock";
 import { WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../constants";
 import type { Customer, Document, DocumentLineItem, DocumentStatus, WhtRate } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
 
-type DeliveryNoteOption = Document & {
-  line_items: DocumentLineItem[];
-  active_invoice_id?: string | null;
+const EPS = 1e-9;
+const MANUAL_MAX = 1e9;
+
+type DnLineWithRemaining = DocumentLineItem & {
+  deliveredQty: number;
+  billedQty: number;
+  remaining: number;
+};
+
+type DeliveryNoteOption = Omit<Document, "line_items"> & {
+  line_items: DnLineWithRemaining[];
+  hasBillable: boolean;
+};
+
+type EditableInvoiceLine = {
+  key: string;
+  source_document_id: string;
+  source_line_item_id: string;
+  dnDocNumber: string;
+  item_name: string;
+  unit: string;
+  unit_price: number;
+  quantity: number;
+  line_note: string;
+  item_sku: string | null;
+  item_type: string;
+  discount_percent: number;
+  discount_amount: number;
+  qty_carton: number | null;
+  carton_unit: string | null;
+  base_quantity: number | null;
+  deliveredQty: number;
+  billedQty: number;
+  maxQty: number;
 };
 
 function defaultDeliveryNoteStartString(today = localTodayString()) {
@@ -51,7 +83,7 @@ function buildItemSummary(items: DocumentLineItem[]) {
 function getDeliveryNoteSubtotal(dn: DeliveryNoteOption) {
   const subtotal = Number(dn.subtotal);
   if (Number.isFinite(subtotal) && subtotal > 0) return subtotal;
-  return dn.line_items.reduce((sum, line) => sum + Number(line.line_total || 0), 0);
+  return dn.line_items.reduce((sum, l) => sum + Number(l.line_total || 0), 0);
 }
 
 function getDeliveryNoteTotal(dn: DeliveryNoteOption) {
@@ -60,19 +92,10 @@ function getDeliveryNoteTotal(dn: DeliveryNoteOption) {
   return getDeliveryNoteSubtotal(dn);
 }
 
-function dnTaxInput(dn: DeliveryNoteOption) {
-  return {
-    unit_price: getDeliveryNoteSubtotal(dn),
-    quantity: 1,
-    discount_percent: 0,
-  };
-}
-
-function buildDeliveryNoteLineNote(dn: DeliveryNoteOption) {
-  return [
-    `วันที่ส่งของ: ${formatBuddhistDate(dn.issue_date)}`,
-    `${dn.line_items.length} รายการในใบส่งของ`,
-  ].join("\n");
+function lineNetAmount(l: EditableInvoiceLine) {
+  const base = (Number(l.unit_price) || 0) * (Number(l.quantity) || 0);
+  const discount = l.discount_percent > 0 ? (base * l.discount_percent) / 100 : Number(l.discount_amount) || 0;
+  return Math.max(0, base - discount);
 }
 
 export function InvoiceFromDeliveryNotesForm() {
@@ -98,6 +121,7 @@ export function InvoiceFromDeliveryNotesForm() {
 
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [invoiceLines, setInvoiceLines] = useState<EditableInvoiceLine[]>([]);
   const [loadingDns, setLoadingDns] = useState(false);
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
@@ -210,6 +234,7 @@ export function InvoiceFromDeliveryNotesForm() {
 
       if (cancelled) return;
 
+      // Delivered vs already-billed per delivery-note line (keyed by dn::line).
       const linesByDoc = new Map<string, DocumentLineItem[]>();
       ((lineItems || []) as DocumentLineItem[]).forEach((line) => {
         const current = linesByDoc.get(line.document_id) || [];
@@ -217,18 +242,60 @@ export function InvoiceFromDeliveryNotesForm() {
         linesByDoc.set(line.document_id, current);
       });
 
-      const activeByDn = new Map<string, string>();
-      ((activeLinks || []) as { delivery_note_id: string; invoice_id: string }[]).forEach((link) => {
-        activeByDn.set(link.delivery_note_id, link.invoice_id);
-      });
+      // Billed quantity = sum of invoice line items that reference each DN line,
+      // excluding voided/draft invoices.
+      const refPairs = ((lineItems || []) as DocumentLineItem[])
+        .filter((l) => l.id)
+        .map((l) => ({ dnId: l.document_id, lineId: l.id }));
+      const dnLineIds = refPairs.map((p) => p.lineId);
+      const dnIds = refPairs.map((p) => p.dnId);
+
+      let billedByLine = new Map<string, number>();
+      if (dnLineIds.length) {
+        const { data: invLines } = await supabase
+          .from("document_line_items")
+          .select("source_document_id, source_line_item_id, quantity, document_id")
+          .in("source_line_item_id", dnLineIds)
+          .in("source_document_id", dnIds);
+        const invIds = Array.from(new Set(((invLines || []) as any[]).map((r) => r.document_id).filter(Boolean)));
+        let validInvIds = new Set<string>();
+        if (invIds.length) {
+          const { data: invDocs } = await supabase
+            .from("documents")
+            .select("id, doc_type, status")
+            .in("id", invIds);
+          validInvIds = new Set(
+            ((invDocs || []) as { id: string; doc_type: string; status: string }[])
+              .filter((d) => d.doc_type === "invoice" && d.status !== "voided" && d.status !== "draft")
+              .map((d) => d.id),
+          );
+        }
+        ((invLines || []) as any[]).forEach((r) => {
+          if (!validInvIds.has(r.document_id)) return;
+          const key = `${r.source_document_id}::${r.source_line_item_id}`;
+          billedByLine.set(key, (billedByLine.get(key) || 0) + Number(r.quantity || 0));
+        });
+      }
+
+      void activeLinks;
 
       const options = docList
-        .map((doc) => ({
-          ...doc,
-          line_items: linesByDoc.get(doc.id) || [],
-          active_invoice_id: activeByDn.get(doc.id) || null,
-        }))
-        .filter((doc) => !doc.active_invoice_id);
+        .map((doc) => {
+          const lines = (linesByDoc.get(doc.id) || []).map((line) => ({
+            ...line,
+            deliveredQty: Number(line.quantity) || 0,
+            billedQty: billedByLine.get(`${doc.id}::${line.id}`) || 0,
+            remaining: (Number(line.quantity) || 0) - (billedByLine.get(`${doc.id}::${line.id}`) || 0),
+          }));
+          return {
+            ...doc,
+            line_items: lines,
+            hasBillable: lines.some((l) => l.remaining > EPS),
+          } as DeliveryNoteOption;
+        })
+        .filter((doc) => doc.hasBillable);
+
+      if (cancelled) return;
 
       setDeliveryNotes(options);
       setSelectedIds(
@@ -250,10 +317,51 @@ export function InvoiceFromDeliveryNotesForm() {
     [deliveryNotes, selectedIds],
   );
 
-  const selectedLines = useMemo(
-    () => selectedDeliveryNotes.flatMap((doc) => doc.line_items.map((line) => ({ doc, line }))),
-    [selectedDeliveryNotes],
-  );
+  // Rebuild editable invoice lines from the selected delivery notes, preserving
+  // any manual edits the user already made to lines that are still present.
+  useEffect(() => {
+    setInvoiceLines((prev) => {
+      // Keep any manually-added lines (not linked to a delivery note) untouched.
+      const manualLines = prev.filter((l) => !l.source_document_id);
+      const prevByKey = new Map(
+        prev.filter((l) => l.source_document_id).map((l) => [`${l.source_document_id}::${l.source_line_item_id}`, l]),
+      );
+      const next: EditableInvoiceLine[] = [...manualLines];
+      for (const dn of selectedDeliveryNotes) {
+        for (const l of dn.line_items) {
+          if (l.remaining <= EPS) continue;
+          const key = `${dn.id}::${l.id}`;
+          const existing = prevByKey.get(key);
+          if (existing) {
+            next.push({ ...existing, maxQty: l.remaining, quantity: Math.min(existing.quantity, l.remaining) });
+          } else {
+            next.push({
+              key,
+              source_document_id: dn.id,
+              source_line_item_id: l.id || "",
+              dnDocNumber: dn.doc_number || dn.id.slice(0, 8),
+              item_name: l.item_name,
+              unit: l.unit || "ชิ้น",
+              unit_price: Number(l.unit_price) || 0,
+              quantity: l.remaining,
+              line_note: l.line_note || "",
+              item_sku: l.item_sku || null,
+              item_type: l.item_type || "product",
+              discount_percent: Number(l.discount_percent) || 0,
+              discount_amount: Number(l.discount_amount) || 0,
+              qty_carton: l.qty_carton ? Number(l.qty_carton) : null,
+              carton_unit: l.carton_unit || null,
+              base_quantity: l.base_quantity ? Number(l.base_quantity) : null,
+              deliveredQty: l.deliveredQty,
+              billedQty: l.billedQty,
+              maxQty: l.remaining,
+            });
+          }
+        }
+      }
+      return next;
+    });
+  }, [selectedDeliveryNotes]);
 
   const selectedDealId = useMemo(() => {
     const dealIds = Array.from(new Set(selectedDeliveryNotes.map((doc) => doc.deal_id).filter(Boolean)));
@@ -288,14 +396,21 @@ export function InvoiceFromDeliveryNotesForm() {
     };
   }, [clientProfile?.vat_rate, clientProfile?.vat_registered, selectedDeliveryNotes]);
 
+  const billableLines = useMemo(() => invoiceLines.filter((l) => l.quantity > EPS), [invoiceLines]);
+
   const tax = useMemo(() => {
     return calculateTax(
-      selectedDeliveryNotes.map((dn) => dnTaxInput(dn)),
+      billableLines.map((l) => ({
+        unit_price: l.unit_price,
+        quantity: l.quantity,
+        discount_percent: l.discount_percent,
+        discount_amount: l.discount_amount,
+      })),
       taxSnapshot.vatRegistered,
       taxSnapshot.vatRate,
       parseFloat(whtRate),
     );
-  }, [selectedDeliveryNotes, taxSnapshot.vatRate, taxSnapshot.vatRegistered, whtRate]);
+  }, [billableLines, taxSnapshot.vatRate, taxSnapshot.vatRegistered, whtRate]);
 
   const toggleDn = (id: string) => {
     setSelectedIds((prev) => {
@@ -306,11 +421,54 @@ export function InvoiceFromDeliveryNotesForm() {
     });
   };
 
+  const updateLine = (key: string, patch: Partial<EditableInvoiceLine>) => {
+    setInvoiceLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  };
+
+  const addManualLine = () => {
+    setInvoiceLines((prev) => [
+      ...prev,
+      {
+        key: `manual-${Date.now()}-${prev.length}`,
+        source_document_id: "",
+        source_line_item_id: "",
+        dnDocNumber: "รายการเพิ่มเติม",
+        item_name: "",
+        unit: "ชิ้น",
+        unit_price: 0,
+        quantity: 1,
+        line_note: "",
+        item_sku: null,
+        item_type: "product",
+        discount_percent: 0,
+        discount_amount: 0,
+        qty_carton: null,
+        carton_unit: null,
+        base_quantity: null,
+        deliveredQty: 0,
+        billedQty: 0,
+        maxQty: MANUAL_MAX,
+      },
+    ]);
+  };
+
+  const removeLine = (key: string) => {
+    setInvoiceLines((prev) => prev.filter((l) => l.key !== key));
+  };
+
   const handleSave = async () => {
     if (!userId || !selectedCustomer || selectedDeliveryNotes.length === 0) return;
-    if (selectedLines.length === 0) {
-      setError("ใบส่งของที่เลือกยังไม่มีรายการสินค้า");
+    if (billableLines.length === 0) {
+      setError("ยังไม่มีรายการที่จะออกบิล (ระบุจำนวนที่มากกว่า 0)");
       return;
+    }
+
+    // Guardrail: never bill more than the remaining (delivered - already billed) qty.
+    for (const l of billableLines) {
+      if (l.quantity > l.maxQty + EPS) {
+        setError(`จำนวนที่จะออกบิล cho "${l.item_name}" มากกว่ายอดคงเหลือ (${l.maxQty})`);
+        return;
+      }
     }
 
     setSaving(true);
@@ -388,29 +546,54 @@ export function InvoiceFromDeliveryNotesForm() {
           source_line_item_id: null,
           sort_order: sortIndex++,
         });
-        for (const li of (dn.line_items || [])) {
+        for (const l of invoiceLines.filter((il) => il.source_document_id === dn.id && il.quantity > EPS)) {
           lineRecords.push({
             document_id: invoice.id,
             user_id: userId,
-            item_id: li.item_id || null,
-            item_name: li.item_name,
-            line_note: li.line_note || null,
-            item_sku: li.item_sku || null,
-            item_type: li.item_type || "product",
-            unit: li.unit || "ชิ้น",
-            unit_price: Number(li.unit_price) || 0,
-            quantity: Number(li.quantity) || 0,
-            base_quantity: li.base_quantity ? Number(li.base_quantity) : null,
-            discount_percent: Number(li.discount_percent) || 0,
-            discount_amount: Number(li.discount_amount) || 0,
-            qty_carton: li.qty_carton ? Number(li.qty_carton) : null,
-            carton_unit: li.carton_unit || null,
-            line_total: Number(li.line_total) || 0,
-            source_document_id: dn.id,
-            source_line_item_id: li.id || null,
+            item_id: null,
+            item_name: l.item_name,
+            line_note: l.line_note || null,
+            item_sku: l.item_sku || null,
+            item_type: l.item_type || "product",
+            unit: l.unit || "ชิ้น",
+            unit_price: Number(l.unit_price) || 0,
+            quantity: Number(l.quantity) || 0,
+            base_quantity: l.base_quantity,
+            discount_percent: Number(l.discount_percent) || 0,
+            discount_amount: Number(l.discount_amount) || 0,
+            qty_carton: l.qty_carton,
+            carton_unit: l.carton_unit || null,
+            line_total: lineNetAmount(l),
+            source_document_id: l.source_document_id,
+            source_line_item_id: l.source_line_item_id || null,
             sort_order: sortIndex++,
           });
         }
+      }
+
+      // Manual lines (not linked to any delivery note) — e.g. freight / surcharges.
+      for (const l of invoiceLines.filter((il) => !il.source_document_id && il.quantity > EPS)) {
+        lineRecords.push({
+          document_id: invoice.id,
+          user_id: userId,
+          item_id: null,
+          item_name: l.item_name,
+          line_note: l.line_note || null,
+          item_sku: l.item_sku || null,
+          item_type: l.item_type || "product",
+          unit: l.unit || "ชิ้น",
+          unit_price: Number(l.unit_price) || 0,
+          quantity: Number(l.quantity) || 0,
+          base_quantity: l.base_quantity,
+          discount_percent: Number(l.discount_percent) || 0,
+          discount_amount: Number(l.discount_amount) || 0,
+          qty_carton: l.qty_carton,
+          carton_unit: l.carton_unit || null,
+          line_total: lineNetAmount(l),
+          source_document_id: null,
+          source_line_item_id: null,
+          sort_order: sortIndex++,
+        });
       }
 
       const { error: lineError } = await supabase.from("document_line_items").insert(lineRecords);
@@ -430,16 +613,32 @@ export function InvoiceFromDeliveryNotesForm() {
       const { error: linkError } = await supabase.from("invoice_delivery_notes").insert(linkRecords);
       if (linkError) throw linkError;
 
-      const { error: updateError } = await supabase
-        .from("documents")
-        .update({ status: "converted" as DocumentStatus, deal_id: invoiceDealId })
-        .in("id", selectedDeliveryNotes.map((dn) => dn.id));
-      if (updateError) throw updateError;
+      // Mark each delivery note as fully converted only when every line is now
+      // fully billed; otherwise keep it "sent" for further partial invoices.
+      for (const dn of selectedDeliveryNotes) {
+        const allCovered = dn.line_items.every((l) => {
+          const thisQty = invoiceLines.find(
+            (il) => il.source_document_id === dn.id && il.source_line_item_id === l.id,
+          )?.quantity || 0;
+          return l.deliveredQty - (l.billedQty + thisQty) <= EPS;
+        });
+        const { error: updateError } = await supabase
+          .from("documents")
+          .update({ status: (allCovered ? "converted" : "sent") as DocumentStatus, deal_id: invoiceDealId })
+          .eq("id", dn.id);
+        if (updateError) throw updateError;
+      }
+
+      // Stock deduction (per stock_deduct_trigger). The invoice was inserted
+      // directly with status "sent", so deduct stock here to match the normal
+      // send flow.
+      await deductStockOnDocumentSent(invoice.id, userId);
 
       toast.success("สร้างใบแจ้งหนี้จากใบส่งของแล้ว");
       navigate(`/deals/${invoiceDealId}`);
     } catch (err: any) {
       if (invoiceId) {
+        await restoreStockOnVoid(invoiceId, userId).catch(() => undefined);
         await supabase.from("documents").delete().eq("id", invoiceId);
       }
       if (createdDealId) {
@@ -452,7 +651,7 @@ export function InvoiceFromDeliveryNotesForm() {
     }
   };
 
-  const canSave = Boolean(selectedCustomer && selectedDeliveryNotes.length > 0 && selectedLines.length > 0);
+  const canSave = Boolean(selectedCustomer && selectedDeliveryNotes.length > 0 && billableLines.length > 0);
 
   return (
     <AppShell title="ออกใบแจ้งหนี้จากใบส่งของ" showBack>
@@ -595,7 +794,7 @@ export function InvoiceFromDeliveryNotesForm() {
                 ) : null}
               </div>
               <p className="text-xs leading-5 text-gray-500 sm:col-span-2">
-                ระบบแสดงเฉพาะใบส่งของที่ยืนยันแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้
+                ระบบแสดงเฉพาะรายการที่ยังไม่ถูกออกใบแจ้งหนี้ (คงเหลือหลังหักยอดที่ออกไปแล้ว) สามารถออกบิลทีละส่วนได้
               </p>
             </div>
           )}
@@ -605,7 +804,7 @@ export function InvoiceFromDeliveryNotesForm() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-medium">ใบส่งของที่พร้อมออกใบแจ้งหนี้</h3>
-              <p className="mt-1 text-xs text-gray-500">เลือกทั้งใบเท่านั้น ระบบจะล็อกใบส่งของหลังสร้างใบแจ้งหนี้</p>
+              <p className="mt-1 text-xs text-gray-500">เลือกใบส่งของที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)</p>
             </div>
             {deliveryNotes.length > 0 && (
               <Button
@@ -626,7 +825,7 @@ export function InvoiceFromDeliveryNotesForm() {
           ) : !selectedCustomerId ? (
             <EmptyState title="เลือกลูกค้าก่อน" description="ระบบจะแสดงใบส่งของที่ส่งแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้" />
           ) : deliveryNotes.length === 0 ? (
-            <EmptyState title="ไม่พบใบส่งของที่พร้อมออกใบแจ้งหนี้" description="ลองเปลี่ยนช่วงวันที่ หรือเช็คว่าใบส่งของถูกทำเครื่องหมายว่าส่งแล้ว" />
+            <EmptyState title="ไม่พบใบส่งของที่พร้อมออกใบแจ้งหนี้" description="ใบส่งของทั้งหมดอาจถูกออกใบแจ้งหนี้ครบแล้ว หรือลองเปลี่ยนช่วงวันที่" />
           ) : (
             <div className="space-y-2">
               {deliveryNotes.map((dn) => (
@@ -653,11 +852,13 @@ export function InvoiceFromDeliveryNotesForm() {
                         <span className="font-medium text-ink-900">{dn.doc_number || "ไม่มีเลขเอกสาร"}</span>
                         <span className="text-xs text-gray-500">{formatBuddhistDate(dn.issue_date)}</span>
                       </div>
-                      <div className="mt-1 text-xs leading-5 text-gray-500">{buildItemSummary(dn.line_items)}</div>
+                      <div className="mt-1 text-xs leading-5 text-gray-500">
+                        {buildItemSummary(dn.line_items.map((l) => ({ ...l, quantity: l.remaining })))}
+                      </div>
                     </div>
                     <div className="shrink-0 text-right text-xs text-gray-500">
                       <div>{dn.line_items.length} รายการ</div>
-                      <div className="mt-1 font-medium text-gray-700">฿{formatCurrency(dn.line_items.reduce((sum, line) => sum + line.line_total, 0))}</div>
+                      <div className="mt-1 font-medium text-gray-700">฿{formatCurrency(dn.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0))}</div>
                     </div>
                   </div>
                 </button>
@@ -670,50 +871,97 @@ export function InvoiceFromDeliveryNotesForm() {
           <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 className="text-sm font-medium">รายการที่จะออกบิล</h3>
-              <p className="mt-1 text-xs text-gray-500">แสดงสรุปยอดตามใบส่งของที่เลือกก่อนสร้างใบแจ้งหนี้</p>
+              <p className="mt-1 text-xs text-gray-500">รายการคัดลอกจากใบส่งของ สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้</p>
             </div>
             <div className="rounded-full bg-paper-warm px-2.5 py-1 text-xs text-ink-600">
-              {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการต้นทาง
+              {selectedDeliveryNotes.length} ใบส่งของ / {invoiceLines.length} รายการต้นทาง
             </div>
           </div>
 
-          {selectedLines.length === 0 ? (
-            <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบส่งของด้านบนเพื่อดูรายการทั้งหมดก่อนสร้างใบแจ้งหนี้" />
+          {billableLines.length === 0 ? (
+            <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบส่งของด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)" />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-card-border">
-              <div className="hidden bg-paper-soft px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:gap-3">
-                <div>ใบส่งของ</div>
-                <div>รายละเอียด</div>
-                <div className="text-right">จำนวน</div>
-                <div className="text-right">ยอด</div>
-              </div>
-              <div className="divide-y divide-card-border">
-                {selectedDeliveryNotes.map((dn) => (
-                  <div
-                    key={dn.id}
-                    className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_90px_110px] sm:items-center sm:gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-ink-900">{dn.doc_number || "ไม่มีเลขเอกสาร"}</div>
-                      <div className="mt-0.5 text-xs text-gray-500">{formatBuddhistDate(dn.issue_date)}</div>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="break-words text-ink-900">ใบส่งของ {dn.doc_number || dn.id.slice(0, 8)}</div>
-                      <div className="mt-0.5 text-xs text-gray-500">{buildItemSummary(dn.line_items)}</div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 text-sm sm:block sm:text-right">
-                      <span className="text-xs text-gray-500 sm:hidden">จำนวน</span>
-                      <span>
-                        1 ใบ
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 font-medium text-ink-900 sm:block sm:text-right">
-                      <span className="text-xs font-normal text-gray-500 sm:hidden">ยอด</span>
-                      <span>฿{formatCurrency(getDeliveryNoteSubtotal(dn))}</span>
+            <div className="space-y-3">
+              {invoiceLines.map((l) => (
+                <div key={l.key} className="rounded-xl border border-card-border p-3">
+                  <div className="mb-2 flex items-center justify-between text-[11px] text-gray-500">
+                    <span>{l.source_document_id ? `ใบส่งของ ${l.dnDocNumber}` : "รายการเพิ่มเติม (นอกเหนือจากใบส่งของ)"}</span>
+                    <div className="flex items-center gap-2">
+                      {l.source_document_id && <span>ส่งแล้ว {l.deliveredQty} / คงเหลือ {l.maxQty}</span>}
+                      <button
+                        type="button"
+                        onClick={() => removeLine(l.key)}
+                        className="text-gray-400 transition-colors hover:text-red-600"
+                        aria-label="ลบรายการ"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <Input
+                    label="รายการ"
+                    value={l.item_name}
+                    onChange={(event) => updateLine(l.key, { item_name: event.target.value })}
+                  />
+                  <Input
+                    label="รายละเอียด / สเปค"
+                    value={l.line_note}
+                    onChange={(event) => updateLine(l.key, { line_note: event.target.value })}
+                    className="mt-2"
+                  />
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <Input
+                      label="จำนวน"
+                      type="number"
+                      min={0}
+                      max={l.maxQty}
+                      step="any"
+                      value={l.quantity}
+                      onChange={(event) =>
+                        updateLine(l.key, {
+                          quantity: Math.max(0, Math.min(Number(event.target.value) || 0, l.maxQty)),
+                        })
+                      }
+                    />
+                    <Input
+                      label="หน่วย"
+                      value={l.unit}
+                      onChange={(event) => updateLine(l.key, { unit: event.target.value })}
+                    />
+                    <Input
+                      label="ราคา/หน่วย"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={l.unit_price}
+                      onChange={(event) => updateLine(l.key, { unit_price: Number(event.target.value) || 0 })}
+                    />
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Input
+                      label="ส่วนลด (%)"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="any"
+                      value={l.discount_percent}
+                      onChange={(event) =>
+                        updateLine(l.key, {
+                          discount_percent: Math.max(0, Math.min(100, Number(event.target.value) || 0)),
+                          discount_amount: 0,
+                        })
+                      }
+                    />
+                    <div className="flex flex-col justify-end">
+                      <span className="text-[11px] text-gray-500">รวมรายการ</span>
+                      <span className="text-sm font-medium text-ink-900">฿{formatCurrency(lineNetAmount(l))}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            <Button variant="secondary" className="w-full justify-center" onClick={addManualLine}>
+              + เพิ่มรายการเพิ่มเติม (ค่าขนส่ง / ส่วนต่าง)
+            </Button>
             </div>
           )}
         </Card>
@@ -732,7 +980,7 @@ export function InvoiceFromDeliveryNotesForm() {
             <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
                 <FileStack className="h-3.5 w-3.5" />
-                รวม {selectedDeliveryNotes.length} ใบส่งของ / {selectedLines.length} รายการต้นทาง
+                รวม {selectedDeliveryNotes.length} ใบส่งของ / {billableLines.length} รายการที่ออกบิล
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between"><span>รวมก่อนภาษี</span><span>฿{formatCurrency(tax.subtotal)}</span></div>
@@ -757,4 +1005,9 @@ export function InvoiceFromDeliveryNotesForm() {
       </div>
     </AppShell>
   );
+}
+
+function lineNetFromLine(l: DnLineWithRemaining) {
+  const base = (Number(l.unit_price) || 0) * Math.max(0, l.remaining);
+  return Math.max(0, base - (l.discount_percent > 0 ? (base * l.discount_percent) / 100 : Number(l.discount_amount) || 0));
 }

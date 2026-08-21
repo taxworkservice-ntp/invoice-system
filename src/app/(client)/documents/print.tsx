@@ -28,7 +28,7 @@ type PrintBatch =
   | { kind: "billing_invoices"; batch: GenericPageBatch<BillingNoteInvoice> }
   | { kind: "receipt_invoices"; batch: GenericPageBatch<ReceiptInvoice> };
 
-function getPrintBatches(data: PrintDocumentData): PrintBatch[] {
+function getPrintBatches(data: PrintDocumentData, blankForm = false): PrintBatch[] {
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
     return paginateRows(
       data.billingNoteInvoices,
@@ -54,10 +54,11 @@ function getPrintBatches(data: PrintDocumentData): PrintBatch[] {
   const hideDeliveryAmounts =
     data.document.doc_type === "delivery_note" &&
     data.document.hide_amounts_on_print !== false;
+  const effectiveHideAmounts = blankForm ? false : hideDeliveryAmounts;
 
   return paginateRows(data.lineItems, data.template, "line_items", {
     estimateHeight: (item) =>
-      estimateLineItemHeight(item, data.template, { hideDeliveryAmounts }),
+      estimateLineItemHeight(item, data.template, { hideDeliveryAmounts: effectiveHideAmounts }),
   }).map((batch) => ({ kind: "line_items", batch }));
 }
 
@@ -76,6 +77,7 @@ export default function DocumentPrintPreviewPage() {
   const [previewViewportWidth, setPreviewViewportWidth] = useState<number | null>(null);
   const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
+  const blankForm = data?.document.is_blank_form === true;
   const exportMode = searchParams.get("export") === "pdf";
   const exportCopyTypes = searchParams.get("copyTypes") === "copy,original"
     ? ["copy", "original"] as CopyType[]
@@ -345,7 +347,7 @@ export default function DocumentPrintPreviewPage() {
   }
 
   if (exportMode) {
-    const batches = getPrintBatches(data);
+    const batches = getPrintBatches(data, blankForm);
     return (
       <div className="print-export-stack">
         <PrintErrorBoundary onError={() => {}}>
@@ -363,6 +365,7 @@ export default function DocumentPrintPreviewPage() {
                     batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
                     batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
                     summaryStartIndex={batch.startIndex}
+                    blankForm={blankForm}
                   />
                 ) : data.template === "classic_v2" ? (
                   <PrintDocumentClassicV2
@@ -375,6 +378,7 @@ export default function DocumentPrintPreviewPage() {
                     batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
                     batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
                     summaryStartIndex={batch.startIndex}
+                    blankForm={blankForm}
                   />
                 ) : (
                   <PrintDocument
@@ -387,6 +391,7 @@ export default function DocumentPrintPreviewPage() {
                     batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
                     batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
                     summaryStartIndex={batch.startIndex}
+                    blankForm={blankForm}
                   />
                 )}
               </div>
@@ -451,8 +456,14 @@ return (
                 </button>
               </div>
             </div>
-          </div>
+          {data?.document.doc_type === "delivery_note" && data.document.is_blank_form ? (
+            <div className="flex items-center gap-1.5 text-[11px] text-cool-400">
+              <span className="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">ฟอร์มเปล่า</span>
+              <span>พิมพ์แล้วให้พนักงานกรอกจำนวนและราคาด้วยมือ</span>
+            </div>
+              ) : null}
         </div>
+      </div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <Button variant="secondary" onClick={() => navigate(-1)} className="flex-1 sm:flex-none">
             กลับ
@@ -493,10 +504,9 @@ return (
           >
             <PrintErrorBoundary onError={() => {}}>
               {(() => {
-                const batches = getPrintBatches(data);
+const batches = getPrintBatches(data, blankForm);
                 return batches.map(({ kind, batch }, i) => {
                   const props = {
-                    key: `p${i}`,
                     data,
                     copyType,
                     pageMode: batch.mode,
@@ -506,13 +516,14 @@ return (
                     batchBillingNoteInvoices: kind === "billing_invoices" ? batch.items : undefined,
                     batchReceiptInvoices: kind === "receipt_invoices" ? batch.items : undefined,
                     summaryStartIndex: batch.startIndex,
+                    blankForm,
                   };
                   return data.template === "classic" ? (
-                    <PrintDocumentClassic {...props} />
+                    <PrintDocumentClassic key={`p${i}`} {...props} />
                   ) : data.template === "classic_v2" ? (
-                    <PrintDocumentClassicV2 {...props} />
+                    <PrintDocumentClassicV2 key={`p${i}`} {...props} />
                   ) : (
-                    <PrintDocument {...props} />
+                    <PrintDocument key={`p${i}`} {...props} />
                   );
                 });
               })()}

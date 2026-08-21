@@ -1,69 +1,11 @@
--- ============================================================
--- MIGRATION: Multiple bank accounts
--- Adds:
---   bank_accounts            — managed company bank accounts
---   documents.bank_account_id — destination account recorded on receipts / paid docs
--- Backfills bank_accounts from legacy client_profiles.bank_name/bank_account.
--- The primary account stays synced to the legacy columns for backward compat.
--- ============================================================
+-- Add show_full_totals flag for delivery notes (self-contained migration).
+-- Default (false): print a simple "goods value" total (no VAT/WHT/NET PAYABLE).
+-- When true: print the full invoice-style totals (SUBTOTAL, VAT, GRAND TOTAL, WHT, NET PAYABLE).
+-- Run this whole file in the Supabase SQL editor. It both adds the column and
+-- recreates create_deal_document so inserts persist the new column.
 
-create table if not exists bank_accounts (
-  id                   uuid primary key default uuid_generate_v4(),
-  user_id              uuid not null references profiles(id) on delete cascade,
+alter table public.documents add column if not exists show_full_totals boolean not null default false;
 
-  bank_name            text not null,
-  account_number       text not null,
-  account_holder_name  text,
-
-  is_primary           boolean not null default false,
-  is_active            boolean not null default true,
-  sort_order           integer not null default 0,
-
-  created_at           timestamptz not null default now(),
-  updated_at           timestamptz not null default now()
-);
-
-alter table bank_accounts enable row level security;
-
-create policy "Client manages workspace bank accounts"
-  on bank_accounts for all
-  using (public.is_client_workspace_member(user_id))
-  with check (public.is_client_workspace_member(user_id));
-
-create policy "Admin reads all bank accounts"
-  on bank_accounts for select
-  using (public.is_admin());
-
-create trigger trg_bank_accounts_updated_at
-  before update on bank_accounts
-  for each row execute function handle_updated_at();
-
-create index idx_bank_accounts_user on bank_accounts(user_id);
-
--- At most one primary account per workspace
-create unique index uq_bank_accounts_primary
-  on bank_accounts(user_id)
-  where is_primary;
-
--- Backfill legacy single bank into bank_accounts as the primary account
-insert into bank_accounts (user_id, bank_name, account_number, is_primary)
-select
-  cp.user_id,
-  cp.bank_name,
-  cp.bank_account,
-  true
-from client_profiles cp
-where cp.bank_name is not null and cp.bank_account is not null
-  and not exists (
-    select 1 from bank_accounts ba where ba.user_id = cp.user_id
-  )
-on conflict do nothing;
-
--- Destination bank account recorded on receipts / paid documents
-alter table documents
-  add column if not exists bank_account_id uuid references bank_accounts(id) on delete set null;
-
--- Extend create_deal_document RPC to persist bank_account_id for paid docs
 create or replace function public.create_deal_document(
   p_user_id uuid,
   p_customer_id uuid,

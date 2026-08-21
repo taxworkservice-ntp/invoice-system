@@ -136,10 +136,25 @@ async function releaseDeliveryNotesFromInvoice(invoiceId: string): Promise<void>
 
   if (linkError) throw linkError;
 
+  // A delivery note reverts to "sent" (available for re-billing) only when it no
+  // longer has any active invoice link. With partial invoicing a note can have
+  // several invoices; if others are still active, keep it "converted".
+  const { data: remaining, error: remainingError } = await supabase
+    .from("invoice_delivery_notes")
+    .select("delivery_note_id")
+    .in("delivery_note_id", deliveryNoteIds)
+    .is("released_at", null);
+
+  if (remainingError) throw remainingError;
+
+  const stillActive = new Set((remaining || []).map((row) => row.delivery_note_id));
+  const toRevert = deliveryNoteIds.filter((id) => !stillActive.has(id));
+  if (toRevert.length === 0) return;
+
   const { error: docError } = await supabase
     .from("documents")
     .update({ status: "sent" as DocumentStatus })
-    .in("id", deliveryNoteIds)
+    .in("id", toRevert)
     .eq("doc_type", "delivery_note")
     .eq("status", "converted");
 

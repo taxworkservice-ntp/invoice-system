@@ -40,6 +40,7 @@ export function PrintLineItemsTable({
   receiptInvoices: receiptInvoicesOverride,
   startIndex = 1,
   pageMode = "single",
+  blankForm = false,
 }: {
   data: PrintDocumentData;
   lineItems?: DocumentLineItem[];
@@ -47,6 +48,7 @@ export function PrintLineItemsTable({
   receiptInvoices?: ReceiptInvoice[];
   startIndex?: number;
   pageMode?: PageMode;
+  blankForm?: boolean;
 }) {
   const {
     document,
@@ -62,6 +64,7 @@ export function PrintLineItemsTable({
   const isDeliveryNote = document.doc_type === "delivery_note";
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
+  const showAmountColumns = blankForm || !hideDeliveryAmounts;
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
   const blankLineCount = isLastOrSingle
     ? Math.max(0, MIN_MODERN_ITEM_ROWS - lineItems.length)
@@ -208,9 +211,9 @@ export function PrintLineItemsTable({
                 </div>
               </th>
               <th className="px-2 py-1.5 text-right text-[9px] font-semibold tracking-[0.06em]">
-                รับชำระ
+                จำนวนเงิน
                 <div className="text-[6.5px] font-normal text-[#94a3b8]">
-                  PAID
+                  AMOUNT
                 </div>
               </th>
             </tr>
@@ -231,7 +234,7 @@ export function PrintLineItemsTable({
                   {formatCurrency(invoice.vat_amount)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-[10px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {formatCurrency(invoice.paid_amount)}
+                  {formatCurrency(invoice.total_amount)}
                 </td>
               </tr>
             ))}
@@ -296,7 +299,7 @@ export function PrintLineItemsTable({
                 UNIT
               </div>
             </th>
-            {!hideDeliveryAmounts && (
+            {showAmountColumns && (
               <>
                 <th className="w-[20mm] px-2 py-1.5 text-right text-[9px] font-semibold tracking-[0.06em]">
                   ราคา/หน่วย
@@ -338,7 +341,7 @@ export function PrintLineItemsTable({
                       {printableNote}
                     </div>
                   ) : null}
-                  {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print ? (
+                  {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print && !blankForm ? (
                     <div className="mt-0.5 text-[9px] text-[#B54708]">
                       ส่วนลด {item.discount_percent || 0}%
                       {item.discount_amount > 0
@@ -364,21 +367,21 @@ export function PrintLineItemsTable({
                   ) : null}
                 </td>
                 <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                  {item.quantity}
+                  {blankForm ? "" : item.quantity}
                 </td>
                 <td className="px-2 py-1.5 text-[10px] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
                   {item.unit}
                 </td>
-                {!hideDeliveryAmounts && (
+                {showAmountColumns && (
                   <>
                     <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                      {item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
+                      {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
                     </td>
                     <td className="px-2 py-1.5 text-right text-[10px] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                      {item.hide_amounts_on_print ? "-" : hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
+                      {blankForm ? "" : item.hide_amounts_on_print ? "-" : hasLineDiscount ? `${item.discount_percent || 0}%` : "-"}
                     </td>
                     <td className="px-2 py-1.5 text-right text-[10px] font-medium text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
-                      {item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
+                      {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                     </td>
                   </>
                 )}
@@ -402,7 +405,7 @@ export function PrintLineItemsTable({
               <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">
                 &nbsp;
               </td>
-              {!hideDeliveryAmounts && (
+              {showAmountColumns && (
                 <>
                   <td className="px-2 py-1.5 text-[10px] border-t-[0.5px] border-[#E6EBF2]">
                     &nbsp;

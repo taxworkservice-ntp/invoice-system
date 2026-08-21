@@ -107,6 +107,7 @@ export interface ClientProfile {
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;
   show_stamp_on_docs?: Record<string, boolean> | null;
+  delivery_note_show_full_totals?: boolean;
   show_logo: boolean;
   show_company_name: boolean;
   dev_mode_enabled: boolean;
@@ -315,6 +316,8 @@ export interface Document {
   copied_from_id: string | null;
   converted_from_id: string | null;
   hide_amounts_on_print?: boolean;
+  is_blank_form?: boolean;
+  show_full_totals?: boolean;
   created_at: string;
   updated_at: string;
   customer?: Customer;

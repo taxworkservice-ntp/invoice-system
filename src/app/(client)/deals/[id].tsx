@@ -460,10 +460,19 @@ export default function DealDetailPage() {
     }
     const { preTaxAmount: previousTotal, whtAmount: previousWht } = await getReceiptTotalsForDocument(doc, userId);
     const remaining = Math.max(0, doc.subtotal - previousTotal);
+    const initialBasis = getReceiptInputBasisPreference();
     setPayDocument(doc);
-    setPaymentBaseAmount(remaining);
+    setPaymentInputBasis(initialBasis);
+    setPaymentBaseAmount(
+      convertReceiptInputAmount({
+        amount: remaining,
+        from: "pre_tax",
+        to: initialBasis,
+        vatRate: doc.vat_rate,
+        whtRate: doc.wht_rate,
+      }),
+    );
     setPaymentBaseRemaining(remaining);
-    setPaymentInputBasis(getReceiptInputBasisPreference());
     setPaymentPreviousWht(previousWht);
     setPaymentMismatchConfirm(false);
     setPaymentMethod("bank_transfer");
@@ -1883,6 +1892,11 @@ export default function DealDetailPage() {
                               ออกแทน {copiedFromDoc.doc_number || "เอกสารเดิม"}
                             </div>
                           )}
+                          {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form ? (
+                            <div className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-2xs font-medium text-amber-700">
+                              ฟอร์มเปล่า
+                            </div>
+                          ) : null}
                           <div className="mt-1 text-2xs text-gray-400">
                             {formatBuddhistDate(doc.issue_date)}
                             {doc.due_date ? (

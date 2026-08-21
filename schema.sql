@@ -204,6 +204,10 @@ create table client_profiles (
                          check (pdf_template in ('modern', 'classic')),
   classic_terms         text,
 
+  -- Delivery note print default: show full invoice-style totals (VAT/WHT/NET PAYABLE)
+  -- instead of the simple goods-value total. Per-document override on documents.show_full_totals.
+  delivery_note_show_full_totals boolean not null default false,
+
   -- Bank info for perforated template
   bank_name             text,
   bank_account          text,
@@ -596,6 +600,8 @@ create table documents (
 
   note                text,
   hide_amounts_on_print boolean not null default true,
+  is_blank_form       boolean not null default false, -- delivery note issued as blank form (handwritten qty/price at delivery, filled in later)
+  show_full_totals    boolean not null default false, -- delivery note: show full invoice-style totals (VAT/WHT/NET PAYABLE) instead of goods-value total
 
   -- Receipt-specific fields
   payment_method      payment_method,
@@ -783,9 +789,11 @@ create policy "Admin reads all invoice delivery notes"
 
 create index idx_idn_invoice on invoice_delivery_notes(invoice_id);
 create index idx_idn_delivery_note on invoice_delivery_notes(delivery_note_id);
-create unique index idx_idn_one_active_invoice_per_dn
-  on invoice_delivery_notes(delivery_note_id)
-  where released_at is null;
+-- NOTE: previously a unique index (idx_idn_one_active_invoice_per_dn) forced a
+-- single active invoice per delivery note. That was dropped to support partial
+-- invoicing (one delivery note billed across several invoices). Billed vs
+-- remaining quantity is tracked in the app by summing invoice line items that
+-- reference each delivery-note line (source_line_item_id / source_document_id).
 
 
 -- ============================================================

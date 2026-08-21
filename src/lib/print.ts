@@ -143,16 +143,17 @@ export async function getPrintableDocumentDataBase(
 
     const docList = (dealDocs || []) as Document[];
 
-    const billingNote =
-      docList.find((d) => d.id === document.converted_from_id && d.doc_type === "billing_note") ||
-      docList.find((d) => d.doc_type === "billing_note");
-    const sourceInvoice =
-      docList.find(
-        (d) => d.id === document.converted_from_id && (d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt"),
-      ) ||
-      docList.find(
-        (d) => d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt",
-      );
+    const hasParentRef = Boolean(document.converted_from_id);
+    const billingNote = hasParentRef
+      ? docList.find((d) => d.id === document.converted_from_id && d.doc_type === "billing_note")
+      : docList.find((d) => d.doc_type === "billing_note");
+    const sourceInvoice = hasParentRef
+      ? docList.find(
+          (d) => d.id === document.converted_from_id && (d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt"),
+        )
+      : docList.find(
+          (d) => d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt",
+        );
 
     if (billingNote) {
       if (document.doc_type === "receipt") {
@@ -178,7 +179,7 @@ export async function getPrintableDocumentDataBase(
           .in("id", linkedIds);
 
         const invoices = (invDocs || []) as Document[];
-        referenceDoc = invoices[invoices.length - 1] || billingNote;
+        referenceDoc = billingNote;
 
         const { data: allItems } = await supabase
           .from("document_line_items")

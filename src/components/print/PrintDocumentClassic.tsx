@@ -81,6 +81,7 @@ interface PrintDocumentClassicProps {
   batchBillingNoteInvoices?: BillingNoteInvoice[];
   batchReceiptInvoices?: ReceiptInvoice[];
   summaryStartIndex?: number;
+  blankForm?: boolean;
 }
 
 export function PrintDocumentClassic({
@@ -93,6 +94,7 @@ export function PrintDocumentClassic({
   batchBillingNoteInvoices,
   batchReceiptInvoices,
   summaryStartIndex = 1,
+  blankForm = false,
 }: PrintDocumentClassicProps) {
   const {
     document,
@@ -120,6 +122,8 @@ export function PrintDocumentClassic({
   const isDeliveryNote = document.doc_type === "delivery_note";
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
+  const showAmountColumns = blankForm || !hideDeliveryAmounts;
+  const showFullTotals = isDeliveryNote && document.show_full_totals === true;
   const isBillingNote = document.doc_type === "billing_note";
   const isReceiptOrBillingNoteTable =
     (isBillingNote || (document.doc_type === "receipt" && receiptRows.length > 0)) && document.vat_registered;
@@ -503,7 +507,7 @@ export function PrintDocumentClassic({
                     ภาษีมูลค่าเพิ่ม<span className="en">VAT</span>
                   </th>
                   <th style={{ textAlign: "right" }}>
-                    รับชำระ<span className="en">PAID</span>
+                    จำนวนเงิน<span className="en">AMOUNT</span>
                   </th>
                 </tr>
               </thead>
@@ -516,7 +520,7 @@ export function PrintDocumentClassic({
                     <td className="right">{formatCurrency(inv.subtotal)}</td>
                     <td className="right">{formatCurrency(inv.vat_amount)}</td>
                     <td className="right bold">
-                      {formatCurrency(inv.paid_amount)}
+                      {formatCurrency(inv.total_amount)}
                     </td>
                   </tr>
                 ))}
@@ -540,11 +544,11 @@ export function PrintDocumentClassic({
               <colgroup>
                 <col style={{ width: "12mm" }} />
                 <col
-                  style={{ width: hideDeliveryAmounts ? "139mm" : "81mm" }}
+                  style={{ width: showAmountColumns ? "81mm" : "139mm" }}
                 />
                 <col style={{ width: "15mm" }} />
                 <col style={{ width: "17mm" }} />
-                {!hideDeliveryAmounts && (
+                {showAmountColumns && (
                   <>
                     <col style={{ width: "21mm" }} />
                     <col style={{ width: "11mm" }} />
@@ -598,7 +602,7 @@ export function PrintDocumentClassic({
                           <td className="print-classic-dn-header-label">{item.item_name}{dateStr ? ` — ${dateStr}` : ""}</td>
                           <td className="center">&nbsp;</td>
                           <td className="center">&nbsp;</td>
-                          {!hideDeliveryAmounts && (
+                          {showAmountColumns && (
                             <>
                               <td className="right">&nbsp;</td>
                               <td className="center">&nbsp;</td>
@@ -625,7 +629,7 @@ export function PrintDocumentClassic({
                               {printableNote}
                             </div>
                           ) : null}
-                          {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print ? (
+                          {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print && !blankForm ? (
                             <div className="print-classic-discount-note">
                               ส่วนลด {item.discount_percent || 0}%
                               {item.discount_amount > 0
@@ -650,20 +654,20 @@ export function PrintDocumentClassic({
                             </div>
                           ) : null}
                         </td>
-                        <td className="center">{item.quantity.toLocaleString("th-TH")}</td>
+                        <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
                         <td className="center">{item.unit}</td>
-                        {!hideDeliveryAmounts && (
+                        {showAmountColumns && (
                           <>
                             <td className="right">
-                              {item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
+                              {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
                             </td>
                             <td className="center">
-                              {item.hide_amounts_on_print ? "-" : hasLineDiscount
+                              {blankForm ? "" : item.hide_amounts_on_print ? "-" : hasLineDiscount
                                 ? `${item.discount_percent || 0}%`
                                 : "-"}
                             </td>
                             <td className="right bold">
-                              {item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
+                              {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                             </td>
                           </>
                         )}
@@ -680,7 +684,7 @@ export function PrintDocumentClassic({
                     <td className="print-classic-item-name">&nbsp;</td>
                     <td className="center">&nbsp;</td>
                     <td className="center">&nbsp;</td>
-                    {!hideDeliveryAmounts && (
+                    {showAmountColumns && (
                       <>
                         <td className="right">&nbsp;</td>
                         <td className="center">&nbsp;</td>
@@ -775,7 +779,7 @@ export function PrintDocumentClassic({
                 </>
               )}
             </div>
-            {!hideDeliveryAmounts && (
+            {!hideDeliveryAmounts && !blankForm && (
               <div className="print-classic-totals-col">
                 {isReceipt ? (
                   <>
@@ -848,6 +852,16 @@ export function PrintDocumentClassic({
                       <div className="print-classic-totals-val">{formatCurrency(receiptOutstanding ?? 0)}</div>
                     </div>
                   </>
+                ) : isDeliveryNote && !showFullTotals ? (
+                  <div className="print-classic-totals-row print-classic-totals-row-grand">
+                    <div className="print-classic-totals-lab">
+                      <div className="print-classic-totals-th">มูลค่ารวม</div>
+                      <div className="print-classic-totals-en">TOTAL VALUE</div>
+                    </div>
+                    <div className="print-classic-totals-val">
+                      {formatCurrency(document.subtotal)}
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="print-classic-totals-row">

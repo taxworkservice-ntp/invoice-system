@@ -25,34 +25,44 @@ const GROUPS: {
     title: string;
     subtitle: string;
     type: NewDealType;
+    tag: string;
     recommended?: boolean;
   }[];
 }[] = [
   {
     title: "ขายแบบปกติ",
     options: [
-      { icon: ClipboardList, title: "ส่งใบเสนอราคาก่อน", subtitle: "Flow ครบ: เสนอราคา → ส่งของถ้าต้องใช้ → ออกบิล → วางบิลถ้าต้องใช้", type: "quotation", recommended: true },
-      { icon: FileText, title: "ข้ามใบเสนอราคา ออกใบแจ้งหนี้ทันที", subtitle: "ใช้เมื่อตกลงงานแล้ว และไม่ต้องมีใบเสนอราคาในระบบ", type: "invoice" },
-      { icon: CreditCard, title: "รับเงินแล้ว ออกใบกำกับภาษี/ใบเสร็จ", subtitle: "ชำระทันทีและปิดงานในเอกสารเดียว", type: "tax_invoice_receipt" },
+      { icon: ClipboardList, title: "ออกใบเสนอราคา", subtitle: "Flow ครบ: เสนอราคา → ส่งของถ้าต้องใช้ → ออกบิล → วางบิลถ้าต้องใช้", type: "quotation", tag: "QT" },
+      { icon: FileText, title: "ออกใบแจ้งหนี้ทันที", subtitle: "ใช้เมื่อตกลงงานแล้ว และไม่ต้องมีใบเสนอราคาในระบบ", type: "invoice", tag: "INV" },
     ],
   },
   {
     title: "ส่งของก่อน ออกบิลทีหลัง",
     options: [
-      { icon: Truck, title: "สร้างใบส่งของฉบับร่าง", subtitle: "ใช้เป็นทางลัดเมื่อต้องเตรียมส่งของก่อน ไม่ผูกกับใบเสนอราคา", type: "delivery_note" },
-      { icon: FileStack, title: "รวมใบส่งของเพื่อออกใบแจ้งหนี้", subtitle: "ใช้สำหรับออกบิลรายรอบ เช่น สิ้นเดือน", type: "invoice_from_delivery_notes" },
+      { icon: Truck, title: "สร้างใบส่งของ", subtitle: "ใช้เป็นทางลัดเมื่อต้องเตรียมส่งของก่อน ไม่ผูกกับใบเสนอราคา", type: "delivery_note", tag: "DN" },
+      { icon: FileStack, title: "รวมใบส่งของ → ออกบิล", subtitle: "ใช้สำหรับออกบิลรายรอบ เช่น สิ้นเดือน", type: "invoice_from_delivery_notes", tag: "DN→INV" },
     ],
   },
   {
     title: "ออกบิลตามรอบ",
     options: [
-      { icon: Gauge, title: "ออกบิลประจำรอบ", subtitle: "ค่าน้ำ ค่าไฟ ค่าเช่า หรือค่าบริการรายเดือน", type: "utility_bill" },
-      { icon: ReceiptText, title: "รวมใบแจ้งหนี้เพื่อออกใบวางบิล", subtitle: "ใช้เมื่อลูกค้าต้องการวางบิลก่อนชำระเงิน", type: "billing_note" },
+      { icon: Gauge, title: "ออกบิลประจำรอบ", subtitle: "ค่าน้ำ ค่าไฟ ค่าเช่า หรือค่าบริการรายเดือน", type: "utility_bill", tag: "R-BILL" },
+      { icon: ReceiptText, title: "รวมใบแจ้งหนี้ → ใบวางบิล", subtitle: "ใช้เมื่อลูกค้าต้องการวางบิลก่อนชำระเงิน", type: "billing_note", tag: "INV→BN" },
     ],
   },
 ];
 
 const DEFAULT_FAVORITES: NewDealType[] = ["quotation", "invoice", "tax_invoice_receipt"];
+
+const TAG_STYLES: Record<NewDealType, string> = {
+  quotation: "bg-blue-50 text-blue-700",
+  invoice: "bg-indigo-50 text-indigo-700",
+  tax_invoice_receipt: "bg-emerald-50 text-emerald-700",
+  delivery_note: "bg-amber-50 text-amber-700",
+  invoice_from_delivery_notes: "bg-purple-50 text-purple-700",
+  utility_bill: "bg-cyan-50 text-cyan-700",
+  billing_note: "bg-rose-50 text-rose-700",
+};
 
 export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, workspaceRole, workspacePermissions }: NewDealSheetProps) {
   const [showAllOptions, setShowAllOptions] = useState(false);
@@ -198,6 +208,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <div className="truncate text-sm font-semibold text-[#1A1A18]">{optionTitle(option)}</div>
+              <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${TAG_STYLES[option.type]}`}>{option.tag}</span>
               {option.recommended && (
                 <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">แนะนำ</span>
               )}

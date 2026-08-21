@@ -683,9 +683,18 @@ export default function DocumentDetailPage() {
     }
     const { preTaxAmount: previousTotal, whtAmount: previousWht } = await getReceiptTotalsForDocument(doc, userId);
     const remaining = Math.max(0, doc.subtotal - previousTotal);
-    setPaymentBaseAmount(remaining);
+    const initialBasis = getReceiptInputBasisPreference();
+    setPaymentInputBasis(initialBasis);
+    setPaymentBaseAmount(
+      convertReceiptInputAmount({
+        amount: remaining,
+        from: "pre_tax",
+        to: initialBasis,
+        vatRate: doc.vat_rate,
+        whtRate: doc.wht_rate,
+      }),
+    );
     setPaymentBaseRemaining(remaining);
-    setPaymentInputBasis(getReceiptInputBasisPreference());
     setPaymentPreviousWht(previousWht);
     setPayMismatchConfirm(false);
     setPayMethod("bank_transfer");
@@ -792,6 +801,11 @@ export default function DocumentDetailPage() {
             <div className="flex flex-wrap items-center gap-2">
               <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
               <Badge status={doc.status} />
+              {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form ? (
+                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                  ฟอร์มเปล่า
+                </span>
+              ) : null}
               {isOverdue && (
                 <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
                   เกินกำหนด

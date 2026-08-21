@@ -146,7 +146,8 @@ begin
     user_id, deal_id, customer_id, doc_type, doc_number, status, issue_date,
     vat_registered, vat_rate, wht_rate, discount_percent, discount_amount,
     subtotal, vat_amount, total_amount, wht_amount, net_payable,
-    payment_method, paid_at, amount_received, note, hide_amounts_on_print
+    payment_method, paid_at, amount_received, note, hide_amounts_on_print,
+    is_blank_form, show_full_totals
   ) values (
     p_user_id, v_deal_id, p_customer_id, v_doc_type, v_doc_number,
     coalesce(nullif(p_document->>'status', ''), 'draft')::public.document_status,
@@ -165,7 +166,9 @@ begin
     nullif(p_document->>'paid_at', '')::timestamptz,
     (p_document->>'amount_received')::numeric,
     nullif(p_document->>'note', ''),
-    coalesce((p_document->>'hide_amounts_on_print')::boolean, true)
+    coalesce((p_document->>'hide_amounts_on_print')::boolean, true),
+    coalesce((p_document->>'is_blank_form')::boolean, false),
+    coalesce((p_document->>'show_full_totals')::boolean, false)
   ) returning id into v_document_id;
 
   insert into public.document_line_items (

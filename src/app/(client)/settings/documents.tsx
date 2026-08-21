@@ -48,6 +48,7 @@ export default function SettingsDocumentsPage() {
   const [showStampMaster, setShowStampMaster] = useState(true);
   const [showSignatureOnDocs, setShowSignatureOnDocs] = useState<Record<string, boolean>>({});
   const [showStampOnDocs, setShowStampOnDocs] = useState<Record<string, boolean>>({});
+  const [dnShowFullTotals, setDnShowFullTotals] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -90,6 +91,7 @@ export default function SettingsDocumentsPage() {
         }
         return acc;
       }, {} as Record<string, boolean>));
+      setDnShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
     }
   }, [clientProfile]);
 
@@ -110,6 +112,7 @@ export default function SettingsDocumentsPage() {
       stamp_url: stampKey,
       show_signature_on_wht: showSignatureOnWht,
       show_stamp_on_wht: showStampOnWht,
+      delivery_note_show_full_totals: dnShowFullTotals,
       show_signature_on_docs: !showSignatureMaster
         ? DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: false }), {})
         : (DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").every(t => showSignatureOnDocs[t.key] !== false) ? null : DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: showSignatureOnDocs[t.key] !== false }), {} as Record<string, boolean>)),
@@ -275,6 +278,22 @@ export default function SettingsDocumentsPage() {
                   หนึ่งบรรทัดต่อหนึ่งข้อ ถ้าเว้นว่างระบบจะใช้ข้อความมาตรฐานและชื่อบริษัทปัจจุบัน
                 </p>
               </div>
+            </div>
+
+            <div className="border-t border-[#E8E6DF] pt-3">
+              <p className="text-[11px] font-semibold text-[#888780] mb-2">ใบส่งของ</p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={dnShowFullTotals}
+                  onChange={(e) => { setDnShowFullTotals(e.target.checked); setSaved(false); }}
+                  className="w-3.5 h-3.5 accent-primary rounded"
+                />
+                <span className="text-xs text-gray-600">แสดงยอดรวมแบบใบแจ้งหนี้สำหรับใบส่งของ (ค่าเริ่มต้น)</span>
+              </label>
+              <p className="text-[11px] text-[#888780] mt-1">
+                ค่าเริ่มต้นสำหรับใบส่งของใหม่ แสดง VAT / หัก ณ ที่จ่าย / ยอดสุทธิแบบใบแจ้งหนี้ หากปิดจะแสดงเฉพาะมูลค่ารวม สามารถปรับแต่งได้รายเอกสาร
+              </p>
             </div>
 
             <div className="border-t border-[#E8E6DF] pt-3">

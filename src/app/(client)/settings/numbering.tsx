@@ -8,11 +8,11 @@ import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-import { DOC_TYPE_LABELS } from "../../../constants";
+import { DOC_TYPE_LABELS, DOC_TYPE_NOTES } from "../../../constants";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { DocNumberSequence, DocumentType } from "../../../types";
 
-const DOC_TYPES: DocumentType[] = ["quotation", "invoice", "tax_invoice_receipt", "billing_note", "receipt", "delivery_note", "credit_note"];
+const DOC_TYPES: DocumentType[] = ["quotation", "invoice", "billing_note", "receipt", "delivery_note", "credit_note"];
 
 export default function SettingsNumberingPage() {
   const { profile, clientProfile, setClientProfile } = useAuth();
@@ -239,7 +239,12 @@ export default function SettingsNumberingPage() {
                 <tbody>
                   {DOC_TYPES.map((docType) => (
                     <tr key={docType} className="border-b border-card-border/50">
-                      <td className="py-2 pr-2">{DOC_TYPE_LABELS[docType].th}</td>
+                      <td className="py-2 pr-2 align-top">
+                        <div className="font-medium text-ink-900">{DOC_TYPE_LABELS[docType].th}</div>
+                        {DOC_TYPE_NOTES[docType] && (
+                          <div className="mt-0.5 max-w-[260px] text-[11px] leading-snug text-gray-500">{DOC_TYPE_NOTES[docType]}</div>
+                        )}
+                      </td>
                       <td className="py-2 pr-2">
                         <Input
                           value={getPrefix(docType)}

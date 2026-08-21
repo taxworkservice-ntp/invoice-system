@@ -408,6 +408,11 @@ function DocumentCard({
               <span className="hidden sm:inline-flex">
                 <Badge status={doc.status} />
               </span>
+              {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form ? (
+                <span className="inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                  ฟอร์มเปล่า
+                </span>
+              ) : null}
               {overdue && (
                 <span className="inline-flex rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
                   ต้องติดตาม
@@ -419,6 +424,11 @@ function DocumentCard({
               <span className="inline-flex sm:hidden">
                 <Badge status={doc.status} />
               </span>
+              {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form ? (
+                <span className="inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                  ฟอร์มเปล่า
+                </span>
+              ) : null}
               <p className="truncate text-sm text-ink-700">{customerName}</p>
               <p className="text-xs text-ink-400">{getNextStepText(doc)}</p>
               {isVoided && doc.voided_reason && (
@@ -886,6 +896,11 @@ function QuickDetailModal({
               vatRegistered={doc.vat_registered}
             />
             <Badge status={doc.status} />
+            {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form ? (
+              <span className="inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                ฟอร์มเปล่า
+              </span>
+            ) : null}
             {overdue && (
               <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
                 ต้องติดตาม
@@ -2459,6 +2474,11 @@ export default function DocumentsPage() {
                           </td>
                           <td className="px-3 py-2">
                             <Badge status={doc.status} />
+                            {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form ? (
+                              <span className="ml-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                                ฟอร์มเปล่า
+                              </span>
+                            ) : null}
                           </td>
                         </tr>
                       );

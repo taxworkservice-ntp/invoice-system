@@ -83,7 +83,8 @@ export default async function handler(req, res) {
     const authHeader = req.headers.authorization || req.headers.Authorization;
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length).trim() : "";
     const user = await requireUser(req);
-    const { copyTypes } = readJsonBody(req);
+    const body = readJsonBody(req);
+    const { copyTypes } = body;
     const normalizedCopyTypes = normalizeCopyTypes(copyTypes);
 
     const { data: profile, error: profileError } = await supabaseAdmin

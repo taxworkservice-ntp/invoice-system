@@ -40,6 +40,7 @@ export async function sendDocumentWithSideEffects(
     .update({
       status: targetStatus,
       ...(options.issueDate ? { issue_date: options.issueDate } : {}),
+      is_blank_form: false,
     })
     .eq("id", document.id);
 

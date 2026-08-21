@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, PackageCheck, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
@@ -85,6 +85,15 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState("");
   const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(true);
+  const [showFullTotals, setShowFullTotals] = useState(false);
+  const totalsTouched = useRef(false);
+
+  useEffect(() => {
+    if (!documentId && clientProfile && !totalsTouched.current) {
+      setShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
+    }
+  }, [documentId, clientProfile]);
+
   const isEditing = Boolean(documentId);
 
   useEffect(() => {
@@ -174,6 +183,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           setNote((existingDoc as Document).note || "");
           setDocNumberOverride((existingDoc as Document).doc_number || "");
           setHideAmountsOnPrint((existingDoc as Document).hide_amounts_on_print ?? true);
+          setShowFullTotals((existingDoc as Document).show_full_totals ?? false);
         }
 
         const activeDraft = draftDoc && draftDoc.id !== documentId
@@ -405,6 +415,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           net_payable: tax.total,
           note: note || null,
           hide_amounts_on_print: hideAmountsOnPrint,
+          show_full_totals: showFullTotals,
           converted_from_id: quotation.id,
         };
 
@@ -796,6 +807,34 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
             </div>
           </label>
         </Card>
+
+        {!hideAmountsOnPrint && (
+          <Card>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <div className="relative inline-flex items-center mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={showFullTotals}
+                  onChange={(e) => { totalsTouched.current = true; setShowFullTotals(e.target.checked); }}
+                  className="sr-only"
+                />
+                <div
+                  className={`w-9 h-5 rounded-full transition-colors ${showFullTotals ? "bg-primary" : "bg-gray-300"}`}
+                />
+                <div
+                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showFullTotals ? "translate-x-4" : ""}`}
+                />
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-800">แสดงยอดรวมแบบใบแจ้งหนี้</span>
+                <span className="text-[11px] text-gray-400 ml-2">รวม VAT และหัก ณ ที่จ่ายในใบส่งของ</span>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  เปิดใช้งานเพื่อแสดงยอดสรุปแบบเต็ม (มูลค่าก่อนภาษี VAT ยอดรวมทั้งสิ้น หัก ณ ที่จ่าย และยอดสุทธิ) คล้ายใบแจ้งหนี้ หากปิด ใบส่งของจะแสดงเฉพาะมูลค่ารวม
+                </p>
+              </div>
+            </label>
+          </Card>
+        )}
 
         <Button className="w-full justify-center" disabled={selectedLines.length === 0 || saving} loading={saving} onClick={handleSave}>
           {isEditing ? "บันทึกร่างใบส่งของ" : "สร้างใบส่งของฉบับร่าง"}

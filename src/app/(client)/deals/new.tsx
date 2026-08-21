@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useCustomers } from "../../../hooks/useCustomers";
@@ -23,7 +23,7 @@ import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStoc
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
-import { AlertTriangle, ChevronDown, Copy, PlusCircle, X, SlidersHorizontal, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, ChevronDown, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { Document, DocumentLineItem, DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
@@ -454,6 +454,15 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     if (typeof window === "undefined") return true;
     return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
   });
+  const [isBlankForm, setIsBlankForm] = useState(false);
+  const [showFullTotals, setShowFullTotals] = useState(false);
+  const totalsTouched = useRef(false);
+
+  useEffect(() => {
+    if (!documentId && clientProfile && !totalsTouched.current) {
+      setShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
+    }
+  }, [documentId, clientProfile]);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
 
   const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
@@ -544,6 +553,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         setDocNumberOverride(draftDoc.doc_number || "");
         if (draftDoc.doc_type === "delivery_note" && draftDoc.hide_amounts_on_print != null) {
           setHideAmountsOnPrint(draftDoc.hide_amounts_on_print);
+        }
+        if (draftDoc.doc_type === "delivery_note" && draftDoc.is_blank_form != null) {
+          setIsBlankForm(draftDoc.is_blank_form);
+        }
+        if (draftDoc.doc_type === "delivery_note" && draftDoc.show_full_totals != null) {
+          setShowFullTotals(draftDoc.show_full_totals);
         }
         setLineItems(((lineData || []) as DocumentLineItem[]).map((line) => ({
           id: line.id || crypto.randomUUID(),
@@ -1008,24 +1023,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     setLineItems((prev) => prev.filter((lineItem) => lineItem.id !== id));
   };
 
-  const duplicateLineItem = (id: string) => {
-    setLineItems((prev) => {
-      const sourceIndex = prev.findIndex((lineItem) => lineItem.id === id);
-      if (sourceIndex < 0) return prev;
-      const copy = {
-        ...prev[sourceIndex],
-        id: crypto.randomUUID(),
-        job_details_open: false,
-        job_detail_values: { ...prev[sourceIndex].job_detail_values },
-      };
-      return [
-        ...prev.slice(0, sourceIndex + 1),
-        copy,
-        ...prev.slice(sourceIndex + 1),
-      ];
-    });
-  };
-
   const updateJobDetail = (
     id: string,
     field: string,
@@ -1226,7 +1223,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         paid_at: isTaxInvoiceReceipt ? new Date(`${paymentDate}T00:00:00`).toISOString() : null,
         amount_received: isTaxInvoiceReceipt ? tax.netPayable : null,
         note: note.trim() ? note : null,
-        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint } : {}),
+        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: showFullTotals } : {}),
       };
 
       let savedDocumentId = documentId || "";
@@ -1830,24 +1827,37 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       {idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                  <div className="flex gap-1 mb-2">
-                    <CatalogAutocomplete
-                      items={items}
-                      value={item.item_name}
-                      onChange={(val) => updateLineItem(item.id, "item_name", val)}
-                      onSelect={(catalogItem) => selectCatalogItem(item.id, catalogItem)}
-                      matched={!!item.item_id}
-                      placeholder="พิมพ์ชื่อสินค้าหรือบริการ..."
-                      onCreate={async (input) => {
-                        try {
-                          return await addItem(input);
-                        } catch (err: unknown) {
-                          setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
-                          throw err;
-                        }
-                      }}
-                    />
-                  </div>
+                    <div className="flex items-start gap-1 mb-2">
+                      <div className="flex-1 min-w-0">
+                      <CatalogAutocomplete
+                        items={items}
+                        value={item.item_name}
+                        onChange={(val) => updateLineItem(item.id, "item_name", val)}
+                        onSelect={(catalogItem) => selectCatalogItem(item.id, catalogItem)}
+                        matched={!!item.item_id}
+                        placeholder="พิมพ์ชื่อสินค้าหรือบริการ..."
+                        onCreate={async (input) => {
+                          try {
+                            return await addItem(input);
+                          } catch (err: unknown) {
+                            setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+                            throw err;
+                          }
+                        }}
+                      />
+                      </div>
+                      {lineItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeLineItem(item.id)}
+                          aria-label="ลบรายการ"
+                          title="ลบรายการ"
+                          className="flex-shrink-0 mt-0.5 text-gray-400 transition-colors hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   {isUtilityBill && item.line_note.includes("[USAGE_BILL]") ? (
                     <div className="mb-2 whitespace-pre-line rounded-lg border border-card-border bg-paper-field px-3 py-2 text-xs leading-5 text-ink-600">
                       {getUtilityDisplayNote(item.line_note)}
@@ -1983,40 +1993,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         <div className="text-2xs text-gray-400 leading-tight">
                           {item.unit_price.toLocaleString()} × {item.quantity.toLocaleString()}
                         </div>
-                      )}
-                    </div>
-                    <div className="col-span-2 flex justify-end gap-2 sm:contents">
-                      <button
-                        type="button"
-                        className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors sm:h-auto sm:w-auto sm:rounded-none sm:border-0 ${
-                          item.hide_amounts_on_print
-                            ? "border-amber-300 bg-amber-50 text-amber-700"
-                            : "border-card-border text-gray-400 hover:border-primary hover:text-primary"
-                        }`}
-                        onClick={() => updateLineItem(item.id, "hide_amounts_on_print", !item.hide_amounts_on_print)}
-                        aria-label="ซ่อนจำนวนเงินในเอกสาร"
-                        title={item.hide_amounts_on_print ? "ซ่อนจำนวนเงินแล้ว (คลิกเพื่อแสดง)" : "ซ่อนจำนวนเงินของรายการนี้ในเอกสาร"}
-                      >
-                        {item.hide_amounts_on_print ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-card-border text-gray-400 transition-colors hover:border-primary hover:text-primary sm:h-auto sm:w-auto sm:rounded-none sm:border-0"
-                        onClick={() => duplicateLineItem(item.id)}
-                        aria-label="ทำซ้ำรายการ"
-                        title="ทำซ้ำรายการ"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
-                      {lineItems.length > 1 && (
-                        <button
-                          type="button"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 text-sm text-gray-400 hover:text-red-500 sm:h-auto sm:w-auto sm:rounded-none sm:border-0"
-                          onClick={() => removeLineItem(item.id)}
-                          aria-label="ลบรายการ"
-                        >
-                          ×
-                        </button>
                       )}
                     </div>
                   </div>
@@ -2331,6 +2307,62 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 <span className="text-[11px] text-gray-400 ml-2">ซ่อนยอดเงินเมื่อพิมพ์</span>
                 <p className="mt-1 text-xs leading-5 text-gray-500">
                   เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม
+                </p>
+              </div>
+            </label>
+          </Card>
+        )}
+
+        {isDeliveryNote && (
+          <Card>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <div className="relative inline-flex items-center mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={isBlankForm}
+                  onChange={(e) => setIsBlankForm(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={`w-9 h-5 rounded-full transition-colors ${isBlankForm ? "bg-primary" : "bg-gray-300"}`}
+                />
+                <div
+                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isBlankForm ? "translate-x-4" : ""}`}
+                />
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-800">ออกเป็นฟอร์มเปล่า (กรอกด้วยมือ)</span>
+                <span className="text-[11px] text-gray-400 ml-2">พิมพ์แล้วส่งพนักงานไปกรอก</span>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  เมื่อเปิดใช้งาน ช่องจำนวนและราคาใน PDF ใบส่งของจะเว้นว่างไว้ให้พนักงานส่งของเขียนด้วยมือ จากนั้นให้คุณนำตัวเลขมาบันทึกในระบบอีกครั้งเมื่อได้รับใบส่งของคืน
+                </p>
+              </div>
+            </label>
+          </Card>
+        )}
+
+        {isDeliveryNote && !isBlankForm && (
+          <Card>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <div className="relative inline-flex items-center mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={showFullTotals}
+                  onChange={(e) => { totalsTouched.current = true; setShowFullTotals(e.target.checked); }}
+                  className="sr-only"
+                />
+                <div
+                  className={`w-9 h-5 rounded-full transition-colors ${showFullTotals ? "bg-primary" : "bg-gray-300"}`}
+                />
+                <div
+                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showFullTotals ? "translate-x-4" : ""}`}
+                />
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-800">แสดงยอดรวมแบบใบแจ้งหนี้</span>
+                <span className="text-[11px] text-gray-400 ml-2">รวม VAT และหัก ณ ที่จ่ายในใบส่งของ</span>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  เปิดใช้งานเพื่อแสดงยอดสรุปแบบเต็ม (มูลค่าก่อนภาษี VAT ยอดรวมทั้งสิ้น หัก ณ ที่จ่าย และยอดสุทธิ) คล้ายใบแจ้งหนี้ หากปิด ใบส่งของจะแสดงเฉพาะมูลค่ารวม
                 </p>
               </div>
             </label>

@@ -54,6 +54,7 @@ export function PrintDocument({
   batchBillingNoteInvoices,
   batchReceiptInvoices,
   summaryStartIndex = 1,
+  blankForm = false,
 }: {
   data: PrintDocumentData;
   copyType?: CopyType;
@@ -64,6 +65,7 @@ export function PrintDocument({
   batchBillingNoteInvoices?: BillingNoteInvoice[];
   batchReceiptInvoices?: ReceiptInvoice[];
   summaryStartIndex?: number;
+  blankForm?: boolean;
 }) {
   const showBank = SHOW_BANK_TYPES.has(data.document.doc_type) &&
     (data.document.doc_type !== "receipt" || !!data.bankAccount);
@@ -111,6 +113,7 @@ export function PrintDocument({
         receiptInvoices={receiptInvoices}
         startIndex={batchLineItems ? startIndex : summaryStartIndex}
         pageMode={pageMode}
+        blankForm={blankForm}
       />
       {continuedLine && (
         <div className="mt-1.5 text-center text-[8.5px] text-[#94a3b8] tracking-[0.08em] border-b-[0.5px] border-[#E6EBF2] pb-1">
@@ -145,7 +148,7 @@ export function PrintDocument({
           </table>
         </section>
       )}
-      {showFooter && <PrintTotals data={data} />}
+      {showFooter && <PrintTotals data={data} blankForm={blankForm} />}
 
       {isDeliveryNote && showFooter && (
         <footer className="print-block mt-3 grid grid-cols-3 gap-3 text-[10px] text-[#475467]">
