@@ -10,18 +10,27 @@ function clampAmount(value: number, max: number): number {
 
 export type ReceiptInputBasis = "pre_tax" | "gross" | "net_cash";
 
+// Non-VAT-registered documents store a default vat_rate but must never be
+// charged VAT — zero the effective rate unless the client is registered.
+function effectiveVatRate(vatRate: number, vatRegistered?: boolean): number {
+  return vatRegistered === false ? 0 : vatRate;
+}
+
 export function convertReceiptInputToPreTax({
   amount,
   basis,
   vatRate,
   whtRate,
+  vatRegistered,
 }: {
   amount: number;
   basis: ReceiptInputBasis;
   vatRate: number;
   whtRate: number;
+  vatRegistered?: boolean;
 }) {
-  const vatFactor = 1 + vatRate / 100;
+  const rate = effectiveVatRate(vatRate, vatRegistered);
+  const vatFactor = 1 + rate / 100;
   const netFactor = vatFactor - whtRate / 100;
   if (basis === "gross") return round2(amount / vatFactor);
   if (basis === "net_cash") return round2(amount / netFactor);
@@ -34,15 +43,18 @@ export function convertReceiptInputAmount({
   to,
   vatRate,
   whtRate,
+  vatRegistered,
 }: {
   amount: number;
   from: ReceiptInputBasis;
   to: ReceiptInputBasis;
   vatRate: number;
   whtRate: number;
+  vatRegistered?: boolean;
 }) {
-  const preTax = convertReceiptInputToPreTax({ amount, basis: from, vatRate, whtRate });
-  const gross = round2(preTax * (1 + vatRate / 100));
+  const rate = effectiveVatRate(vatRate, vatRegistered);
+  const preTax = convertReceiptInputToPreTax({ amount, basis: from, vatRate: rate, whtRate });
+  const gross = round2(preTax * (1 + rate / 100));
   const netCash = round2(gross - preTax * whtRate / 100);
   if (to === "gross") return gross;
   if (to === "net_cash") return netCash;
@@ -56,6 +68,7 @@ export function calculateReceiptAllocation({
   expectedWht = 0,
   previousWht = 0,
   isFullyPaid = false,
+  vatRegistered,
 }: {
   preTaxAmount: number;
   vatRate: number;
@@ -63,9 +76,11 @@ export function calculateReceiptAllocation({
   expectedWht?: number;
   previousWht?: number;
   isFullyPaid?: boolean;
+  vatRegistered?: boolean;
 }) {
+  const rate = effectiveVatRate(vatRate, vatRegistered);
   const preTax = round2(Math.max(0, preTaxAmount));
-  const vatAmount = round2(preTax * vatRate / 100);
+  const vatAmount = round2(preTax * rate / 100);
   const grossAmount = round2(preTax + vatAmount);
   const expected = Math.max(0, round2(expectedWht));
   const remainingWht = Math.max(0, round2(expected - previousWht));
@@ -88,6 +103,7 @@ export function calculateReceiptAllocationFromInput({
   expectedWht = 0,
   previousWht = 0,
   isFullyPaid = false,
+  vatRegistered,
 }: {
   amount: number;
   basis: ReceiptInputBasis;
@@ -96,14 +112,16 @@ export function calculateReceiptAllocationFromInput({
   expectedWht?: number;
   previousWht?: number;
   isFullyPaid?: boolean;
+  vatRegistered?: boolean;
 }) {
   return calculateReceiptAllocation({
-    preTaxAmount: convertReceiptInputToPreTax({ amount, basis, vatRate, whtRate }),
+    preTaxAmount: convertReceiptInputToPreTax({ amount, basis, vatRate, whtRate, vatRegistered }),
     vatRate,
     whtRate,
     expectedWht,
     previousWht,
     isFullyPaid,
+    vatRegistered,
   });
 }
 

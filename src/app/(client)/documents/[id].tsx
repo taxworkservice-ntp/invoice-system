@@ -381,7 +381,7 @@ export default function DocumentDetailPage() {
     }
     const { preTaxAmount: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
     const remaining = Math.max(0, doc.subtotal - previousTotal);
-    const requestedPreTax = convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate });
+    const requestedPreTax = convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate, vatRegistered: doc.vat_registered });
     if (requestedPreTax > remaining + 0.01) {
       setError(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
       return;
@@ -423,10 +423,11 @@ export default function DocumentDetailPage() {
         amount: paymentBaseAmount,
         basis: paymentInputBasis,
         vatRate: doc.vat_rate,
+        vatRegistered: doc.vat_registered,
         whtRate: doc.wht_rate,
         expectedWht: doc.wht_amount || 0,
         previousWht,
-        isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate }) >= doc.subtotal - 0.01,
+        isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate, vatRegistered: doc.vat_registered }) >= doc.subtotal - 0.01,
       });
       if (paymentBaseAmount <= 0 || allocation.preTax > remaining + 0.01) {
         throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
@@ -555,6 +556,7 @@ export default function DocumentDetailPage() {
         from: "pre_tax",
         to: initialBasis,
         vatRate: doc.vat_rate,
+        vatRegistered: doc.vat_registered,
         whtRate: doc.wht_rate,
       }),
     );
@@ -637,10 +639,11 @@ export default function DocumentDetailPage() {
     amount: paymentBaseAmount,
     basis: paymentInputBasis,
     vatRate: doc.vat_rate,
+    vatRegistered: doc.vat_registered,
     whtRate: doc.wht_rate,
     expectedWht: doc.wht_amount || 0,
     previousWht: paymentPreviousWht,
-    isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate }) >= doc.subtotal - 0.01,
+    isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate, vatRegistered: doc.vat_registered }) >= doc.subtotal - 0.01,
   });
 
   return (
@@ -1555,6 +1558,7 @@ export default function DocumentDetailPage() {
                   from: paymentInputBasis,
                   to: nextBasis,
                   vatRate: doc.vat_rate,
+                  vatRegistered: doc.vat_registered,
                   whtRate: doc.wht_rate,
                 }));
                 setPaymentInputBasis(nextBasis);
