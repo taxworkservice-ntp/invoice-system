@@ -1416,12 +1416,15 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
       if (documentId) {
         toast.success(type === "delivery_note" ? "บันทึกร่างใบส่งของแล้ว" : "บันทึกร่างใบแจ้งหนี้แล้ว");
-        navigate(`/documents/${documentId}`);
-      } else if (dealId) {
-        toast.success("บันทึกงานขายสำเร็จ");
-        navigate(`/deals/${dealId}`);
       } else {
-        toast.success("สร้างเอกสารสำเร็จ");
+        toast.success("บันทึกงานขายสำเร็จ");
+      }
+      const targetDealId = dealId || createdDealId || editingDealId;
+      if (targetDealId) {
+        navigate(`/deals/${targetDealId}`);
+      } else if (documentId) {
+        navigate(`/documents/${documentId}`);
+      } else {
         navigate("/home");
       }
     } catch (err: any) {

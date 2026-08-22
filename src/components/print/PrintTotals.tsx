@@ -15,21 +15,28 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
   const receiptPaidInFull = isReceipt && receiptOutstanding !== undefined && receiptOutstanding <= 0.01;
   const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
   const showFullTotals = isDeliveryNote && document.show_full_totals === true;
+  const hasNote = Boolean(document.note?.trim());
 
   if (hideDeliveryAmounts || blankForm) {
     return (
       <section className="print-block mt-3">
-        <div>
-          <div className="text-[9px] tracking-[0.12em] text-[#667085]">
-            {isDeliveryNote ? "หมายเหตุการส่งของ" : "หมายเหตุ"}
-          </div>
-          <div className="text-[6.5px] text-[#94a3b8]">
-            {isDeliveryNote ? "DELIVERY REMARKS" : "NOTE"}
-          </div>
-        </div>
-        <div className="mt-1 min-h-[10mm] whitespace-pre-line text-[9.5px] leading-[14px] text-[#475467]">
-          {document.note?.trim() || "-"}
-        </div>
+        {hasNote ? (
+          <>
+            <div>
+              <div className="text-[9px] tracking-[0.12em] text-[#667085]">
+                {isDeliveryNote ? "หมายเหตุการส่งของ" : "หมายเหตุ"}
+              </div>
+              <div className="text-[6.5px] text-[#94a3b8]">
+                {isDeliveryNote ? "DELIVERY REMARKS" : "NOTE"}
+              </div>
+            </div>
+            <div className="mt-1 min-h-[10mm] whitespace-pre-line text-[9.5px] leading-[14px] text-[#475467]">
+              {document.note?.trim()}
+            </div>
+          </>
+        ) : (
+          <div className="min-h-[10mm]" />
+        )}
       </section>
     );
   }
@@ -37,18 +44,22 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
   return (
     <section className="print-block print-totals mt-3 grid grid-cols-[1fr_60mm] gap-3">
       <div className="bg-transparent p-0">
-        <div>
-          <div className="text-[9px] tracking-[0.12em] text-[#667085]">หมายเหตุ</div>
-          <div className="text-[6.5px] text-[#94a3b8]">NOTE</div>
-        </div>
-        <div className="mt-1 min-h-[10mm] whitespace-pre-line text-[9.5px] leading-[14px] text-[#475467]">
-          {document.note?.trim() || "-"}
-        </div>
+        {hasNote ? (
+          <div>
+            <div>
+              <div className="text-[9px] tracking-[0.12em] text-[#667085]">หมายเหตุ</div>
+              <div className="text-[6.5px] text-[#94a3b8]">NOTE</div>
+            </div>
+            <div className="mt-1 whitespace-pre-line text-[9.5px] leading-[14px] text-[#475467]">
+              {document.note?.trim()}
+            </div>
+          </div>
+        ) : null}
         {isReceipt ? (
           <div className="mt-3">
             <div className="mb-1 flex items-center justify-between gap-2">
               <div>
-                <div className="text-[9px] tracking-[0.12em] text-[#667085]">ข้อมูลการชำระเงิน</div>
+                <div className="text-[9px] tracking-[0.12em] text-[#667085]">สถานะการชำระเงิน</div>
                 <div className="text-[6.5px] text-[#94a3b8]">SETTLEMENT</div>
               </div>
               {receiptPaidInFull ? (

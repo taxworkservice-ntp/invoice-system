@@ -208,27 +208,20 @@ export function PrintDocument({
           <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
             <div>
               <div className="text-[9px] tracking-[0.12em] text-[#667085]">
-                {isDeliveryNote ? "ผู้รับสินค้า" : "ข้อมูลการชำระเงิน"}
+                รายละเอียดการชำระเงิน
               </div>
-              <div className="text-[6.5px] text-[#94a3b8]">PAYMENT INFORMATION</div>
+              <div className="text-[6.5px] text-[#94a3b8]">PAYMENT</div>
             </div>
             <div className="mt-1 space-y-0.5 text-[9.5px] text-[#475467]">
-              {isDeliveryNote ? (
-                <>
-                  <div className="mt-5 border-b-[0.5px] border-[#98A2B3] pb-3" />
-                  <div className="text-center">ลงชื่อผู้รับสินค้า / วันที่</div>
-                </>
-              ) : (
-                <>
-                  {showBank && bankName ? <div>ธนาคาร: {bankName}</div> : null}
-                  {showBank && bankAccountNumber ? <div>เลขที่บัญชี: {bankAccountNumber}</div> : null}
-                  {showBank && bankAccountHolder ? <div>ชื่อบัญชี: {bankAccountHolder}</div> : null}
-                  {hasPayment ? <div className="border-t-[0.5px] border-[#E8ECF2] my-0.5" /> : null}
-                  {showPaymentMethod && data.document.payment_method ? <div>วิธีชำระเงิน: {PAYMENT_METHOD_LABELS[data.document.payment_method] || data.document.payment_method}</div> : null}
-                  {data.document.wht_certificate_no ? <div>เลขที่หนังสือรับรองหัก ณ ที่จ่าย: {data.document.wht_certificate_no}</div> : null}
-                  {data.document.amount_received != null ? <div>จำนวนเงินที่รับ: {formatCurrency(data.document.amount_received)}</div> : null}
-                </>
-              )}
+              <>
+                {showBank && bankName ? <div>ธนาคาร: {bankName}</div> : null}
+                {showBank && bankAccountNumber ? <div>เลขที่บัญชี: {bankAccountNumber}</div> : null}
+                {showBank && bankAccountHolder ? <div>ชื่อบัญชี: {bankAccountHolder}</div> : null}
+                {hasPayment ? <div className="border-t-[0.5px] border-[#E8ECF2] my-0.5" /> : null}
+                {showPaymentMethod && data.document.payment_method ? <div>วิธีชำระเงิน: {PAYMENT_METHOD_LABELS[data.document.payment_method] || data.document.payment_method}</div> : null}
+                {data.document.wht_certificate_no ? <div>เลขที่หนังสือรับรองหัก ณ ที่จ่าย: {data.document.wht_certificate_no}</div> : null}
+                {data.document.amount_received != null ? <div>จำนวนเงินที่รับ: {formatCurrency(data.document.amount_received)}</div> : null}
+              </>
             </div>
           </div>
 
@@ -240,7 +233,7 @@ export function PrintDocument({
             <div className="mt-5 grid grid-cols-2 gap-3 text-[10px] text-[#475467]">
               <div>
                 <div className="border-b-[0.5px] border-[#98A2B3] pb-3" />
-                <div className="mt-0.5 text-center">{isDeliveryNote ? "ผู้ส่งสินค้า" : "ผู้รับเงิน"}</div>
+                <div className="mt-0.5 text-center">ผู้รับเงิน</div>
                 <div className="text-center text-[6.5px] text-[#94a3b8]">PAYEE</div>
               </div>
               <div>
@@ -264,7 +257,7 @@ export function PrintDocument({
                     />
                   )}
                 </div>
-                <div className="mt-0.5 text-center">{isDeliveryNote ? "ผู้ตรวจสอบ / ผู้มีอำนาจลงนาม" : "ผู้มีอำนาจลงนาม"}</div>
+                <div className="mt-0.5 text-center">ผู้มีอำนาจลงนาม</div>
                 <div className="text-center text-[6.5px] text-[#94a3b8]">AUTHORIZED SIGNATURE</div>
               </div>
             </div>

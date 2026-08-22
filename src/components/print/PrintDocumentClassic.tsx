@@ -169,8 +169,9 @@ export function PrintDocumentClassic({
   const bankInfo = [
     bankName && showBank ? `ธนาคาร: ${bankName}` : null,
     bankAccountNumber && showBank ? `เลขที่บัญชี: ${bankAccountNumber}` : null,
-    bankAccountHolder && showBank ? `ชื่อบัญชี: ${bankAccountHolder}` : null,
   ].filter(Boolean) as string[];
+
+  const holderInfo = bankAccountHolder && showBank ? `ชื่อบัญชี: ${bankAccountHolder}` : null;
 
   const payInfo = [
     showPaymentMethod && document.payment_method
@@ -186,6 +187,7 @@ export function PrintDocumentClassic({
 
   const paymentLines = [
     bankInfo.length > 0 ? bankInfo.join(" · ") : null,
+    holderInfo,
     payInfo.length > 0 ? payInfo.join(" · ") : null,
   ].filter(Boolean) as string[];
 
@@ -780,7 +782,7 @@ export function PrintDocumentClassic({
                   {paymentLines.length > 0 ? (
                     <section className="print-classic-terms-section">
                       <div className="print-classic-terms-title">
-                        ข้อมูลการชำระเงิน (PAYMENT)
+                        รายละเอียดการชำระเงิน (PAYMENT)
                       </div>
                       <ul className="print-classic-payment-list">
                         {paymentLines.map((line) => (
@@ -793,7 +795,7 @@ export function PrintDocumentClassic({
                     <section className="print-classic-terms-section">
                       <div className="print-classic-settle-head">
                         <div className="print-classic-terms-title">
-                          ข้อมูลการชำระเงิน (SETTLEMENT)
+                          สถานะการชำระเงิน (SETTLEMENT)
                         </div>
                         {receiptPaidInFull ? (
                           <span className="print-classic-paid-badge">
