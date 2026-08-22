@@ -29,6 +29,27 @@ const ACTIONS: { key: keyof WorkspacePermissions; label: string; description: st
   { key: "canRecordPayments", label: "บันทึกรับเงิน", description: "บันทึกรับชำระและออกใบเสร็จ" },
   { key: "canViewReports", label: "ดูรายงานและดาวน์โหลด", description: "เปิดรายงาน ศูนย์ดาวน์โหลด และไฟล์ส่งออก" },
   { key: "canVoidDocuments", label: "ยกเลิกเอกสาร", description: "ยกเลิกเอกสารที่ส่งแล้วหรือออกใหม่" },
+  { key: "canDeleteDocuments", label: "ลบฉบับร่าง", description: "ลบเอกสารฉบับร่างถาวร" },
+  { key: "canManageSettings", label: "ตั้งค่าบริษัท", description: "แก้ไขข้อมูลบริษัท ภาษี เทมเพลต และการตั้งค่าเอกสาร" },
+];
+
+const PERMISSION_SECTIONS: { title: string; keys: (keyof WorkspacePermissions)[] }[] = [
+  {
+    title: "เอกสารและการส่ง",
+    keys: ["canCreateEditDocuments", "canSendQuotations", "canSendDeliveryNotes", "canSendFinancialDocuments"],
+  },
+  {
+    title: "การเงิน",
+    keys: ["canRecordPayments", "canManageWht", "canVoidDocuments"],
+  },
+  {
+    title: "ข้อมูลพื้นฐาน",
+    keys: ["canManageCustomers", "canManageCatalog", "canViewReports"],
+  },
+  {
+    title: "ระบบ",
+    keys: ["canDeleteDocuments", "canManageSettings"],
+  },
 ];
 
 export default function SettingsTeamPage() {
@@ -121,27 +142,38 @@ export default function SettingsTeamPage() {
                   </div>
                   <Button variant="secondary" size="sm" onClick={() => setDraft(getWorkspacePermissions(selectedMember.role))}>ค่าเริ่มต้น</Button>
                 </div>
-                <div className="mt-4 space-y-2">
-                  {ACTIONS.map((action) => {
-                    const checked = Boolean(draft[action.key]);
-                    return (
-                      <label key={action.key} className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-[#E8E6DF] p-3 hover:bg-[#FBFAF7]">
-                        <span>
-                          <span className="block text-sm font-medium text-[#1A1A18]">{action.label}</span>
-                          <span className="mt-1 block text-xs leading-5 text-gray-500">{action.description}</span>
-                        </span>
-                        <span className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full ${checked ? "bg-primary" : "bg-gray-300"}`}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(event) => setDraft((current) => current ? { ...current, [action.key]: event.target.checked } : current)}
-                            className="sr-only"
-                          />
-                          <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
-                        </span>
-                      </label>
-                    );
-                  })}
+                <div className="mt-4 space-y-5">
+                  {PERMISSION_SECTIONS.map((section) => (
+                    <div key={section.title}>
+                      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">
+                        {section.title}
+                      </div>
+                      <div className="space-y-2">
+                        {section.keys.map((key) => {
+                          const action = ACTIONS.find((a) => a.key === key);
+                          if (!action) return null;
+                          const checked = Boolean(draft[action.key]);
+                          return (
+                            <label key={key} className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-[#E8E6DF] p-3 hover:bg-[#FBFAF7]">
+                              <span>
+                                <span className="block text-sm font-medium text-[#1A1A18]">{action.label}</span>
+                                <span className="mt-1 block text-xs leading-5 text-gray-500">{action.description}</span>
+                              </span>
+                              <span className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full ${checked ? "bg-primary" : "bg-gray-300"}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(event) => setDraft((current) => current ? { ...current, [action.key]: event.target.checked } : current)}
+                                  className="sr-only"
+                                />
+                                <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
                 <Button className="mt-4 w-full justify-center" onClick={savePermissions} loading={saving}>บันทึกสิทธิ์</Button>
               </Card>

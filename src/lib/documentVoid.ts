@@ -31,7 +31,22 @@ export async function voidDocumentWithSideEffects(
   }
 
   if (document.doc_type === "invoice" && document.converted_from_id) {
-    await releaseDeliveryNoteFromInvoice(document.converted_from_id);
+    const { data: refDoc } = await supabase
+      .from("documents")
+      .select("id, doc_type, converted_from_id")
+      .eq("id", document.converted_from_id)
+      .maybeSingle();
+
+    if (refDoc?.doc_type === "quotation") {
+      // Invoice was converted directly from a quotation — release the quote.
+      await revertQuotationsToSent([refDoc.id]);
+    } else if (refDoc?.doc_type === "delivery_note") {
+      await releaseDeliveryNoteFromInvoice(refDoc.id);
+      // Also un-stick the DN's source quotation (if any).
+      if (refDoc.converted_from_id) {
+        await revertQuotationsToSent([refDoc.converted_from_id]);
+      }
+    }
   }
 
   if (document.doc_type === "invoice") {
@@ -168,4 +183,27 @@ async function releaseDeliveryNotesFromInvoice(invoiceId: string): Promise<void>
     .eq("status", "converted");
 
   if (docError) throw docError;
+
+  // Un-stick source quotations: a quotation whose delivery notes are no longer
+  // fully billed must go back to "sent" so it can be invoiced/delivered again.
+  const { data: revertedDns } = await supabase
+    .from("documents")
+    .select("converted_from_id")
+    .in("id", toRevert)
+    .eq("doc_type", "delivery_note")
+    .not("converted_from_id", "is", null);
+  const sourceQuotationIds = [...new Set((revertedDns || []).map((d) => d.converted_from_id).filter(Boolean))] as string[];
+  await revertQuotationsToSent(sourceQuotationIds);
+}
+
+async function revertQuotationsToSent(quotationIds: string[]): Promise<void> {
+  const ids = [...new Set(quotationIds.filter(Boolean))];
+  if (ids.length === 0) return;
+  const { error } = await supabase
+    .from("documents")
+    .update({ status: "sent" as DocumentStatus })
+    .in("id", ids)
+    .eq("doc_type", "quotation")
+    .eq("status", "converted");
+  if (error) throw error;
 }

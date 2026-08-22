@@ -341,6 +341,13 @@ export default function DealDetailPage() {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
+    const financialTypes = ["invoice", "billing_note", "tax_invoice_receipt"];
+    if (financialTypes.includes(doc.doc_type)) {
+      const ok = window.confirm(
+        `${doc.doc_number || "เอกสาร"} จะถูกล็อคหลังส่ง หากผิดต้องยกเลิกและออกใหม่\nยืนยันส่งเอกสารนี้?`,
+      );
+      if (!ok) return;
+    }
     setActionLoadingId(doc.id);
     try {
       const { warnings } = await sendDocumentWithSideEffects(doc, userId, { issueDate: devIssueDate });

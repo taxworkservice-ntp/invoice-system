@@ -480,6 +480,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [saving, setSaving] = useState(false);
   const [loadingLastInvoice, setLoadingLastInvoice] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<string[] | null>(null);
   const [editLoading, setEditLoading] = useState(Boolean(documentId));
   const [editingDealId, setEditingDealId] = useState<string | null>(null);
   const useAtomicCreate = !documentId && !editingDealId && !isBillingNote && isLineItemDocument;
@@ -1239,6 +1240,39 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     if (isTaxInvoiceReceipt && !permissions.canRecordPayments) {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
+    }
+
+    // Duplicate-invoice guard: warn (non-blocking) when an invoice with the
+    // same total was issued to the same customer within the last 30 days.
+    setDuplicateWarning(null);
+    if ((type === "invoice" || type === "tax_invoice_receipt") && userId) {
+      try {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 30);
+        let dupQuery = supabase
+          .from("documents")
+          .select("doc_number, issue_date, total_amount")
+          .eq("user_id", userId)
+          .eq("customer_id", selectedCustomer.id)
+          .eq("doc_type", "invoice")
+          .in("status", ["sent", "paid", "partially_paid"])
+          .gte("issue_date", cutoff.toISOString().slice(0, 10))
+          .neq("total_amount", 0)
+          .order("issue_date", { ascending: false })
+          .limit(5);
+        if (documentId) dupQuery = dupQuery.neq("id", documentId);
+        const { data: duplicates } = await dupQuery;
+        const matches = (duplicates || []).filter(
+          (d) => Math.abs(Number(d.total_amount ?? 0) - tax.total) < 0.01,
+        );
+        if (matches.length > 0) {
+          setDuplicateWarning(
+            matches.map((m) => `${m.doc_number} (${formatBuddhistDate(m.issue_date)})`),
+          );
+        }
+      } catch {
+        // Warning is best-effort; never block saving on lookup failure.
+      }
     }
 
     setShowConfirmModal(true);
@@ -2510,6 +2544,15 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </div>
               <div className="flex justify-between mt-1.5"><span className="text-gray-500">ลูกค้า</span><span className="font-medium text-ink-900 text-right">{selectedCustomer?.name}</span></div>
             </div>
+
+            {duplicateWarning && duplicateWarning.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                <p className="font-medium">พบใบแจ้งหนี้ที่อาจซ้ำกัน — โปรดตรวจสอบก่อนบันทึก</p>
+                <ul className="mt-1 list-disc ml-4">
+                  {duplicateWarning.map((line) => (<li key={line}>{line}</li>))}
+                </ul>
+              </div>
+            )}
 
             {isBillingNote ? (
               <div className="rounded-lg border border-card-border p-3 text-sm">

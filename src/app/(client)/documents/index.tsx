@@ -1300,6 +1300,15 @@ export default function DocumentsPage() {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner");
       return;
     }
+    if (
+      action === "send" &&
+      ["invoice", "billing_note", "tax_invoice_receipt"].includes(doc.doc_type)
+    ) {
+      const ok = window.confirm(
+        `${doc.doc_number || "เอกสาร"} จะถูกล็อคหลังส่ง หากผิดต้องยกเลิกและออกใหม่\nยืนยันส่งเอกสารนี้?`,
+      );
+      if (!ok) return;
+    }
     setInlineLoading(doc.id);
     try {
       if (action === "send") {
