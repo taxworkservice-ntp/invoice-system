@@ -799,6 +799,7 @@ export default function DealDetailPage() {
       const { data: copy, error: copyError } = await copyDocumentAsDraft(sourceItem.document, userId, {
         issueDate: todayString(),
         dealId: newDeal.id,
+        setCopiedFromId: false,
       });
       if (copyError || !copy) throw copyError || new Error("ไม่สามารถคัดลอกเอกสารได้");
 

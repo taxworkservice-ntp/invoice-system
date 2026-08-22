@@ -15,6 +15,8 @@ export type CopyDocumentOptions = {
   /** Place the draft in a different deal than the source (deal cloning). */
   dealId?: string | null;
   docNumberOverride?: string;
+  /** Tag the copy with copied_from_id for traceability. Default true. */
+  setCopiedFromId?: boolean;
 };
 
 function shiftDueDate(doc: Document, issueDate: string): string | null {
@@ -64,8 +66,10 @@ export async function copyDocumentAsDraft(
       amount_received: isTir ? doc.amount_received : null,
       paid_at: isTir ? doc.paid_at : null,
       wht_certificate_no: isTir ? doc.wht_certificate_no : null,
-      copied_from_id: doc.id,
     };
+    if (opts.setCopiedFromId !== false) {
+      payload.copied_from_id = doc.id;
+    }
     if (isDn) {
       payload.hide_amounts_on_print = doc.hide_amounts_on_print;
       payload.is_blank_form = doc.is_blank_form;
