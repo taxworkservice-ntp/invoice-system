@@ -148,7 +148,12 @@ export async function getPrintableDocumentDataBase(
       .single();
 
     if (referenceData) {
-      referenceDoc = referenceData as Document;
+      const refDeal = (referenceData as Document).deal_id;
+      // Skip references that point across deals — deal-clone copies should
+      // never print a reference to the old deal's document.
+      if (!refDeal || !document.deal_id || refDeal === document.deal_id) {
+        referenceDoc = referenceData as Document;
+      }
     }
   }
 

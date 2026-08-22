@@ -177,7 +177,7 @@ export function PrintDocumentClassicV2({
     showPaymentMethod && document.payment_method
       ? `วิธีชำระเงิน: ${PAYMENT_METHOD_LABELS[document.payment_method] || document.payment_method}`
       : null,
-    document.amount_received != null
+    (document.doc_type === "receipt" || document.doc_type === "tax_invoice_receipt") && document.amount_received != null
       ? `จำนวนเงินที่รับ: ${formatCurrency(document.amount_received)}`
       : null,
     document.wht_certificate_no
