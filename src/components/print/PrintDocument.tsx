@@ -7,7 +7,7 @@ import type {
   DocumentLineItem,
   ReceiptInvoice,
 } from "../../types";
-import { PAYMENT_METHOD_LABELS } from "../../constants";
+import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
 import { PrintHeader } from "./PrintHeader";
 import { PrintLineItemsTable } from "./PrintLineItemsTable";
 import { PrintTotals } from "./PrintTotals";
@@ -80,13 +80,15 @@ export function PrintDocument({
   const hasPayment = (showPaymentMethod && data.document.payment_method) || data.document.wht_certificate_no || data.document.amount_received != null;
   const signatureUrl = data.clientProfile.signature_url;
   const stampUrl = data.clientProfile.stamp_url;
+  const signatureScaleMult = ASSET_SCALE_MULT[data.clientProfile.signature_scale ?? "medium"] ?? 1;
+  const stampScaleMult = ASSET_SCALE_MULT[data.clientProfile.stamp_scale ?? "medium"] ?? 1;
   const accentColor = DOC_ACCENT_COLORS[data.document.doc_type];
   const isCopy = copyType === "copy";
   const isDeliveryNote = data.document.doc_type === "delivery_note";
   const documentClass = isDeliveryNote ? " print-delivery-note" : "";
   const terms = isDeliveryNote
     ? []
-    : splitTerms(data.clientProfile.classic_terms, data.clientProfile.company_name_th);
+    : splitTerms(data.clientProfile.classic_terms);
   const lineItems = batchLineItems ?? data.lineItems;
   const billingNoteInvoices = batchBillingNoteInvoices ?? data.billingNoteInvoices;
   const receiptInvoices = batchReceiptInvoices ?? data.receiptInvoices;
@@ -176,7 +178,8 @@ export function PrintDocument({
                   <img
                     src={signatureUrl}
                     alt="ลายเซ็น"
-                    className="absolute left-1/2 bottom-0 h-[40px] -translate-x-1/2 object-contain"
+                    className="absolute left-1/2 bottom-0 -translate-x-1/2 object-contain"
+                    style={{ height: `${Math.round(40 * signatureScaleMult)}px` }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 )}
@@ -184,7 +187,8 @@ export function PrintDocument({
                   <img
                     src={stampUrl}
                     alt="ตราประทับ"
-                    className="pointer-events-none absolute left-1/2 top-1/2 h-[44px] w-auto -translate-x-1/2 -translate-y-1/2 object-contain opacity-90"
+                    className="pointer-events-none absolute left-[65%] top-[65%] w-auto -translate-x-1/2 -translate-y-1/2 object-contain opacity-70"
+                    style={{ height: `${Math.round(53 * stampScaleMult)}px` }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 )}
@@ -245,7 +249,8 @@ export function PrintDocument({
                     <img
                       src={signatureUrl}
                       alt="ลายเซ็น"
-                      className="absolute left-1/2 bottom-0 h-[40px] -translate-x-1/2 object-contain"
+                      className="absolute left-1/2 bottom-0 -translate-x-1/2 object-contain"
+                    style={{ height: `${Math.round(40 * signatureScaleMult)}px` }}
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   )}
@@ -253,7 +258,8 @@ export function PrintDocument({
                     <img
                       src={stampUrl}
                       alt="ตราประทับ"
-                      className="pointer-events-none absolute left-1/2 top-1/2 h-[44px] w-auto -translate-x-1/2 -translate-y-1/2 object-contain opacity-90"
+                      className="pointer-events-none absolute left-[65%] top-[65%] w-auto -translate-x-1/2 -translate-y-1/2 object-contain opacity-70"
+                    style={{ height: `${Math.round(53 * stampScaleMult)}px` }}
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   )}

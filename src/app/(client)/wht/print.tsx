@@ -133,9 +133,9 @@ function buildImages(profile: ClientProfile, hideSignature = false, hideStamp = 
   if (profile.signature_url && !hideSignature) {
     images.push({ name: "signature", src: getProxiedImageUrl(profile.signature_url), top: 1855, left: 905, width: 304, height: 114 });
   }
-  const logoSrc = profile.stamp_url || profile.logo_url;
-  if (logoSrc && !hideStamp) {
-    images.push({ name: "logo", src: getProxiedImageUrl(logoSrc), top: 1870, left: 1265, width: 139, height: 139 });
+  const stampSrc = profile.stamp_url;
+  if (stampSrc && !hideStamp) {
+    images.push({ name: "stamp", src: getProxiedImageUrl(stampSrc), top: 1870, left: 1265, width: 139, height: 139 });
   }
   return images;
 }

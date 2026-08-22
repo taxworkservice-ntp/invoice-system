@@ -219,6 +219,10 @@ create table client_profiles (
   signature_url         text,
   stamp_url             text,
 
+  -- Signature & stamp size presets ('small' | 'medium' | 'large')
+  signature_scale       text not null default 'medium',
+  stamp_scale           text not null default 'medium',
+
   -- Signature & stamp visibility on WHT forms
   show_signature_on_wht  boolean not null default true,
   show_stamp_on_wht      boolean not null default true,

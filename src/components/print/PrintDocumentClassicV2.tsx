@@ -2,7 +2,7 @@ import { formatCurrency } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
-import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS } from "../../constants";
+import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
   BillingNoteInvoice,
@@ -150,12 +150,11 @@ export function PrintDocumentClassicV2({
   const bankAccountHolder = bankAccount?.account_holder_name;
   const signatureUrl = clientProfile.signature_url;
   const stampUrl = clientProfile.stamp_url;
+  const signatureScaleMult = ASSET_SCALE_MULT[clientProfile.signature_scale ?? "medium"] ?? 1;
+  const stampScaleMult = ASSET_SCALE_MULT[clientProfile.stamp_scale ?? "medium"] ?? 1;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
-  const classicTerms = splitTerms(
-    clientProfile.classic_terms,
-    clientProfile.company_name_th,
-  );
+  const classicTerms = splitTerms(clientProfile.classic_terms);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
   const blankLineCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length)
@@ -1007,6 +1006,7 @@ export function PrintDocumentClassicV2({
                     src={signatureUrl}
                     alt="ลายเซ็น"
                     className="print-classic-sig-img"
+                    style={{ height: `${(12 * signatureScaleMult).toFixed(1)}mm` }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 ) : null}
@@ -1015,6 +1015,7 @@ export function PrintDocumentClassicV2({
                     src={stampUrl}
                     alt="ตราประทับ"
                     className="print-classic-sig-stamp"
+                    style={{ height: `${(18 * stampScaleMult).toFixed(1)}mm` }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 ) : null}

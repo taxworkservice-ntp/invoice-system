@@ -89,6 +89,16 @@ export const LOGO_SIZE_OPTIONS: { value: string; label: string; px: number }[] =
   { value: "large", label: "ใหญ่ (แทนชื่อบริษัท)", px: 200 },
 ];
 
+export const ASSET_SCALE_OPTIONS: { value: string; label: string; mult: number }[] = [
+  { value: "small", label: "เล็ก", mult: 0.75 },
+  { value: "medium", label: "ปกติ", mult: 1 },
+  { value: "large", label: "ใหญ่", mult: 1.25 },
+];
+
+export const ASSET_SCALE_MULT: Record<string, number> = Object.fromEntries(
+  ASSET_SCALE_OPTIONS.map((option) => [option.value, option.mult]),
+);
+
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "เงินสด",
   bank_transfer: "โอนเงิน",

@@ -10,9 +10,8 @@ import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-import { LOGO_SIZE_OPTIONS } from "../../../constants";
+import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS } from "../../../constants";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
-import { defaultTerms } from "../../../lib/terms";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { ClientProfile } from "../../../types";
 
@@ -42,6 +41,8 @@ export default function SettingsDocumentsPage() {
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
+  const [signatureScale, setSignatureScale] = useState("medium");
+  const [stampScale, setStampScale] = useState("medium");
   const [showSignatureOnWht, setShowSignatureOnWht] = useState(true);
   const [showStampOnWht, setShowStampOnWht] = useState(true);
   const [showSignatureMaster, setShowSignatureMaster] = useState(true);
@@ -63,6 +64,8 @@ export default function SettingsDocumentsPage() {
       setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey(clientProfile.signature_url || null);
       setStampKey(clientProfile.stamp_url || null);
+      setSignatureScale(clientProfile.signature_scale || "medium");
+      setStampScale(clientProfile.stamp_scale || "medium");
       setShowSignatureOnWht(clientProfile.show_signature_on_wht !== false);
       setShowStampOnWht(clientProfile.show_stamp_on_wht !== false);
       setShowSignatureOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
@@ -110,6 +113,8 @@ export default function SettingsDocumentsPage() {
       classic_terms: classicTerms.trim() || null,
       signature_url: signatureKey,
       stamp_url: stampKey,
+      signature_scale: signatureScale,
+      stamp_scale: stampScale,
       show_signature_on_wht: showSignatureOnWht,
       show_stamp_on_wht: showStampOnWht,
       delivery_note_show_full_totals: dnShowFullTotals,
@@ -179,7 +184,9 @@ export default function SettingsDocumentsPage() {
     showLogo !== (clientProfile?.show_logo !== false) ||
     showCompanyName !== (clientProfile?.show_company_name !== false) ||
     signatureKey !== (clientProfile?.signature_url ?? null) ||
-    stampKey !== (clientProfile?.stamp_url ?? null);
+    stampKey !== (clientProfile?.stamp_url ?? null) ||
+    signatureScale !== (clientProfile?.signature_scale || "medium") ||
+    stampScale !== (clientProfile?.stamp_scale || "medium");
 
   return (
     <AppShell title="ตั้งค่า > รูปแบบเอกสาร">
@@ -260,22 +267,11 @@ export default function SettingsDocumentsPage() {
                   value={classicTerms}
                   onChange={(e) => { setClassicTerms(e.target.value); setSaved(false); }}
                   rows={4}
+                  placeholder="เว้นว่าง = ไม่แสดงเงื่อนไขท้ายเอกสาร"
                   className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 resize-none"
                 />
-                {!classicTerms.trim() && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setClassicTerms(defaultTerms("").join("\n"));
-                      setSaved(false);
-                    }}
-                    className="mt-2 text-xs text-[#378ADD] hover:underline"
-                  >
-                    + ใช้ข้อความเริ่มต้น
-                  </button>
-                )}
                 <p className="text-[11px] text-[#888780] mt-1">
-                  หนึ่งบรรทัดต่อหนึ่งข้อ ถ้าเว้นว่างระบบจะใช้ข้อความมาตรฐานและชื่อบริษัทปัจจุบัน
+                  ใช้ข้อความของคุณเองเท่านั้น (หนึ่งบรรทัดต่อหนึ่งข้อ) หากเว้นว่างจะไม่พิมพ์เงื่อนไขท้ายเอกสาร
                 </p>
               </div>
             </div>
@@ -310,6 +306,20 @@ export default function SettingsDocumentsPage() {
                     }}
                     label="ลายเซ็น"
                   />
+                  {signatureKey && (
+                    <div className="flex items-center gap-2 ml-1">
+                      <label className="text-xs text-gray-600 shrink-0">ขนาด:</label>
+                      <select
+                        value={signatureScale}
+                        onChange={(e) => { setSignatureScale(e.target.value); setSaved(false); }}
+                        className="rounded-lg border border-card-border bg-white px-2 py-1.5 text-xs"
+                      >
+                        {ASSET_SCALE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {signatureKey && (
                     <div>
                       <label className="flex items-center gap-2 cursor-pointer mb-2">
@@ -363,6 +373,20 @@ export default function SettingsDocumentsPage() {
                     }}
                     label="ตราประทับ"
                   />
+                  {stampKey && (
+                    <div className="flex items-center gap-2 ml-1">
+                      <label className="text-xs text-gray-600 shrink-0">ขนาด:</label>
+                      <select
+                        value={stampScale}
+                        onChange={(e) => { setStampScale(e.target.value); setSaved(false); }}
+                        className="rounded-lg border border-card-border bg-white px-2 py-1.5 text-xs"
+                      >
+                        {ASSET_SCALE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {stampKey && (
                     <div>
                       <label className="flex items-center gap-2 cursor-pointer mb-2">

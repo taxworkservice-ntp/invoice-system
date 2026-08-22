@@ -1118,13 +1118,13 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-sig-stamp {
   position: absolute;
-  left: 50%;
-  top: 50%;
+  left: 65%;
+  top: 65%;
   transform: translate(-50%, -50%);
-  height: 15mm;
+  height: 18mm;
   width: auto;
   object-fit: contain;
-  opacity: 0.85;
+  opacity: 0.7;
   pointer-events: none;
 }
 .print-classic-footer-row {
