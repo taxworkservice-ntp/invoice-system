@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileText, PackageCheck, ExternalLink, Clock } from "lucide-react";
+import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileText, PackageCheck, ExternalLink, Clock } from "lucide-react";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
@@ -14,6 +14,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { FieldGuidance } from "../../../components/ui/FieldGuidance";
 import { supabase } from "../../../lib/supabase";
+import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
 import { formatBuddhistDate } from "../../../lib/dates";
@@ -204,7 +205,7 @@ export default function DealDetailPage() {
   const [paymentMismatchConfirm, setPaymentMismatchConfirm] = useState(false);
 
   const [showVoided, setShowVoided] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [cloneChooserOpen, setCloneChooserOpen] = useState(false);
   const [copyingDeal, setCopyingDeal] = useState(false);
   const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
   const [reverting, setReverting] = useState(false);
@@ -770,14 +771,18 @@ export default function DealDetailPage() {
     navigate("/home");
   };
 
-  const handleCopyDeal = async () => {
+  const handleCopyDeal = async (sourceType: DocumentType) => {
     if (!userId || !customer) return;
+    const candidates = docsWithMeta
+      .filter((item) => item.document.doc_type === sourceType && item.document.status !== "voided")
+      .sort((a, b) => (b.document.updated_at || "").localeCompare(a.document.updated_at || ""));
+    const sourceItem = candidates[0];
+    if (!sourceItem) {
+      toast.error("ไม่พบเอกสารประเภทนี้ในงานขาย");
+      return;
+    }
     setCopyingDeal(true);
     try {
-      const sourceDoc =
-        docsWithMeta.find((item) => item.document.doc_type === "quotation") ||
-        docsWithMeta.find((item) => item.document.doc_type === "invoice");
-
       const { data: newDeal, error: dealError } = await supabase
         .from("deals")
         .insert({
@@ -789,60 +794,13 @@ export default function DealDetailPage() {
         .single();
       if (dealError || !newDeal) throw dealError || new Error("ไม่สามารถเริ่มงานขายใหม่ได้");
 
-      if (sourceDoc) {
-        const issueDate = todayString();
-        const docNumber = await resolveDocNumber(userId, "quotation", issueDate, docNumberOverride);
-        const { data: quotationDoc, error: docError } = await supabase
-          .from("documents")
-          .insert({
-            user_id: userId,
-            deal_id: newDeal.id,
-            customer_id: customer.id,
-            doc_type: "quotation",
-            doc_number: docNumber,
-            status: "draft" as DocumentStatus,
-            issue_date: issueDate,
-            vat_registered: sourceDoc.document.vat_registered,
-            vat_rate: sourceDoc.document.vat_rate,
-            wht_rate: sourceDoc.document.wht_rate,
-            discount_percent: sourceDoc.document.discount_percent,
-            discount_amount: sourceDoc.document.discount_amount,
-            subtotal: sourceDoc.document.subtotal,
-            vat_amount: sourceDoc.document.vat_amount,
-            total_amount: sourceDoc.document.total_amount,
-            wht_amount: sourceDoc.document.wht_amount,
-            net_payable: sourceDoc.document.net_payable,
-          })
-          .select("*")
-          .single();
-        if (docError) throw docError;
+      const { data: copy, error: copyError } = await copyDocumentAsDraft(sourceItem.document, userId, {
+        issueDate: todayString(),
+        dealId: newDeal.id,
+      });
+      if (copyError || !copy) throw copyError || new Error("ไม่สามารถคัดลอกเอกสารได้");
 
-        if (sourceDoc.line_items.length > 0) {
-          await supabase.from("document_line_items").insert(
-            sourceDoc.line_items.map((li, idx) => ({
-              document_id: quotationDoc.id,
-              user_id: userId,
-              item_id: li.item_id,
-              item_name: li.item_name,
-              line_note: li.line_note || null,
-              item_sku: li.item_sku,
-              item_type: li.item_type,
-              unit: li.unit,
-              unit_price: li.unit_price,
-              quantity: li.quantity,
-              base_quantity: li.base_quantity,
-              discount_percent: li.discount_percent,
-              discount_amount: li.discount_amount,
-              qty_carton: li.qty_carton,
-              carton_unit: li.carton_unit,
-              line_total: li.line_total,
-              sort_order: idx,
-            }))
-          );
-        }
-      }
-
-      setMenuOpen(false);
+      setCloneChooserOpen(false);
       toast.success("เริ่มงานขายใหม่จากรายการเดิมแล้ว");
       navigate(`/deals/${newDeal.id}`);
     } catch (err: unknown) {
@@ -917,6 +875,18 @@ export default function DealDetailPage() {
       null
     );
   }, [nonVoidedDocs]);
+
+  const availableCloneTypes = useMemo(
+    () =>
+      (
+        [
+          { type: "quotation" as DocumentType, label: "ใบเสนอราคา" },
+          { type: "invoice" as DocumentType, label: "ใบแจ้งหนี้" },
+          { type: "delivery_note" as DocumentType, label: "ใบส่งของ" },
+        ] as const
+      ).filter(({ type }) => docsWithMeta.some((item) => item.document.doc_type === type && item.document.status !== "voided")),
+    [docsWithMeta],
+  );
 
   const firstItemDoc = useMemo(
     () => nonVoidedDocs.find((item) => item.line_items.length > 0) || null,
@@ -1303,13 +1273,14 @@ export default function DealDetailPage() {
       title={title}
       showBack
       action={(
-        <button
-          onClick={() => setMenuOpen(true)}
-          aria-label="เมนูเพิ่มเติม"
-          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setCloneChooserOpen(true)}
         >
-          <MoreHorizontal className="w-5 h-5" />
-        </button>
+          <Copy size={14} className="mr-1" />
+          งานขายใหม่
+        </Button>
       )}
     >
       <div className="flex flex-col space-y-3">
@@ -1555,6 +1526,18 @@ export default function DealDetailPage() {
                 </div>
               </div>
             </div>
+            {availableCloneTypes.length > 0 && (
+              <div className="mt-3 border-t border-green-200 pt-3">
+                <Button
+                  variant="secondary"
+                  className="w-full justify-center"
+                  onClick={() => setCloneChooserOpen(true)}
+                >
+                  <Copy className="mr-1.5 h-4 w-4" />
+                  สร้างงานขายใหม่จากงานนี้
+                </Button>
+              </div>
+            )}
           </Card>
         )}
         {deliveryProgress && !allDone && (
@@ -2170,11 +2153,20 @@ export default function DealDetailPage() {
         />
       )}
 
-      <Modal open={menuOpen} onClose={() => setMenuOpen(false)} title="ตัวเลือกเพิ่มเติม">
+      <Modal open={cloneChooserOpen} onClose={() => setCloneChooserOpen(false)} title="สร้างงานขายใหม่จากงานนี้">
         <div className="space-y-2">
-          <Button variant="secondary" className="w-full justify-center" loading={copyingDeal} onClick={handleCopyDeal}>
-            เริ่มงานขายใหม่จากรายการนี้
-          </Button>
+          <p className="text-sm text-gray-600">เลือกเอกสารที่ต้องการคัดลอกรายการจาก ระบบจะสร้างงานขายใหม่พร้อมฉบับร่างให้แก้ไข</p>
+          {availableCloneTypes.map(({ type, label }) => (
+            <Button
+              key={type}
+              variant="secondary"
+              className="w-full justify-center"
+              loading={copyingDeal}
+              onClick={() => handleCopyDeal(type)}
+            >
+              เริ่มจาก{label}
+            </Button>
+          ))}
         </div>
       </Modal>
 

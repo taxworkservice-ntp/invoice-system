@@ -38,6 +38,7 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
+import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { deleteDocumentFiles } from "../../../lib/r2";
 import { businessTodayString } from "../../../lib/devDate";
 import {
@@ -809,15 +810,16 @@ function DocumentCard({
                   </button>
                 )}
 
-              {isTerminal && (
-                <button
-                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                  onClick={() => onMenuAction("copy")}
-                >
-                  <Copy size={14} />
-                  <span>คัดลอกเป็นฉบับร่าง</span>
-                </button>
-              )}
+              {(doc.status !== "draft" && doc.status !== "voided" &&
+                ["invoice", "quotation", "billing_note", "delivery_note", "tax_invoice_receipt"].includes(doc.doc_type)) && (
+                 <button
+                   className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                   onClick={() => onMenuAction("copy")}
+                 >
+                   <Copy size={14} />
+                   <span>สร้างฉบับเหมือนเดิม</span>
+                 </button>
+               )}
             </>
           )}
         </div>
@@ -1341,7 +1343,7 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleMenuAction = (doc: Document, action: string) => {
+  const handleMenuAction = async (doc: Document, action: string) => {
     if (
       (action === "pay" || action === "billing") &&
       !permissions.canRecordPayments
@@ -1369,9 +1371,21 @@ export default function DocumentsPage() {
       navigate(`/documents/${doc.id}/edit`);
       return;
     }
-    if (action === "convert" || action === "pay" || action === "copy") {
+    if (action === "convert" || action === "pay") {
       setOpenMenuId(null);
       navigate(`/documents/${doc.id}`);
+      return;
+    }
+    if (action === "copy") {
+      setOpenMenuId(null);
+      if (!profile?.id) return;
+      const { data: copy, error: copyError } = await copyDocumentAsDraft(doc, profile.id);
+      if (copyError || !copy) {
+        toast.error(copyError?.message || "สร้างฉบับเหมือนเดิมไม่สำเร็จ");
+        return;
+      }
+      toast.success("สร้างฉบับร่างเหมือนเดิมแล้ว");
+      navigate(`/documents/${copy.id}`);
       return;
     }
     if (action === "billing") {

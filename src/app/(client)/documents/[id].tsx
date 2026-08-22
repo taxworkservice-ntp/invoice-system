@@ -16,6 +16,7 @@ import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
+import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { deleteDocumentFiles } from "../../../lib/r2";
 import { assertDocNumberAvailable, resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
@@ -519,87 +520,11 @@ export default function DocumentDetailPage() {
     if (!doc || !userId) return;
     setActionLoading("copy");
     try {
-      const issueDate = doc.issue_date || todayString();
-      const docNumber = await resolveDocNumber(userId, doc.doc_type, issueDate, docNumberOverride);
-      const { data: copy } = await supabase
-        .from("documents")
-        .insert({
-          user_id: userId,
-          deal_id: doc.deal_id,
-          customer_id: doc.customer_id,
-          doc_type: doc.doc_type,
-          doc_number: docNumber,
-          status: "draft" as DocumentStatus,
-          issue_date: issueDate,
-          due_date: doc.due_date,
-          vat_registered: doc.vat_registered,
-          vat_rate: doc.vat_rate,
-          wht_rate: doc.wht_rate,
-          discount_percent: doc.discount_percent,
-          discount_amount: doc.discount_amount,
-          subtotal: doc.subtotal,
-          vat_amount: doc.vat_amount,
-          total_amount: doc.total_amount,
-          wht_amount: doc.wht_amount,
-          net_payable: doc.net_payable,
-          note: doc.note,
-          payment_method: doc.doc_type === "tax_invoice_receipt" ? doc.payment_method : null,
-          amount_received: doc.doc_type === "tax_invoice_receipt" ? doc.amount_received : null,
-          paid_at: doc.doc_type === "tax_invoice_receipt" ? doc.paid_at : null,
-          wht_certificate_no: doc.doc_type === "tax_invoice_receipt" ? doc.wht_certificate_no : null,
-          copied_from_id: doc.id,
-        })
-        .select("*")
-        .single();
-
-      if (copy && doc.line_items?.length) {
-        await saveLineItems(
-          doc.line_items.map((lineItem, index) => ({
-            document_id: copy.id,
-            user_id: userId,
-            item_id: lineItem.item_id,
-            item_name: lineItem.item_name,
-            line_note: lineItem.line_note || null,
-            item_sku: lineItem.item_sku,
-            item_type: lineItem.item_type,
-            unit: lineItem.unit,
-            unit_price: lineItem.unit_price,
-            quantity: lineItem.quantity,
-            base_quantity: lineItem.base_quantity,
-            discount_percent: lineItem.discount_percent,
-            discount_amount: lineItem.discount_amount,
-            qty_carton: lineItem.qty_carton,
-            carton_unit: lineItem.carton_unit,
-            source_document_id: lineItem.source_document_id,
-            source_line_item_id: lineItem.source_line_item_id,
-            line_total: lineItem.line_total,
-            sort_order: index,
-          }))
-        );
-      }
-
-      if (doc.doc_type === "billing_note") {
-        const { data: billingNoteInvoices } = await supabase
-          .from("billing_note_invoices")
-          .select("*")
-          .eq("billing_note_id", doc.id);
-
-        if (billingNoteInvoices?.length) {
-          await supabase.from("billing_note_invoices").insert(
-            billingNoteInvoices.map((billingNote: any) => ({
-              billing_note_id: copy.id,
-              invoice_id: billingNote.invoice_id,
-              user_id: userId,
-              invoice_number: billingNote.invoice_number,
-              issue_date: billingNote.issue_date || null,
-              subtotal: billingNote.subtotal,
-              vat_amount: billingNote.vat_amount,
-              total_amount: billingNote.total_amount,
-            }))
-          );
-        }
-      }
-
+      const { data: copy, error: copyError } = await copyDocumentAsDraft(doc, userId, {
+        issueDate: todayString(),
+        docNumberOverride: docNumberOverride,
+      });
+      if (copyError || !copy) throw copyError || new Error("คัดลอกเอกสารไม่สำเร็จ");
       navigate(`/documents/${copy.id}`);
     } catch (err: any) {
       setError(err.message);

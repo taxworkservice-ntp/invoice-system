@@ -478,6 +478,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [loadingLastInvoice, setLoadingLastInvoice] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [editLoading, setEditLoading] = useState(Boolean(documentId));
   const [editingDealId, setEditingDealId] = useState<string | null>(null);
@@ -514,6 +515,68 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       setWhtRate(clientProfile.default_wht_rate);
     }
   }, [clientProfile]);
+
+  const loadLatestInvoiceLines = async () => {
+    if (!selectedCustomer || !userId || loadingLastInvoice) return;
+    setLoadingLastInvoice(true);
+    try {
+      const { data: invoices } = await supabase
+        .from("documents")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("customer_id", selectedCustomer.id)
+        .eq("doc_type", "invoice")
+        .in("status", ["sent", "paid", "partially_paid"])
+        .order("issue_date", { ascending: false })
+        .limit(1);
+      const latest = invoices?.[0];
+      if (!latest) {
+        toast.error("ลูกค้านี้ยังไม่มีใบแจ้งหนี้");
+        return;
+      }
+      const { data: lines, error: linesError } = await supabase
+        .from("document_line_items")
+        .select("*")
+        .eq("document_id", latest.id)
+        .order("sort_order", { ascending: true });
+      if (linesError) throw linesError;
+      const mapped = ((lines || []) as DocumentLineItem[]).map((line) => ({
+        id: line.id || crypto.randomUUID(),
+        item_id: line.item_id,
+        item_sku: line.item_sku,
+        item_name: line.item_name,
+        line_note: line.line_note || "",
+        item_type: line.item_type,
+        unit_price: line.unit_price,
+        quantity: line.quantity,
+        discount_percent: line.discount_percent || 0,
+        unit: line.unit,
+        base_unit: line.unit,
+        carton_unit: line.carton_unit,
+        qty_per_carton: line.qty_carton && line.quantity ? line.base_quantity ? line.base_quantity / line.quantity : null : null,
+        base_unit_price: null,
+        job_details_open: false,
+        job_color: "",
+        job_width: "",
+        job_height: "",
+        job_position: "",
+        job_material: "",
+        job_remark: "",
+        job_detail_values: {},
+        hide_amounts_on_print: line.hide_amounts_on_print,
+      }));
+      if (mapped.length === 0) {
+        toast.error("ใบแจ้งหนี้ล่าสุดไม่มีรายการ");
+        return;
+      }
+      setLineItems(mapped);
+      toast.success("โหลดรายการจากใบแจ้งหนี้ล่าสุดแล้ว");
+    } catch (err: any) {
+      toast.error(err.message || "โหลดรายการไม่สำเร็จ");
+    } finally {
+      setLoadingLastInvoice(false);
+    }
+  };
 
   useEffect(() => {
     if (!documentId || !userId) return;
@@ -1791,8 +1854,18 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             </h3>
             <div className="space-y-2">
               {!isUtilityBill && lineItems.length === 0 && (
-                <div className="rounded-lg border border-dashed border-cool-200 bg-paper-field px-4 py-4 text-center text-xs text-gray-400">
-                  ยังไม่มีรายการ — เพิ่มสินค้าหรือบริการโดยคลิกปุ่มด้านล่าง
+                <div className="rounded-lg border border-dashed border-cool-200 bg-paper-field px-4 py-4 text-center text-xs text-gray-400 space-y-2">
+                  <div>ยังไม่มีรายการ — เพิ่มสินค้าหรือบริการโดยคลิกปุ่มด้านล่าง</div>
+                  {selectedCustomer && !documentId && (
+                    <button
+                      type="button"
+                      onClick={loadLatestInvoiceLines}
+                      disabled={loadingLastInvoice}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#378ADD] hover:underline disabled:opacity-50"
+                    >
+                      {loadingLastInvoice ? "กำลังโหลด..." : "ใช้รายการจากใบแจ้งหนี้ล่าสุดของลูกค้านี้"}
+                    </button>
+                  )}
                 </div>
               )}
               {lineItems.map((item, idx) => {
