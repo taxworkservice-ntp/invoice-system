@@ -252,7 +252,7 @@ export default function SettingsCompanyPage() {
             />
 
             <Input
-              label="เลขประจำตัวผู้เสียภาษี"
+              label="เลขที่ผู้เสียภาษี"
               value={taxId}
               onChange={(e) => setTaxId(e.target.value.replace(/\D/g, "").slice(0, 13))}
               placeholder="0000000000000"
@@ -369,9 +369,9 @@ export default function SettingsCompanyPage() {
                   onChange={(e) => { setAccountHolder(e.target.value); setSaved(false); }}
                   placeholder="บจก. ... (ไม่บังคับ)"
                 />
-                <div className="mt-2 flex gap-2">
-                  <Button onClick={handleSaveBank} disabled={savingBank} variant="secondary" size="sm">
-                    {savingBank ? "กำลังบันทึก..." : editingBankId ? "บันทึก" : "เพิ่ม"}
+                <div className="mt-3 flex gap-2">
+                  <Button onClick={handleSaveBank} disabled={savingBank} className="flex-1">
+                    {savingBank ? "กำลังบันทึก..." : editingBankId ? "บันทึกบัญชีธนาคาร" : "เพิ่มบัญชีธนาคาร"}
                   </Button>
                   {editingBankId && (
                     <Button onClick={startAddBank} variant="ghost" size="sm">
