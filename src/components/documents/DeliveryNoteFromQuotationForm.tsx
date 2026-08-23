@@ -480,7 +480,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
       if (lineError) throw lineError;
 
       toast.success(documentId ? "บันทึกร่างใบส่งของแล้ว" : "สร้างใบส่งของจากใบเสนอราคาแล้ว");
-      navigate(`/documents/${deliveryNoteId}`);
+      if (quotation.deal_id) navigate(`/deals/${quotation.deal_id}`);
+      else navigate(`/documents/${deliveryNoteId}`);
     } catch (err: any) {
       if (createdDocId) {
         await supabase.from("documents").delete().eq("id", createdDocId);

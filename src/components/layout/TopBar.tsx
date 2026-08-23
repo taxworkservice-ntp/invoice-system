@@ -5,11 +5,12 @@ import { ArrowLeft } from "lucide-react";
 interface TopBarProps {
   title: string;
   showBack?: boolean;
+  onBack?: () => void;
   action?: React.ReactNode;
   wide?: boolean;
 }
 
-export function TopBar({ title, showBack, action, wide = false }: TopBarProps) {
+export function TopBar({ title, showBack, onBack, action, wide = false }: TopBarProps) {
   const navigate = useNavigate();
 
   return (
@@ -18,7 +19,7 @@ export function TopBar({ title, showBack, action, wide = false }: TopBarProps) {
         <div className="flex items-center gap-2">
           {showBack && (
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => (onBack ? onBack() : navigate(-1))}
               aria-label="ย้อนกลับ"
               className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors"
             >

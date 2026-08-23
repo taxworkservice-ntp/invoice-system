@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ChevronDown, FileStack, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, CalendarDays, ChevronDown, FileStack, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -98,6 +98,28 @@ function lineNetAmount(l: EditableInvoiceLine) {
   const discount = l.discount_percent > 0 ? (base * l.discount_percent) / 100 : Number(l.discount_amount) || 0;
   return Math.max(0, base - discount);
 }
+
+function trimQty(value: number) {
+  return String(Number((Number(value) || 0).toFixed(3)));
+}
+
+function numericInputClass(highlight: boolean) {
+  return `w-full rounded-lg border bg-white px-2 py-1.5 text-right text-sm tabular-nums text-ink-900 outline-none transition-colors ${
+    highlight
+      ? "border-amber-400 bg-amber-50/60 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+      : "border-card-border focus:border-primary focus:ring-2 focus:ring-primary/20"
+  }`;
+}
+
+type InvoiceLineGroup = {
+  key: string;
+  kind: "dn" | "manual";
+  title: string;
+  dateLabel: string;
+  deliveredTotal: number;
+  remainingTotal: number;
+  lines: EditableInvoiceLine[];
+};
 
 export function InvoiceFromDeliveryNotesForm() {
   const navigate = useNavigate();
@@ -412,6 +434,41 @@ export function InvoiceFromDeliveryNotesForm() {
   }, [clientProfile?.vat_rate, clientProfile?.vat_registered, selectedDeliveryNotes]);
 
   const billableLines = useMemo(() => invoiceLines.filter((l) => l.quantity > EPS), [invoiceLines]);
+
+  // Group editable lines under their source delivery note (manual lines last).
+  const lineGroups = useMemo<InvoiceLineGroup[]>(() => {
+    const dnById = new Map(selectedDeliveryNotes.map((dn) => [dn.id, dn] as const));
+    const dnGroups: InvoiceLineGroup[] = [];
+    let manualGroup: InvoiceLineGroup | null = null;
+
+    for (const l of invoiceLines) {
+      if (!l.source_document_id) {
+        if (!manualGroup) {
+          manualGroup = { key: "manual", kind: "manual", title: "รายการเพิ่มเติม", dateLabel: "", deliveredTotal: 0, remainingTotal: 0, lines: [] };
+        }
+        manualGroup.lines.push(l);
+        continue;
+      }
+      let group = dnGroups.find((g) => g.key === l.source_document_id);
+      if (!group) {
+        const dn = dnById.get(l.source_document_id);
+        group = {
+          key: l.source_document_id,
+          kind: "dn",
+          title: `ใบส่งของ ${l.dnDocNumber}`,
+          dateLabel: dn?.issue_date ? formatBuddhistDate(dn.issue_date) : "",
+          deliveredTotal: (dn?.line_items || []).reduce((sum, li) => sum + li.deliveredQty, 0),
+          remainingTotal: (dn?.line_items || []).reduce((sum, li) => sum + Math.max(0, li.remaining), 0),
+          lines: [],
+        };
+        dnGroups.push(group);
+      }
+      group.lines.push(l);
+    }
+
+    const filledDnGroups = dnGroups.filter((g) => g.lines.length > 0);
+    return manualGroup && manualGroup.lines.length > 0 ? [...filledDnGroups, manualGroup] : filledDnGroups;
+  }, [invoiceLines, selectedDeliveryNotes]);
 
   const tax = useMemo(() => {
     return calculateTax(
@@ -770,7 +827,28 @@ export function InvoiceFromDeliveryNotesForm() {
                   onCreate={async (customer) => addCustomer(customer)}
                 />
               </div>
-              <Input label="วันที่ใบแจ้งหนี้" type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} />
+              <div className="sm:col-span-2 rounded-xl border border-card-border bg-paper-soft p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="invoice-issue-date" className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    วันที่ใบแจ้งหนี้
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className={`pointer-events-none text-sm font-medium ${issueDate ? "text-ink-900" : "text-gray-400"}`}>
+                      {issueDate ? formatBuddhistDate(issueDate) : "เลือกวันที่"}
+                    </span>
+                    <input
+                      id="invoice-issue-date"
+                      type="date"
+                      value={issueDate}
+                      onChange={(event) => setIssueDate(event.target.value)}
+                      aria-label="วันที่ใบแจ้งหนี้"
+                      className="absolute inset-y-0 right-0 w-40 cursor-pointer opacity-0"
+                    />
+                  </div>
+                </div>
+                <p className="mt-1 text-[11px] leading-4 text-gray-500">แตะวันที่เพื่อเปลี่ยน — ใช้เป็นวันที่ออกใบแจ้งหนี้/ใบกำกับภาษี และวันที่ในเลขที่เอกสาร</p>
+              </div>
               <div className="sm:col-span-2 overflow-hidden rounded-xl border border-card-border bg-paper-soft">
                 <button
                   type="button"
@@ -931,103 +1009,170 @@ export function InvoiceFromDeliveryNotesForm() {
             </div>
           </div>
 
-          <div className="mb-3 flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="show-dn-variance"
-              checked={showDnVariance}
-              onChange={(event) => setShowDnVariance(event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label htmlFor="show-dn-variance" className="text-xs text-gray-600">
-              แสดงส่วนต่างจากใบส่งของในใบกำกับภาษี (จำนวน/ราคาที่เปลี่ยนไปจากใบส่งของ)
-            </label>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowDnVariance((prev) => !prev)}
+            aria-pressed={showDnVariance}
+            className={`mb-3 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
+              showDnVariance ? "border-primary bg-blue-50" : "border-card-border bg-paper-soft hover:bg-gray-50"
+            }`}
+          >
+            <ArrowLeftRight className={`mt-0.5 h-4 w-4 shrink-0 ${showDnVariance ? "text-primary" : "text-gray-400"}`} />
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm font-medium ${showDnVariance ? "text-ink-900" : "text-gray-700"}`}>แสดงส่วนต่างจากใบส่งของในใบกำกับภาษี</p>
+              <p className="mt-0.5 text-xs leading-5 text-gray-500">พิมพ์จำนวน/ราคาที่เปลี่ยนไปจากใบส่งของต้นทาง เป็นหลักฐานประกอบใบกำกับภาษี</p>
+            </div>
+            <span className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${showDnVariance ? "bg-primary" : "bg-gray-300"}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${showDnVariance ? "left-[18px]" : "left-0.5"}`} />
+            </span>
+          </button>
 
           {billableLines.length === 0 ? (
             <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบส่งของด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)" />
           ) : (
-            <div className="space-y-3">
-              {invoiceLines.map((l) => (
-                <div key={l.key} className="rounded-xl border border-card-border p-3">
-                  <div className="mb-2 flex items-center justify-between text-[11px] text-gray-500">
-                    <span>{l.source_document_id ? `ใบส่งของ ${l.dnDocNumber}` : "รายการเพิ่มเติม (นอกเหนือจากใบส่งของ)"}</span>
-                    <div className="flex items-center gap-2">
-                      {l.source_document_id && <span>ส่งแล้ว {l.deliveredQty} / คงเหลือ {l.maxQty}</span>}
-                      <button
-                        type="button"
-                        onClick={() => removeLine(l.key)}
-                        className="text-gray-400 transition-colors hover:text-red-600"
-                        aria-label="ลบรายการ"
+            <div className="space-y-4">
+              {lineGroups.map((group) => (
+                <div
+                  key={group.key}
+                  className={`overflow-hidden rounded-xl border ${
+                    group.kind === "manual" ? "border-dashed border-gray-300" : "border-card-border"
+                  }`}
+                >
+                  <div
+                    className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 ${
+                      group.kind === "manual" ? "bg-paper-warm/60" : "bg-paper-soft"
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                          group.kind === "manual" ? "bg-gray-200 text-ink-600" : "bg-primary/10 text-primary"
+                        }`}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                        {group.title}
+                      </span>
+                      {group.dateLabel && <span className="truncate text-[11px] text-gray-500">{group.dateLabel}</span>}
                     </div>
+                    <span className="whitespace-nowrap text-[11px] text-gray-500">
+                      {group.kind === "dn"
+                        ? `ส่งแล้ว ${trimQty(group.deliveredTotal)} / คงเหลือ ${trimQty(group.remainingTotal)} · ${group.lines.length} รายการ`
+                        : `${group.lines.length} รายการ`}
+                    </span>
                   </div>
-                  <Input
-                    label="รายการ"
-                    value={l.item_name}
-                    onChange={(event) => updateLine(l.key, { item_name: event.target.value })}
-                  />
-                  <Input
-                    label="รายละเอียด / สเปค"
-                    value={l.line_note}
-                    onChange={(event) => updateLine(l.key, { line_note: event.target.value })}
-                    className="mt-2"
-                  />
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <Input
-                      label="จำนวน"
-                      type="number"
-                      min={0}
-                      max={l.maxQty}
-                      step="any"
-                      value={l.quantity}
-                      onChange={(event) =>
-                        updateLine(l.key, {
-                          quantity: Math.max(0, Math.min(Number(event.target.value) || 0, l.maxQty)),
-                        })
-                      }
-                    />
-                    <Input
-                      label="หน่วย"
-                      value={l.unit}
-                      onChange={(event) => updateLine(l.key, { unit: event.target.value })}
-                    />
-                    <Input
-                      label="ราคา/หน่วย"
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={l.unit_price}
-                      onChange={(event) => updateLine(l.key, { unit_price: Number(event.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <Input
-                      label="ส่วนลด (%)"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="any"
-                      value={l.discount_percent}
-                      onChange={(event) =>
-                        updateLine(l.key, {
-                          discount_percent: Math.max(0, Math.min(100, Number(event.target.value) || 0)),
-                          discount_amount: 0,
-                        })
-                      }
-                    />
-                    <div className="flex flex-col justify-end">
-                      <span className="text-[11px] text-gray-500">รวมรายการ</span>
-                      <span className="text-sm font-medium text-ink-900">฿{formatCurrency(lineNetAmount(l))}</span>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[620px]">
+                      <div className="grid grid-cols-[minmax(180px,1fr)_78px_58px_98px_62px_100px_30px] items-end gap-x-2 border-b border-card-border px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                        <span>รายการ</span>
+                        <span className="text-right">จำนวน</span>
+                        <span>หน่วย</span>
+                        <span className="text-right">ราคา/หน่วย</span>
+                        <span className="text-right">ส่วนลด %</span>
+                        <span className="text-right">รวม (฿)</span>
+                        <span />
+                      </div>
+                      <div className="divide-y divide-card-border">
+                        {group.lines.map((l) => {
+                          const qtyChanged = l.deliveredQty > 0 && Math.abs(l.quantity - l.deliveredQty) > EPS;
+                          const priceChanged = l.dnUnitPrice > 0 && Math.abs(l.unit_price - l.dnUnitPrice) > EPS;
+                          return (
+                            <div
+                              key={l.key}
+                              className="grid grid-cols-[minmax(180px,1fr)_78px_58px_98px_62px_100px_30px] items-start gap-x-2 px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <input
+                                  value={l.item_name}
+                                  onChange={(event) => updateLine(l.key, { item_name: event.target.value })}
+                                  placeholder="ชื่อรายการ"
+                                  className="w-full rounded-lg border border-transparent bg-gray-50 px-2 py-1.5 text-sm font-medium text-ink-900 outline-none transition-colors placeholder:font-normal placeholder:text-gray-400 hover:border-gray-200 focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20"
+                                />
+                                <input
+                                  value={l.line_note}
+                                  onChange={(event) => updateLine(l.key, { line_note: event.target.value })}
+                                  placeholder="+ รายละเอียด / สเปค"
+                                  className="mt-1 w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-gray-500 outline-none transition-colors placeholder:text-gray-300 hover:bg-gray-50 focus:bg-gray-50 focus:text-ink-900"
+                                />
+                              </div>
+                              <div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={l.maxQty}
+                                  step="any"
+                                  value={l.quantity}
+                                  onChange={(event) =>
+                                    updateLine(l.key, {
+                                      quantity: Math.max(0, Math.min(Number(event.target.value) || 0, l.maxQty)),
+                                    })
+                                  }
+                                  className={numericInputClass(false)}
+                                />
+                                {qtyChanged && (
+                                  <div className="mt-0.5 text-right text-[10px] leading-3 text-gray-400">
+                                    DN: {trimQty(l.deliveredQty)}
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <input
+                                  value={l.unit}
+                                  onChange={(event) => updateLine(l.key, { unit: event.target.value })}
+                                  className="w-full rounded-lg border border-card-border bg-white px-2 py-1.5 text-sm text-ink-900 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                />
+                              </div>
+                              <div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={l.unit_price}
+                                  onChange={(event) => updateLine(l.key, { unit_price: Number(event.target.value) || 0 })}
+                                  className={numericInputClass(priceChanged)}
+                                />
+                                {priceChanged && (
+                                  <div className="mt-0.5 text-right text-[10px] font-medium leading-3 text-amber-600">
+                                    DN: {trimQty(l.dnUnitPrice)}
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step="any"
+                                  value={l.discount_percent}
+                                  onChange={(event) =>
+                                    updateLine(l.key, {
+                                      discount_percent: Math.max(0, Math.min(100, Number(event.target.value) || 0)),
+                                      discount_amount: 0,
+                                    })
+                                  }
+                                  className={numericInputClass(false)}
+                                />
+                              </div>
+                              <div className="pt-1.5 text-right text-sm font-semibold tabular-nums text-ink-900">
+                                {formatCurrency(lineNetAmount(l))}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeLine(l.key)}
+                                aria-label="ลบรายการ"
+                                className="mx-auto mt-1.5 text-gray-300 transition-colors hover:text-red-600"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
-            <Button variant="secondary" className="w-full justify-center" onClick={addManualLine}>
-              + เพิ่มรายการเพิ่มเติม (ค่าขนส่ง / ส่วนต่าง)
-            </Button>
+              <Button variant="secondary" className="w-full justify-center" onClick={addManualLine}>
+                + เพิ่มรายการเพิ่มเติม (ค่าขนส่ง / ส่วนต่าง)
+              </Button>
             </div>
           )}
         </Card>

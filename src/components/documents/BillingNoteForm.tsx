@@ -47,7 +47,6 @@ type InvoiceOption = Document & {
 type FormErrors = Partial<
   Record<"customer" | "invoices" | "dueDate" | "general", string>
 >;
-type AutoSaveState = "idle" | "saving" | "saved" | "error";
 
 function resolveCreditTermDays(
   customer: Customer | null | undefined,
@@ -152,20 +151,16 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [otherDealsExpanded, setOtherDealsExpanded] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>("idle");
   const [showVoidedWarning, setShowVoidedWarning] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
   const initialHydratedRef = useRef(false);
-  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const customerLocked = Boolean(dealId || existingDocument);
   const readOnly = existingDocument?.status === "paid";
   const isDraft = !existingDocument || existingDocument.status === "draft";
 
   const selectedCustomerId = selectedCustomer?.id || null;
-  const selectedInvoiceIdsArray = useMemo(
-    () => [...selectedInvoiceIds],
-    [selectedInvoiceIds],
-  );
 
   const selectedInvoices = useMemo(
     () =>
@@ -227,14 +222,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   const pastDueDate = dueDate
     ? new Date(dueDate) < new Date(todayString())
     : false;
-  const canAutoSave = Boolean(
-    selectedCustomerId &&
-    selectedInvoiceIds.size > 0 &&
-    dueDate &&
-    dueDate >= issueDate &&
-    isDraft &&
-    !readOnly,
-  );
 
   const loadInvoiceOptions = useCallback(
     async (
@@ -519,6 +506,22 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     loadInitialData();
   }, [loadInitialData]);
 
+  // Warn before reload/close while the form has unsaved edits.
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  const requestBack = useCallback(() => {
+    if (isDirty && isDraft && !readOnly) setLeaveConfirmOpen(true);
+    else navigate(-1);
+  }, [isDirty, isDraft, navigate, readOnly]);
+
   useEffect(() => {
     if (
       loading ||
@@ -560,6 +563,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   const handleSelectCustomer = useCallback(
     (customer: Customer) => {
       setSelectedCustomer(customer);
+      setIsDirty(true);
       setErrors((prev) => ({ ...prev, customer: "" }));
       setInvoiceOptions([]);
       setSelectedInvoiceIds(new Set());
@@ -579,7 +583,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       assignDocNumber?: boolean;
       showToast?: boolean;
       navigateToDetail?: boolean;
-      silent?: boolean;
     }) => {
       if (!userId || !selectedCustomerId) return null;
       if (!validate()) return null;
@@ -610,7 +613,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           const message =
             dealError?.message || "ไม่สามารถสร้างดีลสำหรับใบวางบิลได้";
           setErrors((prev) => ({ ...prev, general: message }));
-          if (!options?.silent) toast.error(message);
+          toast.error(message);
           return null;
         }
 
@@ -655,7 +658,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       }
 
       try {
-        if (options?.silent) setAutoSaveState("saving");
         const { data: savedDoc, error: docError } = payload.id
           ? await supabase
               .from("documents")
@@ -729,10 +731,9 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         setCurrentDocumentId(savedDoc.id);
         setSavedInvoiceIds(new Set(currentlySelectedIds));
         setErrors({});
+        setIsDirty(false);
 
-        if (options?.silent) {
-          setAutoSaveState("saved");
-        } else if (options?.showToast) {
+        if (options?.showToast) {
           toast.success(
             options.navigateToDetail ? "บันทึกใบวางบิลแล้ว" : "บันทึกร่างแล้ว",
           );
@@ -748,11 +749,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "บันทึกใบวางบิลไม่สำเร็จ";
-        if (options?.silent) {
-          setAutoSaveState("error");
-        } else {
-          toast.error(message);
-        }
+        toast.error(message);
         setErrors((prev) => ({ ...prev, general: message }));
         return null;
       }
@@ -783,33 +780,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       dealId,
     ],
   );
-
-  useEffect(() => {
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-      autosaveTimerRef.current = null;
-    }
-    if (!canAutoSave || loading || saving) return;
-
-    autosaveTimerRef.current = setTimeout(() => {
-      persistBillingNote({ silent: true }).catch(() => undefined);
-    }, 2000);
-
-    return () => {
-      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-    };
-  }, [
-    canAutoSave,
-    loading,
-    persistBillingNote,
-    saving,
-    selectedInvoiceIdsArray,
-    issueDate,
-    dueDate,
-    note,
-    whtRate,
-    selectedCustomerId,
-  ]);
 
   const handleSaveDraft = async () => {
     setSaving("draft");
@@ -864,6 +834,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       invoice.isVoidedLinked
     )
       return;
+    setIsDirty(true);
     setSelectedInvoiceIds((prev) => {
       const next = new Set(prev);
       if (next.has(invoiceId)) next.delete(invoiceId);
@@ -886,7 +857,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
   if (loading || customersLoading) {
     return (
-      <AppShell title="ใบวางบิล" showBack action={topAction}>
+      <AppShell title="ใบวางบิล" showBack onBack={requestBack} action={topAction}>
         <div className="space-y-4">
           {[0, 1, 2, 3].map((index) => (
             <Card key={index}>
@@ -903,7 +874,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
   }
 
   return (
-    <AppShell title="ใบวางบิล" showBack action={topAction}>
+    <AppShell title="ใบวางบิล" showBack onBack={requestBack} action={topAction}>
       <div className="space-y-4 pb-24">
         {showVoidedWarning && (
           <div className="rounded-card border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
@@ -1060,6 +1031,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 id="issueDate"
                 value={issueDate}
                 onChange={(event) => {
+                  setIsDirty(true);
                   const nextValue = event.target.value;
                   setIssueDate(nextValue);
                   setDueDate(
@@ -1086,6 +1058,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 id="dueDate"
                 value={dueDate}
                 onChange={(event) => {
+                  setIsDirty(true);
                   setDueDate(event.target.value);
                   setErrors((prev) => ({ ...prev, dueDate: "" }));
                 }}
@@ -1322,7 +1295,10 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             id="whtRate"
             label="ภาษีหัก ณ ที่จ่าย"
             value={whtRate}
-            onChange={(event) => setWhtRate(event.target.value as WhtRate)}
+            onChange={(event) => {
+              setIsDirty(true);
+              setWhtRate(event.target.value as WhtRate);
+            }}
             disabled={readOnly}
           >
             {WHT_RATE_OPTIONS.map((option) => (
@@ -1340,7 +1316,10 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           </div>
           <textarea
             value={note}
-            onChange={(event) => setNote(event.target.value)}
+            onChange={(event) => {
+              setIsDirty(true);
+              setNote(event.target.value);
+            }}
             rows={3}
             placeholder="เช่น กรุณาโอนเงินภายในวันที่กำหนด ขอบคุณครับ/ค่ะ"
             disabled={readOnly}
@@ -1350,7 +1329,10 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
         <EditableDocNumber
           value={docNumberOverride}
-          onChange={setDocNumberOverride}
+          onChange={(value) => {
+            setIsDirty(true);
+            setDocNumberOverride(value);
+          }}
           placeholder="เลขที่ใบวางบิล (เว้นว่าง = สร้างอัตโนมัติ)"
           autoGenerate={async () =>
             userId
@@ -1379,14 +1361,36 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 บันทึกและดูรายละเอียด
               </Button>
             </div>
-            <div className="mx-auto mt-2 w-full max-w-7xl px-0 text-center text-[11px] text-gray-500 sm:px-1 lg:px-4">
-              {autoSaveState === "saving" && "กำลังบันทึกอัตโนมัติ..."}
-              {autoSaveState === "saved" && "บันทึกอัตโนมัติแล้ว"}
-              {autoSaveState === "error" && "บันทึกอัตโนมัติไม่สำเร็จ"}
-            </div>
           </div>
         )}
       </div>
+
+      <Modal
+        open={leaveConfirmOpen}
+        onClose={() => setLeaveConfirmOpen(false)}
+        title="ยังไม่ได้บันทึก"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            คุณมีการแก้ไขที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้โดยไม่บันทึกใช่หรือไม่?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setLeaveConfirmOpen(false)}>
+              แก้ไขต่อ
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setIsDirty(false);
+                setLeaveConfirmOpen(false);
+                navigate(-1);
+              }}
+            >
+              ออกโดยไม่บันทึก
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={deleteModalOpen}

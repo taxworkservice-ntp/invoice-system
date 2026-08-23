@@ -32,6 +32,7 @@ interface BreadcrumbItem {
 interface AppShellProps {
   title: string;
   showBack?: boolean;
+  onBack?: () => void;
   action?: React.ReactNode;
   breadcrumbs?: BreadcrumbItem[];
   wide?: boolean;
@@ -63,7 +64,7 @@ function WorkspaceMark({ profile }: { profile: ClientProfile | null }) {
   return null;
 }
 
-export function AppShell({ title, showBack, action, breadcrumbs, wide = false, children }: AppShellProps) {
+export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = false, children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
@@ -200,7 +201,7 @@ export function AppShell({ title, showBack, action, breadcrumbs, wide = false, c
             </span>
           </div>
         )}
-        <TopBar title={title} showBack={showBack} action={action} wide={wide} />
+        <TopBar title={title} showBack={showBack} onBack={onBack} action={action} wide={wide} />
         {breadcrumbs && breadcrumbs.length > 0 && (
           <div className="mx-auto w-full max-w-7xl px-4 pt-2 sm:px-5 lg:px-8">
             <nav className="flex items-center gap-1 text-xs text-gray-500">
