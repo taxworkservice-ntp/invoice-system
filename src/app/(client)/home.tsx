@@ -13,6 +13,7 @@ import { SortableTh } from "../../components/ui/SortableTh";
 import { useTableSort } from "../../components/ui/useTableSort";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
 import { SummaryRow } from "../../components/home/SummaryRow";
+import { isManualStage, MANUAL_STAGE_LABELS, type ManualStage } from "../../lib/dealStages";
 import { DealCard } from "../../components/home/DealCard";
 import { NewDealSheet } from "../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
@@ -91,6 +92,7 @@ type DashboardDeal = {
   stageLabel: string;
   stageHint: string;
   queue: HomeQueue;
+  isStageManual: boolean;
   createdAt: string;
   updatedAt: string;
   dueDate: string | null;
@@ -523,6 +525,19 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     isOverdue,
   );
 
+  // Officer-pinned stage wins over the derived stage, except completion which
+  // is factual (derived from document state) and always takes precedence.
+  let stageLabel = stageInfo.stageLabel;
+  let stageHint = stageInfo.stageHint;
+  let queue: HomeQueue = stageInfo.queue;
+  let isStageManual = false;
+  if (!isDone && isManualStage(deal.manual_stage)) {
+    queue = deal.manual_stage;
+    stageLabel = MANUAL_STAGE_LABELS[deal.manual_stage];
+    stageHint = "ตั้งค่าสถานะเอง";
+    isStageManual = true;
+  }
+
   const latestNote =
     (deal.notes || []).length > 0 ? deal.notes![0].content : "";
   const latestNoteRole =
@@ -568,9 +583,10 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     expectedWhtAmount,
     receiptCount,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
-    stageLabel: stageInfo.stageLabel,
-    stageHint: stageInfo.stageHint,
-    queue: stageInfo.queue,
+    stageLabel,
+    stageHint,
+    queue,
+    isStageManual,
     createdAt: deal.created_at,
     // Most recent activity across the deal itself and any of its documents, so
     // editing the deal (without touching documents) still surfaces it on top.

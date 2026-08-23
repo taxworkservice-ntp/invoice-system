@@ -272,6 +272,7 @@ export interface Deal {
   customer_id: string;
   title: string | null;
   deal_number: string | null;
+  manual_stage?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

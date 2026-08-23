@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileText, PackageCheck, ExternalLink, Clock } from "lucide-react";
+import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileText, PackageCheck, ExternalLink, Clock, Pencil } from "lucide-react";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
 import { useBankAccounts } from "../../../hooks/useBankAccounts";
+import { useCustomers } from "../../../hooks/useCustomers";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -42,6 +43,8 @@ import {
 import { getReceiptInputBasisPreference, setReceiptInputBasisPreference } from "../../../lib/receiptInputBasis";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DealNotes } from "../../../components/deals/DealNotes";
+import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
+import { MANUAL_STAGES, MANUAL_STAGE_LABELS, findCustomerLockingDocs } from "../../../lib/dealStages";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { getDnVarianceParts, getSourceVarianceLabel, hasDnVariance } from "../../../lib/dnVariance";
@@ -211,6 +214,12 @@ export default function DealDetailPage() {
   const [reverting, setReverting] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [hasActiveDnLinks, setHasActiveDnLinks] = useState(false);
+
+  const { customers, addCustomer } = useCustomers(userId);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [pendingCustomer, setPendingCustomer] = useState<Customer | null>(null);
+  const [changingCustomer, setChangingCustomer] = useState(false);
+  const [stageOverrideBusy, setStageOverrideBusy] = useState(false);
 
   const toast = useToast();
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -833,6 +842,82 @@ export default function DealDetailPage() {
     }
   };
 
+  const customerLockingDocs = useMemo(
+    () => findCustomerLockingDocs(docsWithMeta.map((item) => item.document)),
+    [docsWithMeta],
+  );
+  const draftDocCount = useMemo(
+    () => docsWithMeta.filter((item) => item.document.status === "draft").length,
+    [docsWithMeta],
+  );
+  const sentQuotations = useMemo(
+    () =>
+      docsWithMeta
+        .filter((item) => item.document.doc_type === "quotation" && item.document.status === "sent")
+        .map((item) => item.document),
+    [docsWithMeta],
+  );
+
+  const handleChangeCustomer = async (target: Customer) => {
+    if (!dealId || !deal || changingCustomer) return;
+    if (target.id === deal.customer_id) {
+      setCustomerPickerOpen(false);
+      setPendingCustomer(null);
+      return;
+    }
+    if (customerLockingDocs.length > 0) return;
+    setChangingCustomer(true);
+    try {
+      const { error: dealErr } = await supabase
+        .from("deals")
+        .update({ customer_id: target.id })
+        .eq("id", dealId);
+      if (dealErr) throw dealErr;
+
+      // Drafts follow the deal to the new customer; issued/voided documents
+      // keep pointing at the old customer for audit integrity.
+      const draftIds = docsWithMeta
+        .filter((item) => item.document.status === "draft")
+        .map((item) => item.document.id);
+      if (draftIds.length > 0) {
+        const { error: docErr } = await supabase
+          .from("documents")
+          .update({ customer_id: target.id })
+          .in("id", draftIds);
+        if (docErr) throw docErr;
+      }
+
+      toast.success(`เปลี่ยนลูกค้าเป็น ${target.name} แล้ว`);
+      setCustomerPickerOpen(false);
+      setPendingCustomer(null);
+      fetchDealData();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "เปลี่ยนลูกค้าไม่สำเร็จ");
+    } finally {
+      setChangingCustomer(false);
+    }
+  };
+
+  const handleSetManualStage = async (value: string) => {
+    if (!dealId || stageOverrideBusy) return;
+    const next = value || null;
+    if ((deal?.manual_stage ?? null) === next) return;
+    setStageOverrideBusy(true);
+    try {
+      const { error } = await supabase
+        .from("deals")
+        .update({ manual_stage: next })
+        .eq("id", dealId);
+      if (error) throw error;
+      toast.success(next ? "ตั้งค่าสถานะเองแล้ว — หน้าหลักจะจัดกลุ่มตามที่เลือก" : "รีเซ็ตสถานะเป็นอัตโนมัติแล้ว");
+      fetchDealData();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "ตั้งค่าสถานะไม่สำเร็จ");
+    } finally {
+      setStageOverrideBusy(false);
+    }
+  };
+
   const nonVoidedDocs = useMemo(
     () => docsWithMeta.filter((item) => item.document.status !== "voided"),
     [docsWithMeta]
@@ -1317,6 +1402,20 @@ export default function DealDetailPage() {
                       <ExternalLink className="h-3.5 w-3.5" />
                     </button>
                   )}
+                  {customer && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCustomerPickerOpen(true);
+                      }}
+                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-primary hover:bg-primary-soft transition-colors"
+                      title="เปลี่ยนลูกค้าของงานนี้"
+                      aria-label="เปลี่ยนลูกค้าของงานนี้"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   {customer?.phone && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopyText(customer.phone!); }}
@@ -1343,9 +1442,25 @@ export default function DealDetailPage() {
               ) : (
                 <div className="mt-1 text-xs text-gray-400">ยังไม่มีรายการสินค้า</div>
               )}
-              <span className={`mt-2 inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${statusPill.className}`}>
-                {statusPill.label}
-              </span>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${statusPill.className}`}>
+                  {statusPill.label}
+                </span>
+                <select
+                  value={deal?.manual_stage ?? ""}
+                  onChange={(e) => handleSetManualStage(e.target.value)}
+                  disabled={stageOverrideBusy || !deal}
+                  className="rounded-md border border-[#E8E6DF] bg-white px-1.5 py-0.5 text-[11px] text-gray-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  title="ระบุสถานะที่แสดงบนหน้าหลักเอง เมื่อสถานะอัตโนมัติไม่ตรงกับความจริง"
+                >
+                  <option value="">สถานะหน้าหลัก: อัตโนมัติ</option>
+                  {MANUAL_STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      สถานะหน้าหลัก: {MANUAL_STAGE_LABELS[stage]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="text-right shrink-0">
               <div className="text-xl font-bold text-gray-900">฿{formatCurrency(amountDoc ? getDocumentAmount(amountDoc.document) : 0)}</div>
@@ -2460,6 +2575,67 @@ export default function DealDetailPage() {
           </div>
         </div>
       </Modal>
+      <CustomerPickerModal
+        open={customerPickerOpen}
+        customers={customers}
+        selectedCustomerId={deal?.customer_id ?? null}
+        onSelect={(selected) => setPendingCustomer(selected)}
+        onClose={() => setCustomerPickerOpen(false)}
+        onCreate={addCustomer}
+      />
+
+      <Modal open={pendingCustomer !== null} onClose={() => setPendingCustomer(null)} title="ยืนยันการเปลี่ยนลูกค้า">
+        {pendingCustomer && deal && (
+          <div className="space-y-4">
+            {customerLockingDocs.length > 0 ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+                ไม่สามารถเปลี่ยนลูกค้าได้ เพราะมีเอกสารที่ออกแล้วผูกกับลูกค้าเดิม:
+                <ul className="mt-1.5 list-disc pl-5 text-xs space-y-0.5">
+                  {customerLockingDocs.slice(0, 5).map((doc) => (
+                    <li key={doc.id}>
+                      {DOC_TYPE_LABELS[doc.doc_type]?.th || doc.doc_type} {doc.doc_number || ""} ({STATUS_LABELS[doc.status] || doc.status})
+                    </li>
+                  ))}
+                  {customerLockingDocs.length > 5 && <li>และอีก {customerLockingDocs.length - 5} ฉบับ</li>}
+                </ul>
+                <div className="mt-1.5">ต้องยกเลิกเอกสารเหล่านี้ก่อน จึงจะเปลี่ยนลูกค้าได้</div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="font-medium">{customer?.name}</span>
+                  <span className="text-gray-400">→</span>
+                  <span className="font-medium text-primary">{pendingCustomer.name}</span>
+                </div>
+                <ul className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2.5 text-xs text-gray-600 space-y-1">
+                  <li>ข้อมูลงาน โน้ต และกิจกรรมทั้งหมดจะยังอยู่ครบ</li>
+                  <li>
+                    {draftDocCount > 0
+                      ? `เอกสารฉบับร่าง ${draftDocCount} ฉบับจะย้ายไปที่ลูกค้าใหม่`
+                      : "ไม่มีเอกสารฉบับร่างที่ต้องย้าย"}
+                  </li>
+                  {sentQuotations.length > 0 && (
+                    <li className="text-amber-700">
+                      ใบเสนอราคาที่ส่งแล้ว {sentQuotations.length} ฉบับจะยังผูกกับลูกค้าเดิม — หากส่งให้ลูกค้าผิดตัว ควรยกเลิกแล้วออกใหม่
+                    </li>
+                  )}
+                </ul>
+              </>
+            )}
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setPendingCustomer(null)}>
+                {customerLockingDocs.length > 0 ? "ปิด" : "ยกเลิก"}
+              </Button>
+              {customerLockingDocs.length === 0 && (
+                <Button onClick={() => handleChangeCustomer(pendingCustomer)} disabled={changingCustomer} loading={changingCustomer}>
+                  {changingCustomer ? "กำลังเปลี่ยน..." : "ยืนยันเปลี่ยนลูกค้า"}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
     </AppShell>
   );
 }
