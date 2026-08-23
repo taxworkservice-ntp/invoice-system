@@ -113,50 +113,86 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
     if (!jobDetailsFeatureEnabled || !item?.id || item.item_type !== "service" || !profile?.id) return;
 
     let cancelled = false;
-    async function loadJobDetailSetup() {
-      setLoadingJobDetailPresets(true);
-      setJobDetailPresetError("");
-      const [{ data: fieldData, error: fieldError }, { data: presetData, error: presetError }] = await Promise.all([
-        supabase
-          .from("item_job_detail_fields")
-          .select("*")
-          .eq("user_id", profile!.id)
-          .eq("item_id", item!.id)
-          .order("sort_order", { ascending: true }),
-        supabase
-        .from("item_job_detail_presets")
-        .select("*")
-        .eq("user_id", profile!.id)
-        .eq("item_id", item!.id)
-        .order("field_key", { ascending: true })
-          .order("sort_order", { ascending: true }),
-      ]);
-
-      if (cancelled) return;
-      if (fieldError || presetError) {
-        setJobDetailPresetError(fieldError?.message || presetError?.message || "โหลดการตั้งค่าไม่สำเร็จ");
-        setLoadingJobDetailPresets(false);
-        return;
-      }
-      const fields = normalizeJobDetailFields((fieldData || []) as ItemJobDetailField[]);
-      const next: PresetState = {};
-      fields.forEach((field) => {
-        if (field.field_type === "text") next[field.field_key] = [];
-      });
-      ((presetData || []) as ItemJobDetailPreset[]).forEach((preset) => {
-        if (!next[preset.field_key]) next[preset.field_key] = [];
-        next[preset.field_key].push(preset.value);
-      });
-      setJobDetailFields(fields);
-      setJobDetailPresets(next);
-      setLoadingJobDetailPresets(false);
-    }
-
-    void loadJobDetailSetup();
+    void loadJobDetailSetup(item.id, () => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [item, jobDetailsFeatureEnabled, profile?.id]);
+  }, [item?.id, item?.item_type, jobDetailsFeatureEnabled, profile?.id]);
+
+  // New-item mode: prefill the job-detail section from the user's most
+  // recently edited service item so their last configuration persists
+  // instead of always starting from hardcoded defaults.
+  useEffect(() => {
+    if (!jobDetailsFeatureEnabled || item?.id || !profile?.id) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: latest } = await supabase
+          .from("items")
+          .select("id")
+          .eq("user_id", profile.id)
+          .eq("item_type", "service")
+          .eq("has_job_details", true)
+          .eq("is_active", true)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (cancelled) return;
+        if (!latest?.id) {
+          setLoadingJobDetailPresets(false);
+          return; // no prior config → keep defaults
+        }
+        await loadJobDetailSetup(latest.id, () => cancelled);
+      } catch (err: any) {
+        if (!cancelled) {
+          setJobDetailPresetError(err?.message || "โหลดการตั้งค่าล่าสุดไม่สำเร็จ");
+          setLoadingJobDetailPresets(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.id, jobDetailsFeatureEnabled, profile?.id]);
+
+  async function loadJobDetailSetup(sourceItemId: string, isCancelled: () => boolean) {
+    setLoadingJobDetailPresets(true);
+    setJobDetailPresetError("");
+    const [{ data: fieldData, error: fieldError }, { data: presetData, error: presetError }] = await Promise.all([
+      supabase
+        .from("item_job_detail_fields")
+        .select("*")
+        .eq("user_id", profile!.id)
+        .eq("item_id", sourceItemId)
+        .order("sort_order", { ascending: true }),
+      supabase
+      .from("item_job_detail_presets")
+      .select("*")
+      .eq("user_id", profile!.id)
+      .eq("item_id", sourceItemId)
+        .order("sort_order", { ascending: true }),
+    ]);
+
+    if (isCancelled()) return;
+    if (fieldError || presetError) {
+      setJobDetailPresetError(fieldError?.message || presetError?.message || "โหลดการตั้งค่าไม่สำเร็จ");
+      setLoadingJobDetailPresets(false);
+      return;
+    }
+    const fields = normalizeJobDetailFields((fieldData || []) as ItemJobDetailField[]);
+    const next: PresetState = {};
+    fields.forEach((field) => {
+      if (field.field_type === "text") next[field.field_key] = [];
+    });
+    ((presetData || []) as ItemJobDetailPreset[]).forEach((preset) => {
+      if (!next[preset.field_key]) next[preset.field_key] = [];
+      next[preset.field_key].push(preset.value);
+    });
+    setJobDetailFields(fields);
+    setJobDetailPresets(next);
+    setLoadingJobDetailPresets(false);
+  }
 
   function addPreset(field: JobDetailPresetField) {
     const value = (newPresetValues[field] || "").trim();
@@ -744,18 +780,32 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
                     )}
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setJobDetailFields((prev) => [
-                      ...prev,
-                      { ...createCustomJobDetailField("ช่องใหม่"), sort_order: prev.length },
-                    ])
-                  }
-                  className="w-full rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-3 py-2 text-sm font-medium text-[#1A1A18] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
-                >
-                  เพิ่มช่องรายละเอียด
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setJobDetailFields((prev) => [
+                        ...prev,
+                        { ...createCustomJobDetailField("ช่องใหม่", "text"), sort_order: prev.length },
+                      ])
+                    }
+                    className="rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-3 py-2 text-sm font-medium text-[#1A1A18] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
+                  >
+                    + เพิ่มช่องข้อความ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setJobDetailFields((prev) => [
+                        ...prev,
+                        { ...createCustomJobDetailField("ช่องใหม่", "dimension"), sort_order: prev.length },
+                      ])
+                    }
+                    className="rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-3 py-2 text-sm font-medium text-[#1A1A18] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
+                  >
+                    + เพิ่มช่องขนาด
+                  </button>
+                </div>
               </div>
             </div>
           )}

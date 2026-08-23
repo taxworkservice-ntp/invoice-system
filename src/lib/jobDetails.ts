@@ -83,15 +83,16 @@ export function normalizeJobDetailFields(fields?: ItemJobDetailField[] | null): 
     .sort((a, b) => a.sort_order - b.sort_order);
 }
 
-export function createCustomJobDetailField(label = ""): JobDetailFieldConfig {
+export function createCustomJobDetailField(label = "", fieldType: JobDetailFieldType = "text"): JobDetailFieldConfig {
   return {
     field_key: `custom_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
     label,
     placeholder: "",
-    field_type: "text",
+    field_type: fieldType,
     sort_order: DEFAULT_JOB_DETAIL_FIELDS.length,
     is_enabled: true,
     is_custom: true,
+    default_unit: fieldType === "dimension" ? "มม." : null,
   };
 }
 
