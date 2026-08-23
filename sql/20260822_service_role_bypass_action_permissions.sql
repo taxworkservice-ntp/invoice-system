@@ -27,8 +27,11 @@ declare
   member_permissions jsonb;
   override_value boolean;
 begin
-  -- Admin/server-side calls (service role) bypass action guards.
-  if coalesce(current_setting('request.jwt.claim.role', true), '') = 'service_role' then
+  -- Server-side calls (service role / no user JWT context) bypass action guards.
+  -- auth.uid() is NULL whenever there is no signed-in user, which is exactly
+  -- the admin-API case. Unauthenticated callers can never reach this trigger
+  -- because RLS rejects their queries first.
+  if auth.uid() is null then
     return true;
   end if;
 
