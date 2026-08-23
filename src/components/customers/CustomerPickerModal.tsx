@@ -20,9 +20,6 @@ function customerSearchText(customer: Customer) {
     customer.name,
     customer.code || "",
     customer.tax_id || "",
-    customer.contact_name || "",
-    customer.phone || "",
-    customer.address || "",
   ].join(" ").toLowerCase();
 }
 
@@ -82,7 +79,7 @@ export function CustomerPickerModal({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             className="pl-9"
-            placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี เบอร์โทร หรือที่อยู่"
+            placeholder="ค้นหาชื่อ รหัส หรือเลขผู้เสียภาษี"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             autoFocus

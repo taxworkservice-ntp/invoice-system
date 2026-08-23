@@ -614,9 +614,26 @@ export default function HomePage() {
   const [homeFilter, setHomeFilter] = useState<HomeFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [donePage, setDonePage] = useState(1);
-  const [doneSort, setDoneSort] = useState<"updatedAt" | "paidAt">("updatedAt");
-  const [doneYear, setDoneYear] = useState<string>("all");
-  const [doneMonth, setDoneMonth] = useState<string>("all");
+  const [doneSort, setDoneSort] = useState<"updatedAt" | "paidAt">(() => {
+    if (typeof window === "undefined") return "updatedAt";
+    const stored = window.localStorage.getItem("home.done.sort");
+    return stored === "paidAt" ? "paidAt" : "updatedAt";
+  });
+  const [doneYear, setDoneYear] = useState<string>(() => {
+    if (typeof window === "undefined") return "all";
+    return window.localStorage.getItem("home.done.year") || "all";
+  });
+  const [doneMonth, setDoneMonth] = useState<string>(() => {
+    if (typeof window === "undefined") return "all";
+    return window.localStorage.getItem("home.done.month") || "all";
+  });
+
+  // Persist the done-section filters so the last choice survives reloads.
+  useEffect(() => {
+    window.localStorage.setItem("home.done.sort", doneSort);
+    window.localStorage.setItem("home.done.year", doneYear);
+    window.localStorage.setItem("home.done.month", doneMonth);
+  }, [doneSort, doneYear, doneMonth]);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
     const stored = window.localStorage.getItem("homeViewMode");
