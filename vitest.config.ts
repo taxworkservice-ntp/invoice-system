@@ -6,7 +6,7 @@ const env = loadEnv("", process.cwd(), "");
 export default defineConfig({
   test: {
     environment: "node",
-    // All specs share ONE Supabase workspace (testcompany@gmail.com) and
+    // All specs share ONE throwaway Supabase workspace (testcompany-vitest@gmail.com) and
     // resetWorkspace wipes that user's data, so files must NOT run in parallel.
     fileParallelism: false,
     include: ["tests/integration/**/*.spec.ts"],

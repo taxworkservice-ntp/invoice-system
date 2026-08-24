@@ -3,7 +3,9 @@ import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../src/lib/supabase";
 
-const TEST_EMAIL = "testcompany@gmail.com";
+// Dedicated throwaway workspace for integration tests. NEVER point this at a
+// real/demo account — resetWorkspace() deletes everything for this user.
+const TEST_EMAIL = "testcompany-vitest@gmail.com";
 const TEST_PASSWORD = "test1234";
 
 function loadServiceCredentials() {
