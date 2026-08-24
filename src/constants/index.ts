@@ -8,6 +8,7 @@ export const DOC_TYPE_LABELS: Record<DocumentType, { th: string; en: string }> =
   receipt: { th: "ใบเสร็จรับเงิน", en: "Receipt" },
   delivery_note: { th: "ใบส่งของ", en: "Delivery Note" },
   credit_note: { th: "ใบลดหนี้", en: "Credit Note" },
+  debit_note: { th: "ใบเพิ่มหนี้", en: "Debit Note" },
 };
 
 export const DOC_TYPE_NOTES: Partial<Record<DocumentType, string>> = {
@@ -22,6 +23,7 @@ export const DOC_TYPE_SHORT: Record<DocumentType, string> = {
   receipt: "RC",
   delivery_note: "DN",
   credit_note: "CN",
+  debit_note: "DB",
 };
 
 export const STATUS_LABELS: Record<DocumentStatus, string> = {
@@ -58,6 +60,7 @@ export const DOC_TYPE_COLORS: Record<DocumentType, { bg: string; text: string }>
   receipt: { bg: "bg-green-100", text: "text-green-700" },
   delivery_note: { bg: "bg-teal-100", text: "text-teal-700" },
   credit_note: { bg: "bg-red-100", text: "text-red-700" },
+  debit_note: { bg: "bg-amber-100", text: "text-amber-700" },
 };
 
 export const CHIP_COLORS = [

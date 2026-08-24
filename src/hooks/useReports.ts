@@ -220,12 +220,16 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         .select("id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, wht_rate, wht_certificate_no, paid_at, issue_date, due_date, customer_id, customer:customer_id(name, tax_id, address)")
         .eq("user_id", userId)
         .neq("doc_type", "delivery_note")
-        .neq("doc_type", "credit_note")
         .neq("status", "draft")
         .neq("status", "voided")
         .neq("status", "converted");
 
       const docs = (allDocs || []) as any[];
+
+      // Adjustment notes change revenue/VAT/outstanding:
+      // credit notes (ใบลดหนี้) are negative, debit notes (ใบเพิ่มหนี้) positive.
+      const activeCreditNotes = docs.filter((d) => d.doc_type === "credit_note");
+      const activeDebitNotes = docs.filter((d) => d.doc_type === "debit_note");
 
       const { data: bnLinks } = await supabase
         .from("billing_note_invoices")
@@ -323,11 +327,26 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const whtWithheld = paidThisPeriod.reduce((sum, d) => sum + (d.wht_amount || 0), 0);
       const vatCollected = paidThisPeriod.reduce((sum, d) => sum + (d.vat_amount || 0), 0);
 
+      // Adjustment notes issued this period: credits reduce, debits increase.
+      const inPeriodAdjustment = (docList: any[]) => {
+        return docList.filter((d) => {
+          const adjDate = (d.issue_date || "").slice(0, 10);
+          return adjDate >= start && adjDate <= end;
+        });
+      };
+      const periodCreditTotal = inPeriodAdjustment(activeCreditNotes).reduce((sum, d) => sum + (d.total_amount || 0), 0);
+      const periodCreditVat = inPeriodAdjustment(activeCreditNotes).reduce((sum, d) => sum + (d.vat_amount || 0), 0);
+      const periodDebitTotal = inPeriodAdjustment(activeDebitNotes).reduce((sum, d) => sum + (d.total_amount || 0), 0);
+      const periodDebitVat = inPeriodAdjustment(activeDebitNotes).reduce((sum, d) => sum + (d.vat_amount || 0), 0);
+
+      const adjustedRevenue = Math.max(0, revenue - periodCreditTotal + periodDebitTotal);
+      const adjustedVatCollected = Math.max(0, vatCollected - periodCreditVat + periodDebitVat);
+
       const isArDoc = (d: any) =>
         (d.status === "sent" || d.status === "overdue" || d.status === "partially_paid" ||
           (d.doc_type === "tax_invoice_receipt" && d.status === "issued"));
 
-      const outstanding = docs
+      const grossOutstanding = docs
         .filter(
           (d) =>
             isArDoc(d) &&
@@ -339,13 +358,16 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           }
           return sum + (d.net_payable || 0);
         }, 0);
+      const allCreditTotal = activeCreditNotes.reduce((sum, d) => sum + (d.total_amount || 0), 0);
+      const allDebitTotal = activeDebitNotes.reduce((sum, d) => sum + (d.total_amount || 0), 0);
+      const outstanding = Math.max(0, grossOutstanding - allCreditTotal + allDebitTotal);
 
       setSummary({
-        revenue,
+        revenue: adjustedRevenue,
         collected,
         whtWithheld,
         outstanding,
-        vatCollected,
+        vatCollected: adjustedVatCollected,
         docCount: paidThisPeriod.length,
       });
 
@@ -372,10 +394,23 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           const recognitionDate = getRecognitionDate(d);
           return recognitionDate >= ms && recognitionDate <= me;
         });
+        const monthCredits = activeCreditNotes.filter((d) => {
+          const creditDate = (d.issue_date || "").slice(0, 10);
+          return creditDate >= ms && creditDate <= me;
+        });
+        const monthDebits = activeDebitNotes.filter((d) => {
+          const debitDate = (d.issue_date || "").slice(0, 10);
+          return debitDate >= ms && debitDate <= me;
+        });
         const row = {
           month: `${m.month}`.padStart(2, "0"),
           year: m.year,
-          total: inMonth.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0),
+          total: Math.max(
+            0,
+            inMonth.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0) -
+              monthCredits.reduce((sum, d) => sum + (d.total_amount || 0), 0) +
+              monthDebits.reduce((sum, d) => sum + (d.total_amount || 0), 0),
+          ),
         };
         monthlyTrendData.push(row);
       }
@@ -410,6 +445,46 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           ? Math.max(0, (d.net_payable || 0) - (d.amount_received || 0))
           : (d.net_payable || 0);
 
+      // Allocate each customer's NET adjustment against their AR documents,
+      // oldest due first — so aging buckets and customer AR reflect reality.
+      // Net debits (rare) are not allocated into buckets; they surface in the
+      // outstanding summary instead.
+      const creditsByCustomer = new Map<string, number>();
+      for (const d of activeCreditNotes) {
+        const cid = d.customer_id as string;
+        if (!cid) continue;
+        creditsByCustomer.set(cid, (creditsByCustomer.get(cid) || 0) + (d.total_amount || 0));
+      }
+      for (const d of activeDebitNotes) {
+        const cid = d.customer_id as string;
+        if (!cid) continue;
+        creditsByCustomer.set(cid, (creditsByCustomer.get(cid) || 0) - (d.total_amount || 0));
+      }
+      const adjustedArAmount = new Map<string, number>();
+      const docsByCustomer = new Map<string, any[]>();
+      for (const d of overdueDocs) {
+        const cid = d.customer_id as string;
+        if (!cid) continue;
+        const list = docsByCustomer.get(cid) || [];
+        list.push(d);
+        docsByCustomer.set(cid, list);
+      }
+      for (const [cid, customerDocs] of docsByCustomer) {
+        let remainingCredit = creditsByCustomer.get(cid) || 0;
+        for (const d of [...customerDocs].sort((a, b) =>
+          (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31"),
+        )) {
+          let amount = arDocAmount(d);
+          if (remainingCredit > 0 && amount > 0) {
+            const applied = Math.min(remainingCredit, amount);
+            amount -= applied;
+            remainingCredit -= applied;
+          }
+          adjustedArAmount.set(d.id, amount);
+        }
+      }
+      const arDocAdjustedAmount = (d: any) => adjustedArAmount.get(d.id) ?? arDocAmount(d);
+
       const buckets: ARAgingBucket[] = [
         { label: "1-30 วัน", total: 0, count: 0 },
         { label: "31-60 วัน", total: 0, count: 0 },
@@ -417,7 +492,8 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         { label: "90+ วัน", total: 0, count: 0 },
       ];
       for (const d of overdueDocs) {
-        const amount = arDocAmount(d);
+        const amount = arDocAdjustedAmount(d);
+        if (amount <= 0) continue;
         if (!d.due_date) {
           buckets[buckets.length - 1].total += amount;
           buckets[buckets.length - 1].count++;
@@ -439,7 +515,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         const cid = d.customer_id as string;
         const cname = d.customer?.name || "ไม่ระบุ";
         const existing = arMap.get(cid) || { customerId: cid, name: cname, total: 0, count: 0, oldestDue: d.due_date || null };
-        existing.total += arDocAmount(d);
+        existing.total += arDocAdjustedAmount(d);
         existing.count++;
         if (d.due_date && (!existing.oldestDue || d.due_date < existing.oldestDue)) {
           existing.oldestDue = d.due_date;
@@ -474,7 +550,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
           dealNumber: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
           docNumber: d.doc_number || "-",
           docType: docTypeLabelsExport[d.doc_type as string] || d.doc_type,
-          netPayable: arDocAmount(d),
+          netPayable: arDocAdjustedAmount(d),
           dueDate,
           daysOverdue,
         };
@@ -545,7 +621,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       const prevM = month === 1 ? 12 : month - 1;
       const prevY = month === 1 ? year - 1 : year;
       const prevMonthData = monthlyTrendData.find((m) => parseInt(m.month, 10) === prevM && m.year === prevY);
-      setRevenueDelta(prevMonthData && prevMonthData.total > 0 ? ((revenue - prevMonthData.total) / prevMonthData.total) * 100 : null);
+      setRevenueDelta(prevMonthData && prevMonthData.total > 0 ? ((adjustedRevenue - prevMonthData.total) / prevMonthData.total) * 100 : null);
 
       // COGS from stock auto_out
       const { data: cogsRows } = await supabase

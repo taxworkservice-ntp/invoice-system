@@ -26,6 +26,7 @@ export function useDeals(userId: string | undefined) {
         .select("net_payable")
         .eq("user_id", userId)
         .eq("status", "paid")
+        .neq("doc_type", "credit_note")
         .gte("updated_at", monthStart),
     ]);
 
@@ -106,11 +107,12 @@ function hasPartial(docs: DealCardData[]) {
 function getStage(docType: string, status: string): "quote" | "invoice" | "collect" | "done" {
   if (docType === "quotation") return "quote";
   if (docType === "tax_invoice_receipt") return "done";
+  if (docType === "credit_note") return status === "draft" ? "collect" : "done";
   if (docType === "invoice" && status !== "paid" && status !== "partially_paid") return "invoice";
   if (docType === "billing_note" && status !== "paid" && status !== "partially_paid") return "collect";
   if (status === "paid" || status === "generated") return "done";
   if (status === "partially_paid") return "collect";
-  if (docType === "receipt" || docType === "delivery_note" || docType === "credit_note") return "done";
+  if (docType === "receipt" || docType === "delivery_note") return "done";
   return "invoice";
 }
 

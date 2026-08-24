@@ -23,6 +23,7 @@ const DOC_VISIBILITY_TYPES = [
   { key: "receipt", label: "ใบเสร็จ" },
   { key: "delivery_note", label: "ใบส่งของ" },
   { key: "credit_note", label: "ใบลดหนี้" },
+  { key: "debit_note", label: "ใบเพิ่มหนี้" },
   { key: "wht", label: "หัก ณ ที่จ่าย (ภ.ง.ด.)" },
 ];
 

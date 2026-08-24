@@ -197,6 +197,15 @@ export function PrintDocumentClassicV2({
   // Reference doc label
   const refLabel = (() => {
     if (!referenceDoc) return null;
+    if (document.doc_type === "credit_note" || document.doc_type === "debit_note") {
+      if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
+      if (referenceDoc.doc_type === "tax_invoice_receipt") {
+        return referenceDoc.vat_registered
+          ? "อ้างอิงใบกำกับภาษี"
+          : "อ้างอิงใบเสร็จรับเงิน";
+      }
+      if (referenceDoc.doc_type === "receipt") return "อ้างอิงใบเสร็จรับเงิน";
+    }
     if (document.doc_type === "receipt") {
       if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
       if (referenceDoc.doc_type === "tax_invoice_receipt") {

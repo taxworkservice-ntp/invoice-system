@@ -1,5 +1,5 @@
 import type { Document, DocumentStatus } from "../types";
-import { restoreStockOnVoid } from "./stock";
+import { restoreStockOnVoid, reverseStockOnCreditNoteVoid } from "./stock";
 import { supabase } from "./supabase";
 
 type VoidableDocument = Pick<Document, "id" | "doc_type" | "converted_from_id">;
@@ -21,6 +21,12 @@ export async function voidDocumentWithSideEffects(
   if (error) throw error;
 
   await restoreStockOnVoid(document.id, userId);
+
+  if (document.doc_type === "credit_note") {
+    // A credit note returned stock at issue time; voiding reverses that return.
+    // (restoreStockOnVoid above is a no-op here — credit notes never had auto_out.)
+    await reverseStockOnCreditNoteVoid(document.id, userId);
+  }
 
   if (document.doc_type === "billing_note") {
     await releaseInvoicesFromBillingNote(document.id);

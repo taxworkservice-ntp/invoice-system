@@ -84,6 +84,7 @@ type DashboardDeal = {
   netPayable: number;
   amountReceived: number;
   outstandingAmount: number;
+  customerCredit: number;
   whtAmount: number;
   expectedWhtAmount: number;
   receiptCount: number;
@@ -328,6 +329,18 @@ function getDealReceivedAmount(documents: DealDoc[]) {
   return Math.max(receiptReceived, billingReceived, invoiceReceived, combinedReceived);
 }
 
+// Active adjustment notes change what the customer owes on the deal:
+// credit notes (ใบลดหนี้) reduce it, debit notes (ใบเพิ่มหนี้) increase it.
+function getDealNetAdjustment(documents: DealDoc[]) {
+  let adjustment = 0;
+  for (const doc of documents) {
+    if (["draft", "voided"].includes(doc.status)) continue;
+    if (doc.doc_type === "credit_note") adjustment -= doc.total_amount || 0;
+    if (doc.doc_type === "debit_note") adjustment += doc.total_amount || 0;
+  }
+  return adjustment;
+}
+
 function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {
   const queuePriority: Record<HomeQueue, number> = {
     overdue: 0,
@@ -547,7 +560,11 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const grossAmount = amountDocument?.total_amount ?? amountDocument?.net_payable ?? 0;
   const netPayable = amountDocument?.net_payable ?? amountDocument?.total_amount ?? 0;
   const expectedWhtAmount = amountDocument?.wht_amount ?? 0;
-  const outstandingAmount = Math.max(0, netPayable - amountReceived);
+  // Adjustment notes apply to the remaining balance; excess credit becomes customer credit.
+  const netAdjustment = getDealNetAdjustment(deal.documents || []);
+  const balanceBeforeAdjustment = Math.max(0, netPayable - amountReceived);
+  const outstandingAmount = Math.max(0, balanceBeforeAdjustment + netAdjustment);
+  const customerCredit = Math.max(0, -(balanceBeforeAdjustment + netAdjustment));
   const receiptCount = getReceiptDocuments(deal.documents || []).length;
   const partialReceived = amountReceived;
   const isPartiallyPaid = (deal.documents || []).some((d) => d.status === "partially_paid");
@@ -579,6 +596,7 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     netPayable,
     amountReceived,
     outstandingAmount,
+    customerCredit,
     whtAmount: getDealWhtAmount(deal.documents || []),
     expectedWhtAmount,
     receiptCount,

@@ -29,6 +29,10 @@ export default function NewDocumentPage() {
     return <CreditNoteForm dealId={dealId} />;
   }
 
+  if (type === "debit_note") {
+    return <CreditNoteForm dealId={dealId} docType="debit_note" />;
+  }
+
   if (type === "invoice_from_delivery_notes") {
     return <InvoiceFromDeliveryNotesForm />;
   }

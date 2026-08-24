@@ -1071,6 +1071,12 @@ export default function DealDetailPage() {
     () => nonVoidedDocs.filter((item) => item.document.doc_type === "delivery_note"),
     [nonVoidedDocs]
   );
+  // Sent (= not yet fully billed) delivery notes can still be invoiced even
+  // after the deal is paid — partial deliveries may continue afterwards.
+  const billableSentDns = useMemo(
+    () => deliveryNotes.filter((item) => item.document.status === "sent"),
+    [deliveryNotes]
+  );
   const dnAction = useMemo(() => {
     if (!latestQuotation || latestQuotation.document.status !== "sent") return null;
     const draftDn = nonVoidedDocs.find(
@@ -1294,6 +1300,20 @@ export default function DealDetailPage() {
     const collectionDocs = nonVoidedDocs.filter((item) =>
       ["billing_note", "invoice", "tax_invoice_receipt"].includes(item.document.doc_type),
     );
+    // Active adjustment notes change what the customer owes:
+    // credit notes (ใบลดหนี้) reduce it, debit notes (ใบเพิ่มหนี้) increase it.
+    const creditNoteDocs = nonVoidedDocs.filter(
+      (item) =>
+        item.document.doc_type === "credit_note" &&
+        !["draft", "voided"].includes(item.document.status),
+    );
+    const debitNoteDocs = nonVoidedDocs.filter(
+      (item) =>
+        item.document.doc_type === "debit_note" &&
+        !["draft", "voided"].includes(item.document.status),
+    );
+    const creditTotal = creditNoteDocs.reduce((sum, item) => sum + (item.document.total_amount || 0), 0);
+    const debitTotal = debitNoteDocs.reduce((sum, item) => sum + (item.document.total_amount || 0), 0);
     const source = collectionDocs.find((item) => item.document.doc_type === "billing_note") ||
       collectionDocs.find((item) => item.document.doc_type === "invoice") ||
       collectionDocs.find((item) => item.document.doc_type === "tax_invoice_receipt") ||
@@ -1319,11 +1339,20 @@ export default function DealDetailPage() {
       ? Math.min(expectedWhtAmount, Math.round(expectedWhtAmount * amountReceived / netPayable * 100) / 100)
       : 0;
 
+    // Credit applies to the remaining balance first; any excess becomes
+    // customer credit (e.g. crediting a fully-paid invoice).
+    const balanceBeforeAdjustment = Math.max(0, netPayable + debitTotal - amountReceived);
+    const appliedCredit = Math.min(creditTotal, balanceBeforeAdjustment);
+    const customerCredit = Math.max(0, creditTotal - balanceBeforeAdjustment);
+
     return {
       grossAmount,
       netPayable,
       amountReceived,
-      outstanding: Math.max(0, netPayable - amountReceived),
+      outstanding: Math.max(0, balanceBeforeAdjustment - appliedCredit),
+      creditTotal,
+      debitTotal,
+      customerCredit,
       whtAmount,
       expectedWhtAmount,
       receiptCount: receipts.length,
@@ -1660,13 +1689,13 @@ export default function DealDetailPage() {
                   onClick={() => setCloneChooserOpen(true)}
                 >
                   <Copy className="mr-1.5 h-4 w-4" />
-                  สร้างงานขายใหม่จากงานนี้
+                  สร้างงานขายเหมือนงานนี้
                 </Button>
               </div>
             )}
           </Card>
         )}
-        {deliveryProgress && !allDone && (
+        {deliveryProgress && (
           <Card className={` ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -1680,13 +1709,21 @@ export default function DealDetailPage() {
                 </div>
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                deliveryProgress.allDelivered
-                  ? "bg-green-100 text-green-700"
-                  : deliveryProgress.hasOverDelivery
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-blue-100 text-blue-700"
+                allDone
+                  ? "bg-paid-bg text-paid-text"
+                  : deliveryProgress.allDelivered
+                    ? "bg-green-100 text-green-700"
+                    : deliveryProgress.hasOverDelivery
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-blue-100 text-blue-700"
               }`}>
-                {deliveryProgress.allDelivered ? "ส่งครบแล้ว" : deliveryProgress.hasOverDelivery ? "มีส่งเกิน" : "กำลังส่ง"}
+                {allDone
+                  ? "ชำระแล้ว"
+                  : deliveryProgress.allDelivered
+                    ? "ส่งครบแล้ว"
+                    : deliveryProgress.hasOverDelivery
+                      ? "มีส่งเกิน"
+                      : "กำลังส่ง"}
               </span>
             </div>
 
@@ -1712,38 +1749,64 @@ export default function DealDetailPage() {
             )}
           </div>
 
-            {dnAction && (
-              <Button
-                variant="secondary"
-                tone={dnAction.disabled ? "slate" : "teal"}
-                disabled={dnAction.disabled}
-                className="mt-3 w-full justify-center"
-                onClick={() => {
-                  if (dnAction.disabled || !dnAction.target) return;
-                  if (dnAction.target.type === "form") {
-                    const params = new URLSearchParams({
-                      type: "delivery_note_from_quotation",
-                      quotationId: dnAction.target.quotationId,
-                    });
-                    navigate(`/documents/new?${params.toString()}`);
-                  } else {
-                    navigate(`/documents/${dnAction.target.id}`);
-                  }
-                }}
-              >
-                {dnAction.label}
-                {dnAction.badge && (
-                  <span
-                    className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium ${
-                      dnAction.disabled
-                        ? "bg-white/70 text-gray-500"
-                        : "bg-white/70 text-accent-teal"
-                    }`}
+          {allDone && !deliveryProgress.allDelivered && (
+            <p className="mt-2 text-[11px] leading-4 text-gray-400">
+              ชำระแล้ว — จำนวนที่เหลือเป็นเพียงบันทึกการส่ง ระบบจะไม่ออกเอกสารเพิ่มจากส่วนนี้
+              (หากบันทึกจำนวนผิด ให้ยกเลิกใบส่งของแล้วออกฉบับใหม่)
+            </p>
+          )}
+
+            {!allDone && (dnAction || billableSentDns.length > 0) && (
+              <div className={`mt-3 grid gap-2 ${dnAction && billableSentDns.length > 0 ? "sm:grid-cols-2" : ""}`}>
+                {dnAction && (
+                  <Button
+                    variant="secondary"
+                    tone={dnAction.disabled ? "slate" : "teal"}
+                    disabled={dnAction.disabled}
+                    className="w-full justify-center"
+                    onClick={() => {
+                      if (dnAction.disabled || !dnAction.target) return;
+                      if (dnAction.target.type === "form") {
+                        const params = new URLSearchParams({
+                          type: "delivery_note_from_quotation",
+                          quotationId: dnAction.target.quotationId,
+                        });
+                        navigate(`/documents/new?${params.toString()}`);
+                      } else {
+                        navigate(`/documents/${dnAction.target.id}`);
+                      }
+                    }}
                   >
-                    {dnAction.badge}
-                  </span>
+                    {dnAction.label}
+                    {dnAction.badge && (
+                      <span
+                        className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium ${
+                          dnAction.disabled
+                            ? "bg-white/70 text-gray-500"
+                            : "bg-white/70 text-accent-teal"
+                        }`}
+                      >
+                        {dnAction.badge}
+                      </span>
+                    )}
+                  </Button>
                 )}
-              </Button>
+                {billableSentDns.length > 0 && (
+                  <Button
+                    className="w-full justify-center"
+                    onClick={() =>
+                      navigate(
+                        `/documents/new?type=invoice_from_delivery_notes&dnId=${billableSentDns[0].document.id}`,
+                      )
+                    }
+                  >
+                    สร้างบิลจากใบส่งของ
+                    <span className="ml-2 inline-flex items-center rounded-full bg-white/25 px-2 py-0.5 text-2xs font-medium">
+                      {billableSentDns.length} ใบ
+                    </span>
+                  </Button>
+                )}
+              </div>
             )}
 
             {deliveryNotes.length > 0 && (
@@ -1856,13 +1919,22 @@ export default function DealDetailPage() {
                 {financialSummary.receiptCount > 0 ? `${financialSummary.receiptCount} ใบเสร็จ` : "ยังไม่มีใบเสร็จ"}
               </div>
             </div>
-            <div className={`rounded-full px-2.5 py-1 text-2xs font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
-              {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
+            <div className="flex shrink-0 items-center gap-1.5">
+              {financialSummary.customerCredit > 0 && (
+                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-2xs font-medium text-blue-700">
+                  เครดิตคงเหลือ ฿{formatCurrency(financialSummary.customerCredit)}
+                </span>
+              )}
+              <div className={`rounded-full px-2.5 py-1 text-2xs font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
+                {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
+              </div>
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
             {[
               { label: "ยอดรวม", value: financialSummary.grossAmount, className: "text-ink-900" },
+              ...(financialSummary.debitTotal > 0 ? [{ label: "ยอดเพิ่มหนี้", value: financialSummary.debitTotal, className: "text-amber-700" }] : []),
+              ...(financialSummary.creditTotal > 0 ? [{ label: "ยอดลดหนี้", value: -financialSummary.creditTotal, className: "text-red-700" }] : []),
               { label: "ยอดสุทธิ", value: financialSummary.netPayable, className: "text-ink-900" },
               { label: "รับแล้ว", value: financialSummary.amountReceived, className: "text-green-700" },
               { label: "ค้างรับ", value: financialSummary.outstanding, className: financialSummary.outstanding > 0 ? "text-red-700" : "text-green-700" },
@@ -2245,14 +2317,14 @@ export default function DealDetailPage() {
               </Button>
             )}
             {allDone && hasPaidDocs && canSendDocumentType(permissions, "credit_note") && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (
-              <Button
-                variant="secondary"
-                tone="slate"
-                className="col-span-2 justify-center"
-                onClick={handleCreateCreditNote}
-              >
-                ออกใบลดหนี้
-              </Button>
+              <div className="col-span-2 grid grid-cols-2 gap-2">
+                <Button variant="secondary" tone="slate" className="justify-center" onClick={handleCreateCreditNote}>
+                  ออกใบลดหนี้
+                </Button>
+                <Button variant="secondary" tone="slate" className="justify-center" onClick={() => navigate(`/documents/new?type=debit_note&dealId=${dealId}`)}>
+                  ออกใบเพิ่มหนี้
+                </Button>
+              </div>
             )}
             {isDevMode && (
               <div className="col-span-2 mt-2 pt-2 border-t border-amber-200">
@@ -2279,7 +2351,7 @@ export default function DealDetailPage() {
         />
       )}
 
-      <Modal open={cloneChooserOpen} onClose={() => setCloneChooserOpen(false)} title="สร้างงานขายใหม่จากงานนี้">
+      <Modal open={cloneChooserOpen} onClose={() => setCloneChooserOpen(false)} title="สร้างงานขายเหมือนงานนี้">
         <div className="space-y-2">
           <p className="text-sm text-gray-600">เลือกเอกสารที่ต้องการคัดลอกรายการจาก ระบบจะสร้างงานขายใหม่พร้อมฉบับร่างให้แก้ไข</p>
           {availableCloneTypes.map(({ type, label }) => (

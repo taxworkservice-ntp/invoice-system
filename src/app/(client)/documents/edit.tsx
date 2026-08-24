@@ -75,6 +75,10 @@ export default function EditDocumentPage() {
     return <CreditNoteForm documentId={id} />;
   }
 
+  if (docType === "debit_note") {
+    return <CreditNoteForm documentId={id} docType="debit_note" />;
+  }
+
   if (docType === "billing_note") {
     return <BillingNoteForm documentId={id} />;
   }

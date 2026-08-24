@@ -616,7 +616,7 @@ export default function DocumentDetailPage() {
   const issueDateLabel = formatDate(doc.issue_date);
   const dueDateLabel = doc.due_date ? formatDate(doc.due_date) : "ไม่มีกำหนด";
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
-  const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note";
+  const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note" || doc.doc_type === "debit_note";
   const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
   const isCorrectionCandidate = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
   const correctionTitle = doc.doc_type === "tax_invoice_receipt" ? "ยกเลิกและออกฉบับใหม่" : "แก้ไขโดยออกฉบับใหม่";
@@ -1342,6 +1342,21 @@ export default function DocumentDetailPage() {
                   </Button>
                   <p className="text-xs leading-5 text-gray-500">เอกสารนี้ไม่ผูกกับงานขาย จึงบันทึกการรับชำระได้จากหน้านี้</p>
                 </>
+              )}
+              {doc.doc_type === "invoice" && canSendDocumentType(permissions, "credit_note") && (
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+                    ยอดลดลงออกใบลดหนี้ · ยอดเพิ่มขึ้นออกใบเพิ่มหนี้ · ออกผิดให้ยกเลิกและออกฉบับใหม่
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="secondary" size="md" className="w-full" onClick={() => navigate(`/documents/new?type=credit_note&dealId=${doc.deal_id || ""}`)}>
+                      ออกใบลดหนี้
+                    </Button>
+                    <Button variant="secondary" size="md" className="w-full" onClick={() => navigate(`/documents/new?type=debit_note&dealId=${doc.deal_id || ""}`)}>
+                      ออกใบเพิ่มหนี้
+                    </Button>
+                  </div>
+                </div>
               )}
               {doc.doc_type === "invoice" && (
                 <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">

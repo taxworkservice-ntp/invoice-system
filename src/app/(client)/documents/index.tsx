@@ -66,6 +66,7 @@ const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
   { label: "ใบเสร็จรับเงิน", value: "receipt" },
   { label: "ใบส่งของ", value: "delivery_note" },
   { label: "ใบลดหนี้", value: "credit_note" },
+  { label: "ใบเพิ่มหนี้", value: "debit_note" },
 ];
 
 const MONTH_LABELS = [
@@ -132,6 +133,7 @@ const DOC_TYPE_BORDER: Record<DocumentType, string> = {
   receipt: "border-l-green-400",
   delivery_note: "border-l-teal-400",
   credit_note: "border-l-red-400",
+  debit_note: "border-l-amber-400",
 };
 
 function relativeDueLabel(dueDate: string): { text: string; urgent: boolean } {
@@ -635,7 +637,7 @@ function DocumentCard({
                   </>
                 )}
 
-              {isDraft && doc.doc_type === "credit_note" && (
+              {isDraft && (doc.doc_type === "credit_note" || doc.doc_type === "debit_note") && (
                 <>
                   {canSendDocumentType(permissions, doc.doc_type) && (
                     <button
@@ -643,7 +645,7 @@ function DocumentCard({
                       onClick={() => onMenuAction("issue_cn")}
                     >
                       <FileText size={14} />
-                      <span>ออกใบลดหนี้</span>
+                      <span>{doc.doc_type === "debit_note" ? "ออกใบเพิ่มหนี้" : "ออกใบลดหนี้"}</span>
                     </button>
                   )}
                   <button

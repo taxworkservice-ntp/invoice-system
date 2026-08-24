@@ -130,6 +130,13 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
               <div className="flex justify-between gap-2">
                 <div className="flex flex-col">
                   <span className="text-[#6B7280]">{(() => {
+                    if (document.doc_type === "credit_note" || document.doc_type === "debit_note") {
+                      if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
+                      if (referenceDoc.doc_type === "tax_invoice_receipt") {
+                        return referenceDoc.vat_registered ? "อ้างอิงใบกำกับภาษี" : "อ้างอิงใบเสร็จรับเงิน";
+                      }
+                      if (referenceDoc.doc_type === "receipt") return "อ้างอิงใบเสร็จรับเงิน";
+                    }
                     if (document.doc_type === "receipt") {
                       if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
                       if (referenceDoc.doc_type === "tax_invoice_receipt") {

@@ -27,6 +27,7 @@ const DOC_ACCENT_COLORS: Record<DocumentType, string> = {
   receipt: "#2F855A",
   delivery_note: "#0F9AA8",
   credit_note: "#DC2626",
+  debit_note: "#B45309",
 };
 
 const COPY_LABELS: Record<CopyType, string> = {

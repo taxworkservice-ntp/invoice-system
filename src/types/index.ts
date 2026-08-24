@@ -9,7 +9,10 @@ export type DocumentType =
   | "billing_note"
   | "receipt"
   | "delivery_note"
-  | "credit_note";
+  | "credit_note"
+  // Requires sql/20260824_credit_note_guards_and_debit_note.sql to be applied
+  // (extends the DB document_type enum) before creating debit notes.
+  | "debit_note";
 
 export type DocumentStatus =
   | "draft"

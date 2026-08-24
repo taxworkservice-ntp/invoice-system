@@ -12,7 +12,7 @@ import { DOC_TYPE_LABELS, DOC_TYPE_NOTES } from "../../../constants";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { DocNumberSequence, DocumentType } from "../../../types";
 
-const DOC_TYPES: DocumentType[] = ["quotation", "invoice", "billing_note", "receipt", "delivery_note", "credit_note"];
+const DOC_TYPES: DocumentType[] = ["quotation", "invoice", "billing_note", "receipt", "delivery_note", "credit_note", "debit_note"];
 
 export default function SettingsNumberingPage() {
   const { profile, clientProfile, setClientProfile } = useAuth();

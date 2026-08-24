@@ -13,6 +13,7 @@ import { Spinner } from "../ui/Spinner";
 import { resolveDocNumber } from "../../lib/docNumber";
 import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
+import { returnStockOnCreditNoteIssued } from "../../lib/stock";
 import { formatBuddhistDate } from "../../lib/dates";
 import { DOC_TYPE_LABELS } from "../../constants";
 import type { Document, DocumentLineItem, Customer, Deal } from "../../types";
@@ -21,6 +22,8 @@ import { EditableDocNumber } from "./EditableDocNumber";
 interface CreditNoteFormProps {
   dealId?: string;
   documentId?: string;
+  /** Which adjustment document this form manages (default: credit_note). */
+  docType?: "credit_note" | "debit_note";
 }
 
 interface CreditItem {
@@ -42,7 +45,7 @@ function uid() {
   return `cn_${++idCounter}_${Date.now()}`;
 }
 
-export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
+export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: CreditNoteFormProps) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const userId = profile?.id;
@@ -51,6 +54,12 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
   const todayString = () => businessToday;
   const { items: catalogItems, addItem } = useItems(userId);
   const toast = useToast();
+
+  // ใบลดหนี้ reduces what the customer owes (and returns stock on issue).
+  // ใบเพิ่มหนี้ increases it — purely financial, no stock movement.
+  const isDebit = docType === "debit_note";
+  const docTitleTh = isDebit ? "ใบเพิ่มหนี้" : "ใบลดหนี้";
+  const issueVerbTh = isDebit ? "ออกใบเพิ่มหนี้" : "ออกใบลดหนี้";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,6 +70,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
   const [paidInvoices, setPaidInvoices] = useState<Document[]>([]);
   const [refInvoiceId, setRefInvoiceId] = useState("");
   const [refInvoiceLines, setRefInvoiceLines] = useState<DocumentLineItem[]>([]);
+  const [existingCreditTotal, setExistingCreditTotal] = useState(0);
   const [items, setItems] = useState<CreditItem[]>([]);
   const [note, setNote] = useState("");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
@@ -138,8 +148,8 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       .eq("user_id", userId)
       .single();
 
-    if (!doc || (doc as any).doc_type !== "credit_note") {
-      setError("ไม่พบใบลดหนี้");
+    if (!doc || (doc as any).doc_type !== docType) {
+      setError(`ไม่พบ${docTitleTh}`);
       setLoading(false);
       return;
     }
@@ -182,7 +192,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
     }
 
     setLoading(false);
-  }, [documentId, userId]);
+  }, [documentId, userId, docType, docTitleTh]);
 
   const loadRefInvoiceLines = useCallback(async () => {
     if (!refInvoiceId) {
@@ -222,6 +232,37 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
     if (dealId) loadDeal();
     else if (documentId) loadExisting();
   }, [dealId, documentId, loadDeal, loadExisting]);
+
+  // Track how much of the referenced invoice has already been credited by
+  // active (non-voided, non-this-draft) credit notes — used for over-credit guard.
+  useEffect(() => {
+    if (!userId || !refInvoiceId || !paidInvoices.length) {
+      setExistingCreditTotal(0);
+      return;
+    }
+    let cancelled = false;
+
+    async function loadExistingCredits() {
+      const { data: creditNotes } = await supabase
+        .from("documents")
+        .select("id, total_amount")
+        .eq("user_id", userId)
+        .eq("doc_type", docType)
+        .eq("converted_from_id", refInvoiceId)
+        .neq("status", "voided");
+
+      if (cancelled) return;
+      const total = (creditNotes || [])
+        .filter((cn: any) => cn.id !== docId)
+        .reduce((sum: number, cn: any) => sum + Number(cn.total_amount || 0), 0);
+      setExistingCreditTotal(total);
+    }
+
+    loadExistingCredits();
+    return () => {
+      cancelled = true;
+    };
+  }, [refInvoiceId, docId, paidInvoices.length, userId]);
 
   useEffect(() => {
     if (refInvoiceId && !isEditing) loadRefInvoiceLines();
@@ -278,9 +319,6 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       return;
     }
 
-    setSaving(true);
-    setError("");
-
     const taxResult = calculateTax(
       items.map((it) => ({
         unit_price: it.unitPrice,
@@ -292,20 +330,38 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
       whtRate,
       { discountPercent: documentDiscountPercent },
     );
+
+    // Guardrail: cumulative active credits against the source invoice must not
+    // exceed its total (prevents over-crediting). Debit notes have no upper limit.
+    if (!isDebit && refInvoiceId) {
+      const refInvoice = paidInvoices.find((d) => d.id === refInvoiceId);
+      const invoiceTotal = Number(refInvoice?.total_amount || 0);
+      const remainingCreditable = invoiceTotal - existingCreditTotal;
+      if (invoiceTotal > 0 && taxResult.total > remainingCreditable + 0.01) {
+        setError(
+          `ยอดใบลดหนี้รวมเกินกว่าที่จะลดได้ — ใบแจ้งหนี้ ${refInvoice?.doc_number || ""} วงเงินคงเหลือที่ลดได้ ฿${remainingCreditable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`,
+        );
+        return;
+      }
+    }
+
+    setSaving(true);
+    setError("");
+
     const effectiveIssueDate = issueDate || todayString();
 
     try {
       let targetDocId = docId;
 
       if (!isEditing) {
-        const docNumber = await resolveDocNumber(userId, "credit_note", effectiveIssueDate, docNumberOverride, docId || undefined);
+        const docNumber = await resolveDocNumber(userId, docType, effectiveIssueDate, docNumberOverride, docId || undefined);
         const { data: newDoc, error: insertErr } = await supabase
           .from("documents")
           .insert({
             user_id: userId,
             deal_id: dealId || null,
             customer_id: customer.id,
-            doc_type: "credit_note",
+            doc_type: docType,
             doc_number: docNumber,
             status,
             issue_date: effectiveIssueDate,
@@ -388,7 +444,13 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         if (linesErr) throw linesErr;
       }
 
-      toast.success(status === "issued" ? "ออกใบลดหนี้แล้ว" : "บันทึกฉบับร่างแล้ว");
+      // Issuing a credit note returns credited products to stock.
+      // Debit notes are price-only adjustments — no goods movement.
+      if (status === "issued" && targetDocId && !isDebit) {
+        await returnStockOnCreditNoteIssued(targetDocId, userId);
+      }
+
+      toast.success(status === "issued" ? `${issueVerbTh}แล้ว` : "บันทึกฉบับร่างแล้ว");
       navigate(`/documents/${targetDocId}`, { replace: true });
     } catch (err: any) {
       setError(err.message || "เกิดข้อผิดพลาด");
@@ -400,7 +462,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
 
   if (loading) {
     return (
-      <AppShell title={isEditing ? "แก้ไขใบลดหนี้" : "ออกใบลดหนี้"} showBack>
+      <AppShell title={isEditing ? `แก้ไข${docTitleTh}` : issueVerbTh} showBack>
         <Spinner />
       </AppShell>
     );
@@ -408,14 +470,14 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
 
   if (error && !customer) {
     return (
-      <AppShell title="ออกใบลดหนี้" showBack>
+      <AppShell title={issueVerbTh} showBack>
         <p className="text-sm text-red-500">{error}</p>
       </AppShell>
     );
   }
 
   return (
-    <AppShell title={isEditing ? "แก้ไขใบลดหนี้" : "ออกใบลดหนี้"} showBack>
+    <AppShell title={isEditing ? `แก้ไข${docTitleTh}` : issueVerbTh} showBack>
       <div className="space-y-4">
         <Card>
           <div className="space-y-3">
@@ -469,17 +531,32 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
             </div>
 
             {!isEditing && paidInvoices.length > 0 && (
-              <Select
-                label="อ้างอิงใบแจ้งหนี้เดิม"
-                value={refInvoiceId}
-                onChange={(e) => setRefInvoiceId(e.target.value)}
-              >
-                {paidInvoices.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.doc_number} — ฿{d.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
-                  </option>
-                ))}
-              </Select>
+              <>
+                <Select
+                  label="อ้างอิงใบแจ้งหนี้เดิม"
+                  value={refInvoiceId}
+                  onChange={(e) => setRefInvoiceId(e.target.value)}
+                >
+                  {paidInvoices.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.doc_number} — ฿{d.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                    </option>
+                  ))}
+                </Select>
+                {!isDebit && (() => {
+                  const refInvoice = paidInvoices.find((d) => d.id === refInvoiceId);
+                  const invoiceTotal = Number(refInvoice?.total_amount || 0);
+                  if (!refInvoice || invoiceTotal <= 0) return null;
+                  const remaining = invoiceTotal - existingCreditTotal;
+                  return (
+                    <p className={`text-xs leading-5 ${remaining <= 0 ? "text-amber-600" : "text-gray-500"}`}>
+                      {remaining > 0
+                        ? `วงเงินคงเหลือที่ลดได้จากใบนี้: ฿${remaining.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`
+                        : "ใบแจ้งหนี้นี้ถูกลดหนี้ครบวงเงินแล้ว"}
+                    </p>
+                  );
+                })()}
+              </>
             )}
 
             {isEditing && refInvoiceId && (
@@ -647,7 +724,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="เหตุผลการลดหนี้ (เช่น สินค้าเสียหาย, คืนเงินบางส่วน)"
+            placeholder={isDebit ? "เหตุผลการเพิ่มหนี้ (เช่น ค่าใช้จ่ายเพิ่มเติมตามข้อตกลง)" : "เหตุผลการลดหนี้ (เช่น สินค้าเสียหาย, คืนเงินบางส่วน)"}
             rows={3}
             disabled={isReadOnly}
             className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400 resize-none disabled:bg-gray-50"
@@ -659,8 +736,8 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
         <EditableDocNumber
           value={docNumberOverride}
           onChange={setDocNumberOverride}
-          placeholder="เลขที่ใบลดหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
-          autoGenerate={async () => userId && !isEditing ? await resolveDocNumber(userId, "credit_note", issueDate || todayString(), undefined, docId || undefined) : ""}
+          placeholder={`เลขที่${docTitleTh} (เว้นว่าง = สร้างอัตโนมัติ)`}
+          autoGenerate={async () => userId && !isEditing ? await resolveDocNumber(userId, docType, issueDate || todayString(), undefined, docId || undefined) : ""}
           className="mb-3"
         />
 
@@ -679,7 +756,7 @@ export function CreditNoteForm({ dealId, documentId }: CreditNoteFormProps) {
               onClick={() => handleSave("issued")}
               disabled={saving}
             >
-              {saving ? "กำลังออก..." : "ออกใบลดหนี้"}
+              {saving ? "กำลังออก..." : issueVerbTh}
             </Button>
           </div>
         )}

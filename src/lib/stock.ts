@@ -255,11 +255,170 @@ export async function deductStockOnDocumentSent(
   return { warnings, movementCreated };
 }
 
-export async function restoreStockOnVoid(
-  voidedDocumentId: string,
+// Credit note issued: goods come back into stock (product lines only).
+// Idempotent — skips if this document already has return_in movements.
+export async function returnStockOnCreditNoteIssued(
+  documentId: string,
   userId: string,
 ): Promise<void> {
   const { data: document } = await supabase
+    .from("documents")
+    .select("doc_number")
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (!document) return;
+
+  const { data: existingMovements } = await supabase
+    .from("stock_movements")
+    .select("id")
+    .eq("document_id", documentId)
+    .eq("movement_type", "return_in")
+    .limit(1);
+
+  if (existingMovements && existingMovements.length > 0) return;
+
+  const { data: lineItems } = await supabase
+    .from("document_line_items")
+    .select("*")
+    .eq("document_id", documentId);
+
+  if (!lineItems) return;
+
+  for (const li of lineItems) {
+    if (li.item_type !== "product" || !li.item_id) continue;
+
+    const { data: item } = await supabase
+      .from("items")
+      .select("stock_count, avg_cost, stock_value, carton_unit, qty_per_carton")
+      .eq("id", li.item_id)
+      .single();
+
+    if (!item) continue;
+
+    const baseQuantity = round3(Number(li.base_quantity ?? li.quantity ?? 0));
+    if (baseQuantity <= 0) continue;
+
+    const newStock = round3(item.stock_count + baseQuantity);
+    const unitCost = round2(Number(item.avg_cost || 0));
+    const movementValue = round2(baseQuantity * unitCost);
+    const newStockValue = round2(Number(item.stock_value || 0) + movementValue);
+    const avgCost = nextAverageCost(newStock, newStockValue);
+
+    const { error: itemUpdateError } = await supabase
+      .from("items")
+      .update({ stock_count: newStock, stock_value: newStockValue, avg_cost: avgCost })
+      .eq("id", li.item_id);
+    if (itemUpdateError) throw itemUpdateError;
+
+    const { error: movementError } = await supabase.from("stock_movements").insert({
+      item_id: li.item_id,
+      user_id: userId,
+      movement_type: "return_in",
+      qty_base: baseQuantity,
+      qty_carton: null,
+      carton_unit: li.carton_unit || null,
+      balance_after: newStock,
+      unit_cost: unitCost,
+      movement_value: movementValue,
+      balance_value_after: newStockValue,
+      reason: `รับคืนสินค้าจากใบลดหนี้ ${document.doc_number || ""}`.trim(),
+      document_id: documentId,
+    });
+    if (movementError) throw movementError;
+  }
+}
+
+// Credit note voided: reverse the return_in movements created at issue time.
+// Idempotent via parent_movement_id reversal check.
+export async function reverseStockOnCreditNoteVoid(
+  documentId: string,
+  userId: string,
+): Promise<void> {
+  const { data: document } = await supabase
+    .from("documents")
+    .select("doc_number")
+    .eq("id", documentId)
+    .maybeSingle();
+
+  const docNumber = document?.doc_number || documentId;
+
+  const { data: returnMovements } = await supabase
+    .from("stock_movements")
+    .select("id, item_id, qty_base, carton_unit, unit_cost, movement_value")
+    .eq("document_id", documentId)
+    .eq("movement_type", "return_in");
+
+  if (!returnMovements || returnMovements.length === 0) return;
+
+  const movementIds = returnMovements.map((m) => m.id);
+  const { data: existingReversals } = await supabase
+    .from("stock_movements")
+    .select("parent_movement_id")
+    .in("parent_movement_id", movementIds);
+
+  const reversedIds = new Set(
+    (existingReversals || []).map((m) => m.parent_movement_id).filter(Boolean),
+  );
+
+  for (const movement of returnMovements) {
+    if (!movement.item_id || reversedIds.has(movement.id)) continue;
+
+    const baseQuantity = round3(Number(movement.qty_base || 0));
+    if (baseQuantity <= 0) continue;
+
+    const { data: item } = await supabase
+      .from("items")
+      .select("stock_count, avg_cost, stock_value")
+      .eq("id", movement.item_id)
+      .single();
+
+    if (!item) continue;
+
+    const unitCost = round2(
+      movement.unit_cost != null ? Number(movement.unit_cost) : Number(item.avg_cost || 0),
+    );
+    const movementValue =
+      movement.movement_value != null
+        ? round2(Math.abs(Number(movement.movement_value)))
+        : round2(baseQuantity * unitCost);
+    const newStock = round3(Math.max(0, round3(item.stock_count - baseQuantity)));
+    const finalStockValue =
+      newStock <= 0
+        ? 0
+        : Math.max(0, round2(Number(item.stock_value || 0) - movementValue));
+
+    await supabase
+      .from("items")
+      .update({
+        stock_count: newStock,
+        stock_value: finalStockValue,
+        avg_cost: nextAverageCost(newStock, finalStockValue),
+      })
+      .eq("id", movement.item_id);
+
+    await supabase.from("stock_movements").insert({
+      item_id: movement.item_id,
+      user_id: userId,
+      movement_type: "auto_out",
+      qty_base: -baseQuantity,
+      qty_carton: null,
+      carton_unit: movement.carton_unit || null,
+      balance_after: newStock,
+      unit_cost: unitCost,
+      movement_value: -movementValue,
+      balance_value_after: finalStockValue,
+      reason: `ยกเลิกใบลดหนี้ ${docNumber} — ตัดสต็อกคืน`,
+      document_id: documentId,
+      parent_movement_id: movement.id,
+    });
+  }
+}
+
+export async function restoreStockOnVoid(
+  voidedDocumentId: string,
+  userId: string,
+): Promise<void> {  const { data: document } = await supabase
     .from("documents")
     .select("doc_number")
     .eq("id", voidedDocumentId)
