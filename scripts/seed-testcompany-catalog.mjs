@@ -43,29 +43,29 @@ function err(label, error) {
 // Data
 // ---------------------------------------------------------------------------
 const customers = [
-  { name: "Bangkok Retail Group Co., Ltd.",         tax_id: "0105566001001", address: "100 Sukhumvit 55, Khlong Tan Nuea, Watthana, Bangkok 10110",   contact: "Somchai Sanguan",  phone: "02-123-0001", email: "orders@bangkokretail.co.th", note: "Preferred customer, net 30" },
-  { name: "Siam Food Services Ltd.",                tax_id: "0105566002002", address: "22 Ratchadaphisek 17, Din Daeng, Bangkok 10400",               contact: "Pranee Wongwai",   phone: "02-123-0002", email: "pranee@siamfoods.co.th",    note: "Monthly standing order" },
-  { name: "North Star Logistics Co., Ltd.",         tax_id: "0105566003003", address: "88 Vibhavadi Rangsit 60, Don Mueang, Bangkok 10210",           contact: "Kittiphum Rodsri", phone: "02-123-0003", email: "logistics@northstar.co.th", note: "Warehouse supplies" },
-  { name: "Pacific Tech Solutions Ltd.",            tax_id: "0105566004004", address: "333 Silicon Alley, Phra Khanong Nuea, Watthana, Bangkok 10260",contact: "Natthanan Tech",   phone: "02-123-0004", email: "procurement@pacifictech.co.th", note: "IT equipment vendor" },
-  { name: "Green Leaf Construction Ltd.",           tax_id: "0105566005005", address: "777 Ratchaprarop Rd, Makkasan, Ratchathewi, Bangkok 10400",    contact: "Amnat Khamkhruea", phone: "02-123-0005", email: "projects@greenleaf.co.th",  note: "Net 60 payment terms" },
-  { name: "Fortune Auto Parts Ltd.",                tax_id: "0105566006006", address: "45 Rama II Rd, Bang Khun Thian, Bangkok 10150",                contact: "Somsak Thongchai", phone: "02-123-0006", email: "parts@fortuneauto.co.th",   note: "Auto parts distributor" },
-  { name: "Blue Ocean Trading Co., Ltd.",           tax_id: "0105566007007", address: "12 Charoen Krung 30, Bang Rak, Bangkok 10500",                 contact: "Rungthiwa Saelim", phone: "02-123-0007", email: "rungthiwa@blueocean.co.th", note: "Import/export trader" },
-  { name: "Royal Garden Hotel Group Ltd.",          tax_id: "0105566008008", address: "56 Wireless Rd, Lumphini, Pathum Wan, Bangkok 10330",          contact: "Anchalee Phanom",  phone: "02-123-0008", email: "hki@royalgardenhotel.com",  note: "Hospitality client" },
-  { name: "Modern Health Plus Co., Ltd.",           tax_id: "0105566009009", address: "9 Ratchadamri Rd, Lumphini, Pathum Wan, Bangkok 10330",        contact: "Thiti Mahawan",    phone: "02-123-0009", email: "supply@modernhealth.co.th", note: "Medical equipment" },
-  { name: "Sunrise Packaging Ltd.",                 tax_id: "0105566010010", address: "201 Bang Na-Trat 28, Bang Na, Bangkok 10260",                   contact: "Wichai Samut",     phone: "02-123-0010", email: "sales@sunrisepkg.co.th",    note: "Regular packaging orders" },
+  { name: "บริษัท กรุงเทพรีเทล กรุ๊ป จำกัด",      tax_id: "0105566001001", address: "100 ถนนสุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กรุงเทพมหานคร 10110",   contact: "สมชาย สรรพ์กุล",    phone: "02-123-0001", email: "orders@bangkokretail.co.th", note: "ลูกค้าประจำ เครดิต 30 วัน" },
+  { name: "บริษัท สยามฟู้ดเซอร์วิส จำกัด",         tax_id: "0105566002002", address: "22 ถนนรัชดาภิเษก 17 แขวงดินแดง เขตดินแดง กรุงเทพมหานคร 10400",       contact: "ปราณี วงศ์วัย",     phone: "02-123-0002", email: "pranee@siamfoods.co.th",    note: "สั่งซื้อประจำทุกเดือน" },
+  { name: "บริษัท นอร์ทสตาร์โลจิสติกส์ จำกัด",     tax_id: "0105566003003", address: "88 ถนนวิภาวดีรังสิต 60 เขตดอนเมือง กรุงเทพมหานคร 10210",              contact: "กิตติพุ่ม รอดศรี",   phone: "02-123-0003", email: "logistics@northstar.co.th", note: "อุปกรณ์คลังสินค้า" },
+  { name: "บริษัท แปซิฟิกเทคโซลูชัน จำกัด",        tax_id: "0105566004004", address: "333 อาคารซิลิคอนอัลลีย์ แขวงพระโขนงเหนือ เขตวัฒนา กรุงเทพมหานคร 10260", contact: "ณัฐนันท์ เทคโนฯ",  phone: "02-123-0004", email: "procurement@pacifictech.co.th", note: "ผู้ขายอุปกรณ์ไอที" },
+  { name: "บริษัท กรีนลีฟก่อสร้าง จำกัด",           tax_id: "0105566005005", address: "777 ถนนราชปรารภ แขวงมัคสะเรียช เขตราชเทวี กรุงเทพมหานคร 10400",     contact: "อำนาจ ขำเครือ",     phone: "02-123-0005", email: "projects@greenleaf.co.th",  note: "เครดิต 60 วัน" },
+  { name: "บริษัท ฟอร์จูนออโต้พาร์ท จำกัด",         tax_id: "0105566006006", address: "45 ถนนพระราม 2 แขวงบางคูเวียง เขตบางขุนเทียน กรุงเทพมหานคร 10150",  contact: "สมศักดิ์ ทองใหญ่",   phone: "02-123-0006", email: "parts@fortuneauto.co.th",   note: "ผู้จัดจำหน่ายอะไหล่รถยนต์" },
+  { name: "บริษัท บลูโอเชียนเทรดดิ้ง จำกัด",        tax_id: "0105566007007", address: "12 ถนนเจริญกรุง 30 แขวงบางรัก เขตบางรัก กรุงเทพมหานคร 10500",        contact: "รุ่งทิวา แซ่ลิ้ม",    phone: "02-123-0007", email: "rungthiwa@blueocean.co.th", note: "ธุรกิจนำเข้า-ส่งออก" },
+  { name: "บริษัท รอยัลการ์เดนโฮเทลกรุ๊ป จำกัด",    tax_id: "0105566008008", address: "56 ถนนไวเลสร์ แขวงลุมพินี เขตปทุมวัน กรุงเทพมหานคร 10330",            contact: "อัญชลี พนมดี",      phone: "02-123-0008", email: "hki@royalgardenhotel.com",  note: "ลูกค้ากลุ่มโรงแรม" },
+  { name: "บริษัท โมเดิร์นเฮลท์พลัส จำกัด",          tax_id: "0105566009009", address: "9 ถนนราชดำริ แขวงลุมพินี เขตปทุมวัน กรุงเทพมหานคร 10330",             contact: "ธิติ มหาวรรณ",      phone: "02-123-0009", email: "supply@modernhealth.co.th", note: "อุปกรณ์การแพทย์" },
+  { name: "บริษัท ซันไรส์แพ็กเกจจิง จำกัด",         tax_id: "0105566010010", address: "201 ถนนบางนา-ตราด 28 แขวงบางนา เขตบางนา กรุงเทพมหานคร 10260",       contact: "วิชัย สมุทร",        phone: "02-123-0010", email: "sales@sunrisepkg.co.th",    note: "สั่งซื้อบรรจุภัณฑ์ประจำ" },
 ];
 
 const items = [
-  { name: "Premium Cardboard Box 40x30x20cm",   sku: "BOX-PRM-4030", type: "product", price: 45.00,   unit: "piece",  carton: "pallet",  qtyPerCarton: 50, stock: 300, cost: 28.00, threshold: 20, fav: true },
-  { name: "Bubble Wrap Roll 50cm x 100m",       sku: "BUBBLE-50",    type: "product", price: 380.00,  unit: "roll",   carton: "carton",  qtyPerCarton: 4,  stock: 18,  cost: 220.00, threshold: 2, fav: false },
-  { name: "Packing Tape 48mm x 100y (Clear)",   sku: "TAPE-CLR-48",  type: "product", price: 22.00,   unit: "roll",   carton: "carton",  qtyPerCarton: 36, stock: 144, cost: 13.50, threshold: 10, fav: true },
-  { name: "Stretch Film 500mm x 300m",          sku: "STRCH-500",    type: "product", price: 155.00,  unit: "roll",   carton: "carton",  qtyPerCarton: 4,  stock: 32,  cost: 95.00, threshold: 5,  fav: false },
-  { name: "Corrugated Pallets 120x100cm",       sku: "PAL-CRG-1210", type: "product", price: 95.00,   unit: "piece",  carton: "bundle",  qtyPerCarton: 10, stock: 50,  cost: 62.00, threshold: 10, fav: false },
-  { name: "Edge Protectors L-shaped 5x5x100cm", sku: "EDGE-L-0505",  type: "product", price: 18.00,   unit: "piece",  carton: "bundle",  qtyPerCarton: 25, stock: 500, cost: 9.00,  threshold: 50, fav: false },
-  { name: "Custom Packaging Design Service",    sku: "DSGN-PKG-V2",  type: "service", price: 4500.00, unit: "project" },
-  { name: "Warehouse Storage (per pallet/month)", sku: "WH-STORAGE", type: "service", price: 120.00,  unit: "pallet" },
-  { name: "Delivery & Installation Service",    sku: "DELV-INST-V2", type: "service", price: 1500.00, unit: "trip" },
-  { name: "Printing & Labeling (per 100 labels)", sku: "PRINT-LBL",  type: "service", price: 650.00,  unit: "set" },
+  { name: "กล่องลูกฟูกพรีเมียม 40x30x20 ซม.",     sku: "BOX-PRM-4030", type: "product", price: 45.00,   unit: "ชิ้น",   carton: "พาเลท",   qtyPerCarton: 50, stock: 300, cost: 28.00, threshold: 20, fav: true },
+  { name: "ฟิล์มกันกระแทก (บับเบิล) 50 ซม. x 100 ม.", sku: "BUBBLE-50", type: "product", price: 380.00, unit: "ม้วน",   carton: "ลัง",     qtyPerCarton: 4,  stock: 18,  cost: 220.00, threshold: 2, fav: false },
+  { name: "เทปกาวใส 48 มม. x 100 หลา",            sku: "TAPE-CLR-48",  type: "product", price: 22.00,   unit: "ม้วน",   carton: "ลัง",     qtyPerCarton: 36, stock: 144, cost: 13.50, threshold: 10, fav: true },
+  { name: "ฟิล์มพลาสติกยืด 500 มม. x 300 ม.",      sku: "STRCH-500",    type: "product", price: 155.00,  unit: "ม้วน",   carton: "ลัง",     qtyPerCarton: 4,  stock: 32,  cost: 95.00, threshold: 5,  fav: false },
+  { name: "พาเลทลูกฟูก 120x100 ซม.",               sku: "PAL-CRG-1210", type: "product", price: 95.00,   unit: "ชิ้น",   carton: "มัด",     qtyPerCarton: 10, stock: 50,  cost: 62.00, threshold: 10, fav: false },
+  { name: "แผ่นครอบมุมทรงแอล 5x5x100 ซม.",         sku: "EDGE-L-0505",  type: "product", price: 18.00,   unit: "ชิ้น",   carton: "มัด",     qtyPerCarton: 25, stock: 500, cost: 9.00,  threshold: 50, fav: false },
+  { name: "บริการออกแบบบรรจุภัณฑ์ตามสั่ง",          sku: "DSGN-PKG-V2",  type: "service", price: 4500.00, unit: "โครงการ" },
+  { name: "บริการเก็บสินค้าในคลัง (รายพาเลท/เดือน)", sku: "WH-STORAGE",   type: "service", price: 120.00,  unit: "พาเลท" },
+  { name: "บริการส่งและติดตั้ง",                     sku: "DELV-INST-V2", type: "service", price: 1500.00, unit: "เที่ยว" },
+  { name: "บริการพิมพ์ฉลาก (ต่อ 100 ฉลาก)",          sku: "PRINT-LBL",    type: "service", price: 650.00,  unit: "ชุด" },
 ];
 
 // ---------------------------------------------------------------------------

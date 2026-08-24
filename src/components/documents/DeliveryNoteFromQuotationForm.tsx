@@ -84,7 +84,10 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState("");
-  const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(true);
+  const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
+  });
   const [showFullTotals, setShowFullTotals] = useState(false);
   const totalsTouched = useRef(false);
 
@@ -93,6 +96,12 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
       setShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
     }
   }, [documentId, clientProfile]);
+
+  // Remember the last hide-amounts choice for the next delivery note
+  // (shared with deals/new.tsx).
+  useEffect(() => {
+    window.localStorage.setItem("invoice-system.hideAmountsOnPrint", String(hideAmountsOnPrint));
+  }, [hideAmountsOnPrint]);
 
   const isEditing = Boolean(documentId);
 

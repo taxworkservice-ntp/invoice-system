@@ -5,6 +5,7 @@ import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
+import { DateInput } from "../ui/DateInput";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
 import { CustomerPickerModal } from "../customers/CustomerPickerModal";
@@ -828,26 +829,24 @@ export function InvoiceFromDeliveryNotesForm() {
                 />
               </div>
               <div className="sm:col-span-2 rounded-xl border border-card-border bg-paper-soft p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <label htmlFor="invoice-issue-date" className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
                     <CalendarDays className="h-4 w-4 text-primary" />
                     วันที่ใบแจ้งหนี้
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className={`pointer-events-none text-sm font-medium ${issueDate ? "text-ink-900" : "text-gray-400"}`}>
-                      {issueDate ? formatBuddhistDate(issueDate) : "เลือกวันที่"}
-                    </span>
-                    <input
+                  </div>
+                  <div className="w-full sm:w-auto sm:min-w-[180px]">
+                    <DateInput
                       id="invoice-issue-date"
-                      type="date"
                       value={issueDate}
                       onChange={(event) => setIssueDate(event.target.value)}
                       aria-label="วันที่ใบแจ้งหนี้"
-                      className="absolute inset-y-0 right-0 w-40 cursor-pointer opacity-0"
                     />
                   </div>
                 </div>
-                <p className="mt-1 text-[11px] leading-4 text-gray-500">แตะวันที่เพื่อเปลี่ยน — ใช้เป็นวันที่ออกใบแจ้งหนี้/ใบกำกับภาษี และวันที่ในเลขที่เอกสาร</p>
+                {issueDate && (
+                  <p className="mt-1 text-xs font-medium text-ink-600">{formatBuddhistDate(issueDate)}</p>
+                )}
+                <p className="mt-1 text-[11px] leading-4 text-gray-500">ใช้เป็นวันที่ออกใบแจ้งหนี้/ใบกำกับภาษี และวันที่ในเลขที่เอกสาร</p>
               </div>
               <div className="sm:col-span-2 overflow-hidden rounded-xl border border-card-border bg-paper-soft">
                 <button
