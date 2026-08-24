@@ -38,7 +38,7 @@ export function getDocStage(doc: Pick<Document, "status" | "doc_type">): "quote"
   if (doc.status === "paid" || doc.status === "generated") return "done";
   if (doc.status === "partially_paid") return "collect";
   if (doc.doc_type === "delivery_note") return "invoice";
-  if (doc.doc_type === "receipt") return "done";
+  if (doc.doc_type === "receipt") return doc.status === "draft" ? "collect" : "done";
   if (doc.doc_type === "credit_note") {
     if (doc.status === "draft") return "collect";
     return "done";

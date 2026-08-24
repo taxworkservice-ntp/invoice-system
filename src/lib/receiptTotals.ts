@@ -25,13 +25,15 @@ export async function getReceiptTotalsForDocument(sourceDocument: Document, user
   }
 
   const receiptIds = new Set<string>();
+  // Draft receipts are unconfirmed promises — excluded from money totals.
   const { data: directReceipts, error: directError } = await supabase
     .from("documents")
     .select("id")
     .eq("user_id", userId)
     .in("converted_from_id", sourceIds)
     .eq("doc_type", "receipt")
-    .neq("status", "voided");
+    .neq("status", "voided")
+    .neq("status", "draft");
   if (directError) throw directError;
   for (const receipt of directReceipts || []) receiptIds.add(receipt.id);
 
@@ -55,7 +57,8 @@ export async function getReceiptTotalsForDocument(sourceDocument: Document, user
     .eq("user_id", userId)
     .in("id", Array.from(receiptIds))
     .eq("doc_type", "receipt")
-    .neq("status", "voided");
+    .neq("status", "voided")
+    .neq("status", "draft");
   if (receiptError) throw receiptError;
 
   return (receipts || []).reduce(

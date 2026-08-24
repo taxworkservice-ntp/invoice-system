@@ -19,6 +19,8 @@ import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { deleteDocumentFiles } from "../../../lib/r2";
 import { assertDocNumberAvailable, resolveDocNumber } from "../../../lib/docNumber";
+import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
+import { PaymentModal } from "../../../components/payments/PaymentModal";
 import { businessTodayString } from "../../../lib/devDate";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import { EditableDocNumber, EditableDocNumberInline } from "../../../components/documents/EditableDocNumber";
@@ -28,7 +30,6 @@ import { PAYMENT_METHOD_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
-import { getReceiptTotalsForDocument } from "../../../lib/receiptTotals";
 import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
@@ -38,16 +39,6 @@ import {
   convertReceiptInputToPreTax,
   type ReceiptInputBasis,
 } from "../../../lib/tax";
-import { getReceiptInputBasisPreference, setReceiptInputBasisPreference } from "../../../lib/receiptInputBasis";
-import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
-import {
-  buildReceiptBackdateFields,
-  composeReceiptBackdateReason,
-  isPastDate,
-  RECEIPT_BACKDATE_REASON_OPTIONS,
-  toLocalMiddayIso,
-  todayString as realTodayString,
-} from "../../../lib/receiptBackdating";
 import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice, DocumentType } from "../../../types";
 
 function formatDate(date: string): string {
@@ -122,19 +113,11 @@ export default function DocumentDetailPage() {
   const [voiding, setVoiding] = useState(false);
 
   const [payModal, setPayModal] = useState(false);
-  const [payMethod, setPayMethod] = useState<PaymentMethod>("bank_transfer");
-  const [payBankAccountId, setPayBankAccountId] = useState<string | null>(null);
-  const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
   const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
-  const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>(getReceiptInputBasisPreference);
   const [paymentPreviousWht, setPaymentPreviousWht] = useState(0);
   const toast = useToast();
-  const [payWhtCert, setPayWhtCert] = useState("");
-  const [payDate, setPayDate] = useState(() => realTodayString());
-  const [payBackdateReason, setPayBackdateReason] = useState("");
-  const [payBackdateNote, setPayBackdateNote] = useState("");
   const [paying, setPaying] = useState(false);
-  const [payMismatchConfirm, setPayMismatchConfirm] = useState(false);
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -145,9 +128,6 @@ export default function DocumentDetailPage() {
   const [replacementRef, setReplacementRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [dealChain, setDealChain] = useState<{ id: string; doc_type: DocumentType; doc_number: string | null }[]>([]);
 
-  useEffect(() => {
-    if (payDate === realTodayString()) setPayDate(businessToday);
-  }, [businessToday, payDate]);
 
   const fetchDoc = async () => {
     if (!id) return;
@@ -373,150 +353,6 @@ export default function DocumentDetailPage() {
     }
   };
 
-  const handlePay = async () => {
-    if (!doc || !userId || paymentBaseAmount <= 0) return;
-    if (!permissions.canRecordPayments) {
-      setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
-      return;
-    }
-    const { preTaxAmount: previousTotal } = await getReceiptTotalsForDocument(doc, userId);
-    const remaining = Math.max(0, doc.subtotal - previousTotal);
-    const requestedPreTax = convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate, vatRegistered: doc.vat_registered });
-    if (requestedPreTax > remaining + 0.01) {
-      setError(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
-      return;
-    }
-    if (requestedPreTax < remaining - 0.01) {
-      setPayMismatchConfirm(true);
-      return;
-    }
-    await executePay();
-  };
-
-  const executePay = async () => {
-    if (!doc || !userId) return;
-    const isBackdatedReceipt = isPastDate(payDate, businessToday);
-    if (isBackdatedReceipt && !payBackdateReason) {
-      setError("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
-      return;
-    }
-    if (payMethod === "bank_transfer" && !payBankAccountId) {
-      setError("กรุณาเลือกบัญชีที่รับโอนเงิน");
-      return;
-    }
-    setPaying(true);
-    try {
-      const paidAt = toLocalMiddayIso(payDate);
-      const receiptBackdateFields = buildReceiptBackdateFields({
-        selectedDate: payDate,
-        userId,
-        reason: composeReceiptBackdateReason(payBackdateReason, payBackdateNote),
-        today: businessToday,
-      });
-      const receiptInvoiceSources = await getReceiptInvoiceSources(doc, userId);
-
-      const previousTotals = await getReceiptTotalsForDocument(doc, userId);
-      const previousTotal = previousTotals.preTaxAmount;
-      const previousWht = previousTotals.whtAmount;
-      const remaining = Math.max(0, doc.subtotal - previousTotal);
-      const allocation = calculateReceiptAllocationFromInput({
-        amount: paymentBaseAmount,
-        basis: paymentInputBasis,
-        vatRate: doc.vat_rate,
-        vatRegistered: doc.vat_registered,
-        whtRate: doc.wht_rate,
-        expectedWht: doc.wht_amount || 0,
-        previousWht,
-        isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate, vatRegistered: doc.vat_registered }) >= doc.subtotal - 0.01,
-      });
-      if (paymentBaseAmount <= 0 || allocation.preTax > remaining + 0.01) {
-        throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
-      }
-      const newTotal = previousTotal + allocation.preTax;
-      const isFullyPaid = newTotal >= (doc.subtotal - 0.01);
-      const newStatus = isFullyPaid ? "paid" : "partially_paid";
-
-      await supabase
-        .from("documents")
-        .update({
-          status: newStatus as DocumentStatus,
-          paid_at: paidAt,
-          payment_method: payMethod,
-          bank_account_id: payMethod === "bank_transfer" ? payBankAccountId : null,
-          amount_received: previousTotals.amountReceived + allocation.netAmount,
-          wht_certificate_no: payWhtCert || null,
-        })
-        .eq("id", doc.id);
-
-      if (doc.doc_type === "billing_note") {
-        const { data: linked } = await supabase
-          .from("billing_note_invoices")
-          .select("invoice_id")
-          .eq("billing_note_id", doc.id);
-
-        if (linked?.length) {
-          const invoiceNewStatus = isFullyPaid ? "paid" : "in_billing";
-          await supabase
-            .from("documents")
-            .update({ status: invoiceNewStatus as DocumentStatus, paid_at: paidAt })
-            .in("id", linked.map((item: any) => item.invoice_id));
-        }
-      }
-
-      const recNumber = await resolveDocNumber(userId, "receipt", payDate, docNumberOverride);
-      const { data: receipt, error: receiptError } = await supabase.from("documents").insert({
-        user_id: userId,
-        deal_id: doc.deal_id,
-        customer_id: doc.customer_id,
-        doc_type: "receipt",
-        doc_number: recNumber,
-        status: "generated" as DocumentStatus,
-        issue_date: payDate,
-        converted_from_id: doc.id,
-        paid_at: paidAt,
-        vat_registered: doc.vat_registered,
-        vat_rate: doc.vat_rate,
-        wht_rate: doc.wht_rate,
-        discount_percent: doc.discount_percent,
-        discount_amount: doc.discount_amount,
-        subtotal: allocation.preTax,
-        vat_amount: allocation.vatAmount,
-        total_amount: allocation.grossAmount,
-        wht_amount: allocation.whtAmount,
-        net_payable: allocation.netAmount,
-        payment_method: payMethod,
-        bank_account_id: payMethod === "bank_transfer" ? payBankAccountId : null,
-        amount_received: allocation.netAmount,
-        wht_certificate_no: payWhtCert || null,
-        ...receiptBackdateFields,
-      }).select("id").single();
-      if (receiptError || !receipt) throw receiptError || new Error("ไม่สามารถสร้างใบเสร็จได้");
-
-      if (receiptInvoiceSources.length > 0) {
-        const { error: receiptInvoiceError } = await supabase.from("receipt_invoices").insert(
-          buildReceiptInvoiceRecords({
-            receiptId: receipt.id,
-            userId,
-            sourceDocument: doc,
-            invoices: receiptInvoiceSources,
-            actualPaidAmount: allocation.netAmount,
-          }),
-        );
-        if (receiptInvoiceError) throw receiptInvoiceError;
-      }
-
-      setPayModal(false);
-      setPayMismatchConfirm(false);
-      setPayBackdateReason("");
-      setPayBackdateNote("");
-      await fetchDoc();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setPaying(false);
-    }
-  };
-
   const handleCopy = async () => {
     if (!doc || !userId) return;
     setActionLoading("copy");
@@ -540,36 +376,12 @@ export default function DocumentDetailPage() {
     window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
-  const openPayModal = async () => {
+  const openPayModal = () => {
     if (!doc || !userId) return;
     if (!permissions.canRecordPayments) {
       setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const { preTaxAmount: previousTotal, whtAmount: previousWht } = await getReceiptTotalsForDocument(doc, userId);
-    const remaining = Math.max(0, doc.subtotal - previousTotal);
-    const initialBasis = getReceiptInputBasisPreference();
-    setPaymentInputBasis(initialBasis);
-    setPaymentBaseAmount(
-      convertReceiptInputAmount({
-        amount: remaining,
-        from: "pre_tax",
-        to: initialBasis,
-        vatRate: doc.vat_rate,
-        vatRegistered: doc.vat_registered,
-        whtRate: doc.wht_rate,
-      }),
-    );
-    setPaymentBaseRemaining(remaining);
-    setPaymentPreviousWht(previousWht);
-    setPayMismatchConfirm(false);
-    setPayMethod("bank_transfer");
-    setPayBankAccountId(primaryBank?.id ?? null);
-    setPayWhtCert("");
-    setPayDate(todayString());
-    setPayBackdateReason("");
-    setPayBackdateNote("");
-    setError("");
     setPayModal(true);
   };
 
@@ -635,17 +447,6 @@ export default function DocumentDetailPage() {
             : isSent || isIssued
               ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
               : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
-  const paymentPreview = calculateReceiptAllocationFromInput({
-    amount: paymentBaseAmount,
-    basis: paymentInputBasis,
-    vatRate: doc.vat_rate,
-    vatRegistered: doc.vat_registered,
-    whtRate: doc.wht_rate,
-    expectedWht: doc.wht_amount || 0,
-    previousWht: paymentPreviousWht,
-    isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: doc.vat_rate, whtRate: doc.wht_rate, vatRegistered: doc.vat_registered }) >= doc.subtotal - 0.01,
-  });
-
   return (
     <AppShell
       title={docLabel.thai}
@@ -1327,6 +1128,30 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
+          {isDraft && doc.doc_type === "receipt" && permissions.canRecordPayments && (
+            <Button
+              variant="primary"
+              size="md"
+              className="w-full"
+              loading={confirmingReceipt}
+              onClick={async () => {
+                setConfirmingReceipt(true);
+                try {
+                  await confirmDraftReceipt(doc.id, userId!);
+                  toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
+                  await fetchDoc();
+                } catch (err: any) {
+                  setError(err.message || "เกิดข้อผิดพลาด");
+                  toast.error(err.message || "เกิดข้อผิดพลาด");
+                } finally {
+                  setConfirmingReceipt(false);
+                }
+              }}
+            >
+              ยืนยันการรับเงิน
+            </Button>
+          )}
+
           {isDraft && permissions.canDeleteDocuments && (
             <Button variant="danger" size="md" className="w-full" onClick={() => setDeleteModal(true)}>
               ลบเอกสาร
@@ -1516,168 +1341,16 @@ export default function DocumentDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={payModal} onClose={() => { setPayModal(false); setPayMismatchConfirm(false); }} title="ยืนยันการรับเงิน">
-        <div className="space-y-3">
-          {payMismatchConfirm ? (
-            <>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-semibold text-amber-900">ยอดก่อน VAT ไม่ตรงกับยอดคงเหลือ</p>
-                <div className="mt-3 space-y-1.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-amber-700">ยอดก่อน VAT คงเหลือ</span>
-                    <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseRemaining)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-amber-700">ยอดก่อน VAT ของงวดนี้</span>
-                    <span className="font-medium text-amber-900">฿{formatCurrency(paymentPreview.preTax)}</span>
-                  </div>
-                  <div className="border-t border-amber-200 pt-1.5 flex justify-between">
-                    <span className="text-amber-700">ส่วนต่าง</span>
-                    <span className="font-bold text-amber-900">{paymentPreview.preTax > paymentBaseRemaining ? "+" : ""}฿{formatCurrency(paymentPreview.preTax - paymentBaseRemaining)}</span>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs text-amber-700">
-                  {paymentPreview.preTax < paymentBaseRemaining
-                    ? "คุณกำลังบันทึกชำระบางส่วน ยอดคงเหลือจะแสดงในรายงานลูกหนี้จนกว่าจะชำระครบ"
-                    : "ยอดก่อน VAT เกินยอดคงเหลือ ระบบจะไม่บันทึกยอดส่วนเกิน"}
-                </p>
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="secondary" onClick={() => setPayMismatchConfirm(false)}>กลับไปแก้ไข</Button>
-                <Button variant="primary" onClick={executePay} loading={paying}>ยืนยันรับเงิน</Button>
-              </div>
-            </>
-          ) : (
-            <>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">ยอดก่อน VAT คงเหลือ</label>
-            <p className="text-lg font-semibold">฿{formatCurrency(paymentBaseRemaining)}</p>
-          </div>
-          <div>
-            <FieldGuidance
-              title="กรอกยอดโดยอ้างอิงจาก"
-              items={[
-                { label: "ยอดชำระก่อน VAT", description: "ใช้เมื่อกำหนดงวดผ่อนก่อนคิด VAT เช่น งวดละ 200,000 บาท" },
-                { label: "ยอดรวมก่อนหักภาษี ณ ที่จ่าย", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
-                { label: "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
-              ]}
-              tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, หัก ณ ที่จ่าย และยอดโอนจริงให้อัตโนมัติ"
-            />
-            <select
-              className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
-              value={paymentInputBasis}
-              onChange={(e) => {
-                const nextBasis = e.target.value as ReceiptInputBasis;
-                setPaymentBaseAmount(convertReceiptInputAmount({
-                  amount: paymentBaseAmount,
-                  from: paymentInputBasis,
-                  to: nextBasis,
-                  vatRate: doc.vat_rate,
-                  vatRegistered: doc.vat_registered,
-                  whtRate: doc.wht_rate,
-                }));
-                setPaymentInputBasis(nextBasis);
-                setReceiptInputBasisPreference(nextBasis);
-              }}
-            >
-              <option value="pre_tax">ยอดชำระก่อน VAT</option>
-              <option value="gross">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</option>
-              <option value="net_cash">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</option>
-            </select>
-          </div>
-          <Input
-            label={paymentInputBasis === "pre_tax" ? "ยอดชำระก่อน VAT" : paymentInputBasis === "gross" ? "ยอดรวมก่อนหักภาษี ณ ที่จ่าย" : "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย"}
-            type="number"
-            step="0.01"
-            value={paymentBaseAmount || ""}
-            onChange={(e) => setPaymentBaseAmount(parseFloat(e.target.value) || 0)}
-          />
-          <div className="rounded-lg border border-card-border bg-stone-50 px-3 py-3 text-sm">
-            <div className="flex justify-between"><span className="text-gray-500">VAT</span><span>฿{formatCurrency(paymentPreview.vatAmount)}</span></div>
-            <div className="mt-1 flex justify-between"><span className="text-gray-500">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</span><span>฿{formatCurrency(paymentPreview.grossAmount)}</span></div>
-            <div className="mt-1 flex justify-between"><span className="text-gray-500">หัก ณ ที่จ่าย</span><span>฿{formatCurrency(paymentPreview.whtAmount)}</span></div>
-            <div className="mt-2 flex justify-between border-t border-card-border pt-2 font-semibold"><span>ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</span><span>฿{formatCurrency(paymentPreview.netAmount)}</span></div>
-          </div>
-          <Select
-            label="วิธีชำระเงิน"
-            value={payMethod}
-            onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-          >
-            {Object.entries(PAYMENT_METHOD_LABELS).map(([key, value]) => (
-              <option key={key} value={key}>{value}</option>
-            ))}
-          </Select>
-          {payMethod === "bank_transfer" && (
-            <Select
-              label="รับเข้าบัญชี"
-              value={payBankAccountId ?? ""}
-              onChange={(e) => setPayBankAccountId(e.target.value || null)}
-            >
-              {bankLoading ? (
-                <option value="" disabled>กำลังโหลดบัญชี...</option>
-              ) : bankAccounts.length === 0 ? (
-                <option value="" disabled>ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า</option>
-              ) : (
-                bankAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.bank_name} · {account.account_number}
-                    {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
-                  </option>
-                ))
-              )}
-            </Select>
-          )}
-          <Input
-            label="เลขที่ใบหักภาษี ณ ที่จ่าย (ถ้ามี)"
-            value={payWhtCert}
-            onChange={(e) => setPayWhtCert(e.target.value)}
-            placeholder="ไม่บังคับ"
-          />
-          <Input
-            label="วันที่รับเงิน"
-            type="date"
-            value={payDate}
-            max={todayString()}
-            onChange={(e) => setPayDate(e.target.value)}
-          />
-          {isPastDate(payDate, businessToday) && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
-              <p className="text-sm font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
-              <p className="mt-1 text-xs leading-5 text-amber-800">
-                ระบบจะใช้วันที่รับเงินจริงบนใบเสร็จ และเก็บเวลาที่บันทึกเข้าระบบไว้แยกกันเพื่อให้ตรวจสอบย้อนหลังได้
-              </p>
-              <div className="mt-3">
-                <Select
-                  label="เหตุผลในการออกย้อนหลัง"
-                  value={payBackdateReason}
-                  onChange={(e) => setPayBackdateReason(e.target.value)}
-                >
-                  <option value="">เลือกเหตุผล</option>
-                  {RECEIPT_BACKDATE_REASON_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </Select>
-              </div>
-              <div className="mt-3">
-                <label className="mb-1 block text-xs font-medium text-amber-900">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
-                <textarea
-                  value={payBackdateNote}
-                  onChange={(e) => setPayBackdateNote(e.target.value)}
-                  rows={3}
-                  placeholder="รายละเอียดเพิ่มเติม เช่น วันที่ได้รับสลิป หรือข้อมูลที่ต้องการให้ทีมบัญชีเห็น"
-                  className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
-                />
-              </div>
-            </div>
-          )}
-          <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setPayModal(false)}>ปิด</Button>
-          <Button variant="primary" onClick={handlePay} loading={paying} disabled={paymentBaseAmount <= 0}>ยืนยัน</Button>
-          </div>
-            </>
-          )}
-        </div>
-      </Modal>
+      {doc && (isSent || isPartiallyPaid) && (
+        <PaymentModal
+          open={payModal}
+          onClose={() => setPayModal(false)}
+          sourceDoc={doc}
+          dealId={doc.deal_id}
+          businessToday={businessToday}
+          onSaved={fetchDoc}
+        />
+      )}
 
       <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="ลบเอกสาร">
         <div className="space-y-4">

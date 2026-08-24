@@ -36,6 +36,7 @@ import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
 import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
@@ -669,6 +670,15 @@ function DocumentCard({
 
               {isDraft && doc.doc_type === "receipt" && (
                 <>
+                  {permissions.canRecordPayments && (
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => onMenuAction("confirm_receipt")}
+                    >
+                      <FileText size={14} />
+                      <span>ยืนยันการรับเงิน</span>
+                    </button>
+                  )}
                   <button
                     className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     onClick={() => onMenuAction("edit")}
@@ -1334,6 +1344,9 @@ export default function DocumentsPage() {
         await deleteDocumentFiles(doc.id);
         await supabase.from("documents").delete().eq("id", doc.id);
         toast.success("ลบเอกสารแล้ว");
+      } else if (action === "confirm_receipt") {
+        await confirmDraftReceipt(doc.id, profile!.id);
+        toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
       } else if (action === "issue_cn") {
         await supabase
           .from("documents")
@@ -1356,7 +1369,7 @@ export default function DocumentsPage() {
 
   const handleMenuAction = async (doc: Document, action: string) => {
     if (
-      (action === "pay" || action === "billing") &&
+      (action === "pay" || action === "billing" || action === "confirm_receipt") &&
       !permissions.canRecordPayments
     ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");

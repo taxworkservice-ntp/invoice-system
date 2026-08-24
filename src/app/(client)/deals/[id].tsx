@@ -20,27 +20,14 @@ import { resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
-import { getReceiptTotalsForDocument } from "../../../lib/receiptTotals";
-import { buildReceiptInvoiceRecords, getReceiptInvoiceSources } from "../../../lib/receiptInvoices";
+import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
+import { PaymentModal } from "../../../components/payments/PaymentModal";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { revertDeal } from "../../../lib/documentRevert";
-import {
-  buildReceiptBackdateFields,
-  composeReceiptBackdateReason,
-  isPastDate,
-  RECEIPT_BACKDATE_REASON_OPTIONS,
-  toLocalMiddayIso,
-  todayString as realTodayString,
-} from "../../../lib/receiptBackdating";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import {
-  calculateReceiptAllocationFromInput,
-  convertReceiptInputAmount,
-  convertReceiptInputToPreTax,
-  type ReceiptInputBasis,
 } from "../../../lib/tax";
-import { getReceiptInputBasisPreference, setReceiptInputBasisPreference } from "../../../lib/receiptInputBasis";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
@@ -90,6 +77,7 @@ type MainAction =
   | { type: "delivery_from_quote"; doc: Document; label: string }
   | { type: "invoice_from_dns"; doc: Document; label: string }
   | { type: "billing"; doc: Document; label: string }
+  | { type: "confirm_receipt"; doc: Document; label: string }
   | { type: "collect"; doc: Document; label: string; danger?: boolean }
   | { type: "done"; label: string }
   | null;
@@ -105,7 +93,7 @@ function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
   if (doc.doc_type === "delivery_note") {
     return "invoice";
   }
-  if (doc.doc_type === "receipt") return "done";
+  if (doc.doc_type === "receipt") return doc.status === "draft" ? "collect" : "done";
   if (doc.doc_type === "credit_note") {
     if (doc.status === "draft") return "collect";
     if (doc.status === "sent" || doc.status === "issued") return "done";
@@ -194,18 +182,8 @@ export default function DealDetailPage() {
 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [payDocument, setPayDocument] = useState<Document | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
-  const [paymentBankAccountId, setPaymentBankAccountId] = useState<string | null>(null);
-  const [paymentBaseAmount, setPaymentBaseAmount] = useState(0);
-  const [paymentBaseRemaining, setPaymentBaseRemaining] = useState(0);
-  const [paymentInputBasis, setPaymentInputBasis] = useState<ReceiptInputBasis>(getReceiptInputBasisPreference);
-  const [paymentPreviousWht, setPaymentPreviousWht] = useState(0);
-  const [whtCertificateNo, setWhtCertificateNo] = useState("");
-  const [paymentDate, setPaymentDate] = useState(() => realTodayString());
-  const [paymentBackdateReason, setPaymentBackdateReason] = useState("");
-  const [paymentBackdateNote, setPaymentBackdateNote] = useState("");
+  const [confirmingReceiptDoc, setConfirmingReceiptDoc] = useState<Document | null>(null);
   const [paying, setPaying] = useState(false);
-  const [paymentMismatchConfirm, setPaymentMismatchConfirm] = useState(false);
 
   const [showVoided, setShowVoided] = useState(false);
   const [cloneChooserOpen, setCloneChooserOpen] = useState(false);
@@ -225,9 +203,6 @@ export default function DealDetailPage() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [showDocList, setShowDocList] = useState(false);
 
-  useEffect(() => {
-    if (paymentDate === realTodayString()) setPaymentDate(businessToday);
-  }, [businessToday, paymentDate]);
 
   const fetchDealData = useCallback(async () => {
     if (!dealId || !userId) {
@@ -373,176 +348,27 @@ export default function DealDetailPage() {
     }
   };
 
-  const handleOpenPaymentModal = async (doc: Document) => {
+  const handleOpenPaymentModal = (doc: Document) => {
     if (!userId || !permissions.canRecordPayments) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const { preTaxAmount: previousTotal, whtAmount: previousWht } = await getReceiptTotalsForDocument(doc, userId);
-    const remaining = Math.max(0, doc.subtotal - previousTotal);
-    const initialBasis = getReceiptInputBasisPreference();
     setPayDocument(doc);
-    setPaymentInputBasis(initialBasis);
-    setPaymentBaseAmount(
-      convertReceiptInputAmount({
-        amount: remaining,
-        from: "pre_tax",
-        to: initialBasis,
-        vatRate: doc.vat_rate,
-        vatRegistered: doc.vat_registered,
-        whtRate: doc.wht_rate,
-      }),
-    );
-    setPaymentBaseRemaining(remaining);
-    setPaymentPreviousWht(previousWht);
-    setPaymentMismatchConfirm(false);
-    setPaymentMethod("bank_transfer");
-    setPaymentBankAccountId(primaryBank?.id ?? null);
-    setWhtCertificateNo("");
-    setPaymentDate(todayString());
-    setPaymentBackdateReason("");
-    setPaymentBackdateNote("");
     setPaymentModalOpen(true);
   };
 
-  const handleConfirmPayment = async () => {
-    if (!payDocument || !userId || !dealId) return;
+  const handleConfirmDraftReceipt = async () => {
+    if (!userId) return;
     if (!permissions.canRecordPayments) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    const { preTaxAmount: previousTotal } = await getReceiptTotalsForDocument(payDocument, userId);
-    const remaining = Math.max(0, payDocument.subtotal - previousTotal);
-    const requestedPreTax = convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: payDocument.vat_rate, whtRate: payDocument.wht_rate, vatRegistered: payDocument.vat_registered });
-    if (requestedPreTax > remaining + 0.01) {
-      toast.error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
-      return;
-    }
-    if (requestedPreTax < remaining - 0.01) {
-      setPaymentMismatchConfirm(true);
-      return;
-    }
-    await executeConfirmPayment();
-  };
-
-  const executeConfirmPayment = async () => {
-    if (!payDocument || !userId || !dealId) return;
-    if (isPastDate(paymentDate, businessToday) && !paymentBackdateReason) {
-      toast.error("กรุณาเลือกเหตุผลในการออกใบเสร็จย้อนหลัง");
-      return;
-    }
-    if (paymentMethod === "bank_transfer" && !paymentBankAccountId) {
-      toast.error("กรุณาเลือกบัญชีที่รับโอนเงิน");
-      return;
-    }
+    if (!confirmingReceiptDoc) return;
     setPaying(true);
     try {
-      const paidAt = toLocalMiddayIso(paymentDate);
-      const receiptBackdateFields = buildReceiptBackdateFields({
-        selectedDate: paymentDate,
-        userId,
-        reason: composeReceiptBackdateReason(paymentBackdateReason, paymentBackdateNote),
-        today: businessToday,
-      });
-      const receiptInvoiceSources = await getReceiptInvoiceSources(payDocument, userId);
-
-      const previousTotals = await getReceiptTotalsForDocument(payDocument, userId);
-      const previousTotal = previousTotals.preTaxAmount;
-      const previousWht = previousTotals.whtAmount;
-      const remaining = Math.max(0, payDocument.subtotal - previousTotal);
-      const allocation = calculateReceiptAllocationFromInput({
-        amount: paymentBaseAmount,
-        basis: paymentInputBasis,
-        vatRate: payDocument.vat_rate,
-        vatRegistered: payDocument.vat_registered,
-        whtRate: payDocument.wht_rate,
-        expectedWht: payDocument.wht_amount || 0,
-        previousWht,
-        isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: payDocument.vat_rate, whtRate: payDocument.wht_rate, vatRegistered: payDocument.vat_registered }) >= payDocument.subtotal - 0.01,
-      });
-      if (paymentBaseAmount <= 0 || allocation.preTax > remaining + 0.01) {
-        throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
-      }
-      const newTotal = previousTotal + allocation.preTax;
-      const isFullyPaid = newTotal >= (payDocument.subtotal - 0.01);
-      const newStatus = isFullyPaid ? "paid" : "partially_paid";
-
-      await supabase
-        .from("documents")
-        .update({
-          status: newStatus as DocumentStatus,
-          paid_at: paidAt,
-          payment_method: paymentMethod,
-          bank_account_id: paymentMethod === "bank_transfer" ? paymentBankAccountId : null,
-          amount_received: previousTotals.amountReceived + allocation.netAmount,
-          wht_certificate_no: whtCertificateNo || null,
-        })
-        .eq("id", payDocument.id);
-
-      const { data: linked } = await supabase
-        .from("billing_note_invoices")
-        .select("invoice_id")
-        .eq("billing_note_id", payDocument.id);
-
-      const linkedInvoiceIds = (linked || []).map((item: { invoice_id: string }) => item.invoice_id);
-      if (linkedInvoiceIds.length > 0) {
-        const invoiceNewStatus = isFullyPaid ? "paid" : "in_billing";
-        await supabase
-          .from("documents")
-          .update({ status: invoiceNewStatus as DocumentStatus, paid_at: paidAt })
-          .in("id", linkedInvoiceIds);
-      }
-
-      const issueDate = paymentDate;
-      const docNumber = await resolveDocNumber(userId, "receipt", issueDate, docNumberOverride);
-
-      const { data: receipt, error: receiptError } = await supabase.from("documents").insert({
-        user_id: userId,
-        deal_id: dealId,
-        customer_id: payDocument.customer_id,
-        doc_type: "receipt",
-        doc_number: docNumber,
-        status: "generated" as DocumentStatus,
-        issue_date: issueDate,
-        converted_from_id: payDocument.id,
-        vat_registered: payDocument.vat_registered,
-        vat_rate: payDocument.vat_rate,
-        wht_rate: payDocument.wht_rate,
-        discount_percent: payDocument.discount_percent,
-        discount_amount: payDocument.discount_amount,
-        subtotal: allocation.preTax,
-        vat_amount: allocation.vatAmount,
-        total_amount: allocation.grossAmount,
-        wht_amount: allocation.whtAmount,
-        net_payable: allocation.netAmount,
-        payment_method: paymentMethod,
-        bank_account_id: paymentMethod === "bank_transfer" ? paymentBankAccountId : null,
-        amount_received: allocation.netAmount,
-        wht_certificate_no: whtCertificateNo || null,
-        paid_at: paidAt,
-        ...receiptBackdateFields,
-      }).select("id").single();
-      if (receiptError || !receipt) throw receiptError || new Error("ไม่สามารถสร้างใบเสร็จได้");
-
-      if (receiptInvoiceSources.length > 0) {
-        const { error: receiptInvoiceError } = await supabase.from("receipt_invoices").insert(
-          buildReceiptInvoiceRecords({
-            receiptId: receipt.id,
-            userId,
-            sourceDocument: payDocument,
-            invoices: receiptInvoiceSources,
-            actualPaidAmount: allocation.netAmount,
-          }),
-        );
-        if (receiptInvoiceError) throw receiptInvoiceError;
-      }
-
-      toast.success(isFullyPaid ? "บันทึกรับเงินสำเร็จ" : "บันทึกรับเงินบางส่วนสำเร็จ");
-      setPaymentModalOpen(false);
-      setPaymentMismatchConfirm(false);
-      setPayDocument(null);
-      setPaymentBackdateReason("");
-      setPaymentBackdateNote("");
+      await confirmDraftReceipt(confirmingReceiptDoc.id, userId);
+      toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
+      setConfirmingReceiptDoc(null);
       fetchDealData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -1162,6 +988,10 @@ export default function DealDetailPage() {
     const doc = activeDoc.document;
     if (allDone) return { type: "done", label: "เสร็จสิ้น" };
     if (doc.status === "draft") {
+      if (doc.doc_type === "receipt") {
+        if (!permissions.canRecordPayments) return null;
+        return { type: "confirm_receipt", doc, label: "ยืนยันการรับเงิน" };
+      }
       if (!canSendDocumentType(permissions, doc.doc_type)) return null;
       return {
         type: "send_draft",
@@ -1380,19 +1210,6 @@ export default function DealDetailPage() {
     );
   }
 
-  const paymentPreview = payDocument
-    ? calculateReceiptAllocationFromInput({
-        amount: paymentBaseAmount,
-        basis: paymentInputBasis,
-        vatRate: payDocument.vat_rate,
-        vatRegistered: payDocument.vat_registered,
-        whtRate: payDocument.wht_rate,
-        expectedWht: payDocument.wht_amount || 0,
-        previousWht: paymentPreviousWht,
-        isFullyPaid: convertReceiptInputToPreTax({ amount: paymentBaseAmount, basis: paymentInputBasis, vatRate: payDocument.vat_rate, whtRate: payDocument.wht_rate, vatRegistered: payDocument.vat_registered }) >= payDocument.subtotal - 0.01,
-      })
-    : null;
-
   return (
     <AppShell
       title={title}
@@ -1577,6 +1394,7 @@ export default function DealDetailPage() {
                 loading={actionLoadingId === mainAction.doc.id}
                 onClick={() => {
                   if (mainAction.type === "send_draft") handleSendDraft(mainAction.doc);
+                  if (mainAction.type === "confirm_receipt") setConfirmingReceiptDoc(mainAction.doc);
                   if (mainAction.type === "convert") navigate(`/documents/new?type=invoice_from_quotation&quotationId=${mainAction.doc.id}`);
                   if (mainAction.type === "delivery_from_quote") {
                     const params = new URLSearchParams({
@@ -2424,202 +2242,22 @@ export default function DealDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={paymentModalOpen} onClose={() => { setPaymentModalOpen(false); setPaymentMismatchConfirm(false); }} title="ยืนยันการรับเงิน">
-        <div className="space-y-4">
-          {payDocument && (
-            <>
-              {paymentMismatchConfirm ? (
-                <>
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                       <p className="text-sm font-semibold text-amber-900">ยอดก่อน VAT ไม่ตรงกับยอดคงเหลือ</p>
-                    <div className="mt-3 space-y-1.5 text-sm">
-                      <div className="flex justify-between">
-                         <span className="text-amber-700">ยอดก่อน VAT คงเหลือ</span>
-                         <span className="font-medium text-amber-900">฿{formatCurrency(paymentBaseRemaining)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                         <span className="text-amber-700">ยอดก่อน VAT ของงวดนี้</span>
-                         <span className="font-medium text-amber-900">฿{formatCurrency(paymentPreview?.preTax || 0)}</span>
-                      </div>
-                      <div className="border-t border-amber-200 pt-1.5 flex justify-between">
-                        <span className="text-amber-700">ส่วนต่าง</span>
-                         <span className="font-bold text-amber-900">{(paymentPreview?.preTax || 0) > paymentBaseRemaining ? "+" : ""}฿{formatCurrency((paymentPreview?.preTax || 0) - paymentBaseRemaining)}</span>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-xs text-amber-700">
-                       {(paymentPreview?.preTax || 0) < paymentBaseRemaining
-                         ? "คุณกำลังบันทึกชำระบางส่วน ยอดคงเหลือจะแสดงในรายงานลูกหนี้จนกว่าจะชำระครบ"
-                         : "ยอดก่อน VAT เกินยอดคงเหลือ ระบบจะไม่บันทึกยอดส่วนเกิน"}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="secondary" onClick={() => setPaymentMismatchConfirm(false)}>กลับไปแก้ไข</Button>
-                    <Button variant="primary" onClick={executeConfirmPayment} loading={paying}>ยืนยันรับเงิน</Button>
-                  </div>
-                </>
-              ) : (
-                <>
-              <div className="rounded-lg bg-stone-50 border border-card-border px-4 py-3 text-sm">
-                 <div className="flex items-center justify-between">
-                   <span className="text-gray-500">ยอดก่อน VAT คงเหลือ</span>
-                   <span className="font-semibold">฿{formatCurrency(paymentBaseRemaining)}</span>
-                 </div>
-                 <div className="mt-2 flex items-center justify-between">
-                   <span className="text-gray-500">ยอดก่อน VAT ของงวดนี้</span>
-                   <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.preTax || 0)}</span>
-                 </div>
-                 <div className="mt-2 flex items-center justify-between">
-                   <span className="text-gray-500">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</span>
-                   <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.grossAmount || 0)}</span>
-                 </div>
-                 <div className="mt-2 flex items-center justify-between">
-                   <span className="text-gray-500">หัก ณ ที่จ่าย</span>
-                   <span className="font-medium text-gray-700">฿{formatCurrency(paymentPreview?.whtAmount || 0)}</span>
-                 </div>
-                 <div className="mt-3 border-t border-card-border pt-2 flex items-center justify-between">
-                   <span className="font-medium text-gray-700">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</span>
-                   <span className="text-base font-semibold">฿{formatCurrency(paymentPreview?.netAmount || 0)}</span>
-                </div>
-              </div>
-
-               <div>
-                 <FieldGuidance
-                   title="กรอกยอดโดยอ้างอิงจาก"
-                   items={[
-                     { label: "ยอดชำระก่อน VAT", description: "ใช้เมื่อกำหนดงวดผ่อนก่อนคิด VAT เช่น งวดละ 200,000 บาท" },
-                     { label: "ยอดรวมก่อนหักภาษี ณ ที่จ่าย", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
-                     { label: "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
-                   ]}
-                   tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, หัก ณ ที่จ่าย และยอดโอนจริงให้อัตโนมัติ"
-                 />
-                 <select
-                   className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
-                   value={paymentInputBasis}
-                   onChange={(e) => {
-                     const nextBasis = e.target.value as ReceiptInputBasis;
-                     setPaymentBaseAmount(convertReceiptInputAmount({
-                       amount: paymentBaseAmount,
-                       from: paymentInputBasis,
-                       to: nextBasis,
-                       vatRate: payDocument.vat_rate,
-                       vatRegistered: payDocument.vat_registered,
-                       whtRate: payDocument.wht_rate,
-                     }));
-                     setPaymentInputBasis(nextBasis);
-                     setReceiptInputBasisPreference(nextBasis);
-                   }}
-                 >
-                   <option value="pre_tax">ยอดชำระก่อน VAT</option>
-                   <option value="gross">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</option>
-                   <option value="net_cash">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</option>
-                 </select>
-               </div>
-               <Input
-                 label={paymentInputBasis === "pre_tax" ? "ยอดชำระก่อน VAT" : paymentInputBasis === "gross" ? "ยอดรวมก่อนหักภาษี ณ ที่จ่าย" : "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย"}
-                 type="number"
-                step="0.01"
-                 value={paymentBaseAmount || ""}
-                 onChange={(e) => setPaymentBaseAmount(parseFloat(e.target.value) || 0)}
-              />
-
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">วิธีชำระเงิน</label>
-                <select
-                  className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                >
-                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {paymentMethod === "bank_transfer" && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">รับเข้าบัญชี</label>
-                  <select
-                    className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
-                    value={paymentBankAccountId ?? ""}
-                    onChange={(e) => setPaymentBankAccountId(e.target.value || null)}
-                  >
-                    {bankLoading ? (
-                      <option value="" disabled>กำลังโหลดบัญชี...</option>
-                    ) : bankAccounts.length === 0 ? (
-                      <option value="" disabled>ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า</option>
-                    ) : (
-                      bankAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.bank_name} · {account.account_number}
-                          {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              )}
-
-              <Input
-                label="เลขที่ใบหักภาษี ณ ที่จ่าย"
-                value={whtCertificateNo}
-                onChange={(e) => setWhtCertificateNo(e.target.value)}
-                placeholder="กรอกถ้ามี"
-              />
-
-              <Input
-                label="วันที่รับเงิน"
-                type="date"
-                value={paymentDate}
-                max={todayString()}
-                onChange={(e) => setPaymentDate(e.target.value)}
-              />
-
-              {isPastDate(paymentDate, businessToday) && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
-                  <p className="text-sm font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
-                  <p className="mt-1 text-xs leading-5 text-amber-800">
-                    วันที่บนใบเสร็จจะใช้วันที่รับเงินจริง และระบบจะเก็บเวลาที่เข้ามาบันทึกไว้แยกกันเพื่อใช้ตรวจสอบย้อนหลัง
-                  </p>
-                  <div className="mt-3">
-                    <label className="mb-1 block text-xs font-medium text-amber-900">เหตุผลในการออกย้อนหลัง</label>
-                    <select
-                      value={paymentBackdateReason}
-                      onChange={(e) => setPaymentBackdateReason(e.target.value)}
-                      className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
-                    >
-                      <option value="">เลือกเหตุผล</option>
-                      {RECEIPT_BACKDATE_REASON_OPTIONS.map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="mt-3">
-                    <label className="mb-1 block text-xs font-medium text-amber-900">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
-                    <textarea
-                      value={paymentBackdateNote}
-                      onChange={(e) => setPaymentBackdateNote(e.target.value)}
-                      rows={3}
-                      placeholder="รายละเอียดเพิ่มเติม เช่น วันที่ได้รับสลิป หรือข้อมูลที่ต้องการให้ทีมบัญชีเห็น"
-                      className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2 justify-end">
-                <Button variant="secondary" onClick={() => setPaymentModalOpen(false)}>
-                  ปิด
-                </Button>
-                 <Button onClick={handleConfirmPayment} disabled={paying || paymentBaseAmount <= 0}>
-                  {paying ? "กำลังบันทึก..." : "ยืนยันการรับเงิน"}
-                </Button>
-              </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </Modal>
+      {payDocument && (
+        <PaymentModal
+          open={paymentModalOpen}
+          onClose={() => {
+            setPaymentModalOpen(false);
+            setPayDocument(null);
+          }}
+          sourceDoc={payDocument}
+          dealId={dealId}
+          businessToday={businessToday}
+          onSaved={() => {
+            setPayDocument(null);
+            fetchDealData();
+          }}
+        />
+      )}
 
       <Modal open={revertConfirmOpen} onClose={() => setRevertConfirmOpen(false)} title="ยืนยันการลบงานขาย (Dev)">
         <div className="space-y-4">

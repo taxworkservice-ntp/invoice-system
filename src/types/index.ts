@@ -311,6 +311,11 @@ export interface Document {
   note: string | null;
   payment_method: PaymentMethod | null;
   bank_account_id: string | null;
+  payment_detail?: {
+    cheque_no?: string | null;
+    cheque_bank?: string | null;
+    cheque_date?: string | null;
+  } | null;
   wht_certificate_no: string | null;
   paid_at: string | null;
   amount_received: number | null;

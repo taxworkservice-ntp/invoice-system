@@ -363,6 +363,8 @@ function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {
 function getNextActionLabel(doc: DealDoc | null) {
   if (!doc) return "";
   if (isOverdueDocument(doc)) return "เกินกำหนด — บันทึกรับเงิน →";
+  if (doc.doc_type === "receipt" && doc.status === "draft")
+    return "ยืนยันการรับเงิน →";
   if (doc.doc_type === "quotation" && doc.status === "draft")
     return "ส่งใบเสนอราคาให้ลูกค้า →";
   if (doc.doc_type === "quotation" && doc.status === "sent")
@@ -470,6 +472,16 @@ function getStageInfo(
     return {
       stageLabel: "รอรับเงิน",
       stageHint: "ใบวางบิลส่งแล้ว",
+      queue: "wait_collect" as HomeQueue,
+    };
+  // Draft receipt = payment recorded but not confirmed yet.
+  const draftReceipt = documents.find(
+    (doc) => doc.doc_type === "receipt" && doc.status === "draft",
+  );
+  if (draftReceipt)
+    return {
+      stageLabel: "รอยืนยันการรับเงิน",
+      stageHint: "ใบเสร็จร่าง",
       queue: "wait_collect" as HomeQueue,
     };
   if (latestDocument?.status === "draft") {
