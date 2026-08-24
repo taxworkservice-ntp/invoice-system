@@ -262,16 +262,26 @@ function getDealWhtAmount(documents: DealDoc[]) {
   return 0;
 }
 
+// Reference-summary rows (โหมดอ้างอิง) read like "ใบส่งของ DN-2026-08-002" —
+// not useful as an item preview. Real item lines carry a source_line_item_id.
+function isRefSummaryLine(item: { source_document_id?: string | null; source_line_item_id?: string | null }) {
+  return Boolean(item.source_document_id) && !item.source_line_item_id;
+}
+
 function getItemPreview(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
-  const sourceDoc =
-    sortDocuments(nonVoided).find((doc) => (doc.line_items || []).length > 0) ||
-    nonVoided.find((doc) => (doc.line_items || []).length > 0) ||
-    null;
+  const withItems = sortDocuments(nonVoided).filter((doc) => (doc.line_items || []).length > 0);
 
-  return (sourceDoc?.line_items || [])
-    .map((item) => item.item_name.trim())
-    .filter(Boolean);
+  // Newest document first; skip docs whose only rows are reference summaries
+  // so previews show real item/service names.
+  for (const doc of withItems) {
+    const names = (doc.line_items || [])
+      .filter((item) => !isRefSummaryLine(item))
+      .map((item) => item.item_name.trim())
+      .filter(Boolean);
+    if (names.length > 0) return names;
+  }
+  return [];
 }
 
 function getCompletionDoc(documents: DealDoc[]) {
