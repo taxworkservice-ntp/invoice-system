@@ -333,11 +333,11 @@ function getDealReceivedAmount(documents: DealDoc[]) {
 // in the done-deals table (replaces the redundant status checkmark).
 const DONE_BADGE_ORDER = [
   "quotation",
+  "delivery_note",
   "invoice",
   "tax_invoice_receipt",
   "billing_note",
   "receipt",
-  "delivery_note",
   "credit_note",
   "debit_note",
 ] as const;

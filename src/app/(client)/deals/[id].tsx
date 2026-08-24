@@ -1169,17 +1169,22 @@ export default function DealDetailPage() {
       ? Math.min(expectedWhtAmount, Math.round(expectedWhtAmount * amountReceived / netPayable * 100) / 100)
       : 0;
 
-    // Credit applies to the remaining balance first; any excess becomes
-    // customer credit (e.g. crediting a fully-paid invoice).
-    const balanceBeforeAdjustment = Math.max(0, netPayable + debitTotal - amountReceived);
-    const appliedCredit = Math.min(creditTotal, balanceBeforeAdjustment);
-    const customerCredit = Math.max(0, creditTotal - balanceBeforeAdjustment);
+    // Order-independent reconciliation:
+    //   due after adjustment = net payable + debits - credits
+    //   outstanding          = unpaid portion of that
+    //   customer credit      = cash received beyond it (e.g. crediting a
+    //                          fully-paid invoice)
+    const afterAdjustment = netPayable - creditTotal + debitTotal;
+    const dueAfterAdjustment = Math.max(0, afterAdjustment);
+    const outstanding = Math.max(0, dueAfterAdjustment - amountReceived);
+    const customerCredit = Math.max(0, amountReceived - dueAfterAdjustment);
 
     return {
       grossAmount,
       netPayable,
       amountReceived,
-      outstanding: Math.max(0, balanceBeforeAdjustment - appliedCredit),
+      outstanding,
+      afterAdjustment,
       creditTotal,
       debitTotal,
       customerCredit,
@@ -1753,7 +1758,14 @@ export default function DealDetailPage() {
               { label: "ยอดรวม", value: financialSummary.grossAmount, className: "text-ink-900" },
               ...(financialSummary.debitTotal > 0 ? [{ label: "ยอดเพิ่มหนี้", value: financialSummary.debitTotal, className: "text-amber-700" }] : []),
               ...(financialSummary.creditTotal > 0 ? [{ label: "ยอดลดหนี้", value: -financialSummary.creditTotal, className: "text-red-700" }] : []),
-              { label: "ยอดสุทธิ", value: financialSummary.netPayable, className: "text-ink-900" },
+              ...(financialSummary.creditTotal > 0 || financialSummary.debitTotal > 0
+                ? [{
+                    label: financialSummary.debitTotal > 0 ? "ยอดหลังปรับบิล" : "ยอดหลังลดหนี้",
+                    value: financialSummary.afterAdjustment,
+                    className: "text-ink-900",
+                  }]
+                : []),
+              { label: "ยอดสุทธิตามเอกสาร", value: financialSummary.netPayable, className: "text-ink-900" },
               { label: "รับแล้ว", value: financialSummary.amountReceived, className: "text-green-700" },
               { label: "ค้างรับ", value: financialSummary.outstanding, className: financialSummary.outstanding > 0 ? "text-red-700" : "text-green-700" },
               { label: "หัก ณ ที่จ่ายตามเอกสาร", value: financialSummary.expectedWhtAmount, className: financialSummary.expectedWhtAmount > 0 ? "text-amber-700" : "text-gray-500" },
