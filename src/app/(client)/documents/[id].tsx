@@ -1137,7 +1137,12 @@ export default function DocumentDetailPage() {
               onClick={async () => {
                 setConfirmingReceipt(true);
                 try {
-                  await confirmDraftReceipt(doc.id, userId!);
+                  if (!userId) {
+                    toast.error("กรุณาเข้าสู่ระบบอีกครั้ง");
+                    setConfirmingReceipt(false);
+                    return;
+                  }
+                  await confirmDraftReceipt(doc.id, userId);
                   toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
                   await fetchDoc();
                 } catch (err: any) {

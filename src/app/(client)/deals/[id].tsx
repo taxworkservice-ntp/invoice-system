@@ -2259,6 +2259,34 @@ export default function DealDetailPage() {
         />
       )}
 
+      <Modal open={!!confirmingReceiptDoc} onClose={() => setConfirmingReceiptDoc(null)} title="ยืนยันการรับเงิน">
+        {confirmingReceiptDoc && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-stone-50 border border-card-border px-4 py-3 text-sm space-y-2">
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-500">ใบเสร็จ</span>
+                <span className="font-medium">{confirmingReceiptDoc.doc_number || "-"}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-500">วันที่รับเงิน</span>
+                <span>{formatBuddhistDate(confirmingReceiptDoc.issue_date)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-500">ยอดรับสุทธิ</span>
+                <span className="font-semibold">฿{formatCurrency(confirmingReceiptDoc.net_payable)}</span>
+              </div>
+            </div>
+            <p className="text-xs leading-5 text-gray-500">
+              ยืนยันแล้วระบบจะบันทึกยอดรับเงิน ปรับสถานะเอกสารอ้างอิงเป็นชำระแล้ว และนับเป็นรายได้ของงวดนี้
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setConfirmingReceiptDoc(null)}>ยกเลิก</Button>
+              <Button onClick={handleConfirmDraftReceipt} loading={paying}>ยืนยันการรับเงิน</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Modal open={revertConfirmOpen} onClose={() => setRevertConfirmOpen(false)} title="ยืนยันการลบงานขาย (Dev)">
         <div className="space-y-4">
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
