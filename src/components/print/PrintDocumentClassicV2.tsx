@@ -1,4 +1,4 @@
-import { formatCurrency } from "../../lib/format";
+import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
@@ -175,7 +175,7 @@ export function PrintDocumentClassicV2({
 
   const payInfo = [
     showPaymentMethod && document.payment_method
-      ? `วิธีชำระเงิน: ${PAYMENT_METHOD_LABELS[document.payment_method] || document.payment_method}`
+      ? `วิธีชำระเงิน: ${paymentMethodText(PAYMENT_METHOD_LABELS[document.payment_method] || document.payment_method, document)}`
       : null,
     (document.doc_type === "receipt" || document.doc_type === "tax_invoice_receipt") && document.amount_received != null
       ? `จำนวนเงินที่รับ: ${formatCurrency(document.amount_received)}`

@@ -1,4 +1,4 @@
-import { formatCurrency } from "../../lib/format";
+import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { splitTerms } from "../../lib/terms";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
@@ -219,7 +219,15 @@ export function PrintDocument({
                 {showBank && bankAccountNumber ? <div>เลขที่บัญชี: {bankAccountNumber}</div> : null}
                 {showBank && bankAccountHolder ? <div>ชื่อบัญชี: {bankAccountHolder}</div> : null}
                 {hasPayment ? <div className="border-t-[0.5px] border-[#E8ECF2] my-0.5" /> : null}
-                {showPaymentMethod && data.document.payment_method ? <div>วิธีชำระเงิน: {PAYMENT_METHOD_LABELS[data.document.payment_method] || data.document.payment_method}</div> : null}
+                {showPaymentMethod && data.document.payment_method ? (
+                  <div>
+                    วิธีชำระเงิน:{" "}
+                    {paymentMethodText(
+                      PAYMENT_METHOD_LABELS[data.document.payment_method] || data.document.payment_method,
+                      data.document,
+                    )}
+                  </div>
+                ) : null}
                 {data.document.wht_certificate_no ? <div>เลขที่หนังสือรับรองหัก ณ ที่จ่าย: {data.document.wht_certificate_no}</div> : null}
                 {(data.document.doc_type === "receipt" || data.document.doc_type === "tax_invoice_receipt") && data.document.amount_received != null ? <div>จำนวนเงินที่รับ: {formatCurrency(data.document.amount_received)}</div> : null}
               </>
