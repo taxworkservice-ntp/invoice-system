@@ -11,3 +11,4 @@ supabase/.temp
 tests/print-layout/actual
 .backup/
 .env*
+ 2.*
