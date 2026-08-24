@@ -379,6 +379,24 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         existing.total += d.total_amount || d.net_payable || 0;
         typeMap.set(t, existing);
       }
+      // Adjustment rows keep the breakdown reconciled with the summary.
+      for (const d of inPeriodAdjustment(activeCreditNotes)) {
+        const t = d.doc_type as string;
+        const existing = typeMap.get(t) || { count: 0, total: 0 };
+        existing.count++;
+        existing.total -= d.total_amount || 0;
+        typeMap.set(t, existing);
+      }
+      for (const d of activeDebitNotes.filter((x: any) => {
+        const debitDate = (x.issue_date || "").slice(0, 10);
+        return debitDate >= start && debitDate <= end;
+      })) {
+        const t = d.doc_type as string;
+        const existing = typeMap.get(t) || { count: 0, total: 0 };
+        existing.count++;
+        existing.total += d.total_amount || 0;
+        typeMap.set(t, existing);
+      }
       setByType(
         Array.from(typeMap.entries())
           .map(([docType, { count, total }]) => ({ docType, label: "", count, total }))
@@ -586,6 +604,43 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
         is_paid: d.status === "paid" || d.doc_type === "receipt" || d.doc_type === "tax_invoice_receipt",
         paid_at: d.paid_at || null,
       }));
+
+      // Adjustment notes dated in this period appear as their own register
+      // rows so the book reconciles with the adjusted summary figures:
+      // credit notes negative, debit notes positive.
+      const sign = (docType: string) => (docType === "credit_note" ? -1 : 1);
+      const adjustmentTxns: Transaction[] = [...activeCreditNotes, ...activeDebitNotes]
+        .filter((d: any) => {
+          const adjDate = (d.issue_date || "").slice(0, 10);
+          return adjDate >= start && adjDate <= end;
+        })
+        .map((d: any) => {
+          const sgn = sign(d.doc_type as string);
+          return {
+            id: d.id,
+            deal_id: d.deal_id || null,
+            deal_number: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
+            date: (d.issue_date || "").slice(0, 10),
+            doc_number: d.doc_number || "-",
+            doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
+            doc_type_raw: d.doc_type,
+            customer_name: d.customer?.name || "ไม่ระบุ",
+            customer_tax_id: d.customer?.tax_id || null,
+            customer_address: d.customer?.address || null,
+            subtotal: sgn * (d.subtotal || 0),
+            vat_amount: sgn * (d.vat_amount || 0),
+            total_amount: sgn * (d.total_amount || 0),
+            wht_amount: sgn * (d.wht_amount || 0),
+            wht_rate: d.wht_rate ?? null,
+            wht_certificate_no: d.wht_certificate_no || null,
+            net_payable: sgn * (d.net_payable || 0),
+            status: d.doc_type === "credit_note" ? "ลดหนี้" : "เพิ่มหนี้",
+            is_paid: true,
+            paid_at: d.paid_at || null,
+          } as Transaction;
+        });
+      txns.push(...adjustmentTxns);
+      txns.sort((a, b) => a.date.localeCompare(b.date));
       setTransactions(txns);
 
       const whtDocs = docs.filter((d: any) =>

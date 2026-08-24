@@ -638,6 +638,18 @@ function DocumentCard({
                   </>
                 )}
 
+              {(doc.doc_type === "credit_note" || doc.doc_type === "debit_note") &&
+                doc.status === "issued" &&
+                permissions.canVoidDocuments && (
+                  <button
+                    className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    onClick={() => onMenuAction("void")}
+                  >
+                    <Ban size={14} />
+                    <span>ยกเลิก</span>
+                  </button>
+                )}
+
               {isDraft && (doc.doc_type === "credit_note" || doc.doc_type === "debit_note") && (
                 <>
                   {canSendDocumentType(permissions, doc.doc_type) && (

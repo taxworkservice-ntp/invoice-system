@@ -84,6 +84,8 @@ type DealHistoryItem = {
   representativeDoc: Document | null;
   stage: DealStage;
   amount: number;
+  /** Excess credit when adjustment notes exceed the deal's balance. */
+  credit: number;
   isDone: boolean;
   latestDate: string;
 };
@@ -202,7 +204,21 @@ function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
 
   const billingDoc = docs.find((d) => d.doc_type === "billing_note" && d.status !== "voided") || null;
   const amountDoc = billingDoc || rep;
-  const amount = amountDoc?.net_payable || amountDoc?.total_amount || 0;
+  const baseAmount = amountDoc?.net_payable || amountDoc?.total_amount || 0;
+
+  // Active adjustment notes change the deal's displayed value:
+  // credit notes (ใบลดหนี้) reduce it, debit notes (ใบเพิ่มหนี้) increase it.
+  const netAdjustment = docs.reduce((sum, d) => {
+    if (["draft", "voided"].includes(d.status)) return sum;
+    if (d.doc_type === "credit_note") return sum - (d.total_amount || 0);
+    if (d.doc_type === "debit_note") return sum + (d.total_amount || 0);
+    return sum;
+  }, 0);
+
+  let amount = baseAmount + netAdjustment;
+  const credit = Math.max(0, -amount);
+  if (credit > 0) amount = 0;
+
   const dates = docs.map((d) => d.issue_date || d.updated_at).filter(Boolean).sort();
   const latestDate = dates.length > 0 ? dates[dates.length - 1] : deal.updated_at;
 
@@ -211,6 +227,7 @@ function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
     representativeDoc: rep,
     stage,
     amount,
+    credit,
     isDone: stage === "paid",
     latestDate,
   };
@@ -972,6 +989,9 @@ export default function CustomerDetailPage() {
                         <div className={`font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[13px] text-[#1A1A18]"}`}>
                           ฿ {formatCurrency(item.amount)}
                         </div>
+                        {item.credit > 0 && (
+                          <div className="text-[10px] font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
+                        )}
                         <div className="mt-1">
                           <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${STAGE_COLORS[item.stage]}`}>
                             {STAGE_LABELS[item.stage]}
@@ -1043,6 +1063,9 @@ export default function CustomerDetailPage() {
                         </td>
                         <td className={`px-3 py-2 text-right ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[#111827]"}`}>
                           <div className="font-semibold">฿ {formatCurrency(item.amount)}</div>
+                          {item.credit > 0 && (
+                            <div className="text-[10px] font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
+                          )}
                           {isPartial && partialReceived > 0 && (
                             <div className="text-[10px] text-[#667085]">
                               รับแล้ว ฿{formatCurrency(partialReceived)}
@@ -1092,6 +1115,9 @@ export default function CustomerDetailPage() {
                             <div className={`font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[13px] text-[#1A1A18]"}`}>
                               ฿ {formatCurrency(item.amount)}
                             </div>
+                            {item.credit > 0 && (
+                              <div className="text-[10px] font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
+                            )}
                             <div className="mt-1">
                               <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${STAGE_COLORS[item.stage]}`}>
                                 {STAGE_LABELS[item.stage]}

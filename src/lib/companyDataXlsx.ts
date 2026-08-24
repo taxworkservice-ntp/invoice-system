@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { DOC_TYPE_LABELS } from "../constants";
 import type {
   BillingNoteInvoice,
   ClientProfile,
@@ -96,7 +97,10 @@ export async function buildCompanyDataWorkbook(data: CompanyDataExport) {
     { key: "net_payable", header: "ยอดสุทธิ", width: 16 }, { key: "amount_received", header: "รับแล้ว", width: 16 },
     { key: "payment_method", header: "วิธีรับเงิน", width: 18 }, { key: "paid_at", header: "รับเงินเมื่อ", width: 24 },
     { key: "note", header: "หมายเหตุ", width: 40 },
-  ], data.documents);
+  ], data.documents.map((row) => ({
+    ...row,
+    doc_type: DOC_TYPE_LABELS[row.doc_type]?.th || row.doc_type,
+  })));
 
   addSheet(workbook, "รายการเอกสาร", [
     { key: "id", header: "รหัสระบบ", width: 38 }, { key: "document_id", header: "รหัสเอกสาร", width: 38 },

@@ -29,6 +29,7 @@ const PRESET_TYPES: { key: string; label: string; docType: DocumentType; variant
   { key: "delivery", label: "ใบส่งของเดือนนี้", docType: "delivery_note", variant: "thisMonth" },
   { key: "billing_unpaid", label: "ใบวางบิลที่ยังไม่ชำระ", docType: "billing_note", variant: "unpaid" },
   { key: "credit", label: "ใบลดหนี้เดือนนี้", docType: "credit_note", variant: "thisMonth" },
+  { key: "debit", label: "ใบเพิ่มหนี้เดือนนี้", docType: "debit_note", variant: "thisMonth" },
 ];
 
 const NON_DRAFT_STATUSES = ["sent", "issued", "generated", "paid", "converted", "in_billing"];

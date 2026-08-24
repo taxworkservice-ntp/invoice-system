@@ -267,6 +267,10 @@ export default function DocumentDetailPage() {
             wht_amount: doc.wht_amount,
             net_payable: doc.net_payable,
             note: doc.note,
+            converted_from_id:
+              doc.doc_type === "credit_note" || doc.doc_type === "debit_note"
+                ? doc.converted_from_id
+                : null,
             payment_method: null,
             amount_received: null,
             paid_at: null,
@@ -430,8 +434,19 @@ export default function DocumentDetailPage() {
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
   const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note" || doc.doc_type === "debit_note";
   const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
-  const isCorrectionCandidate = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
-  const correctionTitle = doc.doc_type === "tax_invoice_receipt" ? "ยกเลิกและออกฉบับใหม่" : "แก้ไขโดยออกฉบับใหม่";
+  const isCorrectionCandidate =
+    doc.doc_type === "invoice" ||
+    doc.doc_type === "tax_invoice_receipt" ||
+    doc.doc_type === "credit_note" ||
+    doc.doc_type === "debit_note";
+  const correctionTitle =
+    doc.doc_type === "credit_note" || doc.doc_type === "debit_note"
+      ? doc.doc_type === "credit_note"
+        ? "ยกเลิกใบลดหนี้และออกฉบับใหม่"
+        : "ยกเลิกใบเพิ่มหนี้และออกฉบับใหม่"
+      : doc.doc_type === "tax_invoice_receipt"
+        ? "ยกเลิกและออกฉบับใหม่"
+        : "แก้ไขโดยออกฉบับใหม่";
   const statusMessage = isVoided
     ? "ยกเลิกแล้ว เก็บไว้เป็นประวัติ"
     : doc.doc_type === "delivery_note" && isConverted
@@ -1076,6 +1091,41 @@ export default function DocumentDetailPage() {
                   ? "ใบส่งของฉบับร่างยังแก้ไขหรือลบได้ก่อนยืนยันส่งของ"
                   : "ฉบับร่างสามารถลบได้ถาวร"
                 : "ใบแจ้งหนี้ที่ส่งแล้วควรยกเลิกเพื่อเก็บประวัติ ใช้เมนูยกเลิกด้านล่างแทนการลบ"}
+            </div>
+          )}
+
+          {isIssued && (doc.doc_type === "credit_note" || doc.doc_type === "debit_note") && permissions.canVoidDocuments && (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                {doc.doc_type === "credit_note" ? "ใบลดหนี้" : "ใบเพิ่มหนี้"}ที่ออกแล้วแก้ไขไม่ได้ หากผิดพลาดให้ยกเลิกและออกฉบับใหม่
+                ระบบจะคืนสต็อกที่เคยรับคืนจากการยกเลิกโดยอัตโนมัติ
+              </div>
+              <Button
+                variant="primary"
+                size="md"
+                className="w-full"
+                onClick={() => {
+                  setVoidReason("");
+                  setCorrectionReason("");
+                  setVoidAndRecreate(true);
+                  setVoidModal(true);
+                }}
+              >
+                ยกเลิกและออกฉบับใหม่
+              </Button>
+              <Button
+                variant="ghost"
+                size="md"
+                className="w-full"
+                onClick={() => {
+                  setVoidReason("");
+                  setCorrectionReason("");
+                  setVoidAndRecreate(false);
+                  setVoidModal(true);
+                }}
+              >
+                ยกเลิกอย่างเดียว
+              </Button>
             </div>
           )}
 
