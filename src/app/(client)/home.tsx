@@ -21,7 +21,7 @@ import { supabase } from "../../lib/supabase";
 import { formatCurrency } from "../../lib/format";
 import { formatBuddhistDate, formatBuddhistDateTime, formatBuddhistDateTimeParts } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
-import { DOC_TYPE_LABELS } from "../../constants";
+import { DOC_TYPE_LABELS, DOC_TYPE_SHORT, DOC_TYPE_COLORS } from "../../constants";
 import { TABLE } from "../../lib/tableStyles";
 import type { Deal, Document, Customer, DocumentLineItem } from "../../types";
 import { getWorkspacePermissions } from "../../lib/permissions";
@@ -327,6 +327,26 @@ function getDealReceivedAmount(documents: DealDoc[]) {
   // Receipts and source documents can be populated by different workflows;
   // use the highest authoritative cumulative total without double-counting them.
   return Math.max(receiptReceived, billingReceived, invoiceReceived, combinedReceived);
+}
+
+// Unique non-voided document types in pipeline order — rendered as badges
+// in the done-deals table (replaces the redundant status checkmark).
+const DONE_BADGE_ORDER = [
+  "quotation",
+  "invoice",
+  "tax_invoice_receipt",
+  "billing_note",
+  "receipt",
+  "delivery_note",
+  "credit_note",
+  "debit_note",
+] as const;
+
+function getDoneDocBadges(documents: DealDoc[]) {
+  const present = new Set(
+    documents.filter((doc) => doc.status !== "voided").map((doc) => doc.doc_type),
+  );
+  return DONE_BADGE_ORDER.filter((t) => present.has(t));
 }
 
 // Active adjustment notes change what the customer owes on the deal:
@@ -1607,7 +1627,7 @@ export default function HomePage() {
                             <th className={`${TABLE.thStatic} w-[145px] text-right`}>หัก ณ ที่จ่ายสะสม</th>
                             <th className={`${TABLE.thStatic} w-[125px] text-right`}>รับสุทธิ</th>
                             <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
-                            <th className={`${TABLE.thStatic} w-[60px]`}>สถานะ</th>
+                            <th className={`${TABLE.thStatic} w-[150px]`}>เอกสาร</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1681,11 +1701,23 @@ export default function HomePage() {
                                       : deal.itemSummary || "-"}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-3 py-2">
                                   {deal.isAllVoided ? (
-                                    <span className="text-stone-400 text-xs font-semibold">ยกเลิก</span>
+                                    <span className="inline-flex rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-500">
+                                      ยกเลิก
+                                    </span>
                                   ) : (
-                                    <span className="text-green-500 text-sm font-bold">✓</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {getDoneDocBadges(deal.documents).map((docType) => (
+                                        <span
+                                          key={docType}
+                                          className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
+                                          title={DOC_TYPE_LABELS[docType]?.th || docType}
+                                        >
+                                          {DOC_TYPE_SHORT[docType] || docType.slice(0, 3).toUpperCase()}
+                                        </span>
+                                      ))}
+                                    </div>
                                   )}
                                 </td>
                               </tr>
