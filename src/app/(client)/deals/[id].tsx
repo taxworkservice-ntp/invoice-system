@@ -183,6 +183,7 @@ export default function DealDetailPage() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [payDocument, setPayDocument] = useState<Document | null>(null);
   const [confirmingReceiptDoc, setConfirmingReceiptDoc] = useState<Document | null>(null);
+  const [editingDraftReceipt, setEditingDraftReceipt] = useState<Document | null>(null);
   const [paying, setPaying] = useState(false);
 
   const [showVoided, setShowVoided] = useState(false);
@@ -511,6 +512,21 @@ export default function DealDetailPage() {
   const handleCurrentDocAction = () => {
     if (!activeDoc) return;
     if (activeDoc.document.status === "draft") {
+      if (activeDoc.document.doc_type === "receipt") {
+        // Draft receipt: reopen the payment modal prefilled from the saved draft.
+        const sourceId = activeDoc.document.converted_from_id;
+        const source = sourceId
+          ? nonVoidedDocs.find((item) => item.document.id === sourceId)?.document || null
+          : null;
+        if (!source) {
+          toast.error("ไม่พบเอกสารอ้างอิงของใบเสร็จร่างนี้");
+          return;
+        }
+        setEditingDraftReceipt(activeDoc.document);
+        setPayDocument(source);
+        setPaymentModalOpen(true);
+        return;
+      }
       const isUtilityBill = activeDoc.line_items.some((li) => (li.line_note || "").includes("[USAGE_BILL]"));
       if (isUtilityBill) {
         navigate(`/documents/${activeDoc.document.id}/edit-utility`);
@@ -2260,12 +2276,15 @@ export default function DealDetailPage() {
           onClose={() => {
             setPaymentModalOpen(false);
             setPayDocument(null);
+            setEditingDraftReceipt(null);
           }}
           sourceDoc={payDocument}
+          draftReceipt={editingDraftReceipt}
           dealId={dealId}
           businessToday={businessToday}
           onSaved={() => {
             setPayDocument(null);
+            setEditingDraftReceipt(null);
             fetchDealData();
           }}
         />

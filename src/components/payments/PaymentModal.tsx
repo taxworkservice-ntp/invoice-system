@@ -7,6 +7,7 @@ import { Modal } from "../ui/Modal";
 import { DateInput } from "../ui/DateInput";
 import { FieldGuidance } from "../ui/FieldGuidance";
 import { PAYMENT_METHOD_LABELS } from "../../constants";
+import { useToast } from "../../hooks/useToast";
 import {
   buildReceiptBackdateFields,
   composeReceiptBackdateReason,
@@ -37,6 +38,7 @@ export function PaymentModal({
   open,
   onClose,
   sourceDoc,
+  draftReceipt,
   dealId,
   businessToday,
   onSaved,
@@ -44,12 +46,16 @@ export function PaymentModal({
   open: boolean;
   onClose: () => void;
   sourceDoc: Document;
+  /** When set, the modal edits this existing draft receipt instead of creating one. */
+  draftReceipt?: Document | null;
   dealId?: string | null;
   businessToday: string;
   onSaved: () => void;
 }) {
   const userId = sourceDoc.user_id;
   const { bankAccounts, loading: bankLoading } = useBankAccounts(userId);
+  const toast = useToast();
+  const isEditingDraft = Boolean(draftReceipt);
 
   const [paying, setPaying] = useState<Paying>(null);
   const [mismatchConfirm, setMismatchConfirm] = useState(false);
@@ -89,6 +95,26 @@ export function PaymentModal({
         await getReceiptTotalsForDocument(sourceDoc, userId!);
       if (cancelled) return;
       const remaining = Math.max(0, sourceDoc.subtotal - previousTotal);
+      setBaseRemaining(remaining);
+      setPreviousWht(prevWht);
+
+      if (draftReceipt) {
+        // Editing an existing draft: prefill from its saved values.
+        setInputBasis("pre_tax");
+        setBaseAmount(Number(draftReceipt.subtotal) || 0);
+        setMethod((draftReceipt.payment_method as PaymentMethod) || "bank_transfer");
+        setBankAccountId(draftReceipt.bank_account_id ?? null);
+        setWhtCert(draftReceipt.wht_certificate_no || "");
+        setPayDate(draftReceipt.issue_date || businessToday);
+        const detail = draftReceipt.payment_detail;
+        if (detail?.cheque_no) {
+          setChequeNo(detail.cheque_no);
+          setChequeBank(detail.cheque_bank || "");
+          setChequeDate(detail.cheque_date || "");
+        }
+        return;
+      }
+
       const initialBasis = getReceiptInputBasisPreference();
       setInputBasis(initialBasis);
       setBaseAmount(
@@ -119,7 +145,7 @@ export function PaymentModal({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, sourceDoc?.id]);
+  }, [open, sourceDoc?.id, draftReceipt?.id]);
 
   const preview = (() => {
     if (!sourceDoc) return null;
@@ -159,7 +185,7 @@ export function PaymentModal({
   async function handleSaveDraft() {
     const validationError = validateBeforeSave();
     if (validationError) {
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
     setPaying("draft");
@@ -179,17 +205,12 @@ export function PaymentModal({
         throw new Error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(remaining)}`);
       }
 
-      const docNumber = await resolveDocNumber(userId!, "receipt", payDate);
-
-      const { data: receipt, error: receiptError } = await supabase
-        .from("documents")
-        .insert({
+      const payload: Record<string, unknown> = {
           user_id: userId,
           deal_id: sourceDoc.deal_id ?? dealId ?? null,
           customer_id: sourceDoc.customer_id,
           doc_type: "receipt",
-          doc_number: docNumber,
-          status: "draft" as DocumentStatus,
+          status: "draft",
           issue_date: payDate,
           converted_from_id: sourceDoc.id,
           vat_registered: sourceDoc.vat_registered,
@@ -216,15 +237,30 @@ export function PaymentModal({
           wht_certificate_no: whtCert || null,
           paid_at: paidAt,
           ...backdateFields,
-        })
-        .select("id")
-        .single();
-      if (receiptError || !receipt) throw receiptError || new Error("ไม่สามารถสร้างใบเสร็จได้");
+      };
 
+      if (draftReceipt) {
+        // Edit mode: update the existing draft in place (keeps its number).
+        const { error: updateError } = await supabase
+          .from("documents")
+          .update(payload)
+          .eq("id", draftReceipt.id);
+        if (updateError) throw updateError;
+      } else {
+        payload.doc_number = await resolveDocNumber(userId!, "receipt", payDate);
+        const { data: receipt, error: receiptError } = await supabase
+          .from("documents")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (receiptError || !receipt) throw receiptError || new Error("ไม่สามารถสร้างใบเสร็จได้");
+      }
+
+      toast.success(isEditingDraft ? "บันทึกการแก้ไขใบเสร็จแล้ว" : "บันทึกใบเสร็จเป็นร่างแล้ว — ยืนยันรับเงินเมื่อตรวจสอบยอดในบัญชีแล้ว");
       onClose();
       onSaved();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setPaying(null);
     }
@@ -239,7 +275,7 @@ export function PaymentModal({
       vatRegistered: sourceDoc.vat_registered,
     });
     if (requestedPreTax > baseRemaining + 0.01) {
-      alert(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(baseRemaining)}`);
+      toast.error(`ยอดก่อน VAT เกินยอดค้างชำระ ฿${formatCurrency(baseRemaining)}`);
       return;
     }
     if (requestedPreTax < baseRemaining - 0.01) {
@@ -250,7 +286,7 @@ export function PaymentModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="บันทึกรับเงิน (ร่างใบเสร็จ)">
+    <Modal open={open} onClose={onClose} title={isEditingDraft ? "แก้ไขใบเสร็จร่าง" : "บันทึกรับเงิน (ร่างใบเสร็จ)"}>
       <div className="space-y-4">
         {mismatchConfirm ? (
           <>
@@ -280,7 +316,7 @@ export function PaymentModal({
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="secondary" onClick={() => setMismatchConfirm(false)}>กลับไปแก้ไข</Button>
-              <Button variant="primary" onClick={() => void handleSaveDraft()} loading={!!paying}>บันทึกใบเสร็จ (ร่าง)</Button>
+              <Button variant="primary" onClick={() => void handleSaveDraft()} loading={!!paying}>{isEditingDraft ? "บันทึกการแก้ไข" : "บันทึกใบเสร็จ (ร่าง)"}</Button>
             </div>
           </>
         ) : (
@@ -474,7 +510,7 @@ export function PaymentModal({
                 ปิด
               </Button>
               <Button onClick={handleAttemptSave} disabled={paying !== null || baseAmount <= 0}>
-                {paying ? "กำลังบันทึก..." : "บันทึกใบเสร็จ (ร่าง)"}
+                {paying ? "กำลังบันทึก..." : isEditingDraft ? "บันทึกการแก้ไข" : "บันทึกใบเสร็จ (ร่าง)"}
               </Button>
             </div>
           </>
