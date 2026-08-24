@@ -5,6 +5,7 @@ import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { DateInput } from "../ui/DateInput";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
@@ -17,6 +18,9 @@ import { formatBuddhistDate } from "../../lib/dates";
 import { formatCurrency } from "../../lib/format";
 import type { Customer, Document, DocumentLineItem, DocumentStatus } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
+import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
+import { FormStep } from "./FormStep";
+import { FormActionBar } from "./FormActionBar";
 
 type QuotationWithCustomer = Document & { customer?: Customer };
 
@@ -586,21 +590,20 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           </div>
         )}
 
-        <Card>
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-medium">รายการที่จะส่งรอบนี้</h3>
-              <p className="mt-1 text-xs text-gray-500">แก้ไขจำนวน ราคา หรือรายละเอียดได้ ใส่ 0 หรือลบรายการ หากยังไม่ส่ง</p>
+        <FormStep
+          number={1}
+          title="รายการที่จะส่งรอบนี้"
+          description="แก้ไขจำนวน ราคา หรือรายละเอียดได้ ใส่ 0 หรือลบรายการ หากยังไม่ส่ง"
+          right={
+            <div className="w-[160px]">
+              <label className="mb-1 block text-xs font-medium text-gray-600">วันที่ส่งของ</label>
+              <DateInput
+                value={issueDate}
+                onChange={(event) => setIssueDate(event.target.value)}
+              />
             </div>
-            <Input
-              className="w-[150px]"
-              label="วันที่ส่งของ"
-              type="date"
-              value={issueDate}
-              onChange={(event) => setIssueDate(event.target.value)}
-            />
-          </div>
-
+          }
+        >
           <div className="space-y-2">
             {lines.map((line) => {
               const remaining = line.source
@@ -755,9 +758,28 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               เพิ่มรายการ
             </Button>
           </div>
-        </Card>
+        </FormStep>
 
-        <Card>
+        <DocumentOptionsCard number={2}>
+          <DocumentOptionRow
+            label="ซ่อนจำนวนเงินใน PDF"
+            badge="ซ่อนยอดเงินเมื่อพิมพ์"
+            description="เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม"
+            checked={hideAmountsOnPrint}
+            onChange={(checked) => setHideAmountsOnPrint(checked)}
+          />
+          {!hideAmountsOnPrint && (
+            <DocumentOptionRow
+              label="แสดงยอดรวมแบบใบแจ้งหนี้"
+              badge="รวม VAT และหัก ณ ที่จ่ายในใบส่งของ"
+              description="แสดงยอดสรุปแบบเต็ม (มูลค่าก่อนภาษี VAT ยอดรวมทั้งสิ้น หัก ณ ที่จ่าย และยอดสุทธิ) คล้ายใบแจ้งหนี้ หากปิด ใบส่งของจะแสดงเฉพาะมูลค่ารวม"
+              checked={showFullTotals}
+              onChange={(checked) => { totalsTouched.current = true; setShowFullTotals(checked); }}
+            />
+          )}
+        </DocumentOptionsCard>
+
+        <FormStep number={3} title="สรุปและบันทึก">
           <div className="space-y-3">
             <Input
               label="หมายเหตุบนใบส่งของ"
@@ -792,65 +814,19 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               className="mb-3"
             />
           </div>
-        </Card>
+        </FormStep>
 
-        <Card>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <div className="relative inline-flex items-center mt-0.5 shrink-0">
-              <input
-                type="checkbox"
-                checked={hideAmountsOnPrint}
-                onChange={(e) => setHideAmountsOnPrint(e.target.checked)}
-                className="sr-only"
-              />
-              <div
-                className={`w-9 h-5 rounded-full transition-colors ${hideAmountsOnPrint ? "bg-primary" : "bg-gray-300"}`}
-              />
-              <div
-                className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${hideAmountsOnPrint ? "translate-x-4" : ""}`}
-              />
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-800">ซ่อนจำนวนเงินใน PDF</span>
-              <span className="text-[11px] text-gray-400 ml-2">ซ่อนยอดเงินเมื่อพิมพ์</span>
-              <p className="mt-1 text-xs leading-5 text-gray-500">
-                เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม
-              </p>
-            </div>
-          </label>
-        </Card>
-
-        {!hideAmountsOnPrint && (
-          <Card>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <div className="relative inline-flex items-center mt-0.5 shrink-0">
-                <input
-                  type="checkbox"
-                  checked={showFullTotals}
-                  onChange={(e) => { totalsTouched.current = true; setShowFullTotals(e.target.checked); }}
-                  className="sr-only"
-                />
-                <div
-                  className={`w-9 h-5 rounded-full transition-colors ${showFullTotals ? "bg-primary" : "bg-gray-300"}`}
-                />
-                <div
-                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showFullTotals ? "translate-x-4" : ""}`}
-                />
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-800">แสดงยอดรวมแบบใบแจ้งหนี้</span>
-                <span className="text-[11px] text-gray-400 ml-2">รวม VAT และหัก ณ ที่จ่ายในใบส่งของ</span>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  เปิดใช้งานเพื่อแสดงยอดสรุปแบบเต็ม (มูลค่าก่อนภาษี VAT ยอดรวมทั้งสิ้น หัก ณ ที่จ่าย และยอดสุทธิ) คล้ายใบแจ้งหนี้ หากปิด ใบส่งของจะแสดงเฉพาะมูลค่ารวม
-                </p>
-              </div>
-            </label>
-          </Card>
-        )}
-
-        <Button className="w-full justify-center" disabled={selectedLines.length === 0 || saving} loading={saving} onClick={handleSave}>
-          {isEditing ? "บันทึกร่างใบส่งของ" : "สร้างใบส่งของฉบับร่าง"}
-        </Button>
+        <FormActionBar
+          contextLabel={`${quotation?.customer?.name || ""} · ${selectedLines.length} รายการ`}
+          totalLabel="มูลค่าอ้างอิง"
+          total={tax.total}
+          primary={{
+            label: isEditing ? "บันทึกร่างใบส่งของ" : "สร้างใบส่งของฉบับร่าง",
+            onClick: handleSave,
+            loading: saving,
+            disabled: selectedLines.length === 0 || saving,
+          }}
+        />
       </div>
     </AppShell>
   );

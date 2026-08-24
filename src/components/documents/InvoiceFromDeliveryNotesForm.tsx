@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowLeftRight, CalendarDays, ChevronDown, FileStack, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, ChevronDown, FileStack, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
 import { DateInput } from "../ui/DateInput";
+import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
+import { FormStep } from "./FormStep";
+import { FormActionBar } from "./FormActionBar";
+import { LineGridHeaderRow, numericInputClass } from "./lineGrid";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
 import { CustomerPickerModal } from "../customers/CustomerPickerModal";
@@ -104,14 +108,6 @@ function trimQty(value: number) {
   return String(Number((Number(value) || 0).toFixed(3)));
 }
 
-function numericInputClass(highlight: boolean) {
-  return `w-full rounded-lg border bg-white px-2 py-1.5 text-right text-sm tabular-nums text-ink-900 outline-none transition-colors ${
-    highlight
-      ? "border-amber-400 bg-amber-50/60 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-      : "border-card-border focus:border-primary focus:ring-2 focus:ring-primary/20"
-  }`;
-}
-
 type InvoiceLineGroup = {
   key: string;
   kind: "dn" | "manual";
@@ -152,6 +148,15 @@ export function InvoiceFromDeliveryNotesForm() {
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [showDnVariance, setShowDnVariance] = useState(false);
   const [error, setError] = useState("");
+  // Ref mode: one printed line per source delivery note instead of item detail.
+  const [refOnlyMode, setRefOnlyMode] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("invoice-system.invoiceRefOnly") !== "false";
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem("invoice-system.invoiceRefOnly", String(refOnlyMode));
+  }, [refOnlyMode]);
 
   useEffect(() => {
     if (clientProfile) {
@@ -436,6 +441,30 @@ export function InvoiceFromDeliveryNotesForm() {
 
   const billableLines = useMemo(() => invoiceLines.filter((l) => l.quantity > EPS), [invoiceLines]);
 
+  // Ref-mode summary: one row per source delivery note with its billed total.
+  const refGroups = useMemo(() => {
+    const dnById = new Map(selectedDeliveryNotes.map((dn) => [dn.id, dn]));
+    const groups: { key: string; label: string; dateLabel: string; total: number; lineCount: number }[] = [];
+    for (const l of billableLines) {
+      if (!l.source_document_id) continue;
+      let group = groups.find((g) => g.key === l.source_document_id);
+      if (!group) {
+        const dn = dnById.get(l.source_document_id);
+        group = {
+          key: l.source_document_id,
+          label: `ใบส่งของ ${l.dnDocNumber}`,
+          dateLabel: dn?.issue_date ? formatBuddhistDate(dn.issue_date) : "",
+          total: 0,
+          lineCount: 0,
+        };
+        groups.push(group);
+      }
+      group.total += lineNetAmount(l);
+      group.lineCount += 1;
+    }
+    return groups;
+  }, [billableLines, selectedDeliveryNotes]);
+
   // Group editable lines under their source delivery note (manual lines last).
   const lineGroups = useMemo<InvoiceLineGroup[]>(() => {
     const dnById = new Map(selectedDeliveryNotes.map((dn) => [dn.id, dn] as const));
@@ -600,6 +629,40 @@ export function InvoiceFromDeliveryNotesForm() {
       const lineRecords: any[] = [];
       let sortIndex = 0;
       for (const dn of selectedDeliveryNotes) {
+        const groupLines = invoiceLines.filter((il) => il.source_document_id === dn.id && il.quantity > EPS);
+
+        if (refOnlyMode && groupLines.length > 0) {
+          // Ref mode: one printed line per delivery note carrying its billed total.
+          const groupTotal = groupLines.reduce((sum, l) => sum + lineNetAmount(l), 0);
+          lineRecords.push({
+            document_id: invoice.id,
+            user_id: userId,
+            item_id: null,
+            item_name: `ใบส่งของ ${dn.doc_number || dn.id.slice(0, 8)}`,
+            line_note: [
+              dn.issue_date ? `วันที่ส่งของ: ${formatBuddhistDate(dn.issue_date)}` : null,
+              `รายการ ${groupLines.length} บรรทัด`,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+            item_sku: null,
+            item_type: "service",
+            unit: "",
+            unit_price: groupTotal,
+            quantity: 1,
+            base_quantity: null,
+            discount_percent: 0,
+            discount_amount: 0,
+            qty_carton: null,
+            carton_unit: null,
+            line_total: groupTotal,
+            source_document_id: dn.id,
+            source_line_item_id: null,
+            sort_order: sortIndex++,
+          });
+          continue;
+        }
+
         lineRecords.push({
           document_id: invoice.id,
           user_id: userId,
@@ -793,8 +856,7 @@ export function InvoiceFromDeliveryNotesForm() {
       )}
 
       <div className="space-y-4">
-        <Card>
-          <h3 className="mb-3 text-sm font-medium">ลูกค้าและรอบเอกสาร</h3>
+        <FormStep number={1} title="ลูกค้าและรอบเอกสาร">
           {customersLoading ? (
             <Spinner />
           ) : (
@@ -898,24 +960,26 @@ export function InvoiceFromDeliveryNotesForm() {
                       ))}
                     </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <Input
-                        label="ตั้งแต่วันที่"
-                        type="date"
-                        value={dateFrom}
-                        onChange={(event) => {
-                          setDatePreset("custom");
-                          setDateFrom(event.target.value);
-                        }}
-                      />
-                      <Input
-                        label="ถึงวันที่"
-                        type="date"
-                        value={dateTo}
-                        onChange={(event) => {
-                          setDatePreset("custom");
-                          setDateTo(event.target.value);
-                        }}
-                      />
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">ตั้งแต่วันที่</label>
+                        <DateInput
+                          value={dateFrom}
+                          onChange={(event) => {
+                            setDatePreset("custom");
+                            setDateFrom(event.target.value);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">ถึงวันที่</label>
+                        <DateInput
+                          value={dateTo}
+                          onChange={(event) => {
+                            setDatePreset("custom");
+                            setDateTo(event.target.value);
+                          }}
+                        />
+                      </div>
                     </div>
                     {datePreset === "all" ? (
                       <div className="mt-2 text-[11px] text-gray-500">แสดงใบส่งของที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
@@ -928,15 +992,14 @@ export function InvoiceFromDeliveryNotesForm() {
               </p>
             </div>
           )}
-        </Card>
+        </FormStep>
 
-        <Card>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-medium">ใบส่งของที่พร้อมออกใบแจ้งหนี้</h3>
-              <p className="mt-1 text-xs text-gray-500">เลือกใบส่งของที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)</p>
-            </div>
-            {deliveryNotes.length > 0 && (
+        <FormStep
+          number={2}
+          title="เลือกใบส่งของ"
+          description="เลือกใบส่งของที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)"
+          right={
+            deliveryNotes.length > 0 ? (
               <Button
                 variant="secondary"
                 size="sm"
@@ -947,9 +1010,9 @@ export function InvoiceFromDeliveryNotesForm() {
               >
                 {selectedIds.size === deliveryNotes.length ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
               </Button>
-            )}
-          </div>
-
+            ) : undefined
+          }
+        >
           {loadingDns ? (
             <Spinner />
           ) : !selectedCustomerId ? (
@@ -995,42 +1058,49 @@ export function InvoiceFromDeliveryNotesForm() {
               ))}
             </div>
           )}
-        </Card>
+        </FormStep>
 
-        <Card>
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-medium">รายการที่จะออกบิล</h3>
-              <p className="mt-1 text-xs text-gray-500">รายการคัดลอกจากใบส่งของ สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้</p>
-            </div>
+        <FormStep
+          number={3}
+          title="รายการที่จะออกบิล"
+          description={
+            refOnlyMode
+              ? "โหมดอ้างอิง — PDF แสดง 1 บรรทัดต่อใบส่งของ (เหมือนใบวางบิล)"
+              : "รายการคัดลอกจากใบส่งของ สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้"
+          }
+          right={
             <div className="rounded-full bg-paper-warm px-2.5 py-1 text-xs text-ink-600">
               {selectedDeliveryNotes.length} ใบส่งของ / {invoiceLines.length} รายการต้นทาง
             </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowDnVariance((prev) => !prev)}
-            aria-pressed={showDnVariance}
-            className={`mb-3 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
-              showDnVariance ? "border-primary bg-blue-50" : "border-card-border bg-paper-soft hover:bg-gray-50"
-            }`}
-          >
-            <ArrowLeftRight className={`mt-0.5 h-4 w-4 shrink-0 ${showDnVariance ? "text-primary" : "text-gray-400"}`} />
-            <div className="min-w-0 flex-1">
-              <p className={`text-sm font-medium ${showDnVariance ? "text-ink-900" : "text-gray-700"}`}>แสดงส่วนต่างจากใบส่งของในใบกำกับภาษี</p>
-              <p className="mt-0.5 text-xs leading-5 text-gray-500">พิมพ์จำนวน/ราคาที่เปลี่ยนไปจากใบส่งของต้นทาง เป็นหลักฐานประกอบใบกำกับภาษี</p>
-            </div>
-            <span className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${showDnVariance ? "bg-primary" : "bg-gray-300"}`}>
-              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${showDnVariance ? "left-[18px]" : "left-0.5"}`} />
-            </span>
-          </button>
-
+          }
+        >
           {billableLines.length === 0 ? (
             <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบส่งของด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)" />
           ) : (
             <div className="space-y-4">
-              {lineGroups.map((group) => (
+              {refOnlyMode && refGroups.length > 0 && (
+                <div className="space-y-2">
+                  {refGroups.map((group) => (
+                    <div
+                      key={group.key}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-card-border bg-paper-soft px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-ink-900">{group.label}</div>
+                        <div className="mt-0.5 text-[11px] text-gray-500">
+                          {[group.dateLabel, `รายการ ${group.lineCount} บรรทัด`].filter(Boolean).join(" · ")}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums text-ink-900">
+                        ฿{formatCurrency(group.total)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {lineGroups
+                .filter((group) => !refOnlyMode || group.kind === "manual")
+                .map((group) => (
                 <div
                   key={group.key}
                   className={`overflow-hidden rounded-xl border ${
@@ -1060,15 +1130,7 @@ export function InvoiceFromDeliveryNotesForm() {
                   </div>
                   <div className="overflow-x-auto">
                     <div className="min-w-[620px]">
-                      <div className="grid grid-cols-[minmax(180px,1fr)_78px_58px_98px_62px_100px_30px] items-end gap-x-2 border-b border-card-border px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                        <span>รายการ</span>
-                        <span className="text-right">จำนวน</span>
-                        <span>หน่วย</span>
-                        <span className="text-right">ราคา/หน่วย</span>
-                        <span className="text-right">ส่วนลด %</span>
-                        <span className="text-right">รวม (฿)</span>
-                        <span />
-                      </div>
+                      <LineGridHeaderRow />
                       <div className="divide-y divide-card-border">
                         {group.lines.map((l) => {
                           const qtyChanged = l.deliveredQty > 0 && Math.abs(l.quantity - l.deliveredQty) > EPS;
@@ -1174,10 +1236,27 @@ export function InvoiceFromDeliveryNotesForm() {
               </Button>
             </div>
           )}
-        </Card>
+        </FormStep>
 
-        <Card>
-          <h3 className="mb-3 text-sm font-medium">สรุปใบแจ้งหนี้</h3>
+        <DocumentOptionsCard number={4}>
+          <DocumentOptionRow
+            label="โหมดอ้างอิง"
+            description="PDF แสดง 1 บรรทัดต่อใบส่งของ (เหมือนใบวางบิล) ปิดเพื่อแสดงรายการสินค้าแบบละเอียด"
+            checked={refOnlyMode}
+            onChange={setRefOnlyMode}
+          />
+          {!refOnlyMode && (
+            <DocumentOptionRow
+              label="แสดงส่วนต่างจากใบส่งของในใบกำกับภาษี"
+              badge="โหมดรายละเอียด"
+              description="พิมพ์จำนวน/ราคาที่เปลี่ยนไปจากใบส่งของต้นทาง เป็นหลักฐานประกอบใบกำกับภาษี"
+              checked={showDnVariance}
+              onChange={setShowDnVariance}
+            />
+          )}
+        </DocumentOptionsCard>
+
+        <FormStep number={5} title="สรุปและบันทึก">
           <div className="space-y-3">
             <Select label="ภาษีหัก ณ ที่จ่าย" value={whtRate} onChange={(event) => setWhtRate(event.target.value as WhtRate)}>
               {WHT_RATE_OPTIONS.map((option) => (
@@ -1207,11 +1286,20 @@ export function InvoiceFromDeliveryNotesForm() {
               autoGenerate={async () => userId ? await resolveDocNumber(userId, "invoice", issueDate) : ""}
               className="mb-3"
             />
-            <Button className="w-full justify-center" disabled={!canSave || saving} loading={saving} onClick={handleSave}>
-              สร้างใบแจ้งหนี้จากใบส่งของ
-            </Button>
           </div>
-        </Card>
+        </FormStep>
+
+        <FormActionBar
+          contextLabel={`${selectedCustomer?.name || ""} · ${billableLines.length} รายการ`}
+          totalLabel="ยอดสุทธิ"
+          total={tax.netPayable}
+          primary={{
+            label: "สร้างใบแจ้งหนี้",
+            onClick: handleSave,
+            loading: saving,
+            disabled: !canSave || saving,
+          }}
+        />
       </div>
     </AppShell>
   );

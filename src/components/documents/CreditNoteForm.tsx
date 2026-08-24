@@ -8,6 +8,7 @@ import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
+import { DateInput } from "../ui/DateInput";
 import { CatalogAutocomplete } from "../CatalogAutocomplete";
 import { Spinner } from "../ui/Spinner";
 import { resolveDocNumber } from "../../lib/docNumber";
@@ -18,6 +19,8 @@ import { formatBuddhistDate } from "../../lib/dates";
 import { DOC_TYPE_LABELS } from "../../constants";
 import type { Document, DocumentLineItem, Customer, Deal } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
+import { FormStep } from "./FormStep";
+import { FormActionBar } from "./FormActionBar";
 
 interface CreditNoteFormProps {
   dealId?: string;
@@ -479,7 +482,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
   return (
     <AppShell title={isEditing ? `แก้ไข${docTitleTh}` : issueVerbTh} showBack>
       <div className="space-y-4">
-        <Card>
+        <FormStep number={1} title="ลูกค้าและการอ้างอิง">
           <div className="space-y-3">
             <div>
               <span className="text-[11px] text-ink-300">ลูกค้า</span>
@@ -518,10 +521,8 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
               </div>
               {(showIssueDatePicker || issueDate !== todayString()) && !isReadOnly && (
                 <div className="mt-3 border-t border-line-faint pt-3">
-                  <Input
+                  <DateInput
                     id="creditNoteIssueDate"
-                    label="วันที่ออกเอกสาร"
-                    type="date"
                     value={issueDate}
                     max={todayString()}
                     onChange={(e) => setIssueDate(e.target.value)}
@@ -570,7 +571,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
               </div>
             )}
           </div>
-        </Card>
+        </FormStep>
 
         {paidInvoices.length === 0 && !isEditing && (
           <Card>
@@ -580,7 +581,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           </Card>
         )}
 
-        <Card>
+        <FormStep number={2} title="รายการ">
           <div className="text-[11px] uppercase font-semibold text-ink-300 tracking-wide mb-3">
             รายการ
           </div>
@@ -681,10 +682,10 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
               />
             </div>
           )}
-        </Card>
+        </FormStep>
 
-        <Card>
-          <div className="text-[11px] uppercase font-semibold text-ink-300 tracking-wide mb-3">
+        <FormStep number={3} title="สรุปและบันทึก">
+          <div className="mb-3 text-[11px] uppercase font-semibold text-ink-300 tracking-wide">
             สรุปยอดเงิน
           </div>
           <div className="space-y-1 text-sm">
@@ -715,12 +716,11 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
               <span>฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
-        </Card>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            หมายเหตุ
-          </label>
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              หมายเหตุ
+            </label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -729,7 +729,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
             disabled={isReadOnly}
             className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400 resize-none disabled:bg-gray-50"
           />
-        </div>
+          </div>
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 
@@ -741,24 +741,26 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           className="mb-3"
         />
 
+        </FormStep>
+
         {!isReadOnly && (
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => handleSave("draft")}
-              disabled={saving}
-            >
-              {saving ? "กำลังบันทึก..." : "บันทึกฉบับร่าง"}
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={() => handleSave("issued")}
-              disabled={saving}
-            >
-              {saving ? "กำลังออก..." : issueVerbTh}
-            </Button>
-          </div>
+          <FormActionBar
+            contextLabel={`${customer?.name || ""} · ${items.length} รายการ`}
+            totalLabel={isDebit ? "ยอดเพิ่มสุทธิ" : "ยอดลดสุทธิ"}
+            total={tax.netPayable}
+            secondary={{
+              label: "บันทึกฉบับร่าง",
+              onClick: () => handleSave("draft"),
+              loading: saving,
+              disabled: saving,
+            }}
+            primary={{
+              label: issueVerbTh,
+              onClick: () => handleSave("issued"),
+              loading: saving,
+              disabled: saving,
+            }}
+          />
         )}
       </div>
     </AppShell>

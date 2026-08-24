@@ -10,6 +10,8 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
+import { DocumentOptionsCard, DocumentOptionRow } from "../../../components/documents/DocumentOptions";
+import { StepHeading } from "../../../components/documents/FormStep";
 import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
@@ -1572,10 +1574,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
       <div className="space-y-4">
         <Card>
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
-            <span>1. ลูกค้า</span>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <StepHeading number={1} title="ลูกค้า" />
             <span className="rounded-full bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700">จำเป็น</span>
-          </h3>
+          </div>
           {selectedCustomer ? (
             <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-paper-soft p-3">
               <div className="min-w-0">
@@ -1631,9 +1633,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           <Card>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-medium text-ink-900">
-                  {isTaxInvoiceReceipt ? "2. วันที่เอกสารและรับชำระ" : "2. วันที่ออกเอกสาร"}
-                </h3>
+                <StepHeading number={2} title={isTaxInvoiceReceipt ? "วันที่เอกสารและรับชำระ" : "วันที่ออกเอกสาร"} />
                 <p className="mt-1 text-xs text-gray-500">
                   ค่าเริ่มต้นเป็นวันนี้ และเปลี่ยนได้เมื่อต้องการออกย้อนหลัง
                 </p>
@@ -1751,7 +1751,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           <Card>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-medium text-ink-900">3. ข้อมูลรอบบิล</h3>
+                <StepHeading number={3} title="ข้อมูลรอบบิล" />
                 <p className="mt-1 text-xs text-gray-500">
                   ระบบจะคำนวณจำนวนหน่วย และบันทึกรายละเอียดไว้ในหมายเหตุรายการ
                 </p>
@@ -1885,10 +1885,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         {isLineItemDocument && (
           <Card>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
-              <span>{isUtilityBill ? "3. รายการบนใบแจ้งหนี้" : "3. รายการสินค้าและบริการ"}</span>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <StepHeading number={3} title={isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการสินค้าและบริการ"} />
               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700">จำเป็น</span>
-            </h3>
+            </div>
             <div className="space-y-2">
               {!isUtilityBill && lineItems.length === 0 && (
                 <div className="rounded-lg border border-dashed border-cool-200 bg-paper-field px-4 py-4 text-center text-xs text-gray-400 space-y-2">
@@ -2232,7 +2232,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         {isBillingNote && (
           <Card>
-            <h3 className="text-sm font-medium mb-3">3. ใบแจ้งหนี้ที่ยังไม่ได้ชำระ</h3>
+            <div className="mb-3"><StepHeading number={3} title="ใบแจ้งหนี้ที่ยังไม่ได้ชำระ" /></div>
             {!selectedCustomer ? (
               <p className="text-sm text-gray-400">กรุณาเลือกลูกค้าก่อน</p>
             ) : loadingInvoices ? (
@@ -2295,7 +2295,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         {isTaxInvoiceReceipt && (
           <Card>
-            <h3 className="text-sm font-medium mb-3">4. ข้อมูลการรับชำระ</h3>
+            <div className="mb-3">{StepHeading({ number: 4, title: "ข้อมูลการรับชำระ" })}</div>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -2358,8 +2358,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             className="flex w-full items-center justify-between gap-3 text-left"
           >
             <span>
-              <span className="block text-sm font-medium">4. รายละเอียดเพิ่มเติม</span>
-              <span className="mt-0.5 block text-xs text-gray-500">VAT, หัก ณ ที่จ่าย และหมายเหตุ</span>
+              <span className="block text-sm font-medium">4. รายละเอียดเพิ่มเติม (VAT, หัก ณ ที่จ่าย และหมายเหตุ)</span>
             </span>
             <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${showAdditionalDetails ? "rotate-180" : ""}`} />
           </button>
@@ -2412,93 +2411,37 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         </Card>
 
         {isDeliveryNote && (
-          <Card>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <div className="relative inline-flex items-center mt-0.5 shrink-0">
-                <input
-                  type="checkbox"
-                  checked={hideAmountsOnPrint}
-                  onChange={(e) => {
-                    if (!e.target.checked) {
-                      const ok = window.confirm("การแสดงจำนวนเงินใน PDF ใบส่งของจะทำให้ผู้รับเห็นราคาและยอดรวม คุณแน่ใจหรือไม่?");
-                      if (!ok) return;
-                    }
-                    setHideAmountsOnPrint(e.target.checked);
-                  }}
-                  className="sr-only"
-                />
-                <div
-                  className={`w-9 h-5 rounded-full transition-colors ${hideAmountsOnPrint ? "bg-primary" : "bg-gray-300"}`}
-                />
-                <div
-                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${hideAmountsOnPrint ? "translate-x-4" : ""}`}
-                />
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-800">ซ่อนจำนวนเงินใน PDF</span>
-                <span className="text-[11px] text-gray-400 ml-2">ซ่อนยอดเงินเมื่อพิมพ์</span>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม
-                </p>
-              </div>
-            </label>
-          </Card>
-        )}
-
-        {isDeliveryNote && (
-          <Card>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <div className="relative inline-flex items-center mt-0.5 shrink-0">
-                <input
-                  type="checkbox"
-                  checked={isBlankForm}
-                  onChange={(e) => setIsBlankForm(e.target.checked)}
-                  className="sr-only"
-                />
-                <div
-                  className={`w-9 h-5 rounded-full transition-colors ${isBlankForm ? "bg-primary" : "bg-gray-300"}`}
-                />
-                <div
-                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isBlankForm ? "translate-x-4" : ""}`}
-                />
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-800">ออกเป็นฟอร์มเปล่า (กรอกด้วยมือ)</span>
-                <span className="text-[11px] text-gray-400 ml-2">พิมพ์แล้วส่งพนักงานไปกรอก</span>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  เมื่อเปิดใช้งาน ช่องจำนวนและราคาใน PDF ใบส่งของจะเว้นว่างไว้ให้พนักงานส่งของเขียนด้วยมือ จากนั้นให้คุณนำตัวเลขมาบันทึกในระบบอีกครั้งเมื่อได้รับใบส่งของคืน
-                </p>
-              </div>
-            </label>
-          </Card>
-        )}
-
-        {isDeliveryNote && !isBlankForm && (
-          <Card>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <div className="relative inline-flex items-center mt-0.5 shrink-0">
-                <input
-                  type="checkbox"
-                  checked={showFullTotals}
-                  onChange={(e) => { totalsTouched.current = true; setShowFullTotals(e.target.checked); }}
-                  className="sr-only"
-                />
-                <div
-                  className={`w-9 h-5 rounded-full transition-colors ${showFullTotals ? "bg-primary" : "bg-gray-300"}`}
-                />
-                <div
-                  className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showFullTotals ? "translate-x-4" : ""}`}
-                />
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-800">แสดงยอดรวมแบบใบแจ้งหนี้</span>
-                <span className="text-[11px] text-gray-400 ml-2">รวม VAT และหัก ณ ที่จ่ายในใบส่งของ</span>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  เปิดใช้งานเพื่อแสดงยอดสรุปแบบเต็ม (มูลค่าก่อนภาษี VAT ยอดรวมทั้งสิ้น หัก ณ ที่จ่าย และยอดสุทธิ) คล้ายใบแจ้งหนี้ หากปิด ใบส่งของจะแสดงเฉพาะมูลค่ารวม
-                </p>
-              </div>
-            </label>
-          </Card>
+          <DocumentOptionsCard>
+            <DocumentOptionRow
+              label="ซ่อนจำนวนเงินใน PDF"
+              badge="ซ่อนยอดเงินเมื่อพิมพ์"
+              description="เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม"
+              checked={hideAmountsOnPrint}
+              onChange={(checked) => {
+                if (!checked) {
+                  const ok = window.confirm("การแสดงจำนวนเงินใน PDF ใบส่งของจะทำให้ผู้รับเห็นราคาและยอดรวม คุณแน่ใจหรือไม่?");
+                  if (!ok) return;
+                }
+                setHideAmountsOnPrint(checked);
+              }}
+            />
+            <DocumentOptionRow
+              label="ออกเป็นฟอร์มเปล่า (กรอกด้วยมือ)"
+              badge="พิมพ์แล้วส่งพนักงานไปกรอก"
+              description="เมื่อเปิดใช้งาน ช่องจำนวนและราคาใน PDF ใบส่งของจะเว้นว่างไว้ให้พนักงานส่งของเขียนด้วยมือ จากนั้นให้คุณนำตัวเลขมาบันทึกในระบบอีกครั้งเมื่อได้รับใบส่งของคืน"
+              checked={isBlankForm}
+              onChange={setIsBlankForm}
+            />
+            {!isBlankForm && (
+              <DocumentOptionRow
+                label="แสดงยอดรวมแบบใบแจ้งหนี้"
+                badge="รวม VAT และหัก ณ ที่จ่ายในใบส่งของ"
+                description="แสดงยอดสรุปแบบเต็ม (มูลค่าก่อนภาษี VAT ยอดรวมทั้งสิ้น หัก ณ ที่จ่าย และยอดสุทธิ) คล้ายใบแจ้งหนี้ หากปิด ใบส่งของจะแสดงเฉพาะมูลค่ารวม"
+                checked={showFullTotals}
+                onChange={(checked) => { totalsTouched.current = true; setShowFullTotals(checked); }}
+              />
+            )}
+          </DocumentOptionsCard>
         )}
 
         <div className="sticky bottom-3 z-10 rounded-xl bg-page-bg/95 pb-2 pt-1 backdrop-blur">

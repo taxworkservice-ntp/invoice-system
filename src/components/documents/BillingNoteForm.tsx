@@ -11,6 +11,8 @@ import { EmptyState } from "../ui/EmptyState";
 import { Modal } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
 import { CustomerPickerModal } from "../customers/CustomerPickerModal";
+import { FormStep } from "./FormStep";
+import { FormActionBar } from "./FormActionBar";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
 import { useToast } from "../../hooks/useToast";
@@ -938,10 +940,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           </div>
         </Card>
 
-        <Card>
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
-            ลูกค้า
-          </div>
+        <FormStep number={1} title="ลูกค้าและวันที่">
           {customerLocked ? (
             selectedCustomer ? (
               <div className="rounded-xl border border-card-border bg-page-bg p-3">
@@ -1016,12 +1015,6 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             onSelect={handleSelectCustomer}
             onCreate={async (customer) => addCustomer(customer)}
           />
-        </Card>
-
-        <Card>
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
-            วันที่
-          </div>
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label htmlFor="issueDate" className="block text-xs font-medium text-gray-600 mb-1">
@@ -1076,12 +1069,9 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               )}
             </div>
           </div>
-        </Card>
+        </FormStep>
 
-        <Card>
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
-            เลือกใบแจ้งหนี้
-          </div>
+        <FormStep number={2} title="เลือกใบแจ้งหนี้">
           {!selectedCustomerId ? (
             <div className="rounded-xl border border-dashed border-card-border bg-page-bg px-4 py-6 text-center text-sm text-gray-500">
               เลือกลูกค้าก่อนเพื่อดูใบแจ้งหนี้
@@ -1182,12 +1172,9 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           {errors.invoices && (
             <div className="mt-2 text-xs text-red-500">{errors.invoices}</div>
           )}
-        </Card>
+        </FormStep>
 
-        <Card>
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
-            สรุปยอด
-          </div>
+        <FormStep number={3} title="สรุปและบันทึก">
           {selectedInvoices.length === 0 ? (
             <div className="text-sm text-gray-500">
               ยังไม่ได้เลือกใบแจ้งหนี้
@@ -1285,12 +1272,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               </div>
             </div>
           )}
-        </Card>
 
-        <Card>
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
-            ภาษีหัก ณ ที่จ่าย
-          </div>
           <Select
             id="whtRate"
             label="ภาษีหัก ณ ที่จ่าย"
@@ -1308,12 +1290,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             ))}
           </Select>
           <div className="mt-2 text-xs text-gray-500">คำนวณจากราคาก่อน VAT</div>
-        </Card>
 
-        <Card>
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
-            หมายเหตุ / ข้อความในใบวางบิล
-          </div>
           <textarea
             value={note}
             onChange={(event) => {
@@ -1325,7 +1302,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             disabled={readOnly}
             className="w-full rounded-xl border border-card-border bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
-        </Card>
+        </FormStep>
 
         <EditableDocNumber
           value={docNumberOverride}
@@ -1343,25 +1320,21 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         />
 
         {isDraft && !readOnly && (
-          <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-card-border bg-white px-4 py-3 md:bottom-0">
-            <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-0 sm:px-1 lg:px-4">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={handleSaveDraft}
-                loading={saving === "draft"}
-              >
-                บันทึกร่าง
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleSaveAndPreview}
-                loading={saving === "preview"}
-              >
-                บันทึกและดูรายละเอียด
-              </Button>
-            </div>
-          </div>
+          <FormActionBar
+            contextLabel={`${selectedCustomer?.name || ""} · ${selectedInvoiceIds.size} ใบแจ้งหนี้`}
+            totalLabel="ยอดโอนสุทธิ"
+            total={totals.netPayable}
+            secondary={{
+              label: "บันทึกร่าง",
+              onClick: handleSaveDraft,
+              loading: saving === "draft",
+            }}
+            primary={{
+              label: "บันทึกและดูรายละเอียด",
+              onClick: handleSaveAndPreview,
+              loading: saving === "preview",
+            }}
+          />
         )}
       </div>
 
