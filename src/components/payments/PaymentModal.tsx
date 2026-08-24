@@ -69,6 +69,16 @@ export function PaymentModal({
   const [chequeBank, setChequeBank] = useState("");
   const [chequeDate, setChequeDate] = useState("");
 
+  // Default the receiving account once the bank list has loaded — at open
+  // time the list is often still fetching, which previously left the state
+  // null while the select visually showed the first account.
+  useEffect(() => {
+    if (!open || bankLoading) return;
+    if (!bankAccountId && bankAccounts.length > 0) {
+      setBankAccountId(bankAccounts[0].id);
+    }
+  }, [open, bankLoading, bankAccountId, bankAccounts]);
+
   // Reset + prefill whenever the modal opens for a (new) source document.
   useEffect(() => {
     if (!open || !sourceDoc) return;
@@ -95,7 +105,6 @@ export function PaymentModal({
       setPreviousWht(prevWht);
       setMismatchConfirm(false);
       setMethod("bank_transfer");
-      setBankAccountId(bankAccounts[0]?.id ?? null);
       setWhtCert("");
       setPayDate(businessToday);
       setBackdateReason("");
@@ -398,6 +407,8 @@ export function PaymentModal({
                     <option value="" disabled>กำลังโหลดบัญชี...</option>
                   ) : bankAccounts.length === 0 ? (
                     <option value="" disabled>ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า</option>
+                  ) : !bankAccountId ? (
+                    <option value="" disabled>เลือกบัญชีที่รับโอนเงิน</option>
                   ) : (
                     bankAccounts.map((account) => (
                       <option key={account.id} value={account.id}>
