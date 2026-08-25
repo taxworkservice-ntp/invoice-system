@@ -17,7 +17,7 @@ import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
-import { deleteDocumentFiles } from "../../../lib/r2";
+import { deleteDraftDocument } from "../../../lib/documentDelete";
 import { assertDocNumberAvailable, resolveDocNumber } from "../../../lib/docNumber";
 import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
 import { PaymentModal } from "../../../components/payments/PaymentModal";
@@ -30,15 +30,8 @@ import { PAYMENT_METHOD_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
-import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
-import {
-  calculateReceiptAllocationFromInput,
-  convertReceiptInputAmount,
-  convertReceiptInputToPreTax,
-  type ReceiptInputBasis,
-} from "../../../lib/tax";
 import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice, DocumentType } from "../../../types";
 
 function formatDate(date: string): string {
@@ -96,7 +89,6 @@ export default function DocumentDetailPage() {
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
-  const { active: bankAccounts, primary: primaryBank, loading: bankLoading } = useBankAccounts(userId);
   const businessToday = businessTodayString(clientProfile);
   const devIssueDate = clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
   const todayString = () => businessToday;
@@ -194,23 +186,7 @@ export default function DocumentDetailPage() {
     }
     setDeleting(true);
     try {
-      if (doc.doc_type === "billing_note") {
-        const { data: links } = await supabase
-          .from("billing_note_invoices")
-          .select("invoice_id")
-          .eq("billing_note_id", doc.id);
-        const invoiceIds = (links || []).map((l) => l.invoice_id).filter(Boolean);
-        if (invoiceIds.length > 0) {
-          await supabase.from("documents")
-            .update({ status: "sent" })
-            .in("id", invoiceIds)
-            .eq("status", "in_billing");
-        }
-        await supabase.from("billing_note_invoices").delete().eq("billing_note_id", doc.id);
-      }
-      await supabase.from("document_line_items").delete().eq("document_id", doc.id);
-      await deleteDocumentFiles(doc.id);
-      await supabase.from("documents").delete().eq("id", doc.id);
+      await deleteDraftDocument(doc);
       setDeleteModal(false);
       if (doc.deal_id) navigate(`/deals/${doc.deal_id}`);
       else navigate("/documents");
@@ -505,12 +481,8 @@ export default function DocumentDetailPage() {
                     await assertDocNumberAvailable(userId, newValue, id);
                     const { error } = await supabase.from("documents").update({ doc_number: newValue }).eq("id", id);
                     if (error) throw error;
-                    if (!error) {
-                      setDoc((prev) => prev ? { ...prev, doc_number: newValue } : prev);
-                      toast.success("เปลี่ยนเลขที่เอกสารแล้ว");
-                    } else {
-                      toast.error("ไม่สามารถเปลี่ยนเลขที่เอกสารได้");
-                    }
+                    setDoc((prev) => prev ? { ...prev, doc_number: newValue } : prev);
+                    toast.success("เปลี่ยนเลขที่เอกสารแล้ว");
                   }}
                 />
               </h2>
@@ -653,7 +625,7 @@ export default function DocumentDetailPage() {
 
       {doc.line_items && doc.line_items.length > 0 && (
         <DetailCard title="รายการเอกสาร" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
-          <div className="-mt-4 overflow-hidden">
+          <div className="-mt-4 overflow-x-auto">
           <table className={TABLE.table}>
             <thead>
               <tr className={TABLE.theadTr}>
@@ -718,7 +690,7 @@ export default function DocumentDetailPage() {
 
       {doc.doc_type === "billing_note" && doc.billing_invoices && doc.billing_invoices.length > 0 && (
         <DetailCard title="ใบแจ้งหนี้ที่รวม" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
-          <div className="-mt-4 overflow-hidden">
+          <div className="-mt-4 overflow-x-auto">
           <table className={TABLE.table}>
             <thead>
               <tr className={TABLE.theadTr}>
@@ -773,7 +745,7 @@ export default function DocumentDetailPage() {
 
       {doc.doc_type === "receipt" && doc.receipt_invoices && doc.receipt_invoices.length > 0 && (
         <DetailCard title="ใบแจ้งหนี้ที่ชำระ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
-          <div className="-mt-4 overflow-hidden">
+          <div className="-mt-4 overflow-x-auto">
           <table className={TABLE.table}>
             <thead>
               <tr className={TABLE.theadTr}>
@@ -819,7 +791,7 @@ export default function DocumentDetailPage() {
 
       {(doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") && doc.invoice_delivery_notes && doc.invoice_delivery_notes.length > 0 && (
         <DetailCard title="อ้างอิงใบส่งของ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
-          <div className="-mt-4 overflow-hidden">
+          <div className="-mt-4 overflow-x-auto">
           <table className={TABLE.table}>
             <thead>
               <tr className={TABLE.theadTr}>
@@ -995,7 +967,7 @@ export default function DocumentDetailPage() {
               className="w-full"
               onClick={handleGeneratePdf}
             >
-              ดาวน์โหลดเอกสาร
+              พิมพ์ / PDF
             </Button>
             {doc.deal_id && (isSent || isPartiallyPaid) && (
               <div className="space-y-1.5">

@@ -13,7 +13,6 @@ import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { FieldGuidance } from "../../../components/ui/FieldGuidance";
 import { supabase } from "../../../lib/supabase";
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { resolveDocNumber } from "../../../lib/docNumber";
@@ -28,9 +27,6 @@ import { PaymentModal } from "../../../components/payments/PaymentModal";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { revertDeal } from "../../../lib/documentRevert";
-import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
-import {
-} from "../../../lib/tax";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
@@ -39,6 +35,7 @@ import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { getDnVarianceParts, getSourceVarianceLabel, hasDnVariance } from "../../../lib/dnVariance";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
+import { isDocumentOverdue, pickAmountDocument, getStatusPill } from "../../../lib/dealStatus";
 import type {
   Document,
   DocumentLineItem,
@@ -58,6 +55,7 @@ interface DocWithMeta {
   line_items: DocumentLineItem[];
   billing_invoices: BillingNoteInvoice[];
 }
+
 
 
 
@@ -92,12 +90,6 @@ function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
   return "invoice";
 }
 
-function isOverdueDocument(doc: Document) {
-  if (doc.status === "overdue") return true;
-  if (doc.doc_type !== "billing_note" || !doc.due_date) return false;
-  return new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10)) && doc.status !== "paid" && doc.status !== "partially_paid";
-}
-
 function getDocumentAmount(doc: Document) {
   if (doc.doc_type === "quotation" || doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt" || doc.doc_type === "delivery_note") return doc.total_amount;
   return doc.net_payable;
@@ -121,20 +113,6 @@ function formatQty(value: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   });
-}
-
-function getStatusPill(doc: Document | null) {
-  if (!doc) return { label: "ยังไม่มีเอกสาร", className: "bg-stone-100 text-stone-500" };
-  if (doc.status === "draft") return { label: "ร่าง", className: "bg-draft-bg text-draft-text" };
-  if (doc.status === "paid") return { label: "ชำระแล้ว", className: "bg-paid-bg text-paid-text" };
-  if (doc.status === "partially_paid") return { label: "ชำระบางส่วน", className: "bg-amber-100 text-amber-700" };
-  if (isOverdueDocument(doc)) return { label: "เกินกำหนด", className: "bg-overdue-bg text-overdue-text" };
-  if (doc.doc_type === "quotation" && doc.status === "sent") return { label: "รอลูกค้าตอบ", className: "bg-amber-100 text-amber-700" };
-  if (doc.doc_type === "invoice" && (doc.status === "sent" || doc.status === "in_billing")) {
-    return { label: "รอวางบิล", className: "bg-sent-bg text-sent-text" };
-  }
-  if (doc.doc_type === "billing_note" && doc.status === "sent") return { label: "รอชำระ", className: "bg-sent-bg text-sent-text" };
-  return { label: STATUS_LABELS[doc.status] || doc.status, className: "bg-stone-100 text-stone-600" };
 }
 
 export default function DealDetailPage() {
@@ -163,6 +141,7 @@ export default function DealDetailPage() {
   const [activities, setActivities] = useState<DealActivity[]>([]);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [voidModalOpen, setVoidModalOpen] = useState(false);
   const [voidDocument, setVoidDocument] = useState<Document | null>(null);
@@ -181,6 +160,8 @@ export default function DealDetailPage() {
   const [copyingDeal, setCopyingDeal] = useState(false);
   const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"main" | "activity">("main");
+  const [sendConfirmDoc, setSendConfirmDoc] = useState<Document | null>(null);
   const [reverting, setReverting] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [hasActiveDnLinks, setHasActiveDnLinks] = useState(false);
@@ -205,6 +186,7 @@ export default function DealDetailPage() {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       const { data: dealData } = await supabase
         .from("deals")
@@ -298,6 +280,7 @@ export default function DealDetailPage() {
     } catch (err: any) {
       // eslint-disable-next-line no-console
       console.error(err);
+      setLoadError(err?.message || "ไม่สามารถโหลดข้อมูลงานขายได้");
     } finally {
       setLoading(false);
     }
@@ -311,19 +294,8 @@ export default function DealDetailPage() {
     window.open(`/documents/${doc.id}/print`, "_blank", "noopener,noreferrer");
   };
 
-  const handleSendDraft = async (doc: Document) => {
+  const performSend = async (doc: Document) => {
     if (!userId) return;
-    if (!canSendDocumentType(permissions, doc.doc_type)) {
-      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
-      return;
-    }
-    const financialTypes = ["invoice", "billing_note", "tax_invoice_receipt"];
-    if (financialTypes.includes(doc.doc_type)) {
-      const ok = window.confirm(
-        `${doc.doc_number || "เอกสาร"} จะถูกล็อคหลังส่ง หากผิดต้องยกเลิกและออกใหม่\nยืนยันส่งเอกสารนี้?`,
-      );
-      if (!ok) return;
-    }
     setActionLoadingId(doc.id);
     try {
       const { warnings } = await sendDocumentWithSideEffects(doc, userId, { issueDate: devIssueDate });
@@ -338,6 +310,20 @@ export default function DealDetailPage() {
     } finally {
       setActionLoadingId(null);
     }
+  };
+
+  const handleSendDraft = async (doc: Document) => {
+    if (!userId) return;
+    if (!canSendDocumentType(permissions, doc.doc_type)) {
+      toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
+      return;
+    }
+    // Financial documents lock on send — confirm in-app, not via window.confirm.
+    if (["invoice", "billing_note", "tax_invoice_receipt"].includes(doc.doc_type)) {
+      setSendConfirmDoc(doc);
+      return;
+    }
+    await performSend(doc);
   };
 
   const handleOpenPaymentModal = (doc: Document) => {
@@ -795,13 +781,9 @@ export default function DealDetailPage() {
   }, [activeDoc?.document.id, activeDoc?.document.doc_type]);
 
   const amountDoc = useMemo(() => {
-    return (
-      [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "billing_note") ||
-      [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "invoice") ||
-      [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "quotation") ||
-      [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "delivery_note") ||
-      null
-    );
+    // Shared selector (BN > INV > TIR > QT > DN) — same result as home.
+    const picked = pickAmountDocument(nonVoidedDocs.map((item) => item.document));
+    return picked ? nonVoidedDocs.find((item) => item.document.id === picked.id) ?? null : null;
   }, [nonVoidedDocs]);
 
   const availableCloneTypes = useMemo(
@@ -968,7 +950,7 @@ export default function DealDetailPage() {
   }, [activeDoc, allDone, nonVoidedDocs]);
   const title = deal?.title || customer?.name || "งานขาย";
   const statusPill = getStatusPill(statusDoc);
-  const isOverdue = statusDoc ? isOverdueDocument(statusDoc) : false;
+  const isOverdue = statusDoc ? isDocumentOverdue(statusDoc) : false;
   const amountLabel =
     amountDoc?.document.doc_type === "billing_note"
       ? "ยอดที่ต้องรับ"
@@ -1032,8 +1014,8 @@ export default function DealDetailPage() {
       return {
         type: "collect",
         doc,
-        label: isOverdueDocument(doc) ? "เกินกำหนด — บันทึกรับเงิน" : "บันทึกรับเงิน",
-        danger: isOverdueDocument(doc),
+        label: isDocumentOverdue(doc) ? "เกินกำหนด — บันทึกรับเงิน" : "บันทึกรับเงิน",
+        danger: isDocumentOverdue(doc),
       };
     }
     if ((doc.doc_type === "billing_note" || doc.doc_type === "invoice") && doc.status === "partially_paid") {
@@ -1158,7 +1140,24 @@ export default function DealDetailPage() {
   if (!deal) {
     return (
       <AppShell title="งานขาย" showBack>
-        <EmptyState title="ไม่พบข้อมูลงานขายนี้" description="งานขายนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง" />
+        {loadError ? (
+          <div className="space-y-3 py-10 text-center">
+            <p className="text-sm font-medium text-red-700">โหลดงานขายไม่สำเร็จ</p>
+            <p className="text-xs text-gray-500">{loadError}</p>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                fetchDealData();
+              }}
+            >
+              ลองอีกครั้ง
+            </Button>
+          </div>
+        ) : (
+          <EmptyState title="ไม่พบข้อมูลงานขายนี้" description="งานขายนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง" />
+        )}
       </AppShell>
     );
   }
@@ -1296,6 +1295,30 @@ export default function DealDetailPage() {
             );
           })()}
         </Card>
+
+        <div className="flex gap-1 rounded-xl bg-stone-100 p-1" role="tablist" aria-label="ส่วนของงานขาย">
+          {([
+            ["main", "เอกสาร"],
+            ["activity", activities.length > 0 ? `กิจกรรม (${activities.length})` : "กิจกรรม"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={activeTab === key}
+              onClick={() => setActiveTab(key)}
+              className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium transition-colors ${
+                activeTab === key
+                  ? "bg-white text-ink-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "main" && (
+        <>
         <Card>
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ขั้นตอน</div>
@@ -1372,6 +1395,15 @@ export default function DealDetailPage() {
               >
                 {mainAction.label}
               </Button>
+              {activeDoc?.document.status === "draft" && (
+                <Button
+                  variant="secondary"
+                  className="mt-2 w-full justify-center py-3 text-sm"
+                  onClick={handleCurrentDocAction}
+                >
+                  แก้ไขฉบับร่าง
+                </Button>
+              )}
               {actionHint && (
                 <div className={`mt-2 text-center text-[11px] ${isOverdue ? "text-red-700" : "text-gray-500"}`}>{actionHint}</div>
               )}
@@ -1633,6 +1665,20 @@ export default function DealDetailPage() {
             )}
           </Card>
         )}
+        <FinancialSummaryCard summary={financialSummary}>
+          <div className={`rounded-full px-2.5 py-1 text-2xs font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
+            {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
+          </div>
+        </FinancialSummaryCard>
+        </>
+        )}
+        {activeTab === "activity" && activities.length === 0 && (
+          <Card>
+            <EmptyState title="ยังไม่มีความเคลื่อนไหว" description="กิจกรรมทั้งหมดในงานขายนี้จะแสดงที่นี่" />
+          </Card>
+        )}
+        {activeTab === "activity" && (
+        <>
         {activities.length > 0 && (
           <Card>
             <div className="mb-3 flex items-center gap-2">
@@ -1691,11 +1737,19 @@ export default function DealDetailPage() {
             )}
           </Card>
         )}
-        <FinancialSummaryCard summary={financialSummary}>
-          <div className={`rounded-full px-2.5 py-1 text-2xs font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
-            {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
-          </div>
-        </FinancialSummaryCard>
+
+        {dealId && userId && (
+          <DealNotes
+            dealId={dealId}
+            userId={userId}
+            authorName={userEmail.split("@")[0] || "คุณ"}
+            authorRole={workspaceRole || "owner"}
+          />
+        )}
+        </>
+        )}
+        {activeTab === "main" && (
+        <>
         <div>
           <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
           {nonVoidedDocs.length === 0 ? (
@@ -1713,7 +1767,7 @@ export default function DealDetailPage() {
                   ? docsWithMeta.find((source) => source.document.id === doc.converted_from_id)?.document
                   : null;
                 const isCurrent = activeDoc?.document.id === doc.id;
-                const overdue = isOverdueDocument(doc);
+                const overdue = isDocumentOverdue(doc);
                 const isDoneStage = item.stage === "done" && !isCurrent;
                 const isFinancialDocument = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
                 return (
@@ -1885,7 +1939,7 @@ export default function DealDetailPage() {
                             }}
                             className="mt-0.5 inline-flex items-center justify-center rounded-md border border-primary bg-white px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                           >
-                            ดาวน์โหลด
+                            พิมพ์ / PDF
                           </button>
                         </div>
                       </div>
@@ -1938,7 +1992,7 @@ export default function DealDetailPage() {
                             }}
                             className="mt-0.5 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
                           >
-                            ดาวน์โหลด
+                            พิมพ์ / PDF
                           </button>
                         </div>
                       </div>
@@ -1976,7 +2030,7 @@ export default function DealDetailPage() {
                      className="w-full justify-center"
                      onClick={() => setShowDocList(true)}
                    >
-                     ดาวน์โหลดเอกสาร ({nonVoidedDocs.length})
+                     พิมพ์เอกสาร ({nonVoidedDocs.length})
                    </Button>
 
                    <Modal open={showDocList} onClose={() => setShowDocList(false)} title="เลือกเอกสาร">
@@ -2025,17 +2079,15 @@ export default function DealDetailPage() {
                   ยกเลิกและออกฉบับใหม่
                 </Button>
               </>
-            ) : (
+            ) : activeDoc?.document.status === "draft" ? null : (
               <Button
                 variant="secondary"
-                tone={activeDoc?.document.status !== "draft" ? "blue" : "slate"}
+                tone="blue"
                 className="col-span-2 justify-center"
                 onClick={handleCurrentDocAction}
               >
-                {activeDoc?.document.status === "draft"
-                  ? "แก้ไขฉบับร่าง"
-                  : activeDoc?.document.doc_type === "billing_note" && activeDoc?.document.status !== "paid"
-                    ? "แก้ไขใบวางบิล"
+                {activeDoc?.document.doc_type === "billing_note" && activeDoc?.document.status !== "paid"
+                  ? "แก้ไขใบวางบิล"
                     : activeDoc?.document.doc_type === "invoice"
                       ? "แก้ไขโดยออกฉบับใหม่"
                       : "ยกเลิก / แก้ไข"}
@@ -2085,16 +2137,34 @@ export default function DealDetailPage() {
             )}
           </div>
         </Card>
+        </>
+        )}
       </div>
 
-      {dealId && userId && (
-        <DealNotes
-          dealId={dealId}
-          userId={userId}
-          authorName={userEmail.split("@")[0] || "คุณ"}
-          authorRole={workspaceRole || "owner"}
-        />
-      )}
+      <Modal open={!!sendConfirmDoc} onClose={() => setSendConfirmDoc(null)} title="ยืนยันการส่งเอกสาร">
+        {sendConfirmDoc && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              <span className="font-semibold">{sendConfirmDoc.doc_number || "เอกสาร"}</span> จะถูกล็อคหลังส่ง
+              หากผิดต้องยกเลิกและออกใหม่
+            </div>
+            <p className="text-sm text-gray-600">ยืนยันส่งเอกสารนี้ให้ลูกค้าหรือไม่?</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setSendConfirmDoc(null)}>ยกเลิก</Button>
+              <Button
+                onClick={async () => {
+                  const target = sendConfirmDoc;
+                  setSendConfirmDoc(null);
+                  await performSend(target);
+                }}
+                loading={actionLoadingId === sendConfirmDoc.id}
+              >
+                ส่งเอกสาร
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={cloneChooserOpen} onClose={() => setCloneChooserOpen(false)} title="สร้างงานขายเหมือนงานนี้">
         <div className="space-y-2">

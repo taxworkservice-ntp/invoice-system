@@ -40,7 +40,8 @@ import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
-import { deleteDocumentFiles } from "../../../lib/r2";
+import { deleteDraftDocument } from "../../../lib/documentDelete";
+import { isDocumentOverdue } from "../../../lib/dealStatus";
 import { businessTodayString } from "../../../lib/devDate";
 import {
   DOC_TYPE_LABELS,
@@ -91,12 +92,13 @@ const CURRENT_YEAR = new Date().getFullYear();
 const STATUS_GROUPS = {
   processing: {
     label: "กำลังดำเนินการ",
-    statuses: ["draft", "sent", "in_billing", "overdue", "converted"] as DocumentStatus[],
+    // partially_paid is collectible work-in-progress, not done.
+    statuses: ["draft", "sent", "in_billing", "overdue", "converted", "partially_paid"] as DocumentStatus[],
     color: "amber" as const,
   },
   done: {
     label: "เสร็จแล้ว",
-    statuses: ["paid", "partially_paid", "generated", "issued"] as DocumentStatus[],
+    statuses: ["paid", "generated", "issued"] as DocumentStatus[],
     color: "green" as const,
   },
   voided: {
@@ -158,12 +160,9 @@ function isCollectingStatus(doc: Document) {
   );
 }
 
+// Shared overdue rule (lib) — same answer as home and the deal page.
 function isActuallyOverdue(doc: Document) {
-  if (!doc.due_date) return false;
-  return (
-    (doc.status === "sent" || doc.status === "overdue") &&
-    new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10))
-  );
+  return isDocumentOverdue(doc);
 }
 
 function showUpdatedAt(doc: Document): boolean {
@@ -553,11 +552,11 @@ function DocumentCard({
                 e.stopPropagation();
                 onToggleMenu();
               }}
-              className="mt-1.5 rounded p-0.5 hover:bg-gray-100 transition-colors"
+              className="mt-1.5 rounded-md p-2 -m-1 hover:bg-gray-100 transition-colors"
               disabled={menuLoading}
             >
               <MoreHorizontal
-                size={15}
+                size={16}
                 className={menuLoading ? "text-gray-300" : "text-ink-300"}
               />
             </button>
@@ -614,7 +613,7 @@ function DocumentCard({
                         <Send size={14} />
                         <span>
                           {doc.doc_type === "delivery_note"
-                            ? "ยืนยันส่งของแล้ว"
+                            ? "บันทึกว่าส่งของแล้ว"
                             : "ทำเครื่องหมายว่าส่งแล้ว"}
                         </span>
                       </button>
@@ -720,7 +719,7 @@ function DocumentCard({
                         onClick={() => onMenuAction("convert")}
                       >
                         <Copy size={14} />
-                        <span>แปลงเป็นใบแจ้งหนี้</span>
+                        <span>สร้างใบแจ้งหนี้</span>
                       </button>
                     )}
                     {permissions.canVoidDocuments && (
@@ -746,14 +745,14 @@ function DocumentCard({
                           onClick={() => onMenuAction("billing")}
                         >
                           <FileText size={14} />
-                          <span>วางบิล</span>
+                          <span>สร้างใบวางบิล</span>
                         </button>
                         <button
                           className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                           onClick={() => onMenuAction("pay")}
                         >
                           <CreditCard size={14} />
-                          <span>รับเงินแล้ว</span>
+                          <span>บันทึกรับเงิน</span>
                         </button>
                       </>
                     )}
@@ -779,7 +778,7 @@ function DocumentCard({
                         onClick={() => onMenuAction("pay")}
                       >
                         <CreditCard size={14} />
-                        <span>รับเงินแล้ว</span>
+                        <span>บันทึกรับเงิน</span>
                       </button>
                     )}
                     {permissions.canVoidDocuments && (
@@ -1189,7 +1188,7 @@ function QuickDetailModal({
             </Button>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={onOpenPreview} className="w-full sm:w-auto">
-                ดาวน์โหลดเอกสาร
+                พิมพ์ / PDF
               </Button>
               <Button
                 variant="secondary"
@@ -1244,6 +1243,7 @@ export default function DocumentsPage() {
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [inlineLoading, setInlineLoading] = useState<string | null>(null);
+  const [sendConfirmDoc, setSendConfirmDoc] = useState<Document | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<{
     docId: string;
     action: "void" | "delete";
@@ -1307,6 +1307,26 @@ export default function DocumentsPage() {
     };
   }, [search]);
 
+  const performListSend = async (doc: Document) => {
+    if (!profile?.id) return;
+    setInlineLoading(doc.id);
+    try {
+      const { warnings } = await sendDocumentWithSideEffects(doc, profile.id, { issueDate: devIssueDate });
+      warnings.forEach((warning) =>
+        toast.info(`${warning.itemName} สต็อกไม่พอ`),
+      );
+      toast.success(
+        doc.doc_type === "delivery_note"
+          ? "บันทึกว่าส่งของแล้ว"
+          : "ทำเครื่องหมายว่าส่งแล้ว",
+      );
+    } catch (err: any) {
+      toast.error(err.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setInlineLoading(null);
+    }
+  };
+
   const handleInlineAction = async (doc: Document, action: string) => {
     if (!profile?.id) return;
     if (
@@ -1328,33 +1348,19 @@ export default function DocumentsPage() {
       action === "send" &&
       ["invoice", "billing_note", "tax_invoice_receipt"].includes(doc.doc_type)
     ) {
-      const ok = window.confirm(
-        `${doc.doc_number || "เอกสาร"} จะถูกล็อคหลังส่ง หากผิดต้องยกเลิกและออกใหม่\nยืนยันส่งเอกสารนี้?`,
-      );
-      if (!ok) return;
+      // Financial documents lock on send — confirm in-app.
+      setSendConfirmDoc(doc);
+      return;
     }
     setInlineLoading(doc.id);
     try {
       if (action === "send") {
-        const { warnings } = await sendDocumentWithSideEffects(doc, profile.id, { issueDate: devIssueDate });
-        warnings.forEach((warning) =>
-          toast.info(`${warning.itemName} สต็อกไม่พอ`),
-        );
-        toast.success(
-          doc.doc_type === "delivery_note"
-            ? "ยืนยันส่งของแล้ว"
-            : "ทำเครื่องหมายว่าส่งแล้ว",
-        );
+        await performListSend(doc);
       } else if (action === "void") {
         await voidDocumentWithSideEffects(doc, profile.id);
         toast.success("ยกเลิกเอกสารแล้ว");
       } else if (action === "delete") {
-        await supabase
-          .from("document_line_items")
-          .delete()
-          .eq("document_id", doc.id);
-        await deleteDocumentFiles(doc.id);
-        await supabase.from("documents").delete().eq("id", doc.id);
+        await deleteDraftDocument(doc);
         toast.success("ลบเอกสารแล้ว");
       } else if (action === "confirm_receipt") {
         await confirmDraftReceipt(doc.id, profile!.id);
@@ -2252,6 +2258,16 @@ export default function DocumentsPage() {
             </div>
 
             <div className="md:hidden">
+            {hasFilters && (
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-primary-soft px-3 py-1.5 text-[11px] text-primary-deep">
+                <span className="truncate">
+                  แสดงผลตามตัวกรอง · {filtered.length} จาก {documents.length} รายการ
+                </span>
+                <button type="button" onClick={clearFilters} className="shrink-0 font-semibold hover:underline">
+                  ล้าง
+                </button>
+              </div>
+            )}
             {summary.voided > 0 && (
               <div className="flex items-center gap-2 pt-1">
                 <input
@@ -2585,7 +2601,7 @@ export default function DocumentsPage() {
         )}
 
         {selectedDocIds.size > 0 && (
-          <div className="sticky bottom-4 z-30 mx-auto flex w-full max-w-lg items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-white px-5 py-3 shadow-xl md:hidden">
+          <div className="sticky bottom-20 z-30 mx-auto flex w-full max-w-lg items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-white px-5 py-3 shadow-xl md:hidden">
             <span className="text-sm font-medium text-primary">
               เลือก {selectedDocIds.size} รายการ
             </span>
@@ -2608,6 +2624,35 @@ export default function DocumentsPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={!!sendConfirmDoc}
+        onClose={() => setSendConfirmDoc(null)}
+        title="ยืนยันการส่งเอกสาร"
+      >
+        {sendConfirmDoc && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              <span className="font-semibold">{sendConfirmDoc.doc_number || "เอกสาร"}</span> จะถูกล็อคหลังส่ง
+              หากผิดต้องยกเลิกและออกใหม่
+            </div>
+            <p className="text-sm text-gray-600">ยืนยันส่งเอกสารนี้ให้ลูกค้าหรือไม่?</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setSendConfirmDoc(null)}>ยกเลิก</Button>
+              <Button
+                onClick={async () => {
+                  const target = sendConfirmDoc;
+                  setSendConfirmDoc(null);
+                  await performListSend(target);
+                }}
+                loading={inlineLoading === sendConfirmDoc.id}
+              >
+                ส่งเอกสาร
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <QuickDetailModal
         doc={selectedDoc}

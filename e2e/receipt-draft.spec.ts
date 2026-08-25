@@ -79,8 +79,9 @@ test.describe.serial("draft receipt lifecycle", () => {
       has: page.getByRole("heading", { name: "ยืนยันการรับเงิน" }),
     });
     await confirmModal.getByRole("button", { name: "ยืนยันการรับเงิน" }).click();
+    // Deal completes: paid-in-full summary + completion card on Overview.
     await expect(page.getByText("รับครบแล้ว").first()).toBeVisible();
-    await expect(page.getByText("ชำระแล้ว").first()).toBeVisible();
+    await expect(page.getByText("งานขายเสร็จสิ้น")).toBeVisible();
   });
 
   test.afterAll(async () => {

@@ -40,6 +40,8 @@ test.describe.serial("credit note journey", () => {
 
   test("issue credit note against fully-paid invoice → customer credit badge", async ({ page }) => {
     await page.goto(`/deals/${dealId}`);
+    // Issuance lives in the เอกสาร tab
+    await page.getByRole("tab", { name: /เอกสาร/ }).click();
     await page.getByRole("button", { name: "ออกใบลดหนี้" }).click();
     // The action bar context label "{customer} · {n} รายการ" only renders once
     // the deal data has loaded — but n must be >= 1: issuing while the invoice

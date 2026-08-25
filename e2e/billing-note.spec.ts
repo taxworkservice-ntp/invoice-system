@@ -47,9 +47,10 @@ test.describe.serial("billing note journey", () => {
     // Draft BN shows on the deal page with the send action.
     await page.goto(`/deals/${dealId}`);
     await expect(page.getByText("ร่าง", { exact: true }).first()).toBeVisible();
-    // billing_note is a financial type -> window.confirm before locking.
-    page.once("dialog", (dialog) => dialog.accept());
+    // billing_note is a financial type -> in-app confirm modal before locking.
     await page.getByRole("button", { name: "ส่งใบวางบิลให้ลูกค้า" }).click();
+    await expect(page.getByRole("heading", { name: "ยืนยันการส่งเอกสาร" })).toBeVisible();
+    await page.getByRole("button", { name: "ส่งเอกสาร" }).click();
     // Sent billing note pill on the deal page.
     await expect(page.getByText("รอชำระ").first()).toBeVisible();
   });

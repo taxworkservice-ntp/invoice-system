@@ -1,4 +1,9 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+// R2 file deletion goes through a relative /api route that only exists in the
+// deployed app — irrelevant for these tests, so stub it out.
+vi.mock("../../src/lib/r2", () => ({
+  deleteDocumentFiles: vi.fn(async () => undefined),
+}));
 import {
   ensureTestUser,
   signInTestUser,
@@ -16,6 +21,7 @@ import {
   uid,
 } from "./fixtures";
 import { voidDocumentWithSideEffects } from "../../src/lib/documentVoid";
+import { deleteDraftDocument } from "../../src/lib/documentDelete";
 
 async function makeInvoice(cust: any, deal: any, num: string) {
   return createDocument({
@@ -102,5 +108,53 @@ describe("billing note: duplicate prevention (I4) + void release", () => {
     // Now a second billing note is allowed (first link is released).
     const e3 = await linkInvoiceToBn(bn2.id, inv.id, inv.doc_number!);
     expect(e3).toBeNull();
+  });
+
+  it("deleteDraftDocument releases held invoices; paid invoice is never downgraded", async () => {
+    const cust = await createCustomer();
+    const deal = await createDeal(cust.id);
+
+    const invHeld = await makeInvoice(cust, deal, docNum("INV-H"));
+    const invPaid = await createDocument({
+      id: uid(),
+      deal_id: deal.id,
+      customer_id: cust.id,
+      doc_type: "invoice",
+      doc_number: docNum("INV-P"),
+      status: "paid",
+      issue_date: new Date().toISOString().slice(0, 10),
+      vat_registered: true,
+      vat_rate: 7,
+    });
+
+    // Put the held invoice into in_billing (as a sent BN would).
+    await client.from("documents").update({ status: "in_billing" }).eq("id", invHeld.id);
+
+    const bn = await createDocument({
+      id: uid(),
+      deal_id: deal.id,
+      customer_id: cust.id,
+      doc_type: "billing_note",
+      doc_number: docNum("BN-D"),
+      status: "draft",
+      issue_date: new Date().toISOString().slice(0, 10),
+    });
+    expect(await linkInvoiceToBn(bn.id, invHeld.id, invHeld.doc_number!)).toBeNull();
+    expect(await linkInvoiceToBn(bn.id, invPaid.id, invPaid.doc_number!)).toBeNull();
+
+    await deleteDraftDocument({ id: bn.id, doc_type: "billing_note" });
+
+    // Held invoice released back to sent.
+    expect((await getDocumentAdmin(invHeld.id)).status).toBe("sent");
+    // Paid invoice must NOT be downgraded by the draft delete.
+    expect((await getDocumentAdmin(invPaid.id)).status).toBe("paid");
+    // Links and the BN itself are gone.
+    const remainingLinks = await client
+      .from("billing_note_invoices")
+      .select("id")
+      .eq("billing_note_id", bn.id);
+    expect(remainingLinks.data?.length ?? 0).toBe(0);
+    const bnRow = await client.from("documents").select("id").eq("id", bn.id);
+    expect(bnRow.data?.length ?? 0).toBe(0);
   });
 });

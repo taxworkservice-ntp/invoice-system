@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { RefreshCw, Search } from "lucide-react";
 import { isRefSummaryLine } from "../../lib/refSummary";
 import { computeDealFinancialSummary } from "../../lib/dealFinancials";
+import { isDocumentOverdue, pickAmountDocument } from "../../lib/dealStatus";
 import { useAuth, useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
 import { AppShell } from "../../components/layout/AppShell";
 import { Card } from "../../components/ui/Card";
@@ -161,11 +162,6 @@ const QUEUE_COLORS: Record<
   done: { bg: "bg-gray-100", text: "text-gray-500", dot: "bg-gray-400" },
 };
 
-function firstNameFromCompanyName(name: string | null | undefined) {
-  if (!name) return "";
-  return name.trim() || "";
-}
-
 function isResolvedStatus(status: Document["status"]) {
   return ["paid", "converted", "generated", "voided", "issued"].includes(
     status,
@@ -197,13 +193,7 @@ function isQuotationResolved(doc: DealDoc, downstreamQuotes: Set<string>) {
 }
 
 function isOverdueDocument(doc: DealDoc | null) {
-  if (!doc) return false;
-  if (doc.status === "overdue") return true;
-  if (doc.doc_type !== "billing_note" || !doc.due_date) return false;
-  return (
-    new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10)) &&
-    doc.status !== "paid" && doc.status !== "partially_paid"
-  );
+  return isDocumentOverdue(doc);
 }
 
 function sortDocuments(documents: DealDoc[]) {
@@ -230,17 +220,9 @@ function getMostUrgentDocument(documents: DealDoc[]) {
   return overdue[0] || getLatestRelevantDocument(documents);
 }
 
+// Shared selector (BN > INV > TIR > QT > DN) — identical to the deal page.
 function getAmountDocument(documents: DealDoc[]) {
-  const nonVoided = documents.filter((doc) => doc.status !== "voided");
-  const sorted = sortDocuments(nonVoided);
-  return (
-    sorted.find((doc) => doc.doc_type === "billing_note") ||
-    sorted.find((doc) => doc.doc_type === "invoice") ||
-    sorted.find((doc) => doc.doc_type === "tax_invoice_receipt") ||
-    sorted.find((doc) => doc.doc_type === "quotation") ||
-    sorted.find((doc) => doc.doc_type === "delivery_note") ||
-    null
-  );
+  return pickAmountDocument(documents);
 }
 
 function getDealWhtAmount(documents: DealDoc[]) {
@@ -1748,7 +1730,7 @@ export default function HomePage() {
                           ) : (
                             <button
                               key={p}
-                              className={`min-w-[28px] px-1.5 py-1 text-xs rounded ${
+                              className={`min-w-9 px-1 py-1.5 text-xs rounded ${
                                 donePage === p
                                   ? "bg-primary text-white font-medium"
                                   : "text-gray-500 hover:bg-gray-100"

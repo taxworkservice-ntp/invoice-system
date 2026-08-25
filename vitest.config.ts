@@ -1,7 +1,9 @@
 import { defineConfig } from "vitest/config";
 import { loadEnv } from "vite";
 
-const env = loadEnv("", process.cwd(), "");
+// Development mode probes .env, .env.local, .env.development (+ .local) —
+// matching how the app itself loads environment variables.
+const env = loadEnv("development", process.cwd(), "");
 
 export default defineConfig({
   test: {
@@ -13,6 +15,8 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: env.VITE_SUPABASE_URL,
       VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_ROLE_KEY:
+        process.env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY,
     },
     testTimeout: 30000,
     hookTimeout: 60000,

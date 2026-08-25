@@ -20,7 +20,7 @@ import { supabase } from "../../lib/supabase";
 import { formatBuddhistDate } from "../../lib/dates";
 import { assertDocNumberAvailable, resolveDocNumber } from "../../lib/docNumber";
 import { addDaysString, businessTodayString } from "../../lib/devDate";
-import { deleteDocumentFiles } from "../../lib/r2";
+import { deleteDraftDocument } from "../../lib/documentDelete";
 import { WHT_RATE_OPTIONS } from "../../constants";
 import type {
   BillingNoteInvoice,
@@ -803,19 +803,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     if (!currentDocumentId) return;
     setDeleting(true);
     try {
-      const selectedIds = [...savedInvoiceIds];
-      if (selectedIds.length > 0) {
-        await supabase
-          .from("documents")
-          .update({ status: "sent" as DocumentStatus })
-          .in("id", selectedIds);
-      }
-      await supabase
-        .from("billing_note_invoices")
-        .delete()
-        .eq("billing_note_id", currentDocumentId);
-      await deleteDocumentFiles(currentDocumentId);
-      await supabase.from("documents").delete().eq("id", currentDocumentId);
+      await deleteDraftDocument({ id: currentDocumentId, doc_type: "billing_note" });
       toast.success("ลบร่างใบวางบิลแล้ว");
       if (dealId) navigate(`/deals/${dealId}`);
       else navigate("/documents");
