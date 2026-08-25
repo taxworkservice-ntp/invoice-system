@@ -12,3 +12,4 @@ tests/print-layout/actual
 .backup/
 .env*
  2.*
+e2e/.auth/
