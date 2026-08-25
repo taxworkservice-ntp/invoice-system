@@ -310,6 +310,7 @@ Neither button is ever shown on the home pipeline screen.
 | Receipt | ใบเสร็จรับเงิน | receipt | Auto only |
 | Delivery Note | ใบส่งของ | delivery_note | User (side action) |
 | Credit Note | ใบลดหนี้ | credit_note | User (side action) |
+| Debit Note | ใบเพิ่มหนี้ | debit_note | User (side action) |
 
 ---
 
@@ -319,10 +320,16 @@ Neither button is ever shown on the home pipeline screen.
 Quotation:     draft → sent → converted | voided
 Invoice:       draft → sent → in_billing → paid | voided
 Billing Note:  draft → sent → paid | overdue | voided
-Receipt:       generated  (permanent, no transitions)
-Delivery Note: draft → sent | voided
-Credit Note:   draft → issued | voided
+Receipt:       draft → generated | voided   (draft = unconfirmed payment)
+Delivery Note: draft → sent → converted | voided
+Credit Note:   draft → issued | voided      (void reverses stock return)
+Debit Note:    draft → issued | voided
 ```
+
+**Adjustment notes (ใบลดหนี้ / ใบเพิ่มหนี้):** issued notes are immutable.
+Wrong note → void with correction reason (credit notes also reverse their
+stock return) → reissue a corrected draft. Over-crediting one invoice is
+blocked (cumulative active credits ≤ invoice total).
 
 **Overdue** is set automatically — run `mark_overdue_billing_notes()` daily.
 Use a Vercel cron job: `vercel.json` with a `/api/cron/overdue` route calling the Supabase function.
@@ -355,7 +362,7 @@ Format: `[PREFIX]-[YEAR]-[SEQUENCE]`
 Examples: INV-2025-001, QT-2025-004, BN-2025-002
 
 Default prefixes created automatically when client profile is saved:
-QT, INV, BN, RC, DN, CN
+QT, INV, BN, RC, DN, CN, DB
 
 Client can change prefixes and toggle yearly reset in Settings → Numbering.
 
@@ -441,21 +448,39 @@ One billing note can cover one or many invoices from the same customer.
 
 ---
 
-## Receipt — Auto Generation
+## Receipt — Draft-Mandatory Flow (2026-08)
 
-Receipt is created automatically. Never create manually.
+Receipts are ALWAYS saved as draft first, then confirmed. Never create
+a confirmed receipt directly.
+
+**Step 1 — บันทึกรับเงิน modal** (shared PaymentModal component, used from
+deal page + document detail):
+- Creates receipt: doc_type = 'receipt', status = 'draft'
+- Doc number assigned immediately (RC-...) so the draft can be printed
+  and sent to the customer
+- Stores payment_method, bank_account_id, payment_detail (cheque
+  no/bank/date), wht_certificate_no, paid_at, backdate audit fields
+- ZERO side effects: source invoice/billing note untouched, deal stays
+  open at 'collect' stage
+- แก้ไขฉบับร่าง reopens the modal pre-filled; saving updates in place
+
+**Step 2 — ยืนยันการรับเงิน** (confirmDraftReceipt in lib/receiptConfirm.ts,
+surfaced on deal page / receipt detail / documents list):
+- Source doc → paid | partially_paid, amount_received accumulated
+- Billing-note-linked invoices synced
+- receipt_invoices links created
+- Receipt status → 'generated'
+
+Draft receipts are excluded from ALL money totals (receiptTotals) and
+hold the deal open (stage = collect on home/deal/customer surfaces).
 
 **Receipt document contains:**
-- doc_type = 'receipt'
-- status = 'generated'
-- deal_id = same as billing note's deal
-- customer_id = same as billing note
-- Reference to billing note number (in note field or dedicated field)
-- payment_method from confirmation
-- wht_certificate_no from confirmation
-- paid_at = confirmation timestamp
-- amount_received = billing note net_payable
-- subtotal, vat_amount, wht_amount, net_payable = copied from billing note
+- doc_type = 'receipt', status = 'draft' → 'generated'
+- converted_from_id = source invoice / billing note / tax invoice receipt
+- payment_method, bank_account_id, payment_detail (cheque info)
+- wht_certificate_no, paid_at, backdate audit fields
+- subtotal, vat_amount, wht_amount, net_payable = allocation from input
+  basis (pre-tax / gross / net-cash)
 
 ---
 
@@ -737,6 +762,18 @@ Completed:
 - Added blank filler rows to receipt tables in both classic and modern templates (6/8 rows)
 - Fixed pagination: while-loop bug where no "last" page was created for certain item counts, hiding signature
 - Evenly distributed continuation page items: no more sparse almost-empty pages (e.g. cont(8) → cont(15)+cont(15) for 60 items)
+- Credit notes & debit notes — full financial integration: CN reduces revenue/VAT/outstanding (issue-month), customer credit badge on fully-paid deals, auto stock return on issue + reversal on void, over-credit guard, AR aging net allocation, transaction register rows (negative/positive), Thai labels in company XLSX
+- Debit note (ใบเพิ่มหนี้) document type: DB prefix, shared adjustment form with credit note, increases receivables, download-center preset
+- Draft-mandatory receipts: บันทึกรับเงิน saves numbered draft (zero side effects), confirm-later applies invoice paid/amounts/links via shared receiptConfirm lib; แก้ไขฉบับร่าง reopens modal prefilled; draft receipts excluded from all money totals
+- Shared PaymentModal component replaces duplicated payment UI on deal + document pages; cheque payment details (เลขที่/ธนาคาร/วันที่) stored in documents.payment_detail and printed
+- Unified form system: FormStep numbered sections, DocumentOptionsCard (all PDF toggles in one place), FormActionBar (sticky save bar with running total), shared line-item grid; applied to all document forms
+- Invoice โหมดอ้างอิง (ref-only, default ON): one printed line per source DN/QT like billing-note style; toggle persisted; variance hints in detail mode
+- Home done-deals table: status column replaced with colored doc-type badges (QT/DN/INV/TIR/BN/RCT/CN/DB); item previews skip ref-summary lines
+- Deal financial summary: order-independent credit reconciliation + ยอดหลังลดหนี้ row + เครดิตคงเหลือ badge
+- Void & reissue flow for issued credit/debit notes (correction reason, stock reversal, source link preserved)
+- Billing note: autosave removed → explicit save buttons + unsaved-changes guard; invoice date panel; DN hide-amounts choice persisted
+- Playwright E2E suite: 7 golden-journey specs + auth setup against isolated test workspace (testcompany-vitest); feature freeze until green (see test_plan.md)
+- Fixed: test workspace isolation (tests no longer wipe demo account), payment modal default bank account race, receipt confirm dialog lost in refactor, home item preview leaking ref-summary lines
 - Fixed DN showing ฿0.00 on home deal list (getAmountDocument missing delivery_note)
 - Fixed DN showing ฿0.00 on deal detail header (amountDoc missing delivery_note)
 - Fixed invoice-from-delivery-notes navigation: now goes to deal page instead of document detail
@@ -770,10 +807,17 @@ Completed:
 
 Still remaining:
 
+### Phase 0 — LAUNCH GATE (current, 2026-08)
+- FEATURE FREEZE until the Playwright golden-journey suite passes twice consecutively
+- Continue E2E work per test_plan.md (spec 1 mid-debug, specs 2-7 untested)
+- Hardening sweep: manual QA checklist per form (mobile + desktop)
+- Then closed beta with 2-5 real users before open launch
+
 ### Phase 1
 - Finish polishing document detail page so summary, actions, and related information feel fully consistent across mobile and desktop
 - Improve Home dashboard into a stronger "what needs attention now" view
 - Simplify create/edit document forms and reduce visual noise in long workflows
+  (largely DONE 2026-08: FormStep/DocumentOptions/FormActionBar unified system)
 
 ### Phase 2
 - Redesign Customers list and customer detail around relationship status, outstanding amount, and recent activity
