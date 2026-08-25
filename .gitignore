@@ -13,3 +13,5 @@ tests/print-layout/actual
 .env*
  2.*
 e2e/.auth/
+test-results/
+playwright-report/
