@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileText, PackageCheck, ExternalLink, Clock, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileText, PackageCheck, ExternalLink, Clock, Pencil, ScrollText } from "lucide-react";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
@@ -20,6 +20,9 @@ import { resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
+import { computeDealFinancialSummary } from "../../../lib/dealFinancials";
+import { FinancialSummaryCard } from "../../../components/deal/FinancialSummaryCard";
+import { DealSummarySheet } from "../../../components/deal/DealSummarySheet";
 import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
 import { PaymentModal } from "../../../components/payments/PaymentModal";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
@@ -41,6 +44,7 @@ import type {
   DocumentLineItem,
   BillingNoteInvoice,
   Deal,
+  DealActivity,
   Customer,
   ClientProfile,
   DocumentStatus,
@@ -55,21 +59,7 @@ interface DocWithMeta {
   billing_invoices: BillingNoteInvoice[];
 }
 
-interface DealActivity {
-  id: string;
-  document_id: string | null;
-  actor_name: string;
-  actor_role: string;
-  event_type: string;
-  description: string;
-  metadata: {
-    doc_type?: string;
-    doc_number?: string | null;
-    status?: string;
-    amount?: number | null;
-  };
-  created_at: string;
-}
+
 
 type MainAction =
   | { type: "send_draft"; doc: Document; label: string; danger?: boolean }
@@ -190,6 +180,7 @@ export default function DealDetailPage() {
   const [cloneChooserOpen, setCloneChooserOpen] = useState(false);
   const [copyingDeal, setCopyingDeal] = useState(false);
   const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [hasActiveDnLinks, setHasActiveDnLinks] = useState(false);
@@ -1142,73 +1133,14 @@ export default function DealDetailPage() {
     };
   }, [nonVoidedDocs]);
 
-  const financialSummary = useMemo(() => {
-    const collectionDocs = nonVoidedDocs.filter((item) =>
-      ["billing_note", "invoice", "tax_invoice_receipt"].includes(item.document.doc_type),
-    );
-    // Active adjustment notes change what the customer owes:
-    // credit notes (ใบลดหนี้) reduce it, debit notes (ใบเพิ่มหนี้) increase it.
-    const creditNoteDocs = nonVoidedDocs.filter(
-      (item) =>
-        item.document.doc_type === "credit_note" &&
-        !["draft", "voided"].includes(item.document.status),
-    );
-    const debitNoteDocs = nonVoidedDocs.filter(
-      (item) =>
-        item.document.doc_type === "debit_note" &&
-        !["draft", "voided"].includes(item.document.status),
-    );
-    const creditTotal = creditNoteDocs.reduce((sum, item) => sum + (item.document.total_amount || 0), 0);
-    const debitTotal = debitNoteDocs.reduce((sum, item) => sum + (item.document.total_amount || 0), 0);
-    const source = collectionDocs.find((item) => item.document.doc_type === "billing_note") ||
-      collectionDocs.find((item) => item.document.doc_type === "invoice") ||
-      collectionDocs.find((item) => item.document.doc_type === "tax_invoice_receipt") ||
-      amountDoc;
-    const grossAmount = source?.document.total_amount || 0;
-    const netPayable = source?.document.net_payable || 0;
-    const receipts = nonVoidedDocs.filter(
-      (item) => item.document.doc_type === "receipt" && ["generated", "issued", "paid"].includes(item.document.status),
-    );
-    const receiptReceived = receipts.reduce((sum, item) => sum + (item.document.amount_received || 0), 0);
-    const sourceGroup = collectionDocs.some((item) => item.document.doc_type === "billing_note")
-      ? collectionDocs.filter((item) => item.document.doc_type === "billing_note")
-      : collectionDocs.some((item) => item.document.doc_type === "invoice")
-        ? collectionDocs.filter((item) => item.document.doc_type === "invoice")
-        : collectionDocs.filter((item) => item.document.doc_type === "tax_invoice_receipt");
-    const sourceReceived = sourceGroup.reduce((sum, item) => sum + (item.document.amount_received || 0), 0);
-    const amountReceived = Math.max(receiptReceived, sourceReceived);
-    const expectedWhtAmount = source?.document.wht_amount || 0;
-    // Recalculate accumulated WHT from the source document and collected
-    // amount so receipts created by the old net-payable bug do not distort
-    // the completed-deal summary.
-    const whtAmount = expectedWhtAmount > 0 && netPayable > 0
-      ? Math.min(expectedWhtAmount, Math.round(expectedWhtAmount * amountReceived / netPayable * 100) / 100)
-      : 0;
-
-    // Order-independent reconciliation:
-    //   due after adjustment = net payable + debits - credits
-    //   outstanding          = unpaid portion of that
-    //   customer credit      = cash received beyond it (e.g. crediting a
-    //                          fully-paid invoice)
-    const afterAdjustment = netPayable - creditTotal + debitTotal;
-    const dueAfterAdjustment = Math.max(0, afterAdjustment);
-    const outstanding = Math.max(0, dueAfterAdjustment - amountReceived);
-    const customerCredit = Math.max(0, amountReceived - dueAfterAdjustment);
-
-    return {
-      grossAmount,
-      netPayable,
-      amountReceived,
-      outstanding,
-      afterAdjustment,
-      creditTotal,
-      debitTotal,
-      customerCredit,
-      whtAmount,
-      expectedWhtAmount,
-      receiptCount: receipts.length,
-    };
-  }, [amountDoc, nonVoidedDocs]);
+  const financialSummary = useMemo(
+    () =>
+      computeDealFinancialSummary(
+        nonVoidedDocs.map((item) => item.document),
+        amountDoc?.document ?? null,
+      ),
+    [amountDoc, nonVoidedDocs],
+  );
 
   if (authLoading || loading) {
     return (
@@ -1332,6 +1264,15 @@ export default function DealDetailPage() {
             <div className="text-right shrink-0">
               <div className="text-xl font-bold text-gray-900">฿{formatCurrency(amountDoc ? getDocumentAmount(amountDoc.document) : 0)}</div>
               <div className="mt-1 text-[11px] text-gray-500">{amountLabel}</div>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-2 inline-flex items-center gap-1.5"
+                onClick={() => setSummaryOpen(true)}
+              >
+                <ScrollText className="h-3.5 w-3.5" />
+                สรุปงานขาย
+              </Button>
             </div>
           </div>
           {isOverdue && activeDoc?.document.due_date && (
@@ -1750,53 +1691,11 @@ export default function DealDetailPage() {
             )}
           </Card>
         )}
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-ink-900">สรุปการเงิน</div>
-              <div className="mt-0.5 text-[11px] text-gray-500">
-                {financialSummary.receiptCount > 0 ? `${financialSummary.receiptCount} ใบเสร็จ` : "ยังไม่มีใบเสร็จ"}
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {financialSummary.customerCredit > 0 && (
-                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-2xs font-medium text-blue-700">
-                  เครดิตคงเหลือ ฿{formatCurrency(financialSummary.customerCredit)}
-                </span>
-              )}
-              <div className={`rounded-full px-2.5 py-1 text-2xs font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
-                {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
-              </div>
-            </div>
+        <FinancialSummaryCard summary={financialSummary}>
+          <div className={`rounded-full px-2.5 py-1 text-2xs font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
+            {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
-            {[
-              { label: "ยอดรวม", value: financialSummary.grossAmount, className: "text-ink-900" },
-              ...(financialSummary.debitTotal > 0 ? [{ label: "ยอดเพิ่มหนี้", value: financialSummary.debitTotal, className: "text-amber-700" }] : []),
-              ...(financialSummary.creditTotal > 0 ? [{ label: "ยอดลดหนี้", value: -financialSummary.creditTotal, className: "text-red-700" }] : []),
-              ...(financialSummary.creditTotal > 0 || financialSummary.debitTotal > 0
-                ? [{
-                    label: financialSummary.debitTotal > 0 ? "ยอดหลังปรับบิล" : "ยอดหลังลดหนี้",
-                    value: financialSummary.afterAdjustment,
-                    className: "text-ink-900",
-                  }]
-                : []),
-              { label: "ยอดสุทธิตามเอกสาร", value: financialSummary.netPayable, className: "text-ink-900" },
-              { label: "รับแล้ว", value: financialSummary.amountReceived, className: "text-green-700" },
-              { label: "ค้างรับ", value: financialSummary.outstanding, className: financialSummary.outstanding > 0 ? "text-red-700" : "text-green-700" },
-              { label: "หัก ณ ที่จ่ายตามเอกสาร", value: financialSummary.expectedWhtAmount, className: financialSummary.expectedWhtAmount > 0 ? "text-amber-700" : "text-gray-500" },
-              { label: "หัก ณ ที่จ่ายสะสม", value: financialSummary.whtAmount, className: financialSummary.whtAmount > 0 ? "text-amber-700" : "text-gray-500" },
-            ].map((item) => (
-              <div key={item.label} className="rounded-lg bg-cool-25 px-2.5 py-2">
-                <div className="text-2xs text-gray-500">{item.label}</div>
-                <div className={`mt-1 text-sm font-semibold tabular-nums ${item.className}`}>฿{formatCurrency(item.value)}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-2xs leading-4 text-gray-400">
-            ตามเอกสาร = จำนวนที่ระบุในใบแจ้งหนี้ · สะสม = จำนวนที่เกิดขึ้นจริงจากใบเสร็จ
-          </div>
-        </Card>
+        </FinancialSummaryCard>
         <div>
           <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
           {nonVoidedDocs.length === 0 ? (
@@ -2318,6 +2217,14 @@ export default function DealDetailPage() {
         )}
       </Modal>
 
+      <DealSummarySheet
+        open={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+        dealNumber={(deal as any)?.deal_number || null}
+        customerName={customer?.name}
+        documents={docsWithMeta.map((item) => item.document)}
+        activities={activities}
+      />
       <Modal open={revertConfirmOpen} onClose={() => setRevertConfirmOpen(false)} title="ยืนยันการลบงานขาย (Dev)">
         <div className="space-y-4">
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">

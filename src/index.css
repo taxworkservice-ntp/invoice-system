@@ -383,6 +383,26 @@ html[data-accent-mode="gradient"] .print-theme-modern {
     display: block;
   }
 
+  /* Deal summary sheet: hide the app, show only the summary layout. */
+  body.deal-summary-print * {
+    visibility: hidden !important;
+  }
+  body.deal-summary-print .deal-summary-print-area,
+  body.deal-summary-print .deal-summary-print-area * {
+    visibility: visible !important;
+  }
+  body.deal-summary-print .deal-summary-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 10mm 8mm;
+    background: white;
+    overflow: visible;
+  }
+  body.deal-summary-print .deal-summary-print-area table tbody tr {
+    break-inside: avoid;
+  }
+
   /* Repeat the table header on every printed page. */
   .print-table thead {
     display: table-header-group;

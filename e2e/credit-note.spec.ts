@@ -31,7 +31,10 @@ test.describe.serial("credit note journey", () => {
       amount_received: 1070,
     });
     await createLineItems([
-      { document_id: inv.id, user_id: userId, item_name: "E2E Service", item_type: "service", unit: "งวด", unit_price: 1000, quantity: 1, line_total: 1000, sort_order: 0 },
+      // Ref-summary header row, exactly as invoice-from-DN persists them
+      // (print marker: zero amounts, source-doc name).
+      { document_id: inv.id, user_id: userId, item_name: "ใบส่งของ DN-E2E-CN", item_type: "service", unit: "", unit_price: 0, quantity: 0, base_quantity: 0, line_total: 0, sort_order: 0 },
+      { document_id: inv.id, user_id: userId, item_name: "E2E Service", item_type: "service", unit: "งวด", unit_price: 1000, quantity: 1, base_quantity: 1, line_total: 1000, sort_order: 1 },
     ]);
   });
 
@@ -51,6 +54,22 @@ test.describe.serial("credit note journey", () => {
     );
     cnUrl = page.url();
     await expect(page.getByText("ออกแล้ว", { exact: true })).toBeVisible();
+
+    // Regression guard: ref-summary print-marker rows from the source invoice
+    // must NOT be copied into the credit note (qty 0 / ฿0 pollution).
+    const cnId = page.url().split("/documents/")[1].split(/[?#]/)[0];
+    const { data: cnLines } = await (
+      await api()
+    )
+      .from("document_line_items")
+      .select("item_name, quantity, unit_price, line_total")
+      .eq("document_id", cnId);
+    expect(
+      (cnLines || []).filter(
+        (l) =>
+          l.quantity === 0 && l.unit_price === 0 && /^ใบส่งของ\s/.test(l.item_name || ""),
+      ),
+    ).toHaveLength(0);
 
     // back on the deal, customer credit badge appears
     await page.goto(`/deals/${dealId}`);

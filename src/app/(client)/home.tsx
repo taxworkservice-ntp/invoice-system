@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, Search } from "lucide-react";
+import { isRefSummaryLine } from "../../lib/refSummary";
+import { computeDealFinancialSummary } from "../../lib/dealFinancials";
 import { useAuth, useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
 import { AppShell } from "../../components/layout/AppShell";
 import { Card } from "../../components/ui/Card";
@@ -262,12 +264,6 @@ function getDealWhtAmount(documents: DealDoc[]) {
   return 0;
 }
 
-// Reference-summary rows (โหมดอ้างอิง) read like "ใบส่งของ DN-2026-08-002" —
-// not useful as an item preview. Real item lines carry a source_line_item_id.
-function isRefSummaryLine(item: { source_document_id?: string | null; source_line_item_id?: string | null }) {
-  return Boolean(item.source_document_id) && !item.source_line_item_id;
-}
-
 function getItemPreview(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   const withItems = sortDocuments(nonVoided).filter((doc) => (doc.line_items || []).length > 0);
@@ -357,18 +353,6 @@ function getDoneDocBadges(documents: DealDoc[]) {
     documents.filter((doc) => doc.status !== "voided").map((doc) => doc.doc_type),
   );
   return DONE_BADGE_ORDER.filter((t) => present.has(t));
-}
-
-// Active adjustment notes change what the customer owes on the deal:
-// credit notes (ใบลดหนี้) reduce it, debit notes (ใบเพิ่มหนี้) increase it.
-function getDealNetAdjustment(documents: DealDoc[]) {
-  let adjustment = 0;
-  for (const doc of documents) {
-    if (["draft", "voided"].includes(doc.status)) continue;
-    if (doc.doc_type === "credit_note") adjustment -= doc.total_amount || 0;
-    if (doc.doc_type === "debit_note") adjustment += doc.total_amount || 0;
-  }
-  return adjustment;
 }
 
 function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {
@@ -602,11 +586,11 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
   const grossAmount = amountDocument?.total_amount ?? amountDocument?.net_payable ?? 0;
   const netPayable = amountDocument?.net_payable ?? amountDocument?.total_amount ?? 0;
   const expectedWhtAmount = amountDocument?.wht_amount ?? 0;
-  // Adjustment notes apply to the remaining balance; excess credit becomes customer credit.
-  const netAdjustment = getDealNetAdjustment(deal.documents || []);
-  const balanceBeforeAdjustment = Math.max(0, netPayable - amountReceived);
-  const outstandingAmount = Math.max(0, balanceBeforeAdjustment + netAdjustment);
-  const customerCredit = Math.max(0, -(balanceBeforeAdjustment + netAdjustment));
+  // Adjustment notes reconcile on their NET amounts (gross incl. VAT minus the
+  // WHT they release), same basis as the invoice — shared with the deal page.
+  const adjustmentSummary = computeDealFinancialSummary(deal.documents || [], amountDocument ?? null);
+  const outstandingAmount = adjustmentSummary.outstanding;
+  const customerCredit = adjustmentSummary.customerCredit;
   const receiptCount = getReceiptDocuments(deal.documents || []).length;
   const partialReceived = amountReceived;
   const isPartiallyPaid = (deal.documents || []).some((d) => d.status === "partially_paid");

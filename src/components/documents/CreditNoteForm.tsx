@@ -12,6 +12,7 @@ import { DateInput } from "../ui/DateInput";
 import { CatalogAutocomplete } from "../CatalogAutocomplete";
 import { Spinner } from "../ui/Spinner";
 import { resolveDocNumber } from "../../lib/docNumber";
+import { isRefSummaryLine } from "../../lib/refSummary";
 import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { returnStockOnCreditNoteIssued } from "../../lib/stock";
@@ -210,11 +211,14 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
       .eq("document_id", refInvoiceId)
       .order("sort_order");
 
-    setRefInvoiceLines((lines || []) as DocumentLineItem[]);
+    // Skip ref-summary header rows persisted by invoice-from-DN/QT flows —
+    // they are print markers (qty 0, ฿0), not creditable items.
+    const realLines = (lines || []).filter((l) => !isRefSummaryLine(l));
+    setRefInvoiceLines(realLines as DocumentLineItem[]);
 
     if (!isEditing) {
       setItems(
-        (lines || []).map((l: any) => ({
+        realLines.map((l: any) => ({
           key: uid(),
           itemId: l.item_id || "",
           itemSku: l.item_sku || null,

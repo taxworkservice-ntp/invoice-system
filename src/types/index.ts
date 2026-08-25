@@ -269,6 +269,24 @@ export interface StockMovement {
   created_at: string;
 }
 
+export interface DealActivity {
+  id: string;
+  deal_id?: string;
+  document_id: string | null;
+  user_id?: string | null;
+  actor_name: string;
+  actor_role: string;
+  event_type: string;
+  description: string;
+  metadata: {
+    doc_type?: string;
+    doc_number?: string | null;
+    status?: string;
+    amount?: number | null;
+  };
+  created_at: string;
+}
+
 export interface Deal {
   id: string;
   user_id: string;
