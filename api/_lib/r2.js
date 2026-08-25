@@ -2,10 +2,12 @@ import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } fro
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getEnv } from "./env.js";
 
-const bucket = getEnv("R2_BUCKET", "VITE_R2_BUCKET");
-const accessKeyId = getEnv("R2_ACCESS_KEY_ID", "VITE_R2_ACCESS_KEY_ID");
-const secretAccessKey = getEnv("R2_SECRET_ACCESS_KEY", "VITE_R2_SECRET_ACCESS_KEY");
-const endpoint = getEnv("R2_ENDPOINT", "VITE_R2_ENDPOINT");
+// Server-only credentials — no VITE_* fallbacks: Vite would inline them
+// into the client bundle.
+const bucket = getEnv("R2_BUCKET");
+const accessKeyId = getEnv("R2_ACCESS_KEY_ID");
+const secretAccessKey = getEnv("R2_SECRET_ACCESS_KEY");
+const endpoint = getEnv("R2_ENDPOINT");
 
 export const r2Bucket = bucket;
 
