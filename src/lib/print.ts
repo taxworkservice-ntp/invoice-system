@@ -10,6 +10,7 @@ import type {
 } from "../types";
 import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
+import { isRefSummaryLine } from "./refSummary";
 import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 import { estimateLineItemHeight } from "./printRowHeight";
@@ -216,7 +217,9 @@ export async function getPrintableDocumentDataBase(
           .order("sort_order", { ascending: true });
 
         if (allItems && allItems.length > 0) {
-          lineItems = allItems as DocumentLineItem[];
+          // Ref-summary marker rows (โหมดอ้างอิง headers like "ใบส่งของ DN-…")
+          // belong to the invoice's grouped print layout — never to receipts.
+          lineItems = (allItems as DocumentLineItem[]).filter((item) => !isRefSummaryLine(item));
         }
       } else {
         referenceDoc = billingNote;
@@ -243,7 +246,8 @@ export async function getPrintableDocumentDataBase(
         .eq("document_id", sourceInvoice.id)
         .order("sort_order", { ascending: true });
       if (invItems && invItems.length > 0) {
-        lineItems = invItems as DocumentLineItem[];
+        // Same: strip ref-summary markers when copying straight from an invoice.
+        lineItems = (invItems as DocumentLineItem[]).filter((item) => !isRefSummaryLine(item));
       }
     }
   }
