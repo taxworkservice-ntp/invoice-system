@@ -60,10 +60,35 @@ test.describe.serial("receipt print purity", () => {
     receiptId = rc.id;
   });
 
-  test("printed draft receipt has real items, no DN marker row", async ({ page }) => {
+  test("draft receipt via BN shows the BN row, no DN marker or invoice rows", async ({ page }) => {
     await page.goto(`/documents/${receiptId}/print`);
-    await expect(page.getByText("แผ่นครอบมุมทรงแอล")).toBeVisible();
+    await expect(page.getByText("ใบวางบิลที่ชำระ")).toBeVisible();
+    await expect(page.getByText(/BN-E2E-RCP/).first()).toBeVisible();
     await expect(page.getByText(/ใบส่งของ DN-/)).toHaveCount(0);
+    await expect(page.getByText(/INV-E2E-RCP/)).toHaveCount(0);
+  });
+
+  test("confirmed receipt via billing note shows the BN, not its invoices", async ({ page }) => {
+    // Simulate what confirmDraftReceipt does: link the receipt to its
+    // parent billing note's invoices (with source_billing_note_id set).
+    const userId = (await (await api()).auth.getUser()).data.user!.id;
+    await (await api()).from("receipt_invoices").insert({
+      id: uid(),
+      receipt_id: receiptId,
+      invoice_id: "00000000-0000-0000-0000-000000000099",
+      source_billing_note_id: "00000000-0000-0000-0000-000000000098",
+      user_id: userId,
+      invoice_number: "INV-E2E-RCP",
+      issue_date: new Date().toISOString().slice(0, 10),
+      subtotal: 18,
+      vat_amount: 1.26,
+      total_amount: 19.26,
+      paid_amount: 19.26,
+    });
+
+    await page.goto(`/documents/${receiptId}/print`);
+    await expect(page.getByText("ใบวางบิลที่ชำระ")).toBeVisible();
+    await expect(page.getByText(/INV-E2E-RCP/)).toHaveCount(0);
   });
 
   test.afterAll(async () => {

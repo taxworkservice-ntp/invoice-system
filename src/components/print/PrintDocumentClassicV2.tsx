@@ -420,7 +420,9 @@ export function PrintDocumentClassicV2({
           receiptRows.length > 0 &&
           document.vat_registered ? (
           <div className="print-classic-items-title">
-            รายการที่ชำระ (PAID INVOICES)
+            {data.receiptPaidViaBillingNote
+              ? "ใบวางบิลที่ชำระ (PAID BILLING NOTE)"
+              : "รายการที่ชำระ (PAID INVOICES)"}
           </div>
         ) : (
           <div className="print-classic-items-title">
@@ -510,7 +512,12 @@ export function PrintDocumentClassicV2({
                     เลขที่<span className="en">NO.</span>
                   </th>
                   <th>
-                    เลขที่ใบแจ้งหนี้<span className="en">INVOICE NO.</span>
+                    {data.receiptPaidViaBillingNote
+                      ? "เลขที่ใบวางบิล"
+                      : "เลขที่ใบแจ้งหนี้"}
+                    <span className="en">
+                      {data.receiptPaidViaBillingNote ? "BILLING NOTE NO." : "INVOICE NO."}
+                    </span>
                   </th>
                   <th>
                     วันที่ออก<span className="en">ISSUE DATE</span>

@@ -44,6 +44,8 @@ export interface PrintDocumentData {
   receiptPaymentNumber?: number;
   receiptCumulativePaid?: number;
   bankAccount?: BankAccount;
+  /** True when a receipt's paid rows are shown as its parent billing note. */
+  receiptPaidViaBillingNote?: boolean;
 }
 
 export interface PrintableDocumentDataBase {
@@ -68,6 +70,8 @@ export interface PrintableDocumentDataBase {
   receiptPaymentNumber?: number;
   receiptCumulativePaid?: number;
   bankAccount?: BankAccount;
+  /** True when a receipt's paid rows are shown as its parent billing note. */
+  receiptPaidViaBillingNote?: boolean;
 }
 
 export function isHtmlPrintTemplate(
@@ -160,6 +164,9 @@ export async function getPrintableDocumentDataBase(
 
   let lineItems = document.line_items || [];
 
+  // Receipts settled via a billing note reference the ใบวางบิล itself.
+  let parentBillingNote: Document | undefined;
+
   if (
     (document.doc_type === "receipt" || document.doc_type === "billing_note") &&
     document.deal_id
@@ -176,6 +183,7 @@ export async function getPrintableDocumentDataBase(
     const billingNote = hasParentRef
       ? docList.find((d) => d.id === document.converted_from_id && d.doc_type === "billing_note")
       : docList.find((d) => d.doc_type === "billing_note");
+    if (document.doc_type === "receipt") parentBillingNote = billingNote;
     const sourceInvoice = hasParentRef
       ? docList.find(
           (d) => d.id === document.converted_from_id && (d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt"),
@@ -379,11 +387,38 @@ export async function getPrintableDocumentDataBase(
     invoiceNumberMap[bi.invoice_id] = bi.invoice_number;
   }
 
+  // Receipt whose parent is a billing note: show the ใบวางบิล itself as the
+  // single paid row — the document the user actually settled against.
+  // Applies to drafts and confirmed receipts alike.
+  let receiptInvoices = document.receipt_invoices || [];
+  let receiptPaidViaBillingNote = false;
+  if (document.doc_type === "receipt" && parentBillingNote) {
+    const bn = parentBillingNote;
+    receiptPaidViaBillingNote = true;
+    receiptInvoices = [
+      {
+        id: `bn-${bn.id}`,
+        receipt_id: document.id,
+        invoice_id: bn.id,
+        source_billing_note_id: bn.id,
+        user_id: document.user_id,
+        invoice_number: bn.doc_number || "",
+        issue_date: bn.issue_date,
+        subtotal: bn.subtotal || 0,
+        vat_amount: bn.vat_amount || 0,
+        total_amount: bn.total_amount || bn.net_payable || 0,
+        paid_amount: document.net_payable || 0,
+        created_at: document.created_at || new Date().toISOString(),
+      } as ReceiptInvoice,
+    ];
+  }
+
   return {
     document,
     lineItems,
     billingNoteInvoices: document.billing_invoices || [],
-    receiptInvoices: document.receipt_invoices || [],
+    receiptInvoices,
+    receiptPaidViaBillingNote,
     invoiceDeliveryNotes,
     clientProfile,
     customer,

@@ -375,6 +375,32 @@ export default function DocumentDetailPage() {
   const receiptInvoiceSort = useTableSort<ReceiptInvoice, ReceiptInvoiceSortKey>(doc?.receipt_invoices || [], { key: "invoice_number", dir: "asc" });
   const deliveryNoteSort = useTableSort<InvoiceDeliveryNote, DeliveryNoteSortKey>(doc?.invoice_delivery_notes || [], { key: "delivery_note_number", dir: "asc" });
 
+  // Receipt settled via a billing note: display the ใบวางบิล itself as the
+  // paid reference (mirrors print.ts behavior).
+  const sourceBillingNoteId =
+    doc?.doc_type === "receipt"
+      ? doc.receipt_invoices?.find((r) => r.source_billing_note_id)?.source_billing_note_id ?? null
+      : null;
+  const [paidViaBillingNote, setPaidViaBillingNote] = useState<Document | null>(null);
+  useEffect(() => {
+    if (!sourceBillingNoteId) {
+      setPaidViaBillingNote(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("documents")
+      .select("id, doc_number, issue_date, subtotal, vat_amount, total_amount")
+      .eq("id", sourceBillingNoteId)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled) setPaidViaBillingNote((data as Document) ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceBillingNoteId]);
+
   if (loading) {
     return (
       <AppShell title="เอกสาร" showBack>
@@ -743,7 +769,30 @@ export default function DocumentDetailPage() {
         </DetailCard>
       )}
 
-      {doc.doc_type === "receipt" && doc.receipt_invoices && doc.receipt_invoices.length > 0 && (
+      {doc.doc_type === "receipt" && paidViaBillingNote && (
+        <DetailCard title="ใบวางบิลที่ชำระ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
+          <div className="-mt-4 overflow-x-auto">
+          <table className={TABLE.table}>
+            <thead>
+              <tr className={TABLE.theadTr}>
+                <SortableTh label="เลขที่ใบวางบิล" align="left" active={false} dir="asc" onClick={() => undefined} className={TABLE.thSortable} />
+                <SortableTh label="วันที่ออก" align="left" active={false} dir="asc" onClick={() => undefined} className={TABLE.thSortable} />
+                <SortableTh label="จำนวนเงิน" align="right" active={false} dir="asc" onClick={() => undefined} className={TABLE.thSortable} />
+              </tr>
+            </thead>
+            <tbody>
+              <tr className={TABLE.tbodyTr}>
+                <td className="px-4 py-2 text-cool-500">{paidViaBillingNote.doc_number || "-"}</td>
+                <td className="px-4 py-2 text-cool-500">{paidViaBillingNote.issue_date ? formatDate(paidViaBillingNote.issue_date) : "-"}</td>
+                <td className="px-4 py-2 text-right text-cool-500 font-medium">฿{formatCurrency(paidViaBillingNote.total_amount)}</td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+        </DetailCard>
+      )}
+
+      {doc.doc_type === "receipt" && !paidViaBillingNote && doc.receipt_invoices && doc.receipt_invoices.length > 0 && (
         <DetailCard title="ใบแจ้งหนี้ที่ชำระ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
           <div className="-mt-4 overflow-x-auto">
           <table className={TABLE.table}>

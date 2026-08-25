@@ -174,23 +174,25 @@ export function PrintLineItemsTable({
     receiptInvoices.length > 0 &&
     document.vat_registered
   ) {
+    // Settled via a billing note: one row for the ใบวางบิล, not its invoices.
+    const paidViaBn = data.receiptPaidViaBillingNote;
     return (
       <section className="print-block mt-3">
         <div className="mb-0.5">
           <span className="text-[9px] tracking-[0.12em] text-[#667085]">
-            รายการที่ชำระ
+            {paidViaBn ? "ใบวางบิลที่ชำระ" : "รายการที่ชำระ"}
           </span>
           <span className="text-[6.5px] text-[#94a3b8] ml-2">
-            PAID INVOICES
+            {paidViaBn ? "PAID BILLING NOTE" : "PAID INVOICES"}
           </span>
         </div>
         <table className="print-table w-full border-separate border-spacing-0">
           <thead className="bg-[#F4F7FB] text-[#344054]">
             <tr>
               <th className="px-2 py-1.5 text-left text-[9px] font-semibold tracking-[0.06em]">
-                เลขที่ใบแจ้งหนี้
+                {paidViaBn ? "เลขที่ใบวางบิล" : "เลขที่ใบแจ้งหนี้"}
                 <div className="text-[6.5px] font-normal text-[#94a3b8]">
-                  INVOICE NO.
+                  {paidViaBn ? "BILLING NOTE NO." : "INVOICE NO."}
                 </div>
               </th>
               <th className="px-2 py-1.5 text-left text-[9px] font-semibold tracking-[0.06em]">
