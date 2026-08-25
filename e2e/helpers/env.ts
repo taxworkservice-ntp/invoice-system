@@ -2,24 +2,39 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+const ENV_FILES = [".env", ".env.local", ".env.development"];
+
 function readEnvFile(key: string): string | undefined {
   if (process.env[key]) return process.env[key];
-  try {
-    const raw = fs.readFileSync(path.resolve(".env"), "utf8");
-    return raw.match(new RegExp(`^${key}=(.*)$`, "m"))?.[1]?.trim();
-  } catch {
-    return undefined;
+  for (const file of ENV_FILES) {
+    try {
+      const raw = fs.readFileSync(path.resolve(file), "utf8");
+      const value = raw.match(new RegExp(`^${key}=(.*)$`, "m"))?.[1]?.trim();
+      if (value) return value.replace(/^["']|["']$/g, "");
+    } catch {
+      // file missing — try next
+    }
   }
+  return undefined;
 }
 
 function readServiceKey(): string {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) return process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const fromEnv =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    readEnvFile("SUPABASE_SERVICE_ROLE_KEY");
+  if (fromEnv) return fromEnv;
   const raw = fs.readFileSync(path.resolve("supabase_key.md"), "utf8");
   return raw.split("\n").map((l) => l.trim()).find((l) => l.startsWith("eyJ"))!;
 }
 
 export const BASE_URL = "http://localhost:5173";
 export const SUPABASE_URL = readEnvFile("VITE_SUPABASE_URL") || "";
+if (!SUPABASE_URL) {
+  throw new Error(
+    `E2E setup: VITE_SUPABASE_URL not found in ${ENV_FILES.join(", ")}. ` +
+      `Run 'vercel env pull .env.development' or create .env.`,
+  );
+}
 export const PROJECT_REF = new URL(SUPABASE_URL).hostname.split(".")[0];
 export const TEST_EMAIL = "testcompany-vitest@gmail.com";
 export const TEST_PASSWORD = "test1234";

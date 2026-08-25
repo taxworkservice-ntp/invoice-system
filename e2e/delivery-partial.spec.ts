@@ -45,7 +45,7 @@ test.describe.serial("partial delivery journey", () => {
   });
 
   async function openDnForm(page: import("@playwright/test").Page) {
-    const { data: qt } = (await api()).from("documents").select("id").eq("doc_number", "QT-E2E-DN").single();
+    const { data: qt } = await (await api()).from("documents").select("id").eq("doc_number", "QT-E2E-DN").single();
     await page.goto(`/documents/new?type=delivery_note_from_quotation&quotationId=${qt!.id}`);
   }
 
@@ -54,7 +54,14 @@ test.describe.serial("partial delivery journey", () => {
     const qty = page.locator('input[type="number"]').first();
     await qty.fill("4");
     await page.getByRole("button", { name: "สร้างใบส่งของฉบับร่าง" }).click();
-    await page.waitForURL(/\/deals\//);
+    await page.waitForURL(
+      /\/deals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
+    // Draft DNs do not count as delivered until sent.
+    await page
+      .getByRole("button", { name: "บันทึกว่าส่งของแล้ว" })
+      .first()
+      .click();
     await expect(page.getByText("ส่งแล้ว 4 / 10")).toBeVisible();
   });
 
@@ -62,8 +69,14 @@ test.describe.serial("partial delivery journey", () => {
     await openDnForm(page);
     // remaining quantity (6) prefilled
     await page.getByRole("button", { name: "สร้างใบส่งของฉบับร่าง" }).click();
-    await page.waitForURL(/\/deals\//);
-    await expect(page.getByText("ส่งครบแล้ว")).toBeVisible();
+    await page.waitForURL(
+      /\/deals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
+    await page
+      .getByRole("button", { name: "บันทึกว่าส่งของแล้ว" })
+      .first()
+      .click();
+    await expect(page.getByText("ส่งครบแล้ว").first()).toBeVisible();
   });
 
   test.afterAll(async () => {

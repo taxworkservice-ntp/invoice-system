@@ -1,6 +1,7 @@
 # E2E Test Plan — Pre-Launch Regression Suite
 
-_Last updated: 2026-08-25. Status: IN PROGRESS — infrastructure done, spec 1 mid-debug, specs 2-7 written but not yet run._
+_Last updated: 2026-08-25. Status: ALL 7 SPECS GREEN ×2 consecutive full-suite runs
+(16/16 tests). Feature freeze can be lifted per section 9._
 
 ## 1. Why this exists
 
@@ -45,13 +46,13 @@ Gotchas learned already:
 - e2e/auth.setup.ts                   # session -> storageState
 - e2e/helpers/env.ts                  # api()/admin() clients, creds, BASE_URL, uid()
 - e2e/helpers/data.ts                 # createCustomer/Deal/Document/LineItems, deleteDealCascade, today
-- e2e/deal-quotation.spec.ts          # 1 QT form -> send            <-- CURRENTLY DEBUGGING (section 6)
-- e2e/invoice-from-quotation.spec.ts  # 2 convert QT -> invoice -> send (written, untested)
-- e2e/delivery-partial.spec.ts        # 3 partial DN 4/10 -> second DN completes (written, untested)
-- e2e/invoice-from-dn.spec.ts         # 4 ref/detail modes + over-billing guard (written, untested)
-- e2e/billing-note.spec.ts            # 5 BN create -> send (written, untested)
-- e2e/receipt-draft.spec.ts           # 6 draft receipt save -> edit -> confirm (written, untested)
-- e2e/credit-note.spec.ts             # 7 CN issue -> credit badge -> void and reissue (written, untested)
+- e2e/deal-quotation.spec.ts          # 1 QT form -> send            (green)
+- e2e/invoice-from-quotation.spec.ts  # 2 convert QT -> invoice -> sent (green; form saves invoice as status=sent directly)
+- e2e/delivery-partial.spec.ts        # 3 partial DN 4/10 -> second DN completes (green; draft DNs must be sent to count)
+- e2e/invoice-from-dn.spec.ts         # 4 ref/detail modes + over-billing clamp (green; UI clamps qty, no error toast path)
+- e2e/billing-note.spec.ts            # 5 BN create draft -> send (green; window.confirm on send is auto-accepted)
+- e2e/receipt-draft.spec.ts           # 6 draft receipt save -> edit -> confirm (green; seeds a bank account fixture)
+- e2e/credit-note.spec.ts             # 7 CN issue -> credit badge -> void and reissue (green)
 
 ## 5. Golden journeys (definition of done = all green x2 consecutive runs)
 
@@ -73,31 +74,38 @@ Gotchas learned already:
 7. CN: "ออกใบลดหนี้" from paid deal -> issue -> "เครดิตคงเหลือ" badge on deal ->
    CN detail -> "ยกเลิกและออกฉบับใหม่" + correction reason -> fresh draft CN
 
-## 6. CURRENT DEBUGGING STATE (start here)
+## 6. RESOLVED DEBUGGING NOTES (2026-08-25, kept as conventions)
 
-Spec 1 deal-quotation.spec.ts, test "create deal with quotation draft via form".
-Progress:
-- DONE: customer picker — click "เลือกลูกค้า", fill search placeholder
-  "ค้นหาชื่อ รหัส หรือเลขผู้เสียภาษี", click getByText(name).first(); modal
-  closes and step 1 shows the customer.
-- DONE: line items — form starts with ZERO rows. Click button
-  "เพิ่มสินค้าหรือบริการ" first, then fill placeholder
-  "พิมพ์ชื่อสินค้าหรือบริการ..." and press Enter.
-- CURRENT FAILURE: after clicking "ตรวจสอบและบันทึก", assertion
-  getByText('รอส่งใบเสนอราคา') times out on the deal page.
+Spec 1 was blocked by issues that recur across specs — the fixes below are now
+applied everywhere and are the house rules for new specs:
 
-Next steps:
-1. Read test-results/deal-quotation-*/test-failed-1.png (screenshot is
-   captured). Check: did navigation to /deals/{id} happen? Validation banner?
-   Does the stage label differ from "รอส่งใบเสนอราคา"?
-2. Possible causes:
-   - Save button label is conditional in src/app/(client)/deals/new.tsx
-     (~L2471): "ออกเอกสารทันที" / "บันทึกร่าง" / "ตรวจสอบและบันทึก" depending
-     on doc type and experience mode. The test owner's isSimpleMode may make
-     it "บันทึกร่าง".
-   - Verify actual stage label for a draft quotation on /deals/{id} via
-     getStageInfo in src/app/(client)/home.tsx.
-3. After spec 1 is green, run specs 2-7 one at a time, screenshot-first.
+1. **Env loading**: helpers/env.ts reads .env, .env.local, .env.development
+   (Vercel-pulled files) and falls back to supabase_key.md for the service key.
+   Missing VITE_SUPABASE_URL fails fast with a clear message.
+2. **Confirm modal on save**: "ตรวจสอบและบันทึก" opens a "ยืนยันการบันทึก"
+   Modal (div.fixed.inset-0, no role=dialog) — click its exact "บันทึก".
+   Scope modals by heading filter, NOT `.last()` (toasts/bars are also .fixed).
+3. **URL waits**: wait for /deals/<uuid> or /documents/<uuid> regexes.
+   Loose /\/deals\// matches /deals/new and captures garbage ids.
+4. **Home vs deal labels**: "รอส่งใบเสนอราคา", "ใบแจ้งหนี้ส่งแล้ว",
+   "ใบวางบิลส่งแล้ว", "รอยืนยันการรับเงิน" are home-pipeline hints only.
+   Deal page equivalents: pill "ร่าง"/"รอวางบิล"/"รอชำระ"/"ชำระแล้ว" +
+   main-action button (see getStatusPill / mainAction in deals/[id].tsx).
+5. **window.confirm**: sending invoice/billing_note/tax_invoice_receipt from
+   the deal page calls window.confirm — register page.once("dialog") accept.
+6. **Unawaited queries**: `(await api()).from(...).single()` without await
+   destructures a thenable -> undefined. Always `await (await api()).from(...)`.
+7. **Form load race**: document forms bail silently while deal data is still
+   loading (e.g. CreditNoteForm handleSave returns if customer/items not set).
+   Gate issue/save clicks on a loaded-state signal such as the FormActionBar
+   context label "{customer} · [1-9]\d* รายการ" (count must be nonzero).
+8. **Draft DNs don't count as delivered**: after "สร้างใบส่งของฉบับร่าง",
+   send via "บันทึกว่าส่งของแล้ว" before asserting "ส่งแล้ว N / M".
+9. **Over-billing**: the DN-invoice grid clamps qty to remaining (input max +
+   onChange clamp); assert the clamp (toHaveValue), not an error toast.
+10. **Bank account fixture**: transfer payments need a bank_accounts row;
+    receipt-draft.spec seeds one and asserts the disabled placeholder
+    ("ยังไม่มีบัญชีธนาคาร") disappears (guards the default-select race).
 
 ## 7. Selector conventions
 
@@ -124,7 +132,13 @@ spec fails, suspect a regression of the original bug first:
 
 ## 9. After all specs are green
 
-1. Run the full suite twice consecutively — must pass both times.
-2. Merge backup/print-pre-refactor -> main.
+1. DONE 2026-08-25 — full suite passed twice consecutively (16/16 both runs).
+2. Next: merge backup/print-pre-refactor -> main.
 3. Then proceed to closed beta (2-5 real users, feedback triage) per the
    pre-launch process discussed 2026-08-25.
+
+Optional hardening backlog found during debugging (not launch-blocking):
+- CreditNoteForm.handleSave silently no-ops when customer/items are still
+  loading; consider a toast or disabled-with-reason state for clarity.
+- The over-credit error message in CreditNoteForm contains a stray "cho"
+  typo ("จำนวนที่จะออกบิล cho ...").

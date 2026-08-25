@@ -34,12 +34,24 @@ test.describe.serial("billing note journey", () => {
   test("create billing note from sent invoice", async ({ page }) => {
     await page.goto(`/deals/${dealId}`);
     await page.getByRole("button", { name: "สร้างใบวางบิล" }).click();
-    // invoice pre-selected; save draft via action bar
+    // Invoice is pre-checked (auto-selected from this deal).
+    // Saving a draft keeps the form open — sync on the insert completing.
+    const saveDone = page.waitForResponse(
+      (r) =>
+        r.url().includes("/rest/v1/documents") &&
+        r.request().method() === "POST",
+    );
     await page.getByRole("button", { name: "บันทึกร่าง" }).click();
-    await expect(page.getByText("ล็อคหลังส่ง").first()).toBeHidden();
-    // send it
+    await saveDone;
+
+    // Draft BN shows on the deal page with the send action.
+    await page.goto(`/deals/${dealId}`);
+    await expect(page.getByText("ร่าง", { exact: true }).first()).toBeVisible();
+    // billing_note is a financial type -> window.confirm before locking.
+    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "ส่งใบวางบิลให้ลูกค้า" }).click();
-    await expect(page.getByText("ใบวางบิลส่งแล้ว")).toBeVisible();
+    // Sent billing note pill on the deal page.
+    await expect(page.getByText("รอชำระ").first()).toBeVisible();
   });
 
   test.afterAll(async () => {

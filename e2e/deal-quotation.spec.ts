@@ -21,13 +21,28 @@ test.describe.serial("deal + quotation journey", () => {
     const itemInput = page.getByPlaceholder("พิมพ์ชื่อสินค้าหรือบริการ...");
     await itemInput.fill("E2E Service Item");
     await itemInput.press("Enter");
+    await page.getByLabel("ราคา/หน่วย").fill("150");
 
+    // Confirm modal "ยืนยันการบันทึก" appears first; save inside it.
+    // exact:true so it cannot match the form's own "ตรวจสอบและบันทึก".
     await page.getByRole("button", { name: "ตรวจสอบและบันทึก" }).click();
-    await page.waitForURL(/\/deals\//);
+    const confirmModal = page.locator("div.fixed.inset-0").filter({
+      has: page.getByRole("heading", { name: "ยืนยันการบันทึก" }),
+    });
+    await confirmModal.getByRole("button", { name: "บันทึก", exact: true }).click();
+
+    // Deal URLs are UUIDs — /deals/new must NOT match.
+    await page.waitForURL(
+      /\/deals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
     dealId = page.url().split("/deals/")[1].split(/[?#]/)[0];
 
-    // Draft stage visible
-    await expect(page.getByText("รอส่งใบเสนอราคา")).toBeVisible();
+    // Draft stage on the deal page: pill "ร่าง" + send action available.
+    // ("รอส่งใบเสนอราคา" is the home-pipeline hint, never shown on /deals/{id}.)
+    await expect(page.getByText("ร่าง", { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "ส่งใบเสนอราคาให้ลูกค้า" }),
+    ).toBeVisible();
   });
 
   test("send quotation from deal page", async ({ page }) => {

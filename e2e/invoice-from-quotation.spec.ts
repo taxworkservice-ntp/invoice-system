@@ -49,7 +49,7 @@ test.describe.serial("invoice from quotation journey", () => {
   });
 
   test("convert sent quotation → form renders all five steps", async ({ page }) => {
-    const { data: qt } = (await api()).from("documents").select("id").eq("doc_number", "QT-E2E-INV").single();
+    const { data: qt } = await (await api()).from("documents").select("id").eq("doc_number", "QT-E2E-INV").single();
     await page.goto(`/documents/new?type=invoice_from_quotation&quotationId=${qt!.id}`);
 
     for (const step of ["ลูกค้าและรอบเอกสาร", "เลือกใบเสนอราคา", "รายการที่จะออกบิล", "ตัวเลือกเอกสาร", "สรุปและบันทึก"]) {
@@ -58,14 +58,17 @@ test.describe.serial("invoice from quotation journey", () => {
   });
 
   test("create + send invoice from deal page", async ({ page }) => {
-    const { data: qt } = (await api()).from("documents").select("id").eq("doc_number", "QT-E2E-INV").single();
+    const { data: qt } = await (await api()).from("documents").select("id").eq("doc_number", "QT-E2E-INV").single();
     await page.goto(`/documents/new?type=invoice_from_quotation&quotationId=${qt!.id}`);
+    // The form inserts the invoice directly with status "sent"
+    // (create + send in one tap, InvoiceFromQuotationForm.tsx).
     await page.getByRole("button", { name: "สร้างใบแจ้งหนี้" }).click();
-    await page.waitForURL(/\/deals\//);
+    await page.waitForURL(
+      /\/deals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
     await expect(page.getByText("รอวางบิล")).toBeVisible();
-
-    await page.getByRole("button", { name: "ส่งใบแจ้งหนี้ให้ลูกค้า" }).click();
-    await expect(page.getByText("ใบแจ้งหนี้ส่งแล้ว")).toBeVisible();
+    // Sent invoice -> next action is billing note creation.
+    await expect(page.getByRole("button", { name: "สร้างใบวางบิล" })).toBeVisible();
   });
 
   test.afterAll(async () => {

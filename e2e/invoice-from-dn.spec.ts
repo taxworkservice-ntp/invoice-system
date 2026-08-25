@@ -45,7 +45,7 @@ test.describe.serial("invoice from delivery notes — both modes + guard", () =>
   });
 
   test("ref mode shows one summary row per DN", async ({ page }) => {
-    const { data: dn } = (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
+    const { data: dn } = await (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
     await page.goto(`/documents/new?type=invoice_from_delivery_notes&dnId=${dn!.id}`);
     await expect(page.getByText(`ใบส่งของ ${dnNumber}`)).toBeVisible();
     // no detail grid inputs in ref mode
@@ -53,21 +53,27 @@ test.describe.serial("invoice from delivery notes — both modes + guard", () =>
   });
 
   test("detail mode shows the editable grid with variance hints", async ({ page }) => {
-    const { data: dn } = (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
+    const { data: dn } = await (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
     await page.goto(`/documents/new?type=invoice_from_delivery_notes&dnId=${dn!.id}`);
-    await page.getByText("โหมดอ้างอิง").click();
+    await page.getByText("โหมดอ้างอิง", { exact: true }).click();
     await expect(page.getByPlaceholder("+ รายละเอียด / สเปค").first()).toBeVisible();
   });
 
-  test("over-billing is blocked with a clear error", async ({ page }) => {
-    const { data: dn } = (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
+  test("over-billing is prevented by qty clamp", async ({ page }) => {
+    const { data: dn } = await (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
     await page.goto(`/documents/new?type=invoice_from_delivery_notes&dnId=${dn!.id}`);
     // switch to detail mode and try to over-bill
-    await page.getByText("โหมดอ้างอิง").click();
+    await page.getByText("โหมดอ้างอิง", { exact: true }).click();
     const qty = page.locator('input[type="number"]').first();
     await qty.fill("99");
+    // The input clamps to the remaining delivered quantity (5) —
+    // over-billing cannot be submitted from the UI.
+    await expect(qty).toHaveValue("5");
     await page.getByRole("button", { name: "สร้างใบแจ้งหนี้" }).click();
-    await expect(page.getByText("มากกว่ายอดคงเหลือ")).toBeVisible();
+    await page.waitForURL(
+      /\/deals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
+    await expect(page.getByRole("button", { name: "สร้างใบวางบิล" })).toBeVisible();
   });
 
   test.afterAll(async () => {

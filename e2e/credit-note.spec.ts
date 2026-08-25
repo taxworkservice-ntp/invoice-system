@@ -13,10 +13,12 @@ import {
 
 test.describe.serial("credit note journey", () => {
   let dealId: string;
+  let custName: string;
   let cnUrl: string;
 
   test.beforeAll(async () => {
     const cust = await createCustomer(`E2E Cust CN ${Date.now()}`);
+    custName = cust.name;
     const deal = await createDeal(cust.id);
     dealId = deal.id;
     const userId = await getUserId();
@@ -36,11 +38,19 @@ test.describe.serial("credit note journey", () => {
   test("issue credit note against fully-paid invoice → customer credit badge", async ({ page }) => {
     await page.goto(`/deals/${dealId}`);
     await page.getByRole("button", { name: "ออกใบลดหนี้" }).click();
-    // ref invoice lines auto-load; issue from the action bar
+    // The action bar context label "{customer} · {n} รายการ" only renders once
+    // the deal data has loaded — but n must be >= 1: issuing while the invoice
+    // lines are still fetching silently no-ops (items.length === 0 guard).
+    await expect(
+      page.getByText(new RegExp(`${custName} · [1-9]\\d* รายการ`)),
+    ).toBeVisible();
     await page.getByRole("button", { name: "ออกใบลดหนี้" }).last().click();
-    await page.waitForURL(/\/documents\//);
+    // Wait for the issued CN's own detail page — /documents/new must not match.
+    await page.waitForURL(
+      /\/documents\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
     cnUrl = page.url();
-    await expect(page.getByText("ออกแล้ว")).toBeVisible();
+    await expect(page.getByText("ออกแล้ว", { exact: true })).toBeVisible();
 
     // back on the deal, customer credit badge appears
     await page.goto(`/deals/${dealId}`);
