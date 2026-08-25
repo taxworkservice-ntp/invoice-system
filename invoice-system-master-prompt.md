@@ -755,6 +755,15 @@ Do not build these in v1. They can be added without redesigning the system:
 ## Current Rollout Status
 
 Completed:
+- Pre-launch security hardening (2026-08-25): dev mode locked behind admin-only paths — toggle_dev_mode RPC verifies is_admin() + revoked PUBLIC/anon execute; trigger blocks non-admin updates of dev_mode_enabled/dev_effective_date via the owner client_profiles policy (sql/20260825_lock_dev_mode.sql, behaviorally verified against production DB)
+- Secrets hygiene: removed VITE_-prefixed fallbacks for SUPABASE_SERVICE_ROLE_KEY and R2 credentials in api/_lib (Vite inlines VITE_* into the client bundle); .env.example documents all required vars; scripts/check-env.mjs (`npm run check:env`) validates names + forbids secret prefixes
+- Credit note ref-summary pollution fixed: invoice-from-DN/QT print-marker rows (ใบส่งของ DN-… qty 0) no longer copied into CN/DB forms — shared isRefSummaryLine lib (src/lib/refSummary.ts) detects both lineage and lineage-stripped signatures; scripts/cleanup_cn_ref_summary_rows.mjs cleaned existing rows
+- Deal financial summary restructured into a waterfall statement (FinancialSummaryCard): ตามใบกำกับ → ปรับปรุงยอด → การรับเงิน with visible arithmetic; adjustment notes reconcile on NET basis (gross incl VAT minus their own WHT release) — CN gross 139,100/WHT 3,900 reduces due by 135,200 not 139,100
+- Shared money lib src/lib/dealFinancials.ts: single source for deal page card, deal summary sheet, and home dashboard (getDealNetAdjustment gross math deleted); unit tests in tests/integration/dealFinancials.spec.ts
+- Deal summary sheet ("สรุปงานขาย" button on deal header): modal with chronological activity timeline grouped by day, full document ledger incl. voided, payment ledger (method/date/WHT cert), reconciliation statement; print via body-level portal + window.print() (deal-summary-print CSS); e2e/deal-summary.spec.ts guards it
+- Cron/env launch tooling: scripts/smoke-cron-overdue.mjs (`npm run smoke:cron <url>`) proves deployed /api/cron/overdue rejects unauthenticated and runs mark_overdue_billing_notes with Bearer CRON_SECRET
+- Playwright E2E suite: 7 golden-journey specs + auth setup against isolated test workspace (testcompany-vitest); feature freeze until green (see test_plan.md)
+- E2E gate PASSED 2026-08-25: all specs green ×2 consecutive full-suite runs (17 tests incl. deal-summary spec); house conventions from debugging recorded in test_plan.md §6
 - Delivery note hide-amounts-on-print toggle: hide_amounts_on_print column on documents, toggle in create/edit forms (deals/new, DeliveryNoteFromQuotationForm), respected consistently by both modern and classic print templates
 - Fixed classic template blank-row column misalignment (extra td breaking table-layout: fixed)
 - Fixed classic template colgroup mismatch when hiding DN amounts — conditional colgroup matching column count
@@ -808,9 +817,8 @@ Completed:
 Still remaining:
 
 ### Phase 0 — LAUNCH GATE (current, 2026-08)
-- FEATURE FREEZE until the Playwright golden-journey suite passes twice consecutively
-- Continue E2E work per test_plan.md (spec 1 mid-debug, specs 2-7 untested)
-- Hardening sweep: manual QA checklist per form (mobile + desktop)
+- E2E GATE PASSED 2026-08-25: suite green ×2 consecutive runs — freeze lifted
+- Remaining pre-beta checklist: custom SMTP in Supabase Auth, production Site URL/redirects, backups/PITR, Vercel CRON_SECRET + R2_BUCKET scope, post-deploy `npm run smoke:cron`, physical print QA (mobile + desktop, iOS Safari)
 - Then closed beta with 2-5 real users before open launch
 
 ### Phase 1

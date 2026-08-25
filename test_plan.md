@@ -1,7 +1,8 @@
 # E2E Test Plan — Pre-Launch Regression Suite
 
-_Last updated: 2026-08-25. Status: ALL 7 SPECS GREEN ×2 consecutive full-suite runs
-(16/16 tests). Feature freeze can be lifted per section 9._
+_Last updated: 2026-08-25. Status: ALL 8 SPECS GREEN ×2 consecutive full-suite runs
+(17/17 journeys) + 13 vitest integration/unit tests green. Feature freeze lifted;
+pre-beta checklist lives in invoice-system-master-prompt.md Phase 0._
 
 ## 1. Why this exists
 
@@ -52,7 +53,11 @@ Gotchas learned already:
 - e2e/invoice-from-dn.spec.ts         # 4 ref/detail modes + over-billing clamp (green; UI clamps qty, no error toast path)
 - e2e/billing-note.spec.ts            # 5 BN create draft -> send (green; window.confirm on send is auto-accepted)
 - e2e/receipt-draft.spec.ts           # 6 draft receipt save -> edit -> confirm (green; seeds a bank account fixture)
-- e2e/credit-note.spec.ts             # 7 CN issue -> credit badge -> void and reissue (green)
+- e2e/credit-note.spec.ts             # 7 CN issue -> credit badge -> void and reissue (green; guards no ref-summary rows copied into CN)
+- e2e/deal-summary.spec.ts            # 8 summary sheet: timeline + doc ledger + reconciliation statement (green)
+
+Unit-level money-math lock: tests/integration/dealFinancials.spec.ts (net-basis
+adjustment reconciliation incl. WHT release; shared by deal page, sheet, home).
 
 ## 5. Golden journeys (definition of done = all green x2 consecutive runs)
 
