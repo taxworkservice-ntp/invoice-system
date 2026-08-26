@@ -19,10 +19,12 @@ const variants = [
   { template: "classic", copyType: "copy" },
   { template: "modern", copyType: "original", doc: "many" },
   { template: "classic", copyType: "original", doc: "many" },
+  { template: "modern", copyType: "original", doc: "many", appendix: true },
 ];
 
-function nameFor({ template, copyType, doc }) {
-  return doc === "many" ? `many-${template}-${copyType}.png` : `${template}-${copyType}.png`;
+function nameFor({ template, copyType, doc, appendix }) {
+  if (doc === "many") return appendix ? `many-${template}-${copyType}-appendix.png` : `many-${template}-${copyType}.png`;
+  return `${template}-${copyType}.png`;
 }
 
 async function executablePath() {
@@ -141,6 +143,7 @@ async function renderVariant(page, baseUrl, variant) {
   url.searchParams.set("template", variant.template);
   url.searchParams.set("copyType", variant.copyType);
   if (variant.doc) url.searchParams.set("doc", variant.doc);
+  if (variant.appendix) url.searchParams.set("appendix", "1");
 
   // networkidle never settles on the Vite dev server (HMR socket) — use
   // domcontentloaded + the print-sheet selector below instead.

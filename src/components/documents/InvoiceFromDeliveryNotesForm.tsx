@@ -158,6 +158,16 @@ export function InvoiceFromDeliveryNotesForm() {
     window.localStorage.setItem("invoice-system.invoiceRefOnly", String(refOnlyMode));
   }, [refOnlyMode]);
 
+  // Appendix: attach per-DN delivered-vs-billed breakdown after the invoice pages.
+  const [dnAppendix, setDnAppendix] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("invoice-system.dnAppendix") === "true";
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem("invoice-system.dnAppendix", String(dnAppendix));
+  }, [dnAppendix]);
+
   useEffect(() => {
     if (clientProfile) {
       setWhtRate(clientProfile.default_wht_rate);
@@ -616,10 +626,11 @@ export function InvoiceFromDeliveryNotesForm() {
           vat_amount: tax.vatAmount,
           total_amount: tax.total,
           wht_amount: tax.whtAmount,
-          net_payable: tax.netPayable,
-          note: note || null,
-          show_dn_variance: showDnVariance,
-        })
+           net_payable: tax.netPayable,
+           note: note || null,
+           dn_appendix: dnAppendix,
+           show_dn_variance: showDnVariance,
+         })
         .select("*")
         .single();
 
@@ -1252,6 +1263,15 @@ export function InvoiceFromDeliveryNotesForm() {
               description="พิมพ์จำนวน/ราคาที่เปลี่ยนไปจากใบส่งของต้นทาง เป็นหลักฐานประกอบใบกำกับภาษี"
               checked={showDnVariance}
               onChange={setShowDnVariance}
+            />
+          )}
+          {selectedDeliveryNotes.length > 0 && (
+            <DocumentOptionRow
+              label="แนบภาคผนวกรายละเอียดการส่งของ"
+              badge="ใบส่งของ"
+              description="PDF แสดงรายการแบบกระชับ และแนบตารางเปรียบเทียบ ส่งแล้ว vs เรียกเก็บ ตามใบส่งของท้ายเอกสาร"
+              checked={dnAppendix}
+              onChange={setDnAppendix}
             />
           )}
         </DocumentOptionsCard>

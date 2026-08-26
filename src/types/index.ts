@@ -334,6 +334,7 @@ export interface Document {
     cheque_bank?: string | null;
     cheque_date?: string | null;
   } | null;
+  dn_appendix?: boolean;
   wht_certificate_no: string | null;
   paid_at: string | null;
   amount_received: number | null;

@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import "../src/index.css";
 import { PrintDocument } from "../src/components/print/PrintDocument";
 import { PrintDocumentClassic } from "../src/components/print/PrintDocumentClassic";
+import { PrintAppendix } from "../src/components/print/PrintAppendix";
+import { applyAppendixToData } from "../src/lib/print";
 import type { CopyType } from "../src/components/print/PrintDocument";
 import type { HtmlPrintTemplate, PrintDocumentData } from "../src/lib/print";
 import type {
@@ -243,41 +245,45 @@ const data = (template: HtmlPrintTemplate): PrintDocumentData => ({
 // --- "many" fixture: 30 lines to exercise multi-page pagination ---
 // Mix of long names (wrapping), multi-line notes, discounts, and DN-variance
 // sub-lines (show_dn_variance + source refs with changed qty/price).
-const manyLineItems: DocumentLineItem[] = Array.from({ length: 30 }, (_, i) => {
-  const n = i + 1;
-  const longName = n % 3 === 0;
-  const withNote = n % 2 === 0;
-  const withDiscount = n % 4 === 0;
-  const changed = n % 5 === 0; // billed qty differs from delivered -> variance
-  const qty = changed ? Math.max(1, 3 - (n % 2)) : 3;
-  const price = 100 + n;
-  return {
-    id: `many-line-${n}`,
-    document_id: "doc-many",
-    user_id: "user-layout-baseline",
-    item_id: `item-${n}`,
-    item_name: longName
-      ? `Industrial packaging solution with extended specification line item number ${n} for warehouse operations`
-      : `E2E many-lines item ${n}`,
-    line_note: withNote ? `Batch note for item ${n}\nSecond note line with additional handling instructions` : null,
-    item_sku: `MANY-${String(n).padStart(3, "0")}`,
-    item_type: "product",
-    unit: "ชิ้น",
-    unit_price: price,
-    quantity: qty,
-    base_quantity: qty,
-    discount_percent: withDiscount ? 5 : 0,
-    discount_amount: withDiscount ? Math.round(price * qty * 5) / 100 : 0,
-    qty_carton: null,
-    carton_unit: null,
-    source_document_id: "delivery-note-many",
-    source_line_item_id: `dn-line-${n}`,
-    source_delivered_qty: qty + (changed ? 1 : 0),
-    source_unit_price: price + (changed && n % 10 === 0 ? 20 : 0),
-    line_total: Math.round(price * qty * (withDiscount ? 0.95 : 1) * 100) / 100,
-    sort_order: n,
-    created_at: now,
-  };
+const manyDns = ["DN-MANY-001", "DN-MANY-002", "DN-MANY-003"];
+const manyLineItems: DocumentLineItem[] = [];
+manyDns.forEach((dn, di) => {
+  for (let j = 0; j < 10; j++) {
+    const n = di * 10 + j + 1;
+    const longName = n % 3 === 0;
+    const withNote = n % 2 === 0;
+    const withDiscount = n % 4 === 0;
+    const changed = n % 5 === 0;
+    const qty = changed ? Math.max(1, 3 - (n % 2)) : 3;
+    const price = 100 + n;
+    manyLineItems.push({
+      id: `many-line-${n}`,
+      document_id: "doc-many",
+      user_id: "user-layout-baseline",
+      item_id: `item-${n}`,
+      item_name: longName
+        ? `Industrial packaging solution with extended specification line item number ${n} for warehouse operations`
+        : `E2E many-lines item ${n}`,
+      line_note: withNote ? `Batch note for item ${n}\nSecond note line with additional handling instructions` : null,
+      item_sku: `MANY-${String(n).padStart(3, "0")}`,
+      item_type: "product",
+      unit: "ชิ้น",
+      unit_price: price,
+      quantity: qty,
+      base_quantity: qty,
+      discount_percent: withDiscount ? 5 : 0,
+      discount_amount: withDiscount ? Math.round(price * qty * 5) / 100 : 0,
+      qty_carton: null,
+      carton_unit: null,
+      source_document_id: `dn-many-${di + 1}`,
+      source_line_item_id: `dn-line-${n}`,
+      source_delivered_qty: qty + (changed ? 1 : 0),
+      source_unit_price: price + (changed && n % 10 === 0 ? 20 : 0),
+      line_total: Math.round(price * qty * (withDiscount ? 0.95 : 1) * 100) / 100,
+      sort_order: n,
+      created_at: now,
+    });
+  }
 });
 
 const manyDocumentData: Document = {
@@ -287,10 +293,25 @@ const manyDocumentData: Document = {
   show_dn_variance: true,
 };
 
+const manyLinks: InvoiceDeliveryNote[] = manyDns.map((dn, di) => ({
+  id: `many-link-${di + 1}`,
+  invoice_id: "doc-many",
+  delivery_note_id: `dn-many-${di + 1}`,
+  user_id: "user-layout-baseline",
+  delivery_note_number: dn,
+  issue_date: `2026-07-${String(20 + di).padStart(2, "0")}`,
+  subtotal: 3000 + di * 100,
+  vat_amount: 0,
+  total_amount: 3000 + di * 100,
+  released_at: null,
+  created_at: now,
+}));
+
 const manyData = (template: HtmlPrintTemplate): PrintDocumentData => ({
   ...data(template),
   document: manyDocumentData,
   lineItems: manyLineItems,
+  invoiceDeliveryNotes: manyLinks,
 });
 
 
@@ -299,7 +320,11 @@ const template = params.get("template") === "classic" ? "classic" : "modern";
 const copyType: CopyType =
   params.get("copyType") === "copy" ? "copy" : "original";
 const docVariant = params.get("doc") === "many" ? "many" : "base";
-const activeData = docVariant === "many" ? manyData(template) : data(template);
+const appendixOn = params.get("appendix") === "1";
+const baseData = docVariant === "many" ? manyData(template) : data(template);
+const activeData = appendixOn
+  ? { ...baseData, document: { ...baseData.document, dn_appendix: true } }
+  : baseData;
 
 document.documentElement.classList.add("print-export-document");
 document.body.classList.add("print-export-document");
@@ -315,6 +340,14 @@ createRoot(document.getElementById("root")!).render(
           <PrintDocument data={activeData} copyType={copyType} />
         )}
       </div>
+      {(() => {
+        const { appendix } = applyAppendixToData(activeData);
+        return appendix.enabled ? (
+          <div className="print-export-page">
+            <PrintAppendix data={appendix} template={template} />
+          </div>
+        ) : null;
+      })()}
     </div>
   </React.StrictMode>,
 );

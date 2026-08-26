@@ -10,6 +10,95 @@ import type {
 } from "../types";
 import { getDocumentDetail } from "../hooks/useDocuments";
 import { supabase } from "./supabase";
+
+export interface PrintAppendixGroup {
+  dnNumber: string;
+  issueDate: string | null;
+  items: Array<{
+    id: string;
+    item_name: string;
+    unit: string;
+    deliveredQty: number;
+    billedQty: number;
+    unitPrice: number;
+    dnUnitPrice: number;
+    line_total: number;
+  }>;
+}
+
+export interface PrintAppendixData {
+  enabled: boolean;
+  groups: PrintAppendixGroup[];
+}
+
+/**
+ * A delivery-note "header" row (one per DN, qty 0 / price 0) is a grouping
+ * marker — it carries no amount, so when the appendix is enabled it is hidden
+ * from the invoice pages (the per-DN breakdown moves to the appendix).
+ */
+export function isDnHeaderRow(item: DocumentLineItem): boolean {
+  return (
+    Boolean(item.source_document_id) &&
+    !item.source_line_item_id &&
+    Number(item.quantity) === 0 &&
+    Number(item.unit_price) === 0
+  );
+}
+
+/**
+ * When the appendix is on and the invoice is DN-sourced: strip DN-header rows
+ * from the invoice's item list (they live in the appendix instead) and build
+ * the per-DN breakdown the appendix renders.
+ */
+export function applyAppendixToData(
+  data: PrintableDocumentDataBase,
+): { filteredLineItems: DocumentLineItem[]; appendix: PrintAppendixData } {
+  const enabled =
+    data.document.dn_appendix === true && data.invoiceDeliveryNotes.length > 0;
+
+  if (!enabled) {
+    return { filteredLineItems: data.lineItems, appendix: { enabled: false, groups: [] } };
+  }
+
+  const filteredLineItems = data.lineItems.filter((item) => !isDnHeaderRow(item));
+
+  // Map each source line item back to its DN via source_document_id.
+  const linesByDn = new Map<string, DocumentLineItem[]>();
+  for (const item of filteredLineItems) {
+    const dnId = item.source_document_id;
+    if (!dnId) continue;
+    const list = linesByDn.get(dnId) || [];
+    list.push(item);
+    linesByDn.set(dnId, list);
+  }
+
+  const groups: PrintAppendixGroup[] = data.invoiceDeliveryNotes
+    .slice()
+    .sort((a, b) => (a.issue_date || "").localeCompare(b.issue_date || ""))
+    .map((link) => {
+      const items = (linesByDn.get(link.delivery_note_id) || []).map((li) => ({
+        id: li.id,
+        item_name: li.item_name,
+        unit: li.unit || "ชิ้น",
+        deliveredQty: Number(li.source_delivered_qty ?? li.quantity) || 0,
+        billedQty: Number(li.quantity) || 0,
+        unitPrice: Number(li.unit_price) || 0,
+        dnUnitPrice: Number(li.source_unit_price ?? li.unit_price) || 0,
+        line_total: Number(li.line_total) || 0,
+      }));
+      return {
+        dnNumber: link.delivery_note_number,
+        issueDate: link.issue_date,
+        items,
+      };
+    });
+
+  return { filteredLineItems, appendix: { enabled: true, groups } };
+}
+
+export function shouldSuppressVarianceForAppendix(data: PrintableDocumentDataBase): boolean {
+  return data.document.dn_appendix === true && data.invoiceDeliveryNotes.length > 0;
+}
 import { isRefSummaryLine } from "./refSummary";
 import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
@@ -566,6 +655,52 @@ async function renderModernPrintCanvas(
   }
 }
 
+async function renderAppendixCanvas(
+  data: PrintableDocumentDataBase,
+  template: HtmlPrintTemplate,
+): Promise<HTMLCanvasElement | null> {
+  const { appendix } = applyAppendixToData(data);
+  if (!appendix.enabled) return null;
+
+  const { default: html2canvas } = await import("html2canvas");
+  const container = document.createElement("div");
+  container.style.cssText = `position:fixed;top:0;left:0;width:${A4_WIDTH_MM}mm;height:${A4_HEIGHT_MM}mm;opacity:0;pointer-events:none;z-index:-1;isolation:isolate;overflow:hidden;background:#ffffff;`;
+  document.body.appendChild(container);
+  let root: { render: (...args: any[]) => void; unmount: () => void } | null = null;
+  try {
+    const { createRoot } = await import("react-dom/client");
+    const { PrintAppendix } = await import("../components/print/PrintAppendix");
+    const React = await import("react");
+    const printData: PrintDocumentData = { ...data, template, document: data.document };
+
+    root = createRoot(container);
+    await new Promise<void>((resolve) => {
+      root?.render(
+        React.createElement(PrintAppendix, { data: appendix, template }),
+      );
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const sheet = container.querySelector<HTMLElement>(".print-appendix");
+    if (!sheet) return null;
+    if (document.fonts?.ready) await document.fonts.ready;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const rect = sheet.getBoundingClientRect();
+    return await html2canvas(sheet, {
+      scale: PDF_CANVAS_SCALE,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      width: rect.width,
+      height: rect.height,
+      windowWidth: rect.width,
+      windowHeight: rect.height,
+    });
+  } finally {
+    root?.unmount();
+    document.body.removeChild(container);
+  }
+}
+
 async function renderModernPrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
@@ -588,6 +723,26 @@ async function renderModernPrintPages(
       ),
     ),
   );
+}
+
+async function appendAppendixToPdf(
+  pdf: any,
+  data: PrintableDocumentDataBase,
+  template: HtmlPrintTemplate,
+  firstPage: boolean,
+): Promise<boolean> {
+  const appendixCanvas = await renderAppendixCanvas(data, template);
+  if (!appendixCanvas) return firstPage;
+  if (!firstPage) pdf.addPage();
+  pdf.addImage(
+    appendixCanvas.toDataURL("image/png"),
+    "PNG",
+    0,
+    0,
+    A4_WIDTH_MM,
+    A4_HEIGHT_MM,
+  );
+  return false;
 }
 
 export async function generateModernPDFDocument(
@@ -790,7 +945,7 @@ export async function generateClassicPDFDocument(
       );
     }
   }
-
+  await appendAppendixToPdf(pdf, data, "classic", firstPage);
   return pdf;
 }
 
@@ -986,7 +1141,7 @@ export async function generateClassicV2PDFDocument(
       );
     }
   }
-
+  await appendAppendixToPdf(pdf, data, "classic_v2", firstPage);
   return pdf;
 }
 
