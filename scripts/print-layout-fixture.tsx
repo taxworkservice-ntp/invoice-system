@@ -239,10 +239,67 @@ const data = (template: HtmlPrintTemplate): PrintDocumentData => ({
   invoiceNumberMap: {},
 });
 
+
+// --- "many" fixture: 30 lines to exercise multi-page pagination ---
+// Mix of long names (wrapping), multi-line notes, discounts, and DN-variance
+// sub-lines (show_dn_variance + source refs with changed qty/price).
+const manyLineItems: DocumentLineItem[] = Array.from({ length: 30 }, (_, i) => {
+  const n = i + 1;
+  const longName = n % 3 === 0;
+  const withNote = n % 2 === 0;
+  const withDiscount = n % 4 === 0;
+  const changed = n % 5 === 0; // billed qty differs from delivered -> variance
+  const qty = changed ? Math.max(1, 3 - (n % 2)) : 3;
+  const price = 100 + n;
+  return {
+    id: `many-line-${n}`,
+    document_id: "doc-many",
+    user_id: "user-layout-baseline",
+    item_id: `item-${n}`,
+    item_name: longName
+      ? `Industrial packaging solution with extended specification line item number ${n} for warehouse operations`
+      : `E2E many-lines item ${n}`,
+    line_note: withNote ? `Batch note for item ${n}\nSecond note line with additional handling instructions` : null,
+    item_sku: `MANY-${String(n).padStart(3, "0")}`,
+    item_type: "product",
+    unit: "ชิ้น",
+    unit_price: price,
+    quantity: qty,
+    base_quantity: qty,
+    discount_percent: withDiscount ? 5 : 0,
+    discount_amount: withDiscount ? Math.round(price * qty * 5) / 100 : 0,
+    qty_carton: null,
+    carton_unit: null,
+    source_document_id: "delivery-note-many",
+    source_line_item_id: `dn-line-${n}`,
+    source_delivered_qty: qty + (changed ? 1 : 0),
+    source_unit_price: price + (changed && n % 10 === 0 ? 20 : 0),
+    line_total: Math.round(price * qty * (withDiscount ? 0.95 : 1) * 100) / 100,
+    sort_order: n,
+    created_at: now,
+  };
+});
+
+const manyDocumentData: Document = {
+  ...documentData,
+  id: "doc-many",
+  doc_number: "INV-2026-07-MANY",
+  show_dn_variance: true,
+};
+
+const manyData = (template: HtmlPrintTemplate): PrintDocumentData => ({
+  ...data(template),
+  document: manyDocumentData,
+  lineItems: manyLineItems,
+});
+
+
 const params = new URLSearchParams(window.location.search);
 const template = params.get("template") === "classic" ? "classic" : "modern";
 const copyType: CopyType =
   params.get("copyType") === "copy" ? "copy" : "original";
+const docVariant = params.get("doc") === "many" ? "many" : "base";
+const activeData = docVariant === "many" ? manyData(template) : data(template);
 
 document.documentElement.classList.add("print-export-document");
 document.body.classList.add("print-export-document");
@@ -253,9 +310,9 @@ createRoot(document.getElementById("root")!).render(
     <div className="print-export-stack">
       <div className="print-export-page">
         {template === "classic" ? (
-          <PrintDocumentClassic data={data(template)} copyType={copyType} />
+          <PrintDocumentClassic data={activeData} copyType={copyType} />
         ) : (
-          <PrintDocument data={data(template)} copyType={copyType} />
+          <PrintDocument data={activeData} copyType={copyType} />
         )}
       </div>
     </div>

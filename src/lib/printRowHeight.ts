@@ -64,6 +64,8 @@ export function estimateLineItemHeight(
     hasLineDiscount?: boolean;
     hasInlineDnRef?: boolean;
     hasInvoiceRef?: boolean;
+    /** DN variance sub-line (show_dn_variance) rendered under the row. */
+    hasDnVariance?: boolean;
   } = {},
 ): number {
   const isClassic = template !== "modern";
@@ -93,6 +95,7 @@ export function estimateLineItemHeight(
   if (opts.hasLineDiscount) subLines += 1;
   if (opts.hasInlineDnRef) subLines += 1;
   if (opts.hasInvoiceRef) subLines += 1;
+  if (opts.hasDnVariance) subLines += 1;
 
   const nameMm = base + (nameLines - 1) * TEXT_LINE_MM[key];
   const noteMm = noteLines * NOTE_LINE_MM[key];

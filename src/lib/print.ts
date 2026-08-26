@@ -14,6 +14,7 @@ import { isRefSummaryLine } from "./refSummary";
 import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 import { estimateLineItemHeight } from "./printRowHeight";
+import { getDnVarianceParts } from "./dnVariance";
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -90,6 +91,7 @@ function makeLineItemEstimate(
   const hasMultiInvoiceRefs =
     !data.document.vat_registered &&
     (data.receiptInvoices.length > 1 || data.billingNoteInvoices.length > 1);
+  const showVariance = data.document.show_dn_variance === true;
   return (item: DocumentLineItem) =>
     estimateLineItemHeight(item, template, {
       hideDeliveryAmounts,
@@ -99,6 +101,18 @@ function makeLineItemEstimate(
         !!data.showInlineDeliveryNotes && !!data.lineDeliveryNoteMap[item.id],
       hasInvoiceRef:
         hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],
+      hasDnVariance:
+        showVariance &&
+        !!item.source_document_id &&
+        getDnVarianceParts({
+          deliveredQty: item.source_delivered_qty,
+          billedQty: Number(item.quantity) || 0,
+          unit: item.unit || "ชิ้น",
+          dnUnitPrice: item.source_unit_price,
+          unitPrice: Number(item.unit_price) || 0,
+          dnDocNumber: data.lineDeliveryNoteMap[item.id]?.number,
+          sourceKind: data.lineDeliveryNoteMap[item.id]?.kind,
+        }).length > 0,
     });
 }
 

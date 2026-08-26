@@ -17,10 +17,12 @@ const variants = [
   { template: "modern", copyType: "copy" },
   { template: "classic", copyType: "original" },
   { template: "classic", copyType: "copy" },
+  { template: "modern", copyType: "original", doc: "many" },
+  { template: "classic", copyType: "original", doc: "many" },
 ];
 
-function nameFor({ template, copyType }) {
-  return `${template}-${copyType}.png`;
+function nameFor({ template, copyType, doc }) {
+  return doc === "many" ? `many-${template}-${copyType}.png` : `${template}-${copyType}.png`;
 }
 
 async function executablePath() {
@@ -138,8 +140,11 @@ async function renderVariant(page, baseUrl, variant) {
   const url = new URL("/scripts/print-layout-fixture.html", baseUrl);
   url.searchParams.set("template", variant.template);
   url.searchParams.set("copyType", variant.copyType);
+  if (variant.doc) url.searchParams.set("doc", variant.doc);
 
-  await page.goto(url.toString(), { waitUntil: "networkidle", timeout: 30000 });
+  // networkidle never settles on the Vite dev server (HMR socket) — use
+  // domcontentloaded + the print-sheet selector below instead.
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForSelector(".print-sheet", { timeout: 15000 });
   await page.evaluate(async () => {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -171,10 +176,13 @@ try {
   const port = typeof address === "object" && address ? address.port : 5173;
   const baseUrl = `http://127.0.0.1:${port}`;
 
+  // sparticuz args (e.g. --single-process) hang system Chrome on macOS —
+  // use them only with the bundled lambda binary.
+  const usingSystemChrome = Boolean(process.env.CHROME_EXECUTABLE_PATH);
   browser = await playwright.chromium.launch({
-    args: chromium.args,
+    args: usingSystemChrome ? [] : chromium.args,
     executablePath: await executablePath(),
-    headless: chromium.headless,
+    headless: usingSystemChrome ? true : chromium.headless,
   });
 
   const page = await browser.newPage({
