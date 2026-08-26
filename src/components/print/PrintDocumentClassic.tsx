@@ -986,6 +986,19 @@ export function PrintDocumentClassic({
 
       {showFooter && (
         <>
+          {!isDeliveryNote && classicTerms.length > 0 ? (
+            <div className="print-classic-fine-terms">
+              <div className="print-classic-fine-terms-title">
+                เงื่อนไข (TERMS)
+              </div>
+              <ol>
+                {classicTerms.map((term, index) => (
+                  <li key={`${index}-${term}`}>{term}</li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+
           {/* ============== BOTTOM BAND (signatures) ============== */}
           <div className="print-classic-bottom-band">
             <div className="print-classic-sig-cell">
@@ -1054,19 +1067,6 @@ export function PrintDocumentClassic({
               </div>
             </div>
           </div>
-
-          {!isDeliveryNote && classicTerms.length > 0 ? (
-            <div className="print-classic-fine-terms">
-              <div className="print-classic-fine-terms-title">
-                เงื่อนไข (TERMS)
-              </div>
-              <ol>
-                {classicTerms.map((term, index) => (
-                  <li key={`${index}-${term}`}>{term}</li>
-                ))}
-              </ol>
-            </div>
-          ) : null}
 
           {/* ============== FOOTER ============== */}
         </>

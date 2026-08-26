@@ -204,6 +204,20 @@ export function PrintDocument({
         </footer>
       )}
 
+      {terms.length > 0 && showFooter && (
+        <section className="print-block mt-3 rounded-md border border-[#E6EBF2] bg-[#F8FAFC] p-3">
+          <div>
+            <div className="text-[10px] font-semibold text-[#111827]">เงื่อนไข</div>
+            <div className="text-[6.5px] text-[#94a3b8]">TERMS &amp; CONDITIONS</div>
+          </div>
+          <ol className="mt-1 ml-5 list-decimal space-y-0.5 text-[9px] leading-[14px] text-[#475467]">
+            {terms.map((term, i) => (
+              <li key={i}>{term}</li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       {showFooter && (
         <footer className={isDeliveryNote ? "hidden" : "print-block mt-3 grid grid-cols-2 gap-3"}>
           <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
@@ -272,20 +286,6 @@ export function PrintDocument({
             </div>
           </div>
         </footer>
-      )}
-
-      {terms.length > 0 && showFooter && (
-        <section className="print-block mt-3 rounded-md border border-[#E6EBF2] bg-[#F8FAFC] p-3">
-          <div>
-            <div className="text-[10px] font-semibold text-[#111827]">เงื่อนไข</div>
-            <div className="text-[6.5px] text-[#94a3b8]">TERMS &amp; CONDITIONS</div>
-          </div>
-          <ol className="mt-1 ml-5 list-decimal space-y-0.5 text-[9px] leading-[14px] text-[#475467]">
-            {terms.map((term, i) => (
-              <li key={i}>{term}</li>
-            ))}
-          </ol>
-        </section>
       )}
 
       {isCopy && (
