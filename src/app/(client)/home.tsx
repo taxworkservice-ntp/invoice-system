@@ -1599,6 +1599,7 @@ export default function HomePage() {
                             <th className={TABLE.thStatic}>ลูกค้า</th>
                             <th className={`${TABLE.thStatic} w-[135px]`}>เลขที่ใบเสร็จ</th>
                             <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
+                            <th className={`${TABLE.thStatic} w-[140px]`}>แก้ไขล่าสุด</th>
                             <th className={`${TABLE.thStatic} w-[125px] text-right`}>ยอดรวม</th>
                             <th className={`${TABLE.thStatic} w-[145px] text-right`}>หัก ณ ที่จ่ายสะสม</th>
                             <th className={`${TABLE.thStatic} w-[125px] text-right`}>รับสุทธิ</th>
@@ -1658,6 +1659,11 @@ export default function HomePage() {
                                  </td>
                                 <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
+                                </td>
+                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-[11px]`}>
+                                  {deal.updatedAt
+                                    ? `${formatBuddhistDate(deal.updatedAt)} · ${deal.updatedAt.slice(11, 16)} น.`
+                                    : "-"}
                                 </td>
                                   <td className="px-3 py-2 text-right whitespace-nowrap text-[#111827]">
                                     ฿ {formatCurrency(deal.grossAmount)}
