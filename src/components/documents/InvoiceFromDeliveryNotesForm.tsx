@@ -10,6 +10,7 @@ import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
 import { FormStep } from "./FormStep";
 import { FormActionBar } from "./FormActionBar";
 import { LineGridHeaderRow, numericInputClass } from "./lineGrid";
+import { useWorkspaceFeatures } from "../../hooks/useAuth";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
 import { CustomerPickerModal } from "../customers/CustomerPickerModal";
@@ -126,6 +127,8 @@ export function InvoiceFromDeliveryNotesForm() {
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
   const businessToday = businessTodayString(clientProfile);
+  const { hasFeature } = useWorkspaceFeatures(userId);
+  const dnAppendixEnabled = hasFeature("dn_appendix");
   const todayString = () => businessToday;
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const toast = useToast();
@@ -1265,7 +1268,7 @@ export function InvoiceFromDeliveryNotesForm() {
               onChange={setShowDnVariance}
             />
           )}
-          {selectedDeliveryNotes.length > 0 && (
+          {dnAppendixEnabled && selectedDeliveryNotes.length > 0 && (
             <DocumentOptionRow
               label="แนบภาคผนวกรายละเอียดการส่งของ"
               badge="ใบส่งของ"

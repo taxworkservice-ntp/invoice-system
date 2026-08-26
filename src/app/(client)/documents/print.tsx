@@ -16,6 +16,7 @@ import {
   type PrintAppendixData,
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
+import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import {
   estimateLineItemHeight,
@@ -87,6 +88,8 @@ export default function DocumentPrintPreviewPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [data, setData] = useState<PrintDocumentData | null>(null);
+  const { hasFeature } = useWorkspaceFeatures(data?.document.user_id);
+  const dnAppendixFeatureEnabled = hasFeature("dn_appendix");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pdfError, setPdfError] = useState("");
@@ -493,7 +496,7 @@ return (
                ) : null}
           </div>
         </div>
-        {data && data.invoiceDeliveryNotes.length > 0 && (
+        {dnAppendixFeatureEnabled && data && data.invoiceDeliveryNotes.length > 0 && (
           <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
             <input
               type="checkbox"

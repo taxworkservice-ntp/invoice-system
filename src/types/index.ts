@@ -29,7 +29,10 @@ export type DocumentStatus =
 export type ItemType = "product" | "service";
 export type JobDetailPresetField = string;
 export type JobDetailFieldType = "text" | "dimension";
-export type ClientFeatureKey = "service_job_details" | "classic_v2_template";
+export type ClientFeatureKey =
+  | "service_job_details"
+  | "classic_v2_template"
+  | "dn_appendix";
 
 export type StockMovementType =
   "manual_in" | "manual_out" | "auto_out" | "auto_in" | "return_in";

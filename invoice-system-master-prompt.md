@@ -311,6 +311,10 @@ Neither button is ever shown on the home pipeline screen.
 | Delivery Note | ใบส่งของ | delivery_note | User (side action) |
 | Credit Note | ใบลดหนี้ | credit_note | User (side action) |
 | Debit Note | ใบเพิ่มหนี้ | debit_note | User (side action) |
+| Credit Note | ใบลดหนี้ | credit_note | User (side action) |
+| Debit Note | ใบเพิ่มหนี้ | debit_note | User (side action) |
+
+**DN Appendix (ภาคผนวกใบส่งของ):** optional print feature gated by the `dn_appendix` admin feature flag. When enabled for a client, invoices created from delivery notes show a toggle แนบภาคผนวกรายละเอียดการส่งของ. When ON: invoice prints Xero-flat (no DN-header rows, no variance sub-lines) and a labeled appendix sheet ภาคผนวก: รายละเอียดการส่งของ follows after the last invoice page, with per-DN delivered-vs-billed breakdown.
 
 ---
 
@@ -771,6 +775,12 @@ Completed:
 - Added blank filler rows to receipt tables in both classic and modern templates (6/8 rows)
 - Fixed pagination: while-loop bug where no "last" page was created for certain item counts, hiding signature
 - Evenly distributed continuation page items: no more sparse almost-empty pages (e.g. cont(8) → cont(15)+cont(15) for 60 items)
+- DN Appendix feature (ภาคผนวกใบส่งของ): admin-gated optional print. Invoice prints Xero-flat + a labeled appendix sheet with per-DN delivered-vs-billed breakdown. Gated by dn_appendix feature flag (admin panel), default OFF.
+- Classic/classic-v2/modern print templates: เงื่อนไข (TERMS) moved above signature band to match Thai document convention.
+- Unified form system: FormStep numbered sections, DocumentOptionsCard, FormActionBar, shared line-item grid across all document forms.
+- Draft-mandatory receipts (save → send → confirm), shared PaymentModal, cheque payment details.
+- Thai (Bangkok UTC+7) timezone standardization across all dates/times.
+- Playwright E2E suite + test_plan.md handoff doc; feature freeze until golden journeys pass.
 - Credit notes & debit notes — full financial integration: CN reduces revenue/VAT/outstanding (issue-month), customer credit badge on fully-paid deals, auto stock return on issue + reversal on void, over-credit guard, AR aging net allocation, transaction register rows (negative/positive), Thai labels in company XLSX
 - Debit note (ใบเพิ่มหนี้) document type: DB prefix, shared adjustment form with credit note, increases receivables, download-center preset
 - Draft-mandatory receipts: บันทึกรับเงิน saves numbered draft (zero side effects), confirm-later applies invoice paid/amounts/links via shared receiptConfirm lib; แก้ไขฉบับร่าง reopens modal prefilled; draft receipts excluded from all money totals
