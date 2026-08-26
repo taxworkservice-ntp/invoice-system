@@ -11,7 +11,8 @@ export interface StatusDocLike {
 }
 
 function todayStart(): Date {
-  return new Date(new Date().toISOString().slice(0, 10));
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+  return new Date(`${today}T00:00:00+07:00`);
 }
 
 /**

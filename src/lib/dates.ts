@@ -1,3 +1,33 @@
+/** The app renders and interprets every date/time in Thai (Bangkok) time. */
+export const APP_TIMEZONE = "Asia/Bangkok";
+
+/** Calendar parts of an instant, in Bangkok time. */
+function bangkokParts(iso: string | Date): { day: number; month: number; year: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_TIMEZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(iso));
+  const [day, month, year] = parts.split("/").map(Number);
+  return { day, month, year };
+}
+
+/** Today's date (YYYY-MM-DD) in Bangkok time. */
+export function bangkokTodayString(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: APP_TIMEZONE }).format(now);
+}
+
+/** HH:MM of an instant, in Bangkok time. */
+export function formatBangkokTime(iso: string): string {
+  return new Intl.DateTimeFormat("th-TH", {
+    timeZone: APP_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(iso));
+}
+
 const THAI_MONTHS_ABBR = [
   'ม.ค.',
   'ก.พ.',
@@ -43,45 +73,26 @@ export function beYear(): number {
 }
 
 export function formatBuddhistDate(isoDate: string): string {
-  const date = new Date(isoDate);
-  const day = date.getDate();
-  const month = THAI_MONTHS_ABBR[date.getMonth()];
-  const year = toBuddhistYear(date.getFullYear());
-  return `${day} ${month} ${year}`;
+  const { day, month, year } = bangkokParts(isoDate);
+  return `${day} ${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`;
 }
 
 export function formatBuddhistDateTime(isoDate: string): string {
-  const date = new Date(isoDate);
-  const day = date.getDate();
-  const month = THAI_MONTHS_ABBR[date.getMonth()];
-  const year = toBuddhistYear(date.getFullYear());
-  const time = date.toLocaleTimeString("th-TH", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return `${day} ${month} ${year} เวลา ${time}`;
+  const { date, time } = formatBuddhistDateTimeParts(isoDate);
+  return `${date} เวลา ${time}`;
 }
 
 export function formatBuddhistDateTimeParts(isoDate: string): { date: string; time: string } {
-  const date = new Date(isoDate);
-  const day = date.getDate();
-  const month = THAI_MONTHS_ABBR[date.getMonth()];
-  const year = toBuddhistYear(date.getFullYear());
-  const time = date.toLocaleTimeString("th-TH", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return { date: `${day} ${month} ${year}`, time };
+  const { day, month, year } = bangkokParts(isoDate);
+  return {
+    date: `${day} ${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`,
+    time: formatBangkokTime(isoDate),
+  };
 }
 
 export function formatBuddhistDateFull(isoDate: string): string {
-  const date = new Date(isoDate);
-  const day = date.getDate();
-  const month = THAI_MONTHS_FULL[date.getMonth()];
-  const year = toBuddhistYear(date.getFullYear());
-  return `${day} ${month} ${year}`;
+  const { day, month, year } = bangkokParts(isoDate);
+  return `${day} ${THAI_MONTHS_FULL[month - 1]} ${toBuddhistYear(year)}`;
 }
 
 export function relativeTimeThai(dateStr: string): string {

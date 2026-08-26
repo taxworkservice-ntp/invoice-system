@@ -25,9 +25,11 @@ function shiftDueDate(doc: Document, issueDate: string): string | null {
   const end = new Date(`${doc.due_date}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
   const termDays = Math.round((end.getTime() - start.getTime()) / 86400000);
-  const next = new Date(`${issueDate}T00:00:00`);
+  // Pure calendar arithmetic on the date string — timezone-safe.
+  const [y, m, d] = issueDate.split("-").map(Number);
+  const next = new Date(y, m - 1, d);
   next.setDate(next.getDate() + Math.max(0, termDays));
-  return next.toISOString().slice(0, 10);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
 }
 
 export async function copyDocumentAsDraft(

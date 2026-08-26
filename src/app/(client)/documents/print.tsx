@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { localTodayString } from "../../../lib/devDate";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -270,7 +271,7 @@ export default function DocumentPrintPreviewPage() {
     const docNumber = data.document.doc_number || "doc";
     const datePart = data.document.issue_date
       ? data.document.issue_date.slice(0, 10)
-      : new Date().toISOString().slice(0, 10);
+      : localTodayString();
     const parts = [docNumber];
     if (safeName) parts.push(safeName);
     parts.push(datePart);

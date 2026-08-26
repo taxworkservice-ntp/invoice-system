@@ -15,6 +15,7 @@ import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
+import { localTodayString } from "../../../lib/devDate";
 import type { WhtVendor, WhtFormType } from "../../../types";
 
 const WHT_FORM_TYPE_LABELS: Record<WhtFormType, string> = {
@@ -137,7 +138,7 @@ export default function WhtPage() {
   const [newRecord, setNewRecord] = useState({
     vendor_id: "",
     form_type: "pnd3" as WhtFormType,
-    issue_date: new Date().toISOString().slice(0, 10),
+    issue_date: localTodayString(),
     amount: "",
     wht_rate: "3",
     description: "",
@@ -149,7 +150,7 @@ export default function WhtPage() {
     setNewRecord({
       vendor_id: "",
       form_type: "pnd3" as WhtFormType,
-      issue_date: new Date().toISOString().slice(0, 10),
+      issue_date: localTodayString(),
       amount: "",
       wht_rate: "3",
       description: "",

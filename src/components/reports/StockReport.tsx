@@ -6,6 +6,7 @@ import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
 import { EmptyState } from "../ui/EmptyState";
 import { SortableTh } from "../ui/SortableTh";
+import { localTodayString, monthStartString } from "../../lib/devDate";
 import { useTableSort } from "../ui/useTableSort";
 import { useStockReport, fetchFullStockReport } from "../../hooks/useReports";
 import type { StockMovementRow } from "../../hooks/useReports";
@@ -15,12 +16,12 @@ import { TABLE } from "../../lib/tableStyles";
 import type { Item } from "../../types";
 
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  return localTodayString();
 }
 
 function startOfMonth() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return monthStartString(localTodayString());
 }
 
 function formatDate(date: string) {

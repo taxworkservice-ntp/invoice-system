@@ -7,7 +7,7 @@ export const RECEIPT_BACKDATE_REASON_OPTIONS = [
 ] as const;
 
 export function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 }
 
 export function isPastDate(value: string, today = todayString()) {
@@ -15,7 +15,9 @@ export function isPastDate(value: string, today = todayString()) {
 }
 
 export function toLocalMiddayIso(date: string) {
-  return new Date(`${date}T12:00:00`).toISOString();
+  // Anchor at midday Bangkok time (UTC+7) so the stored instant is the same
+  // no matter what timezone the device is in.
+  return new Date(`${date}T12:00:00+07:00`).toISOString();
 }
 
 export function buildReceiptBackdateFields({

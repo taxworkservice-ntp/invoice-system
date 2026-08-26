@@ -18,7 +18,7 @@ import { CustomerPickerModal } from "../../../components/customers/CustomerPicke
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
 import { getDocNumberErrorMessage, resolveDocNumber } from "../../../lib/docNumber";
-import { businessTodayString, monthStartString as getMonthStartString } from "../../../lib/devDate";
+import { businessTodayString, localTodayString, monthStartString as getMonthStartString } from "../../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
@@ -1249,8 +1249,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     setDuplicateWarning(null);
     if ((type === "invoice" || type === "tax_invoice_receipt") && userId) {
       try {
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - 30);
+        // 30-day cutoff anchored to Bangkok today (issue_date is date-only).
+        const cutoff = addDaysString(localTodayString(), -30);
         let dupQuery = supabase
           .from("documents")
           .select("doc_number, issue_date, total_amount")
@@ -1258,7 +1258,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           .eq("customer_id", selectedCustomer.id)
           .eq("doc_type", "invoice")
           .in("status", ["sent", "paid", "partially_paid"])
-          .gte("issue_date", cutoff.toISOString().slice(0, 10))
+          .gte("issue_date", cutoff)
           .neq("total_amount", 0)
           .order("issue_date", { ascending: false })
           .limit(5);

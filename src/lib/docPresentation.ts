@@ -23,7 +23,7 @@ export function isOverdueDocument(doc: Pick<Document, "status" | "doc_type" | "d
   if (doc.status === "overdue") return true;
   if (doc.doc_type !== "billing_note" || !doc.due_date) return false;
   return (
-    new Date(doc.due_date) < new Date(new Date().toISOString().slice(0, 10)) &&
+    new Date(doc.due_date) < new Date(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date())) &&
     doc.status !== "paid" &&
     doc.status !== "partially_paid"
   );

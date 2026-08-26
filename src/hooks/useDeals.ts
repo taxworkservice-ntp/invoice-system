@@ -12,8 +12,9 @@ export function useDeals(userId: string | undefined) {
     if (!userId) return;
     setLoading(true);
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    // Bangkok-time month boundary for "received this month".
+    const nowStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+    const monthStart = `${nowStr.slice(0, 7)}-01`;
 
     const [{ data: docs, error }, { data: paidMonth }] = await Promise.all([
       supabase

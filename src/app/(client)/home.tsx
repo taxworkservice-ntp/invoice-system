@@ -22,7 +22,7 @@ import { NewDealSheet } from "../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
 import { formatCurrency } from "../../lib/format";
-import { formatBuddhistDate, formatBuddhistDateTime, formatBuddhistDateTimeParts } from "../../lib/dates";
+import { formatBuddhistDate, formatBuddhistDateTime, formatBuddhistDateTimeParts, formatBangkokTime } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS, DOC_TYPE_SHORT, DOC_TYPE_COLORS } from "../../constants";
 import { TABLE } from "../../lib/tableStyles";
@@ -1662,7 +1662,7 @@ export default function HomePage() {
                                 </td>
                                 <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-[11px]`}>
                                   {deal.updatedAt
-                                    ? `${formatBuddhistDate(deal.updatedAt)} · ${deal.updatedAt.slice(11, 16)} น.`
+                                    ? `${formatBuddhistDate(deal.updatedAt)} · ${formatBangkokTime(deal.updatedAt)} น.`
                                     : "-"}
                                 </td>
                                   <td className="px-3 py-2 text-right whitespace-nowrap text-[#111827]">
