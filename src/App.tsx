@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Spinner } from "./components/ui/Spinner";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
-import { useWorkspaceRole } from "./hooks/useAuth";
+import { useWorkspaceFeatures, useWorkspaceRole } from "./hooks/useAuth";
 import { getWorkspacePermissions } from "./lib/permissions";
 
 const LoginPage = lazy(() => import("./app/(auth)/login"));
@@ -29,12 +29,15 @@ const SettingsNumberingPage = lazy(() => import("./app/(client)/settings/numberi
 const SettingsStockPage = lazy(() => import("./app/(client)/settings/stock"));
 const SettingsAccountPage = lazy(() => import("./app/(client)/settings/account"));
 const SettingsTeamPage = lazy(() => import("./app/(client)/settings/team"));
+const SettingsPayrollPage = lazy(() => import("./app/(client)/settings/payroll"));
 const ReportsPage = lazy(() => import("./app/(client)/reports/index"));
 const DownloadCenterPage = lazy(() => import("./app/(client)/download-center/index"));
 const WhtPage = lazy(() => import("./app/(client)/wht/index"));
 const WhtPrintPage = lazy(() => import("./app/(client)/wht/print"));
 const CustomersPage = lazy(() => import("./app/(client)/customers/index"));
 const CustomerDetailPage = lazy(() => import("./app/(client)/customers/[id]"));
+const PayrollPage = lazy(() => import("./app/(client)/payroll/index"));
+const EmployeesPage = lazy(() => import("./app/(client)/payroll/employees"));
 const AdminClients = lazy(() => import("./app/(admin)/clients"));
 const AdminClientDetail = lazy(() => import("./app/(admin)/clients/[id]"));
 const AdminClientNew = lazy(() => import("./app/(admin)/clients/new"));
@@ -49,9 +52,11 @@ function RouteFallback() {
 
 export default function App() {
   const { profile, workspaceRole, workspacePermissions, loading, recovery } = useWorkspaceRole();
+  const workspaceFeatures = useWorkspaceFeatures(profile?.workspace_user_id ?? profile?.id);
   const role = profile?.role ?? null;
   const isAdmin = role === "admin";
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const canManagePayroll = workspaceFeatures.hasFeature("payroll");
 
   if (recovery) {
     return <Navigate to="/reset-password" replace />;
@@ -91,6 +96,8 @@ export default function App() {
             <Route path="/catalog/:id" element={permissions.canManageCatalog ? <CatalogItemPage /> : <Navigate to="/home" replace />} />
             <Route path="/customers" element={permissions.canManageCustomers ? <CustomersPage /> : <Navigate to="/home" replace />} />
             <Route path="/customers/:id" element={permissions.canManageCustomers ? <CustomerDetailPage /> : <Navigate to="/home" replace />} />
+            <Route path="/payroll" element={canManagePayroll ? <PayrollPage /> : <Navigate to="/home" replace />} />
+            <Route path="/payroll/employees" element={canManagePayroll ? <EmployeesPage /> : <Navigate to="/home" replace />} />
             <Route path="/reports" element={permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />} />
             <Route path="/download-center" element={permissions.canViewReports ? <DownloadCenterPage /> : <Navigate to="/home" replace />} />
             <Route path="/wht" element={permissions.canManageWht ? <WhtPage /> : <Navigate to="/home" replace />} />
@@ -102,6 +109,7 @@ export default function App() {
             <Route path="/settings/stock" element={permissions.canManageSettings ? <SettingsStockPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/account" element={permissions.canManageSettings ? <SettingsAccountPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/team" element={workspaceRole === "owner" ? <SettingsTeamPage /> : <Navigate to="/home" replace />} />
+            <Route path="/settings/payroll" element={permissions.canManageSettings ? <SettingsPayrollPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings" element={permissions.canManageSettings ? <Navigate to="/settings/company" replace /> : <Navigate to="/home" replace />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </>

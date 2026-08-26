@@ -130,6 +130,7 @@ export const SETTINGS_TABS = [
   { label: "เลขที่เอกสาร", path: "/settings/numbering" },
   { label: "สต็อก", path: "/settings/stock" },
   { label: "บัญชี", path: "/settings/account" },
+  { label: "เงินเดือน", path: "/settings/payroll" },
   { label: "ทีมงาน", path: "/settings/team" },
 ];
 
@@ -138,6 +139,7 @@ export const BOTTOM_NAV_ITEMS = [
   { label: "เอกสาร", path: "/documents" },
   { label: "สินค้า", path: "/catalog" },
   { label: "ลูกค้า", path: "/customers" },
+  { label: "เงินเดือน", path: "/payroll" },
   { label: "รายงาน", path: "/reports" },
   { label: "หัก ณ ที่จ่าย", path: "/wht" },
   { label: "ดาวน์โหลด", path: "/download-center" },

@@ -32,7 +32,8 @@ export type JobDetailFieldType = "text" | "dimension";
 export type ClientFeatureKey =
   | "service_job_details"
   | "classic_v2_template"
-  | "dn_appendix";
+  | "dn_appendix"
+  | "payroll";
 
 export type StockMovementType =
   "manual_in" | "manual_out" | "auto_out" | "auto_in" | "return_in";
@@ -483,4 +484,82 @@ export interface SummaryMetrics {
   unpaid: number;
   receivedThisMonth: number;
   overdue: number;
+}
+
+export interface Employee {
+  id: string;
+  user_id: string;
+  employee_code: string;
+  full_name: string;
+  tax_id: string | null;
+  position: string;
+  department: string | null;
+  salary_type: "monthly" | "daily";
+  base_salary: number;
+  bank_account: string | null;
+  start_date: string;
+  status: "active" | "inactive";
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PayrollRun {
+  id: string;
+  user_id: string;
+  period_month: number;
+  period_year: number;
+  pay_date: string;
+  status: "draft" | "finalized";
+  revision: number;
+  finalized_at: string | null;
+  finalized_by: string | null;
+  reopened_at: string | null;
+  reopened_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OtEntry {
+  hours: number;
+  type: "normal" | "holiday";
+  multiplier: number;
+}
+
+export interface PayrollAddition {
+  label: string;
+  amount: number;
+}
+
+export interface PayrollDeduction {
+  label: string;
+  amount: number;
+}
+
+export interface PayrollLineItem {
+  id: string;
+  payroll_run_id: string;
+  employee_id: string;
+  days_worked: number | null;
+  ot_entries: OtEntry[];
+  additions: PayrollAddition[];
+  deductions: PayrollDeduction[];
+  gross_pay: number | null;
+  sso_employee: number | null;
+  sso_employer: number | null;
+  withholding_tax: number | null;
+  net_pay: number | null;
+  employee_code_snapshot: string | null;
+  full_name_snapshot: string | null;
+  position_snapshot: string | null;
+  salary_type_snapshot: "monthly" | "daily" | null;
+  base_salary_snapshot: number | null;
+}
+
+export interface ClientPayrollSettings {
+  user_id: string;
+  ot_divisor: number;
+  normal_ot_multiplier: number;
+  holiday_ot_multiplier: number;
+  updated_at: string;
 }

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent, LogOut, Menu, PanelLeftClose } from "lucide-react";
+import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent, LogOut, Menu, PanelLeftClose, Wallet } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
-import { useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
+import { useClientProfile, useWorkspaceFeatures, useWorkspaceRole } from "../../hooks/useAuth";
 import { DevBadge } from "../ui/DevBadge";
 import { getWorkspacePermissions } from "../../lib/permissions";
 import { getProxiedImageUrl } from "../../lib/r2";
@@ -21,6 +21,7 @@ const iconMap: Record<string, React.ReactNode> = {
   "/wht": <Percent className="w-5 h-5" />,
   "/catalog": <Package className="w-5 h-5" />,
   "/customers": <Users className="w-5 h-5" />,
+  "/payroll": <Wallet className="w-5 h-5" />,
   "/settings": <Settings className="w-5 h-5" />,
 };
 
@@ -69,12 +70,14 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
   const navigate = useNavigate();
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const { clientProfile } = useClientProfile(profile?.id);
+  const workspaceFeatures = useWorkspaceFeatures(profile?.workspace_user_id ?? profile?.id);
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const [sidebarExpanded, setSidebarExpanded] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.localStorage.getItem("invoice-system.sidebar-expanded") !== "false";
   });
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
+    if (item.path === "/payroll") return workspaceFeatures.hasFeature("payroll");
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canManageWht;
     if (item.path === "/download-center") return permissions.canViewReports;
