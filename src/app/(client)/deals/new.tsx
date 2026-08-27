@@ -406,9 +406,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const isEditingDraft = Boolean(documentId);
   const label = isEditingDraft && type === "invoice"
     ? "แก้ไขร่างใบแจ้งหนี้"
-    : isEditingDraft && type === "delivery_note"
-      ? "แก้ไขร่างใบส่งของ"
-      : isUtilityBill ? "ออกบิลประจำรอบ" : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
+    : isEditingDraft && type === "quotation"
+      ? "แก้ไขร่างใบเสนอราคา"
+      : isEditingDraft && type === "delivery_note"
+        ? "แก้ไขร่างใบส่งของ"
+        : isUtilityBill ? "ออกบิลประจำรอบ" : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
   const isBillingNote = type === "billing_note";
   const isTaxInvoiceReceipt = type === "tax_invoice_receipt";
   const isDeliveryNote = type === "delivery_note";
@@ -608,8 +610,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         if (lineError) throw lineError;
 
         const draftDoc = documentData as Document & { customer?: Customer };
-        if (draftDoc.doc_type !== "invoice" && draftDoc.doc_type !== "delivery_note") {
-          throw new Error("แก้ไขได้เฉพาะร่างใบแจ้งหนี้หรือใบส่งของ");
+        if (draftDoc.doc_type !== "quotation" && draftDoc.doc_type !== "invoice" && draftDoc.doc_type !== "delivery_note") {
+          throw new Error("แก้ไขได้เฉพาะร่างใบเสนอราคา ใบแจ้งหนี้ หรือใบส่งของ");
         }
         if (draftDoc.status !== "draft") {
           throw new Error("แก้ไขได้เฉพาะเอกสารฉบับร่าง");
@@ -1451,7 +1453,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       }
 
       if (documentId) {
-        toast.success(type === "delivery_note" ? "บันทึกร่างใบส่งของแล้ว" : "บันทึกร่างใบแจ้งหนี้แล้ว");
+        toast.success(
+          type === "quotation"
+            ? "บันทึกร่างใบเสนอราคาแล้ว"
+            : type === "delivery_note"
+              ? "บันทึกร่างใบส่งของแล้ว"
+              : "บันทึกร่างใบแจ้งหนี้แล้ว",
+        );
       } else {
         toast.success("บันทึกงานขายสำเร็จ");
       }

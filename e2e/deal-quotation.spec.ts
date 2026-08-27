@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { test } from "@playwright/test";
-import { createCustomer, createDeal, createDocument, createLineItems, deleteDealCascade, today, uid } from "./helpers/data";
+import { createCustomer, createDeal, createDocument, createLineItems, deleteDealCascade, getUserId, today, uid } from "./helpers/data";
 
 test.describe.serial("deal + quotation journey", () => {
   let customerId: string;
@@ -49,6 +49,62 @@ test.describe.serial("deal + quotation journey", () => {
     await page.goto(`/deals/${dealId}`);
     await page.getByRole("button", { name: "ส่งใบเสนอราคาให้ลูกค้า" }).click();
     await expect(page.getByText("รอลูกค้าตอบ")).toBeVisible();
+  });
+
+  test("แก้ไขฉบับร่าง reopens edit form prefilled and saves in place", async ({ page }) => {
+    // Reset: recreate a fresh draft deal for this test.
+    const cust = await createCustomer(name);
+    const freshDeal = await createDeal(cust.id, `E2E QT Edit ${Date.now()}`);
+    const doc = await createDocument({
+      id: uid(),
+      user_id: await getUserId(),
+      deal_id: freshDeal.id,
+      customer_id: cust.id,
+      doc_type: "quotation",
+      status: "draft",
+      issue_date: today(),
+      total_amount: 150,
+      subtotal: 150,
+    });
+    await createLineItems([
+      {
+        id: uid(),
+        document_id: doc.id,
+        user_id: await getUserId(),
+        item_name: "E2E Edit Item",
+        item_type: "service",
+        unit: "ชิ้น",
+        unit_price: 150,
+        quantity: 1,
+        line_total: 150,
+        sort_order: 0,
+      },
+    ]);
+
+    await page.goto(`/deals/${freshDeal.id}`);
+    await page.getByRole("button", { name: "แก้ไขฉบับร่าง" }).click();
+
+    // Edit form opens prefilled (title + item name present).
+    await expect(page.getByText("แก้ไขร่างใบเสนอราคา")).toBeVisible();
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll<HTMLInputElement>("input")).some(
+        (el) => el.value === "E2E Edit Item",
+      ),
+    );
+    const priceInput = page.getByLabel("ราคา/หน่วย");
+    await priceInput.fill("250");
+
+    await page.getByRole("button", { name: "บันทึกร่าง", exact: true }).click();
+    const confirmModal = page.locator("div.fixed.inset-0").filter({
+      has: page.getByRole("heading", { name: "ยืนยันการบันทึก" }),
+    });
+    await confirmModal.getByRole("button", { name: "บันทึก", exact: true }).click();
+
+    // Back on the deal page, still draft, amount updated in place.
+    await page.waitForURL(new RegExp(`/deals/${freshDeal.id}`));
+    await expect(page.getByText("ร่าง", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/฿?250(?:\.00)?/).first()).toBeVisible();
+    await deleteDealCascade(freshDeal.id);
   });
 
   test.afterAll(async () => {

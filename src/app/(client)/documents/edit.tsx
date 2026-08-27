@@ -83,6 +83,10 @@ export default function EditDocumentPage() {
     return <BillingNoteForm documentId={id} />;
   }
 
+  if (docType === "quotation" && status === "draft") {
+    return <NewDealPage documentId={id} initialType="quotation" />;
+  }
+
   if (docType === "invoice" && status === "draft") {
     return <NewDealPage documentId={id} initialType="invoice" />;
   }

@@ -1047,6 +1047,17 @@ export default function DocumentDetailPage() {
             </Button>
           )}
 
+          {isDraft && doc.doc_type === "quotation" && (
+            <Button
+              variant="secondary"
+              size="md"
+              className="w-full"
+              onClick={() => navigate(`/documents/${doc.id}/edit`)}
+            >
+              แก้ไขฉบับร่าง
+            </Button>
+          )}
+
           {isDraft && doc.doc_type === "invoice" && !isUtilityBill && (
             <Button
               variant="secondary"
