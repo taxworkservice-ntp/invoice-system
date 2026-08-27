@@ -86,6 +86,9 @@ export const AUDIT_ACTIONS = {
   PAYROLL_RUN_FINALIZED: "payroll_run_finalized",
   PAYROLL_RUN_REOPENED: "payroll_run_reopened",
   PAYSLIP_PRINTED: "payslip_printed",
+  PAYROLL_EXPORTED: "payroll_exported",
+  PAYROLL_RUN_DELETED: "payroll_run_deleted",
+  PAYROLL_RUN_UPDATED: "payroll_run_updated",
 } as const;
 
 export const AUDIT_ENTITY_TYPES = {
@@ -107,6 +110,9 @@ export function getActionLabel(action: string): string {
     payroll_run_finalized: "ปิดรอบเงินเดือน",
     payroll_run_reopened: "เปิดรอบใหม่",
     payslip_printed: "พิมพ์สลิปเงินเดือน",
+    payroll_exported: "ส่งออกรายงานเงินเดือน",
+    payroll_run_deleted: "ลบรอบเงินเดือน",
+    payroll_run_updated: "แก้ไขข้อมูลรอบ",
   };
   return labels[action] ?? action;
 }
@@ -123,6 +129,9 @@ export function getActionIcon(action: string): string {
     payroll_run_finalized: "🔒",
     payroll_run_reopened: "🔓",
     payslip_printed: "🖨️",
+    payroll_exported: "📊",
+    payroll_run_deleted: "🗑️",
+    payroll_run_updated: "✏️",
   };
   return icons[action] ?? "📌";
 }

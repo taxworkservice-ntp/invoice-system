@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Printer, Plus, Users, Wallet, Receipt, Banknote, Copy, Check, AlertCircle, CheckCircle2, Clock, Sparkles, X, Pencil } from "lucide-react";
+import { Printer, Plus, Users, Wallet, Receipt, Banknote, Copy, Check, AlertCircle, CheckCircle2, Clock, Sparkles, X, Pencil, Circle, UserRoundX, TrendingUp, TrendingDown, Download, FileSpreadsheet, FileArchive, CalendarRange, Layers, Trash2, Loader2 } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -14,9 +14,57 @@ import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
-import { calculateBreakdown, type PayrollSettings } from "../../../lib/payroll/calculations";
+import { calculateBreakdown, calculateAbsenceDeduction, getEffectiveHourlyRate, getMonthDays, resolveDivisorDays, suggestLeaveProrate, type PayrollSettings } from "../../../lib/payroll/calculations";
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from "../../../lib/payroll/audit";
+import { buildRunSummaryWorkbook, buildBankPaymentWorkbook, buildWhtWorkbook, workbookToBlob, type PayrollCalcRow } from "../../../lib/payroll/reportXlsx";
+import { buildPayslipSlipNode } from "../../../lib/payroll/payslipPdf";
+import { slipNodeToPdfBlob, sanitizePdfFilename } from "../../../lib/payroll/payslipPdfRender";
+import { formatPayRangeLabel, suggestNextWindow } from "../../../lib/payroll/schedule";
+import { applyRecurringTemplates, type RecurringTemplate } from "../../../lib/payroll/recurring";
 import type { Employee, PayrollRun, PayrollLineItem, OtEntry } from "../../../types";
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Sticky cell layers inside the table's own scroll viewport
+const TH_STICKY = "sticky top-0 z-10 bg-cool-50";
+const TF_STICKY = "sticky bottom-0 z-10 bg-cool-25";
+
+// Remember the last working period per user so back-dated payroll work survives navigation/reload
+function periodStorageKey(userId: string | null): string {
+  return `taxwork:payroll-period:${userId ?? "anon"}`;
+}
+
+function readStoredPeriod(userId: string | null): { month: number; year: number } | null {
+  try {
+    const raw = localStorage.getItem(periodStorageKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { month?: unknown; year?: unknown };
+    const m = Number(parsed.month);
+    const y = Number(parsed.year);
+    if (!Number.isInteger(m) || m < 1 || m > 12) return null;
+    if (!Number.isInteger(y) || y < 2000 || y > new Date().getFullYear() + 2) return null;
+    return { month: m, year: y };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredPeriod(userId: string | null, month: number, year: number) {
+  try {
+    localStorage.setItem(periodStorageKey(userId), JSON.stringify({ month, year }));
+  } catch {
+    // storage unavailable (private mode etc.) — silently skip
+  }
+}
 
 const MONTHS = [
   { value: 1, label: "มกราคม" },
@@ -33,7 +81,7 @@ const MONTHS = [
   { value: 12, label: "ธันวาคม" },
 ];
 
-type RowStatus = "complete" | "warning" | "incomplete";
+type RowStatus = "complete" | "warning" | "incomplete" | "untouched";
 
 function createEmptyLineItem(runId: string, employeeId: string): PayrollLineItem {
   return {
@@ -44,6 +92,7 @@ function createEmptyLineItem(runId: string, employeeId: string): PayrollLineItem
     ot_entries: [],
     additions: [],
     deductions: [],
+    absent_days: null,
     gross_pay: null,
     sso_employee: null,
     sso_employer: null,
@@ -57,6 +106,11 @@ function createEmptyLineItem(runId: string, employeeId: string): PayrollLineItem
   };
 }
 
+function formatThaiDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+}
+
 function getPayrollPeriod(month: number, year: number) {
   const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -66,13 +120,17 @@ function getPayrollPeriod(month: number, year: number) {
 
 function getRowStatus(employee: Employee, item: PayrollLineItem): RowStatus {
   const hasOT = item.ot_entries.length > 0;
-  const hasData = item.days_worked !== null || hasOT || item.additions.length > 0 || item.deductions.length > 0;
+  const hasDaysWorked = item.days_worked !== null && item.days_worked > 0;
+  const hasAbsences = (item.absent_days ?? 0) > 0;
+  const hasAdditions = item.additions.length > 0;
+  const hasDeductions = item.deductions.length > 0;
+  const hasData = hasDaysWorked || hasAbsences || hasOT || hasAdditions || hasDeductions;
 
-  if (employee.salary_type === "daily" && !item.days_worked) return "incomplete";
+  if (!hasData) return "untouched";
+  if (employee.salary_type === "daily" && !hasDaysWorked) return "incomplete";
   if (hasOT && item.ot_entries.some((entry) => Number(entry.hours) <= 0 || Number(entry.multiplier) <= 0)) return "warning";
-  if (item.additions.some((entry) => !entry.label.trim() || Number(entry.amount) < 0)) return "warning";
-  if (item.deductions.some((entry) => !entry.label.trim() || Number(entry.amount) < 0)) return "warning";
-  if (!hasData && employee.salary_type === "daily") return "incomplete";
+  if (hasAdditions && item.additions.some((entry) => !entry.label.trim() || Number(entry.amount) < 0)) return "warning";
+  if (hasDeductions && item.deductions.some((entry) => !entry.label.trim() || Number(entry.amount) < 0)) return "warning";
   return "complete";
 }
 
@@ -87,7 +145,28 @@ export default function PayrollPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [payDate, setPayDate] = useState(now.toISOString().split("T")[0]);
 
-  const [run, setRun] = useState<PayrollRun | null>(null);
+  // Restore last selected period once auth resolves (covers the late-userId race)
+  const didRestorePeriod = useRef(false);
+  useEffect(() => {
+    if (!userId || didRestorePeriod.current) return;
+    didRestorePeriod.current = true;
+    const stored = readStoredPeriod(userId);
+    if (stored && (stored.month !== month || stored.year !== year)) {
+      setMonth(stored.month);
+      setYear(stored.year);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // Persist period on every change
+  useEffect(() => {
+    if (!userId) return;
+    writeStoredPeriod(userId, month, year);
+  }, [userId, month, year]);
+
+  const [runs, setRuns] = useState<PayrollRun[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const run = useMemo(() => runs.find((r) => r.id === selectedRunId) ?? null, [runs, selectedRunId]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [excludedEmployeeCount, setExcludedEmployeeCount] = useState(0);
   const [lineItems, setLineItems] = useState<Map<string, PayrollLineItem>>(new Map());
@@ -97,16 +176,55 @@ export default function PayrollPage() {
   const [detailEmployee, setDetailEmployee] = useState<Employee | null>(null);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [copyingPrevious, setCopyingPrevious] = useState(false);
+  const [copyPreview, setCopyPreview] = useState<{ copyable: number; overwrite: number } | null>(null);
+  const [search, setSearch] = useState("");
+  const [highlightedEmployeeId, setHighlightedEmployeeId] = useState<string | null>(null);
+  const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [previousRunEmployees, setPreviousRunEmployees] = useState<Employee[] | null>(null);
+  const [prevNearestRunId, setPrevNearestRunId] = useState<string | null>(null);
+  const [recurringByEmployee, setRecurringByEmployee] = useState<Map<string, RecurringTemplate[]>>(new Map());
+  const [historyRuns, setHistoryRuns] = useState<PayrollRun[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({ start: "", end: "", label: "", pay_date: "" });
+  const [creating, setCreating] = useState(false);
+  const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
+  const [deletingRun, setDeletingRun] = useState(false);
+  const [showEditRunModal, setShowEditRunModal] = useState(false);
+  const [editForm, setEditForm] = useState({ start: "", end: "", label: "", pay_date: "" });
+  const [editingRun, setEditingRun] = useState(false);
+  const [schemaOutdated, setSchemaOutdated] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
 
+  // One-time schema capability check: new period columns must exist before this page can query.
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from("payroll_runs")
+      .select("period_end", { count: "exact", head: true })
+      .then(({ error }) => {
+        if (error && (error.code === "42703" || /does not exist/i.test(error.message))) {
+          setSchemaOutdated(true);
+        }
+      });
+  }, [userId]);
+
+  // Fetch runs for the displayed statutory month + settings + history
   const fetchData = useCallback(async () => {
     if (!userId) return;
+    if (schemaOutdated) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     const { periodStart, periodEnd } = getPayrollPeriod(month, year);
-    const [{ data: runData }, { data: empData }, { data: settingsData }] = await Promise.all([
-      supabase.from("payroll_runs").select("*").eq("user_id", userId).eq("period_month", month).eq("period_year", year).maybeSingle(),
-      supabase.from("employees").select("*").lte("start_date", periodEnd).or(`end_date.is.null,end_date.gte.${periodStart}`).order("employee_code"),
+    const [{ data: runsData }, { data: settingsData }] = await Promise.all([
+      supabase.from("payroll_runs").select("*")
+        .eq("user_id", userId)
+        .gte("period_end", periodStart)
+        .lte("period_end", periodEnd)
+        .order("period_start"),
       supabase.from("client_payroll_settings").select("*").eq("user_id", userId).maybeSingle(),
     ]);
 
@@ -118,39 +236,103 @@ export default function PayrollPage() {
       });
     }
 
-    const eligibleEmployees = (empData ?? []) as Employee[];
-    setEmployees(eligibleEmployees);
-    const { count } = await supabase
-      .from("employees")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-    setExcludedEmployeeCount(Math.max(0, (count ?? 0) - eligibleEmployees.length));
+    const list = (runsData ?? []) as PayrollRun[];
+    setRuns(list);
+    setSelectedRunId((prev) => (prev && list.some((r) => r.id === prev) ? prev : list[0]?.id ?? null));
 
-    if (runData) {
-      setRun(runData as PayrollRun);
-      setPayDate((runData as PayrollRun).pay_date);
-
-      const { data: itemsData } = await supabase
-        .from("payroll_line_items")
-        .select("*")
-        .eq("payroll_run_id", runData.id);
-
-      const itemMap = new Map<string, PayrollLineItem>();
-      (itemsData ?? []).forEach((item) => {
-        itemMap.set(item.employee_id, item as PayrollLineItem);
-      });
-      setLineItems(itemMap);
-    } else {
-      setRun(null);
-      setLineItems(new Map());
-    }
+    const { data: historyData } = await supabase
+      .from("payroll_runs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("period_end", { ascending: false })
+      .limit(12);
+    setHistoryRuns((historyData ?? []) as PayrollRun[]);
 
     setLoading(false);
-  }, [userId, month, year]);
+  }, [userId, month, year, schemaOutdated]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Fetch employee/line-item data scoped to the SELECTED RUN's exact range
+  const fetchRunDetails = useCallback(async () => {
+    if (!userId || !run?.id) {
+      setEmployees([]);
+      setLineItems(new Map());
+      setExcludedEmployeeCount(0);
+      setPreviousRunEmployees(null);
+      setPrevNearestRunId(null);
+      return;
+    }
+    setLoading(true);
+
+    setPayDate(run.pay_date);
+
+    const [{ data: empData }, { count }] = await Promise.all([
+      supabase.from("employees").select("*")
+        .lte("start_date", run.period_end)
+        .or(`end_date.is.null,end_date.gte.${run.period_start}`)
+        .order("employee_code"),
+      supabase.from("employees").select("id", { count: "exact", head: true }).eq("user_id", userId),
+    ]);
+    const eligibleEmployees = (empData ?? []) as Employee[];
+    setEmployees(eligibleEmployees);
+    setExcludedEmployeeCount(Math.max(0, (count ?? 0) - eligibleEmployees.length));
+
+    // Active recurring templates for every employee (drives draft auto-population)
+    const { data: recData, error: recError } = await supabase
+      .from("payroll_recurring_items")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("active", true);
+    const recMap = new Map<string, RecurringTemplate[]>();
+    if (!recError) {
+      ((recData ?? []) as RecurringTemplate[]).forEach((t) => {
+        const list = recMap.get(t.employee_id) ?? [];
+        list.push(t);
+        recMap.set(t.employee_id, list);
+      });
+    }
+    setRecurringByEmployee(recMap);
+
+    const { data: itemsData } = await supabase
+      .from("payroll_line_items")
+      .select("*")
+      .eq("payroll_run_id", run.id);
+    const itemMap = new Map<string, PayrollLineItem>();
+    (itemsData ?? []).forEach((item) => itemMap.set(item.employee_id, item as PayrollLineItem));
+    setLineItems(itemMap);
+
+    // Nearest preceding period (any month) — powers copy-from-previous and headcount diff
+    const { data: prevRun } = await supabase
+      .from("payroll_runs")
+      .select("id")
+      .eq("user_id", userId)
+      .lt("period_end", run.period_start)
+      .order("period_end", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (prevRun) {
+      setPrevNearestRunId(prevRun.id);
+      const { data: prevItems } = await supabase
+        .from("payroll_line_items")
+        .select("employee_id")
+        .eq("payroll_run_id", prevRun.id);
+      const prevIds = (prevItems ?? []).map((i) => i.employee_id);
+      setPreviousRunEmployees(eligibleEmployees.filter((e) => prevIds.includes(e.id)));
+    } else {
+      setPrevNearestRunId(null);
+      setPreviousRunEmployees(null);
+    }
+
+    setLoading(false);
+  }, [userId, run?.id]);
+
+  useEffect(() => {
+    fetchRunDetails();
+  }, [fetchRunDetails]);
 
   async function handleCreateRun() {
     if (!userId) return;
@@ -163,21 +345,22 @@ export default function PayrollPage() {
       .maybeSingle();
 
     if (existing) {
-      setRun(existing as PayrollRun);
+      setSelectedRunId((existing as PayrollRun).id);
       fetchData();
       return;
     }
 
+    const { periodStart, periodEnd } = getPayrollPeriod(month, year);
     const { data, error } = await supabase
       .from("payroll_runs")
-      .insert({ user_id: userId, period_month: month, period_year: year, pay_date: payDate, status: "draft" })
+      .insert({ user_id: userId, period_month: month, period_year: year, period_start: periodStart, period_end: periodEnd, pay_date: payDate, status: "draft" })
       .select("*")
       .single();
 
     if (error) {
       toast.error("ไม่สามารถสร้างรอบเงินเดือนได้");
     } else {
-      setRun(data as PayrollRun);
+      setSelectedRunId((data as PayrollRun).id);
       toast.success("สร้างรอบเงินเดือนแล้ว");
       fetchData();
       await logAuditEvent({
@@ -189,10 +372,162 @@ export default function PayrollPage() {
     }
   }
 
+  function openCreateCustomModal() {
+    const freq = settings.pay_frequency ?? "monthly";
+    const anchor = settings.pay_anchor_day ?? 1;
+    const cycleOpts = { anchorDay: anchor, cycleLenDays: settings.pay_cycle_len_days ?? undefined };
+    // With runs in the viewed month: chain after the latest one; fresh month: first window of that month
+    const latestEnd = runs.length > 0 ? runs.reduce<string | null>((acc, r) => (!acc || r.period_end > acc ? r.period_end : acc), null) : null;
+    const win = suggestNextWindow(freq, cycleOpts, latestEnd, latestEnd ? null : { year, month });
+    setCreateForm({
+      start: win.start,
+      end: win.end,
+      label: formatPayRangeLabel(win),
+      pay_date: win.end,
+    });
+    setShowCreateModal(true);
+  }
+
+  async function handleCreateCustomRun() {
+    if (!userId || creating) return;
+    const start = createForm.start;
+    const end = createForm.end;
+    if (!start || !end) {
+      toast.error("กรุณาเลือกช่วงวันที่");
+      return;
+    }
+    if (start > end) {
+      toast.error("วันเริ่มต้องไม่หลังวันสิ้นสุด");
+      return;
+    }
+    if (createForm.pay_date < end) {
+      toast.error("วันจ่ายต้องไม่ก่อนวันสิ้นสุดรอบ");
+      return;
+    }
+    const endMonth = Number(end.slice(5, 7));
+    const endYear = Number(end.slice(0, 4));
+
+    setCreating(true);
+    const { data, error } = await supabase
+      .from("payroll_runs")
+      .insert({
+        user_id: userId,
+        period_month: endMonth,
+        period_year: endYear,
+        period_start: start,
+        period_end: end,
+        label: createForm.label.trim() || formatPayRangeLabel({ start, end }),
+        pay_date: createForm.pay_date,
+        status: "draft",
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      // 23P01 = exclusion_violation from payroll_runs_no_overlap
+      toast.error(error.code === "23P01" ? "ช่วงรอบนี้ทับซ้อนกับรอบอื่นแล้ว" : "ไม่สามารถสร้างรอบได้");
+    } else {
+      setShowCreateModal(false);
+      setSelectedRunId((data as PayrollRun).id);
+      toast.success("สร้างช่วงรอบแล้ว");
+      await fetchData();
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.PAYROLL_RUN_CREATED,
+        entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
+        entity_id: data.id,
+        details: { period_start: start, period_end: end, label: createForm.label },
+      });
+    }
+    setCreating(false);
+  }
+
+  function openEditRunModal() {
+    if (!run || run.status !== "draft") return;
+    setEditForm({
+      start: run.period_start,
+      end: run.period_end,
+      label: run.label ?? formatPayRangeLabel({ start: run.period_start, end: run.period_end }),
+      pay_date: run.pay_date,
+    });
+    setShowEditRunModal(true);
+  }
+
+  async function handleUpdateRun() {
+    if (!run || !userId || editingRun) return;
+    const start = editForm.start;
+    const end = editForm.end;
+    if (!start || !end || start > end) {
+      toast.error("ช่วงวันที่ไม่ถูกต้อง");
+      return;
+    }
+    if (editForm.pay_date < end) {
+      toast.error("วันจ่ายต้องไม่ก่อนวันสิ้นสุดรอบ");
+      return;
+    }
+    // Client-side overlap check against sibling runs (constraint 23P01 is the backstop)
+    const overlaps = runs.some((r) => r.id !== run.id && start <= r.period_end && end >= r.period_start);
+
+    setEditingRun(true);
+    const canChangeRange = lineItems.size === 0;
+    const payload: Record<string, unknown> = {
+      label: editForm.label.trim() || formatPayRangeLabel({ start, end }),
+      pay_date: editForm.pay_date,
+      ...(canChangeRange ? { period_start: start, period_end: end } : {}),
+    };
+    const { error } = await supabase.from("payroll_runs").update(payload).eq("id", run.id).eq("user_id", userId);
+
+    if (error) {
+      toast.error(error.code === "23P01" ? "ช่วงรอบนี้ทับซ้อนกับรอบอื่นแล้ว" : "บันทึกไม่สำเร็จ");
+    } else {
+      setShowEditRunModal(false);
+      toast.success("บันทึกแล้ว");
+      await fetchData();
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.PAYROLL_RUN_UPDATED,
+        entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
+        entity_id: run.id,
+        details: {
+          label: payload.label,
+          pay_date: payload.pay_date,
+          ...(canChangeRange ? { period_start: start, period_end: end } : {}),
+        },
+      });
+    }
+    setEditingRun(false);
+  }
+
+  async function handleDeleteRun() {
+    if (!run || !userId || deletingRun) return;
+    const snapshot = {
+      label: run.label,
+      period_start: run.period_start,
+      period_end: run.period_end,
+      total_net: run.total_net,
+      employee_count: run.employee_count,
+    };
+    setDeletingRun(true);
+    const { error } = await supabase.from("payroll_runs").delete().eq("id", run.id).eq("user_id", userId);
+    if (error) {
+      toast.error("ไม่สามารถลบรอบได้");
+    } else {
+      setShowDeleteRunModal(false);
+      setSelectedRunId(null);
+      toast.success("ลบรอบเงินเดือนแล้ว");
+      await fetchData();
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.PAYROLL_RUN_DELETED,
+        entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
+        entity_id: run.id,
+        details: snapshot,
+      });
+    }
+    setDeletingRun(false);
+  }
+
   async function handleFinalize() {
     if (!run || !userId) return;
 
-    const incompleteEmployees = employees.filter((employee) => getRowStatus(employee, getLineItem(employee.id)) !== "complete");
+    const incompleteEmployees = employees.filter((employee) => getRowStatus(employee, getEffectiveItem(employee.id)) !== "complete");
     if (incompleteEmployees.length > 0) {
       toast.error(`กรุณาตรวจสอบข้อมูลพนักงาน ${incompleteEmployees.length} คนก่อนปิดรอบ`);
       setShowFinalizeModal(false);
@@ -210,7 +545,7 @@ export default function PayrollPage() {
     if (error) {
       toast.error("ไม่สามารถปิดรอบได้");
     } else {
-      setRun((prev) => (prev ? { ...prev, status: "finalized" } : null));
+      setRuns((prev) => prev.map((r) => (r.id === run.id ? { ...r, status: "finalized" } : r)));
       setShowFinalizeModal(false);
       toast.success("ปิดรอบเงินเดือนแล้ว");
       await logAuditEvent({
@@ -222,15 +557,20 @@ export default function PayrollPage() {
     }
   }
 
+  function handleRequestReopen() {
+    if (!run || !userId) return;
+    setShowReopenModal(true);
+  }
+
   async function handleReopen() {
     if (!run || !userId) return;
-    if (!confirm("ต้องการเปิดรอบใหม่? ข้อมูลเดิมจะถูกเก็บไว้และสามารถแก้ไขได้")) return;
+    setShowReopenModal(false);
 
     const { error } = await supabase.from("payroll_runs").update({ status: "draft" }).eq("id", run.id).eq("user_id", userId);
     if (error) {
       toast.error("ไม่สามารถเปิดรอบใหม่ได้");
     } else {
-      setRun((prev) => (prev ? { ...prev, status: "draft", revision: (prev.revision ?? 1) + 1 } : null));
+      setRuns((prev) => prev.map((r) => (r.id === run.id ? { ...r, status: "draft", revision: (r.revision ?? 1) + 1 } : r)));
       toast.success("เปิดรอบใหม่แล้ว");
       await logAuditEvent({
         action: AUDIT_ACTIONS.PAYROLL_RUN_REOPENED,
@@ -239,6 +579,76 @@ export default function PayrollPage() {
         details: {},
       });
     }
+  }
+
+  function buildCalcRows(): PayrollCalcRow[] {
+    return employees.map((emp) => {
+      const item = getEffectiveItem(emp.id);
+      const calc = calcLineItem(emp, item);
+      return { employee: emp, lineItem: lineItems.get(emp.id) ?? null, ...calc };
+    });
+  }
+
+  async function handleExportSummary() {
+    if (!run) return;
+    const rows = buildCalcRows();
+    const wb = buildRunSummaryWorkbook(run, rows);
+    const blob = await workbookToBlob(wb);
+    downloadBlob(blob, `payroll-summary-${run.period_year}-${String(run.period_month).padStart(2, "0")}.xlsx`);
+    await logAuditEvent({ action: AUDIT_ACTIONS.PAYROLL_EXPORTED, entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN, entity_id: run.id, details: { report: "summary", count: rows.length } });
+  }
+
+  async function handleExportBankPayment() {
+    if (!run) return;
+    const rows = buildCalcRows().filter((r) => r.employee.bank_account);
+    if (rows.length === 0) { toast.error("ไม่มีพนักงานที่มีเลขบัญชีธนาคาร"); return; }
+    const wb = buildBankPaymentWorkbook(run, rows);
+    const blob = await workbookToBlob(wb);
+    downloadBlob(blob, `bank-payment-${run.period_year}-${String(run.period_month).padStart(2, "0")}.xlsx`);
+    await logAuditEvent({ action: AUDIT_ACTIONS.PAYROLL_EXPORTED, entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN, entity_id: run.id, details: { report: "bank_payment", count: rows.length } });
+  }
+
+  async function handleExportWht() {
+    if (!run) return;
+    const rows = buildCalcRows();
+    const wb = buildWhtWorkbook(run, rows);
+    const blob = await workbookToBlob(wb);
+    downloadBlob(blob, `wht-${run.period_year}-${String(run.period_month).padStart(2, "0")}.xlsx`);
+    await logAuditEvent({ action: AUDIT_ACTIONS.PAYROLL_EXPORTED, entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN, entity_id: run.id, details: { report: "wht", count: rows.length } });
+  }
+
+  async function handleExportBulkPayslips() {
+    if (!run) return;
+    const { default: JSZip } = await import("jszip");
+    const zip = new JSZip();
+    const statutoryMonth = Number(run.period_end.slice(5, 7));
+    const statutoryYear = Number(run.period_end.slice(0, 4));
+    let okCount = 0;
+    let failCount = 0;
+
+    for (const emp of employees) {
+      try {
+        const item = getEffectiveItem(emp.id);
+        const calc = calcLineItem(emp, item);
+        const hourlyRate = getEffectiveHourlyRate(emp.salary_type, emp.base_salary, resolveDivisorDays(settings, statutoryMonth, statutoryYear));
+        const totalDeductions = item.deductions.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+        const blob = await slipNodeToPdfBlob(buildPayslipSlipNode(emp, run, item, { ...calc, totalDeductions }, hourlyRate));
+        zip.file(`${sanitizePdfFilename(`${emp.employee_code}-${emp.full_name}`)}.pdf`, blob);
+        okCount++;
+      } catch (e) {
+        console.warn("payslip pdf failed", emp.employee_code, e);
+        failCount++;
+      }
+    }
+
+    if (okCount === 0) {
+      toast.error("สร้างสลิปไม่สำเร็จ");
+      return;
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    downloadBlob(blob, `payslips-${run.period_year}-${String(run.period_month).padStart(2, "0")}.pdf.zip`);
+    toast.success(failCount > 0 ? `สร้าง PDF สำเร็จ ${okCount} คน · ล้มเหลว ${failCount} คน` : `สร้าง PDF ${okCount} ใบแล้ว`);
+    await logAuditEvent({ action: AUDIT_ACTIONS.PAYROLL_EXPORTED, entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN, entity_id: run.id, details: { report: "bulk_payslips_pdf", count: okCount } });
   }
 
   async function handleSaveLineItem(employeeId: string, item: PayrollLineItem): Promise<boolean> {
@@ -298,12 +708,14 @@ export default function PayrollPage() {
           employee_id: employeeId,
           previous: existing ? {
             days_worked: existing.days_worked,
+            absent_days: existing.absent_days,
             ot_entries: existing.ot_entries,
             additions: existing.additions,
             deductions: existing.deductions,
           } : null,
           next: {
             days_worked: item.days_worked,
+            absent_days: item.absent_days,
             ot_entries: item.ot_entries,
             additions: item.additions,
             deductions: item.deductions,
@@ -314,22 +726,11 @@ export default function PayrollPage() {
     }
   }
 
-  async function handleCopyFromPrevious() {
+  async function handlePreviewCopyFromPrevious() {
     if (!run || !userId || !employees.length) return;
     setCopyingPrevious(true);
 
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear = month === 1 ? year - 1 : year;
-
-    const { data: prevRun } = await supabase
-      .from("payroll_runs")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("period_month", prevMonth)
-      .eq("period_year", prevYear)
-      .maybeSingle();
-
-    if (!prevRun) {
+    if (!prevNearestRunId) {
       toast.error("ไม่พบรอบเงินเดือนก่อนหน้า");
       setCopyingPrevious(false);
       return;
@@ -338,10 +739,45 @@ export default function PayrollPage() {
     const { data: prevItems } = await supabase
       .from("payroll_line_items")
       .select("*")
-      .eq("payroll_run_id", prevRun.id);
+      .eq("payroll_run_id", prevNearestRunId);
 
     if (!prevItems || prevItems.length === 0) {
       toast.error("ไม่มีข้อมูลในรอบก่อนหน้า");
+      setCopyingPrevious(false);
+      return;
+    }
+
+    let copyable = 0;
+    let overwrite = 0;
+    for (const emp of employees) {
+      const prevItem = prevItems.find((pi) => pi.employee_id === emp.id);
+      if (prevItem) {
+        copyable++;
+        if (lineItems.has(emp.id)) overwrite++;
+      }
+    }
+
+    setCopyPreview({ copyable, overwrite });
+    setCopyingPrevious(false);
+  }
+
+  async function handleConfirmCopyFromPrevious() {
+    if (!run || !userId || !copyPreview) return;
+    setCopyingPrevious(true);
+
+    if (!prevNearestRunId) {
+      setCopyPreview(null);
+      setCopyingPrevious(false);
+      return;
+    }
+
+    const { data: prevItems } = await supabase
+      .from("payroll_line_items")
+      .select("*")
+      .eq("payroll_run_id", prevNearestRunId);
+
+    if (!prevItems || prevItems.length === 0) {
+      setCopyPreview(null);
       setCopyingPrevious(false);
       return;
     }
@@ -357,6 +793,7 @@ export default function PayrollPage() {
     }
 
     toast.success(`คัดลอกข้อมูล ${copied} คนจากรอบก่อนหน้า`);
+    setCopyPreview(null);
     setCopyingPrevious(false);
     fetchData();
   }
@@ -367,12 +804,22 @@ export default function PayrollPage() {
     return createEmptyLineItem(run?.id ?? "", employeeId);
   }
 
+  /** Raw stored item with active recurring templates merged in (view/save layer). */
+  function getEffectiveItem(employeeId: string): PayrollLineItem {
+    const raw = getLineItem(employeeId);
+    const templates = recurringByEmployee.get(employeeId) ?? [];
+    if (templates.length === 0) return raw;
+    const merged = applyRecurringTemplates(raw, templates);
+    return { ...raw, additions: merged.additions, deductions: merged.deductions };
+  }
+
   function calcLineItem(employee: Employee, item: PayrollLineItem) {
     return calculateBreakdown(
       {
         salary_type: employee.salary_type,
         base_salary: employee.base_salary,
         days_worked: item.days_worked,
+        absent_days: item.absent_days,
         ot_entries: item.ot_entries,
         additions: item.additions,
         deductions: item.deductions,
@@ -384,7 +831,7 @@ export default function PayrollPage() {
 
   const totals = employees.reduce(
     (acc, emp) => {
-      const item = getLineItem(emp.id);
+      const item = getEffectiveItem(emp.id);
       const calc = calcLineItem(emp, item);
       return {
         base: acc.base + calc.base_pay,
@@ -402,15 +849,40 @@ export default function PayrollPage() {
   );
 
   const completedCount = employees.filter((emp) => {
-    const item = getLineItem(emp.id);
+    const item = getEffectiveItem(emp.id);
     return getRowStatus(emp, item) === "complete";
   }).length;
-  const incompleteEmployees = employees.filter((emp) => getRowStatus(emp, getLineItem(emp.id)) !== "complete");
+  const incompleteEmployees = employees.filter((emp) => getRowStatus(emp, getEffectiveItem(emp.id)) !== "complete");
 
   const progressPercent = employees.length > 0 ? Math.round((completedCount / employees.length) * 100) : 0;
 
+  const filteredEmployees = search.trim()
+    ? employees.filter((emp) => {
+        const q = search.toLowerCase();
+        return (
+          emp.full_name.toLowerCase().includes(q) ||
+          emp.employee_code.toLowerCase().includes(q) ||
+          emp.position.toLowerCase().includes(q) ||
+          (emp.department ?? "").toLowerCase().includes(q)
+        );
+      })
+    : employees;
+
+  useEffect(() => {
+    if (!highlightedEmployeeId) return;
+    const t = setTimeout(() => setHighlightedEmployeeId(null), 2500);
+    return () => clearTimeout(t);
+  }, [highlightedEmployeeId]);
+
+  const prevEmployeeIds = previousRunEmployees ? previousRunEmployees.map((e) => e.id) : [];
+  const currentEmployeeIds = employees.map((e) => e.id);
+  const runDiff = previousRunEmployees !== null ? {
+    added: currentEmployeeIds.filter((id) => !prevEmployeeIds.includes(id)).length,
+    left: prevEmployeeIds.filter((id) => !currentEmployeeIds.includes(id)).length,
+  } : null;
+
   if (printEmployee) {
-    return <PayslipView employee={printEmployee} run={run} lineItem={getLineItem(printEmployee.id)} settings={settings} onBack={() => setPrintEmployee(null)} onPrint={() => {
+    return <PayslipView employee={printEmployee} run={run} lineItem={getEffectiveItem(printEmployee.id)} settings={settings} onBack={() => setPrintEmployee(null)} onPrint={() => {
       logAuditEvent({
         action: AUDIT_ACTIONS.PAYSLIP_PRINTED,
         entity_type: AUDIT_ENTITY_TYPES.PAYSLIP,
@@ -420,7 +892,7 @@ export default function PayrollPage() {
     }} />;
   }
 
-  const detailItem = detailEmployee ? getLineItem(detailEmployee.id) : null;
+  const detailItem = detailEmployee ? getEffectiveItem(detailEmployee.id) : null;
 
   return (
     <AppShell
@@ -435,8 +907,23 @@ export default function PayrollPage() {
             <Users className="w-4 h-4" />
             <span className="hidden sm:inline">พนักงาน</span>
           </Button>
+          {run && (
+            <PayrollExportMenu
+              status={run.status}
+              onExportSummary={handleExportSummary}
+              onExportBank={handleExportBankPayment}
+              onExportWht={handleExportWht}
+              onExportPayslips={handleExportBulkPayslips}
+            />
+          )}
           {run?.status === "draft" && (
-            <Button size="sm" onClick={() => setShowFinalizeModal(true)} className="!rounded-lg" disabled={employees.length === 0 || incompleteEmployees.length > 0}>
+            <Button size="sm" onClick={() => {
+              if (payDate < run.period_end) {
+                toast.error("วันจ่ายไม่ถูกต้อง ต้องไม่ก่อนวันสิ้นสุดรอบ");
+                return;
+              }
+              setShowFinalizeModal(true);
+            }} className="!rounded-lg" disabled={employees.length === 0 || incompleteEmployees.length > 0}>
               ปิดรอบ
             </Button>
           )}
@@ -459,15 +946,115 @@ export default function PayrollPage() {
             <Input label="วันจ่าย" type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="w-[160px]" />
             <div className="flex-1" />
             {run && (
-              <StatusBadge
-                tone={run.status === "finalized" ? "green" : "amber"}
-                label={run.status === "finalized" ? "ปิดรอบ" : "ร่าง"}
-              />
+              <div className="flex items-center gap-2">
+                <StatusBadge
+                  tone={run.status === "finalized" ? "green" : "amber"}
+                  label={run.status === "finalized" ? "ปิดรอบ" : "ร่าง"}
+                />
+                {run.status === "draft" && (
+                  <>
+                    <button
+                      onClick={openEditRunModal}
+                      className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-cool-25 text-cool-400 hover:text-cool-700 transition-colors"
+                      title="แก้ไขข้อมูลรอบ"
+                      aria-label="แก้ไขข้อมูลรอบ"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteRunModal(true)}
+                      className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-300 hover:text-red-500 transition-colors"
+                      title="ลบรอบ"
+                      aria-label="ลบรอบ"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
+
+          {runs.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-card-border flex flex-wrap gap-2 items-center">
+              {runs.map((r) => {
+                const isCurrent = r.id === selectedRunId;
+                const rangeLabel = r.label || formatPayRangeLabel({ start: r.period_start, end: r.period_end });
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => setSelectedRunId(r.id)}
+                    disabled={isCurrent}
+                    title={`${r.period_start} → ${r.period_end}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep cursor-default" : "bg-white border-card-border text-cool-600 hover:border-primary/30 hover:text-primary"}`}
+                  >
+                    <span>{rangeLabel}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${r.status === "finalized" ? "bg-green-500" : "bg-amber-400"}`} aria-label={r.status === "finalized" ? "ปิดรอบ" : "ร่าง"} />
+                  </button>
+                );
+              })}
+              <button
+                onClick={openCreateCustomModal}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-cool-300 text-cool-500 hover:text-primary hover:border-primary/40 text-xs font-medium transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> ช่วงรอบ
+              </button>
+            </div>
+          )}
         </Card>
 
-        {loading ? (
+        {runs.length > 1 && (() => {
+          const finalized = runs.filter((r) => r.status === "finalized");
+          const draftCount = runs.filter((r) => r.status === "draft").length;
+          const sumGross = finalized.reduce((s, r) => s + (Number(r.total_gross) || 0), 0);
+          const sumNet = finalized.reduce((s, r) => s + (Number(r.total_net) || 0), 0);
+          const empMax = finalized.reduce((s, r) => s + (r.employee_count || 0), 0);
+          return (
+            <div className="bg-green-50 border border-green-200 rounded-card p-4">
+              <div className="flex items-center gap-2 text-green-800 mb-2">
+                <Layers className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  สรุปทั้งเดือน ({MONTHS[month - 1].label} {year + 543}) — {finalized.length} รอบที่ปิดแล้ว
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div>
+                  <div className="text-[11px] text-green-600 font-medium">ค่าแรงรวม</div>
+                  <div className="text-sm font-semibold text-green-900 tabular-nums">฿{formatCurrency(sumGross)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-green-600 font-medium">สุทธิ</div>
+                  <div className="text-sm font-semibold text-green-900 tabular-nums">฿{formatCurrency(sumNet)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-green-600 font-medium">จำนวนคน (รวมช่วง)</div>
+                  <div className="text-sm font-semibold text-green-900 tabular-nums">{empMax} คน</div>
+                </div>
+              </div>
+              {draftCount > 0 && (
+                <p className="mt-2 flex items-center gap-1 text-xs text-amber-700">
+                  <AlertCircle className="w-3.5 h-3.5" /> มีรอบ {draftCount} ช่วงยังเป็นร่าง — SSO/PND.1 ยื่นรายเดือน ต้องปิดทุกช่วงก่อนนับรวม
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
+
+        {schemaOutdated ? (
+          <div className="bg-amber-50 border border-amber-300 rounded-card p-8 text-center">
+            <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+              <AlertCircle className="w-8 h-8 text-amber-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-cool-900 mb-2">ระบบต้องอัปเดตฐานข้อมูลก่อนใช้งาน</h3>
+            <p className="text-sm text-cool-600 max-w-md mx-auto">
+              ฟีเจอร์รอบจ่ายแบบยืดหยุ่นต้องการโครงสร้างฐานข้อมูลใหม่ กรุณาให้ผู้ดูแลระบบรันไฟล์ migration ล่าสุดใน Supabase ก่อน
+            </p>
+            <code className="mt-3 inline-block text-[11px] font-mono text-cool-600 bg-white border border-card-border rounded px-3 py-1.5">
+              supabase/migrations/20260827*_payroll_*.sql
+            </code>
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center py-12">
             <Spinner />
           </div>
@@ -480,9 +1067,14 @@ export default function PayrollPage() {
             <p className="text-sm text-cool-500 mb-6 max-w-sm mx-auto">
               สร้างรอบเงินเดือนสำหรับ <strong>{MONTHS[month - 1].label} {year + 543}</strong> เพื่อเริ่มกรอกข้อมูลเงินเดือนพนักงาน
             </p>
-            <Button onClick={handleCreateRun}>
-              <Plus className="w-4 h-4" /> สร้างรอบเงินเดือน
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+              <Button onClick={handleCreateRun}>
+                <Plus className="w-4 h-4" /> สร้างรอบทั้งเดือน
+              </Button>
+              <Button variant="secondary" onClick={openCreateCustomModal}>
+                <CalendarRange className="w-4 h-4" /> สร้างช่วงรอบกำหนดเอง
+              </Button>
+            </div>
           </div>
         ) : (
           <>
@@ -536,6 +1128,21 @@ export default function PayrollPage() {
                     <span className="text-xs font-medium">กรอกครบทุกคนแล้ว — พร้อมปิดรอบ!</span>
                   </div>
                 )}
+                {runDiff && (runDiff.added > 0 || runDiff.left > 0) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                    {runDiff.added > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-green-700">
+                        <TrendingUp className="w-3 h-3" />+{runDiff.added} ใหม่
+                      </span>
+                    )}
+                    {runDiff.left > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-cool-500">
+                        <TrendingDown className="w-3 h-3" />-{runDiff.left} ลาออก
+                      </span>
+                    )}
+                    <span className="text-cool-400">เทียบเดือนก่อน</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -556,44 +1163,110 @@ export default function PayrollPage() {
               <SummaryCard icon={<Banknote className="w-4 h-4" />} label="สุทธิ" value={`฿${formatCurrency(totals.net)}`} highlight />
             </div>
 
+            {historyRuns.length > 1 && (
+              <div className="bg-white border border-card-border rounded-card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-4 h-4 text-cool-400" />
+                  <span className="text-xs font-medium text-cool-600">รอบเงินนี้ย้อนหลัง</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {historyRuns.map((hRun) => {
+                    const isCurrent = hRun.id === selectedRunId;
+                    const fallbackLabel = formatPayRangeLabel({
+                      start: hRun.period_start ?? getPayrollPeriod(hRun.period_month ?? 1, hRun.period_year ?? now.getFullYear()).periodStart,
+                      end: hRun.period_end ?? `${hRun.period_year}-${String(hRun.period_month).padStart(2, "0")}-28`,
+                    });
+                    return (
+                      <button
+                        key={hRun.id}
+                        disabled={isCurrent}
+                        onClick={() => {
+                          setMonth(Number(hRun.period_end.slice(5, 7)));
+                          setYear(Number(hRun.period_end.slice(0, 4)));
+                          setSelectedRunId(hRun.id);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep" : "bg-white border-card-border text-cool-600 hover:border-primary/30 hover:text-primary"}`}
+                      >
+                        <span>{hRun.label || fallbackLabel}</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${hRun.status === "finalized" ? "bg-green-500" : "bg-amber-400"}`} />
+                        {!isCurrent && <span className="tabular-nums text-cool-400">฿{formatCurrency(hRun.total_net)}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {run.status === "draft" && employees.length > 0 && (
               <div className="flex justify-end">
-                <Button size="sm" variant="ghost" onClick={handleCopyFromPrevious} disabled={copyingPrevious} className="!text-xs">
+                <Button size="sm" variant="secondary" onClick={handlePreviewCopyFromPrevious} disabled={copyingPrevious} className="!text-xs !rounded-lg">
                   <Copy className="w-3.5 h-3.5" />
-                  {copyingPrevious ? "กำลังคัดลอก..." : "คัดลอกจากรอบก่อนหน้า"}
+                  {copyingPrevious ? "กำลังตรวจสอบ..." : "คัดลอกจากรอบก่อนหน้า"}
                 </Button>
               </div>
             )}
 
+            {employees.length > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 max-w-xs">
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="ค้นหาพนักงาน..."
+                    aria-label="ค้นหาพนักงาน"
+                    className="w-full h-9 pl-3 pr-8 text-sm rounded-lg border border-card-border bg-white placeholder:text-cool-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                  {search && (
+                    <button
+                      onClick={() => setSearch("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-cool-400 hover:text-cool-600"
+                      aria-label="ล้างการค้นหา"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {search && (
+                  <span className="text-xs text-cool-500">
+                    พบ {filteredEmployees.length} จาก {employees.length} คน
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="bg-white border border-card-border rounded-card overflow-hidden" ref={tableRef}>
-              <div className="overflow-x-auto">
+              <div className="max-h-[70vh] overflow-auto">
                 <table className={TABLE.table}>
                   <thead>
                     <tr className={TABLE.theadTr}>
-                      {run.status === "draft" && <th className={`${TABLE.thStatic} w-8`}></th>}
-                      <th className={TABLE.thStatic}>พนักงาน</th>
+                      {run.status === "draft" && <th className={`${TABLE.thStatic} ${TH_STICKY} w-8`}></th>}
+                      <th className={`${TABLE.thStatic} ${TH_STICKY}`}>พนักงาน</th>
                       {run.status === "draft" ? (
                         <>
-                          <th className={`${TABLE.thStatic} text-right`}>ฐานเงินเดือน</th>
-                          <th className={`${TABLE.thStatic} text-right`}>OT</th>
-                          <th className={`${TABLE.thStatic} text-right`}>เงินเพิ่ม</th>
-                          <th className={`${TABLE.thStatic} text-right`}>เงินหัก</th>
+                          {employees.some((e) => e.salary_type === "daily") && (
+                            <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>วันทำงาน</th>
+                          )}
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ฐานเงินเดือน</th>
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>OT</th>
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>เงินเพิ่ม</th>
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>เงินหัก</th>
                         </>
                       ) : (
                         <>
-                          <th className={`${TABLE.thStatic} text-right`}>ค่าแรงรวม</th>
-                          <th className={`${TABLE.thStatic} text-right`}>SSO (พนักงาน)</th>
-                          <th className={`${TABLE.thStatic} text-right`}>SSO (นายจ้าง)</th>
-                          <th className={`${TABLE.thStatic} text-right`}>ภาษี</th>
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ค่าแรงรวม</th>
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>SSO (พนักงาน)</th>
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>SSO (นายจ้าง)</th>
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ภาษี</th>
                         </>
                       )}
-                      <th className={`${TABLE.thStatic} text-right`}>สุทธิ</th>
-                      <th className={`${TABLE.thStatic} w-20`}></th>
+                      <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>สุทธิ</th>
+                      <th className={`${TABLE.thStatic} ${TH_STICKY} w-20`}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {employees.map((emp) => {
-                      const item = getLineItem(emp.id);
+                    {filteredEmployees.map((emp) => {
+                      const item = getEffectiveItem(emp.id);
                       const calc = calcLineItem(emp, item);
                       const rowStatus = getRowStatus(emp, item);
                       return (
@@ -603,36 +1276,57 @@ export default function PayrollPage() {
                           calc={calc}
                           status={run.status}
                           rowStatus={rowStatus}
+                          highlighted={highlightedEmployeeId === emp.id}
+                          showDaysWorked={run.status === "draft" && emp.salary_type === "daily"}
+                          daysWorked={item.days_worked}
+                          inlineEditing={inlineEditingId === emp.id}
+                          onToggleInlineEdit={() => setInlineEditingId(inlineEditingId === emp.id ? null : emp.id)}
+                          onSaveDaysWorked={async (days) => {
+                            const updated = { ...getEffectiveItem(emp.id), days_worked: days };
+                            const ok = await handleSaveLineItem(emp.id, updated);
+                            if (ok) setInlineEditingId(null);
+                            return ok;
+                          }}
                           onOpenDetails={() => setDetailEmployee(emp)}
                           onPrint={() => setPrintEmployee(emp)}
                         />
                       );
                     })}
+                    {filteredEmployees.length === 0 && search.trim() && (
+                      <tr>
+                        <td
+                          colSpan={run.status === "draft" ? (employees.some((e) => e.salary_type === "daily") ? 9 : 8) : 8}
+                          className="py-10 text-center text-xs text-cool-400"
+                        >
+                          ไม่พบพนักงานที่ตรงกับ "{search.trim()}"
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                   {run.status === "draft" ? (
                     <tfoot>
                       <tr className={TABLE.tfootTr}>
-                        <td></td>
-                        <td>รวมโดยประมาณ</td>
-                        <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.base)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.ot)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.additions)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.deductions)}</td>
-                        <td className="px-3 py-2 text-right font-bold tabular-nums">฿{formatCurrency(totals.net)}</td>
-                        <td></td>
+                        <td className={TF_STICKY}></td>
+                        <td className={TF_STICKY}>รวมโดยประมาณ</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.base)}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.ot)}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.additions)}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.deductions)}</td>
+                        <td className={`px-3 py-2 text-right font-bold tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.net)}</td>
+                        <td className={TF_STICKY}></td>
                       </tr>
                     </tfoot>
                   ) : (
                   run.status === "finalized" && (
                     <tfoot>
                       <tr className={TABLE.tfootTr}>
-                        <td>รวม</td>
-                        <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.gross)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.sso)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.ssoEmp)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.wht)}</td>
-                        <td className="px-3 py-2 text-right font-bold tabular-nums">฿{formatCurrency(totals.net)}</td>
-                        <td></td>
+                        <td className={TF_STICKY}>รวม</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.gross)}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.sso)}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.ssoEmp)}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.wht)}</td>
+                        <td className={`px-3 py-2 text-right font-bold tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.net)}</td>
+                        <td className={TF_STICKY}></td>
                       </tr>
                     </tfoot>
                   ))}
@@ -642,7 +1336,7 @@ export default function PayrollPage() {
 
             {run.status === "finalized" && (
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={handleReopen} className="flex-1">
+                <Button variant="secondary" onClick={handleRequestReopen} className="flex-1">
                   เปิดรอบใหม่
                 </Button>
               </div>
@@ -651,25 +1345,174 @@ export default function PayrollPage() {
         )}
       </div>
 
-      {detailEmployee && detailItem && (
-        <PayrollDetailModal
-          employee={detailEmployee}
-          run={run}
-          initialItem={detailItem}
-          settings={settings}
-          month={month}
-          readOnly={run?.status === "finalized"}
-          onSave={async (item) => {
-            const ok = await handleSaveLineItem(detailEmployee.id, item);
-            if (ok) {
-              setDetailEmployee(null);
-            }
-            return ok;
-          }}
-          onPrint={() => setPrintEmployee(detailEmployee)}
-          onClose={() => setDetailEmployee(null)}
-        />
-      )}
+      {detailEmployee && detailItem && (() => {
+        const rawDetail = getLineItem(detailEmployee.id);
+        const tplAdds = detailItem.additions.length - rawDetail.additions.length;
+        const tplDeds = detailItem.deductions.length - rawDetail.deductions.length;
+        const templateNote = (tplAdds > 0 || tplDeds > 0) && !detailItem.id
+          ? `รวมรายการประจำอัตโนมัติแล้ว ${tplAdds + tplDeds} รายการ${tplAdds > 0 ? ` · เงินเพิ่ม ${tplAdds}` : ""}${tplDeds > 0 ? ` · เงินหัก ${tplDeds}` : ""} — กดบันทึกเพื่อยืนยัน`
+          : null;
+        return (
+          <PayrollDetailModal
+            employee={detailEmployee}
+            run={run}
+            initialItem={detailItem}
+            settings={settings}
+            month={month}
+            year={year}
+            readOnly={run?.status === "finalized"}
+            templateNote={templateNote}
+            onSave={async (item) => {
+              const ok = await handleSaveLineItem(detailEmployee.id, item);
+              if (ok) {
+                setDetailEmployee(null);
+                await fetchRunDetails();
+              }
+              return ok;
+            }}
+            onPrint={() => setPrintEmployee(detailEmployee)}
+            onClose={() => setDetailEmployee(null)}
+          />
+        );
+      })()}
+
+      <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)} title="สร้างช่วงรอบเงินเดือน">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="วันเริ่มรอบ"
+              type="date"
+              value={createForm.start}
+              onChange={(e) => setCreateForm((f) => ({ ...f, start: e.target.value }))}
+            />
+            <Input
+              label="วันสิ้นสุดรอบ"
+              type="date"
+              value={createForm.end}
+              onChange={(e) => setCreateForm((f) => ({ ...f, end: e.target.value }))}
+            />
+          </div>
+          <Input
+            label="ชื่อรอบ (ถ้าต้องการ)"
+            value={createForm.label}
+            onChange={(e) => setCreateForm((f) => ({ ...f, label: e.target.value }))}
+            placeholder="เช่น รอบที่ 1 · 1–10 ส.ค."
+          />
+          <Input
+            label="วันจ่าย"
+            type="date"
+            value={createForm.pay_date}
+            onChange={(e) => setCreateForm((f) => ({ ...f, pay_date: e.target.value }))}
+          />
+          <p className="text-xs text-cool-500 flex items-start gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cool-400" />
+            ช่วงรอบต้องไม่ทับซ้อนกับรอบอื่น และจะถูกนับยอดภาษี/ประกันสังคมใน "เดือนของวันสิ้นสุดรอบ"
+          </p>
+          <div className="flex gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)} className="flex-1" disabled={creating}>
+              ยกเลิก
+            </Button>
+            <Button onClick={handleCreateCustomRun} className="flex-1" disabled={creating}>
+              {creating ? "กำลังสร้าง..." : "สร้างช่วงรอบ"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showDeleteRunModal && run !== null} onClose={() => setShowDeleteRunModal(false)} title="ลบรอบเงินเดือน?">
+        {run && (
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800">
+                ต้องการลบรอบ <strong>{run.label || formatPayRangeLabel({ start: run.period_start, end: run.period_end })}</strong>?
+                ข้อมูล {run.employee_count} คน (สุทธิ ฿{formatCurrency(run.total_net)}) จะถูกลบถาวรและไม่สามารถย้อนกลับได้
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="secondary" onClick={() => setShowDeleteRunModal(false)} className="flex-1" disabled={deletingRun}>
+                ยกเลิก
+              </Button>
+              <Button variant="danger" onClick={handleDeleteRun} className="flex-1" disabled={deletingRun}>
+                {deletingRun ? "กำลังลบ..." : "ลบรอบ"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={showEditRunModal} onClose={() => setShowEditRunModal(false)} title="แก้ไขข้อมูลรอบ">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="วันเริ่มรอบ"
+              type="date"
+              value={editForm.start}
+              onChange={(e) => setEditForm((f) => ({ ...f, start: e.target.value }))}
+              disabled={lineItems.size > 0}
+            />
+            <Input
+              label="วันสิ้นสุดรอบ"
+              type="date"
+              value={editForm.end}
+              onChange={(e) => setEditForm((f) => ({ ...f, end: e.target.value }))}
+              disabled={lineItems.size > 0}
+            />
+          </div>
+          {lineItems.size > 0 ? (
+            <p className="text-xs text-cool-500 flex items-start gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cool-400" />
+              รอบนี้มีข้อมูลพนักงานแล้ว — เปลี่ยนช่วงวันที่ได้โดยลบรอบแล้วสร้างใหม่
+            </p>
+          ) : null}
+          <Input
+            label="ชื่อรอบ"
+            value={editForm.label}
+            onChange={(e) => setEditForm((f) => ({ ...f, label: e.target.value }))}
+            placeholder="เช่น รอบที่ 1 · 1–10 ส.ค."
+          />
+          <Input
+            label="วันจ่าย"
+            type="date"
+            value={editForm.pay_date}
+            onChange={(e) => setEditForm((f) => ({ ...f, pay_date: e.target.value }))}
+          />
+          <div className="flex gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setShowEditRunModal(false)} className="flex-1" disabled={editingRun}>
+              ยกเลิก
+            </Button>
+            <Button onClick={handleUpdateRun} className="flex-1" disabled={editingRun}>
+              {editingRun ? "กำลังบันทึก..." : "บันทึก"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={copyPreview !== null} onClose={() => setCopyPreview(null)} title="คัดลอกข้อมูลจากรอบก่อนหน้า">
+        {copyPreview && (
+          <div className="space-y-4">
+            <p className="text-sm text-cool-600">
+              จะคัดลอกข้อมูลเงินเดือนของพนักงาน <strong>{copyPreview.copyable} คน</strong> จากรอบก่อนหน้า
+            </p>
+            {copyPreview.overwrite > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800">
+                  มีพนักงาน <strong>{copyPreview.overwrite} คน</strong> ที่กรอกข้อมูลไว้แล้ว การคัดลอกจะ <strong>แทนที่</strong> ข้อมูลเดิม
+                </p>
+              </div>
+            )}
+            <div className="flex gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setCopyPreview(null)} className="flex-1">
+                ยกเลิก
+              </Button>
+              <Button onClick={handleConfirmCopyFromPrevious} className="flex-1" disabled={copyPreview.copyable === 0}>
+                คัดลอก {copyPreview.copyable} คน
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={showFinalizeModal} onClose={() => setShowFinalizeModal(false)} title="ยืนยันปิดรอบเงินเดือน">
         <div className="space-y-4">
@@ -685,9 +1528,16 @@ export default function PayrollPage() {
                 <AlertCircle className="w-4 h-4" />
                 ต้องตรวจสอบข้อมูล {incompleteEmployees.length} คนก่อนปิดรอบ
               </div>
-              <div className="mt-2 text-xs text-red-700">
-                {incompleteEmployees.slice(0, 5).map((employee) => employee.full_name || employee.employee_code).join(", ")}
-                {incompleteEmployees.length > 5 ? " และรายการอื่นๆ" : ""}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {incompleteEmployees.map((employee) => (
+                  <button
+                    key={employee.id}
+                    onClick={() => { setHighlightedEmployeeId(employee.id); setShowFinalizeModal(false); }}
+                    className="text-xs px-2 py-0.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                  >
+                    {employee.full_name || employee.employee_code}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -719,6 +1569,25 @@ export default function PayrollPage() {
           </div>
         </div>
       </Modal>
+
+      <Modal open={showReopenModal} onClose={() => setShowReopenModal(false)} title="เปิดรอบใหม่?">
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              ข้อมูลเดิมจะถูกเก็บไว้และสามารถแก้ไขได้อีกครั้ง รอบจะถูกนับเป็น revision ใหม่
+            </p>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setShowReopenModal(false)} className="flex-1">
+              ยกเลิก
+            </Button>
+            <Button onClick={handleReopen} className="flex-1">
+              เปิดรอบใหม่
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </AppShell>
   );
 }
@@ -742,6 +1611,78 @@ function SummaryCard({ icon, label, value, highlight }: SummaryCardProps) {
   );
 }
 
+interface PayrollExportMenuProps {
+  status: "draft" | "finalized";
+  onExportSummary: () => void;
+  onExportBank: () => void;
+  onExportWht: () => void;
+  onExportPayslips: () => void;
+}
+
+function PayrollExportMenu({ status, onExportSummary, onExportBank, onExportWht, onExportPayslips }: PayrollExportMenuProps) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  async function run(key: string, fn: () => Promise<void>) {
+    if (busy) return;
+    setBusy(key);
+    setOpen(false);
+    try {
+      await fn();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <Button size="sm" variant="secondary" onClick={() => { if (!busy) setOpen(!open); }} className="!rounded-lg" disabled={busy !== null}>
+        {busy !== null ? (
+          <span className="flex items-center gap-1.5">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="hidden sm:inline">กำลังสร้าง...</span>
+          </span>
+        ) : (
+          <>
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">ส่งออก</span>
+          </>
+        )}
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-card-border rounded-lg shadow-lg z-30 py-1">
+          <button disabled={busy !== null} onClick={() => run("summary", onExportSummary)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+            {busy === "summary" ? <Loader2 className="w-4 h-4 animate-spin text-green-600" /> : <FileSpreadsheet className="w-4 h-4 text-green-600" />} สรุปเงินเดือน (Excel)
+          </button>
+          <button disabled={busy !== null} onClick={() => run("wht", onExportWht)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+            {busy === "wht" ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <FileSpreadsheet className="w-4 h-4 text-blue-600" />} ภาษีหัก ณ ที่จ่าย (Excel)
+          </button>
+          {status === "finalized" && (
+            <>
+              <div className="border-t border-card-border my-1" />
+              <button disabled={busy !== null} onClick={() => run("bank", onExportBank)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+                {busy === "bank" ? <Loader2 className="w-4 h-4 animate-spin text-purple-600" /> : <FileSpreadsheet className="w-4 h-4 text-purple-600" />} รายการโอนธนาคาร (Excel)
+              </button>
+              <button disabled={busy !== null} onClick={() => run("payslips", onExportPayslips)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+                {busy === "payslips" ? <Loader2 className="w-4 h-4 animate-spin text-amber-600" /> : <FileArchive className="w-4 h-4 text-amber-600" />} สลิปเงินเดือนทั้งหมด (ZIP)
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface PayrollRowProps {
   employee: Employee;
   calc: {
@@ -757,41 +1698,108 @@ interface PayrollRowProps {
   };
   status: "draft" | "finalized";
   rowStatus: RowStatus;
+  highlighted?: boolean;
+  showDaysWorked?: boolean;
+  daysWorked?: number | null;
+  inlineEditing?: boolean;
+  onToggleInlineEdit?: () => void;
+  onSaveDaysWorked?: (days: number | null) => Promise<boolean>;
   onOpenDetails: () => void;
   onPrint: () => void;
 }
 
-function PayrollRow({ employee, calc, status, rowStatus, onOpenDetails, onPrint }: PayrollRowProps) {
-  const statusColors = {
+const ROW_STATUS_LABELS: Record<RowStatus, string> = {
+  complete: "กรอกครบแล้ว",
+  warning: "มีข้อมูลที่ต้องตรวจสอบ",
+  incomplete: "ยังกรอกไม่ครบ",
+  untouched: "ยังไม่ได้กรอก",
+};
+
+function PayrollRow({ employee, calc, status, rowStatus, highlighted, showDaysWorked, daysWorked, inlineEditing, onToggleInlineEdit, onSaveDaysWorked, onOpenDetails, onPrint }: PayrollRowProps) {
+  const statusColors: Record<RowStatus, string> = {
     complete: "border-l-green-500",
     warning: "border-l-amber-400",
-    incomplete: "border-l-cool-200",
+    incomplete: "border-l-red-400",
+    untouched: "border-l-cool-200",
+  };
+
+  const statusIcons: Record<RowStatus, React.ReactNode> = {
+    complete: <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />,
+    warning: <AlertCircle className="w-3.5 h-3.5 text-amber-500" />,
+    incomplete: <AlertCircle className="w-3.5 h-3.5 text-red-400" />,
+    untouched: <Circle className="w-3.5 h-3.5 text-cool-300" />,
+  };
+
+  const statusLabels: Record<RowStatus, string> = {
+    complete: "กรอกครบแล้ว",
+    warning: "มีข้อมูลที่ต้องตรวจสอบ",
+    incomplete: "ยังกรอกไม่ครบ",
+    untouched: "ยังไม่ได้กรอก",
   };
 
   return (
     <tr
+      tabIndex={0}
+      role="button"
+      aria-label={`${employee.full_name}, ${statusLabels[rowStatus]}`}
       onClick={onOpenDetails}
-      className={`${TABLE.tbodyTr} group hover:bg-cool-25/50 transition-colors duration-150 border-l-4 cursor-pointer ${statusColors[rowStatus]}`}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenDetails(); } }}
+      className={`${TABLE.tbodyTr} group hover:bg-cool-25/50 transition-colors duration-150 border-l-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/40 ${statusColors[rowStatus]} ${highlighted ? "ring-2 ring-inset ring-amber-400 bg-amber-50/40" : ""}`}
     >
       {status === "draft" && (
         <td className="px-2 py-2">
-          <button
-            onClick={(e) => { e.stopPropagation(); onOpenDetails(); }}
-            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-cool-25 text-cool-400 hover:text-cool-700 transition-colors"
-            title="ดูรายละเอียด"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <span className="shrink-0" title={statusLabels[rowStatus]}>{statusIcons[rowStatus]}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenDetails(); }}
+              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-cool-25 text-cool-400 hover:text-cool-700 transition-colors"
+              aria-label={`แก้ไขเงินเดือน ${employee.full_name}`}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </td>
+      )}
+      {status === "finalized" && (
+        <td className="px-2 py-2">
+          <span className="shrink-0" title={statusLabels[rowStatus]}>{statusIcons[rowStatus]}</span>
         </td>
       )}
       <td className="px-3 py-2">
         <div className="flex flex-col">
-          <span className="text-cool-900 font-medium">{employee.full_name}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-cool-900 font-medium">{employee.full_name}</span>
+            {employee.status === "inactive" && employee.end_date && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md bg-cool-100 text-cool-500 font-medium">
+                <UserRoundX className="w-3 h-3" />
+                ลาออก {formatThaiDate(employee.end_date)}
+              </span>
+            )}
+          </div>
           <span className="text-cool-400 text-[10px]">{employee.employee_code} · {employee.position}</span>
         </div>
       </td>
       {status === "draft" ? (
         <>
+          {showDaysWorked && (
+            <td className="px-3 py-2 text-right">
+              {inlineEditing && onSaveDaysWorked ? (
+                <InlineDaysWorked
+                  value={daysWorked ?? null}
+                  onSave={onSaveDaysWorked}
+                  onCancel={() => onToggleInlineEdit?.()}
+                />
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleInlineEdit?.(); }}
+                  className="tabular-nums text-cool-700 hover:text-primary hover:underline transition-colors cursor-pointer"
+                  aria-label={`แก้ไขวันทำงาน ${employee.full_name}`}
+                >
+                  {daysWorked !== null && daysWorked !== undefined ? `${daysWorked} วัน` : "—"}
+                </button>
+              )}
+            </td>
+          )}
           <td className="px-3 py-2 text-right">
             <span className="text-cool-700 tabular-nums">฿{formatCurrency(calc.base_pay)}</span>
           </td>
@@ -841,22 +1849,82 @@ function PayrollRow({ employee, calc, status, rowStatus, onOpenDetails, onPrint 
   );
 }
 
+interface InlineDaysWorkedProps {
+  value: number | null;
+  onSave: (days: number | null) => Promise<boolean>;
+  onCancel: () => void;
+}
+
+function InlineDaysWorked({ value, onSave, onCancel }: InlineDaysWorkedProps) {
+  const [val, setVal] = useState<string>(value !== null ? String(value) : "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  async function commit() {
+    if (saving) return;
+    const days = val === "" ? null : parseFloat(val);
+    if (days !== null && (isNaN(days) || days < 0)) return;
+    setSaving(true);
+    await onSave(days);
+    setSaving(false);
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <input
+        ref={inputRef}
+        type="number"
+        min="0"
+        step="1"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+        }}
+        disabled={saving}
+        className="w-16 h-7 text-right text-[11px] tabular-nums rounded border border-primary/40 bg-white px-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+        aria-label="วันทำงาน"
+      />
+      <span className="text-[10px] text-cool-400">วัน</span>
+    </div>
+  );
+}
+
 interface PayrollDetailModalProps {
   employee: Employee;
   run: PayrollRun | null;
   initialItem: PayrollLineItem;
   settings: PayrollSettings;
   month: number;
+  year: number;
   readOnly: boolean;
+  templateNote?: string | null;
   onSave: (item: PayrollLineItem) => Promise<boolean>;
   onPrint: () => void;
   onClose: () => void;
 }
 
-function PayrollDetailModal({ employee, run, initialItem, settings, month, readOnly, onSave, onPrint, onClose }: PayrollDetailModalProps) {
+function PayrollDetailModal({ employee, run, initialItem, settings, month, year, readOnly, templateNote, onSave, onPrint, onClose }: PayrollDetailModalProps) {
   const [localItem, setLocalItem] = useState<PayrollLineItem>(initialItem);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showDiscardModalLocal, setShowDiscardModalLocal] = useState(false);
+
+  // Mid-month leaver: suggest pro-ration through the absent_days mechanism
+  const isLeaverInPeriod =
+    !readOnly &&
+    employee.salary_type === "monthly" &&
+    !!run &&
+    !!employee.end_date &&
+    employee.end_date >= run.period_start &&
+    employee.end_date <= run.period_end;
+  const leaverSuggestion = isLeaverInPeriod
+    ? suggestLeaveProrate(employee.end_date as string, { prorate_mode: settings.prorate_mode }, run ? Number(run.period_end.slice(0, 4)) : undefined)
+    : null;
 
   function updateLocal(updated: Partial<PayrollLineItem>) {
     setLocalItem((prev) => ({ ...prev, ...updated }));
@@ -914,8 +1982,14 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, readO
 
   function requestClose() {
     if (dirty && !readOnly) {
-      if (!confirm("มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการยกเลิกหรือไม่?")) return;
+      setShowDiscardModalLocal(true);
+      return;
     }
+    onClose();
+  }
+
+  function handleConfirmDiscard() {
+    setShowDiscardModalLocal(false);
     onClose();
   }
 
@@ -927,9 +2001,10 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, readO
     if (ok) setDirty(false);
   }
 
-  const hourlyRate = employee.base_salary / settings.ot_divisor / 8;
+  const hourlyRate = getEffectiveHourlyRate(employee.salary_type, employee.base_salary, resolveDivisorDays(settings, run ? Number(run.period_end.slice(5, 7)) : month, run ? Number(run.period_end.slice(0, 4)) : year));
 
   return (
+    <>
     <Modal open={true} onClose={requestClose} size="xl" title={`รายละเอียดเงินเดือน — ${employee.full_name}`}>
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-card-border bg-cool-25/40 p-3">
@@ -957,16 +2032,66 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, readO
           />
         </div>
 
-        {employee.salary_type === "daily" && (
-          <div className="max-w-[220px]">
-            <Input
-              label="วันทำงาน"
-              type="number"
-              value={localItem.days_worked ?? ""}
-              onChange={(e) => updateLocal({ days_worked: parseFloat(e.target.value) || 0 })}
-              placeholder="0"
-              disabled={readOnly}
-            />
+        {isLeaverInPeriod && leaverSuggestion && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-blue-800">
+                พนักงานลาออกวันที่ {formatThaiDate(employee.end_date as string)} (กลางรอบ) — แนะนำปรับค่าจ้างตามสัดส่วนวันที่ทำงาน
+              </p>
+              <button
+                type="button"
+                onClick={() => updateLocal({ absent_days: leaverSuggestion.absent_days })}
+                disabled={leaverSuggestion.absent_days === 0}
+                className="mt-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                กรอกข้อเสนอให้ ({leaverSuggestion.absent_days} วันที่ไม่ทำงานถึงสิ้นรอบ)
+              </button>
+            </div>
+          </div>
+        )}
+
+        {templateNote && (
+          <div className="bg-primary-soft border border-primary/20 rounded-lg p-3 flex items-start gap-2">
+            <Receipt className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <p className="text-xs text-primary-deep">{templateNote}</p>
+          </div>
+        )}
+
+        {(employee.salary_type === "daily" || settings.absence_deduction !== false) && (
+          <div className="flex flex-wrap gap-4">
+            {employee.salary_type === "daily" && (
+              <div className="max-w-[180px]">
+                <Input
+                  label="วันทำงาน"
+                  type="number"
+                  min="0"
+                  value={localItem.days_worked ?? ""}
+                  onChange={(e) => updateLocal({ days_worked: e.target.value === "" ? null : parseFloat(e.target.value) || null })}
+                  placeholder="0"
+                  disabled={readOnly}
+                />
+              </div>
+            )}
+            {settings.absence_deduction !== false && (
+              <div className="max-w-[180px]">
+                <Input
+                  label={employee.salary_type === "monthly" ? "วันขาดงาน (หักอัตโนมัติ)" : "วันลา/ขาด (บันทึกเพื่อติดตาม)"}
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={localItem.absent_days ?? ""}
+                  onChange={(e) => updateLocal({ absent_days: e.target.value === "" ? null : parseFloat(e.target.value) || null })}
+                  placeholder="0"
+                  disabled={readOnly}
+                />
+                {employee.salary_type === "monthly" ? (
+                  <p className="text-[10px] text-cool-400 mt-1">หัก {formatCurrency(employee.base_salary / ((settings.ot_divisor || 30)))} / วัน</p>
+                ) : (
+                  <p className="text-[10px] text-cool-400 mt-1">ไม่หักซ้ำ — วันที่ไม่มาไม่ได้รับค่าจ้างผ่านวันทำงานแล้ว</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -987,7 +2112,7 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, readO
           updateDeduction={updateDeduction}
         />
 
-        <CalculationBreakdown employee={employee} lineItem={localItem} settings={settings} month={month} />
+        <CalculationBreakdown employee={employee} lineItem={localItem} settings={settings} month={month} year={year} />
 
         <div className="flex flex-col sm:flex-row gap-2 pt-1">
           {readOnly ? (
@@ -1017,7 +2142,22 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, readO
           </p>
         )}
       </div>
+      </Modal>
+
+    <Modal open={showDiscardModalLocal} onClose={() => setShowDiscardModalLocal(false)} title="ยกเลิกการแก้ไข?">
+      <div className="space-y-4">
+        <p className="text-sm text-cool-600">มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการยกเลิกและออกหรือไม่?</p>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setShowDiscardModalLocal(false)} className="flex-1">
+            แก้ไขต่อ
+          </Button>
+          <Button variant="danger" onClick={handleConfirmDiscard} className="flex-1">
+            ยกเลิกการแก้ไข
+          </Button>
+        </div>
+      </div>
     </Modal>
+    </>
   );
 }
 
@@ -1085,6 +2225,7 @@ function PayrollEditableSections({
                 <div key={i} className="grid grid-cols-[80px_100px_70px_80px_auto] gap-2 items-center">
                   <Input
                     type="number"
+                    min="0"
                     value={ot.hours ?? ""}
                     onChange={(e) => updateOT(i, "hours", parseFloat(e.target.value) || 0)}
                     placeholder="0"
@@ -1102,6 +2243,8 @@ function PayrollEditableSections({
                   </Select>
                   <Input
                     type="number"
+                    min="0"
+                    step="0.5"
                     value={ot.multiplier ?? ""}
                     onChange={(e) => updateOT(i, "multiplier", parseFloat(e.target.value) || 0)}
                     placeholder="×"
@@ -1153,6 +2296,7 @@ function PayrollEditableSections({
                   />
                   <Input
                     type="number"
+                    min="0"
                     value={add.amount ?? ""}
                     onChange={(e) => updateAddition(i, "amount", parseFloat(e.target.value) || 0)}
                     placeholder="฿"
@@ -1200,6 +2344,7 @@ function PayrollEditableSections({
                   />
                   <Input
                     type="number"
+                    min="0"
                     value={ded.amount ?? ""}
                     onChange={(e) => updateDeduction(i, "amount", parseFloat(e.target.value) || 0)}
                     placeholder="฿"
@@ -1231,10 +2376,12 @@ interface CalculationBreakdownProps {
   lineItem: PayrollLineItem;
   settings: PayrollSettings;
   month: number;
+  year: number;
 }
 
-function CalculationBreakdown({ employee, lineItem, settings, month }: CalculationBreakdownProps) {
-  const hourlyRate = employee.base_salary / settings.ot_divisor / 8;
+function CalculationBreakdown({ employee, lineItem, settings, month, year }: CalculationBreakdownProps) {
+  const divisorDays = settings.prorate_mode === "actual_days" ? getMonthDays(month, year) : (settings.ot_divisor || 30);
+  const hourlyRate = getEffectiveHourlyRate(employee.salary_type, employee.base_salary, divisorDays);
   const basePay = employee.salary_type === "daily"
     ? employee.base_salary * (lineItem.days_worked ?? 0)
     : employee.base_salary;
@@ -1242,12 +2389,18 @@ function CalculationBreakdown({ employee, lineItem, settings, month }: Calculati
   const totalOT = lineItem.ot_entries.reduce((sum, ot) => sum + (Number(ot.hours) * hourlyRate * Number(ot.multiplier)), 0);
   const totalAdditions = lineItem.additions.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
   const totalDeductions = lineItem.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-  const gross = basePay + totalOT + totalAdditions;
+  const absence = calculateAbsenceDeduction(
+    { salary_type: employee.salary_type, base_salary: employee.base_salary, absent_days: lineItem.absent_days },
+    settings,
+    divisorDays
+  );
+  const gross = Math.max(0, basePay + totalOT + totalAdditions - absence);
 
   const calc = calculateBreakdown(
-    { salary_type: employee.salary_type, base_salary: employee.base_salary, days_worked: lineItem.days_worked, ot_entries: lineItem.ot_entries, additions: lineItem.additions, deductions: lineItem.deductions },
+    { salary_type: employee.salary_type, base_salary: employee.base_salary, days_worked: lineItem.days_worked, absent_days: lineItem.absent_days, ot_entries: lineItem.ot_entries, additions: lineItem.additions, deductions: lineItem.deductions },
     settings,
-    month
+    month,
+    year
   );
 
   return (
@@ -1262,6 +2415,12 @@ function CalculationBreakdown({ employee, lineItem, settings, month }: Calculati
             <span className="text-cool-500">เงินเดือนฐาน</span>
             <span className="text-cool-700 tabular-nums font-medium">฿{formatCurrency(basePay)}</span>
           </div>
+          {calc.absence_deduction > 0 && (
+            <div className="flex justify-between">
+              <span className="text-cool-500">หักวันขาดงาน ({lineItem.absent_days} วัน)</span>
+              <span className="text-red-500 tabular-nums font-medium">-฿{formatCurrency(calc.absence_deduction)}</span>
+            </div>
+          )}
           {lineItem.ot_entries.length > 0 && (
             <div className="flex justify-between">
               <span className="text-cool-500">OT ({lineItem.ot_entries.length} รายการ)</span>
@@ -1323,12 +2482,14 @@ function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: Pay
       salary_type: employee.salary_type,
       base_salary: employee.base_salary,
       days_worked: lineItem.days_worked,
+      absent_days: lineItem.absent_days,
       ot_entries: lineItem.ot_entries,
       additions: lineItem.additions,
       deductions: lineItem.deductions,
     },
     settings,
-    run?.period_month ?? 1
+    run?.period_month ?? 1,
+    run ? Number(run.period_end.slice(0, 4)) : undefined
   );
 
   function handlePrint() {
@@ -1397,6 +2558,12 @@ function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: Pay
                     <span className="text-ink-500">เงินเดือน{employee.salary_type === "daily" ? ` (${lineItem.days_worked} วัน)` : ""}</span>
                     <span className="text-ink-700 tabular-nums font-medium">฿{formatCurrency(basePay)}</span>
                   </div>
+                  {calc.absence_deduction > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-ink-500">หักวันขาดงาน ({lineItem.absent_days} วัน)</span>
+                      <span className="text-ink-700 tabular-nums font-medium">-฿{formatCurrency(calc.absence_deduction)}</span>
+                    </div>
+                  )}
                   {lineItem.ot_entries.map((ot, i) => (
                     <div key={i} className="flex justify-between">
                       <span className="text-ink-500">OT {ot.type === "holiday" ? "วันหยุด" : "ปกติ"} {ot.hours}ชม. ×{ot.multiplier}</span>
@@ -1458,5 +2625,5 @@ function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: Pay
 }
 
 function hourlyRateFor(employee: Employee, settings: PayrollSettings) {
-  return (employee.base_salary / settings.ot_divisor) / 8;
+  return getEffectiveHourlyRate(employee.salary_type, employee.base_salary, settings.ot_divisor || 30);
 }

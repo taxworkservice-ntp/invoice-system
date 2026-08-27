@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, History, Pencil } from "lucide-react";
+import { Plus, Trash2, History, Pencil, UserRoundX, AlertCircle, Repeat, Check, Circle } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
@@ -15,6 +15,7 @@ import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES, getAuditLogForEntity, getActionLabel, getActionIcon, type AuditLogEntry } from "../../../lib/payroll/audit";
 import type { Employee } from "../../../types";
+import type { RecurringTemplate } from "../../../lib/payroll/recurring";
 
 interface EmployeeForm {
   id: string;
@@ -34,6 +35,8 @@ interface EmployeeForm {
 type ModalState =
   | { mode: "create"; form: EmployeeForm }
   | { mode: "edit"; form: EmployeeForm };
+
+type EmployeeFilter = "active" | "inactive" | "all";
 
 function emptyForm(): EmployeeForm {
   return {
@@ -77,6 +80,10 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<ModalState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState<EmployeeFilter>("active");
+  const [offboardingEmployee, setOffboardingEmployee] = useState<Employee | null>(null);
+  const [offboardingDate, setOffboardingDate] = useState(new Date().toISOString().split("T")[0]);
+  const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
 
   const userId = workspaceUserId;
 
@@ -101,6 +108,8 @@ export default function EmployeesPage() {
   }, [fetchEmployees]);
 
   const filtered = employees.filter((emp) => {
+    if (filter === "active" && emp.status !== "active") return false;
+    if (filter === "inactive" && emp.status !== "inactive") return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -110,6 +119,9 @@ export default function EmployeesPage() {
       (emp.department ?? "").toLowerCase().includes(q)
     );
   });
+
+  const activeCount = employees.filter((e) => e.status === "active").length;
+  const inactiveCount = employees.filter((e) => e.status === "inactive").length;
 
   const title = modal
     ? modal.mode === "create"
@@ -281,8 +293,35 @@ export default function EmployeesPage() {
     }
   }
 
-  async function handleDelete(emp: Employee) {
-    if (!confirm(`ต้องการลบพนักงาน ${emp.full_name}?`)) return;
+  async function handleOffboard() {
+    if (!offboardingEmployee || !userId) return;
+    if (offboardingDate < offboardingEmployee.start_date) {
+      toast.error("วันที่ลาออกต้องไม่ก่อนวันที่เริ่มงาน");
+      return;
+    }
+    const { error } = await supabase
+      .from("employees")
+      .update({ status: "inactive", end_date: offboardingDate })
+      .eq("id", offboardingEmployee.id)
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("ไม่สามารถบันทึกได้");
+    } else {
+      setEmployees((prev) => prev.map((e) => (e.id === offboardingEmployee.id ? { ...e, status: "inactive", end_date: offboardingDate } : e)));
+      toast.success(`จบการจ้างงาน ${offboardingEmployee.full_name} แล้ว`);
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.EMPLOYEE_TERMINATED,
+        entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
+        entity_id: offboardingEmployee.id,
+        details: { employee_code: offboardingEmployee.employee_code, end_date: offboardingDate },
+      });
+      setOffboardingEmployee(null);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deletingEmployee) return;
+    const emp = deletingEmployee;
     const { error } = await supabase.from("employees").delete().eq("id", emp.id);
     if (error) {
       toast.error("ไม่สามารถลบพนักงานได้");
@@ -296,6 +335,7 @@ export default function EmployeesPage() {
         details: { employee_code: emp.employee_code, full_name: emp.full_name },
       });
     }
+    setDeletingEmployee(null);
   }
 
   function maskAccount(account: string): string {
@@ -318,12 +358,25 @@ export default function EmployeesPage() {
       }
     >
       <div className="space-y-4">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="ค้นหาพนักงาน..."
-          className="max-w-sm"
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="ค้นหาพนักงาน..."
+            className="max-w-sm"
+          />
+          <div className="inline-flex rounded-lg border border-card-border bg-cool-25 p-0.5">
+            {([["active", `ทำงาน (${activeCount})`], ["inactive", `ลาออก (${inactiveCount})`], ["all", "ทั้งหมด"]] as [EmployeeFilter, string][]).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filter === key ? "bg-white text-cool-900 shadow-sm" : "text-cool-500 hover:text-cool-700"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -395,6 +448,15 @@ export default function EmployeesPage() {
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {emp.status === "active" && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setOffboardingEmployee(emp); setOffboardingDate(new Date().toISOString().split("T")[0]); }}
+                              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-amber-50 text-cool-400 hover:text-amber-600 transition-colors opacity-0 group-hover:opacity-100"
+                              title="จบการจ้างงาน"
+                            >
+                              <UserRoundX className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); openEdit(emp); }}
                             className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-cool-25 text-cool-400 hover:text-cool-700 transition-colors"
@@ -403,7 +465,7 @@ export default function EmployeesPage() {
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(emp); }}
+                            onClick={(e) => { e.stopPropagation(); setDeletingEmployee(emp); }}
                             className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                             title="ลบ"
                           >
@@ -511,6 +573,12 @@ export default function EmployeesPage() {
 
             {modal.mode === "edit" && (
               <div className="border-t border-cool-100 pt-4">
+                <RecurringPanel employeeId={modal.form.id} />
+              </div>
+            )}
+
+            {modal.mode === "edit" && (
+              <div className="border-t border-cool-100 pt-4">
                 <ActivityPanel entityType="employee" entityId={modal.form.id} />
               </div>
             )}
@@ -521,6 +589,57 @@ export default function EmployeesPage() {
               </Button>
               <Button onClick={handleSave} className="flex-1" disabled={saving}>
                 {saving ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+            </div>
+          </div>
+         )}
+      </Modal>
+
+      <Modal open={offboardingEmployee !== null} onClose={() => setOffboardingEmployee(null)} title="จบการจ้างงาน">
+        {offboardingEmployee && (
+          <div className="space-y-4">
+            <p className="text-sm text-cool-600">
+              ยืนยันการจบการจ้างงาน <strong>{offboardingEmployee.full_name}</strong> (รหัส {offboardingEmployee.employee_code})
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-800">
+                ข้อมูลในรอบเงินเดือนก่อนหน้าและสลิปเงินเดือนจะถูกเก็บไว้ตามเดิม พนักงานจะไม่แสดงในรอบเงินเดือนถัดไป
+              </p>
+            </div>
+            <Input
+              label="วันที่ลาออก"
+              type="date"
+              value={offboardingDate}
+              onChange={(e) => setOffboardingDate(e.target.value)}
+            />
+            <div className="flex gap-2 pt-1">
+              <Button variant="secondary" onClick={() => setOffboardingEmployee(null)} className="flex-1">
+                ยกเลิก
+              </Button>
+              <Button variant="danger" onClick={handleOffboard} className="flex-1">
+                จบการจ้างงาน
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={deletingEmployee !== null} onClose={() => setDeletingEmployee(null)} title="ลบพนักงาน">
+        {deletingEmployee && (
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800">
+                ต้องการลบพนักงาน <strong>{deletingEmployee.full_name}</strong> ทั้งหมด? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="secondary" onClick={() => setDeletingEmployee(null)} className="flex-1">
+                ยกเลิก
+              </Button>
+              <Button variant="danger" onClick={handleDelete} className="flex-1">
+                ลบพนักงาน
               </Button>
             </div>
           </div>
@@ -616,4 +735,159 @@ function formatAuditTime(dateStr: string): string {
   if (diffHr < 24) return `${diffHr} ชั่วโมงที่แล้ว`;
   if (diffDay < 7) return `${diffDay} วันที่แล้ว`;
   return date.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+}
+
+interface RecurringPanelProps {
+  employeeId: string;
+}
+
+function RecurringPanel({ employeeId }: RecurringPanelProps) {
+  const toast = useToast();
+  const { workspaceUserId } = useWorkspaceRole();
+  const [items, setItems] = useState<RecurringTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [schemaMissing, setSchemaMissing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    supabase
+      .from("payroll_recurring_items")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .order("sort_order", { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          setSchemaMissing(true);
+          setItems([]);
+        } else {
+          setSchemaMissing(false);
+          setItems((data ?? []) as RecurringTemplate[]);
+        }
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [employeeId]);
+
+  async function addItem() {
+    if (!workspaceUserId || busy) return;
+    setBusy(true);
+    const nextSort = items.reduce((m, i) => Math.max(m, i.sort_order), 0) + 1;
+    const { data, error } = await supabase
+      .from("payroll_recurring_items")
+      .insert({ user_id: workspaceUserId, employee_id: employeeId, direction: "deduction", label: "", amount: 0, active: true, sort_order: nextSort })
+      .select("*")
+      .single();
+    if (error) {
+      toast.error("ไม่สามารถเพิ่มรายการได้");
+    } else {
+      setItems((prev) => [...prev, data as RecurringTemplate]);
+    }
+    setBusy(false);
+  }
+
+  async function patchItem(id: string, patch: Partial<RecurringTemplate>) {
+    if (!workspaceUserId || busy) return;
+    setBusy(true);
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    const { error } = await supabase.from("payroll_recurring_items").update(patch).eq("id", id);
+    if (error) toast.error("บันทึกไม่สำเร็จ");
+    setBusy(false);
+  }
+
+  async function removeItem(id: string) {
+    if (!workspaceUserId || busy) return;
+    setBusy(true);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    const { error } = await supabase.from("payroll_recurring_items").delete().eq("id", id);
+    if (error) toast.error("ลบไม่สำเร็จ");
+    setBusy(false);
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Repeat className="w-4 h-4 text-cool-500" />
+          <span className="text-xs font-semibold text-cool-700">รายการประจำ (เติมอัตโนมัติในรอบใหม่)</span>
+        </div>
+        <Button size="sm" variant="ghost" onClick={addItem} disabled={busy} className="!px-2 !py-1 !h-7">
+          <Plus className="w-3 h-3" /> เพิ่ม
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-cool-400">
+          <Spinner />
+          <span className="text-xs">กำลังโหลด...</span>
+        </div>
+      ) : schemaMissing ? (
+        <p className="text-xs text-amber-600 flex items-start gap-1">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          ฟีเจอร์นี้ต้องอัปเดตฐานข้อมูลก่อน (migration: payroll_recurring_items)
+        </p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-cool-400">
+          เช่น ค่างวดรถ/บ้าน, เงินกู้สหกรณ์, ค่าอาหาร — รายการจะถูกเติมให้พนักงานคนนี้อัตโนมัติในทุกรอบใหม่
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <div className="grid grid-cols-[92px_1fr_96px_46px_32px] gap-2 text-[10px] text-cool-400 font-medium px-1">
+            <span>ประเภท</span>
+            <span>รายการ</span>
+            <span className="text-right">จำนวน (฿)</span>
+            <span>ใช้งาน</span>
+            <span></span>
+          </div>
+          {items.map((item) => (
+            <div key={item.id} className="grid grid-cols-[92px_1fr_96px_46px_32px] gap-2 items-center">
+              <Select
+                value={item.direction}
+                onChange={(e) => patchItem(item.id, { direction: e.target.value as "addition" | "deduction" })}
+                className="!h-8 !text-[11px]"
+                disabled={busy}
+              >
+                <option value="addition">เงินเพิ่ม</option>
+                <option value="deduction">เงินหัก</option>
+              </Select>
+              <Input
+                value={item.label}
+                onChange={(e) => patchItem(item.id, { label: e.target.value })}
+                placeholder="เช่น เงินกู้ยืมสหกรณ์"
+                className="!h-8 !text-[11px]"
+                disabled={busy}
+              />
+              <Input
+                type="number"
+                min="0"
+                value={item.amount ?? ""}
+                onChange={(e) => patchItem(item.id, { amount: parseFloat(e.target.value) || 0 })}
+                placeholder="฿"
+                className="!h-8 !text-[11px] text-right"
+                disabled={busy}
+              />
+              <button
+                onClick={() => patchItem(item.id, { active: !item.active })}
+                aria-label={item.active ? "ปิดการใช้งาน" : "เปิดการใช้งาน"}
+                className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${item.active ? "bg-green-50 text-green-600 hover:bg-green-100" : "bg-cool-25 text-cool-300 hover:text-cool-500"}`}
+                title={item.active ? "กำลังใช้งาน" : "ปิดไว้"}
+              >
+                {item.active ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                onClick={() => removeItem(item.id)}
+                disabled={busy}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-400 hover:text-red-500 transition-colors"
+                aria-label="ลบรายการ"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

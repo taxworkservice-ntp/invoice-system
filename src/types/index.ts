@@ -509,6 +509,9 @@ export interface PayrollRun {
   user_id: string;
   period_month: number;
   period_year: number;
+  period_start: string;
+  period_end: string;
+  label: string | null;
   pay_date: string;
   status: "draft" | "finalized";
   revision: number;
@@ -516,6 +519,9 @@ export interface PayrollRun {
   finalized_by: string | null;
   reopened_at: string | null;
   reopened_by: string | null;
+  total_gross: number;
+  total_net: number;
+  employee_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -541,6 +547,7 @@ export interface PayrollLineItem {
   payroll_run_id: string;
   employee_id: string;
   days_worked: number | null;
+  absent_days: number | null;
   ot_entries: OtEntry[];
   additions: PayrollAddition[];
   deductions: PayrollDeduction[];
@@ -556,10 +563,21 @@ export interface PayrollLineItem {
   base_salary_snapshot: number | null;
 }
 
+export type PayrollRoundingRule = "round" | "floor" | "ceil";
+export type PayrollProrateMode = "fixed_30" | "actual_days";
+export type PayFrequency = "monthly" | "semimonthly" | "weekly" | "custom";
+
 export interface ClientPayrollSettings {
   user_id: string;
   ot_divisor: number;
   normal_ot_multiplier: number;
   holiday_ot_multiplier: number;
+  prorate_mode: PayrollProrateMode;
+  absence_deduction: boolean;
+  rounding_rule: PayrollRoundingRule;
+  sso_ceiling_override: number | null;
+  pay_frequency: PayFrequency;
+  pay_anchor_day: number;
+  pay_cycle_len_days: number | null;
   updated_at: string;
 }
