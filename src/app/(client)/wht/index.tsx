@@ -1,14 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
-import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Circle } from "lucide-react";
+import { useState, useMemo, useEffect, type ReactNode } from "react";
+import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Circle, Check, Wallet, BadgeCheck, ReceiptText } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
-import { Input } from "../../../components/ui/Input";
+import { Input, Select } from "../../../components/ui/Input";
 import { SearchInput } from "../../../components/ui/SearchInput";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ViewToggle } from "../../../components/ui/ViewToggle";
 import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
+import { Card } from "../../../components/ui/Card";
+import { Modal } from "../../../components/ui/Modal";
 import { useWhtRecords, type WhtRecordWithVendor } from "../../../hooks/useWhtRecords";
 import { useWhtVendors } from "../../../hooks/useWhtVendors";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
@@ -16,6 +18,7 @@ import { useToast } from "../../../hooks/useToast";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
 import { localTodayString } from "../../../lib/devDate";
+import { formatBuddhistDate } from "../../../lib/dates";
 import type { WhtVendor, WhtFormType } from "../../../types";
 
 const WHT_FORM_TYPE_LABELS: Record<WhtFormType, string> = {
@@ -63,6 +66,58 @@ const WHT_DESCRIPTION_RATE_MAP: Record<string, string> = {
 
 function isPresetDescription(desc: string): boolean {
   return !!(desc && (WHT_DESCRIPTION_PRESETS as readonly string[]).includes(desc));
+}
+
+/** Format a 13-digit Thai tax ID as 1-2345-67890-12-3. Non-13-digit input passes through unchanged. */
+function formatTaxId(raw: string | null | undefined): string {
+  if (!raw) return "-";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length !== 13) return raw;
+  return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits.slice(12)}`;
+}
+
+function isValidTaxId(raw: string): boolean {
+  return /^\d{13}$/.test(raw.trim());
+}
+
+/** Mask for live typing: plain digits until 13, then grouped. */
+function maskTaxIdInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 13);
+  if (!raw && digits.length === 0) return "";
+  return digits.length === 13 ? formatTaxId(digits) : digits;
+}
+
+interface VendorFormState {
+  name: string;
+  tax_id: string;
+  address: string;
+}
+
+function validateVendorForm(v: VendorFormState): { name?: string; tax_id?: string; address?: string } {
+  const errors: { name?: string; tax_id?: string; address?: string } = {};
+  if (!v.name.trim()) errors.name = "กรุณากรอกชื่อ";
+  if (!v.tax_id.trim()) errors.tax_id = "กรุณากรอกเลขผู้เสียภาษี";
+  else if (!isValidTaxId(v.tax_id)) errors.tax_id = "ต้องเป็นตัวเลข 13 หลัก";
+  if (!v.address.trim()) errors.address = "กรุณากรอกที่อยู่";
+  return errors;
+}
+
+/** KPI stat card — mirrors the FinancialReport summary design language. */
+function StatCard({ icon, label, value, tone = "default" }: { icon: ReactNode; label: string; value: string; tone?: "default" | "danger" | "primary" }) {
+  const valueColor = tone === "danger" ? "text-[#C0392B]" : tone === "primary" ? "text-primary" : "text-[#1A1A18]";
+  return (
+    <Card className="min-h-[84px] border-[0.5px] p-3 shadow-sm">
+      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#888780]">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EAF4FF] text-primary">
+          {icon}
+        </span>
+        {label}
+      </div>
+      <div className={`mt-2 text-base font-semibold leading-tight tabular-nums truncate ${valueColor}`} title={value}>
+        {value}
+      </div>
+    </Card>
+  );
 }
 
 const TAB_RECORDS = "records" as const;
@@ -127,6 +182,7 @@ export default function WhtPage() {
   const [saving, setSaving] = useState(false);
   const [showSig, setShowSig] = useState(true);
   const [showStp, setShowStp] = useState(true);
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   useEffect(() => {
     if (clientProfile) {
@@ -165,7 +221,7 @@ export default function WhtPage() {
   }
 
   function closeEditRecord() {
-    closeEditRecord();
+    setShowEditRecord(null);
     setCustomDescEditMode(false);
   }
   const [editRecordForm, setEditRecordForm] = useState({
@@ -180,6 +236,8 @@ export default function WhtPage() {
   const [customDescEditMode, setCustomDescEditMode] = useState(false);
   const [newVendor, setNewVendor] = useState({ name: "", vendor_type: "company" as "company" | "individual", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
   const [editVendorForm, setEditVendorForm] = useState({ name: "", vendor_type: "company" as "company" | "individual", tax_id: "", address: "", phone: "", email: "", contact_name: "", note: "" });
+  const [vendorErrors, setVendorErrors] = useState<{ name?: string; tax_id?: string; address?: string }>({});
+  const [amountError, setAmountError] = useState<string | null>(null);
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
@@ -215,17 +273,39 @@ export default function WhtPage() {
     };
   }, [filteredRecords]);
 
+  const vendorStats = useMemo(() => {
+    const map = new Map<string, { count: number; totalPaid: number; totalWht: number; lastDate: string | null }>();
+    for (const r of records) {
+      const stat = map.get(r.vendor_id) || { count: 0, totalPaid: 0, totalWht: 0, lastDate: null as string | null };
+      stat.count += 1;
+      stat.totalPaid += r.amount;
+      stat.totalWht += r.wht_amount;
+      if (r.issue_date && (!stat.lastDate || r.issue_date > stat.lastDate)) stat.lastDate = r.issue_date;
+      map.set(r.vendor_id, stat);
+    }
+    return map;
+  }, [records]);
+
   type WhtSortKey = "created_at" | "issue_date" | "form_type" | "amount";
   const tableSort = useTableSort<WhtRecordWithVendor, WhtSortKey>(displayedRecords, { key: "created_at", dir: "desc" });
 
   function formatDate(d: string) {
     if (!d) return "-";
-    const parts = d.slice(0, 10).split("-");
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return formatBuddhistDate(d);
   }
 
+  const parsedNewAmount = parseFloat(newRecord.amount);
+  const previewWht = !isNaN(parsedNewAmount) && parsedNewAmount > 0
+    ? formatCurrency(parsedNewAmount * parseFloat(newRecord.wht_rate) / 100)
+    : null;
+
   async function handleAddRecord() {
-    if (!newRecord.vendor_id || !newRecord.amount) return;
+    if (!newRecord.vendor_id || !newRecord.amount || !newRecord.description.trim()) return;
+    if (isNaN(parsedNewAmount) || parsedNewAmount <= 0) {
+      setAmountError("จำนวนเงินต้องมากกว่า 0");
+      return;
+    }
+    setAmountError(null);
     setSaving(true);
     try {
       await addRecord({
@@ -249,13 +329,20 @@ export default function WhtPage() {
 
   async function handleUpdateRecord() {
     if (!showEditRecord) return;
+    const parsedAmount = parseFloat(editRecordForm.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setAmountError("จำนวนเงินต้องมากกว่า 0");
+      return;
+    }
+    if (!editRecordForm.description.trim()) return;
+    setAmountError(null);
     setSaving(true);
     try {
       await updateRecord(showEditRecord.id, {
         vendor_id: editRecordForm.vendor_id || showEditRecord.vendor_id,
         form_type: editRecordForm.form_type,
         issue_date: editRecordForm.issue_date,
-        amount: parseFloat(editRecordForm.amount) || showEditRecord.amount,
+        amount: parsedAmount,
         wht_rate: parseFloat(editRecordForm.wht_rate),
         description: editRecordForm.description || null,
         note: editRecordForm.note || null,
@@ -271,6 +358,7 @@ export default function WhtPage() {
 
   function openEditRecord(record: WhtRecordWithVendor) {
     setShowEditRecord(record);
+    setAmountError(null);
     const desc = record.description || "";
     setCustomDescEditMode(desc !== "" && !isPresetDescription(desc));
     setEditRecordForm({
@@ -320,14 +408,21 @@ export default function WhtPage() {
     }
   }
 
-  async function handleDeleteRecord(id: string) {
-    if (!confirm("ลบรายการหัก ณ ที่จ่ายนี้?")) return;
+  async function deleteRecordConfirmed(id: string) {
     try {
       await deleteRecord(id);
       toast.success("ลบรายการแล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
     }
+  }
+
+  function handleDeleteRecord(id: string) {
+    setConfirmState({
+      title: "ลบรายการหัก ณ ที่จ่าย",
+      message: "รายการนี้จะถูกลบถาวร ไม่สามารถกู้คืนได้",
+      onConfirm: () => void deleteRecordConfirmed(id),
+    });
   }
 
   async function handleMarkDone(id: string) {
@@ -404,7 +499,9 @@ export default function WhtPage() {
   }
 
   async function handleAddVendor() {
-    if (!newVendor.name.trim() || !newVendor.tax_id.trim() || !newVendor.address.trim()) return;
+    const errors = validateVendorForm(newVendor);
+    setVendorErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await addVendor(newVendor);
@@ -420,7 +517,9 @@ export default function WhtPage() {
 
   async function handleUpdateVendor() {
     if (!showEditVendor) return;
-    if (!editVendorForm.name.trim() || !editVendorForm.tax_id.trim() || !editVendorForm.address.trim()) return;
+    const errors = validateVendorForm(editVendorForm);
+    setVendorErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await updateVendor(showEditVendor.id, editVendorForm);
@@ -435,6 +534,7 @@ export default function WhtPage() {
 
   function openEditVendor(v: WhtVendor) {
     setShowEditVendor(v);
+    setVendorErrors({});
     setEditVendorForm({
       name: v.name,
       vendor_type: v.vendor_type || "company",
@@ -447,14 +547,26 @@ export default function WhtPage() {
     });
   }
 
-  async function handleDeleteVendor(id: string) {
-    if (!confirm("ลบผู้ขายนี้? รายการหัก ณ ที่จ่ายที่เชื่อมโยงจะยังคงอยู่")) return;
+  function openAddVendorForm() {
+    setVendorErrors({});
+    setShowAddVendor(true);
+  }
+
+  async function deleteVendorConfirmed(id: string) {
     try {
       await deleteVendor(id);
       toast.success("ลบผู้ขายแล้ว");
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
     }
+  }
+
+  function handleDeleteVendor(id: string) {
+    setConfirmState({
+      title: "ลบผู้ขาย/ผู้รับเงิน",
+      message: "รายการหัก ณ ที่จ่ายที่เชื่อมโยงกับผู้ขายนี้จะยังคงอยู่",
+      onConfirm: () => void deleteVendorConfirmed(id),
+    });
   }
 
   const availableMonths = months;
@@ -487,21 +599,30 @@ export default function WhtPage() {
 
         {tab === TAB_RECORDS ? (
           <>
+            {records.length > 0 && !recordsLoading && (
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatCard icon={<FileText className="h-4 w-4" />} label="รายการ" value={`${summary.count} รายการ`} />
+                <StatCard icon={<Wallet className="h-4 w-4" />} label="ยอดจ่ายรวม" value={`฿${formatCurrency(summary.totalAmount)}`} />
+                <StatCard icon={<ReceiptText className="h-4 w-4" />} label="ภาษีหัก ณ ที่จ่ายรวม" value={`฿${formatCurrency(summary.totalWht)}`} tone="danger" />
+                <StatCard icon={<BadgeCheck className="h-4 w-4" />} label="ออกใบรับรองแล้ว" value={`${summary.generated} / ${summary.count}`} tone={summary.generated > 0 ? "primary" : "default"} />
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
               <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขที่ผู้เสียภาษี เลขใบรับรอง..." className="flex-1 min-w-[200px]" />
-              <select value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <select aria-label="กรองตามเดือน" value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                 <option value="">ทุกเดือน</option>
                 {availableMonths.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
-              <select value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <select aria-label="กรองตามผู้ขาย" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                 <option value="">ผู้ขายทั้งหมด</option>
                 {recordVendors.map((v) => (
                   <option key={v.id} value={v.id}>{v.name}</option>
                 ))}
               </select>
-              <select value={formFilter} onChange={(e) => setFormFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <select aria-label="กรองตามแบบภาษี" value={formFilter} onChange={(e) => setFormFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                 <option value="">ทุกแบบ</option>
                 {WHT_FORM_TYPES.map((ft) => (
                   <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>
@@ -512,76 +633,67 @@ export default function WhtPage() {
               </Button>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {filteredRecords.length > 0 && (
-                <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#888780]">
-                  <span>{summary.count} รายการ</span>
-                  <span>รวมเงิน {formatCurrency(summary.totalAmount)}</span>
-                  <span className="text-[#C0392B]">หัก ณ ที่จ่าย {formatCurrency(summary.totalWht)}</span>
-                  <span className="text-[#378ADD]">ออกใบรับรองแล้ว {summary.generated} รายการ</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-1 ml-auto">
-                <span className="text-[10px] text-[#CCCCCC] mr-0.5">แสดง</span>
-                <button
-                  type="button"
-                  onClick={() => setShowSig(!showSig)}
-                  title={`ลายเซ็น: ${showSig ? "แสดง" : "ซ่อน"}`}
-                  className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
-                    showSig ? "border-blue-200 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500"
-                  }`}
-                >
-                  {showSig ? <Eye size={12} /> : <EyeOff size={12} />}
-                  <span className="text-[10px]">ลายเซ็น</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowStp(!showStp)}
-                  title={`ตราประทับ: ${showStp ? "แสดง" : "ซ่อน"}`}
-                  className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
-                    showStp ? "border-orange-200 bg-orange-50 text-orange-600" : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500"
-                  }`}
-                >
-                  {showStp ? <Eye size={12} /> : <EyeOff size={12} />}
-                  <span className="text-[10px]">ตรา</span>
-                </button>
-                <div className="w-px h-4 bg-gray-200 mx-1.5" />
-                <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
-                  <Download size={14} className="mr-1" /> ออกรายงาน PDF
-                </Button>
-              </div>
-            </div>
-
             {!recordsLoading && filteredRecords.length > 0 && (
-              <div className="flex gap-0.5 bg-[#F0EFE9] rounded-lg p-0.5 w-fit">
-                <button
-                  type="button"
-                  onClick={() => setDoneView("active")}
-                  className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
-                    doneView === "active" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-                  }`}
-                >
-                  รอจัดการ ({activeRecords.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDoneView("done")}
-                  className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
-                    doneView === "done" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-                  }`}
-                >
-                  เรียบร้อย ({doneRecords.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDoneView("all")}
-                  className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
-                    doneView === "all" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-                  }`}
-                >
-                  ทั้งหมด ({filteredRecords.length})
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex gap-0.5 bg-[#F0EFE9] rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setDoneView("active")}
+                    className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
+                      doneView === "active" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+                    }`}
+                  >
+                    รอจัดการ ({activeRecords.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDoneView("done")}
+                    className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
+                      doneView === "done" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+                    }`}
+                  >
+                    เรียบร้อย ({doneRecords.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDoneView("all")}
+                    className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
+                      doneView === "all" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
+                    }`}
+                  >
+                    ทั้งหมด ({filteredRecords.length})
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1 ml-auto">
+                  <span className="text-[10px] text-[#CCCCCC] mr-0.5">PDF</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSig(!showSig)}
+                    title={`ลายเซ็น: ${showSig ? "แสดง" : "ซ่อน"}`}
+                    className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
+                      showSig ? "border-blue-200 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500"
+                    }`}
+                  >
+                    {showSig ? <Eye size={12} /> : <EyeOff size={12} />}
+                    <span className="text-[10px]">ลายเซ็น</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowStp(!showStp)}
+                    title={`ตราประทับ: ${showStp ? "แสดง" : "ซ่อน"}`}
+                    className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
+                      showStp ? "border-orange-200 bg-orange-50 text-orange-600" : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500"
+                    }`}
+                  >
+                    {showStp ? <Eye size={12} /> : <EyeOff size={12} />}
+                    <span className="text-[10px]">ตรา</span>
+                  </button>
+                  <div className="w-px h-4 bg-gray-200 mx-1.5" />
+                  <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
+                    <Download size={14} className="mr-1" /> ออกรายงาน PDF
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -614,7 +726,8 @@ export default function WhtPage() {
                     <thead>
                       <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
                         <th className="px-3 py-2.5 w-[44px] text-center" title="ทำเครื่องหมายว่าเรียบร้อย">
-                          <span className="text-[10px] font-semibold text-[#344054]">✓</span>
+                          <span className="inline-flex items-center justify-center text-[#344054]"><Check className="h-3.5 w-3.5" aria-hidden /></span>
+                          <span className="sr-only">เรียบร้อย</span>
                         </th>
                         <SortableTh
                           label="วันที่จ่าย"
@@ -667,7 +780,7 @@ export default function WhtPage() {
                             <div className="text-[10px] text-[#AAAAAA] mt-0.5">บันทึก {formatDate(r.created_at)}</div>
                           </td>
                           <td className="px-3 py-2.5 text-[#1A1A18]">{r.vendor?.name || "-"}</td>
-                          <td className="px-3 py-2.5 font-mono text-[12px] text-[#888780]">{r.vendor?.tax_id || "-"}</td>
+                          <td className="px-3 py-2.5 font-mono text-[12px] text-[#888780]">{formatTaxId(r.vendor?.tax_id)}</td>
                           <td className="px-3 py-2.5 text-[12px] text-[#555]">{r.description || "-"}</td>
                           <td className="px-3 py-2.5">
                             <span
@@ -691,8 +804,8 @@ export default function WhtPage() {
                               <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "ดาวน์โหลด PDF"}>
                                 <Download size={15} />
                               </button>
-                              {r.status !== "done" && !r.certificate_no && (
-                                <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title="แก้ไข">
+                              {r.status !== "done" && (
+                                <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title={r.certificate_no ? "แก้ไข (ใบรับรองออกแล้ว)" : "แก้ไข"}>
                                   <Pencil size={15} />
                                 </button>
                               )}
@@ -705,6 +818,14 @@ export default function WhtPage() {
                           </td>
                         </tr>
                       )})}
+                      {tableSort.sorted.length > 0 && (
+                        <tr className="border-t-[1.5px] border-[#E6EBF2] bg-[#FAFAF8] font-semibold text-[#344054]">
+                          <td colSpan={6} className="px-3 py-2.5 text-right">รวม {tableSort.sorted.length} รายการ</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums">{formatCurrency(tableSort.sorted.reduce((s, r) => s + r.amount, 0))}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-[#C0392B]">{formatCurrency(tableSort.sorted.reduce((s, r) => s + r.wht_amount, 0))}</td>
+                          <td colSpan={2} />
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -716,7 +837,7 @@ export default function WhtPage() {
             <div className="flex items-center gap-2">
               <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขผู้เสียภาษี..." className="flex-1" />
               <ViewToggle value={viewMode} onChange={setViewMode} />
-              <Button size="sm" onClick={() => setShowAddVendor(true)} className="!rounded-lg shrink-0">
+              <Button size="sm" onClick={openAddVendorForm} className="!rounded-lg shrink-0">
                 <Plus size={14} className="mr-1" /> เพิ่ม
               </Button>
             </div>
@@ -735,31 +856,50 @@ export default function WhtPage() {
                 <EmptyState
                   title="ยังไม่มีผู้ขาย/ผู้รับเงิน"
                   description="เพิ่มข้อมูลผู้ขายหรือผู้รับเงินที่ต้องหักภาษี ณ ที่จ่าย"
-                  action={<Button onClick={() => setShowAddVendor(true)}><Plus size={14} className="mr-1" /> เพิ่มผู้ขาย</Button>}
+                  action={<Button onClick={openAddVendorForm}><Plus size={14} className="mr-1" /> เพิ่มผู้ขาย</Button>}
                 />
               ) : (
                 <div className="text-center py-12 text-[13px] text-[#888780]">ไม่พบ "{search}"</div>
               )
             ) : viewMode === "grid" ? (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredVendors.map((v) => (
-                  <div key={v.id} className="bg-white border border-card-border rounded-[10px] p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => openEditVendor(v)}>
-                    <div className="flex items-start justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">{v.name}</div>
-                        {v.tax_id ? (
-                          <div className="text-[11px] text-[#888780] mt-1 font-mono">{v.tax_id}</div>
-                        ) : (
-                          <div className="text-[11px] text-[#AAAAAA] mt-1 italic">ไม่มีเลขผู้เสียภาษี</div>
-                        )}
-                        {v.phone && <div className="text-[11px] text-[#888780] mt-0.5">{v.phone}</div>}
+                {filteredVendors.map((v) => {
+                  const stat = vendorStats.get(v.id);
+                  return (
+                    <div key={v.id} className="bg-white border border-card-border rounded-[10px] p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => openEditVendor(v)}>
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">{v.name}</div>
+                          <div className={`text-[11px] mt-1 font-mono ${v.tax_id ? "text-[#888780]" : "italic text-[#AAAAAA] font-sans"}`}>
+                            {v.tax_id ? formatTaxId(v.tax_id) : "ไม่มีเลขผู้เสียภาษี"}
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-gray-100 space-y-0.5">
+                            {stat ? (
+                              <>
+                                <div className="flex items-center gap-1.5 text-[11px] text-[#888780]">
+                                  <ReceiptText size={12} className="shrink-0" />
+                                  {stat.count} รายการ
+                                  <span className="text-[#CCCCCC]">·</span>
+                                  ฿{formatCurrency(stat.totalPaid)}
+                                  <span className="text-[#CCCCCC]">·</span>
+                                  <span className="text-[#C0392B]">หัก ฿{formatCurrency(stat.totalWht)}</span>
+                                </div>
+                                {stat.lastDate && (
+                                  <div className="text-[10px] text-[#AAAAAA]">จ่ายล่าสุด {formatDate(stat.lastDate)}</div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-[11px] italic text-[#CCCCCC]">ยังไม่มีรายการ หัก ณ ที่จ่าย</div>
+                            )}
+                          </div>
+                        </div>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v.id); }} className="p-1 rounded-md hover:bg-red-50 text-[#AAAAAA] hover:text-red-500">
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v.id); }} className="p-1 rounded-md hover:bg-red-50 text-[#AAAAAA] hover:text-red-500">
-                        <Trash2 size={14} />
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="bg-white border border-card-border rounded-card overflow-hidden">
@@ -769,8 +909,10 @@ export default function WhtPage() {
                       <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
                         <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ชื่อ</th>
                         <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">เลขผู้เสียภาษี</th>
+                        <th className="px-3 py-2 text-center text-[11px] font-medium text-gray-500">รายการ</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500">ยอดจ่ายรวม</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500">หัก ณ ที่จ่าย</th>
                         <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ที่อยู่</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">เบอร์โทร</th>
                         <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500" />
                       </tr>
                     </thead>
@@ -778,9 +920,18 @@ export default function WhtPage() {
                       {filteredVendors.map((v) => (
                         <tr key={v.id} className="border-b border-[#F0EFE9] hover:bg-[#F7F6F3] transition-colors cursor-pointer" onClick={() => openEditVendor(v)}>
                           <td className="px-3 py-2">{v.name}</td>
-                          <td className="px-3 py-2 font-mono text-[12px] text-[#888780]">{v.tax_id || "-"}</td>
+                          <td className="px-3 py-2 font-mono text-[12px] text-[#888780]">{formatTaxId(v.tax_id)}</td>
+                          {(() => {
+                            const stat = vendorStats.get(v.id);
+                            return (
+                              <>
+                                <td className="px-3 py-2 text-center tabular-nums text-[12px]">{stat?.count ?? 0}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-[12px]">{stat ? formatCurrency(stat.totalPaid) : "-"}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-[12px] text-[#C0392B]">{stat ? formatCurrency(stat.totalWht) : "-"}</td>
+                              </>
+                            );
+                          })()}
                           <td className="px-3 py-2 text-[#888780] max-w-[200px] truncate">{v.address || "-"}</td>
-                          <td className="px-3 py-2 text-[#888780]">{v.phone || "-"}</td>
                           <td className="px-3 py-2 text-right">
                             <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v.id); }} className="p-1.5 rounded-md hover:bg-red-50 text-[#AAAAAA] hover:text-red-500">
                               <Trash2 size={14} />
@@ -797,41 +948,52 @@ export default function WhtPage() {
         )}
       </div>
 
-      {showAddRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/30" onClick={() => { setShowAddRecord(false); resetNewRecord(); }} />
-          <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">เพิ่มรายการ หัก ณ ที่จ่าย</h2>
-            <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
-              <Info size={14} className="shrink-0" />
-              <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ผู้ขาย/ผู้รับเงิน *</label>
-                <select
-                  value={newRecord.vendor_id}
-                  onChange={(e) => handleVendorChangeForRecord(e.target.value, false)}
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
-                >
-                  <option value="">เลือกผู้ขาย</option>
-                  {allVendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">แบบภาษี *</label>
-                <select value={newRecord.form_type} onChange={(e) => setNewRecord({ ...newRecord, form_type: e.target.value as WhtFormType })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
-                  {WHT_FORM_TYPE_OPTIONS.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
-                </select>
-              </div>
+      <Modal open={showAddRecord} onClose={() => { setShowAddRecord(false); resetNewRecord(); }} title="เพิ่มรายการ หัก ณ ที่จ่าย">
+        <div>
+          <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
+            <Info size={14} className="shrink-0" />
+            <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
+          </div>
+          <div className="space-y-3">
+              <Select
+                label="ผู้ขาย/ผู้รับเงิน *"
+                value={newRecord.vendor_id}
+                onChange={(e) => handleVendorChangeForRecord(e.target.value, false)}
+              >
+                <option value="">เลือกผู้ขาย</option>
+                {allVendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </Select>
+              <Select
+                label="แบบภาษี *"
+                value={newRecord.form_type}
+                onChange={(e) => setNewRecord({ ...newRecord, form_type: e.target.value as WhtFormType })}
+              >
+                {WHT_FORM_TYPE_OPTIONS.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
+              </Select>
               <Input label="วันที่ *" type="date" value={newRecord.issue_date} onChange={(e) => setNewRecord({ ...newRecord, issue_date: e.target.value })} />
-              <Input label="จำนวนเงิน *" type="number" step="0.01" value={newRecord.amount} onChange={(e) => setNewRecord({ ...newRecord, amount: e.target.value })} placeholder="0.00" />
               <div>
-                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
+                <label htmlFor="wht-new-amount" className="block text-xs font-medium text-gray-600 mb-1">จำนวนเงิน *</label>
+                <input
+                  id="wht-new-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newRecord.amount}
+                  onChange={(e) => {
+                    setNewRecord({ ...newRecord, amount: e.target.value });
+                    setAmountError(null);
+                  }}
+                  placeholder="0.00"
+                  className={`w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-red-400" : "border-card-border"}`}
+                />
+                {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
+              </div>
+              <div>
+                <label htmlFor="wht-new-desc" className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
                 {customDescAddMode ? (
                   <div className="flex gap-2">
                     <input
+                      id="wht-new-desc"
                       value={newRecord.description}
                       onChange={(e) => setNewRecord({ ...newRecord, description: e.target.value })}
                       placeholder="พิมพ์รายละเอียด"
@@ -867,19 +1029,20 @@ export default function WhtPage() {
                   </select>
                 )}
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา หัก ณ ที่จ่าย (%) *</label>
-                <select value={newRecord.wht_rate} onChange={(e) => setNewRecord({ ...newRecord, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
-                  <option value="1">1%</option>
-                  <option value="2">2%</option>
-                  <option value="3">3%</option>
-                  <option value="5">5%</option>
-                  <option value="0">0%</option>
-                </select>
-              </div>
-              {newRecord.amount && (
+              <Select
+                label="อัตรา หัก ณ ที่จ่าย (%) *"
+                value={newRecord.wht_rate}
+                onChange={(e) => setNewRecord({ ...newRecord, wht_rate: e.target.value })}
+              >
+                <option value="1">1%</option>
+                <option value="2">2%</option>
+                <option value="3">3%</option>
+                <option value="5">5%</option>
+                <option value="0">0%</option>
+              </Select>
+              {previewWht && (
                 <div className="text-[12px] text-[#888780]">
-                  หัก ณ ที่จ่าย = {formatCurrency(parseFloat(newRecord.amount) * parseFloat(newRecord.wht_rate) / 100)}
+                  หัก ณ ที่จ่าย = {previewWht}
                 </div>
               )}
               <Input label="หมายเหตุ" value={newRecord.note} onChange={(e) => setNewRecord({ ...newRecord, note: e.target.value })} />
@@ -888,45 +1051,61 @@ export default function WhtPage() {
                 <Button variant="secondary" onClick={() => { setShowAddRecord(false); resetNewRecord(); }} className="flex-1">ยกเลิก</Button>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
-      {showEditRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setShowEditRecord(null)} />
-          <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-3">แก้ไขรายการ หัก ณ ที่จ่าย</h2>
-            <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
-              <Info size={14} className="shrink-0" />
-              <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
+      <Modal open={!!showEditRecord} onClose={closeEditRecord} title="แก้ไขรายการ หัก ณ ที่จ่าย">
+        <div>
+          {showEditRecord?.certificate_no && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
+              <Info size={14} className="shrink-0 mt-0.5" />
+              <span>ใบรับรอง <span className="font-mono font-medium">{showEditRecord.certificate_no}</span> ออกแล้ว — หากแก้ไขข้อมูล เอกสาร PDF ที่พิมพ์ซ้ำจะแสดงค่าที่แก้ไขแล้ว</span>
             </div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ผู้ขาย/ผู้รับเงิน *</label>
-                <select
-                  value={editRecordForm.vendor_id}
-                  onChange={(e) => handleVendorChangeForRecord(e.target.value, true)}
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
-                >
-                  <option value="">เลือกผู้ขาย</option>
-                  {allVendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">แบบภาษี *</label>
-                <select value={editRecordForm.form_type} onChange={(e) => setEditRecordForm({ ...editRecordForm, form_type: e.target.value as WhtFormType })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
-                  {WHT_FORM_TYPE_OPTIONS.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
-                </select>
-              </div>
+          )}
+          <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
+            <Info size={14} className="shrink-0" />
+            <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
+          </div>
+          <div className="space-y-3">
+              <Select
+                label="ผู้ขาย/ผู้รับเงิน *"
+                value={editRecordForm.vendor_id}
+                onChange={(e) => handleVendorChangeForRecord(e.target.value, true)}
+              >
+                <option value="">เลือกผู้ขาย</option>
+                {allVendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </Select>
+              <Select
+                label="แบบภาษี *"
+                value={editRecordForm.form_type}
+                onChange={(e) => setEditRecordForm({ ...editRecordForm, form_type: e.target.value as WhtFormType })}
+              >
+                {WHT_FORM_TYPE_OPTIONS.map((ft) => <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>)}
+              </Select>
               <Input label="วันที่ *" type="date" value={editRecordForm.issue_date} onChange={(e) => setEditRecordForm({ ...editRecordForm, issue_date: e.target.value })} />
-              <Input label="จำนวนเงิน *" type="number" step="0.01" value={editRecordForm.amount} onChange={(e) => setEditRecordForm({ ...editRecordForm, amount: e.target.value })} />
               <div>
-                <label className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
+                <label htmlFor="wht-edit-amount" className="block text-xs font-medium text-gray-600 mb-1">จำนวนเงิน *</label>
+                <input
+                  id="wht-edit-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editRecordForm.amount}
+                  onChange={(e) => {
+                    setEditRecordForm({ ...editRecordForm, amount: e.target.value });
+                    setAmountError(null);
+                  }}
+                  placeholder="0.00"
+                  className={`w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-red-400" : "border-card-border"}`}
+                />
+                {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
+              </div>
+              <div>
+                <label htmlFor="wht-edit-desc" className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
                 {customDescEditMode ? (
                   <div className="flex gap-2">
                     <input
+                      id="wht-edit-desc"
                       value={editRecordForm.description}
                       onChange={(e) => setEditRecordForm({ ...editRecordForm, description: e.target.value })}
                       placeholder="พิมพ์รายละเอียด"
@@ -962,103 +1141,120 @@ export default function WhtPage() {
                   </select>
                 )}
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">อัตรา หัก ณ ที่จ่าย (%) *</label>
-                <select value={editRecordForm.wht_rate} onChange={(e) => setEditRecordForm({ ...editRecordForm, wht_rate: e.target.value })} className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]">
-                  <option value="1">1%</option>
-                  <option value="2">2%</option>
-                  <option value="3">3%</option>
-                  <option value="5">5%</option>
-                  <option value="0">0%</option>
-                </select>
-              </div>
+              <Select
+                label="อัตรา หัก ณ ที่จ่าย (%) *"
+                value={editRecordForm.wht_rate}
+                onChange={(e) => setEditRecordForm({ ...editRecordForm, wht_rate: e.target.value })}
+              >
+                <option value="1">1%</option>
+                <option value="2">2%</option>
+                <option value="3">3%</option>
+                <option value="5">5%</option>
+                <option value="0">0%</option>
+              </Select>
               <Input label="หมายเหตุ" value={editRecordForm.note} onChange={(e) => setEditRecordForm({ ...editRecordForm, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleUpdateRecord} loading={saving} className="flex-1">บันทึก</Button>
-                <Button variant="secondary" onClick={() => setShowEditRecord(null)} className="flex-1">ยกเลิก</Button>
+                <Button variant="secondary" onClick={closeEditRecord} className="flex-1">ยกเลิก</Button>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
-      {showAddVendor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setShowAddVendor(false)} />
-          <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">เพิ่มผู้ขาย/ผู้รับเงิน</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ประเภทผู้ขาย/ผู้รับเงิน *</label>
-                <select
-                  value={newVendor.vendor_type}
-                  onChange={(e) => setNewVendor({ ...newVendor, vendor_type: e.target.value as "company" | "individual" })}
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
-                >
-                  <option value="company">บริษัท</option>
-                  <option value="individual">บุคคล</option>
-                </select>
-              </div>
+      <Modal open={showAddVendor} onClose={() => setShowAddVendor(false)} title="เพิ่มผู้ขาย/ผู้รับเงิน">
+        <div className="space-y-3">
+              <Select
+                label="ประเภทผู้ขาย/ผู้รับเงิน *"
+                value={newVendor.vendor_type}
+                onChange={(e) => setNewVendor({ ...newVendor, vendor_type: e.target.value as "company" | "individual" })}
+              >
+                <option value="company">บริษัท</option>
+                <option value="individual">บุคคล</option>
+              </Select>
               <Input
+                id="vendor-new-name"
                 label={newVendor.vendor_type === "company" ? "ชื่อบริษัท *" : "ชื่อบุคคล *"}
                 value={newVendor.name}
                 onChange={(e) => setNewVendor({ ...newVendor, name: e.target.value })}
                 placeholder={newVendor.vendor_type === "company" ? "เช่น บริษัท สยามปริ้นท์ จำกัด" : "เช่น นาย สมชาย ใจดี"}
+                error={vendorErrors.name}
                 autoFocus
               />
-              <Input label="เลขผู้เสียภาษี (13 หลัก) *" value={newVendor.tax_id} onChange={(e) => setNewVendor({ ...newVendor, tax_id: e.target.value })} placeholder="13 หลัก" />
-              <Input label="ที่อยู่ *" value={newVendor.address} onChange={(e) => setNewVendor({ ...newVendor, address: e.target.value })} />
+              <Input
+                id="vendor-new-tax-id"
+                label="เลขผู้เสียภาษี (13 หลัก) *"
+                value={maskTaxIdInput(newVendor.tax_id)}
+                onChange={(e) => setNewVendor({ ...newVendor, tax_id: e.target.value.replace(/\D/g, "").slice(0, 13) })}
+                inputMode="numeric"
+                placeholder="1-2345-67890-12-3"
+                error={vendorErrors.tax_id}
+              />
+              <Input id="vendor-new-address" label="ที่อยู่ *" value={newVendor.address} onChange={(e) => setNewVendor({ ...newVendor, address: e.target.value })} error={vendorErrors.address} />
               <Input label="เบอร์โทร" value={newVendor.phone} onChange={(e) => setNewVendor({ ...newVendor, phone: e.target.value })} />
               <Input label="อีเมล" value={newVendor.email} onChange={(e) => setNewVendor({ ...newVendor, email: e.target.value })} type="email" />
               <Input label="ชื่อผู้ติดต่อ" value={newVendor.contact_name} onChange={(e) => setNewVendor({ ...newVendor, contact_name: e.target.value })} />
               <Input label="หมายเหตุ" value={newVendor.note} onChange={(e) => setNewVendor({ ...newVendor, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleAddVendor} disabled={!newVendor.name.trim() || !newVendor.tax_id.trim() || !newVendor.address.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
+                <Button onClick={handleAddVendor} disabled={saving} loading={saving} className="flex-1">บันทึก</Button>
                 <Button variant="secondary" onClick={() => setShowAddVendor(false)} className="flex-1">ยกเลิก</Button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
-      {showEditVendor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setShowEditVendor(null)} />
-          <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">แก้ไขผู้ขาย</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ประเภทผู้ขาย/ผู้รับเงิน *</label>
-                <select
-                  value={editVendorForm.vendor_type}
-                  onChange={(e) => setEditVendorForm({ ...editVendorForm, vendor_type: e.target.value as "company" | "individual" })}
-                  className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
-                >
-                  <option value="company">บริษัท</option>
-                  <option value="individual">บุคคล</option>
-                </select>
-              </div>
+      <Modal open={!!showEditVendor} onClose={() => setShowEditVendor(null)} title="แก้ไขผู้ขาย">
+        <div className="space-y-3">
+              <Select
+                label="ประเภทผู้ขาย/ผู้รับเงิน *"
+                value={editVendorForm.vendor_type}
+                onChange={(e) => setEditVendorForm({ ...editVendorForm, vendor_type: e.target.value as "company" | "individual" })}
+              >
+                <option value="company">บริษัท</option>
+                <option value="individual">บุคคล</option>
+              </Select>
               <Input
+                id="vendor-edit-name"
                 label={editVendorForm.vendor_type === "company" ? "ชื่อบริษัท *" : "ชื่อบุคคล *"}
                 value={editVendorForm.name}
                 onChange={(e) => setEditVendorForm({ ...editVendorForm, name: e.target.value })}
+                error={vendorErrors.name}
               />
-              <Input label="เลขผู้เสียภาษี *" value={editVendorForm.tax_id} onChange={(e) => setEditVendorForm({ ...editVendorForm, tax_id: e.target.value })} />
-              <Input label="ที่อยู่ *" value={editVendorForm.address} onChange={(e) => setEditVendorForm({ ...editVendorForm, address: e.target.value })} />
+              <Input
+                id="vendor-edit-tax-id"
+                label="เลขผู้เสียภาษี *"
+                value={maskTaxIdInput(editVendorForm.tax_id)}
+                onChange={(e) => setEditVendorForm({ ...editVendorForm, tax_id: e.target.value.replace(/\D/g, "").slice(0, 13) })}
+                inputMode="numeric"
+                placeholder="1-2345-67890-12-3"
+                error={vendorErrors.tax_id}
+              />
+              <Input id="vendor-edit-address" label="ที่อยู่ *" value={editVendorForm.address} onChange={(e) => setEditVendorForm({ ...editVendorForm, address: e.target.value })} error={vendorErrors.address} />
               <Input label="เบอร์โทร" value={editVendorForm.phone} onChange={(e) => setEditVendorForm({ ...editVendorForm, phone: e.target.value })} />
               <Input label="อีเมล" value={editVendorForm.email} onChange={(e) => setEditVendorForm({ ...editVendorForm, email: e.target.value })} type="email" />
               <Input label="ชื่อผู้ติดต่อ" value={editVendorForm.contact_name} onChange={(e) => setEditVendorForm({ ...editVendorForm, contact_name: e.target.value })} />
               <Input label="หมายเหตุ" value={editVendorForm.note} onChange={(e) => setEditVendorForm({ ...editVendorForm, note: e.target.value })} />
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleUpdateVendor} disabled={!editVendorForm.name.trim() || !editVendorForm.tax_id.trim() || !editVendorForm.address.trim() || saving} loading={saving} className="flex-1">บันทึก</Button>
+                <Button onClick={handleUpdateVendor} disabled={saving} loading={saving} className="flex-1">บันทึก</Button>
                 <Button variant="secondary" onClick={() => setShowEditVendor(null)} className="flex-1">ยกเลิก</Button>
               </div>
             </div>
+      </Modal>
+
+      <Modal
+        open={!!confirmState}
+        onClose={() => setConfirmState(null)}
+        title={confirmState?.title}
+        className="max-w-sm"
+      >
+        {confirmState && (
+          <div>
+            <p className="text-sm text-[#555]">{confirmState.message}</p>
+            <div className="mt-4 flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setConfirmState(null)}>ยกเลิก</Button>
+              <Button variant="danger" onClick={() => { const fn = confirmState.onConfirm; setConfirmState(null); fn(); }}>ลบ</Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </AppShell>
   );
 }
