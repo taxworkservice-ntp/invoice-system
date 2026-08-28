@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node scripts/dev-api-server.mjs",
     "build": "tsc -b && vite build",
     "qa:launch": "node scripts/qa-launch-preflight.mjs",
     "check:env": "node scripts/check-env.mjs",

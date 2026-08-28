@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://invoice.taxworkaccount.com",
+        target: "http://localhost:8787",
         changeOrigin: true,
       },
     },
