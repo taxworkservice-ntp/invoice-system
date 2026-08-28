@@ -66,7 +66,9 @@ export default function DownloadCenterPage() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
+  const [finPeriodMode, setFinPeriodMode] = useState<"month" | "quarter" | "ytd" | "year">("month");
   const [finMonth, setFinMonth] = useState(currentMonth);
+  const [finQuarter, setFinQuarter] = useState(Math.floor(currentMonth / 3.01) + 1);
   const [finYear, setFinYear] = useState(currentYear);
   const [stockFrom, setStockFrom] = useState(`${currentYear}-${String(currentMonth).padStart(2, "0")}-01`);
   const [stockTo, setStockTo] = useState(new Date().toISOString().slice(0, 10));
@@ -74,7 +76,45 @@ export default function DownloadCenterPage() {
   const [customYear, setCustomYear] = useState(currentYear);
   const [quickFilter, setQuickFilter] = useState<"thisMonth" | "prevMonth">("thisMonth");
 
-  const { summary: finSummary, whtTransactions: finWhtTransactions, transactions: finTransactions, arByCustomer: finArByCustomer, arDetails: finArDetails, arAging: finArAging, topCustomers: finTopCustomers, monthly: finMonthly, byType: finByType, lineItems: finLineItems, dealNotes: finDealNotes, cogs: finCogs, collectionRate: finCollectionRate } = useFinancialReport(userId, finYear, finMonth);
+  const finRange = useMemo(() => {
+    const todayISO = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    switch (finPeriodMode) {
+      case "quarter": {
+        const firstMonth = (finQuarter - 1) * 3 + 1;
+        const lastMonth = firstMonth + 2;
+        const m1 = String(firstMonth).padStart(2, "0");
+        const m3 = String(lastMonth).padStart(2, "0");
+        return { start: `${finYear}-${m1}-01`, end: `${finYear}-${m3}-${new Date(finYear, lastMonth, 0).getDate()}` };
+      }
+      case "ytd":
+        return { start: `${finYear}-01-01`, end: finYear === currentYear ? todayISO : `${finYear}-12-31` };
+      case "year":
+        return { start: `${finYear}-01-01`, end: `${finYear}-12-31` };
+      default:
+        return getMonthRange(finYear, finMonth);
+    }
+  }, [finPeriodMode, finYear, finMonth, finQuarter, currentYear, currentMonth, now]);
+
+  const finPeriodLabel = useMemo(() => {
+    const fmtEnd = (() => {
+      const [y, m, d] = finRange.end.split("-");
+      return `${d}/${m}/${Number(y) + 543}`;
+    })();
+    switch (finPeriodMode) {
+      case "quarter": {
+        const firstMonth = (finQuarter - 1) * 3 + 1;
+        return `ไตรมาส ${finQuarter} (${MONTH_LABELS[firstMonth - 1]}–${MONTH_LABELS[firstMonth + 1]} ${finYear + 543})`;
+      }
+      case "ytd":
+        return `ตั้งแต่ต้นปี ${finYear + 543} (ถึง ${fmtEnd})`;
+      case "year":
+        return `ทั้งปี ${finYear + 543} (ม.ค.–ธ.ค.)`;
+      default:
+        return `${THAI_MONTHS[finMonth - 1]} ${finYear + 543}`;
+    }
+  }, [finPeriodMode, finYear, finMonth, finQuarter, finRange]);
+
+  const { summary: finSummary, whtTransactions: finWhtTransactions, transactions: finTransactions, arByCustomer: finArByCustomer, arDetails: finArDetails, arAging: finArAging, topCustomers: finTopCustomers, monthly: finMonthly, byType: finByType, lineItems: finLineItems, dealNotes: finDealNotes, cogs: finCogs, collectionRate: finCollectionRate } = useFinancialReport(userId, finRange.start, finRange.end);
 
   const isVatRegistered = clientProfile?.vat_registered;
 
@@ -327,9 +367,12 @@ export default function DownloadCenterPage() {
         dealNotes: finDealNotes,
         cogs: finCogs,
         collectionRate: finCollectionRate,
-        dateFrom: `${String(finMonth).padStart(2, "0")}/${finYear}`,
+        periodLabel: finPeriodLabel,
+        companyName: clientProfile?.company_name_th || undefined,
+        vatRegistered: isVatRegistered,
+        generatedAt: new Date(),
       });
-      downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `financial_${finYear}-${String(finMonth).padStart(2, "0")}.xlsx`);
+      downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `financial_${finRange.start}_${finRange.end}.xlsx`);
       toast.success("ดาวน์โหลดเรียบร้อย");
     } catch (err: any) { toast.error(err.message); }
     finally { setReportExporting(""); }
@@ -440,10 +483,31 @@ export default function DownloadCenterPage() {
                 disabled={busy}
                 onDownload={() => setConfirmAction({ type: "report", reportType: "financial" })}
               >
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {([["month", "เดือน"], ["quarter", "ไตรมาส"], ["ytd", "YTD"], ["year", "ทั้งปี"]] as const).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setFinPeriodMode(mode)}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${finPeriodMode === mode ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <MonthSelect label="เดือน" value={finMonth} onChange={setFinMonth} />
+                  {finPeriodMode === "month" && <MonthSelect label="เดือน" value={finMonth} onChange={setFinMonth} />}
+                  {finPeriodMode === "quarter" && (
+                    <div>
+                      <label className="block text-[10px] text-gray-500 mb-0.5">ไตรมาส</label>
+                      <select value={finQuarter} onChange={(e) => setFinQuarter(Number(e.target.value))} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20">
+                        {[1, 2, 3, 4].map((q) => (<option key={q} value={q}>Q{q}</option>))}
+                      </select>
+                    </div>
+                  )}
                   <YearSelect label="ปี" value={finYear} onChange={setFinYear} />
                 </div>
+                <div className="mt-1.5 text-[10px] text-gray-400">{finPeriodLabel}</div>
               </ReportCard>
 
               {/* Stock */}
@@ -502,7 +566,7 @@ export default function DownloadCenterPage() {
               <div className="flex justify-between"><span className="text-gray-500">รายงาน:</span><span>{confirmAction.reportType === "financial" ? "รายงานการเงิน" : "รายงานสต็อก"}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">รูปแบบ:</span><span>XLSX</span></div>
               {confirmAction.reportType === "financial" && (
-                <div className="flex justify-between"><span className="text-gray-500">รอบ:</span><span>{MONTH_LABELS[finMonth - 1]} {finYear + 543}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">รอบ:</span><span>{finPeriodLabel}</span></div>
               )}
               {confirmAction.reportType === "stock" && (
                 <div className="flex justify-between"><span className="text-gray-500">ช่วงวันที่:</span><span>{stockFrom} ถึง {stockTo}</span></div>

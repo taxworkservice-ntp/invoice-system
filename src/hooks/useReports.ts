@@ -129,11 +129,25 @@ export interface StockMovementRow {
   qtyPerCarton: number | null;
 }
 
-function getMonthRange(year: number, month: number) {
+export function getMonthRange(year: number, month: number) {
   const m = String(month).padStart(2, "0");
   const start = `${year}-${m}-01`;
   const end = `${year}-${m}-${new Date(year, month, 0).getDate()}`;
   return { start, end };
+}
+
+function toISODate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function getPreviousPeriodRange(from: string, to: string): { start: string; end: string } | null {
+  const f = new Date(`${from}T00:00:00`);
+  const t = new Date(`${to}T00:00:00`);
+  if (isNaN(f.getTime()) || isNaN(t.getTime()) || t < f) return null;
+  const spanDays = Math.round((t.getTime() - f.getTime()) / 86400000) + 1;
+  const prevEnd = new Date(f.getTime() - 86400000);
+  const prevStart = new Date(prevEnd.getTime() - (spanDays - 1) * 86400000);
+  return { start: toISODate(prevStart), end: toISODate(prevEnd) };
 }
 
 function getMonthsBack(count: number) {
@@ -182,7 +196,7 @@ function getTransactionStatusLabel(doc: any) {
   return statusLabels[doc.status as string] || STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
 }
 
-export function useFinancialReport(userId: string | undefined, year: number, month: number) {
+export function useFinancialReport(userId: string | undefined, from: string, to: string) {
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [byType, setByType] = useState<RevenueByType[]>([]);
   const [monthly, setMonthly] = useState<MonthlyRevenue[]>([]);
@@ -206,7 +220,8 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
     setLoading(true);
     setError(null);
     try {
-      const { start, end } = getMonthRange(year, month);
+      const start = from;
+      const end = to;
 
       const { data: clientProfile } = await supabase
         .from("client_profiles")
@@ -672,11 +687,32 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
       }));
       setWhtTransactions(whtTransactions);
 
-      // MoM revenue delta
-      const prevM = month === 1 ? 12 : month - 1;
-      const prevY = month === 1 ? year - 1 : year;
-      const prevMonthData = monthlyTrendData.find((m) => parseInt(m.month, 10) === prevM && m.year === prevY);
-      setRevenueDelta(prevMonthData && prevMonthData.total > 0 ? ((adjustedRevenue - prevMonthData.total) / prevMonthData.total) * 100 : null);
+      // Period-over-period revenue delta: previous equal-length window
+      // (month → prev month, YTD → same window last year, quarter → prev quarter, year → prev year).
+      const prevWindow = getPreviousPeriodRange(start, end);
+      if (prevWindow) {
+        const prevInWindow = dedupedSalesDocs.filter((d) => {
+          const recognitionDate = getRecognitionDate(d);
+          return recognitionDate >= prevWindow.start && recognitionDate <= prevWindow.end;
+        });
+        const prevCredits = activeCreditNotes.filter((d) => {
+          const creditDate = (d.issue_date || "").slice(0, 10);
+          return creditDate >= prevWindow.start && creditDate <= prevWindow.end;
+        });
+        const prevDebits = activeDebitNotes.filter((d) => {
+          const debitDate = (d.issue_date || "").slice(0, 10);
+          return debitDate >= prevWindow.start && debitDate <= prevWindow.end;
+        });
+        const prevRevenue = Math.max(
+          0,
+          prevInWindow.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0) -
+            prevCredits.reduce((sum, d) => sum + (d.total_amount || 0), 0) +
+            prevDebits.reduce((sum, d) => sum + (d.total_amount || 0), 0),
+        );
+        setRevenueDelta(prevRevenue > 0 ? ((adjustedRevenue - prevRevenue) / prevRevenue) * 100 : null);
+      } else {
+        setRevenueDelta(null);
+      }
 
       // COGS from stock auto_out
       const { data: cogsRows } = await supabase
@@ -700,7 +736,7 @@ export function useFinancialReport(userId: string | undefined, year: number, mon
     } finally {
       setLoading(false);
     }
-  }, [userId, year, month]);
+  }, [userId, from, to]);
 
   useEffect(() => {
     fetchData();

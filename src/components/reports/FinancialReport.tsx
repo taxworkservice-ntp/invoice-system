@@ -5,7 +5,7 @@ import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
 import { EmptyState } from "../ui/EmptyState";
-import { useFinancialReport } from "../../hooks/useReports";
+import { getMonthRange, useFinancialReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
 import { TransactionTable } from "./TransactionTable";
 
@@ -107,7 +107,8 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [chartRange, setChartRange] = useState<ChartRange>("6m");
-  const { summary, monthly, monthlyTrend, arByCustomer, arAging, topCustomers, byType, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error } = useFinancialReport(userId, year, month);
+  const finRange = getMonthRange(year, month);
+  const { summary, monthly, monthlyTrend, arByCustomer, arAging, topCustomers, byType, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error } = useFinancialReport(userId, finRange.start, finRange.end);
 
   const today = new Date();
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
@@ -144,7 +145,8 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         dealNotes,
         cogs,
         collectionRate,
-        dateFrom: `${String(month).padStart(2, "0")}/${year}`,
+        periodLabel: `${MONTH_NAMES_TH[month - 1] || month} ${year + 543}`,
+        generatedAt: new Date(),
       });
       const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);

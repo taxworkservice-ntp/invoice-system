@@ -1,6 +1,5 @@
 import ExcelJS from "exceljs";
 import type { FinancialSummary, ARByCustomer, ARDetail, ARAgingBucket, TopCustomer, MonthlyRevenue, RevenueByType, Transaction, LineItemRow, DealNoteRow } from "../hooks/useReports";
-import { formatCurrency } from "./format";
 
 // ============ Styling ============
 
@@ -9,6 +8,9 @@ const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: 
 const RED_TEXT = "FFC0392B";
 const GREEN_TEXT = "FF1E5A38";
 const CURRENCY_FMT = "#,##0.00";
+const PCT_FMT = "0.0%";
+const INT_FMT = "#,##0";
+const THAI_DATE_FMT = "[$-th-TH]dd/mm/yyyy";
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
   top: { style: "thin", color: { argb: "FFE8E6DF" } },
   left: { style: "thin", color: { argb: "FFE8E6DF" } },
@@ -53,37 +55,81 @@ function applyPageSetup(ws: ExcelJS.Worksheet) {
   };
 }
 
+function freezeHeaderRows(ws: ExcelJS.Worksheet, rowCount: number) {
+  ws.views = [{ state: "frozen", ySplit: rowCount }];
+}
+
+function applyAutoFilter(ws: ExcelJS.Worksheet, headerRow: number, lastRow: number, lastCol: number) {
+  if (lastRow < headerRow) return;
+  ws.autoFilter = {
+    from: { row: headerRow, column: 1 },
+    to: { row: lastRow, column: lastCol },
+  };
+}
+
+function writeDate(cell: ExcelJS.Cell, value: string | null | undefined) {
+  if (value) {
+    const d = new Date(value.length <= 10 ? `${value}T00:00:00` : value);
+    if (!isNaN(d.getTime())) {
+      cell.value = d;
+      cell.numFmt = THAI_DATE_FMT;
+      return;
+    }
+  }
+  cell.value = value || "-";
+}
+
+// ============ Summary ============
+
 function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("รายงานสรุป");
-  const { summary, cogs, collectionRate, dateFrom } = opts;
+  const { summary, cogs, collectionRate, periodLabel, companyName, vatRegistered, generatedAt } = opts;
 
-  ws.mergeCells("A1:B1");
   applyTitle(ws.getCell("A1"));
   ws.getCell("A1").value = "รายงานการเงิน";
 
-  ws.mergeCells("A2:B2");
-  applySubtitle(ws.getCell("A2"));
-  ws.getCell("A2").value = `ประจำเดือน ${dateFrom}`;
+  if (companyName) {
+    applySubtitle(ws.getCell("A2"));
+    ws.getCell("A2").value = companyName;
+  }
 
-  const items: [string, string][] = [
-    ["รายได้รวม", formatCurrency(summary?.revenue ?? 0)],
-    ["กำไรขั้นต้น", formatCurrency((summary?.revenue ?? 0) - cogs)],
-    ["อัตรากำไรขั้นต้น", (summary?.revenue ?? 0) > 0 ? `${(((summary?.revenue ?? 0) - cogs) / (summary?.revenue ?? 1) * 100).toFixed(1)}%` : "0.0%"],
-    ["เก็บแล้ว", formatCurrency(summary?.collected ?? 0)],
-    ["หัก ณ ที่จ่าย", formatCurrency(summary?.whtWithheld ?? 0)],
-    ["ค้างชำระ", formatCurrency(summary?.outstanding ?? 0)],
-    ["VAT ที่เก็บ", formatCurrency(summary?.vatCollected ?? 0)],
-    ["จำนวนเอกสาร", String(summary?.docCount ?? 0)],
-    ["ต้นทุนขาย (COGS)", formatCurrency(cogs)],
-    ["อัตราการเก็บเงิน", `${(collectionRate * 100).toFixed(1)}%`],
+  const contextRow = companyName ? 3 : 2;
+  applySubtitle(ws.getCell(`A${contextRow}`));
+  ws.getCell(`A${contextRow}`).value = `ช่วงข้อมูล: ${periodLabel}`;
+
+  const metaRow = contextRow + 1;
+  const metaParts: string[] = [];
+  if (vatRegistered != null) metaParts.push(vatRegistered ? "สถานะ: จดทะเบียน VAT" : "สถานะ: ไม่จดทะเบียน VAT");
+  if (generatedAt) metaParts.push(`สร้างเมื่อ ${generatedAt.toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}`);
+  if (metaParts.length > 0) {
+    ws.getCell(`A${metaRow}`).font = { size: 9, color: { argb: "FF9B988F" } };
+    ws.getCell(`A${metaRow}`).value = metaParts.join(" · ");
+  }
+
+  const revenue = summary?.revenue ?? 0;
+  const grossProfit = revenue - cogs;
+  const grossMargin = revenue > 0 ? grossProfit / revenue : 0;
+
+  const items: [string, ExcelJS.CellValue, string][] = [
+    ["รายได้รวม", revenue, CURRENCY_FMT],
+    ["กำไรขั้นต้น", grossProfit, CURRENCY_FMT],
+    ["อัตรากำไรขั้นต้น", grossMargin, PCT_FMT],
+    ["เก็บแล้ว", summary?.collected ?? 0, CURRENCY_FMT],
+    ["หัก ณ ที่จ่าย", summary?.whtWithheld ?? 0, CURRENCY_FMT],
+    ["ค้างชำระ", summary?.outstanding ?? 0, CURRENCY_FMT],
+    ["VAT ที่เก็บ", summary?.vatCollected ?? 0, CURRENCY_FMT],
+    ["จำนวนเอกสาร", summary?.docCount ?? 0, INT_FMT],
+    ["ต้นทุนขาย (COGS)", cogs, CURRENCY_FMT],
+    ["อัตราการเก็บเงิน", collectionRate, PCT_FMT],
   ];
 
-  let row = 4;
-  for (const [label, value] of items) {
+  let row = metaRow + 2;
+  for (const [label, value, numFmt] of items) {
     applyBody(ws.getCell(`A${row}`), { bold: true });
     ws.getCell(`A${row}`).value = label;
-    applyBody(ws.getCell(`B${row}`), { right: true });
+    applyBody(ws.getCell(`B${row}`), { right: true, bold: label === "รายได้รวม" });
     ws.getCell(`B${row}`).value = value;
+    ws.getCell(`B${row}`).numFmt = numFmt;
     row++;
   }
 
@@ -91,22 +137,25 @@ function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   return ws;
 }
 
+// ============ Transactions ============
+
+const TRANSACTION_COL_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+
 function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("รายการธุรกรรม");
   const { transactions } = opts;
 
   const headers = ["วันที่", "เลขที่", "เลขที่ดีล", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "หัก ณ ที่จ่าย", "ยอดสุทธิ", "วันที่ชำระ", "สถานะ"];
-  let row = 1;
   headers.forEach((h, i) => {
-    const cell = ws.getCell(row, i + 1);
-    applyBody(cell, { bold: true });
+    const cell = ws.getCell(1, i + 1);
+    applyHeader(cell);
     cell.value = h;
   });
 
-  row = 2;
+  let row = 2;
   for (const t of transactions) {
     applyBody(ws.getCell(row, 1));
-    ws.getCell(row, 1).value = t.date || "-";
+    writeDate(ws.getCell(row, 1), t.date);
     applyBody(ws.getCell(row, 2));
     ws.getCell(row, 2).value = t.doc_number;
     applyBody(ws.getCell(row, 3));
@@ -131,15 +180,29 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     ws.getCell(row, 10).value = t.net_payable;
     ws.getCell(row, 10).numFmt = CURRENCY_FMT;
     applyBody(ws.getCell(row, 11));
-    ws.getCell(row, 11).value = t.paid_at ? (() => { const d = new Date(t.paid_at!); return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear() + 543}`; })() : "-";
+    writeDate(ws.getCell(row, 11), t.paid_at);
     applyBody(ws.getCell(row, 12), { color: t.is_paid ? GREEN_TEXT : undefined });
     ws.getCell(row, 12).value = t.status;
     row++;
   }
 
+  if (transactions.length > 0) {
+    applyBody(ws.getCell(row, 1), { bold: true });
+    ws.getCell(row, 1).value = "รวม";
+    for (const col of [6, 7, 8, 9, 10]) {
+      applyBody(ws.getCell(row, col), { right: true, bold: true });
+      ws.getCell(row, col).value = { formula: `SUM(${TRANSACTION_COL_LETTERS[col - 1]}2:${TRANSACTION_COL_LETTERS[col - 1]}${row - 1})` };
+      ws.getCell(row, col).numFmt = CURRENCY_FMT;
+    }
+    applyAutoFilter(ws, 1, row - 1, headers.length);
+  }
+
+  freezeHeaderRows(ws, 1);
   setColumnWidths(ws, [12, 16, 14, 16, 22, 14, 14, 14, 12, 14, 12, 12]);
   return ws;
 }
+
+// ============ WHT ============
 
 function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("หัก ณ ที่จ่าย");
@@ -153,16 +216,15 @@ function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   }
 
   const headers = ["วันที่", "เลขที่ดีล", "เลขที่เอกสาร", "ประเภท", "ลูกค้า", "เลขผู้เสียภาษี", "ที่อยู่", "ยอดรวม", "ก่อน VAT", "หัก ณ ที่จ่าย %", "หัก ณ ที่จ่าย", "ใบรับรองหัก ณ ที่จ่าย", "วันที่ชำระ"];
-  let row = 1;
   headers.forEach((h, i) => {
-    applyHeader(ws.getCell(row, i + 1));
-    ws.getCell(row, i + 1).value = h;
+    applyHeader(ws.getCell(1, i + 1));
+    ws.getCell(1, i + 1).value = h;
   });
 
-  row = 2;
+  let row = 2;
   for (const t of whtTransactions) {
     applyBody(ws.getCell(row, 1));
-    ws.getCell(row, 1).value = t.date || "-";
+    writeDate(ws.getCell(row, 1), t.date);
     applyBody(ws.getCell(row, 2));
     ws.getCell(row, 2).value = t.deal_number || "-";
     applyBody(ws.getCell(row, 3));
@@ -189,10 +251,11 @@ function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     applyBody(ws.getCell(row, 12));
     ws.getCell(row, 12).value = t.wht_certificate_no || "-";
     applyBody(ws.getCell(row, 13));
-    ws.getCell(row, 13).value = t.paid_at ? (() => { const d = new Date(t.paid_at!); return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear() + 543}`; })() : "-";
+    writeDate(ws.getCell(row, 13), t.paid_at);
     row++;
   }
 
+  const lastDataRow = row - 1;
   const totalWht = whtTransactions.reduce((s, t) => s + t.wht_amount, 0);
   applyBody(ws.getCell(row, 1), { bold: true });
   ws.getCell(row, 1).value = "รวม";
@@ -200,10 +263,14 @@ function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   ws.getCell(row, 11).value = totalWht;
   ws.getCell(row, 11).numFmt = CURRENCY_FMT;
 
+  applyAutoFilter(ws, 1, lastDataRow, headers.length);
+  freezeHeaderRows(ws, 1);
   setColumnWidths(ws, [12, 14, 16, 16, 22, 14, 22, 14, 14, 8, 14, 14, 12]);
   applyPageSetup(ws);
   return ws;
 }
+
+// ============ AR ============
 
 function buildARSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("ลูกหนี้คงค้าง");
@@ -214,14 +281,14 @@ function buildARSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   ws.getCell("A1").value = "ลูกหนี้คงค้าง (รายเอกสาร)";
 
   const headers = ["ลูกค้า", "เลขที่ดีล", "เลขที่เอกสาร", "ประเภท", "ยอดค้าง", "วันครบกำหนด", "ค้าง (วัน)"];
-  let row = 3;
+  const headerRow = 3;
   headers.forEach((h, i) => {
-    const cell = ws.getCell(row, i + 1);
+    const cell = ws.getCell(headerRow, i + 1);
     applyHeader(cell);
     cell.value = h;
   });
 
-  row = 4;
+  let row = headerRow + 1;
   let total = 0;
   for (const d of details) {
     applyBody(ws.getCell(row, 1));
@@ -236,7 +303,7 @@ function buildARSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     ws.getCell(row, 5).value = d.netPayable;
     ws.getCell(row, 5).numFmt = CURRENCY_FMT;
     applyBody(ws.getCell(row, 6));
-    ws.getCell(row, 6).value = d.dueDate || "-";
+    writeDate(ws.getCell(row, 6), d.dueDate);
     applyBody(ws.getCell(row, 7), { right: true });
     ws.getCell(row, 7).value = d.daysOverdue;
     total += d.netPayable;
@@ -249,30 +316,33 @@ function buildARSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   ws.getCell(row, 5).value = total;
   ws.getCell(row, 5).numFmt = CURRENCY_FMT;
 
+  applyAutoFilter(ws, headerRow, row - 1, headers.length);
+  freezeHeaderRows(ws, headerRow);
   setColumnWidths(ws, [24, 14, 16, 18, 14, 14, 12]);
   applyPageSetup(ws);
   return ws;
 }
 
+// ============ Line items ============
+
 function buildLineItemsSheet(wb: ExcelJS.Workbook, lineItems: LineItemRow[]) {
   const ws = wb.addWorksheet("รายการบรรทัด");
 
   const headers = ["เลขที่ดีล", "เลขที่", "วันที่", "ลูกค้า", "รายการ", "จำนวน", "หน่วย", "หน่วยละ", "ส่วนลด%", "จำนวนเงิน", "สถานะชำระ"];
-  let row = 1;
   headers.forEach((h, i) => {
-    const cell = ws.getCell(row, i + 1);
-    applyBody(cell, { bold: true });
+    const cell = ws.getCell(1, i + 1);
+    applyHeader(cell);
     cell.value = h;
   });
 
-  row = 2;
+  let row = 2;
   for (const li of lineItems) {
     applyBody(ws.getCell(row, 1));
     ws.getCell(row, 1).value = li.dealNumber || "-";
     applyBody(ws.getCell(row, 2));
     ws.getCell(row, 2).value = li.docNumber;
     applyBody(ws.getCell(row, 3));
-    ws.getCell(row, 3).value = li.date || "-";
+    writeDate(ws.getCell(row, 3), li.date);
     applyBody(ws.getCell(row, 4));
     ws.getCell(row, 4).value = li.customerName;
     applyBody(ws.getCell(row, 5));
@@ -295,9 +365,15 @@ function buildLineItemsSheet(wb: ExcelJS.Workbook, lineItems: LineItemRow[]) {
     row++;
   }
 
+  if (lineItems.length > 0) {
+    applyAutoFilter(ws, 1, row - 1, headers.length);
+  }
+  freezeHeaderRows(ws, 1);
   setColumnWidths(ws, [14, 16, 12, 22, 28, 10, 8, 14, 10, 14, 12]);
   return ws;
 }
+
+// ============ Deal notes ============
 
 function buildDealNotesSheet(wb: ExcelJS.Workbook, dealNotes: DealNoteRow[]) {
   const ws = wb.addWorksheet("บันทึกภายใน");
@@ -313,19 +389,19 @@ function buildDealNotesSheet(wb: ExcelJS.Workbook, dealNotes: DealNoteRow[]) {
   }
 
   const headers = ["เลขที่ดีล", "วันที่", "ผู้เขียน", "บทบาท", "บันทึก"];
-  let row = 3;
+  const headerRow = 3;
   headers.forEach((h, i) => {
-    const cell = ws.getCell(row, i + 1);
+    const cell = ws.getCell(headerRow, i + 1);
     applyHeader(cell);
     cell.value = h;
   });
 
-  row = 4;
+  let row = headerRow + 1;
   for (const n of dealNotes) {
     applyBody(ws.getCell(row, 1));
     ws.getCell(row, 1).value = n.dealNumber || "-";
     applyBody(ws.getCell(row, 2));
-    ws.getCell(row, 2).value = n.date ? new Date(n.date).toLocaleDateString("th-TH") : "-";
+    writeDate(ws.getCell(row, 2), n.date || null);
     applyBody(ws.getCell(row, 3));
     ws.getCell(row, 3).value = n.authorName;
     applyBody(ws.getCell(row, 4));
@@ -335,10 +411,14 @@ function buildDealNotesSheet(wb: ExcelJS.Workbook, dealNotes: DealNoteRow[]) {
     row++;
   }
 
+  applyAutoFilter(ws, headerRow, row - 1, headers.length);
+  freezeHeaderRows(ws, headerRow);
   setColumnWidths(ws, [14, 14, 16, 12, 50]);
   applyPageSetup(ws);
   return ws;
 }
+
+// ============ AR Aging ============
 
 function buildARAgingSheet(wb: ExcelJS.Workbook, arAging: ARAgingBucket[]) {
   const ws = wb.addWorksheet("อายุลูกหนี้");
@@ -383,6 +463,8 @@ function buildARAgingSheet(wb: ExcelJS.Workbook, arAging: ARAgingBucket[]) {
   return ws;
 }
 
+// ============ Top customers ============
+
 function buildTopCustomersSheet(wb: ExcelJS.Workbook, topCustomers: TopCustomer[]) {
   const ws = wb.addWorksheet("ยอดขายตามลูกค้า");
 
@@ -412,6 +494,8 @@ function buildTopCustomersSheet(wb: ExcelJS.Workbook, topCustomers: TopCustomer[
   setColumnWidths(ws, [30, 14, 18]);
   return ws;
 }
+
+// ============ Monthly trend ============
 
 function buildMonthlyTrendSheet(wb: ExcelJS.Workbook, monthly: MonthlyRevenue[]) {
   const ws = wb.addWorksheet("แนวโน้มรายได้");
@@ -464,6 +548,8 @@ function buildMonthlyTrendSheet(wb: ExcelJS.Workbook, monthly: MonthlyRevenue[])
   return ws;
 }
 
+// ============ Revenue by type ============
+
 function buildRevenueByTypeSheet(wb: ExcelJS.Workbook, byType: RevenueByType[]) {
   const ws = wb.addWorksheet("รายได้ตามประเภท");
 
@@ -510,7 +596,10 @@ interface BuildOpts {
   dealNotes?: DealNoteRow[];
   cogs: number;
   collectionRate: number;
-  dateFrom: string;
+  periodLabel: string;
+  companyName?: string;
+  vatRegistered?: boolean;
+  generatedAt?: Date;
 }
 
 export async function buildFinancialReportXlsx(opts: BuildOpts): Promise<Uint8Array> {
