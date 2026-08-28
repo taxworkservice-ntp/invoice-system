@@ -3,10 +3,12 @@ import type { DocumentType } from "../types";
 
 export type WorkspacePermissionKey =
   | "canManageSettings"
-  | "canManageTeam"
   | "canViewReports"
-  | "canManageCatalog"
+  | "canExportReports"
+  | "canViewCustomers"
   | "canManageCustomers"
+  | "canViewCatalog"
+  | "canManageCatalog"
   | "canCreateEditDocuments"
   | "canManageWht"
   | "canSendDocuments"
@@ -19,10 +21,12 @@ export type WorkspacePermissionKey =
 
 export interface WorkspacePermissions {
   canManageSettings: boolean;
-  canManageTeam: boolean;
   canViewReports: boolean;
-  canManageCatalog: boolean;
+  canExportReports: boolean;
+  canViewCustomers: boolean;
   canManageCustomers: boolean;
+  canViewCatalog: boolean;
+  canManageCatalog: boolean;
   canCreateEditDocuments: boolean;
   canManageWht: boolean;
   canSendDocuments: boolean;
@@ -34,11 +38,78 @@ export interface WorkspacePermissions {
   canDeleteDocuments: boolean;
 }
 
+export const ALL_PERMISSION_KEYS: WorkspacePermissionKey[] = [
+  "canManageSettings",
+  "canViewReports",
+  "canExportReports",
+  "canViewCustomers",
+  "canManageCustomers",
+  "canViewCatalog",
+  "canManageCatalog",
+  "canCreateEditDocuments",
+  "canManageWht",
+  "canSendDocuments",
+  "canSendQuotations",
+  "canSendDeliveryNotes",
+  "canSendFinancialDocuments",
+  "canRecordPayments",
+  "canVoidDocuments",
+  "canDeleteDocuments",
+];
+
+export function isWorkspacePermissionKey(key: string): key is WorkspacePermissionKey {
+  return (ALL_PERMISSION_KEYS as string[]).includes(key);
+}
+
+export const EDITABLE_PERMISSION_KEYS: WorkspacePermissionKey[] = ALL_PERMISSION_KEYS.filter(
+  (key) => key !== "canSendDocuments",
+);
+
 export const PERMISSION_GROUPS: { key: WorkspacePermissionKey; label: string; description: string }[] = [
   {
+    key: "canViewCustomers",
+    label: "ดูลูกค้า",
+    description: "เข้าถึงรายการและข้อมูลลูกค้าแบบดูอย่างเดียว",
+  },
+  {
+    key: "canManageCustomers",
+    label: "จัดการลูกค้า",
+    description: "สร้างและแก้ไขข้อมูลลูกค้า",
+  },
+  {
+    key: "canViewCatalog",
+    label: "ดูสินค้าและสต็อก",
+    description: "เข้าถึงรายการสินค้า บริการ และสต็อกแบบดูอย่างเดียว",
+  },
+  {
+    key: "canManageCatalog",
+    label: "จัดการสินค้าและสต็อก",
+    description: "เพิ่มสินค้า แก้ไขรายการ และจัดการสต็อก",
+  },
+  {
     key: "canCreateEditDocuments",
-    label: "Create/edit drafts",
-    description: "Prepare quotations, invoices, delivery notes, and other draft documents.",
+    label: "จัดทำและแก้ไขร่าง",
+    description: "สร้างงานขายและแก้ไขเอกสารร่าง",
+  },
+  {
+    key: "canSendQuotations",
+    label: "ส่งใบเสนอราคา",
+    description: "ส่งใบเสนอราคาให้ลูกค้า",
+  },
+  {
+    key: "canSendDeliveryNotes",
+    label: "ยืนยันใบส่งของ",
+    description: "ยืนยันการส่งของและตัดสต็อก",
+  },
+  {
+    key: "canSendFinancialDocuments",
+    label: "ออกบิลและรับเอกสารการเงิน",
+    description: "ส่งใบแจ้งหนี้ ใบวางบิล และเอกสารภาษี",
+  },
+  {
+    key: "canRecordPayments",
+    label: "บันทึกรับเงิน",
+    description: "บันทึกรับชำระและออกใบเสร็จ",
   },
   {
     key: "canManageWht",
@@ -46,89 +117,80 @@ export const PERMISSION_GROUPS: { key: WorkspacePermissionKey; label: string; de
     description: "จัดทำ แก้ไข และออกเอกสารหัก ณ ที่จ่าย",
   },
   {
-    key: "canSendDocuments",
-    label: "Send documents (legacy)",
-    description: "Legacy permission for sending all document types. Use the specific permissions below for new staff access.",
-  },
-  {
-    key: "canSendQuotations",
-    label: "Send quotations",
-    description: "Allow this user to send quotations to customers.",
-  },
-  {
-    key: "canSendDeliveryNotes",
-    label: "Confirm delivery notes",
-    description: "Allow this user to confirm delivery and trigger stock deduction.",
-  },
-  {
-    key: "canSendFinancialDocuments",
-    label: "Send bills and tax documents",
-    description: "Allow invoices, billing notes, tax invoices, receipts, and credit notes.",
-  },
-  {
-    key: "canRecordPayments",
-    label: "Record payments",
-    description: "Mark invoices or billing notes as paid and generate receipts.",
-  },
-  {
     key: "canVoidDocuments",
-    label: "Void documents",
-    description: "Cancel sent/issued documents and optionally create replacement drafts.",
+    label: "ยกเลิกเอกสาร",
+    description: "ยกเลิกเอกสารที่ส่งแล้วหรือออกใหม่",
   },
   {
     key: "canDeleteDocuments",
-    label: "Delete drafts",
-    description: "Permanently delete draft documents.",
-  },
-  {
-    key: "canManageCustomers",
-    label: "Manage customers",
-    description: "Create and edit customer records.",
-  },
-  {
-    key: "canManageCatalog",
-    label: "Manage catalog and stock",
-    description: "Add/edit products and services, receive stock, and adjust stock history.",
+    label: "ลบฉบับร่าง",
+    description: "ลบเอกสารฉบับร่างถาวร",
   },
   {
     key: "canViewReports",
-    label: "View reports",
-    description: "Open financial and stock reports.",
+    label: "ดูรายงาน",
+    description: "เปิดรายงานสรุปยอดขาย การเงิน และสต็อก",
+  },
+  {
+    key: "canExportReports",
+    label: "ดาวน์โหลดและส่งออก",
+    description: "เปิดศูนย์ดาวน์โหลดและไฟล์ส่งออก",
   },
   {
     key: "canManageSettings",
-    label: "Company settings",
-    description: "Edit company profile, tax, document numbering, templates, and stock settings.",
-  },
-  {
-    key: "canManageTeam",
-    label: "Team management",
-    description: "Reserved for owner-level team administration.",
+    label: "ตั้งค่าบริษัท",
+    description: "แก้ไขข้อมูลบริษัท ภาษี เทมเพลต และการตั้งค่าเอกสาร",
   },
 ];
 
-export function getDefaultWorkspacePermissions(role: ClientMemberRole | null | undefined): WorkspacePermissions {
-  const owner = role === "owner";
-  const manager = role === "manager";
-  const officer = role === "officer";
-  const operational = owner || manager;
-  const officerWorkflow = owner || manager || officer;
+export const PERMISSION_SECTIONS: { title: string; keys: WorkspacePermissionKey[] }[] = [
+  {
+    title: "เอกสารและการส่ง",
+    keys: ["canCreateEditDocuments", "canSendQuotations", "canSendDeliveryNotes", "canSendFinancialDocuments"],
+  },
+  {
+    title: "การเงิน",
+    keys: ["canRecordPayments", "canManageWht", "canVoidDocuments", "canDeleteDocuments"],
+  },
+  {
+    title: "ข้อมูลพื้นฐาน",
+    keys: ["canViewCustomers", "canManageCustomers", "canViewCatalog", "canManageCatalog"],
+  },
+  {
+    title: "รายงาน",
+    keys: ["canViewReports", "canExportReports"],
+  },
+  {
+    title: "ระบบ",
+    keys: ["canManageSettings"],
+  },
+];
 
+const LEGACY_PERMISSION_ALIASES: Record<string, WorkspacePermissionKey[]> = {
+  canManageCustomers: ["canViewCustomers"],
+  canManageCatalog: ["canViewCatalog"],
+  canViewReports: ["canExportReports"],
+};
+
+export function getDefaultWorkspacePermissions(role: ClientMemberRole | null | undefined): WorkspacePermissions {
+  const isOwner = role === "owner";
   return {
-    canManageSettings: owner,
-    canManageTeam: owner,
-    canViewReports: operational,
-    canManageCatalog: operational,
-    canManageCustomers: operational,
-    canCreateEditDocuments: officerWorkflow,
-    canManageWht: officerWorkflow,
-    canSendDocuments: officerWorkflow,
-    canSendQuotations: officerWorkflow,
-    canSendDeliveryNotes: officerWorkflow,
-    canSendFinancialDocuments: officerWorkflow,
-    canRecordPayments: officerWorkflow,
-    canVoidDocuments: officerWorkflow,
-    canDeleteDocuments: owner,
+    canManageSettings: isOwner,
+    canViewReports: isOwner,
+    canExportReports: isOwner,
+    canViewCustomers: isOwner,
+    canManageCustomers: isOwner,
+    canViewCatalog: isOwner,
+    canManageCatalog: isOwner,
+    canCreateEditDocuments: isOwner,
+    canManageWht: isOwner,
+    canSendDocuments: isOwner,
+    canSendQuotations: isOwner,
+    canSendDeliveryNotes: isOwner,
+    canSendFinancialDocuments: isOwner,
+    canRecordPayments: isOwner,
+    canVoidDocuments: isOwner,
+    canDeleteDocuments: isOwner,
   };
 }
 
@@ -153,9 +215,18 @@ export function normalizeWorkspacePermissionOverrides(value: unknown): Partial<W
   const record = value as Record<string, unknown>;
   const normalized: Partial<WorkspacePermissions> = {};
 
-  for (const permission of PERMISSION_GROUPS) {
-    if (typeof record[permission.key] === "boolean") {
-      normalized[permission.key] = record[permission.key] as boolean;
+  for (const [key, val] of Object.entries(record)) {
+    if (typeof val !== "boolean") continue;
+    if (isWorkspacePermissionKey(key)) {
+      normalized[key] = val;
+    }
+  }
+
+  for (const [legacyKey, targets] of Object.entries(LEGACY_PERMISSION_ALIASES)) {
+    if (record[legacyKey] === true) {
+      for (const target of targets) {
+        normalized[target] = true;
+      }
     }
   }
 
@@ -173,7 +244,15 @@ export function getWorkspacePermissions(
   return {
     ...defaults,
     ...normalizedOverrides,
-    canManageTeam: false,
-    canManageSettings: Boolean(normalizedOverrides.canManageSettings),
   };
+}
+
+export interface WorkspaceCustomRole {
+  id: string;
+  workspace_user_id: string;
+  name: string;
+  permissions: Partial<WorkspacePermissions> | null;
+  member_count?: number;
+  created_at?: string;
+  updated_at?: string;
 }

@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, ChevronRight, ClipboardList, CreditCard, FileStack,
 import { Modal } from "../ui/Modal";
 import { supabase } from "../../lib/supabase";
 import type { WorkspacePermissions } from "../../lib/permissions";
-import { getWorkspaceExperience } from "../../lib/permissions";
+import { getDefaultWorkspacePermissions, getWorkspaceExperience } from "../../lib/permissions";
 import type { ClientMemberRole } from "../../types";
 
 interface NewDealSheetProps {
@@ -73,22 +73,10 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
   const [preferencesError, setPreferencesError] = useState("");
 
   const allOptions = useMemo(() => GROUPS.flatMap((group) => group.options), []);
-  const experience = getWorkspaceExperience(workspaceRole, workspacePermissions || {
-    canManageSettings: false,
-    canManageTeam: false,
-    canViewReports: false,
-    canManageCatalog: false,
-    canManageCustomers: false,
-    canCreateEditDocuments: true,
-    canManageWht: false,
-    canSendDocuments: false,
-    canSendQuotations: false,
-    canSendDeliveryNotes: false,
-    canSendFinancialDocuments: false,
-    canRecordPayments: false,
-    canVoidDocuments: false,
-    canDeleteDocuments: false,
-  });
+  const experience = getWorkspaceExperience(
+    workspaceRole,
+    workspacePermissions || getDefaultWorkspacePermissions(workspaceRole),
+  );
   const visibleOptions = useMemo(
     () => allOptions.filter((option) => {
       if (!experience.isSimpleMode || experience.canShowAdvancedDealOptions) return true;

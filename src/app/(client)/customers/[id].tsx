@@ -611,12 +611,14 @@ export default function CustomerDetailPage() {
                   : "อัตโนมัติ"}
               </div>
             </div>
-            <button
-              onClick={() => setEditing(true)}
-              className="text-[12px] text-[#378ADD] hover:underline shrink-0"
-            >
-              แก้ไข
-            </button>
+            {permissions.canManageCustomers && (
+              <button
+                onClick={() => setEditing(true)}
+                className="text-[12px] text-[#378ADD] hover:underline shrink-0"
+              >
+                แก้ไข
+              </button>
+            )}
           </div>
 
           <div className="border-t border-[#F0EFE9] pt-3 mt-1">

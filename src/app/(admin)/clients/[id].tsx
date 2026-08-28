@@ -6,7 +6,9 @@ import {
   deleteAdminClient,
   deleteAdminClientMember,
   getAdminClientUser,
+  listAdminClientAudit,
   listAdminClientMembers,
+  listAdminClientRoles,
   resetAdminClientWorkspace,
   resetAllClientData,
   resetClientDocuments,
@@ -14,11 +16,12 @@ import {
   updateAdminClientMember,
   updateAdminClientPassword,
   updateAdminClientStatus,
+  type AdminAuditEntry,
   type AdminClientMember,
 } from "../../../lib/adminApi";
+import type { WorkspaceCustomRole } from "../../../lib/permissions";
 import { supabase } from "../../../lib/supabase";
-import { Card } from "../../../components/ui/Card";
-import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Modal } from "../../../components/ui/Modal";
 import { Input, Select } from "../../../components/ui/Input";
@@ -28,11 +31,30 @@ import { TABLE } from "../../../lib/tableStyles";
 import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { CLIENT_FEATURES } from "../../../lib/features";
-import { getWorkspacePermissions, PERMISSION_GROUPS, type WorkspacePermissions } from "../../../lib/permissions";
+import {
+  PERMISSION_GROUPS,
+  PERMISSION_SECTIONS,
+  getWorkspacePermissions,
+  type WorkspacePermissionKey,
+  type WorkspacePermissions,
+} from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from "../../../constants";
 import type { ClientFeature, ClientFeatureKey, ClientProfile, Document } from "../../../types";
 
 const CARD_LABEL = "text-[11px] uppercase font-semibold text-[#888780] tracking-wide";
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  "role.change": "เปลี่ยนบทบาท",
+  "permissions.update": "ปรับสิทธิ์การเข้าถึง",
+  "status.update": "เปลี่ยนสถานะสมาชิก",
+  "member.added": "เพิ่มสมาชิกใหม่",
+  "member.removed": "ลบสมาชิก",
+  "custom_role.created": "สร้างบทบาทกำหนดเอง",
+  "custom_role.updated": "แก้ไขบทบาทกำหนดเอง",
+  "custom_role.deleted": "ลบบทบาทกำหนดเอง",
+};
+
+const PERMISSION_META = new Map(PERMISSION_GROUPS.map((group) => [group.key, group]));
 
 export default function AdminClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -79,6 +101,8 @@ export default function AdminClientDetailPage() {
   const [permissionMember, setPermissionMember] = useState<AdminClientMember | null>(null);
   const [permissionDraft, setPermissionDraft] = useState<WorkspacePermissions | null>(null);
   const [savingPermissions, setSavingPermissions] = useState(false);
+  const [customRoles, setCustomRoles] = useState<WorkspaceCustomRole[]>([]);
+  const [auditEntries, setAuditEntries] = useState<AdminAuditEntry[]>([]);
   const [showResetMemberPasswordModal, setShowResetMemberPasswordModal] = useState(false);
   const [resetMemberTarget, setResetMemberTarget] = useState<AdminClientMember | null>(null);
   const [resetMemberPasswordValue, setResetMemberPasswordValue] = useState("");
@@ -97,7 +121,7 @@ export default function AdminClientDetailPage() {
 
     setLoading(true);
 
-    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes, memberRes] = await Promise.all([
+    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes, memberRes, roleRes, auditRes] = await Promise.all([
       supabase.from("client_profiles").select("*").eq("user_id", id).single(),
       supabase
         .from("documents")
@@ -112,6 +136,8 @@ export default function AdminClientDetailPage() {
       supabase.from("deals").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
       supabase.from("client_features").select("*").eq("user_id", id),
       listAdminClientMembers(id).catch(() => []),
+      listAdminClientRoles(id).catch(() => []),
+      listAdminClientAudit(id).catch(() => []),
     ]);
 
     if (!cpRes.error && cpRes.data) {
@@ -136,6 +162,8 @@ export default function AdminClientDetailPage() {
       setFeatures(featureRes.data as ClientFeature[]);
     }
     setMembers(memberRes);
+    setCustomRoles(roleRes);
+    setAuditEntries(auditRes);
 
     setEmail(userRes.email || "");
     setIsActive(userRes.isActive);
@@ -298,12 +326,23 @@ export default function AdminClientDetailPage() {
     }
   }
 
-  async function handleUpdateMember(member: AdminClientMember, patch: { role?: "owner" | "manager" | "officer"; status?: "active" | "disabled"; permissions?: Partial<WorkspacePermissions> | null }) {
+  async function handleUpdateMember(member: AdminClientMember, patch: { role?: "manager" | "officer"; status?: "active" | "disabled"; permissions?: Partial<WorkspacePermissions> | null; roleId?: string | null }) {
     if (!id) return;
     setMemberActionId(member.id);
     try {
       await updateAdminClientMember(id, member.id, patch);
-      setMembers((prev) => prev.map((item) => (item.id === member.id ? { ...item, ...patch, isActive: patch.status ? patch.status === "active" : item.isActive } : item)));
+      setMembers((prev) => prev.map((item) => {
+        if (item.id !== member.id) return item;
+        const next = { ...item, ...patch };
+        if (patch.roleId !== undefined) {
+          next.customRoleId = patch.roleId;
+          next.customRoleName = patch.roleId ? customRoles.find((role) => role.id === patch.roleId)?.name ?? null : null;
+        }
+        if (patch.status) {
+          next.isActive = patch.status === "active";
+        }
+        return next;
+      }));
       toast.success("อัปเดตทีมแล้ว");
     } catch (error: any) {
       toast.error(error.message || "Unable to update staff member");
@@ -714,7 +753,7 @@ export default function AdminClientDetailPage() {
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium text-[#1A1A18]">{member.email || "-"}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#888780]">
-                          <span>{roleLabels[member.role]}</span>
+                          <span>{member.customRoleName || roleLabels[member.role]}</span>
                           <span
                             className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                               member.status === "active" ? "bg-[#EAF3DE] text-[#27500A]" : "bg-[#F1EFE8] text-[#6F6A61]"
@@ -726,20 +765,29 @@ export default function AdminClientDetailPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <select
-                          value={member.role}
+                          value={member.customRoleId ?? `base:${member.role}`}
                           disabled={isOwner || memberActionId === member.id}
                           onChange={(event) => {
-                            const nextRole = event.target.value as AdminClientMember["role"];
-                            handleUpdateMember(member, {
-                              role: nextRole,
-                              permissions: getWorkspacePermissions(nextRole),
-                            });
+                            const value = event.target.value;
+                            if (value.startsWith("base:")) {
+                              handleUpdateMember(member, { role: value.slice(5) as "manager" | "officer", roleId: null });
+                            } else {
+                              handleUpdateMember(member, { roleId: value });
+                            }
                           }}
                           className="rounded-lg border border-card-border bg-white px-3 py-1.5 text-xs text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
                         >
-                          <option value="owner">Owner</option>
-                          <option value="manager">Manager</option>
-                          <option value="officer">Officer</option>
+                          <optgroup label="บทบาทพื้นฐาน">
+                            <option value="base:manager">Manager</option>
+                            <option value="base:officer">Officer</option>
+                          </optgroup>
+                          {customRoles.length > 0 && (
+                            <optgroup label="บทบาทกำหนดเอง">
+                              {customRoles.map((role) => (
+                                <option key={role.id} value={role.id}>{role.name}</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                         {!isOwner && (
                           <>
@@ -788,6 +836,31 @@ export default function AdminClientDetailPage() {
               )}
             </div>
           </div>
+        </Card>
+
+        <div className={CARD_LABEL}>ประวัติการเปลี่ยนแปลงสิทธิ์</div>
+
+        <Card>
+          {auditEntries.length === 0 ? (
+            <p className="text-sm text-[#888780]">ยังไม่มีประวัติการเปลี่ยนแปลง</p>
+          ) : (
+            <div className="divide-y divide-[#F0EFE9]">
+              {auditEntries.slice(0, 20).map((entry) => (
+                <div key={entry.id} className="py-2.5">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-semibold text-[#1A1A18]">{AUDIT_ACTION_LABELS[entry.action] || entry.action}</span>
+                    <span className="text-[#888780]">{entry.actor_email || "ระบบ"}</span>
+                    {entry.target_email && entry.target_email !== entry.actor_email && (
+                      <span className="text-[#888780]">→ {entry.target_email}</span>
+                    )}
+                    <span className="ml-auto text-[#B5B2A8]">
+                      {new Date(entry.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <div className={CARD_LABEL}>การจัดการ</div>
@@ -1049,43 +1122,51 @@ export default function AdminClientDetailPage() {
             <div className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] p-3">
               <div className="text-sm font-medium text-[#1A1A18]">{permissionMember.email}</div>
               <p className="mt-1 text-xs leading-5 text-[#888780]">
-                Role: {roleLabels[permissionMember.role]}. These toggles override the default access for this staff member only.
+                Role: {permissionMember.customRoleName || roleLabels[permissionMember.role]}. These toggles override the default access for this staff member only.
               </p>
             </div>
 
-            <div className="space-y-2">
-              {PERMISSION_GROUPS.filter((permission) => permission.key !== "canManageTeam").map((permission) => {
-                const checked = Boolean(permissionDraft[permission.key]);
-                return (
-                  <label
-                    key={permission.key}
-                    className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-[#E8E6DF] bg-white p-3 hover:bg-[#FBFAF7]"
-                  >
-                    <span className="min-w-0">
-                      <span className="block text-sm font-medium text-[#1A1A18]">{permission.label}</span>
-                      <span className="mt-1 block text-xs leading-5 text-[#888780]">{permission.description}</span>
-                    </span>
-                    <span
-                      className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                        checked ? "bg-[#378ADD]" : "bg-[#D8D5CE]"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => setPermissionValue(permission.key, event.target.checked)}
-                        className="sr-only"
-                      />
-                      <span
-                        className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                          checked ? "translate-x-5" : "translate-x-0.5"
-                        }`}
-                      />
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
+            {PERMISSION_SECTIONS.map((section) => (
+              <div key={section.title}>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#888780]">
+                  {section.title}
+                </div>
+                <div className="space-y-2">
+                  {section.keys.map((permissionKey) => {
+                    const checked = Boolean(permissionDraft[permissionKey]);
+                    const meta = PERMISSION_META.get(permissionKey);
+                    return (
+                      <label
+                        key={permissionKey}
+                        className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-[#E8E6DF] bg-white p-3 hover:bg-[#FBFAF7]"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-[#1A1A18]">{meta?.label ?? permissionKey}</span>
+                          <span className="mt-1 block text-xs leading-5 text-[#888780]">{meta?.description ?? ""}</span>
+                        </span>
+                        <span
+                          className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                            checked ? "bg-[#378ADD]" : "bg-[#D8D5CE]"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => setPermissionValue(permissionKey, event.target.checked)}
+                            className="sr-only"
+                          />
+                          <span
+                            className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                              checked ? "translate-x-5" : "translate-x-0.5"
+                            }`}
+                          />
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
               <Button
@@ -1093,7 +1174,7 @@ export default function AdminClientDetailPage() {
                 onClick={() => setPermissionDraft(getWorkspacePermissions(permissionMember.role))}
                 disabled={savingPermissions}
               >
-                Reset to role default
+                ล้างสิทธิ์ทั้งหมด
               </Button>
               <div className="flex justify-end gap-2">
                 <Button

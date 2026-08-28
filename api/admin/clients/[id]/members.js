@@ -1,65 +1,15 @@
 import { requireAdmin } from "../../../_lib/auth.js";
 import { ApiError, readJsonBody, sendError, sendJson } from "../../../_lib/http.js";
+import { normalizePermissions, writePermissionAudit } from "../../../_lib/permissions.js";
 import { supabaseAdmin } from "../../../_lib/supabase.js";
 
 const STAFF_ROLES = new Set(["manager", "officer"]);
-
-const ROLES = new Set(["owner", "manager", "officer"]);
 const STATUSES = new Set(["active", "disabled"]);
-const PERMISSION_KEYS = new Set([
-  "canManageSettings", "canManageTeam", "canViewReports", "canManageCatalog",
-  "canManageCustomers", "canCreateEditDocuments", "canSendDocuments",
-  "canSendQuotations", "canSendDeliveryNotes", "canSendFinancialDocuments",
-  "canRecordPayments", "canVoidDocuments", "canDeleteDocuments",
-]);
-
-function normalizePermissions(input) {
-  if (input == null) return null;
-  if (typeof input !== "object" || Array.isArray(input)) {
-    throw new ApiError(400, "Invalid permissions");
-  }
-  var normalized = {};
-  for (var key in input) {
-    if (!PERMISSION_KEYS.has(key)) continue;
-    if (typeof input[key] !== "boolean") throw new ApiError(400, "Invalid permission value");
-    normalized[key] = input[key];
-  }
-  normalized.canManageTeam = false;
-  return normalized;
-}
 
 const ROLE_PERMISSION_DEFAULTS = {
   owner: null,
-  manager: {
-    canManageSettings: false,
-    canManageTeam: false,
-    canViewReports: true,
-    canManageCatalog: true,
-    canManageCustomers: true,
-    canCreateEditDocuments: true,
-    canSendDocuments: true,
-    canSendQuotations: true,
-    canSendDeliveryNotes: true,
-    canSendFinancialDocuments: true,
-    canRecordPayments: true,
-    canVoidDocuments: true,
-    canDeleteDocuments: false,
-  },
-  officer: {
-    canManageSettings: false,
-    canManageTeam: false,
-    canViewReports: false,
-    canManageCatalog: false,
-    canManageCustomers: true,
-    canCreateEditDocuments: true,
-    canSendDocuments: false,
-    canSendQuotations: false,
-    canSendDeliveryNotes: false,
-    canSendFinancialDocuments: false,
-    canRecordPayments: false,
-    canVoidDocuments: false,
-    canDeleteDocuments: false,
-  },
+  manager: {},
+  officer: {},
 };
 
 async function getAuthUserMap(userIds) {
@@ -72,7 +22,31 @@ async function getAuthUserMap(userIds) {
   return new Map(entries);
 }
 
-function mapMember(row, authUser) {
+async function getWorkspaceRoleNames(workspaceId) {
+  const { data: roles } = await supabaseAdmin
+    .from("client_roles")
+    .select("id, name")
+    .eq("workspace_user_id", workspaceId);
+  return new Map((roles || []).map((role) => [role.id, role.name]));
+}
+
+async function validateWorkspaceRole(workspaceId, roleId) {
+  if (roleId == null) return null;
+  if (typeof roleId !== "string" || !/^[0-9a-fA-F-]{36}$/.test(roleId)) {
+    throw new ApiError(400, "Invalid roleId");
+  }
+  const { data: role, error } = await supabaseAdmin
+    .from("client_roles")
+    .select("id")
+    .eq("id", roleId)
+    .eq("workspace_user_id", workspaceId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!role) throw new ApiError(404, "Custom role not found");
+  return roleId;
+}
+
+async function mapMember(row, authUser, roleNames) {
   return {
     id: row.id,
     workspaceUserId: row.workspace_user_id,
@@ -80,7 +54,9 @@ function mapMember(row, authUser) {
     email: authUser?.email || "",
     role: row.role,
     status: row.status,
-    permissions: row.permissions || ROLE_PERMISSION_DEFAULTS[row.role] || null,
+    permissions: row.permissions || null,
+    customRoleId: row.custom_role_id || null,
+    customRoleName: row.custom_role_id ? roleNames?.get(row.custom_role_id) || null : null,
     isActive: !authUser?.banned_until && row.status === "active",
     createdAt: row.created_at,
   };
@@ -88,7 +64,7 @@ function mapMember(row, authUser) {
 
 export default async function handler(req, res) {
   try {
-    await requireAdmin(req);
+    const admin = await requireAdmin(req);
 
     const id = req.query.id;
     if (!id) throw new ApiError(400, "Missing client id");
@@ -105,8 +81,9 @@ export default async function handler(req, res) {
       }
 
       const userMap = await getAuthUserMap((members || []).map((member) => member.member_user_id));
+      const roleNames = await getWorkspaceRoleNames(id);
       return sendJson(res, 200, {
-        members: (members || []).map((member) => mapMember(member, userMap.get(member.member_user_id))),
+        members: (members || []).map((member) => mapMember(member, userMap.get(member.member_user_id), roleNames)),
       });
     }
 
@@ -115,6 +92,7 @@ export default async function handler(req, res) {
       const email = (body && body.email ? String(body.email).trim() : "");
       const role = (body && body.role ? String(body.role).trim() : "");
       const tempPassword = (body && body.password ? String(body.password).trim() : "");
+      const roleId = await validateWorkspaceRole(id, body?.roleId ?? null);
 
       if (!email) throw new ApiError(400, "Email is required");
       if (!STAFF_ROLES.has(role)) throw new ApiError(400, "Role must be manager or officer");
@@ -176,6 +154,7 @@ export default async function handler(req, res) {
           role,
           status: "active",
           permissions: ROLE_PERMISSION_DEFAULTS[role],
+          custom_role_id: roleId,
         })
         .select("*")
         .single();
@@ -192,8 +171,17 @@ export default async function handler(req, res) {
         }
       }
 
+      const roleNames = await getWorkspaceRoleNames(id);
+      await writePermissionAudit(supabaseAdmin, {
+        workspaceUserId: id,
+        actorUserId: admin.id,
+        targetMemberId: member.id,
+        action: "member.added",
+        after: { email, role, custom_role_id: roleId },
+      });
+
       return sendJson(res, 200, {
-        member: mapMember(member, authData.user),
+        member: await mapMember(member, authData.user, roleNames),
         ...(tempPassword ? { tempPassword } : {}),
       });
     }
@@ -234,7 +222,7 @@ export default async function handler(req, res) {
       const patch = {};
 
       if (body.role !== undefined) {
-        if (!ROLES.has(body.role)) throw new ApiError(400, "Invalid role");
+        if (!STAFF_ROLES.has(body.role)) throw new ApiError(400, "Role must be manager or officer");
         patch.role = body.role;
       }
       if (body.status !== undefined) {
@@ -242,7 +230,10 @@ export default async function handler(req, res) {
         patch.status = body.status;
       }
       if (body.permissions !== undefined) {
-        patch.permissions = normalizePermissions(body.permissions);
+        patch.permissions = normalizePermissions(body.permissions, { allowLegacy: true }) || {};
+      }
+      if (body.roleId !== undefined) {
+        patch.custom_role_id = await validateWorkspaceRole(id, body.roleId);
       }
       if (Object.keys(patch).length === 0) throw new ApiError(400, "Nothing to update");
 
@@ -255,14 +246,8 @@ export default async function handler(req, res) {
       if (existingErr) throw existingErr;
       if (!existing) throw new ApiError(404, "Member not found");
 
-      if (existing.member_user_id === id && patch.role && patch.role !== "owner") {
-        throw new ApiError(400, "Workspace owner must keep owner role");
-      }
-      if (existing.member_user_id === id && patch.status === "disabled") {
-        throw new ApiError(400, "Workspace owner cannot be disabled");
-      }
-      if (existing.member_user_id === id && patch.permissions !== undefined) {
-        throw new ApiError(400, "Workspace owner permissions cannot be customized");
+      if (existing.member_user_id === id && (patch.role || patch.status || patch.permissions !== undefined || patch.custom_role_id !== undefined)) {
+        throw new ApiError(400, "Workspace owner row cannot be modified");
       }
 
       const { data: updated, error: updateErr } = await supabaseAdmin
@@ -280,7 +265,34 @@ export default async function handler(req, res) {
         });
       }
 
-      return sendJson(res, 200, { member: updated });
+      const action = patch.role && patch.role !== existing.role
+        ? "role.change"
+        : patch.status && patch.status !== existing.status
+          ? "status.update"
+          : patch.custom_role_id !== undefined && patch.custom_role_id !== existing.custom_role_id
+            ? "role.change"
+            : "permissions.update";
+      await writePermissionAudit(supabaseAdmin, {
+        workspaceUserId: id,
+        actorUserId: admin.id,
+        targetMemberId: memberId,
+        action,
+        before: {
+          role: existing.role,
+          status: existing.status,
+          permissions: existing.permissions,
+          custom_role_id: existing.custom_role_id,
+        },
+        after: {
+          role: updated.role,
+          status: updated.status,
+          permissions: updated.permissions,
+          custom_role_id: updated.custom_role_id,
+        },
+      });
+
+      const roleNames = await getWorkspaceRoleNames(id);
+      return sendJson(res, 200, { member: await mapMember(updated, null, roleNames) });
     }
 
     if (req.method === "DELETE") {
@@ -300,6 +312,14 @@ export default async function handler(req, res) {
       await supabaseAdmin.from("client_members").delete().eq("id", memberId);
       await supabaseAdmin.from("profiles").delete().eq("id", existing.member_user_id);
       await supabaseAdmin.auth.admin.deleteUser(existing.member_user_id);
+
+      await writePermissionAudit(supabaseAdmin, {
+        workspaceUserId: id,
+        actorUserId: admin.id,
+        targetMemberId: memberId,
+        action: "member.removed",
+        before: { role: existing.role },
+      });
 
       return sendJson(res, 200, { success: true });
     }

@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import type { WorkspacePermissions } from "./permissions";
+import type { WorkspaceCustomRole, WorkspacePermissions } from "./permissions";
 
 export interface AdminAuthUserSummary {
   id: string;
@@ -15,6 +15,8 @@ export interface AdminClientMember {
   role: "owner" | "manager" | "officer";
   status: "active" | "disabled";
   permissions: Partial<WorkspacePermissions> | null;
+  customRoleId: string | null;
+  customRoleName: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -87,10 +89,57 @@ export async function listAdminClientMembers(clientId: string): Promise<AdminCli
   return result.members;
 }
 
+export async function listAdminClientRoles(clientId: string): Promise<WorkspaceCustomRole[]> {
+  const result = await apiFetch<{ roles: WorkspaceCustomRole[] }>(`/api/admin/clients/${clientId}/roles`);
+  return result.roles;
+}
+
+export async function createAdminClientRole(clientId: string, payload: { name: string; permissions?: Partial<WorkspacePermissions> }) {
+  return apiFetch<{ role: WorkspaceCustomRole }>(`/api/admin/clients/${clientId}/roles`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAdminClientRole(clientId: string, roleId: string, payload: {
+  name?: string;
+  permissions?: Partial<WorkspacePermissions> | null;
+}) {
+  return apiFetch<{ role: WorkspaceCustomRole }>(`/api/admin/clients/${clientId}/roles`, {
+    method: "PATCH",
+    body: JSON.stringify({ roleId, ...payload }),
+  });
+}
+
+export async function deleteAdminClientRole(clientId: string, roleId: string) {
+  return apiFetch(`/api/admin/clients/${clientId}/roles`, {
+    method: "DELETE",
+    body: JSON.stringify({ roleId }),
+  });
+}
+
+export interface AdminAuditEntry {
+  id: string;
+  actor_user_id: string;
+  target_member_id: string | null;
+  action: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  created_at: string;
+  actor_email: string;
+  target_email: string;
+}
+
+export async function listAdminClientAudit(clientId: string): Promise<AdminAuditEntry[]> {
+  const result = await apiFetch<{ entries: AdminAuditEntry[] }>(`/api/admin/clients/${clientId}/audit`);
+  return result.entries;
+}
+
 export async function createAdminClientMember(clientId: string, payload: {
   email: string;
   role: "manager" | "officer";
   password?: string;
+  roleId?: string | null;
 }): Promise<{ member: AdminClientMember; tempPassword?: string }> {
   return apiFetch(`/api/admin/clients/${clientId}/members`, {
     method: "POST",
@@ -99,9 +148,10 @@ export async function createAdminClientMember(clientId: string, payload: {
 }
 
 export async function updateAdminClientMember(clientId: string, memberId: string, payload: {
-  role?: "owner" | "manager" | "officer";
+  role?: "manager" | "officer";
   status?: "active" | "disabled";
   permissions?: Partial<WorkspacePermissions> | null;
+  roleId?: string | null;
 }) {
   return apiFetch(`/api/admin/clients/${clientId}/members`, {
     method: "PATCH",

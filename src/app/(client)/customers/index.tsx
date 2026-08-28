@@ -13,9 +13,10 @@ import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { useCustomers } from "../../../hooks/useCustomers";
-import { useAuth } from "../../../hooks/useAuth";
+import { useAuth, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { getWorkspacePermissions } from "../../../lib/permissions";
 import { TABLE } from "../../../lib/tableStyles";
 import type { Customer, DocumentStatus, DocumentType } from "../../../types";
 
@@ -44,6 +45,8 @@ function isResolvedDealStatus(status: DocumentStatus) {
 export default function CustomersPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const canManageCustomers = getWorkspacePermissions(workspaceRole, workspacePermissions).canManageCustomers;
   const toast = useToast();
   const { customers, loading, refetch, updateCustomerLocal } = useCustomers(profile?.id);
   const [search, setSearch] = useState("");
@@ -235,9 +238,11 @@ export default function CustomersPage() {
         <div className="flex items-center gap-2">
           <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี..." className="flex-1" />
           <ViewToggle value={viewMode} onChange={setViewMode} />
-          <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-lg shrink-0">
-            + เพิ่ม
-          </Button>
+          {canManageCustomers && (
+            <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-lg shrink-0">
+              + เพิ่ม
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -311,7 +316,7 @@ export default function CustomersPage() {
             <EmptyState
               title="ยังไม่มีลูกค้า"
               description="ลูกค้าจะปรากฏที่นี่เมื่อคุณเริ่มงานขายแรก หรือเพิ่มลูกค้าได้เลย"
-              action={<Button onClick={() => setShowAddSheet(true)}>+ เพิ่มลูกค้า</Button>}
+              action={canManageCustomers ? <Button onClick={() => setShowAddSheet(true)}>+ เพิ่มลูกค้า</Button> : undefined}
             />
           ) : (
             <div className="text-center py-12 text-[13px] text-[#888780]">

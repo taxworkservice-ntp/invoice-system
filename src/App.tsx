@@ -90,16 +90,16 @@ export default function App() {
             <Route path="/documents/:id/edit-utility" element={<EditUtilityBillPage />} />
             <Route path="/documents/:id/print" element={<DocumentPrintPreviewPage />} />
             <Route path="/documents/:id" element={<DocumentDetailPage />} />
-            <Route path="/catalog" element={permissions.canManageCatalog ? <CatalogPage /> : <Navigate to="/home" replace />} />
+            <Route path="/catalog" element={permissions.canViewCatalog ? <CatalogPage /> : <Navigate to="/home" replace />} />
             <Route path="/catalog/new" element={permissions.canManageCatalog ? <CatalogNewPage /> : <Navigate to="/catalog" replace />} />
             <Route path="/catalog/:id/edit" element={permissions.canManageCatalog ? <CatalogEditPage /> : <Navigate to="/catalog" replace />} />
-            <Route path="/catalog/:id" element={permissions.canManageCatalog ? <CatalogItemPage /> : <Navigate to="/home" replace />} />
-            <Route path="/customers" element={permissions.canManageCustomers ? <CustomersPage /> : <Navigate to="/home" replace />} />
-            <Route path="/customers/:id" element={permissions.canManageCustomers ? <CustomerDetailPage /> : <Navigate to="/home" replace />} />
+            <Route path="/catalog/:id" element={permissions.canViewCatalog ? <CatalogItemPage /> : <Navigate to="/home" replace />} />
+            <Route path="/customers" element={permissions.canViewCustomers ? <CustomersPage /> : <Navigate to="/home" replace />} />
+            <Route path="/customers/:id" element={permissions.canViewCustomers ? <CustomerDetailPage /> : <Navigate to="/home" replace />} />
             <Route path="/payroll" element={canManagePayroll ? <PayrollPage /> : <Navigate to="/home" replace />} />
             <Route path="/payroll/employees" element={canManagePayroll ? <EmployeesPage /> : <Navigate to="/home" replace />} />
             <Route path="/reports" element={permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />} />
-            <Route path="/download-center" element={permissions.canViewReports ? <DownloadCenterPage /> : <Navigate to="/home" replace />} />
+            <Route path="/download-center" element={permissions.canExportReports ? <DownloadCenterPage /> : <Navigate to="/home" replace />} />
             <Route path="/wht" element={permissions.canManageWht ? <WhtPage /> : <Navigate to="/home" replace />} />
             <Route path="/wht/print" element={permissions.canManageWht ? <WhtPrintPage /> : <Navigate to="/home" replace />} />
             <Route path="/settings/company" element={permissions.canManageSettings ? <SettingsCompanyPage /> : <Navigate to="/home" replace />} />

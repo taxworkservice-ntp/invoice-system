@@ -71,6 +71,7 @@ export interface ClientMember {
   role: ClientMemberRole;
   status: ClientMemberStatus;
   permissions: Partial<Record<string, boolean>> | null;
+  custom_role_id?: string | null;
   created_at: string;
   updated_at: string;
 }

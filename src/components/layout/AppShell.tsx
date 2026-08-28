@@ -80,10 +80,10 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
     if (item.path === "/payroll") return workspaceFeatures.hasFeature("payroll");
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canManageWht;
-    if (item.path === "/download-center") return permissions.canViewReports;
+    if (item.path === "/download-center") return permissions.canExportReports;
     if (item.path === "/settings") return permissions.canManageSettings;
-    if (item.path === "/catalog") return permissions.canManageCatalog;
-    if (item.path === "/customers") return permissions.canManageCustomers;
+    if (item.path === "/catalog") return permissions.canViewCatalog;
+    if (item.path === "/customers") return permissions.canViewCustomers;
     return true;
   });
 

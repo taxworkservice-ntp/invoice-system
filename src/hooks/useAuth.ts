@@ -31,7 +31,7 @@ async function resolveProfile(userId: string): Promise<Profile> {
   if (baseProfile.role === "client") {
     const { data: membership } = await supabase
       .from("client_members")
-      .select("workspace_user_id, role, status, permissions")
+      .select("workspace_user_id, role, status, permissions, custom_role_id")
       .eq("member_user_id", userId)
       .eq("status", "active")
       .order("created_at", { ascending: true })
@@ -39,13 +39,24 @@ async function resolveProfile(userId: string): Promise<Profile> {
       .maybeSingle();
 
     if (membership?.workspace_user_id) {
+      let effectivePermissions = (membership.permissions ?? null) as Profile["workspace_permissions"];
+
+      if (effectivePermissions == null && membership.custom_role_id) {
+        const { data: customRole } = await supabase
+          .from("client_roles")
+          .select("permissions")
+          .eq("id", membership.custom_role_id)
+          .maybeSingle();
+        effectivePermissions = (customRole?.permissions ?? null) as Profile["workspace_permissions"];
+      }
+
       return {
         ...baseProfile,
         auth_user_id: userId,
         id: membership.workspace_user_id,
         workspace_user_id: membership.workspace_user_id,
         workspace_role: membership.role as ClientMemberRole,
-        workspace_permissions: membership.permissions as Profile["workspace_permissions"],
+        workspace_permissions: effectivePermissions,
       };
     }
 
