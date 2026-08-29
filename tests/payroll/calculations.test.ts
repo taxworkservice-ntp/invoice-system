@@ -179,3 +179,44 @@ describe("calculation customization", () => {
     expect(result.gross_pay).toBe(15000); // exactly half of monthly salary
   });
 });
+
+describe("worker type: not SSO-registered (ค่าจ้างทำของ / PND3)", () => {
+  it("withholds flat 3% of gross and skips SSO entirely", () => {
+    const result = calculateBreakdown(input({ base_salary: 20000, sso_registered: false }), settings, 8);
+    expect(result.gross_pay).toBe(20000);
+    expect(result.sso_employee).toBe(0);
+    expect(result.sso_employer).toBe(0);
+    expect(result.withholding_tax).toBe(600);
+    expect(result.net_pay).toBe(19400);
+  });
+
+  it("does not apply progressive PIT for non-SSO workers (30000 would be 900 @3%, not PIT)", () => {
+    const result = calculateBreakdown(input({ base_salary: 30000, sso_registered: false }), settings, 1);
+    expect(result.withholding_tax).toBe(900);
+    expect(result.sso_employee).toBe(0);
+  });
+
+  it("still pays base, OT and applies other deductions for non-SSO workers", () => {
+    const result = calculateBreakdown(
+      input({
+        base_salary: 10000,
+        sso_registered: false,
+        ot_entries: [{ hours: 4, type: "normal", multiplier: 1.5 }],
+        deductions: [{ label: "ล่วงหน้า", amount: 500 }],
+      }),
+      settings,
+      8,
+    );
+    expect(result.gross_pay).toBe(10250);
+    expect(result.withholding_tax).toBe(307.5);
+    expect(result.net_pay).toBe(10250 - 307.5 - 500);
+  });
+
+  it("keeps SSO employees on the existing PIT + SSO path", () => {
+    const sso = calculateBreakdown(input({ base_salary: 20000 }), settings, 8);
+    const ssoExplicit = calculateBreakdown(input({ base_salary: 20000, sso_registered: true }), settings, 8);
+    expect(sso).toEqual(ssoExplicit);
+    expect(sso.sso_employee).toBe(875); // capped at 17,500 wage base
+    expect(sso.withholding_tax).toBe(125); // annualized 240k − 60k → 1.5k/yr → 125/mo
+  });
+});

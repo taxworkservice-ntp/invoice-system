@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, type ReactNode } from "react";
-import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Circle, Check, Wallet, BadgeCheck, ReceiptText } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Circle, Check, Wallet, BadgeCheck, ReceiptText, Sparkles } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
@@ -158,6 +159,7 @@ export default function WhtPage() {
   const { clientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
   const userId = profile?.id;
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     records, loading: recordsLoading, addRecord, updateRecord, markDone, unmarkDone, deleteRecord,
     assignCertificateNo, months, vendors: recordVendors,
@@ -171,6 +173,9 @@ export default function WhtPage() {
   const [month, setMonth] = useState("");
   const [vendorFilter, setVendorFilter] = useState("");
   const [formFilter, setFormFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<"" | "manual" | "payroll">(
+    searchParams.get("source") === "payroll" ? "payroll" : "",
+  );
   const [search, setSearch] = useState("");
   const [generating, setGenerating] = useState(false);
 
@@ -178,7 +183,7 @@ export default function WhtPage() {
   const [showEditRecord, setShowEditRecord] = useState<WhtRecordWithVendor | null>(null);
   const [showAddVendor, setShowAddVendor] = useState(false);
   const [showEditVendor, setShowEditVendor] = useState<WhtVendor | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [saving, setSaving] = useState(false);
   const [showSig, setShowSig] = useState(true);
   const [showStp, setShowStp] = useState(true);
@@ -241,6 +246,7 @@ export default function WhtPage() {
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
+      if (sourceFilter && (r.source ?? "manual") !== sourceFilter) return false;
       if (month && r.issue_date && !r.issue_date.startsWith(month)) return false;
       if (vendorFilter && r.vendor_id !== vendorFilter) return false;
       if (formFilter && r.form_type !== formFilter) return false;
@@ -251,7 +257,7 @@ export default function WhtPage() {
       }
       return true;
     });
-  }, [records, month, vendorFilter, formFilter, search]);
+  }, [records, month, vendorFilter, formFilter, search, sourceFilter]);
 
   const activeRecords = useMemo(() => filteredRecords.filter((r) => r.status !== "done"), [filteredRecords]);
   const doneRecords = useMemo(() => filteredRecords.filter((r) => r.status === "done"), [filteredRecords]);
@@ -628,6 +634,23 @@ export default function WhtPage() {
                   <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>
                 ))}
               </select>
+              <select
+                aria-label="กรองตามแหล่งที่มา"
+                value={sourceFilter}
+                onChange={(e) => {
+                  const value = e.target.value as "" | "manual" | "payroll";
+                  setSourceFilter(value);
+                  const next = new URLSearchParams(searchParams);
+                  if (value) next.set("source", value);
+                  else next.delete("source");
+                  setSearchParams(next, { replace: true });
+                }}
+                className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]"
+              >
+                <option value="">ทุกแหล่งที่มา</option>
+                <option value="manual">รายการรับเอง</option>
+                <option value="payroll">จากเงินเดือน</option>
+              </select>
               <Button onClick={openAddRecord} className="!rounded-lg shrink-0">
                 <Plus size={15} className="mr-1" /> เพิ่มรายการ
               </Button>
@@ -783,12 +806,19 @@ export default function WhtPage() {
                           <td className="px-3 py-2.5 font-mono text-[12px] text-[#888780]">{formatTaxId(r.vendor?.tax_id)}</td>
                           <td className="px-3 py-2.5 text-[12px] text-[#555]">{r.description || "-"}</td>
                           <td className="px-3 py-2.5">
-                            <span
-                              className="inline-block px-2 py-0.5 rounded text-[11px] font-medium"
-                              style={{ backgroundColor: `${WHT_FORM_TYPE_COLORS[r.form_type]}15`, color: WHT_FORM_TYPE_COLORS[r.form_type] }}
-                            >
-                              {WHT_FORM_TYPE_LABELS[r.form_type] || r.form_type}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span
+                                className="inline-block px-2 py-0.5 rounded text-[11px] font-medium"
+                                style={{ backgroundColor: `${WHT_FORM_TYPE_COLORS[r.form_type]}15`, color: WHT_FORM_TYPE_COLORS[r.form_type] }}
+                              >
+                                {WHT_FORM_TYPE_LABELS[r.form_type] || r.form_type}
+                              </span>
+                              {r.source === "payroll" && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 text-[10px] font-medium" title="สร้างอัตโนมัติจากรอบเงินเดือน — แก้ไขที่หน้าเงินเดือน">
+                                  <Sparkles size={10} /> Payroll
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-[#1A1A18]">{formatCurrency(r.amount)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-[#C0392B]">{formatCurrency(r.wht_amount)}</td>
@@ -804,12 +834,12 @@ export default function WhtPage() {
                               <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "ดาวน์โหลด PDF"}>
                                 <Download size={15} />
                               </button>
-                              {r.status !== "done" && (
+                              {r.status !== "done" && r.source !== "payroll" && (
                                 <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title={r.certificate_no ? "แก้ไข (ใบรับรองออกแล้ว)" : "แก้ไข"}>
                                   <Pencil size={15} />
                                 </button>
                               )}
-                              {r.status !== "done" && (
+                              {r.status !== "done" && r.source !== "payroll" && (
                                 <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
                                   <Trash2 size={15} />
                                 </button>

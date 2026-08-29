@@ -677,11 +677,11 @@ export default function HomePage() {
     window.localStorage.setItem("home.done.month", doneMonth);
   }, [doneSort, doneYear, doneMonth]);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "list";
+    if (typeof window === "undefined") return "table";
     const stored = window.localStorage.getItem("homeViewMode");
     return stored === "list" || stored === "grid" || stored === "table"
       ? stored
-      : "list";
+      : "table";
   });
   const [pullDistance, setPullDistance] = useState(0);
 

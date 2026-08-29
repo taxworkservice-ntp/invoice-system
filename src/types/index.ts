@@ -192,6 +192,8 @@ export interface WhtVendor {
 
 export type WhtStatus = "active" | "done";
 
+export type WhtRecordSource = "manual" | "payroll";
+
 export interface WhtRecord {
   id: string;
   user_id: string;
@@ -206,6 +208,9 @@ export interface WhtRecord {
   description: string | null;
   note: string | null;
   status: WhtStatus;
+  source: WhtRecordSource;
+  payroll_run_id: string | null;
+  employee_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -498,6 +503,7 @@ export interface Employee {
   salary_type: "monthly" | "daily";
   base_salary: number;
   bank_account: string | null;
+  sso_registered: boolean;
   start_date: string;
   status: "active" | "inactive";
   end_date: string | null;

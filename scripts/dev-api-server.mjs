@@ -11,7 +11,7 @@ const API_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..",
 
 async function loadEnvFiles() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  for (const name of [".env.local", ".env.development"]) {
+  for (const name of [".env.local", ".env.development", ".env"]) {
     const file = path.join(root, name);
     if (!(await fileExists(file))) continue;
     const content = await readFile(file, "utf8");

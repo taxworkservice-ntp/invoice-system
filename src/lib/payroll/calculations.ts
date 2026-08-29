@@ -18,6 +18,7 @@ export interface PayrollLineInput {
   ot_entries: OtEntry[];
   additions: { label: string; amount: number }[];
   deductions: { label: string; amount: number }[];
+  sso_registered?: boolean;
 }
 
 export interface PayrollResult {
@@ -39,6 +40,7 @@ export interface PayrollBreakdown extends PayrollResult {
 
 const SSO_CEILING = 17500;
 const SSO_RATE = 0.05;
+export const PND3_HIRE_RATE = 0.03;
 
 const PND1_BRACKETS = [
   { limit: 150000, rate: 0 },
@@ -225,15 +227,27 @@ export function calculateMonthlyWithholdingTax(monthlyGross: number, month: numb
 
 export function calculateNet(input: PayrollLineInput, settings: PayrollSettings, month: number, year?: number): PayrollResult {
   const gross_pay = calculateGross(input, settings, month, year);
-  const sso = calculateSSO(gross_pay, settings.sso_ceiling_override);
-  const withholding_tax = calculateMonthlyWithholdingTax(gross_pay, month);
   const totalDeductions = input.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-  const net_pay = gross_pay - sso.employee - withholding_tax - totalDeductions;
+
+  let sso_employee = 0;
+  let sso_employer = 0;
+  let withholding_tax = 0;
+
+  if (input.sso_registered === false) {
+    withholding_tax = gross_pay * PND3_HIRE_RATE;
+  } else {
+    const sso = calculateSSO(gross_pay, settings.sso_ceiling_override);
+    sso_employee = sso.employee;
+    sso_employer = sso.employer;
+    withholding_tax = calculateMonthlyWithholdingTax(gross_pay, month);
+  }
+
+  const net_pay = gross_pay - sso_employee - withholding_tax - totalDeductions;
 
   return {
     gross_pay: applyRounding(gross_pay, settings.rounding_rule),
-    sso_employee: applyRounding(sso.employee, settings.rounding_rule),
-    sso_employer: applyRounding(sso.employer, settings.rounding_rule),
+    sso_employee: applyRounding(sso_employee, settings.rounding_rule),
+    sso_employer: applyRounding(sso_employer, settings.rounding_rule),
     withholding_tax: applyRounding(withholding_tax, settings.rounding_rule),
     net_pay: applyRounding(net_pay, settings.rounding_rule),
   };

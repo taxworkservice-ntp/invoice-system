@@ -1,6 +1,7 @@
 import chromium from "@sparticuz/chromium";
 import playwright from "playwright-core";
 import { requireUser } from "../_lib/auth.js";
+import { getChromiumExecutablePath } from "../_lib/chromium.js";
 import { ApiError, readJsonBody, sendError } from "../_lib/http.js";
 import { supabaseAdmin } from "../_lib/supabase.js";
 import { getEnv } from "../_lib/env.js";
@@ -28,11 +29,6 @@ function renderSession(token, user) {
     refresh_token: "server-pdf-render",
     user,
   };
-}
-
-async function getExecutablePath() {
-  if (process.env.CHROME_EXECUTABLE_PATH) return process.env.CHROME_EXECUTABLE_PATH;
-  return chromium.executablePath();
 }
 
 async function screenshotSheets(page) {
@@ -118,7 +114,7 @@ export default async function handler(req, res) {
 
     browser = await playwright.chromium.launch({
       args: chromium.args,
-      executablePath: await getExecutablePath(),
+      executablePath: await getChromiumExecutablePath(),
       headless: chromium.headless,
     });
 

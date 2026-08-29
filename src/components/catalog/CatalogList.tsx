@@ -39,9 +39,9 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
   });
   const [exportingMovements, setExportingMovements] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "list";
+    if (typeof window === "undefined") return "table";
     const stored = window.localStorage.getItem("catalogViewMode");
-    return stored === "list" || stored === "grid" || stored === "table" ? stored : "list";
+    return stored === "list" || stored === "grid" || stored === "table" ? stored : "table";
   });
 
   useEffect(() => {

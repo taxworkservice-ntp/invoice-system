@@ -89,6 +89,7 @@ export const AUDIT_ACTIONS = {
   PAYROLL_EXPORTED: "payroll_exported",
   PAYROLL_RUN_DELETED: "payroll_run_deleted",
   PAYROLL_RUN_UPDATED: "payroll_run_updated",
+  PAYROLL_WHT_SYNCED: "payroll_wht_synced",
 } as const;
 
 export const AUDIT_ENTITY_TYPES = {
@@ -113,6 +114,7 @@ export function getActionLabel(action: string): string {
     payroll_exported: "ส่งออกรายงานเงินเดือน",
     payroll_run_deleted: "ลบรอบเงินเดือน",
     payroll_run_updated: "แก้ไขข้อมูลรอบ",
+    payroll_wht_synced: "ซิงก์ภาษีหัก ณ ที่จ่าย",
   };
   return labels[action] ?? action;
 }
@@ -132,6 +134,7 @@ export function getActionIcon(action: string): string {
     payroll_exported: "📊",
     payroll_run_deleted: "🗑️",
     payroll_run_updated: "✏️",
+    payroll_wht_synced: "🧾",
   };
   return icons[action] ?? "📌";
 }

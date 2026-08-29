@@ -73,8 +73,8 @@ export function buildPayslipSlipNode(employee: Employee, run: PayrollRun, lineIt
       </div>
       <div>
         <h3>รายการหัก</h3>
-        <div class="line"><span>ประกันสังคม (พนักงาน)</span><span>-฿${fmt(calc.sso_employee)}</span></div>
-        <div class="line"><span>ภาษีหัก ณ ที่จ่าย</span><span>-฿${fmt(calc.withholding_tax)}</span></div>
+        ${employee.sso_registered === false ? `<div class="line"><span>ประกันสังคม</span><span>— ไม่ลงทะเบียน</span></div>` : `<div class="line"><span>ประกันสังคม (พนักงาน)</span><span>-฿${fmt(calc.sso_employee)}</span></div>`}
+        <div class="line"><span>${employee.sso_registered === false ? "ภาษีหัก ณ ที่จ่าย (ค่าจ้างทำของ 3%)" : "ภาษีหัก ณ ที่จ่าย"}</span><span>-฿${fmt(calc.withholding_tax)}</span></div>
         ${dedLines}
         <div class="total-line"><span>รวมหัก</span><span>-฿${fmt(calc.sso_employee + calc.withholding_tax + calc.totalDeductions)}</span></div>
       </div>

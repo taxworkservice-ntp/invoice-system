@@ -159,19 +159,15 @@ export function buildBankPaymentWorkbook(run: PayrollRun, rows: PayrollCalcRow[]
   return wb;
 }
 
-export function buildWhtWorkbook(run: PayrollRun, rows: PayrollCalcRow[]): ExcelJS.Workbook {
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet("ภาษีหัก ณ ที่จ่าย");
-  applyPageSetup(ws);
-
+function buildWhtSheet(ws: ExcelJS.Worksheet, run: PayrollRun, rows: PayrollCalcRow[], formLabel: string) {
   ws.mergeCells("A1:F1");
   const titleCell = ws.getCell("A1");
-  titleCell.value = `รายงานภาษีหัก ณ ที่จ่าย — ${MONTHS[run.period_month - 1]} ${run.period_year + 543}`;
+  titleCell.value = `รายงานภาษีหัก ณ ที่จ่าย (${formLabel}) — ${MONTHS[run.period_month - 1]} ${run.period_year + 543}`;
   applyTitle(titleCell);
 
   ws.mergeCells("A2:F2");
   const subCell = ws.getCell("A2");
-  subCell.value = `สำหรับยื่น ภ.ง.ด.1 เดือน${MONTHS[run.period_month - 1]}`;
+  subCell.value = `สำหรับยื่น ${formLabel} เดือน${MONTHS[run.period_month - 1]} · วันจ่าย ${run.pay_date}`;
   subCell.font = { size: 10, color: { argb: "FF6B6B6B" } };
 
   const headerRow = ws.addRow(["รหัส", "ชื่อ-นามสกุล", "เลขประจำตัวผู้เสียภาษี", "ค่าแรงรวม", "ภาษีหัก ณ ที่จ่าย", "วันจ่าย"]);
@@ -200,6 +196,33 @@ export function buildWhtWorkbook(run: PayrollRun, rows: PayrollCalcRow[]): Excel
   totalRow.eachCell((cell, col) => applyBody(cell, { bold: true, right: col === 4 || col === 5 }));
 
   ws.columns = [{ width: 10 }, { width: 22 }, { width: 20 }, { width: 14 }, { width: 16 }, { width: 14 }];
+}
+
+export function buildWhtWorkbook(run: PayrollRun, rows: PayrollCalcRow[]): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook();
+
+  const ssoRows = rows.filter((r) => r.employee.sso_registered !== false);
+  const contractRows = rows.filter((r) => r.employee.sso_registered === false);
+
+  if (ssoRows.length === 0 && contractRows.length === 0) {
+    const ws = wb.addWorksheet("ภาษีหัก ณ ที่จ่าย");
+    applyPageSetup(ws);
+    buildWhtSheet(ws, run, rows, "ภ.ง.ด.1");
+    return wb;
+  }
+
+  if (ssoRows.length > 0) {
+    const ws = wb.addWorksheet("ภ.ง.ด.1");
+    applyPageSetup(ws);
+    buildWhtSheet(ws, run, ssoRows, "ภ.ง.ด.1");
+  }
+
+  if (contractRows.length > 0) {
+    const ws = wb.addWorksheet("ภ.ง.ด.3 (ค่าจ้างทำของ)");
+    applyPageSetup(ws);
+    buildWhtSheet(ws, run, contractRows, "ภ.ง.ด.3");
+  }
+
   return wb;
 }
 

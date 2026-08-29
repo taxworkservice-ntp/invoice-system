@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabase";
+import { assignWhtCertificateNo } from "../lib/whtCertificate";
 import type { WhtRecord, WhtVendor } from "../types";
 
 export interface WhtRecordWithVendor extends WhtRecord {
@@ -29,27 +30,6 @@ export function useWhtRecords(userId: string | undefined) {
     fetch();
   }, [fetch]);
 
-  async function generateCertNo(issueDate: string, skipId?: string): Promise<string> {
-    const yymm = issueDate.slice(2, 7).replace("-", "");
-    const { data, error } = await supabase
-      .from("wht_records")
-      .select("id, certificate_no")
-      .eq("user_id", userId)
-      .not("certificate_no", "is", null)
-      .or(`certificate_no.like.WT${yymm}%,certificate_no.like.${yymm}%`);
-
-    let maxSeq = 0;
-    if (!error && data) {
-      for (const row of data) {
-        if (skipId && row.id === skipId) continue;
-        const seqStr = row.certificate_no?.slice(-3) || "0";
-        const seq = parseInt(seqStr, 10);
-        if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
-      }
-    }
-    return `WT${yymm}${String(maxSeq + 1).padStart(3, "0")}`;
-  }
-
   async function addRecord(record: Partial<WhtRecord>): Promise<WhtRecordWithVendor> {
     const payload = {
       ...record,
@@ -67,14 +47,7 @@ export function useWhtRecords(userId: string | undefined) {
     const r = data as WhtRecordWithVendor;
 
     if (!r.certificate_no && userId) {
-      const certNo = await generateCertNo(r.issue_date, r.id);
-      await supabase
-        .from("wht_records")
-        .update({
-          certificate_no: certNo,
-          certificate_generated_at: new Date().toISOString(),
-        })
-        .eq("id", r.id);
+      const certNo = await assignWhtCertificateNo(r.id, userId, r.issue_date);
       r.certificate_no = certNo;
       r.certificate_generated_at = new Date().toISOString();
     }
@@ -139,18 +112,11 @@ export function useWhtRecords(userId: string | undefined) {
   async function assignCertificateNo(recordsToAssign: WhtRecordWithVendor[]) {
     const results: WhtRecordWithVendor[] = [];
     for (const r of recordsToAssign) {
-      if (r.certificate_no) {
+      if (r.certificate_no || !userId) {
         results.push(r);
         continue;
       }
-      const certNo = await generateCertNo(r.issue_date, r.id);
-      await supabase
-        .from("wht_records")
-        .update({
-          certificate_no: certNo,
-          certificate_generated_at: new Date().toISOString(),
-        })
-        .eq("id", r.id);
+      const certNo = await assignWhtCertificateNo(r.id, userId, r.issue_date);
       results.push({ ...r, certificate_no: certNo });
     }
 

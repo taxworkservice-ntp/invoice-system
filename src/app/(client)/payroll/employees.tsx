@@ -27,6 +27,7 @@ interface EmployeeForm {
   salary_type: "monthly" | "daily";
   base_salary: string;
   bank_account: string;
+  sso_registered: boolean;
   start_date: string;
   status: "active" | "inactive";
   end_date: string;
@@ -49,6 +50,7 @@ function emptyForm(): EmployeeForm {
     salary_type: "monthly",
     base_salary: "0",
     bank_account: "",
+    sso_registered: true,
     start_date: new Date().toISOString().split("T")[0],
     status: "active",
     end_date: "",
@@ -66,6 +68,7 @@ function employeeToForm(emp: Employee): EmployeeForm {
     salary_type: emp.salary_type,
     base_salary: String(emp.base_salary),
     bank_account: emp.bank_account ?? "",
+    sso_registered: emp.sso_registered !== false,
     start_date: emp.start_date,
     status: emp.status,
     end_date: emp.end_date ?? "",
@@ -183,6 +186,7 @@ export default function EmployeesPage() {
       salary_type: form.salary_type,
       base_salary: parseFloat(form.base_salary) || 0,
       bank_account: form.bank_account.trim() || null,
+      sso_registered: form.sso_registered,
       start_date: form.start_date,
       status: form.status,
       end_date: form.status === "inactive" ? form.end_date || null : null,
@@ -436,6 +440,11 @@ export default function EmployeesPage() {
                         >
                           {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
                         </span>
+                        {emp.sso_registered === false && (
+                          <span className="ml-1 inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-yellow-100 text-yellow-700">
+                            ภ.ง.ด.3
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right">
                         <span className="text-cool-900 tabular-nums font-medium">{formatCurrency(emp.base_salary)}</span>
@@ -559,6 +568,14 @@ export default function EmployeesPage() {
                 >
                   <option value="active">ทำงาน</option>
                   <option value="inactive">ลาออก</option>
+                </Select>
+                <Select
+                  label="ประกันสังคม"
+                  value={modal.form.sso_registered ? "registered" : "unregistered"}
+                  onChange={(e) => updateField("sso_registered", e.target.value === "registered")}
+                >
+                  <option value="registered">ลงทะเบียนแล้ว (ภ.ง.ด.1)</option>
+                  <option value="unregistered">ไม่ลงทะเบียน (ภ.ง.ด.3 · ค่าจ้างทำของ 3%)</option>
                 </Select>
                 {modal.form.status === "inactive" && (
                   <Input

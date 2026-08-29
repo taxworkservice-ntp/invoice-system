@@ -285,7 +285,11 @@ export async function getPrintableDocumentDataBase(
     const hasParentRef = Boolean(document.converted_from_id);
     const billingNote = hasParentRef
       ? docList.find((d) => d.id === document.converted_from_id && d.doc_type === "billing_note")
-      : docList.find((d) => d.doc_type === "billing_note");
+      : document.doc_type === "billing_note"
+        ? // Printing a billing note: its own linked invoices are the source,
+          // never another (earlier) BN in the same deal.
+          document
+        : docList.find((d) => d.doc_type === "billing_note");
     if (document.doc_type === "receipt") parentBillingNote = billingNote;
     const sourceInvoice = hasParentRef
       ? docList.find(
@@ -319,7 +323,9 @@ export async function getPrintableDocumentDataBase(
           .in("id", linkedIds);
 
         const invoices = (invDocs || []) as Document[];
-        referenceDoc = billingNote;
+        // Only receipts reference the billing note — a billing note must not
+        // reference itself (it would print its own number as REF. NO.).
+        if (document.doc_type === "receipt") referenceDoc = billingNote;
 
         const { data: allItems } = await supabase
           .from("document_line_items")
@@ -333,7 +339,7 @@ export async function getPrintableDocumentDataBase(
           lineItems = (allItems as DocumentLineItem[]).filter((item) => !isRefSummaryLine(item));
         }
       } else {
-        referenceDoc = billingNote;
+        if (document.doc_type === "receipt") referenceDoc = billingNote;
         const { data: bnItems } = await supabase
           .from("billing_note_invoices")
           .select("*")

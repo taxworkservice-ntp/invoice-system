@@ -54,9 +54,9 @@ export default function CustomersPage() {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "list";
+    if (typeof window === "undefined") return "table";
     const stored = window.localStorage.getItem("customersViewMode");
-    return stored === "grid" || stored === "list" || stored === "table" ? stored : "list";
+    return stored === "grid" || stored === "list" || stored === "table" ? stored : "table";
   });
   const [filterMode, setFilterMode] = useState<FilterMode>(() => {
     if (typeof window === "undefined") return "all";

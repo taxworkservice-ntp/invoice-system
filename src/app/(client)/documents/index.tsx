@@ -1252,11 +1252,11 @@ export default function DocumentsPage() {
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "list";
+    if (typeof window === "undefined") return "table";
     const stored = window.localStorage.getItem("documentsViewMode");
     return stored === "list" || stored === "grid" || stored === "table"
       ? stored
-      : "list";
+      : "table";
   });
 
   useEffect(() => {
