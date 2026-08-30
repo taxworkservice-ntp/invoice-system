@@ -2,6 +2,10 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveHandler } from "../server/resolve.js";
 
+export const config = {
+  includeFiles: "../server/handlers/**/*",
+};
+
 const HANDLERS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "server", "handlers");
 const moduleCache = new Map();
 
