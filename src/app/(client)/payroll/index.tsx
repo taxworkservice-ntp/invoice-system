@@ -204,6 +204,7 @@ export default function PayrollPage() {
   const [whtSync, setWhtSync] = useState<WhtSyncResult | null>(null);
   const [syncingWht, setSyncingWht] = useState(false);
   const [payDateSaved, setPayDateSaved] = useState(false);
+  const [payDateInvalid, setPayDateInvalid] = useState(false);
   const payDateSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payDateTouched = useRef(false);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -286,7 +287,23 @@ export default function PayrollPage() {
     }
     setLoading(true);
 
-    setPayDate(run.pay_date);
+    // Heal runs created before pay_date defaulted to the period end: a draft run
+    // whose stored pay_date precedes period_end can never be finalized as-is.
+    let effectivePayDate = run.pay_date;
+    if (run.status === "draft" && run.pay_date < run.period_end) {
+      effectivePayDate = run.period_end;
+      void supabase
+        .from("payroll_runs")
+        .update({ pay_date: effectivePayDate })
+        .eq("id", run.id)
+        .eq("user_id", userId)
+        .then(({ error }) => {
+          if (!error) {
+            setRuns((prev) => prev.map((r) => (r.id === run.id ? { ...r, pay_date: effectivePayDate } : r)));
+          }
+        });
+    }
+    setPayDate(effectivePayDate);
 
     const [{ data: empData }, { count }] = await Promise.all([
       supabase.from("employees").select("*")
@@ -1042,7 +1059,9 @@ export default function PayrollPage() {
           {run?.status === "draft" && (
             <Button size="sm" onClick={() => {
               if (payDate < run.period_end) {
-                toast.error(`วันจ่ายไม่ถูกต้อง ต้องไม่ก่อนวันสิ้นสุดรอบ (${run.period_end})`);
+                setPayDateInvalid(true);
+                setTimeout(() => setPayDateInvalid(false), 3000);
+                toast.error(`วันจ่ายตอนนี้คือ ${payDate} — ต้องเป็น ${run.period_end} ขึ้นไป แก้ไขได้ที่ช่อง "วันจ่าย" ด้านบน`);
                 return;
               }
               setShowFinalizeModal(true);
@@ -1066,14 +1085,14 @@ export default function PayrollPage() {
                 <option key={y} value={y}>{y + 543}</option>
               ))}
             </Select>
-            <div className="relative">
+            <div className={`relative ${payDateInvalid ? "[&_input]:border-red-400 [&_input]:ring-2 [&_input]:ring-red-200" : ""}`}>
               <Input
                 label="วันจ่าย"
                 type="date"
                 value={payDate}
                 onChange={(e) => handlePayDateChange(e.target.value)}
                 disabled={run?.status === "finalized"}
-                title={run?.status === "finalized" ? "รอบปิดแล้ว — เปิดรอบใหม่เพื่อแก้ไข" : undefined}
+                title={run?.status === "finalized" ? "รอบปิดแล้ว — เปิดรอบใหม่เพื่อแก้ไข" : "วันที่จ่ายเงินพนักงาน (ต้องไม่ก่อนวันสิ้นสุดรอบ)"}
                 className="w-[160px]"
               />
               {payDateSaved && (
