@@ -36,27 +36,15 @@ export async function voidDocumentWithSideEffects(
     await releaseInvoicesFromReceipt(document.id);
   }
 
-  if (document.doc_type === "invoice" && document.converted_from_id) {
-    const { data: refDoc } = await supabase
-      .from("documents")
-      .select("id, doc_type, converted_from_id")
-      .eq("id", document.converted_from_id)
-      .maybeSingle();
-
-    if (refDoc?.doc_type === "quotation") {
-      // Invoice was converted directly from a quotation — release the quote.
-      await revertQuotationsToSent([refDoc.id]);
-    } else if (refDoc?.doc_type === "delivery_note") {
-      await releaseDeliveryNoteFromInvoice(refDoc.id);
-      // Also un-stick the DN's source quotation (if any).
-      if (refDoc.converted_from_id) {
-        await revertQuotationsToSent([refDoc.converted_from_id]);
-      }
-    }
-  }
-
   if (document.doc_type === "invoice") {
-    await releaseDeliveryNotesFromInvoice(document.id);
+    // Restore every source (quotations/DNs traced via line items, links and
+    // converted_from_id) — transactional RPC, see
+    // supabase/migrations/20260830144000_revert_invoice_sources_rpc.sql.
+    const { error: revertError } = await supabase.rpc("revert_invoice_sources", {
+      p_invoice_id: document.id,
+      p_user_id: userId,
+    });
+    if (revertError) throw revertError;
   }
 }
 
@@ -129,87 +117,4 @@ async function releaseInvoicesFromBillingNote(billingNoteId: string): Promise<vo
     .eq("status", "in_billing");
 
   if (updateError) throw updateError;
-}
-
-async function releaseDeliveryNoteFromInvoice(deliveryNoteId: string): Promise<void> {
-  const { error } = await supabase
-    .from("documents")
-    .update({ status: "sent" as DocumentStatus })
-    .eq("id", deliveryNoteId)
-    .eq("doc_type", "delivery_note")
-    .eq("status", "converted");
-
-  if (error) throw error;
-}
-
-async function releaseDeliveryNotesFromInvoice(invoiceId: string): Promise<void> {
-  const { data: links, error } = await supabase
-    .from("invoice_delivery_notes")
-    .select("delivery_note_id")
-    .eq("invoice_id", invoiceId)
-    .is("released_at", null);
-
-  if (error) throw error;
-
-  const deliveryNoteIds = (links || [])
-    .map((link) => link.delivery_note_id)
-    .filter(Boolean);
-
-  if (deliveryNoteIds.length === 0) return;
-
-  const releasedAt = new Date().toISOString();
-  const { error: linkError } = await supabase
-    .from("invoice_delivery_notes")
-    .update({ released_at: releasedAt })
-    .eq("invoice_id", invoiceId)
-    .is("released_at", null);
-
-  if (linkError) throw linkError;
-
-  // A delivery note reverts to "sent" (available for re-billing) only when it no
-  // longer has any active invoice link. With partial invoicing a note can have
-  // several invoices; if others are still active, keep it "converted".
-  const { data: remaining, error: remainingError } = await supabase
-    .from("invoice_delivery_notes")
-    .select("delivery_note_id")
-    .in("delivery_note_id", deliveryNoteIds)
-    .is("released_at", null);
-
-  if (remainingError) throw remainingError;
-
-  const stillActive = new Set((remaining || []).map((row) => row.delivery_note_id));
-  const toRevert = deliveryNoteIds.filter((id) => !stillActive.has(id));
-  if (toRevert.length === 0) return;
-
-  const { error: docError } = await supabase
-    .from("documents")
-    .update({ status: "sent" as DocumentStatus })
-    .in("id", toRevert)
-    .eq("doc_type", "delivery_note")
-    .eq("status", "converted");
-
-  if (docError) throw docError;
-
-  // Un-stick source quotations: a quotation whose delivery notes are no longer
-  // fully billed must go back to "sent" so it can be invoiced/delivered again.
-  const { data: revertedDns } = await supabase
-    .from("documents")
-    .select("converted_from_id")
-    .in("id", toRevert)
-    .eq("doc_type", "delivery_note")
-    .not("converted_from_id", "is", null);
-  const sourceQuotationIds = [...new Set((revertedDns || []).map((d) => d.converted_from_id).filter(Boolean))] as string[];
-  await revertQuotationsToSent(sourceQuotationIds);
-}
-
-async function revertQuotationsToSent(quotationIds: string[]): Promise<void> {
-  const ids = [...new Set(quotationIds.filter(Boolean))];
-  if (ids.length === 0) return;
-  const { error } = await supabase
-    .from("documents")
-    .update({ status: "sent" as DocumentStatus })
-    .in("id", ids)
-    .eq("doc_type", "quotation")
-    .eq("status", "converted");
-  if (error) throw error;
 }

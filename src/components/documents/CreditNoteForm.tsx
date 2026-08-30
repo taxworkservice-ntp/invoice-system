@@ -320,7 +320,15 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
   }
 
   async function handleSave(status: "draft" | "issued") {
-    if (!userId || !customer) return;
+    if (!userId) {
+      setError("กำลังโหลดข้อมูลผู้ใช้ กรุณาลองอีกครั้ง");
+      return;
+    }
+    if (!customer) {
+      setError("กำลังโหลดข้อมูลลูกค้า กรุณาลองอีกครั้ง");
+      toast.error("กำลังโหลดข้อมูลลูกค้า กรุณาลองอีกครั้ง");
+      return;
+    }
     if (items.length === 0) {
       setError("กรุณาเพิ่มรายการอย่างน้อย 1 รายการ");
       return;
@@ -358,104 +366,67 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
     const effectiveIssueDate = issueDate || todayString();
 
     try {
-      let targetDocId = docId;
+      const docNumber = !isEditing
+        ? await resolveDocNumber(userId, docType, effectiveIssueDate, docNumberOverride, docId || undefined)
+        : null;
 
-      if (!isEditing) {
-        const docNumber = await resolveDocNumber(userId, docType, effectiveIssueDate, docNumberOverride, docId || undefined);
-        const { data: newDoc, error: insertErr } = await supabase
-          .from("documents")
-          .insert({
-            user_id: userId,
-            deal_id: dealId || null,
-            customer_id: customer.id,
-            doc_type: docType,
-            doc_number: docNumber,
-            status,
-            issue_date: effectiveIssueDate,
-            vat_registered: vatRegistered,
-            vat_rate: vatRate,
-            wht_rate: whtRate,
-            discount_percent: documentDiscountPercent,
-            discount_amount: taxResult.discountAmount,
-            subtotal: taxResult.subtotal,
-            vat_amount: taxResult.vatAmount,
-            total_amount: taxResult.total,
-            wht_amount: taxResult.whtAmount,
-            net_payable: taxResult.netPayable,
-            note: note || null,
-            converted_from_id: refInvoiceId || null,
-          })
-          .select("id")
-          .single();
+      const pLines = items.map((it, idx) => {
+        const lineCalc = calculateLineAmounts({
+          unit_price: it.unitPrice,
+          quantity: it.quantity,
+          discount_percent: it.discountPercent,
+        });
+        return {
+          item_id: it.itemId || null,
+          item_name: it.itemName,
+          line_note: it.lineNote.trim() || null,
+          item_sku: it.itemSku || null,
+          item_type: it.itemType,
+          unit: it.unit,
+          unit_price: it.unitPrice,
+          quantity: it.quantity,
+          discount_percent: it.discountPercent,
+          discount_amount: lineCalc.discountAmount,
+          line_total: lineCalc.lineTotal,
+          sort_order: idx,
+        };
+      });
 
-        if (insertErr) throw insertErr;
-        targetDocId = newDoc.id;
-      } else {
-        const { error: updateErr } = await supabase
-          .from("documents")
-          .update({
-            status,
-            issue_date: effectiveIssueDate,
-            vat_registered: vatRegistered,
-            vat_rate: vatRate,
-            wht_rate: whtRate,
-            discount_percent: documentDiscountPercent,
-            discount_amount: taxResult.discountAmount,
-            subtotal: taxResult.subtotal,
-            vat_amount: taxResult.vatAmount,
-            total_amount: taxResult.total,
-            wht_amount: taxResult.whtAmount,
-            net_payable: taxResult.netPayable,
-            note: note || null,
-            converted_from_id: refInvoiceId || null,
-          })
-          .eq("id", docId);
-
-        if (updateErr) throw updateErr;
-      }
-
-      if (isEditing) {
-        await supabase.from("document_line_items").delete().eq("document_id", docId);
-      }
-
-      if (targetDocId) {
-        const { error: linesErr } = await supabase.from("document_line_items").insert(
-          items.map((it, idx) => {
-            const lineCalc = calculateLineAmounts({
-              unit_price: it.unitPrice,
-              quantity: it.quantity,
-              discount_percent: it.discountPercent,
-            });
-
-            return {
-              document_id: targetDocId,
-              user_id: userId,
-              item_id: it.itemId || null,
-              item_name: it.itemName,
-              line_note: it.lineNote.trim() || null,
-              item_sku: it.itemSku || null,
-              item_type: it.itemType,
-              unit: it.unit,
-              unit_price: it.unitPrice,
-              quantity: it.quantity,
-              base_quantity: it.quantity,
-              discount_percent: it.discountPercent,
-              discount_amount: lineCalc.discountAmount,
-              qty_carton: null,
-              carton_unit: null,
-              line_total: lineCalc.lineTotal,
-              sort_order: idx,
-            };
-          })
-        );
-        if (linesErr) throw linesErr;
-      }
-
-      // Issuing a credit note returns credited products to stock.
-      // Debit notes are price-only adjustments — no goods movement.
-      if (status === "issued" && targetDocId && !isDebit) {
-        await returnStockOnCreditNoteIssued(targetDocId, userId);
-      }
+      // Transactional path: document + lines + over-credit recheck + stock
+      // return all commit together or not at all (see save_adjustment_note).
+      const { data: savedId, error: saveError } = await supabase.rpc("save_adjustment_note", {
+        p_user_id: userId,
+        p_document: {
+          id: docId || null,
+          doc_type: docType,
+          status,
+          deal_id: dealId || null,
+          customer_id: customer.id,
+          doc_number: docNumber,
+          issue_date: effectiveIssueDate,
+          vat_registered: vatRegistered,
+          vat_rate: vatRate,
+          wht_rate: whtRate,
+          discount_percent: documentDiscountPercent,
+          discount_amount: taxResult.discountAmount,
+          subtotal: taxResult.subtotal,
+          vat_amount: taxResult.vatAmount,
+          total_amount: taxResult.total,
+          wht_amount: taxResult.whtAmount,
+          net_payable: taxResult.netPayable,
+          note: note || null,
+          converted_from_id: refInvoiceId || null,
+        },
+        p_lines: pLines,
+      });
+      if (saveError) throw saveError;
+      const targetDocId =
+        typeof savedId === "string"
+          ? savedId
+          : Array.isArray(savedId)
+            ? (savedId as string[])[0]
+            : (savedId as any)?.id;
+      if (!targetDocId) throw new Error("เกิดข้อผิดพลาดในการบันทึก");
 
       toast.success(status === "issued" ? `${issueVerbTh}แล้ว` : "บันทึกฉบับร่างแล้ว");
       navigate(`/documents/${targetDocId}`, { replace: true });

@@ -511,6 +511,10 @@ export function InvoiceFromQuotationForm() {
 
   const handleSave = async () => {
     if (!userId || !selectedCustomer || selectedQuotations.length === 0) return;
+    if (hasMixedDeals) {
+      setError("กรุณาแยกออกบิลตามงานขาย ไม่สามารถรวมเอกสารจากหลายงานขายได้");
+      return;
+    }
     if (billableLines.length === 0) {
       setError("ยังไม่มีรายการที่จะออกบิล (ระบุจำนวนที่มากกว่า 0)");
       return;
@@ -526,57 +530,8 @@ export function InvoiceFromQuotationForm() {
 
     setSaving(true);
     setError("");
-    let invoiceId: string | null = null;
-    let createdDealId: string | null = null;
 
     try {
-      let invoiceDealId = selectedDealId || selectedDealIds[0] || null;
-      if (!invoiceDealId) {
-        const { data: deal, error: dealError } = await supabase
-          .from("deals")
-          .insert({
-            user_id: userId,
-            customer_id: selectedCustomer.id,
-            title: selectedCustomer.name,
-          })
-          .select("id")
-          .single();
-        if (dealError || !deal) throw dealError || new Error("ไม่สามารถสร้างงานขายสำหรับใบแจ้งหนี้ได้");
-        invoiceDealId = deal.id;
-        createdDealId = deal.id;
-      }
-
-      const docNumber = await resolveDocNumber(userId, "invoice", issueDate, docNumberOverride);
-      const { data: invoice, error: invoiceError } = await supabase
-        .from("documents")
-        .insert({
-          user_id: userId,
-          deal_id: invoiceDealId,
-          customer_id: selectedCustomer.id,
-          doc_type: "invoice",
-          doc_number: docNumber,
-          status: "sent" as DocumentStatus,
-          issue_date: issueDate,
-          vat_registered: taxSnapshot.vatRegistered,
-          vat_rate: taxSnapshot.vatRate,
-          wht_rate: parseFloat(whtRate),
-          discount_percent: 0,
-          discount_amount: tax.discountAmount,
-          subtotal: tax.subtotal,
-          vat_amount: tax.vatAmount,
-          total_amount: tax.total,
-          wht_amount: tax.whtAmount,
-          net_payable: tax.netPayable,
-          note: note || null,
-          show_dn_variance: showVariance,
-          converted_from_id: selectedQuotations[0]?.id || null,
-        })
-        .select("*")
-        .single();
-
-      if (invoiceError || !invoice) throw invoiceError || new Error("ไม่สามารถสร้างใบแจ้งหนี้ได้");
-      invoiceId = invoice.id;
-
       const lineRecords: any[] = [];
       let sortIndex = 0;
       for (const qt of selectedQuotations) {
@@ -586,8 +541,6 @@ export function InvoiceFromQuotationForm() {
           // Ref mode: one printed line per quotation carrying its billed total.
           const groupTotal = groupLines.reduce((sum, l) => sum + lineNetAmount(l), 0);
           lineRecords.push({
-            document_id: invoice.id,
-            user_id: userId,
             item_id: null,
             item_name: `ใบเสนอราคา ${qt.doc_number || qt.id.slice(0, 8)}`,
             line_note: [
@@ -615,8 +568,6 @@ export function InvoiceFromQuotationForm() {
         }
 
         lineRecords.push({
-          document_id: invoice.id,
-          user_id: userId,
           item_id: null,
           item_name: `ใบเสนอราคา ${qt.doc_number || qt.id.slice(0, 8)}`,
           line_note: qt.issue_date ? `วันที่เสนอราคา: ${formatBuddhistDate(qt.issue_date)}` : null,
@@ -637,8 +588,6 @@ export function InvoiceFromQuotationForm() {
         });
         for (const l of invoiceLines.filter((il) => il.source_document_id === qt.id && il.quantity > EPS)) {
           lineRecords.push({
-            document_id: invoice.id,
-            user_id: userId,
             item_id: null,
             item_name: l.item_name,
             line_note: l.line_note || null,
@@ -665,8 +614,6 @@ export function InvoiceFromQuotationForm() {
       // Manual lines (not linked to any quotation) — e.g. freight / surcharges.
       for (const l of invoiceLines.filter((il) => !il.source_document_id && il.quantity > EPS)) {
         lineRecords.push({
-          document_id: invoice.id,
-          user_id: userId,
           item_id: null,
           item_name: l.item_name,
           line_note: l.line_note || null,
@@ -687,41 +634,46 @@ export function InvoiceFromQuotationForm() {
         });
       }
 
-      const { error: lineError } = await supabase.from("document_line_items").insert(lineRecords);
-      if (lineError) throw lineError;
+      // Transactional path: invoice + lines + source status flips + stock all
+      // commit together or not at all (see create_invoice_from_sources).
+      const { data: created, error: createError } = await supabase.rpc("create_invoice_from_sources", {
+        p_user_id: userId,
+        p_document: {
+          doc_type: "invoice",
+          status: "sent",
+          customer_id: selectedCustomer.id,
+          deal_id: selectedDealId || selectedDealIds[0] || null,
+          doc_number: docNumberOverride || null,
+          issue_date: issueDate,
+          vat_registered: taxSnapshot.vatRegistered,
+          vat_rate: taxSnapshot.vatRate,
+          wht_rate: parseFloat(whtRate),
+          discount_percent: 0,
+          discount_amount: tax.discountAmount,
+          subtotal: tax.subtotal,
+          vat_amount: tax.vatAmount,
+          total_amount: tax.total,
+          wht_amount: tax.whtAmount,
+          net_payable: tax.netPayable,
+          note: note || null,
+          show_dn_variance: showVariance,
+          converted_from_id: selectedQuotations[0]?.id || null,
+          title: selectedCustomer.name,
+        },
+        p_lines: lineRecords,
+        p_source_ids: selectedQuotations.map((qt) => qt.id),
+      });
+      const record = Array.isArray(created) ? created[0] : created;
+      if (createError || !record?.document_id) throw createError || new Error("ไม่สามารถสร้างใบแจ้งหนี้ได้");
 
-      // Mark each quotation as fully converted only when every line is now
-      // fully billed; otherwise keep it "sent" for further partial invoices.
-      for (const qt of selectedQuotations) {
-        const allCovered = qt.line_items.every((l) => {
-          const thisQty = invoiceLines.find(
-            (il) => il.source_document_id === qt.id && il.source_line_item_id === l.id,
-          )?.quantity || 0;
-          return l.quotedQty - (l.billedQty + thisQty) <= EPS;
-        });
-        const { error: updateError } = await supabase
-          .from("documents")
-          .update({ status: (allCovered ? "converted" : "sent") as DocumentStatus, deal_id: invoiceDealId })
-          .eq("id", qt.id);
-        if (updateError) throw updateError;
-      }
-
-      // Stock deduction (per stock_deduct_trigger). The invoice was inserted
-      // directly with status "sent", so deduct stock here to match the normal
-      // send flow.
-      await deductStockOnDocumentSent(invoice.id, userId);
+      const warnings = (record as any).warnings as any[] | null;
+      (warnings || []).forEach((w) =>
+        toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+      );
 
       toast.success("สร้างใบแจ้งหนี้จากใบเสนอราคาแล้ว");
-      navigate(`/deals/${invoiceDealId}`);
+      navigate(`/deals/${record.deal_id}`);
     } catch (err: any) {
-      if (invoiceId) {
-        await restoreStockOnVoid(invoiceId, userId).catch(() => undefined);
-        await supabase.from("document_line_items").delete().eq("document_id", invoiceId);
-        await supabase.from("documents").delete().eq("id", invoiceId);
-      }
-      if (createdDealId) {
-        await supabase.from("deals").delete().eq("id", createdDealId);
-      }
       setError(err.message || "เกิดข้อผิดพลาดในการสร้างใบแจ้งหนี้");
       toast.error(err.message || "เกิดข้อผิดพลาด");
     } finally {
@@ -1163,7 +1115,7 @@ export function InvoiceFromQuotationForm() {
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between"><span>รวมก่อนภาษี</span><span>฿{formatCurrency(tax.subtotal)}</span></div>
-                {clientProfile?.vat_registered && <div className="flex justify-between"><span>VAT {clientProfile.vat_rate}%</span><span>฿{formatCurrency(tax.vatAmount)}</span></div>}
+                {taxSnapshot.vatRegistered && <div className="flex justify-between"><span>VAT {taxSnapshot.vatRate}%</span><span>฿{formatCurrency(tax.vatAmount)}</span></div>}
                 <div className="flex justify-between font-medium"><span>รวมทั้งสิ้น</span><span>฿{formatCurrency(tax.total)}</span></div>
                 {tax.whtAmount > 0 && <div className="flex justify-between text-red-600"><span>หัก ณ ที่จ่าย {whtRate}%</span><span>-฿{formatCurrency(tax.whtAmount)}</span></div>}
                 <div className="flex justify-between border-t border-line-strong pt-2 text-base font-semibold"><span>ยอดชำระสุทธิ</span><span>฿{formatCurrency(tax.netPayable)}</span></div>

@@ -135,7 +135,10 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
         if (quotationError || !quotationData) throw quotationError || new Error("ไม่พบใบเสนอราคา");
 
         const quote = quotationData as unknown as QuotationWithCustomer;
-        if (quote.doc_type !== "quotation") throw new Error("เอกสารนี้ไม่ใช่ใบเสนอราคา");
+         if (quote.doc_type !== "quotation") throw new Error("เอกสารนี้ไม่ใช่ใบเสนอราคา");
+         if (["voided", "converted"].includes(quote.status)) {
+           throw new Error("ไม่สามารถสร้างใบส่งของจากใบเสนอราคาที่ถูกยกเลิกหรือแปลงแล้ว");
+         }
 
         const { data: quoteLines, error: linesError } = await supabase
           .from("document_line_items")

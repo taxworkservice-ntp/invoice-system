@@ -6,6 +6,9 @@
  *
  * Two signatures exist:
  * - On invoices: lineage present (source_document_id, no source_line_item_id)
+ *   — but ONLY when the row carries no money. Ref-mode invoices store their
+ *   billed total on exactly this row shape (qty >= 1, price = group total),
+ *   so those rows are real billable lines, not markers.
  * - On copies that strip lineage (e.g. credit notes): marker name + zero amounts
  */
 export function isRefSummaryLine(item: {
@@ -15,10 +18,11 @@ export function isRefSummaryLine(item: {
   source_document_id?: string | null;
   source_line_item_id?: string | null;
 }): boolean {
-  if (item.source_document_id && !item.source_line_item_id) return true;
+  const zeroAmount =
+    Number(item.quantity) === 0 && Number(item.unit_price) === 0;
+  if (item.source_document_id && !item.source_line_item_id) return zeroAmount;
   return (
-    Number(item.quantity) === 0 &&
-    Number(item.unit_price) === 0 &&
+    zeroAmount &&
     /^(ใบส่งของ|ใบเสนอราคา)\s/.test(item.item_name || "")
   );
 }

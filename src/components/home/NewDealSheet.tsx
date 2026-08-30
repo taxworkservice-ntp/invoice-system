@@ -32,8 +32,9 @@ const GROUPS: {
   {
     title: "ขายแบบปกติ",
     options: [
-      { icon: ClipboardList, title: "ออกใบเสนอราคา", subtitle: "Flow ครบ: เสนอราคา → ส่งของถ้าต้องใช้ → ออกบิล → วางบิลถ้าต้องใช้", type: "quotation", tag: "QT" },
-      { icon: FileText, title: "ออกใบแจ้งหนี้ทันที", subtitle: "ใช้เมื่อตกลงงานแล้ว และไม่ต้องมีใบเสนอราคาในระบบ", type: "invoice", tag: "INV" },
+        { icon: ClipboardList, title: "ออกใบเสนอราคา", subtitle: "Flow ครบ: เสนอราคา → ส่งของถ้าต้องใช้ → ออกบิล → วางบิลถ้าต้องใช้", type: "quotation", tag: "QT" },
+        { icon: FileText, title: "ออกใบแจ้งหนี้ทันที", subtitle: "ใช้เมื่อตกลงงานแล้ว และไม่ต้องมีใบเสนอราคาในระบบ", type: "invoice", tag: "INV" },
+        { icon: ReceiptText, title: "รับเงินทันที ออกใบกำกับภาษี/ใบเสร็จ", subtitle: "ชำระทันที ปิดงานในเอกสารเดียว", type: "tax_invoice_receipt", tag: "IVR" },
     ],
   },
   {

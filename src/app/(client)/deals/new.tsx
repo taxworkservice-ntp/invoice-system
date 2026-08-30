@@ -27,7 +27,7 @@ import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/pe
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle, ChevronDown, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
-import type { Document, DocumentLineItem, DocumentType, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
+import type { Document, DocumentLineItem, DocumentType, DocumentStatus, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
 interface LineItemForm {
   id: string;
@@ -1336,7 +1336,25 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       };
 
       let savedDocumentId = documentId || "";
-      if (useAtomicCreate) {
+      if (isBillingNote && !documentId) {
+        // Transactional path: billing note + links + invoice state changes
+        // commit together or not at all (see create_billing_note_with_links).
+        const selectedInvoices = unpaidInvoices.filter((inv) => selectedInvoiceIds.has(inv.id));
+        if (selectedInvoices.length === 0) {
+          throw new Error("กรุณาเลือกอย่างน้อย 1 ใบแจ้งหนี้");
+        }
+        const { data: createdBn, error: bnCreateError } = await supabase.rpc("create_billing_note_with_links", {
+          p_user_id: userId,
+          p_document: { ...docPayload, title: null },
+          p_invoice_ids: selectedInvoices.map((inv) => inv.id),
+        });
+        const bnRecord = Array.isArray(createdBn) ? createdBn[0] : createdBn;
+        if (bnCreateError || !bnRecord?.document_id) throw bnCreateError || new Error("ไม่สามารถบันทึกใบวางบิลได้");
+        savedDocumentId = bnRecord.document_id;
+        createdDocumentId = bnRecord.document_id;
+        createdDealId = bnRecord.deal_id;
+        dealId = bnRecord.deal_id;
+      } else if (useAtomicCreate) {
         const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
         const lineItemRecords = validItems.map((lineItem, idx) => {
           const lineCalc = calculateLineAmounts(lineItem);
@@ -1432,24 +1450,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
       if (isTaxInvoiceReceipt) {
         await deductStockOnDocumentSent(savedDocumentId, userId);
-      }
-
-      if (isBillingNote) {
-        const selectedInvoices = unpaidInvoices.filter((inv) => selectedInvoiceIds.has(inv.id));
-        if (selectedInvoices.length > 0) {
-          const billingRecords = selectedInvoices.map((inv) => ({
-            billing_note_id: savedDocumentId,
-            invoice_id: inv.id,
-            user_id: userId,
-            invoice_number: inv.doc_number,
-            issue_date: inv.issue_date || null,
-            subtotal: inv.subtotal,
-            vat_amount: inv.vat_amount,
-            total_amount: inv.total_amount,
-          }));
-          const { error: bnError } = await supabase.from("billing_note_invoices").insert(billingRecords);
-          if (bnError) throw bnError;
-        }
       }
 
       if (documentId) {

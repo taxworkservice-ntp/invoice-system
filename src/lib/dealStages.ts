@@ -30,6 +30,7 @@ export function isManualStage(value: unknown): value is ManualStage {
 // Financial/delivery documents whose customer binding is tax- or
 // delivery-relevant — once issued they lock the deal's customer.
 const CUSTOMER_LOCKING_DOC_TYPES = [
+  "quotation",
   "invoice",
   "delivery_note",
   "receipt",
