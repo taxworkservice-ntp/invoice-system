@@ -245,6 +245,13 @@ export default function PayrollPage() {
         ot_divisor: settingsData.ot_divisor,
         normal_ot_multiplier: settingsData.normal_ot_multiplier,
         holiday_ot_multiplier: settingsData.holiday_ot_multiplier,
+        prorate_mode: settingsData.prorate_mode,
+        absence_deduction: settingsData.absence_deduction,
+        rounding_rule: settingsData.rounding_rule,
+        sso_ceiling_override: settingsData.sso_ceiling_override,
+        pay_frequency: settingsData.pay_frequency,
+        pay_anchor_day: settingsData.pay_anchor_day,
+        pay_cycle_len_days: settingsData.pay_cycle_len_days,
       });
     }
 
@@ -2098,7 +2105,7 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
     employee.end_date >= run.period_start &&
     employee.end_date <= run.period_end;
   const leaverSuggestion = isLeaverInPeriod
-    ? suggestLeaveProrate(employee.end_date as string, { prorate_mode: settings.prorate_mode }, run ? Number(run.period_end.slice(0, 4)) : undefined)
+    ? suggestLeaveProrate(employee.end_date as string, settings, run ? Number(run.period_end.slice(0, 4)) : undefined)
     : null;
 
   function updateLocal(updated: Partial<PayrollLineItem>) {

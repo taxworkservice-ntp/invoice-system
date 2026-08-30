@@ -1,4 +1,4 @@
-import type { OtEntry, PayrollProrateMode, PayrollRoundingRule } from "../../types";
+import type { OtEntry, PayFrequency, PayrollProrateMode, PayrollRoundingRule } from "../../types";
 
 export interface PayrollSettings {
   ot_divisor: number;
@@ -8,6 +8,9 @@ export interface PayrollSettings {
   absence_deduction?: boolean;
   rounding_rule?: PayrollRoundingRule;
   sso_ceiling_override?: number | null;
+  pay_frequency?: PayFrequency;
+  pay_anchor_day?: number;
+  pay_cycle_len_days?: number;
 }
 
 export interface PayrollLineInput {
