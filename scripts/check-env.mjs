@@ -29,7 +29,7 @@ const REQUIRED = [
   { name: "SUPABASE_URL", usedBy: "api functions" },
   { name: "SUPABASE_ANON_KEY", usedBy: "api functions" },
   { name: "SUPABASE_SERVICE_ROLE_KEY", usedBy: "api functions / cron / scripts" },
-  { name: "CRON_SECRET", usedBy: "vercel cron → api/cron/overdue" },
+  { name: "CRON_SECRET", usedBy: "vercel cron → server/handlers/cron/overdue" },
 ];
 
 const R2_REQUIRED = ["R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT"];

@@ -4,10 +4,11 @@ import { request as httpsRequest } from "node:https";
 import { access, constants, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
+import { resolveHandler } from "../server/resolve.js";
 
 const PROD_ORIGIN = process.env.DEV_API_FALLBACK_ORIGIN || "https://invoice.taxworkaccount.com";
 const PORT = Number(process.env.DEV_API_PORT || 8787);
-const API_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "api");
+const API_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "server", "handlers");
 
 async function loadEnvFiles() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,42 +40,6 @@ async function fileExists(p) {
   } catch {
     return false;
   }
-}
-
-async function resolveHandler(segments) {
-  let dir = API_DIR;
-  const params = {};
-
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-
-    const asFile = path.join(dir, `${seg}.js`);
-    if (await fileExists(asFile)) {
-      return { file: asFile, params };
-    }
-
-    const directDir = path.join(dir, seg);
-    if (await fileExists(directDir)) {
-      dir = directDir;
-      continue;
-    }
-
-    const dynamicDir = path.join(dir, "[id]");
-    if (await fileExists(dynamicDir)) {
-      const match = dynamicDir.match(/\[(.+)\]$/);
-      if (match) params[match[1]] = decodeURIComponent(seg);
-      dir = dynamicDir;
-      continue;
-    }
-
-    return null;
-  }
-
-  const indexFile = path.join(dir, "index.js");
-  if (await fileExists(indexFile)) {
-    return { file: indexFile, params };
-  }
-  return null;
 }
 
 async function loadHandler(file) {
@@ -164,7 +129,7 @@ const server = createServer(async (req, res) => {
   const segments = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
 
   try {
-    const match = await resolveHandler(segments);
+    const match = await resolveHandler(segments, API_DIR);
     if (!match) {
       console.log(`[dev-api] no local handler for ${req.method} ${url.pathname} → forwarding to prod`);
       return forwardToProd(req, res);

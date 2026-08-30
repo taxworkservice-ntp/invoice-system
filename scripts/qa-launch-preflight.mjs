@@ -31,12 +31,12 @@ const checks = [
   },
   {
     name: "cron authentication",
-    file: "api/cron/overdue.js",
+    file: "server/handlers/cron/overdue.js",
     patterns: ["process.env.CRON_SECRET", "Bearer ${cronSecret}"],
   },
   {
     name: "image proxy asset boundary",
-    file: "api/storage/[action].js",
+    file: "server/handlers/storage/[action].js",
     patterns: ["logos", "signatures", "stamps", "Image proxy is only available for branding assets"],
   },
 ];
