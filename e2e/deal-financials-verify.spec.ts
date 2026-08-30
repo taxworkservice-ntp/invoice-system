@@ -46,7 +46,7 @@ test.describe.serial("financial summary correctness", () => {
       total_amount: INVOICE.total, wht_amount: INVOICE.wht,
       net_payable: INVOICE.net, amount_received: RECEIPT_RECEIVED,
     });
-    void invoice;
+    void userId;
     await createDocument({
       id: uid(), deal_id: dealId, customer_id: cust.id,
       doc_type: "credit_note", doc_number: "CN-E2E-FIN", status: "issued",
@@ -55,8 +55,8 @@ test.describe.serial("financial summary correctness", () => {
       subtotal: CN.subtotal, vat_amount: CN.vat,
       total_amount: CN.total, wht_amount: CN.wht,
       net_payable: CN.net,
+      converted_from_id: invoice.id,
     });
-    void userId;
   });
 
   function parseMoney(text: string): number {
@@ -131,6 +131,28 @@ test.describe.serial("financial summary correctness", () => {
     expect(await statementValue("เครดิตเงินสดคงเหลือ")).toBe(CN.net);
     // Ledger includes every document incl. the receipt
     await expect(sheet.getByRole("cell", { name: "RC-E2E-FIN" })).toBeVisible();
+  });
+
+  test("printed credit note with stored WHT hides the WHT row and shows the gross credit", async ({ page }) => {
+    const { data: cn } = await (await api())
+      .from("documents")
+      .select("id, total_amount")
+      .eq("deal_id", dealId)
+      .eq("doc_type", "credit_note")
+      .single();
+
+    await page.goto(`/documents/${cn.id}/print`);
+    // WHT row (modern or classic template) must never render on a credit note,
+    // even when a legacy WHT amount is stored on the document.
+    await expect(page.getByText("WITHHOLDING TAX SETTLEMENT")).toHaveCount(0);
+    await expect(page.locator("article.print-sheet").getByText("หัก ณ ที่จ่าย")).toHaveCount(0);
+    // Single final row carries the gross credit — no duplicated NET CREDIT row.
+    await expect(page.getByText("ยอดลดรวม (รวม VAT)")).toBeVisible();
+    await expect(page.getByText("ยอดเครดิตสุทธิ")).toHaveCount(0);
+    // ป.80/2542 ข้อ 3(5): original invoice values, corrected values and the
+    // difference must all be stated on the note.
+    await expect(page.getByText("อ้างอิงใบกำกับภาษีเดิม INV-E2E-FIN")).toBeVisible();
+    await expect(page.getByText("มูลค่าที่ถูกต้องหลังปรับปรุง (รวม VAT)")).toBeVisible();
   });
 
   test.afterAll(async () => {

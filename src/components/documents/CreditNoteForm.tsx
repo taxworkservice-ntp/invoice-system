@@ -679,21 +679,29 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
               </div>
             )}
             {vatRegistered && (
-               <div className="flex justify-between">
-                 <span className="text-ink-300">{isDebit ? "ยอดเพิ่มรวม" : "ยอดลดรวม"}</span>
-                <span>฿{tax.total.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+              <div className="flex justify-between">
+                <span className="text-ink-300">{isDebit ? "ยอดเพิ่มรวม (รวม VAT)" : "ยอดลดรวม (รวม VAT)"}</span>
+                <span className="font-semibold">฿{tax.total.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
             )}
              {whtConfirmed && tax.whtAmount > 0 && (
-               <div className="flex justify-between">
-                 <span className="text-ink-300">WHT ที่เกี่ยวข้อง {whtRate}%</span>
-                 <span>฿{tax.whtAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-               </div>
+               <>
+                 <div className="flex justify-between">
+                   <span className="text-ink-300">WHT ที่เกี่ยวข้อง {whtRate}%</span>
+                   <span>฿{tax.whtAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+                 </div>
+                 <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
+                   <span>{isDebit ? "ยอดเพิ่มสุทธิ" : "ยอดเครดิตสุทธิ"}</span>
+                   <span>฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+                 </div>
+               </>
              )}
-            <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
-               <span>{isDebit ? "ยอดเพิ่มสุทธิ" : "ยอดเครดิตสุทธิ"}</span>
-              <span>฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-            </div>
+            {!vatRegistered && (
+              <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
+                <span>{isDebit ? "ยอดเพิ่มรวม" : "ยอดลดรวม"}</span>
+                <span>฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
           </div>
 
           <div className="mt-4">

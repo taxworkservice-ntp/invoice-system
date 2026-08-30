@@ -1,10 +1,20 @@
 import { formatCurrency } from "../../lib/format";
 import type { PrintDocumentData } from "../../lib/print";
 
+// ป.80/2542 ข้อ 3(5): the corrected value on a credit note is the original
+// invoice value minus the adjustment; on a debit note it is plus.
+function adjustmentCorrectAmount(original: number, adjustment: number, isCreditNote: boolean): number {
+  const corrected = isCreditNote ? original - adjustment : original + adjustment;
+  return Math.max(0, Math.round(corrected * 100) / 100);
+}
+
 export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentData; blankForm?: boolean }) {
   const { document, referenceDoc, grossSubtotal, lineDiscountTotal, receiptOutstanding, receiptCumulativePaid } = data;
   const isDeliveryNote = document.doc_type === "delivery_note";
   const isReceipt = document.doc_type === "receipt";
+  const isCreditNote = document.doc_type === "credit_note";
+  const isDebitNote = document.doc_type === "debit_note";
+  const isAdjustmentNote = isCreditNote || isDebitNote;
   const receiptCash = document.amount_received ?? document.net_payable;
   const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && document.subtotal > 0;
   const receiptPreTax = isReceipt ? document.subtotal : 0;
@@ -16,17 +26,15 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
   const hideDeliveryAmounts = isDeliveryNote && document.hide_amounts_on_print !== false;
   const showFullTotals = isDeliveryNote && document.show_full_totals === true;
   const hasNote = Boolean(document.note?.trim());
-  const isCreditNote = document.doc_type === "credit_note";
-  const isDebitNote = document.doc_type === "debit_note";
   const adjustmentLabels =
     isCreditNote || isDebitNote
       ? {
-          subtotal: isCreditNote ? "ยอดลดก่อนภาษี" : "ยอดเพิ่มก่อนภาษี",
+          subtotal: isCreditNote ? "ยอดลดก่อน VAT" : "ยอดเพิ่มก่อน VAT",
           subtotalEn: "ADJUSTMENT SUBTOTAL",
           vat: isCreditNote ? "ภาษีที่ลด" : "ภาษีที่เพิ่ม",
           vatEn: "VAT ADJUSTMENT",
-          total: isCreditNote ? "ยอดลดรวม" : "ยอดเพิ่มรวม",
-          totalEn: "TOTAL ADJUSTMENT",
+          total: isCreditNote ? "ยอดลดรวม (รวม VAT)" : "ยอดเพิ่มรวม (รวม VAT)",
+          totalEn: isCreditNote ? "TOTAL CREDIT NOTE" : "TOTAL DEBIT NOTE",
         }
       : null;
 
@@ -103,6 +111,51 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                   <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {isAdjustmentNote && referenceDoc ? (
+          <div className="mt-3">
+            <div className="text-[9px] tracking-[0.12em] text-[#667085]">
+              อ้างอิงใบกำกับภาษีเดิม {referenceDoc.doc_number || ""}
+            </div>
+            <div className="text-[6.5px] text-[#94a3b8]">ORIGINAL TAX INVOICE</div>
+            <div className="mt-1 space-y-1 text-[10px] text-[#344054]">
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2">
+                <div className="flex flex-col">
+                  <span>มูลค่าตามใบกำกับเดิม (ก่อน VAT)</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">ORIGINAL (BEFORE VAT)</span>
+                </div>
+                <span className="self-center">{formatCurrency(referenceDoc.subtotal || 0)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                  <span>มูลค่าตามใบกำกับเดิม (รวม VAT)</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">ORIGINAL (INCL. VAT)</span>
+                </div>
+                <span className="self-center">{formatCurrency(referenceDoc.total_amount || 0)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                  <span>มูลค่าที่ถูกต้องหลังปรับปรุง (ก่อน VAT)</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">CORRECTED (BEFORE VAT)</span>
+                </div>
+                <span className="self-center">{formatCurrency(adjustmentCorrectAmount(referenceDoc.subtotal || 0, document.subtotal || 0, isCreditNote))}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                  <span>มูลค่าที่ถูกต้องหลังปรับปรุง (รวม VAT)</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">CORRECTED (INCL. VAT)</span>
+                </div>
+                <span className="self-center">{formatCurrency(adjustmentCorrectAmount(referenceDoc.total_amount || 0, document.total_amount || 0, isCreditNote))}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex flex-col">
+                  <span>ผลต่าง = ยอดตามเอกสารฉบับนี้</span>
+                  <span className="text-[6.5px] text-[#94a3b8]">DIFFERENCE = THIS DOCUMENT</span>
+                </div>
+                <span className="self-center">{formatCurrency(document.total_amount || 0)}</span>
               </div>
             </div>
           </div>
@@ -203,7 +256,7 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                   <span className="text-[6.5px] text-[#94a3b8]">{adjustmentLabels ? adjustmentLabels.subtotalEn : "SUBTOTAL"}</span>
                 </div>
                 <span className="self-center">
-                   {isCreditNote ? `-${formatCurrency(document.subtotal)}` : formatCurrency(document.subtotal)}
+                  {formatCurrency(document.subtotal)}
                 </span>
               </div>
 
@@ -220,18 +273,18 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                     </span>
                   </div>
                   <span className="self-center">
-                    {isCreditNote ? `-${formatCurrency(document.vat_amount)}` : formatCurrency(document.vat_amount)}
+                    {formatCurrency(document.vat_amount)}
                   </span>
                 </div>
               ) : null}
 
-              <div className={`flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] ${isCreditNote ? "text-[#DC2626]" : "text-[#111827]"}`}>
+              <div className={`flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]`}>
                 <div className="flex flex-col">
                   <span>{adjustmentLabels ? adjustmentLabels.total : "รวมทั้งสิ้น"}</span>
                   <span className="text-[6.5px] font-normal text-[#94a3b8]">{adjustmentLabels ? adjustmentLabels.totalEn : "GRAND TOTAL"}</span>
                 </div>
                 <span className="self-center">
-                  {isCreditNote ? `-${formatCurrency(document.total_amount)}` : formatCurrency(document.total_amount)}
+                  {formatCurrency(document.total_amount)}
                 </span>
               </div>
 
@@ -245,19 +298,17 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                 </div>
               ) : null}
 
-              <div className={`flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold ${isCreditNote ? "text-[#DC2626]" : "text-[#111827]"}`}>
-                <div className="flex flex-col">
-                  <span>
-                    {isCreditNote ? "ยอดเครดิตสุทธิ" : isDebitNote ? "ยอดเพิ่มสุทธิ" : "ยอดชำระสุทธิ"}
-                  </span>
-                  <span className="text-[6.5px] font-normal text-[#94a3b8]">
-                    {isCreditNote ? "NET CREDIT" : isDebitNote ? "NET ADJUSTMENT" : "NET PAYABLE"}
+              {!isAdjustmentNote ? (
+                <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
+                  <div className="flex flex-col">
+                    <span>ยอดชำระสุทธิ</span>
+                    <span className="text-[6.5px] font-normal text-[#94a3b8]">NET PAYABLE</span>
+                  </div>
+                  <span className="self-center">
+                    {formatCurrency(document.wht_amount > 0 ? document.net_payable : document.total_amount)}
                   </span>
                 </div>
-                <span className="self-center">
-                  {isCreditNote ? "-" : ""}{formatCurrency(document.wht_amount > 0 && !adjustmentLabels ? document.net_payable : document.total_amount)}
-                </span>
-              </div>
+              ) : null}
             </>
           )}
         </div>
