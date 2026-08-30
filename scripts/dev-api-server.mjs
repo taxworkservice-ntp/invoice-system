@@ -142,7 +142,9 @@ const server = createServer(async (req, res) => {
   } catch (error) {
     console.error(`[dev-api] ${req.method} ${url.pathname} failed:`, error);
     if (!res.headersSent) {
-      res.status(500).send(JSON.stringify({ error: "Internal server error" }));
+      res.status(500).send(JSON.stringify({
+        error: process.env.NODE_ENV === "production" ? "Internal server error" : error?.message || "Internal server error",
+      }));
     }
   }
 });

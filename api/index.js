@@ -1,10 +1,20 @@
 import { matchRoute } from "../server/routes.js";
 
+function requestSegments(req) {
+  const rawPath = req.query?.path;
+  const pathValue = Array.isArray(rawPath) ? rawPath.join("/") : rawPath;
+  if (typeof pathValue === "string" && pathValue) {
+    return pathValue.split("/").filter(Boolean);
+  }
+
+  // Supports direct requests to /api/index without the rewrite query.
+  const pathname = String(req.url || "").split("?", 1)[0];
+  return pathname.replace(/^\/api(?:\/index)?\/?/, "").split("/").filter(Boolean);
+}
+
 export default async function handler(req, res) {
   try {
-    const raw = req.query?.path;
-    const segments = (Array.isArray(raw) ? raw : raw ? [raw] : []).filter(Boolean);
-    const match = matchRoute(segments);
+    const match = matchRoute(requestSegments(req));
 
     if (!match) {
       res.status(404).setHeader("Content-Type", "application/json; charset=utf-8");
