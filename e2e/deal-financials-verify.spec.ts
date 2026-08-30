@@ -91,13 +91,13 @@ test.describe.serial("financial summary correctness", () => {
     expect(await readCardRow(page, "ยอดสุทธิตามเอกสาร")).toBe(expected.netPayable);
     expect(expected.netPayable).toBe(INVOICE.net);
     expect(await readCardRow(page, "ใบลดหนี้ (รวม VAT)")).toBe(CN.total);
-    expect(await readCardRow(page, "ภาษีหัก ณ ที่จ่ายที่ปรับลดลงด้วย")).toBe(CN.wht);
-    expect(await readCardRow(page, "ยอดที่ต้องชำระหลังลดหนี้")).toBe(expected.afterAdjustment);
+    expect(await readCardRow(page, "WHT ที่เกี่ยวข้องกับใบลดหนี้")).toBe(CN.wht);
+    expect(await readCardRow(page, "ยอดคงเหลือหลังปรับปรุง")).toBe(expected.afterAdjustment);
     // Net-basis reconciliation: 202,800 − 135,200 = 67,600 (not gross-based 63,700)
     expect(expected.afterAdjustment).toBe(67_600);
     expect(await readCardRow(page, "รับแล้ว")).toBe(RECEIPT_RECEIVED);
     expect(await readCardRow(page, "ค้างรับ")).toBe(0);
-    expect(await readCardRow(page, "เครดิตคงเหลือคืนลูกค้า")).toBe(expected.customerCredit);
+    expect(await readCardRow(page, "เครดิตเงินสดคงเหลือ")).toBe(expected.customerCredit);
     expect(expected.customerCredit).toBe(CN.net);
 
     // Deal-page badge agrees with the computed state
@@ -127,8 +127,8 @@ test.describe.serial("financial summary correctness", () => {
     expect(await statementValue("ยอดรวม (รวม VAT)")).toBe(INVOICE.total);
     // The sheet uses the generic adjustment label; value must equal the
     // card's net-basis result either way.
-    expect(await statementValue("ยอดที่ต้องชำระหลังปรับ")).toBe(67_600);
-    expect(await statementValue("เครดิตคงเหลือคืนลูกค้า")).toBe(CN.net);
+    expect(await statementValue("ยอดคงเหลือหลังปรับปรุง")).toBe(67_600);
+    expect(await statementValue("เครดิตเงินสดคงเหลือ")).toBe(CN.net);
     // Ledger includes every document incl. the receipt
     await expect(sheet.getByRole("cell", { name: "RC-E2E-FIN" })).toBeVisible();
   });

@@ -17,7 +17,7 @@ import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { returnStockOnCreditNoteIssued } from "../../lib/stock";
 import { formatBuddhistDate } from "../../lib/dates";
-import { DOC_TYPE_LABELS } from "../../constants";
+import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS } from "../../constants";
 import type { Document, DocumentLineItem, Customer, Deal } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
 import { FormStep } from "./FormStep";
@@ -95,14 +95,15 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
 
   const vatRegistered = clientProfile?.vat_registered ?? false;
   const vatRate = clientProfile?.vat_rate ?? 7.0;
-  const whtRate = parseFloat(clientProfile?.default_wht_rate ?? "0") || 0;
+  const [whtRate, setWhtRate] = useState(0);
+  const [whtConfirmed, setWhtConfirmed] = useState(false);
 
   const taxCalcItems = items.map((it) => ({
     unit_price: it.unitPrice,
     quantity: it.quantity,
     discount_percent: it.discountPercent,
   }));
-  const tax = calculateTax(taxCalcItems, vatRegistered, vatRate, whtRate, {
+  const tax = calculateTax(taxCalcItems, vatRegistered, vatRate, whtConfirmed ? whtRate : 0, {
     discountPercent: documentDiscountPercent,
   });
 
@@ -136,6 +137,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
     if (paidDocs && paidDocs.length > 0) {
       setPaidInvoices(paidDocs as unknown as Document[]);
       setRefInvoiceId(paidDocs[0].id);
+      setWhtRate(Number(paidDocs[0].wht_rate) || 0);
     }
 
     setLoading(false);
@@ -163,6 +165,8 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
     setNote((doc as any).note || "");
     setDocumentDiscountPercent((doc as any).discount_percent || 0);
     setIssueDate((doc as any).issue_date || todayString());
+    setWhtRate(Number((doc as any).wht_rate) || 0);
+    setWhtConfirmed(Number((doc as any).wht_amount) > 0);
 
     if ((doc as any).converted_from_id) {
       setRefInvoiceId((doc as any).converted_from_id);
@@ -406,7 +410,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           issue_date: effectiveIssueDate,
           vat_registered: vatRegistered,
           vat_rate: vatRate,
-          wht_rate: whtRate,
+          wht_rate: whtConfirmed ? whtRate : 0,
           discount_percent: documentDiscountPercent,
           discount_amount: taxResult.discountAmount,
           subtotal: taxResult.subtotal,
@@ -663,31 +667,31 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           <div className="mb-3 text-[11px] uppercase font-semibold text-ink-300 tracking-wide">
             สรุปยอดเงิน
           </div>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-ink-300">ยอดก่อน VAT</span>
+             <div className="space-y-1 text-sm">
+             <div className="flex justify-between">
+               <span className="text-ink-300">{isDebit ? "ยอดเพิ่มก่อน VAT" : "ยอดลดก่อน VAT"}</span>
               <span>฿{tax.subtotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
             </div>
             {vatRegistered && (
               <div className="flex justify-between">
-                <span className="text-ink-300">VAT {vatRate}%</span>
+                 <span className="text-ink-300">{isDebit ? "VAT ที่เพิ่ม" : "VAT ที่ลด"} {vatRate}%</span>
                 <span>฿{tax.vatAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
             )}
             {vatRegistered && (
-              <div className="flex justify-between">
-                <span className="text-ink-300">รวมทั้งสิ้น</span>
+               <div className="flex justify-between">
+                 <span className="text-ink-300">{isDebit ? "ยอดเพิ่มรวม" : "ยอดลดรวม"}</span>
                 <span>฿{tax.total.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
             )}
-            {whtRate > 0 && (
-              <div className="flex justify-between">
-                <span className="text-ink-300">หัก ณ ที่จ่าย {whtRate}%</span>
-                <span>฿{tax.whtAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-              </div>
-            )}
+             {whtConfirmed && tax.whtAmount > 0 && (
+               <div className="flex justify-between">
+                 <span className="text-ink-300">WHT ที่เกี่ยวข้อง {whtRate}%</span>
+                 <span>฿{tax.whtAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+               </div>
+             )}
             <div className="border-t border-card-border pt-1 flex justify-between font-semibold">
-              <span>ยอดสุทธิ</span>
+               <span>{isDebit ? "ยอดเพิ่มสุทธิ" : "ยอดเครดิตสุทธิ"}</span>
               <span>฿{tax.netPayable.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
@@ -705,6 +709,37 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
             className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400 resize-none disabled:bg-gray-50"
           />
           </div>
+
+          {!isReadOnly && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+              <label className="flex items-start gap-2 text-xs text-amber-900">
+                <input
+                  type="checkbox"
+                  checked={whtConfirmed}
+                  onChange={(event) => setWhtConfirmed(event.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="font-medium">มีการหักภาษี ณ ที่จ่ายจริงสำหรับรายการนี้</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-amber-700">
+                    เปิดใช้เฉพาะกรณีที่เกี่ยวข้องกับการชำระเงินจริงและมี/จะมีหนังสือรับรองหัก ณ ที่จ่าย
+                  </span>
+                </span>
+              </label>
+              {whtConfirmed && (
+                <Select
+                  label="อัตราภาษีหัก ณ ที่จ่าย"
+                  value={String(whtRate)}
+                  onChange={(event) => setWhtRate(Number(event.target.value) || 0)}
+                  className="mt-2"
+                >
+                  {WHT_RATE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </Select>
+              )}
+            </div>
+          )}
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 

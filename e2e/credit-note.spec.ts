@@ -75,7 +75,7 @@ test.describe.serial("credit note journey", () => {
 
     // back on the deal, customer credit badge appears
     await page.goto(`/deals/${dealId}`);
-    await expect(page.getByText("เครดิตคงเหลือ")).toBeVisible();
+    await expect(page.getByText("เครดิตเงินสดคงเหลือ")).toBeVisible();
   });
 
   test("wrong CN can be voided & reissued (immutability flow)", async ({ page }) => {

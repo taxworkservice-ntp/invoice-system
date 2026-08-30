@@ -203,7 +203,7 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                   <span className="text-[6.5px] text-[#94a3b8]">{adjustmentLabels ? adjustmentLabels.subtotalEn : "SUBTOTAL"}</span>
                 </div>
                 <span className="self-center">
-                  {isCreditNote ? `-${formatCurrency(document.subtotal)}` : formatCurrency(document.subtotal)}
+                   {isCreditNote ? `-${formatCurrency(document.subtotal)}` : formatCurrency(document.subtotal)}
                 </span>
               </div>
 
@@ -248,14 +248,14 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
               <div className={`flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold ${isCreditNote ? "text-[#DC2626]" : "text-[#111827]"}`}>
                 <div className="flex flex-col">
                   <span>
-                    {isCreditNote ? "ยอดลดสุทธิ" : isDebitNote ? "ยอดเพิ่มสุทธิ" : "ยอดชำระสุทธิ"}
+                    {isCreditNote ? "ยอดเครดิตสุทธิ" : isDebitNote ? "ยอดเพิ่มสุทธิ" : "ยอดชำระสุทธิ"}
                   </span>
                   <span className="text-[6.5px] font-normal text-[#94a3b8]">
-                    {isCreditNote ? "NET ADJUSTMENT" : isDebitNote ? "NET ADJUSTMENT" : "NET PAYABLE"}
+                    {isCreditNote ? "NET CREDIT" : isDebitNote ? "NET ADJUSTMENT" : "NET PAYABLE"}
                   </span>
                 </div>
                 <span className="self-center">
-                  {formatCurrency(document.wht_amount > 0 ? document.net_payable : document.total_amount)}
+                  {isCreditNote ? "-" : ""}{formatCurrency(document.wht_amount > 0 && !adjustmentLabels ? document.net_payable : document.total_amount)}
                 </span>
               </div>
             </>

@@ -91,7 +91,7 @@ export function FinancialSummaryCard({
           <Row label="ยอดสุทธิตามเอกสาร" value={summary.netPayable} strong />
         </section>
 
-        {/* 2) Adjustments — shown on their NET cash effect (gross − own WHT) */}
+        {/* 2) Adjustments — VAT gross effect plus optional confirmed WHT effect */}
         {hasAdjustments && (
           <section className="py-2">
             <GroupHeader>ปรับปรุงยอด</GroupHeader>
@@ -99,7 +99,7 @@ export function FinancialSummaryCard({
               <>
                 <Row label="ใบเพิ่มหนี้ (รวม VAT)" value={summary.debitTotal} prefix="+" tone="amber" />
                 {summary.debitWht > 0 && (
-                  <Row label="ภาษีหัก ณ ที่จ่ายของใบเพิ่มหนี้" value={summary.debitWht} prefix="−" tone="muted" />
+                  <Row label="WHT ที่เกี่ยวข้องกับใบเพิ่มหนี้" value={summary.debitWht} prefix="−" tone="muted" />
                 )}
               </>
             )}
@@ -107,12 +107,12 @@ export function FinancialSummaryCard({
               <>
                 <Row label="ใบลดหนี้ (รวม VAT)" value={summary.creditTotal} prefix="−" tone="red" />
                 {summary.creditWht > 0 && (
-                  <Row label="ภาษีหัก ณ ที่จ่ายที่ปรับลดลงด้วย" value={summary.creditWht} prefix="+" tone="muted" />
+                  <Row label="WHT ที่เกี่ยวข้องกับใบลดหนี้" value={summary.creditWht} prefix="+" tone="muted" />
                 )}
               </>
             )}
             <Row
-              label={summary.debitTotal > 0 ? "ยอดที่ต้องชำระหลังปรับบิล" : "ยอดที่ต้องชำระหลังลดหนี้"}
+              label="ยอดคงเหลือหลังปรับปรุง"
               value={Math.max(0, summary.afterAdjustment)}
               strong
             />
@@ -130,9 +130,9 @@ export function FinancialSummaryCard({
           )}
           {summary.customerCredit > 0 && (
             <>
-              <Row label="เครดิตคงเหลือคืนลูกค้า" value={summary.customerCredit} tone="blue" strong />
+              <Row label="เครดิตเงินสดคงเหลือ" value={summary.customerCredit} tone="blue" strong />
               <p className="mt-1 rounded-md bg-blue-50 px-2 py-1.5 text-[11px] leading-4 text-blue-800">
-                ลูกค้าชำระเกินหลังออกใบลดหนี้ — เครดิตส่วนนี้ใช้ offset ใบกำกับถัดไปได้
+                 ลูกค้าชำระเกินหลังปรับปรุง — เครดิตส่วนนี้ใช้หักกลบใบกำกับถัดไปได้
               </p>
             </>
           )}
@@ -143,7 +143,7 @@ export function FinancialSummaryCard({
       </div>
 
       <div className="mt-2 border-t border-card-border pt-2 text-2xs leading-4 text-gray-400">
-        ตามเอกสาร = จำนวนที่ระบุในใบแจ้งหนี้ · สะสม = จำนวนที่เกิดขึ้นจริงจากใบเสร็จ
+         ตามเอกสาร = จำนวนที่ระบุในใบแจ้งหนี้ · WHT แสดงเมื่อมีจำนวนที่ระบุไว้ในเอกสาร · สะสม = จำนวนที่เกิดขึ้นจริงจากใบเสร็จ
       </div>
     </Card>
   );

@@ -129,6 +129,8 @@ export function PrintDocumentClassicV2({
   const isReceiptOrBillingNoteTable =
     (isBillingNote || (document.doc_type === "receipt" && receiptRows.length > 0)) && document.vat_registered;
   const isReceipt = document.doc_type === "receipt";
+  const isCreditNote = document.doc_type === "credit_note";
+  const isDebitNote = document.doc_type === "debit_note";
   const receiptCash = document.amount_received ?? document.net_payable;
   const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && document.subtotal > 0;
   const receiptPreTax = isReceipt ? document.subtotal : 0;
@@ -860,7 +862,7 @@ export function PrintDocumentClassicV2({
                       </div>
                       <div className="print-classic-totals-val">{formatCurrency(receiptAmount)}</div>
                     </div>
-                    {document.wht_amount > 0 ? (
+                    {document.wht_amount > 0 && !isCreditNote && !isDebitNote ? (
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">หัก ณ ที่จ่าย {document.wht_rate}%</div>
@@ -891,10 +893,10 @@ export function PrintDocumentClassicV2({
                   <>
                     <div className="print-classic-totals-row">
                       <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">รวมเงิน</div>
-                        <div className="print-classic-totals-en">SUB TOTAL</div>
+                            <div className="print-classic-totals-th">{isCreditNote ? "ยอดลดก่อน VAT" : isDebitNote ? "ยอดเพิ่มก่อน VAT" : "รวมเงิน"}</div>
+                            <div className="print-classic-totals-en">{isCreditNote || isDebitNote ? "ADJUSTMENT SUBTOTAL" : "SUB TOTAL"}</div>
                       </div>
-                      <div className="print-classic-totals-val">{formatCurrency(document.subtotal)}</div>
+                        <div className="print-classic-totals-val">{isCreditNote ? "-" : ""}{formatCurrency(document.subtotal)}</div>
                     </div>
                     {document.discount_amount > 0 ? (
                       <div className="print-classic-totals-row">
@@ -916,48 +918,48 @@ export function PrintDocumentClassicV2({
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">
-                            ภาษีมูลค่าเพิ่ม {document.vat_rate}%
+                              {isCreditNote ? "ภาษีที่ลด" : isDebitNote ? "ภาษีที่เพิ่ม" : "ภาษีมูลค่าเพิ่ม"} {document.vat_rate}%
                           </div>
                           <div className="print-classic-totals-en">
-                            VAT {document.vat_rate}%
+                            {isCreditNote || isDebitNote ? "VAT ADJUSTMENT" : `VAT ${document.vat_rate}%`}
                           </div>
                         </div>
                         <div className="print-classic-totals-val">
-                          {formatCurrency(document.vat_amount)}
+                          {isCreditNote ? "-" : ""}{formatCurrency(document.vat_amount)}
                         </div>
                       </div>
                     ) : null}
                     <div className="print-classic-totals-row print-classic-totals-row-grand">
                       <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ยอดรวมทั้งสิ้น</div>
-                        <div className="print-classic-totals-en">GRAND TOTAL</div>
+                            <div className="print-classic-totals-th">{isCreditNote ? "ยอดลดรวม" : isDebitNote ? "ยอดเพิ่มรวม" : "ยอดรวมทั้งสิ้น"}</div>
+                            <div className="print-classic-totals-en">{isCreditNote || isDebitNote ? "TOTAL ADJUSTMENT" : "GRAND TOTAL"}</div>
                       </div>
                       <div className="print-classic-totals-val">
-                        {formatCurrency(document.total_amount)}
+                          {isCreditNote ? "-" : ""}{formatCurrency(document.total_amount)}
                       </div>
                     </div>
                     {document.wht_amount > 0 ? (
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">
-                            หัก ณ ที่จ่าย {document.wht_rate}%
+                            {isCreditNote ? "WHT ที่เกี่ยวข้องกับใบลดหนี้" : isDebitNote ? "WHT ที่เกี่ยวข้องกับใบเพิ่มหนี้" : `หัก ณ ที่จ่าย ${document.wht_rate}%`}
                           </div>
                           <div className="print-classic-totals-en">
-                            หัก ณ ที่จ่าย {document.wht_rate}%
+                            {isCreditNote || isDebitNote ? "WITHHOLDING TAX SETTLEMENT" : `หัก ณ ที่จ่าย ${document.wht_rate}%`}
                           </div>
                         </div>
                         <div className="print-classic-totals-val">
-                          -{formatCurrency(document.wht_amount)}
+                          {isCreditNote ? "+" : "-"}{formatCurrency(document.wht_amount)}
                         </div>
                       </div>
                     ) : null}
                     <div className="print-classic-totals-row print-classic-totals-row-net">
                       <div className="print-classic-totals-lab">
-                        <div className="print-classic-totals-th">ยอดชำระสุทธิ</div>
-                        <div className="print-classic-totals-en">NET PAYABLE</div>
+                        <div className="print-classic-totals-th">{isCreditNote ? "ยอดเครดิตสุทธิ" : isDebitNote ? "ยอดเพิ่มสุทธิ" : "ยอดชำระสุทธิ"}</div>
+                        <div className="print-classic-totals-en">{isCreditNote ? "NET CREDIT" : isDebitNote ? "NET ADJUSTMENT" : "NET PAYABLE"}</div>
                       </div>
                       <div className="print-classic-totals-val">
-                        {formatCurrency(document.wht_amount > 0 ? document.net_payable : document.total_amount)}
+                        {isCreditNote ? "-" : ""}{formatCurrency(document.wht_amount > 0 && !isCreditNote && !isDebitNote ? document.net_payable : document.total_amount)}
                       </div>
                     </div>
                   </>

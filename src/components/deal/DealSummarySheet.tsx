@@ -306,7 +306,7 @@ function StatementRows({ summary }: { summary: DealFinancialSummary }) {
       ? [
           { label: "ใบเพิ่มหนี้ (รวม VAT)", value: summary.debitTotal, prefix: "+", tone: "amber" },
           ...(summary.debitWht > 0
-            ? [{ label: "ภาษีหัก ณ ที่จ่ายของใบเพิ่มหนี้", value: summary.debitWht, prefix: "−", tone: "" }]
+             ? [{ label: "WHT ที่เกี่ยวข้องกับใบเพิ่มหนี้", value: summary.debitWht, prefix: "−", tone: "" }]
             : []),
         ]
       : []),
@@ -314,19 +314,19 @@ function StatementRows({ summary }: { summary: DealFinancialSummary }) {
       ? [
           { label: "ใบลดหนี้ (รวม VAT)", value: summary.creditTotal, prefix: "−", tone: "red" },
           ...(summary.creditWht > 0
-            ? [{ label: "ภาษีหัก ณ ที่จ่ายที่ปรับลดลงด้วย", value: summary.creditWht, prefix: "+", tone: "" }]
+             ? [{ label: "WHT ที่เกี่ยวข้องกับใบลดหนี้", value: summary.creditWht, prefix: "+", tone: "" }]
             : []),
         ]
       : []),
     ...(summary.creditTotal > 0 || summary.debitTotal > 0
-      ? [{ label: "ยอดที่ต้องชำระหลังปรับ", value: Math.max(0, summary.afterAdjustment), strong: true }]
+       ? [{ label: "ยอดคงเหลือหลังปรับปรุง", value: Math.max(0, summary.afterAdjustment), strong: true }]
       : []),
     { label: "รับแล้ว", value: summary.amountReceived },
     summary.outstanding > 0
       ? { label: "ค้างรับ", value: summary.outstanding, tone: "red", strong: true }
       : { label: "ค้างรับ", value: 0 },
     ...(summary.customerCredit > 0
-      ? [{ label: "เครดิตคงเหลือคืนลูกค้า", value: summary.customerCredit, tone: "blue", strong: true }]
+       ? [{ label: "เครดิตเงินสดคงเหลือ", value: summary.customerCredit, tone: "blue", strong: true }]
       : []),
   ];
   return (
