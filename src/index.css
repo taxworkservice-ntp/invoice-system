@@ -513,19 +513,16 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-top--above {
   grid-template-columns: 1fr 36mm;
   grid-template-areas:
-    "stack badge"
-    "stack badge";
-  gap: 0 5mm;
-}
-.print-classic-top--above .print-classic-logo,
-.print-classic-top--above .print-classic-company {
-  grid-area: stack;
+    "logo badge"
+    "company badge";
+  gap: 2mm 5mm;
 }
 .print-classic-top--above .print-classic-logo {
+  grid-area: logo;
   justify-content: flex-start;
-  margin-bottom: 2mm;
 }
 .print-classic-top--above .print-classic-company {
+  grid-area: company;
   margin-top: 0;
 }
 .print-classic-logo-fallback {
