@@ -509,6 +509,25 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   height: auto;
   object-fit: contain;
 }
+/* Logo above company (left-aligned stack) — fixes left shift when company name is long */
+.print-classic-top--above {
+  grid-template-columns: 1fr 36mm;
+  grid-template-areas:
+    "stack badge"
+    "stack badge";
+  gap: 0 5mm;
+}
+.print-classic-top--above .print-classic-logo,
+.print-classic-top--above .print-classic-company {
+  grid-area: stack;
+}
+.print-classic-top--above .print-classic-logo {
+  justify-content: flex-start;
+  margin-bottom: 2mm;
+}
+.print-classic-top--above .print-classic-company {
+  margin-top: 0;
+}
 .print-classic-logo-fallback {
   width: 30mm;
   height: 30mm;

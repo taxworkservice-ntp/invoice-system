@@ -120,6 +120,7 @@ export interface ClientProfile {
   delivery_note_show_full_totals?: boolean;
   show_logo: boolean;
   show_company_name: boolean;
+  logo_layout?: "left" | "above" | null;
   dev_mode_enabled: boolean;
   dev_effective_date: string | null;
   created_at: string;

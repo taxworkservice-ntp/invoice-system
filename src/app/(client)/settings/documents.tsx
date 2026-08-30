@@ -38,6 +38,7 @@ export default function SettingsDocumentsPage() {
   const [logoSize, setLogoSize] = useState(LOGO_SIZE_OPTIONS[0].value);
   const [showLogo, setShowLogo] = useState(true);
   const [showCompanyName, setShowCompanyName] = useState(true);
+  const [logoLayout, setLogoLayout] = useState<"left" | "above">("left");
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic" | "classic_v2">("modern");
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export default function SettingsDocumentsPage() {
       setLogoSize(clientProfile.logo_size || "square");
       setShowLogo(clientProfile.show_logo !== false);
       setShowCompanyName(clientProfile.show_company_name !== false);
+      setLogoLayout(clientProfile.logo_layout === "above" ? "above" : "left");
       setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
       setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey(clientProfile.signature_url || null);
@@ -110,6 +112,7 @@ export default function SettingsDocumentsPage() {
       logo_size: logoSize,
       show_logo: showLogo,
       show_company_name: showCompanyName,
+      logo_layout: logoLayout,
       pdf_template: pdfTemplate,
       classic_terms: classicTerms.trim() || null,
       signature_url: signatureKey,
@@ -184,6 +187,7 @@ export default function SettingsDocumentsPage() {
     logoSize !== (clientProfile?.logo_size || "square") ||
     showLogo !== (clientProfile?.show_logo !== false) ||
     showCompanyName !== (clientProfile?.show_company_name !== false) ||
+    logoLayout !== (clientProfile?.logo_layout === "above" ? "above" : "left") ||
     signatureKey !== (clientProfile?.signature_url ?? null) ||
     stampKey !== (clientProfile?.stamp_url ?? null) ||
     signatureScale !== (clientProfile?.signature_scale || "medium") ||
@@ -245,6 +249,29 @@ export default function SettingsDocumentsPage() {
               <p className="text-[11px] text-[#888780] -mt-1">
                 เมื่อปิดชื่อบริษัท โลโก้จะถูกใช้แทน ให้เลือกขนาด "ใหญ่ (แทนชื่อบริษัท)" และอัปโหลดโลโก้ที่มีรายละเอียดครบ
               </p>
+            )}
+
+            {showLogo && showCompanyName && logoKey && (
+              <div className="mt-3">
+                <p className="text-[11px] font-semibold text-[#888780] mb-1.5">ตำแหน่งโลโก้</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setLogoLayout("left"); setSaved(false); }}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs ${logoLayout === "left" ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
+                  >
+                    ชิดซ้าย (ข้างชื่อ)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLogoLayout("above"); setSaved(false); }}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs ${logoLayout === "above" ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
+                  >
+                    ด้านบน (เหนือชื่อ)
+                  </button>
+                </div>
+                <p className="text-[11px] text-[#888780] mt-1">“ด้านบน” วางโลโก้ชิดซ้ายเหนือชื่อบริษัท — แก้การเลื่อนเมื่อชื่อยาว</p>
+              </div>
             )}
 
             <div className="border-t border-[#E8E6DF] pt-3">

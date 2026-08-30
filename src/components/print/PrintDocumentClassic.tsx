@@ -245,7 +245,7 @@ export function PrintDocumentClassic({
       )}
       {showHeader && (
         <>
-          <header className="print-classic-top">
+          <header className={`print-classic-top${clientProfile.logo_layout === "above" && clientProfile.show_logo !== false && clientProfile.show_company_name !== false && clientProfile.logo_url ? " print-classic-top--above" : ""}`}>
             <div className="print-classic-logo">
               {clientProfile.logo_url && clientProfile.show_logo !== false ? (
                 <img
