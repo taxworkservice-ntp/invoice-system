@@ -469,7 +469,7 @@ export default function DocumentDetailPage() {
       title={docLabel.thai}
       showBack
       breadcrumbs={[
-        { label: "หน้างานขาย", path: "/home" },
+        { label: "หน้าหลัก", path: "/home" },
         { label: "เอกสาร", path: "/documents" },
         { label: doc.doc_number || docLabel.thai },
       ]}
@@ -610,6 +610,10 @@ export default function DocumentDetailPage() {
             <div className="mt-3 text-3xl font-semibold text-ink-900">฿ {formatCurrency(getDisplayAmount(doc))}</div>
             <p className="mt-1 text-sm text-ink-600">{getDisplayAmountLabel(doc)}</p>
             <div className="mt-4 flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" onClick={handleGeneratePdf}>
+                <Printer className="h-3.5 w-3.5 mr-1" />
+                พิมพ์ / PDF
+              </Button>
               {canEditDocument && (
                 <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
                   แก้ไขเอกสาร
@@ -1347,17 +1351,6 @@ export default function DocumentDetailPage() {
               }}
             >
               ยกเลิก
-            </Button>
-          )}
-
-          {doc.deal_id && !isSent && !isPartiallyPaid && (
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full"
-              onClick={() => navigate(`/deals/${doc.deal_id}`)}
-            >
-              ไปที่หน้างานขาย
             </Button>
           )}
 
