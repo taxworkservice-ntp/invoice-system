@@ -578,10 +578,10 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   text-align: center;
 }
 .print-classic-doc-title--inline .print-classic-doc-title-th {
-  font-size: 13pt;
+  font-size: 15pt;
 }
 .print-classic-doc-title--inline .print-classic-doc-title-en {
-  font-size: 9pt;
+  font-size: 10pt;
   margin-top: 0.5mm;
 }
 .print-classic-copy-badge {

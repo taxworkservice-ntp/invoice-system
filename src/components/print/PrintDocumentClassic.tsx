@@ -281,17 +281,17 @@ export function PrintDocumentClassic({
               </div>
             </div>
             <div className="print-classic-top-right">
-              <div className="print-classic-copy-badge">
-                <div className="print-classic-copy-th">{copyLabel}</div>
-                <div className="print-classic-copy-en">
-                  {isCopy ? "CUSTOMER COPY" : "CUSTOMER ORIGINAL"}
-                </div>
-              </div>
               <div className="print-classic-doc-title print-classic-doc-title--inline">
                 <div className="print-classic-doc-title-th">{titleTh}</div>
                 {titleEn ? (
                   <div className="print-classic-doc-title-en">{titleEn}</div>
                 ) : null}
+              </div>
+              <div className="print-classic-copy-badge">
+                <div className="print-classic-copy-th">{copyLabel}</div>
+                <div className="print-classic-copy-en">
+                  {isCopy ? "CUSTOMER COPY" : "CUSTOMER ORIGINAL"}
+                </div>
               </div>
             </div>
           </header>
