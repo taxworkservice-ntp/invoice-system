@@ -94,6 +94,7 @@ function createEmptyLineItem(runId: string, employeeId: string): PayrollLineItem
     additions: [],
     deductions: [],
     absent_days: null,
+    absence_daily_rate: null,
     gross_pay: null,
     sso_employee: null,
     sso_employer: null,
@@ -846,6 +847,7 @@ export default function PayrollPage() {
           previous: existing ? {
             days_worked: existing.days_worked,
             absent_days: existing.absent_days,
+            absence_daily_rate: existing.absence_daily_rate,
             ot_entries: existing.ot_entries,
             additions: existing.additions,
             deductions: existing.deductions,
@@ -853,6 +855,7 @@ export default function PayrollPage() {
           next: {
             days_worked: item.days_worked,
             absent_days: item.absent_days,
+            absence_daily_rate: item.absence_daily_rate,
             ot_entries: item.ot_entries,
             additions: item.additions,
             deductions: item.deductions,
@@ -957,6 +960,7 @@ export default function PayrollPage() {
         base_salary: employee.base_salary,
         days_worked: item.days_worked,
         absent_days: item.absent_days,
+        absence_daily_rate: item.absence_daily_rate,
         ot_entries: item.ot_entries,
         additions: item.additions,
         deductions: item.deductions,
@@ -2246,7 +2250,7 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
                 disabled={leaverSuggestion.absent_days === 0}
                 className="mt-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
               >
-                กรอกข้อเสนอให้ ({leaverSuggestion.absent_days} วันที่ไม่ทำงานถึงสิ้นรอบ)
+                กรอกข้อเสนอให้ ({leaverSuggestion.absent_days} วันเทียบเท่าถึงสิ้นรอบ — คำนวณค่าจ้างตามสัดส่วน)
               </button>
             </div>
           </div>
@@ -2287,10 +2291,28 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
                   disabled={readOnly}
                 />
                 {employee.salary_type === "monthly" ? (
-                  <p className="text-[10px] text-cool-400 mt-1">หัก {formatCurrency(employee.base_salary / ((settings.ot_divisor || 30)))} / วัน</p>
+                  <p className="text-[10px] text-cool-400 mt-1">
+                    หัก {formatCurrency(localItem.absence_daily_rate ?? employee.base_salary / resolveDivisorDays(settings, month, year))} / วัน
+                    {localItem.absence_daily_rate ? " (กำหนดเอง)" : " (อัตโนมัติ)"}
+                  </p>
                 ) : (
                   <p className="text-[10px] text-cool-400 mt-1">ไม่หักซ้ำ — วันที่ไม่มาไม่ได้รับค่าจ้างผ่านวันทำงานแล้ว</p>
                 )}
+              </div>
+            )}
+            {employee.salary_type === "monthly" && settings.absence_deduction !== false && (
+              <div className="max-w-[180px]">
+                <Input
+                  label="ค่าหักต่อวัน (กำหนดเอง)"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={localItem.absence_daily_rate ?? ""}
+                  onChange={(e) => updateLocal({ absence_daily_rate: e.target.value === "" ? null : parseFloat(e.target.value) || null })}
+                  placeholder={(employee.base_salary / resolveDivisorDays(settings, month, year)).toFixed(2)}
+                  disabled={readOnly}
+                />
+                <p className="text-[10px] text-cool-400 mt-1">เว้นว่าง = ใช้อัตราอัตโนมัติ</p>
               </div>
             )}
           </div>
@@ -2591,18 +2613,22 @@ function CalculationBreakdown({ employee, lineItem, settings, month, year }: Cal
   const totalAdditions = lineItem.additions.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
   const totalDeductions = lineItem.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const absence = calculateAbsenceDeduction(
-    { salary_type: employee.salary_type, base_salary: employee.base_salary, absent_days: lineItem.absent_days },
+    { salary_type: employee.salary_type, base_salary: employee.base_salary, absent_days: lineItem.absent_days, absence_daily_rate: lineItem.absence_daily_rate },
     settings,
     divisorDays
   );
   const gross = Math.max(0, basePay + totalOT + totalAdditions - absence);
 
   const calc = calculateBreakdown(
-    { salary_type: employee.salary_type, base_salary: employee.base_salary, days_worked: lineItem.days_worked, absent_days: lineItem.absent_days, ot_entries: lineItem.ot_entries, additions: lineItem.additions, deductions: lineItem.deductions, sso_registered: employee.sso_registered !== false },
+    { salary_type: employee.salary_type, base_salary: employee.base_salary, days_worked: lineItem.days_worked, absent_days: lineItem.absent_days, absence_daily_rate: lineItem.absence_daily_rate, ot_entries: lineItem.ot_entries, additions: lineItem.additions, deductions: lineItem.deductions, sso_registered: employee.sso_registered !== false },
     settings,
     month,
     year
   );
+
+  const absenceDailyRate = lineItem.absence_daily_rate && lineItem.absence_daily_rate > 0
+    ? lineItem.absence_daily_rate
+    : employee.base_salary / divisorDays;
 
   return (
     <div className="rounded-lg border border-primary/20 bg-primary-soft/30 p-4">
@@ -2618,7 +2644,7 @@ function CalculationBreakdown({ employee, lineItem, settings, month, year }: Cal
           </div>
           {calc.absence_deduction > 0 && (
             <div className="flex justify-between">
-              <span className="text-cool-500">หักวันขาดงาน ({lineItem.absent_days} วัน)</span>
+              <span className="text-cool-500">หักวันไม่ทำงาน ({lineItem.absent_days} วัน × ฿{formatCurrency(absenceDailyRate)}/วัน)</span>
               <span className="text-red-500 tabular-nums font-medium">-฿{formatCurrency(calc.absence_deduction)}</span>
             </div>
           )}
@@ -2699,6 +2725,7 @@ function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: Pay
       base_salary: employee.base_salary,
       days_worked: lineItem.days_worked,
       absent_days: lineItem.absent_days,
+      absence_daily_rate: lineItem.absence_daily_rate,
       ot_entries: lineItem.ot_entries,
       additions: lineItem.additions,
       deductions: lineItem.deductions,
@@ -2719,6 +2746,10 @@ function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: Pay
     : employee.base_salary;
 
   const totalDeductions = lineItem.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+
+  const absenceDailyRate = lineItem.absence_daily_rate && lineItem.absence_daily_rate > 0
+    ? lineItem.absence_daily_rate
+    : employee.base_salary / resolveDivisorDays(settings, run?.period_month ?? 1, run ? Number(run.period_end.slice(0, 4)) : undefined);
 
   return (
     <div className="min-h-screen bg-page-bg print:bg-white">
@@ -2777,7 +2808,7 @@ function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: Pay
                   </div>
                   {calc.absence_deduction > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-ink-500">หักวันขาดงาน ({lineItem.absent_days} วัน)</span>
+                      <span className="text-ink-500">หักวันไม่ทำงาน ({lineItem.absent_days} วัน × ฿{formatCurrency(absenceDailyRate)}/วัน)</span>
                       <span className="text-ink-700 tabular-nums font-medium">-฿{formatCurrency(calc.absence_deduction)}</span>
                     </div>
                   )}

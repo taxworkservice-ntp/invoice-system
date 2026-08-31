@@ -4,7 +4,9 @@ import {
   calculateBreakdown,
   calculateGross,
   calculateHourlyRate,
+  calculateMonthlyWithholdingTax,
   calculateSSO,
+  calculateWithholdingTax,
   getEffectiveHourlyRate,
   getMonthDays,
   resolveDivisorDays,
@@ -217,6 +219,87 @@ describe("worker type: not SSO-registered (ค่าจ้างทำของ 
     const ssoExplicit = calculateBreakdown(input({ base_salary: 20000, sso_registered: true }), settings, 8);
     expect(sso).toEqual(ssoExplicit);
     expect(sso.sso_employee).toBe(875); // capped at 17,500 wage base
-    expect(sso.withholding_tax).toBe(125); // annualized 240k − 60k → 1.5k/yr → 125/mo
+    // 240k/yr − 100k expenses − 60k personal − 10.5k SSO → 69.5k taxable → 0 tax
+    expect(sso.withholding_tax).toBe(0);
+  });
+});
+
+describe("withholding tax (annualized PND1 with proper deductions)", () => {
+  it("charges 0 tax for incomes below the effective threshold", () => {
+    // 8k/mo → 96k/yr: expenses floor 60k + personal 60k + SSO 4.8k → taxable 0
+    expect(calculateMonthlyWithholdingTax(8000, calculateSSO(8000).employee)).toBe(0);
+  });
+
+  it("applies the 5% and 10% brackets on a mid income (50k/mo)", () => {
+    // 600k/yr: taxable = 600k − 100k expenses − 60k personal − 10.5k SSO = 429.5k
+    // tax = 150k×0 + 150k×5% + 129.5k×10% = 20,450 → 1,704.17/mo
+    expect(calculateMonthlyWithholdingTax(50000, calculateSSO(50000).employee)).toBeCloseTo(1704.17, 2);
+  });
+
+  it("caps employment expenses at 100k and floors them at 60k", () => {
+    // 460k/yr → 50% = 230k capped to 100k → taxable exactly 300,000 → 7,500
+    expect(calculateWithholdingTax(460000)).toBe(7500);
+    // 96k/yr → 50% = 48k floored to 60k → taxable = 96k − 60k − 60k → 0
+    expect(calculateWithholdingTax(96000)).toBe(0);
+  });
+
+  it("taxes only the amount above a bracket limit", () => {
+    // taxable 300,001 → 7,500 + 1×10% = 7,500.10
+    expect(calculateWithholdingTax(460001)).toBeCloseTo(7500.1, 2);
+  });
+
+  it("keeps payslip arithmetic exact after rounding (floor rule)", () => {
+    const s: PayrollSettings = { ...settings, rounding_rule: "floor" };
+    const result = calculateBreakdown(
+      input({ base_salary: 33333.33, deductions: [{ label: "เงินยืม", amount: 123.45 }] }),
+      s,
+      3,
+    );
+    const recomputed = result.gross_pay - result.sso_employee - result.withholding_tax - result.deductions_total;
+    expect(result.net_pay).toBeCloseTo(recomputed, 2);
+  });
+});
+
+describe("manual per-day absence rate override", () => {
+  it("uses the override rate instead of the derived rate", () => {
+    // 30,000/30 = 1,000 derived; user overrides to 1,200 → 2 × 1,200 = 2,400
+    const result = calculateBreakdown(input({ absent_days: 2, absence_daily_rate: 1200 }), settings, 8);
+    expect(result.absence_deduction).toBe(2400);
+    expect(result.gross_pay).toBe(27600);
+  });
+
+  it("falls back to the derived rate when no override is set", () => {
+    const result = calculateBreakdown(input({ absent_days: 2 }), settings, 8);
+    expect(result.absence_deduction).toBe(2000);
+  });
+
+  it("ignores the override when absent_days is zero", () => {
+    const result = calculateBreakdown(input({ absent_days: 0, absence_daily_rate: 1200 }), settings, 8);
+    expect(result.absence_deduction).toBe(0);
+  });
+
+  it("still never deducts absence for daily staff, even with an override", () => {
+    const result = calculateBreakdown(
+      input({ salary_type: "daily", base_salary: 300, days_worked: 7, absent_days: 1, absence_daily_rate: 999 }),
+      settings,
+      8,
+    );
+    expect(result.absence_deduction).toBe(0);
+  });
+
+  it("respects the absence_deduction=false kill switch over any override", () => {
+    const off = { ...settings, absence_deduction: false as const };
+    expect(calculateBreakdown(input({ absent_days: 2, absence_daily_rate: 1200 }), off, 8).absence_deduction).toBe(0);
+  });
+
+  it("keeps the payslip rounding invariant with an override", () => {
+    const s: PayrollSettings = { ...settings, rounding_rule: "floor" };
+    const result = calculateBreakdown(
+      input({ base_salary: 33333.33, absent_days: 1.5, absence_daily_rate: 1111.11 }),
+      s,
+      3,
+    );
+    const recomputed = result.gross_pay - result.sso_employee - result.withholding_tax - result.deductions_total;
+    expect(result.net_pay).toBeCloseTo(recomputed, 2);
   });
 });

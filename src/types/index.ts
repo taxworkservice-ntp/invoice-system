@@ -556,6 +556,7 @@ export interface PayrollLineItem {
   employee_id: string;
   days_worked: number | null;
   absent_days: number | null;
+  absence_daily_rate: number | null;
   ot_entries: OtEntry[];
   additions: PayrollAddition[];
   deductions: PayrollDeduction[];
