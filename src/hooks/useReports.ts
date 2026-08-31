@@ -568,10 +568,14 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       );
 
       const docTypeLabelsExport: Record<string, string> = {
+        quotation: "ใบเสนอราคา",
         invoice: "ใบแจ้งหนี้",
         tax_invoice_receipt: "ใบกำกับภาษี/ใบเสร็จรับเงิน",
         billing_note: "ใบวางบิล",
         receipt: "ใบเสร็จรับเงิน",
+        delivery_note: "ใบส่งของ",
+        credit_note: "ใบลดหนี้",
+        debit_note: "ใบเพิ่มหนี้",
       };
       const arDetailsData: ARDetail[] = overdueDocs.map((d: any) => {
         const dueDate = d.due_date || null;
@@ -592,10 +596,14 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
 
       // Transaction-level detail table
       const docTypeLabels: Record<string, string> = {
+        quotation: "ใบเสนอราคา",
         invoice: vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้",
         tax_invoice_receipt: "ใบกำกับภาษี/ใบเสร็จรับเงิน",
         billing_note: "ใบวางบิล",
         receipt: "ใบเสร็จรับเงิน",
+        delivery_note: "ใบส่งของ",
+        credit_note: "ใบลดหนี้",
+        debit_note: "ใบเพิ่มหนี้",
       };
       const txns: Transaction[] = paidThisPeriod.map((d: any) => ({
         id: d.id,
