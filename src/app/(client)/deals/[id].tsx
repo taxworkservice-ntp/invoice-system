@@ -35,6 +35,7 @@ import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { getDnVarianceParts, getSourceVarianceLabel, hasDnVariance } from "../../../lib/dnVariance";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
+import { isRefSummaryLine } from "../../../lib/refSummary";
 import { isDocumentOverdue, pickAmountDocument, getStatusPill } from "../../../lib/dealStatus";
 import type {
   Document,
@@ -95,13 +96,20 @@ function getDocumentAmount(doc: Document) {
   return doc.net_payable;
 }
 
+// A row is a print-structure group title (DN/QT summary header) rather than a
+// real sellable item — previews must show real goods/services only.
+function isGroupTitleLine(item: DocumentLineItem) {
+  return isRefSummaryLine(item) || !!(item.source_document_id && !item.source_line_item_id);
+}
+
 function buildItemSummary(lineItems: DocumentLineItem[]) {
-  if (lineItems.length === 0) return "";
-  const summary = lineItems
+  const realItems = lineItems.filter((item) => !isGroupTitleLine(item));
+  if (realItems.length === 0) return "";
+  const summary = realItems
     .slice(0, 2)
     .map((item) => `${item.item_name} × ${item.quantity}`)
     .join(", ");
-  return lineItems.length > 2 ? `${summary} และอีก ${lineItems.length - 2} รายการ` : summary;
+  return realItems.length > 2 ? `${summary} และอีก ${realItems.length - 2} รายการ` : summary;
 }
 
 function round3(value: number) {
@@ -799,7 +807,10 @@ export default function DealDetailPage() {
   );
 
   const firstItemDoc = useMemo(
-    () => nonVoidedDocs.find((item) => item.line_items.length > 0) || null,
+    () =>
+      nonVoidedDocs.find((item) =>
+        item.line_items.some((li) => !isGroupTitleLine(li))
+      ) || null,
     [nonVoidedDocs]
   );
 

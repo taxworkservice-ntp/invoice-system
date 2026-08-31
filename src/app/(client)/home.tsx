@@ -251,10 +251,12 @@ function getItemPreview(documents: DealDoc[]) {
   const withItems = sortDocuments(nonVoided).filter((doc) => (doc.line_items || []).length > 0);
 
   // Newest document first; skip docs whose only rows are reference summaries
-  // so previews show real item/service names.
+  // so previews show real item/service names. DN/QT group-title rows are
+  // skipped even when they carry money (ref-mode invoices) — previews show
+  // real goods/services, and the loop falls through to the source document.
   for (const doc of withItems) {
     const names = (doc.line_items || [])
-      .filter((item) => !isRefSummaryLine(item))
+      .filter((item) => !isRefSummaryLine(item) && !(item.source_document_id && !item.source_line_item_id))
       .map((item) => item.item_name.trim())
       .filter(Boolean);
     if (names.length > 0) return names;
