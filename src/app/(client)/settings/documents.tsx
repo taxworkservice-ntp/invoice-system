@@ -225,6 +225,35 @@ export default function SettingsDocumentsPage() {
             )}
 
             {logoKey && (
+              <div>
+                <p className="text-[11px] font-semibold text-[#888780] mb-1.5">ตำแหน่งโลโก้</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setLogoLayout("left"); setSaved(false); }}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs ${logoLayout === "left" ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
+                  >
+                    ชิดซ้าย (ข้างชื่อ)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLogoLayout("above"); setSaved(false); }}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs ${logoLayout === "above" ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
+                  >
+                    ด้านบน (เหนือชื่อ)
+                  </button>
+                </div>
+                <p className="text-[11px] text-[#888780] mt-1">
+                  {!showLogo
+                    ? "โลโก้ถูกซ่อนในเอกสาร — ตำแหน่งจะมีผลเมื่อเปิดแสดงโลโก้"
+                    : !showCompanyName
+                      ? "เมื่อปิดชื่อบริษัท โลโก้จะแสดงด้านบนอยู่แล้ว — ตำแหน่งมีผลเมื่อเปิดชื่อบริษัท"
+                      : "“ด้านบน” วางโลโก้ชิดซ้ายเหนือชื่อบริษัท — แก้การเลื่อนเมื่อชื่อยาว"}
+                </p>
+              </div>
+            )}
+
+            {logoKey && (
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -249,29 +278,6 @@ export default function SettingsDocumentsPage() {
               <p className="text-[11px] text-[#888780] -mt-1">
                 เมื่อปิดชื่อบริษัท โลโก้จะถูกใช้แทน ให้เลือกขนาด "ใหญ่ (แทนชื่อบริษัท)" และอัปโหลดโลโก้ที่มีรายละเอียดครบ
               </p>
-            )}
-
-            {showLogo && showCompanyName && logoKey && (
-              <div className="mt-3">
-                <p className="text-[11px] font-semibold text-[#888780] mb-1.5">ตำแหน่งโลโก้</p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setLogoLayout("left"); setSaved(false); }}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-xs ${logoLayout === "left" ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
-                  >
-                    ชิดซ้าย (ข้างชื่อ)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setLogoLayout("above"); setSaved(false); }}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-xs ${logoLayout === "above" ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
-                  >
-                    ด้านบน (เหนือชื่อ)
-                  </button>
-                </div>
-                <p className="text-[11px] text-[#888780] mt-1">“ด้านบน” วางโลโก้ชิดซ้ายเหนือชื่อบริษัท — แก้การเลื่อนเมื่อชื่อยาว</p>
-              </div>
             )}
 
             <div className="border-t border-[#E8E6DF] pt-3">
