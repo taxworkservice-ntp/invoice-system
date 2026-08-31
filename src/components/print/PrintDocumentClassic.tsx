@@ -287,16 +287,14 @@ export function PrintDocumentClassic({
                   {isCopy ? "CUSTOMER COPY" : "CUSTOMER ORIGINAL"}
                 </div>
               </div>
+              <div className="print-classic-doc-title print-classic-doc-title--inline">
+                <div className="print-classic-doc-title-th">{titleTh}</div>
+                {titleEn ? (
+                  <div className="print-classic-doc-title-en">{titleEn}</div>
+                ) : null}
+              </div>
             </div>
           </header>
-
-          {/* ============== DOCUMENT TITLE ============== */}
-          <div className="print-classic-doc-title">
-            <div className="print-classic-doc-title-th">{titleTh}</div>
-            {titleEn ? (
-              <div className="print-classic-doc-title-en">{titleEn}</div>
-            ) : null}
-          </div>
 
           {/* ============== INFO BAND ============== */}
           <section className="print-classic-info-band">

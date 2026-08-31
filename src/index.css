@@ -464,7 +464,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 /* TOP HEADER */
 .print-classic-top {
   display: grid;
-  grid-template-columns: auto 1fr 36mm;
+  grid-template-columns: auto 1fr auto;
   gap: 5mm;
   align-items: start;
   padding-bottom: 3mm;
@@ -511,7 +511,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 /* Logo above company (left-aligned stack) — fixes left shift when company name is long */
 .print-classic-top--above {
-  grid-template-columns: 1fr 36mm;
+  grid-template-columns: 1fr auto;
   grid-template-areas:
     "logo badge"
     "company badge";
@@ -524,6 +524,9 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-top--above .print-classic-company {
   grid-area: company;
   margin-top: 0;
+}
+.print-classic-top--above .print-classic-top-right {
+  grid-area: badge;
 }
 .print-classic-logo-fallback {
   width: 30mm;
@@ -566,6 +569,20 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  gap: 2mm;
+}
+/* Document title sits centered below the copy badge — saves the standalone
+   title row's vertical space. */
+.print-classic-doc-title--inline {
+  margin: 0;
+  text-align: center;
+}
+.print-classic-doc-title--inline .print-classic-doc-title-th {
+  font-size: 13pt;
+}
+.print-classic-doc-title--inline .print-classic-doc-title-en {
+  font-size: 9pt;
+  margin-top: 0.5mm;
 }
 .print-classic-copy-badge {
   border: 0.5pt solid #9ca3af;
