@@ -574,10 +574,6 @@ export function InvoiceFromDeliveryNotesForm() {
 
   const handleSave = async () => {
     if (!userId || !selectedCustomer || selectedDeliveryNotes.length === 0) return;
-    if (hasMixedDeals) {
-      setError("กรุณาแยกออกบิลตามงานขาย ไม่สามารถรวมเอกสารจากหลายงานขายได้");
-      return;
-    }
     if (billableLines.length === 0) {
       setError("ยังไม่มีรายการที่จะออกบิล (ระบุจำนวนที่มากกว่า 0)");
       return;
@@ -705,7 +701,7 @@ export function InvoiceFromDeliveryNotesForm() {
           doc_type: "invoice",
           status: "sent",
           customer_id: selectedCustomer.id,
-          deal_id: selectedDealId || selectedDealIds[0] || null,
+          deal_id: selectedDealId || null,
           doc_number: docNumberOverride || null,
           issue_date: issueDate,
           vat_registered: taxSnapshot.vatRegistered,
@@ -779,7 +775,10 @@ export function InvoiceFromDeliveryNotesForm() {
           <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">ใบส่งของที่เลือกมาจากหลายงานขาย</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบส่งของทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็นขั้นตอนเอกสารต่อเนื่องบนหน้าหลัก</p>
+            <p className="mt-0.5 text-xs leading-5">
+              ระบบจะรวมออกเป็นใบแจ้งหนี้เดียวในงานขายใหม่ ใบส่งของทุกใบยังคงอยู่กับงานขายเดิมของตัวเอง
+              และสามารถแยกออกจากใบแจ้งหนี้ย้อนหลังได้
+            </p>
           </div>
         </div>
       )}
