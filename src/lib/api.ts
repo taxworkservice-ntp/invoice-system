@@ -60,6 +60,30 @@ async function fetchWithToken(input: string, init: RequestInit, token: string): 
   });
 }
 
+export async function apiFetchBlob(input: string, init: RequestInit = {}): Promise<Blob> {
+  let token = await getAccessToken();
+  let response = await fetchWithToken(input, init, token);
+
+  if (response.status === 401) {
+    token = await refreshAccessToken();
+    response = await fetchWithToken(input, init, token);
+  }
+
+  if (!response.ok) {
+    const rawText = await response.text();
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const parsed = JSON.parse(rawText);
+      if (parsed && typeof parsed === "object" && typeof parsed.error === "string") message = parsed.error;
+    } catch {
+      if (rawText) message = rawText;
+    }
+    throw new ApiRequestError(response.status, message);
+  }
+
+  return response.blob();
+}
+
 export async function apiFetch<T>(input: string, init: RequestInit = {}): Promise<T> {
   let token = await getAccessToken();
   let response = await fetchWithToken(input, init, token);

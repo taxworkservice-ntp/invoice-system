@@ -279,6 +279,9 @@ create table client_profiles (
   -- Classic V2 per-section font-size overrides (jsonb: header/items/totals/footer -> preset or 'inherit')
   classic_v2_section_font_scales jsonb default null,
 
+  -- Classic V2 per-document-type font-size overrides (jsonb: doc_type -> { global/header/items/totals/footer -> preset or 'inherit' })
+  classic_v2_type_font_scales jsonb default null,
+
   -- Signature & stamp visibility on WHT forms
   show_signature_on_wht  boolean not null default true,
   show_stamp_on_wht      boolean not null default true,

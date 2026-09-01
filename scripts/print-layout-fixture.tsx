@@ -343,6 +343,17 @@ const docFontScale = params.get("docFontScale");
 if (docFontScale) {
   baseData.document = { ...baseData.document, print_font_scale: docFontScale };
 }
+const typeDoc = params.get("typeDoc");
+const typeItems = params.get("typeItems");
+if (typeDoc) {
+  baseData.document = { ...baseData.document, doc_type: typeDoc as Document["doc_type"] };
+  if (typeItems) {
+    baseData.clientProfile = {
+      ...baseData.clientProfile,
+      classic_v2_type_font_scales: { [typeDoc]: { items: typeItems } },
+    };
+  }
+}
 const activeData = appendixOn
   ? { ...baseData, document: { ...baseData.document, dn_appendix: true } }
   : baseData;

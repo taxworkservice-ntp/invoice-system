@@ -115,6 +115,7 @@ export interface ClientProfile {
   stamp_scale?: string | null;
   classic_v2_font_scale?: string | null;
   classic_v2_section_font_scales?: Record<string, string> | null;
+  classic_v2_type_font_scales?: Record<string, Record<string, string>> | null;
   show_signature_on_wht: boolean;
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;

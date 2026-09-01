@@ -2,7 +2,7 @@ import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
-import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult } from "../../constants";
+import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
   BillingNoteInvoice,
@@ -161,15 +161,23 @@ export function PrintDocumentClassicV2({
   const stampUrl = clientProfile.stamp_url;
   const signatureScaleMult = ASSET_SCALE_MULT[clientProfile.signature_scale ?? "medium"] ?? 1;
   const stampScaleMult = ASSET_SCALE_MULT[clientProfile.stamp_scale ?? "medium"] ?? 1;
-  const fontScaleMult = getClassicV2EffectiveFontScaleMult(
+  const typeFontScales = clientProfile.classic_v2_type_font_scales?.[document.doc_type];
+  // An explicit per-document override applies to the whole document (all
+  // sections) — it beats type and workspace scales.
+  const docOverrideMult =
+    document.print_font_scale && document.print_font_scale !== DOCUMENT_FONT_SCALE_DEFAULT
+      ? getClassicV2FontScaleMult(document.print_font_scale)
+      : null;
+  const fontScaleMult = docOverrideMult ?? getClassicV2EffectiveFontScaleMult(
     document.print_font_scale,
+    typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
     clientProfile.classic_v2_font_scale,
   );
   const sectionScales = clientProfile.classic_v2_section_font_scales;
-  const headerScaleMult = getClassicV2SectionScaleMult("header", sectionScales, fontScaleMult);
-  const itemsScaleMult = getClassicV2SectionScaleMult("items", sectionScales, fontScaleMult);
-  const totalsScaleMult = getClassicV2SectionScaleMult("totals", sectionScales, fontScaleMult);
-  const footerScaleMult = getClassicV2SectionScaleMult("footer", sectionScales, fontScaleMult);
+  const headerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, fontScaleMult);
+  const itemsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, fontScaleMult);
+  const totalsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, fontScaleMult);
+  const footerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, fontScaleMult);
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = splitTerms(clientProfile.classic_terms);

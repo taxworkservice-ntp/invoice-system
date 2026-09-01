@@ -10,7 +10,7 @@ import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT } from "../../../constants";
+import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT, CLASSIC_V2_TYPE_FONT_KEYS, CLASSIC_V2_TYPE_GLOBAL_KEY } from "../../../constants";
 import type { ClassicV2SectionFontKey } from "../../../constants";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
 import { SettingsTabs } from "./_components/SettingsTabs";
@@ -48,6 +48,8 @@ export default function SettingsDocumentsPage() {
     totals: CLASSIC_V2_SECTION_INHERIT,
     footer: CLASSIC_V2_SECTION_INHERIT,
   });
+  const [classicV2TypeScales, setClassicV2TypeScales] = useState<Record<string, Record<string, string>>>({});
+  const [selectedTypeFontKey, setSelectedTypeFontKey] = useState<string>("tax_invoice_receipt");
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
@@ -80,6 +82,7 @@ export default function SettingsDocumentsPage() {
         footer: CLASSIC_V2_SECTION_INHERIT,
         ...(clientProfile.classic_v2_section_font_scales || {}),
       });
+      setClassicV2TypeScales(clientProfile.classic_v2_type_font_scales || {});
       setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey(clientProfile.signature_url || null);
       setStampKey(clientProfile.stamp_url || null);
@@ -132,6 +135,12 @@ export default function SettingsDocumentsPage() {
       pdf_template: pdfTemplate,
       classic_v2_font_scale: classicV2FontScale,
       classic_v2_section_font_scales: classicV2SectionScales,
+      classic_v2_type_font_scales: Object.fromEntries(
+        Object.entries(classicV2TypeScales).map(([typeKey, scales]) => [
+          typeKey,
+          Object.fromEntries(Object.entries(scales).filter(([, v]) => v && v !== CLASSIC_V2_SECTION_INHERIT)),
+        ]),
+      ),
       classic_terms: classicTerms.trim() || null,
       signature_url: signatureKey,
       stamp_url: stampKey,
@@ -201,6 +210,7 @@ export default function SettingsDocumentsPage() {
   const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template || "modern") ||
     classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
+    JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.classic_v2_type_font_scales || {}) ||
     CLASSIC_V2_SECTION_FONT_KEYS.some(
       (key) => (classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT) !== (clientProfile?.classic_v2_section_font_scales?.[key] || CLASSIC_V2_SECTION_INHERIT),
     ) ||
@@ -357,6 +367,55 @@ export default function SettingsDocumentsPage() {
                   <p className="text-[11px] text-[#888780] mt-1">
                     ปรับขนาดเฉพาะส่วน — ค่าเริ่มต้น “ตามขนาดหลัก” ใช้ขนาดตัวอักษรด้านบน
                   </p>
+                  <div className="mt-3 border-t border-[#E8E6DF] pt-3">
+                    <p className="text-[11px] font-semibold text-[#888780] mb-2">ปรับขนาดตามประเภทเอกสาร</p>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {DOC_VISIBILITY_TYPES.filter((t) => (CLASSIC_V2_TYPE_FONT_KEYS as string[]).includes(t.key)).map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => { setSelectedTypeFontKey(t.key); setSaved(false); }}
+                          className={`rounded-lg border px-2.5 py-1.5 text-xs ${selectedTypeFontKey === t.key ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                    {(() => {
+                      const typeLabel = DOC_VISIBILITY_TYPES.find((t) => t.key === selectedTypeFontKey)?.label || selectedTypeFontKey;
+                      const current = classicV2TypeScales[selectedTypeFontKey] || {};
+                      const setValue = (key: string, value: string) => {
+                        setClassicV2TypeScales({ ...classicV2TypeScales, [selectedTypeFontKey]: { ...current, [key]: value } });
+                      };
+                      const rows: { key: string; label: string }[] = [
+                        { key: CLASSIC_V2_TYPE_GLOBAL_KEY, label: "ทั้งเอกสาร" },
+                        { key: "header", label: "ส่วนหัว (ชื่อบริษัท/ลูกค้า)" },
+                        { key: "items", label: "ตารางรายการ" },
+                        { key: "totals", label: "ยอดรวม/เงื่อนไข" },
+                        { key: "footer", label: "ลายเซ็น/ท้ายเอกสาร" },
+                      ];
+                      return (
+                        <div className="grid grid-cols-1 gap-2">
+                          {rows.map(({ key, label }) => (
+                            <Select
+                              key={key}
+                              label={`${typeLabel} — ${label}`}
+                              value={current[key] || CLASSIC_V2_SECTION_INHERIT}
+                              onChange={(e) => { setValue(key, e.target.value); setSaved(false); }}
+                            >
+                              <option value={CLASSIC_V2_SECTION_INHERIT}>ตามขนาดหลัก</option>
+                              {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </Select>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                    <p className="text-[11px] text-[#888780] mt-1">
+                      ค่าที่ตั้งที่นี่ใช้กับเอกสารประเภทนี้ทุกฉบับ — หน้าแก้ไขเอกสารแต่ละฉบับยังตั้งทับได้อีกชั้น
+                    </p>
+                  </div>
                 </div>
               )}
               <div className="mt-3">

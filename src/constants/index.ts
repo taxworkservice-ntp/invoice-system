@@ -125,25 +125,9 @@ export function getClassicV2FontScaleMult(value?: string | null): number {
 /** Sentinel stored on a document meaning "follow the workspace default". */
 export const DOCUMENT_FONT_SCALE_DEFAULT = "default";
 
-/**
- * Effective classic V2 global scale for one document: a per-document
- * override (documents.print_font_scale) wins, otherwise the workspace
- * profile preset applies. Non-classic-V2 callers pass through unchanged.
- */
-export function getClassicV2EffectiveFontScaleMult(
-  documentValue: string | null | undefined,
-  profileValue: string | null | undefined,
-): number {
-  const preset =
-    documentValue && documentValue !== DOCUMENT_FONT_SCALE_DEFAULT
-      ? documentValue
-      : profileValue;
-  return getClassicV2FontScaleMult(preset);
-}
-
 export type ClassicV2SectionFontKey = "header" | "items" | "totals" | "footer";
 
-/** Preset value meaning "follow the global classic_v2_font_scale". */
+/** Preset value meaning "follow the workspace default". */
 export const CLASSIC_V2_SECTION_INHERIT = "inherit";
 
 export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
@@ -154,7 +138,7 @@ export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
 ];
 
 /**
- * Effective multiplier for one Classic V2 section: an explicit preset wins,
+ * Multiplier for one Classic V2 section: an explicit workspace preset wins,
  * otherwise the section follows the global font scale.
  */
 export function getClassicV2SectionScaleMult(
@@ -165,6 +149,67 @@ export function getClassicV2SectionScaleMult(
   const value = sectionScales?.[section];
   if (!value || value === CLASSIC_V2_SECTION_INHERIT) return globalMult;
   return CLASSIC_V2_FONT_SCALE_MULT[value] ?? globalMult;
+}
+
+/** Document types that can have their own font-scale overrides (classic V2). */
+export type ClassicV2TypeFontKey =
+  | "quotation"
+  | "invoice"
+  | "tax_invoice_receipt"
+  | "billing_note"
+  | "receipt"
+  | "delivery_note"
+  | "credit_note"
+  | "debit_note";
+
+export const CLASSIC_V2_TYPE_FONT_KEYS: ClassicV2TypeFontKey[] = [
+  "quotation",
+  "invoice",
+  "tax_invoice_receipt",
+  "billing_note",
+  "receipt",
+  "delivery_note",
+  "credit_note",
+  "debit_note",
+];
+
+/** Key inside a per-type override object for the whole-document scale. */
+export const CLASSIC_V2_TYPE_GLOBAL_KEY = "global";
+
+/**
+ * Effective classic V2 global scale for one document — precedence:
+ * per-document override → per-document-type global → workspace profile preset.
+ */
+export function getClassicV2EffectiveFontScaleMult(
+  documentValue: string | null | undefined,
+  typeGlobalValue: string | null | undefined,
+  profileValue: string | null | undefined,
+): number {
+  const preset =
+    documentValue && documentValue !== DOCUMENT_FONT_SCALE_DEFAULT
+      ? documentValue
+      : typeGlobalValue && typeGlobalValue !== CLASSIC_V2_SECTION_INHERIT
+        ? typeGlobalValue
+        : profileValue;
+  return getClassicV2FontScaleMult(preset);
+}
+
+/**
+ * Effective classic V2 section scale for one document — precedence:
+ * per-type section override → workspace section scale → the document's
+ * effective global scale.
+ */
+export function getClassicV2EffectiveSectionScaleMult(
+  section: ClassicV2SectionFontKey,
+  typeSectionScales: Record<string, string> | null | undefined,
+  sectionScales: Record<string, string> | null | undefined,
+  globalMult: number,
+): number {
+  const typeValue = typeSectionScales?.[section];
+  if (typeValue && typeValue !== CLASSIC_V2_SECTION_INHERIT) {
+    return CLASSIC_V2_FONT_SCALE_MULT[typeValue] ?? globalMult;
+  }
+  return getClassicV2SectionScaleMult(section, sectionScales, globalMult);
 }
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {

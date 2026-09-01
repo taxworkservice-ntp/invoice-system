@@ -16,7 +16,8 @@ import {
   type PrintAppendixData,
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
-import { getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult } from "../../../constants";
+import { apiFetchBlob } from "../../../lib/api";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -44,25 +45,33 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const lineItemsForPagination = filteredLineItems;
   const isClassicV2 = data.template === "classic_v2";
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
-  const globalScale = isClassicV2
+  const typeFontScales = data.clientProfile.classic_v2_type_font_scales?.[data.document.doc_type];
+  // An explicit per-document override applies to the whole document (all
+  // sections) — it beats type and workspace scales.
+  const docOverrideMult =
+    data.document.print_font_scale && data.document.print_font_scale !== DOCUMENT_FONT_SCALE_DEFAULT
+      ? getClassicV2FontScaleMult(data.document.print_font_scale)
+      : null;
+  const globalScale = docOverrideMult ?? (isClassicV2
     ? getClassicV2EffectiveFontScaleMult(
         data.document.print_font_scale,
+        typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
         data.clientProfile.classic_v2_font_scale,
       )
-    : 1;
-  const itemsScale = isClassicV2
-    ? getClassicV2SectionScaleMult("items", sectionScales, globalScale)
-    : 1;
+    : 1);
+  const itemsScale = docOverrideMult ?? (isClassicV2
+    ? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, globalScale)
+    : 1);
   // Budgets account for every fixed page block; row-text estimates use the
   // items-table scale.
-  const budgetScales: number | ClassicV2FontScales = isClassicV2
+  const budgetScales: number | ClassicV2FontScales = docOverrideMult ?? (isClassicV2
     ? {
-        header: getClassicV2SectionScaleMult("header", sectionScales, globalScale),
+        header: getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale),
         items: itemsScale,
-        totals: getClassicV2SectionScaleMult("totals", sectionScales, globalScale),
-        footer: getClassicV2SectionScaleMult("footer", sectionScales, globalScale),
+        totals: getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale),
+        footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
       }
-    : 1;
+    : 1);
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
     return paginateRows(
       data.billingNoteInvoices,
@@ -320,26 +329,12 @@ export default function DocumentPrintPreviewPage() {
 
   async function getServerPdfBlob(copyTypes: Array<"original" | "copy">) {
     if (!id) throw new Error("Missing document id");
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-    const token = sessionData.session?.access_token;
-    if (!token) throw new Error("No active session");
-
-    const response = await fetch(`/api/documents/${encodeURIComponent(id)}/pdf`, {
+    // apiFetchBlob refreshes near-expiry sessions and retries 401s — a raw
+    // getSession() fetch sends stale tokens after an idle tab and fails.
+    return apiFetchBlob(`/api/documents/${encodeURIComponent(id)}/pdf`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json; charset=utf-8",
-      },
       body: JSON.stringify({ copyTypes }),
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || `PDF export failed (${response.status})`);
-    }
-
-    return response.blob();
   }
 
   async function handleSavePdf() {

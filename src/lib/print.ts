@@ -104,7 +104,7 @@ import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 import { estimateLineItemHeight } from "./printRowHeight";
 import { getDnVarianceParts } from "./dnVariance";
-import { getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult } from "../constants";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../constants";
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -1101,17 +1101,25 @@ async function renderClassicV2PrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
-  const globalScale = getClassicV2EffectiveFontScaleMult(
+  const typeFontScales = data.clientProfile.classic_v2_type_font_scales?.[data.document.doc_type];
+  // An explicit per-document override applies to the whole document (all
+  // sections) — it beats type and workspace scales.
+  const docOverrideMult =
+    data.document.print_font_scale && data.document.print_font_scale !== DOCUMENT_FONT_SCALE_DEFAULT
+      ? getClassicV2FontScaleMult(data.document.print_font_scale)
+      : null;
+  const globalScale = docOverrideMult ?? getClassicV2EffectiveFontScaleMult(
     data.document.print_font_scale,
+    typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
     data.clientProfile.classic_v2_font_scale,
   );
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
-  const itemsScale = getClassicV2SectionScaleMult("items", sectionScales, globalScale);
-  const budgetScales = {
-    header: getClassicV2SectionScaleMult("header", sectionScales, globalScale),
+  const itemsScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, globalScale);
+  const budgetScales = docOverrideMult ?? {
+    header: getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale),
     items: itemsScale,
-    totals: getClassicV2SectionScaleMult("totals", sectionScales, globalScale),
-    footer: getClassicV2SectionScaleMult("footer", sectionScales, globalScale),
+    totals: getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale),
+    footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
   };
   const batches = paginateLineItems(data.lineItems, "classic", {
     estimateHeight: makeLineItemEstimate(data, "classic", itemsScale),
