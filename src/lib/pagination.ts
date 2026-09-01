@@ -30,35 +30,66 @@ const SUMMARY_ROW_CAPACITY = {
 
 // Row-area budgets above are tuned at --classic-font-scale = 1, but the fixed
 // page blocks (header, info band, terms/totals, signatures, table head) also
-// contain text that grows with the scale, eating into the row area. These
-// coefficients are measured fixed-block growth in mm per unit of font scale
-// (classic V2 fixture renders, rounded up conservatively) — budgets shrink by
-// coefficient × (scale − 1). Summary pages carry the full header + totals on
-// every page, so they always reserve the first-page coefficient.
-const FONT_SCALE_BUDGET_RESERVE_MM = {
-  line_items: { first: 150, continuation: 10, last: 45 },
-  summary_rows: { first: 150, continuation: 150, last: 150 },
+// contain text that grows with the font scale, eating into the row area.
+// These per-section coefficients are the measured fixed-block growth in mm per
+// unit of that section's font scale (classic V2 fixture renders, rounded up
+// conservatively); budgets shrink by Σ coefficient × (section scale − 1).
+// Summary pages carry the full header + totals on every page, so they reserve
+// every section on every page.
+const FONT_SCALE_SECTION_RESERVE_MM = { header: 60, items: 5, totals: 56, footer: 24 } as const;
+
+const FONT_SCALE_PAGE_SECTIONS = {
+  line_items: {
+    first: ["header", "items", "totals", "footer"],
+    continuation: ["items"],
+    last: ["items", "totals", "footer"],
+  },
+  // Full document layout on every summary page.
+  summary_rows: {
+    first: ["header", "items", "totals", "footer"],
+    continuation: ["header", "items", "totals", "footer"],
+    last: ["header", "items", "totals", "footer"],
+  },
+} as const;
+
+export type ClassicV2FontScales = {
+  header: number;
+  items: number;
+  totals: number;
+  footer: number;
 };
+
+function normalizeFontScales(
+  fontScale: number | ClassicV2FontScales,
+): ClassicV2FontScales {
+  return typeof fontScale === "number"
+    ? { header: fontScale, items: fontScale, totals: fontScale, footer: fontScale }
+    : fontScale;
+}
 
 /**
  * Estimated row-area budget (mm) per page mode. `fontScale` is the classic V2
- * --classic-font-scale multiplier (1 = default, budgets unscaled).
+ * font scale — either one uniform multiplier (1 = default, budgets unscaled)
+ * or per-section multipliers ({@link ClassicV2FontScales}).
  */
 export function getRowBudgets(
   template: "modern" | "classic" | "classic_v2",
-  fontScale = 1,
+  fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
 ): { first: number; continuation: number; last: number } {
   const baseMm = getBaseRowMm(template);
   const capacity = kind === "summary_rows"
     ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : "classic"]
     : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : "classic"];
-  const reserve = (mode: "first" | "continuation" | "last") =>
-    template !== "modern" && fontScale !== 1
-      ? // Never grow budgets below scale 1: if a user's fixed content doesn't
-        // actually shrink, under-filled pages are harmless but overflow is not.
-        Math.max(0, FONT_SCALE_BUDGET_RESERVE_MM[kind][mode] * (fontScale - 1))
-      : 0;
+  const scales = normalizeFontScales(fontScale);
+  const reserve = (mode: "first" | "continuation" | "last") => {
+    if (template === "modern") return 0;
+    return FONT_SCALE_PAGE_SECTIONS[kind][mode].reduce((sum, section) => {
+      // Never grow budgets below scale 1: if a user's fixed content doesn't
+      // actually shrink, under-filled pages are harmless but overflow is not.
+      return sum + FONT_SCALE_SECTION_RESERVE_MM[section] * Math.max(0, scales[section] - 1);
+    }, 0);
+  };
   return {
     first: Math.max(baseMm, capacity.first * baseMm - reserve("first")),
     continuation: Math.max(baseMm, capacity.continuation * baseMm - reserve("continuation")),
@@ -82,10 +113,11 @@ export interface PaginateOptions<T> {
    */
   estimateHeight?: (row: T, index: number) => number;
   /**
-   * Classic V2 --classic-font-scale multiplier (1 = default). Shrinks the
-   * per-page row budgets to make room for the scaled fixed page blocks.
+   * Classic V2 font scale for the row-area budgets — one uniform multiplier
+   * (1 = default) or per-section multipliers. Shrinks the per-page row
+   * budgets to make room for the scaled fixed page blocks.
    */
-  fontScale?: number;
+  fontScale?: number | ClassicV2FontScales;
 }
 
 /**
@@ -181,7 +213,7 @@ function paginateRowsByHeight<T>(
   cp: number,
   lp: number,
   estimateHeight: (row: T, index: number) => number,
-  fontScale = 1,
+  fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
 ): GenericPageBatch<T>[] {
   const budgets = getRowBudgets(template, fontScale, kind);
@@ -265,7 +297,7 @@ function paginateRowsByHeight<T>(
 export function paginateLineItems(
   lineItems: DocumentLineItem[],
   template: "modern" | "classic" | "classic_v2",
-  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number } = {},
+  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number | ClassicV2FontScales } = {},
 ): PageBatch[] {
   return paginateRows(lineItems, template, "line_items", {
     estimateHeight: opts.estimateHeight,

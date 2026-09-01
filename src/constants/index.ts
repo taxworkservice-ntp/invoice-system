@@ -120,6 +120,32 @@ export function getClassicV2FontScaleMult(value?: string | null): number {
   return CLASSIC_V2_FONT_SCALE_MULT[value ?? "normal"] ?? 1;
 }
 
+export type ClassicV2SectionFontKey = "header" | "items" | "totals" | "footer";
+
+/** Preset value meaning "follow the global classic_v2_font_scale". */
+export const CLASSIC_V2_SECTION_INHERIT = "inherit";
+
+export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
+  "header",
+  "items",
+  "totals",
+  "footer",
+];
+
+/**
+ * Effective multiplier for one Classic V2 section: an explicit preset wins,
+ * otherwise the section follows the global font scale.
+ */
+export function getClassicV2SectionScaleMult(
+  section: ClassicV2SectionFontKey,
+  sectionScales: Record<string, string> | null | undefined,
+  globalMult: number,
+): number {
+  const value = sectionScales?.[section];
+  if (!value || value === CLASSIC_V2_SECTION_INHERIT) return globalMult;
+  return CLASSIC_V2_FONT_SCALE_MULT[value] ?? globalMult;
+}
+
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "เงินสด",
   bank_transfer: "โอนเงิน",

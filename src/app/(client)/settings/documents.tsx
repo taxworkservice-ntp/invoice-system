@@ -10,7 +10,8 @@ import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS } from "../../../constants";
+import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT } from "../../../constants";
+import type { ClassicV2SectionFontKey } from "../../../constants";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { ClientProfile } from "../../../types";
@@ -41,6 +42,12 @@ export default function SettingsDocumentsPage() {
   const [logoLayout, setLogoLayout] = useState<"left" | "above">("left");
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic" | "classic_v2">("modern");
   const [classicV2FontScale, setClassicV2FontScale] = useState("normal");
+  const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>({
+    header: CLASSIC_V2_SECTION_INHERIT,
+    items: CLASSIC_V2_SECTION_INHERIT,
+    totals: CLASSIC_V2_SECTION_INHERIT,
+    footer: CLASSIC_V2_SECTION_INHERIT,
+  });
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
@@ -66,6 +73,13 @@ export default function SettingsDocumentsPage() {
       setLogoLayout(clientProfile.logo_layout === "above" ? "above" : "left");
       setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
       setClassicV2FontScale(clientProfile.classic_v2_font_scale || "normal");
+      setClassicV2SectionScales({
+        header: CLASSIC_V2_SECTION_INHERIT,
+        items: CLASSIC_V2_SECTION_INHERIT,
+        totals: CLASSIC_V2_SECTION_INHERIT,
+        footer: CLASSIC_V2_SECTION_INHERIT,
+        ...(clientProfile.classic_v2_section_font_scales || {}),
+      });
       setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey(clientProfile.signature_url || null);
       setStampKey(clientProfile.stamp_url || null);
@@ -117,6 +131,7 @@ export default function SettingsDocumentsPage() {
       logo_layout: logoLayout,
       pdf_template: pdfTemplate,
       classic_v2_font_scale: classicV2FontScale,
+      classic_v2_section_font_scales: classicV2SectionScales,
       classic_terms: classicTerms.trim() || null,
       signature_url: signatureKey,
       stamp_url: stampKey,
@@ -186,6 +201,9 @@ export default function SettingsDocumentsPage() {
   const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template || "modern") ||
     classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
+    CLASSIC_V2_SECTION_FONT_KEYS.some(
+      (key) => (classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT) !== (clientProfile?.classic_v2_section_font_scales?.[key] || CLASSIC_V2_SECTION_INHERIT),
+    ) ||
     classicTerms !== (clientProfile?.classic_terms || "") ||
     logoKey !== (clientProfile?.logo_url ?? null) ||
     logoSize !== (clientProfile?.logo_size || "square") ||
@@ -310,6 +328,34 @@ export default function SettingsDocumentsPage() {
                   </Select>
                   <p className="text-[11px] text-[#888780] mt-1">
                     ปรับขนาดตัวอักษรทั้งเอกสาร — ระบบจะคำนวณจำนวนรายการต่อหน้าให้อัตโนมัติ
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
+                    {(
+                      [
+                        { key: "header" as const, label: "ส่วนหัว (ชื่อบริษัท/ลูกค้า)" },
+                        { key: "items" as const, label: "ตารางรายการ" },
+                        { key: "totals" as const, label: "ยอดรวม/เงื่อนไข" },
+                        { key: "footer" as const, label: "ลายเซ็น/ท้ายเอกสาร" },
+                      ]
+                    ).map(({ key, label }) => (
+                      <Select
+                        key={key}
+                        label={label}
+                        value={classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT}
+                        onChange={(e) => {
+                          setClassicV2SectionScales({ ...classicV2SectionScales, [key]: e.target.value });
+                          setSaved(false);
+                        }}
+                      >
+                        <option value={CLASSIC_V2_SECTION_INHERIT}>ตามขนาดหลัก</option>
+                        {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </Select>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-[#888780] mt-1">
+                    ปรับขนาดเฉพาะส่วน — ค่าเริ่มต้น “ตามขนาดหลัก” ใช้ขนาดตัวอักษรด้านบน
                   </p>
                 </div>
               )}

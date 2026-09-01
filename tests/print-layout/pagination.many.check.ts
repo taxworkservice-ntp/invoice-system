@@ -150,6 +150,43 @@ for (const { preset, mult } of scales) {
   assert.ok(atMax.length > at1.length, "xxlarge must produce more pages than normal for many-line docs");
 }
 
+// 6. per-section scales: section-aware budgets
+{
+  // items-only scale paginates with item-scaled rows, other sections at 1x
+  const mixed = { header: 1, items: 1.44, totals: 1, footer: 1 };
+  const batches = paginateLineItems(items, "classic", {
+    estimateHeight: (item) => estimateClassic(item, 1.44),
+    fontScale: mixed,
+  });
+  const budgets = getRowBudgets("classic", mixed);
+  for (const batch of batches) {
+    const sum = batch.items.reduce((acc, it) => acc + estimateClassic(it, 1.44), 0);
+    assert.ok(
+      sum <= budgets[batch.mode] + 0.5,
+      `items-1.44: ${batch.mode} page height ${sum.toFixed(1)}mm within budget ${budgets[batch.mode].toFixed(1)}mm`,
+    );
+  }
+  let n = 1;
+  for (const batch of batches) {
+    assert.equal(batch.startIndex, n, "items-1.44: startIndex continuity");
+    n += batch.items.length;
+  }
+  assert.equal(n - 1, items.length, "items-1.44: full coverage");
+  // header-only growth reserves space on the first page but not on
+  // continuation pages (no full header there)
+  const headerOnly = getRowBudgets("classic", { header: 1.44, items: 1, totals: 1, footer: 1 });
+  const unscaled = getRowBudgets("classic", 1);
+  assert.ok(headerOnly.first < unscaled.first, "header scale must shrink first-page budget");
+  assert.equal(headerOnly.continuation, unscaled.continuation, "continuation pages carry no full header");
+  // uniform 1.44 via sections matches the scalar form
+  const uniform = getRowBudgets("classic", { header: 1.44, items: 1.44, totals: 1.44, footer: 1.44 });
+  const scalar = getRowBudgets("classic", 1.44);
+  for (const mode of ["first", "continuation", "last"] as const) {
+    assert.ok(Math.abs(uniform[mode] - scalar[mode]) < 0.001, `uniform section scales match scalar (${mode})`);
+  }
+  console.log(`  classic_v2 items-1.44: ${batches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
+}
+
 console.log("pagination.many: all assertions passed");
 console.log(
   `  modern batches: ${modernBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`,

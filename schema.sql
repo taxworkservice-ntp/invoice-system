@@ -273,8 +273,11 @@ create table client_profiles (
   signature_scale       text not null default 'medium',
   stamp_scale           text not null default 'medium',
 
-  -- Classic V2 template font-size preset ('small' | 'normal' | 'large' | 'xlarge')
+  -- Classic V2 template font-size preset ('small' | 'normal' | 'large' | 'xlarge' | 'xxlarge')
   classic_v2_font_scale text not null default 'normal',
+
+  -- Classic V2 per-section font-size overrides (jsonb: header/items/totals/footer -> preset or 'inherit')
+  classic_v2_section_font_scales jsonb default null,
 
   -- Signature & stamp visibility on WHT forms
   show_signature_on_wht  boolean not null default true,

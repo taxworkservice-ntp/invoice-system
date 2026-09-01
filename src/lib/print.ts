@@ -104,7 +104,7 @@ import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 import { estimateLineItemHeight } from "./printRowHeight";
 import { getDnVarianceParts } from "./dnVariance";
-import { getClassicV2FontScaleMult } from "../constants";
+import { getClassicV2FontScaleMult, getClassicV2SectionScaleMult } from "../constants";
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -1101,12 +1101,20 @@ async function renderClassicV2PrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
-  const fontScale = getClassicV2FontScaleMult(
+  const globalScale = getClassicV2FontScaleMult(
     data.clientProfile.classic_v2_font_scale,
   );
+  const sectionScales = data.clientProfile.classic_v2_section_font_scales;
+  const itemsScale = getClassicV2SectionScaleMult("items", sectionScales, globalScale);
+  const budgetScales = {
+    header: getClassicV2SectionScaleMult("header", sectionScales, globalScale),
+    items: itemsScale,
+    totals: getClassicV2SectionScaleMult("totals", sectionScales, globalScale),
+    footer: getClassicV2SectionScaleMult("footer", sectionScales, globalScale),
+  };
   const batches = paginateLineItems(data.lineItems, "classic", {
-    estimateHeight: makeLineItemEstimate(data, "classic", fontScale),
-    fontScale,
+    estimateHeight: makeLineItemEstimate(data, "classic", itemsScale),
+    fontScale: budgetScales,
   });
   if (batches.length <= 1) {
     return [await renderClassicV2PrintCanvas(data, copyType)];

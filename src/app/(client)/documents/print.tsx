@@ -16,9 +16,10 @@ import {
   type PrintAppendixData,
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
-import { getClassicV2FontScaleMult } from "../../../constants";
+import { getClassicV2FontScaleMult, getClassicV2SectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
+import type { ClassicV2FontScales } from "../../../lib/pagination";
 import {
   estimateLineItemHeight,
   estimateSummaryRowHeight,
@@ -41,15 +42,30 @@ type PrintBatch =
 function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix = data.document.dn_appendix): PrintBatch[] {
   const { filteredLineItems } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
   const lineItemsForPagination = filteredLineItems;
-  const fontScale = data.template === "classic_v2"
+  const isClassicV2 = data.template === "classic_v2";
+  const sectionScales = data.clientProfile.classic_v2_section_font_scales;
+  const globalScale = isClassicV2
     ? getClassicV2FontScaleMult(data.clientProfile.classic_v2_font_scale)
+    : 1;
+  const itemsScale = isClassicV2
+    ? getClassicV2SectionScaleMult("items", sectionScales, globalScale)
+    : 1;
+  // Budgets account for every fixed page block; row-text estimates use the
+  // items-table scale.
+  const budgetScales: number | ClassicV2FontScales = isClassicV2
+    ? {
+        header: getClassicV2SectionScaleMult("header", sectionScales, globalScale),
+        items: itemsScale,
+        totals: getClassicV2SectionScaleMult("totals", sectionScales, globalScale),
+        footer: getClassicV2SectionScaleMult("footer", sectionScales, globalScale),
+      }
     : 1;
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
     return paginateRows(
       data.billingNoteInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, fontScale), fontScale },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale), fontScale: budgetScales },
     ).map((batch) => ({ kind: "billing_invoices", batch }));
   }
 
@@ -62,7 +78,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.receiptInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, fontScale), fontScale },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale), fontScale: budgetScales },
     ).map((batch) => ({ kind: "receipt_invoices", batch }));
   }
 
@@ -78,14 +94,14 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   return paginateRows(lineItemsForPagination, data.template, "line_items", {
     estimateHeight: (item) =>
       estimateLineItemHeight(item, data.template, {
-        fontScale,
+        fontScale: itemsScale,
         hideDeliveryAmounts: effectiveHideAmounts,
         hasLineDiscount:
           (item.discount_amount ?? 0) > 0 || (item.discount_percent ?? 0) > 0,
         hasInlineDnRef: !!data.showInlineDeliveryNotes && !!data.lineDeliveryNoteMap[item.id],
         hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],
       }),
-    fontScale,
+    fontScale: budgetScales,
   }).map((batch) => ({ kind: "line_items", batch }));
 }
 

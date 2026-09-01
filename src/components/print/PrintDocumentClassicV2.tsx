@@ -2,7 +2,7 @@ import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
-import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, getClassicV2FontScaleMult } from "../../constants";
+import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, getClassicV2FontScaleMult, getClassicV2SectionScaleMult } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
   BillingNoteInvoice,
@@ -162,6 +162,11 @@ export function PrintDocumentClassicV2({
   const signatureScaleMult = ASSET_SCALE_MULT[clientProfile.signature_scale ?? "medium"] ?? 1;
   const stampScaleMult = ASSET_SCALE_MULT[clientProfile.stamp_scale ?? "medium"] ?? 1;
   const fontScaleMult = getClassicV2FontScaleMult(clientProfile.classic_v2_font_scale);
+  const sectionScales = clientProfile.classic_v2_section_font_scales;
+  const headerScaleMult = getClassicV2SectionScaleMult("header", sectionScales, fontScaleMult);
+  const itemsScaleMult = getClassicV2SectionScaleMult("items", sectionScales, fontScaleMult);
+  const totalsScaleMult = getClassicV2SectionScaleMult("totals", sectionScales, fontScaleMult);
+  const footerScaleMult = getClassicV2SectionScaleMult("footer", sectionScales, fontScaleMult);
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = splitTerms(clientProfile.classic_terms);
@@ -233,7 +238,13 @@ export function PrintDocumentClassicV2({
       className={
         `print-sheet print-theme-classic print-theme-classic-v2${isCopy ? " print-copy" : ""}${documentClass}`
       }
-      style={{ "--classic-font-scale": fontScaleMult } as React.CSSProperties}
+      style={{
+        "--classic-font-scale": fontScaleMult,
+        "--classic-fs-header": headerScaleMult,
+        "--classic-fs-items": itemsScaleMult,
+        "--classic-fs-totals": totalsScaleMult,
+        "--classic-fs-footer": footerScaleMult,
+      } as React.CSSProperties}
     >
       {/* ============== TOP HEADER ============== */}
       {showContinuationHeader && (
@@ -1020,7 +1031,7 @@ export function PrintDocumentClassicV2({
       {lineItems.length > 0 && pageMode !== "single" && pageMode !== "last" && (
         <div
           className="mt-1.5 text-center text-[#94a3b8] tracking-[0.08em] border-b-[0.5px] border-[#D3DAE6] pb-1"
-          style={{ fontSize: "calc(8.5px * var(--classic-font-scale, 1))" }}
+          style={{ fontSize: "calc(8.5px * var(--classic-fs-items, 1))" }}
         >
           รายการต่อไป… (CONTINUED)
         </div>
