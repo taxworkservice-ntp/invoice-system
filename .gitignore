@@ -16,3 +16,6 @@ tests/print-layout/actual
 e2e/.auth/
 test-results/
 playwright-report/
+
+# local dev api server output
+dev-api-*.log

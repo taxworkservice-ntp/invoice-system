@@ -4,6 +4,12 @@ import { RefreshCw, Search } from "lucide-react";
 import { isRefSummaryLine } from "../../lib/refSummary";
 import { computeDealFinancialSummary } from "../../lib/dealFinancials";
 import { isDocumentOverdue, pickAmountDocument } from "../../lib/dealStatus";
+import {
+  fetchWorkspaceBillingRefs,
+  invoicePaymentLabel,
+  invoicePaymentTone,
+  type BillingRef,
+} from "../../lib/billingRefs";
 import { useAuth, useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
 import { AppShell } from "../../components/layout/AppShell";
 import { Card } from "../../components/ui/Card";
@@ -114,6 +120,10 @@ type DashboardDeal = {
   isPartiallyPaid: boolean;
   taxDocNumber: string | null;
   isAllVoided: boolean;
+  /** Source deal: the active invoice that billed this deal's documents. */
+  billedIn: BillingRef | null;
+  /** Billing-run deal: the source deals combined into its invoice(s). */
+  billingSourceDeals: Array<{ dealId: string; dealNumber: string | null }>;
 };
 
 type HomeQueue =
@@ -293,11 +303,26 @@ function getCompletedAt(documents: DealDoc[]) {
   return completion?.paid_at || completion?.updated_at || null;
 }
 
-function isDealDone(documents: DealDoc[]) {
-  const nonVoided = documents.filter((doc) => doc.status !== "voided");
+// A done deal whose documents were combined into another deal's invoice or
+// billing note — regardless of payment state. Its money story lives on the
+// billing deal, so the "ซ่อนงานที่ถูกรวมออกบิล" toggle hides these to show
+// only deals finalized within themselves.
+function isCombinedDeal(deal: DashboardDeal) {
+  return Boolean(deal.billedIn);
+}
+
+function isDealDone(documents: DealDoc[], billingHeldIds?: Set<string>) {  const nonVoided = documents.filter((doc) => doc.status !== "voided");
   if (nonVoided.length === 0) return true;
   const downstreamQuotes = getQuotationsWithDownstream(nonVoided);
-  return nonVoided.every((doc) => isQuotationResolved(doc, downstreamQuotes));
+  return nonVoided.every(
+    (doc) =>
+      isQuotationResolved(doc, downstreamQuotes) ||
+      // An invoice held by an ACTIVE billing note in another deal
+      // (รวมใบแจ้งหนี้ → ใบวางบิล) is work-complete: the money story continues
+      // on the billing note, so the deal belongs in done with a "วางบิลใน …"
+      // reference — same rule as DN→INV combined deals.
+      (doc.status === "in_billing" && billingHeldIds?.has(doc.id)),
+  );
 }
 
 function getDealReceivedAmount(documents: DealDoc[]) {
@@ -535,11 +560,11 @@ function getStageInfo(
   };
 }
 
-function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
+function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<string>): DashboardDeal {
   const latestDocument = getMostUrgentDocument(deal.documents || []);
   const amountDocument = getAmountDocument(deal.documents || []);
   const paidAt = getCompletedAt(deal.documents || []);
-  const isDone = isDealDone(deal.documents || []);
+  const isDone = isDealDone(deal.documents || [], billingHeldIds);
   const isOverdue = isOverdueDocument(latestDocument);
   const stageInfo = getStageInfo(
     deal.documents || [],
@@ -639,6 +664,8 @@ function deriveDashboardDeal(deal: DealWithRelations): DashboardDeal {
     isPartiallyPaid,
     taxDocNumber,
     isAllVoided,
+    billedIn: null,
+    billingSourceDeals: [],
   };
 }
 
@@ -671,13 +698,27 @@ export default function HomePage() {
     if (typeof window === "undefined") return "all";
     return window.localStorage.getItem("home.done.month") || "all";
   });
+  // Toggle: when on, the done section shows only FINALIZED deals — deals
+  // whose money was settled within themselves. Deals whose documents were
+  // combined into another deal's invoice/billing note (paid or not) are
+  // hidden; their money story lives on the billing deal, reachable via the
+  // "ออกบิล/วางบิลใน …" pill in the เอกสาร column.
+  const [hideCombinedDone, setHideCombinedDone] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const stored = window.localStorage.getItem("home.done.hideCombined");
+    // Default ON: the done section reads as a finalized-deal ledger; deals
+    // combined into another deal's invoice/billing note start hidden. An
+    // explicit "0" switches back to showing them.
+    return stored === null ? true : stored === "1";
+  });
 
   // Persist the done-section filters so the last choice survives reloads.
   useEffect(() => {
     window.localStorage.setItem("home.done.sort", doneSort);
     window.localStorage.setItem("home.done.year", doneYear);
     window.localStorage.setItem("home.done.month", doneMonth);
-  }, [doneSort, doneYear, doneMonth]);
+    window.localStorage.setItem("home.done.hideCombined", hideCombinedDone ? "1" : "0");
+  }, [doneSort, doneYear, doneMonth, hideCombinedDone]);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "table";
     const stored = window.localStorage.getItem("homeViewMode");
@@ -750,17 +791,65 @@ export default function HomePage() {
         }
       }
 
-      setDeals(
-        dealsWithRelations
-          .map((deal) => ({
-            ...deal,
-            documents: (deal.documents || []).map((doc) => ({
-              ...doc,
-              line_items: lineItemsByDoc.get(doc.id) || [],
-            })),
-          }))
-          .map(deriveDashboardDeal),
-      );
+      // Billing cross-references (best-effort — never block the dashboard):
+      //   * source deals: "billed in <run deal> · <payment state>"
+      //   * billing-run deals: "combined from N deals"
+      let billingRefs = new Map<string, BillingRef>();
+      try {
+        billingRefs = await fetchWorkspaceBillingRefs(userId);
+      } catch {
+        // Cross-references are informational; ignore lookup failures.
+      }
+      const heldDocIds = new Set<string>();
+      for (const [docId, ref] of billingRefs) {
+        if (ref.kind === "billing_note") heldDocIds.add(docId);
+      }
+
+      const dashboardDeals = dealsWithRelations
+        .map((deal) => ({
+          ...deal,
+          documents: (deal.documents || []).map((doc) => ({
+            ...doc,
+            line_items: lineItemsByDoc.get(doc.id) || [],
+          })),
+        }))
+        .map((deal) => deriveDashboardDeal(deal, heldDocIds));
+
+      const docIdToSource = new Map<string, { dealId: string; dealNumber: string | null }>();
+      for (const deal of dealsWithRelations) {
+        for (const doc of deal.documents || []) {
+          docIdToSource.set(doc.id, { dealId: deal.id, dealNumber: (deal as any).deal_number ?? null });
+        }
+      }
+      const sourceDealsByRunDeal = new Map<string, Array<{ dealId: string; dealNumber: string | null }>>();
+      for (const [docId, ref] of billingRefs) {
+        const source = docIdToSource.get(docId);
+        if (!source || source.dealId === ref.dealId) continue;
+        const list = sourceDealsByRunDeal.get(ref.dealId) || [];
+        if (!list.some((s) => s.dealId === source.dealId)) {
+          list.push({ dealId: source.dealId, dealNumber: source.dealNumber });
+          sourceDealsByRunDeal.set(ref.dealId, list);
+        }
+      }
+      for (const d of dashboardDeals) {
+        if (d.isDone) {
+          for (const doc of d.documents) {
+            const ref = billingRefs.get(doc.id);
+            if (ref && ref.dealId !== d.dealId) {
+              d.billedIn = ref;
+              break;
+            }
+          }
+        }
+        d.billingSourceDeals = sourceDealsByRunDeal.get(d.dealId) || [];
+        if (d.billingSourceDeals.length > 0) {
+          d.stageHint = d.stageHint
+            ? `${d.stageHint} · รวม ${d.billingSourceDeals.length} งานขาย`
+            : `รวม ${d.billingSourceDeals.length} งานขาย`;
+        }
+      }
+
+      setDeals(dashboardDeals);
       setLoading(false);
       setRefreshing(false);
     },
@@ -948,6 +1037,7 @@ export default function HomePage() {
     const sortKey = doneSort;
     return deals
       .filter((deal) => deal.isDone && !deal.isEmpty)
+      .filter((deal) => !(hideCombinedDone && isCombinedDeal(deal)))
       .filter((deal) => {
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
@@ -968,23 +1058,24 @@ export default function HomePage() {
       .sort((a, b) =>
         (b[sortKey] || "").localeCompare(a[sortKey] || ""),
       );
-  }, [deals, searchQuery, doneSort, doneYear, doneMonth]);
+  }, [deals, searchQuery, doneSort, doneYear, doneMonth, hideCombinedDone]);
 
   const doneYearOptions = useMemo(() => {
     const years = new Set<string>();
     deals.forEach((deal) => {
       if (!(deal.isDone && !deal.isEmpty)) return;
+      if (hideCombinedDone && isCombinedDeal(deal)) return;
       [deal.paidAt, deal.updatedAt].forEach((value) => {
         const year = (value || "").slice(0, 4);
         if (year) years.add(year);
       });
     });
     return Array.from(years).sort((a, b) => b.localeCompare(a));
-  }, [deals]);
+  }, [deals, hideCombinedDone]);
 
   const hasAnyDone = useMemo(
-    () => deals.some((deal) => deal.isDone && !deal.isEmpty),
-    [deals],
+    () => deals.some((deal) => deal.isDone && !deal.isEmpty && !(hideCombinedDone && isCombinedDeal(deal))),
+    [deals, hideCombinedDone],
   );
 
   const clearDoneFilters = () => {
@@ -1580,6 +1671,21 @@ export default function HomePage() {
                         </option>
                       ))}
                     </select>
+                    <label
+                      className="ml-1 flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-gray-500"
+                      title="ซ่อนทุกงานที่เอกสารถูกรวมออกบิลไปยังงานขายอื่น (ใบแจ้งหนี้หรือใบวางบิล) เหลือเฉพาะงานที่ปิดจบภายในตัวเอง"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={hideCombinedDone}
+                        onChange={(e) => {
+                          setHideCombinedDone(e.target.checked);
+                          setDonePage(1);
+                        }}
+                        className="h-3.5 w-3.5 rounded border-[#E8E6DF] text-primary focus:ring-primary/30"
+                      />
+                      ซ่อนงานที่ถูกรวมออกบิล
+                    </label>
                     {(doneYear !== "all" || doneMonth !== "all" || searchQuery) && (
                       <button
                         type="button"
@@ -1606,7 +1712,7 @@ export default function HomePage() {
                             <th className={`${TABLE.thStatic} w-[145px] text-right`}>หัก ณ ที่จ่ายสะสม</th>
                             <th className={`${TABLE.thStatic} w-[125px] text-right`}>รับสุทธิ</th>
                             <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
-                            <th className={`${TABLE.thStatic} w-[150px]`}>เอกสาร</th>
+                            <th className={`${TABLE.thStatic} w-[185px]`}>เอกสาร</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1623,15 +1729,15 @@ export default function HomePage() {
                                 className={TABLE.tbodyTr}
                               >
                                  <td className="px-3 py-2">
-                                    <div className="text-[10px] font-mono tabular-nums text-green-500 whitespace-nowrap">
-                                      {deal.dealNumber || "-"}
-                                    </div>
-                                   {deal.taxDocNumber && (
-                                     <div className="text-[10px] text-[#888780] mt-0.5 whitespace-nowrap">
-                                       {deal.taxDocNumber}
+                                     <div className="text-[10px] font-mono tabular-nums text-green-500 whitespace-nowrap">
+                                       {deal.dealNumber || "-"}
                                      </div>
-                                   )}
-                                 </td>
+                                    {deal.taxDocNumber && (
+                                      <div className="text-[10px] text-[#888780] mt-0.5 whitespace-nowrap">
+                                        {deal.taxDocNumber}
+                                      </div>
+                                    )}
+                                  </td>
                                 <td className="px-3 py-2">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <CustomerAvatar customer={rowAvatar} size="sm" />
@@ -1691,16 +1797,56 @@ export default function HomePage() {
                                       ยกเลิก
                                     </span>
                                   ) : (
-                                    <div className="flex flex-wrap gap-1">
-                                      {getDoneDocBadges(deal.documents).map((docType) => (
-                                        <span
-                                          key={docType}
-                                          className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
-                                          title={DOC_TYPE_LABELS[docType]?.th || docType}
+                                    <div className="space-y-1">
+                                      <div className="flex flex-wrap gap-1">
+                                        {getDoneDocBadges(deal.documents).map((docType) => (
+                                          <span
+                                            key={docType}
+                                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
+                                            title={DOC_TYPE_LABELS[docType]?.th || docType}
+                                          >
+                                            {DOC_TYPE_SHORT[docType] || docType.slice(0, 3).toUpperCase()}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      {deal.billedIn && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/deals/${deal.billedIn!.dealId}`);
+                                          }}
+                                          className={`inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${
+                                            invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid"
+                                              ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
+                                              : "border-amber-200 bg-amber-50 hover:bg-amber-100"
+                                          }`}
+                                          title={
+                                            deal.billedIn.kind === "billing_note"
+                                              ? `งานนี้ถูกวางบิลในใบวางบิลของงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
+                                              : `งานนี้ถูกรวมออกบิลเป็นใบแจ้งหนี้ในงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
+                                          }
                                         >
-                                          {DOC_TYPE_SHORT[docType] || docType.slice(0, 3).toUpperCase()}
-                                        </span>
-                                      ))}
+                                          <span
+                                            className={`truncate text-[10px] font-semibold leading-4 ${
+                                              invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid"
+                                                ? "text-emerald-700"
+                                                : "text-amber-700"
+                                            }`}
+                                          >
+                                            {deal.billedIn.kind === "billing_note" ? "วางบิลใน" : "ออกบิลใน"} {deal.billedIn.dealNumber || "—"}
+                                          </span>
+                                          <span
+                                            className={`shrink-0 text-[10px] leading-4 ${
+                                              invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid"
+                                                ? "text-emerald-600"
+                                                : "text-amber-600"
+                                            }`}
+                                          >
+                                            · {invoicePaymentLabel(deal.billedIn.invoiceStatus)}
+                                          </span>
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </td>

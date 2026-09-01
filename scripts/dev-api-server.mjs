@@ -124,7 +124,7 @@ const server = createServer(async (req, res) => {
   }
 
   const query = Object.fromEntries(url.searchParams.entries());
-  Object.defineProperty(req, "query", { value: query, configurable: true });
+  Object.defineProperty(req, "query", { value: query, configurable: true, writable: true });
 
   const segments = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
 
@@ -137,6 +137,10 @@ const server = createServer(async (req, res) => {
 
     const handler = await loadHandler(match.file);
     req.params = match.params;
+    // Parity with api/index.js on Vercel: dynamic route params are merged
+    // into the query, so handlers reading req.query.action (e.g. storage)
+    // work identically for path-style requests like /api/storage/image-proxy.
+    req.query = { ...req.query, ...match.params };
     await parseBody(req);
     await handler(req, res);
   } catch (error) {

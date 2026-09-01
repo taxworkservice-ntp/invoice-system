@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileText, PackageCheck, ExternalLink, Clock, Pencil, ScrollText } from "lucide-react";
+import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileStack, FileText, PackageCheck, ExternalLink, Clock, Pencil, ScrollText } from "lucide-react";
+import {
+  fetchSourceDealsForInvoices,
+  fetchWorkspaceBillingRefs,
+  invoicePaymentLabel,
+  invoicePaymentTone,
+  type BillingRef,
+} from "../../../lib/billingRefs";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
@@ -55,6 +62,16 @@ interface DocWithMeta {
   stage: "quote" | "invoice" | "collect" | "done";
   line_items: DocumentLineItem[];
   billing_invoices: BillingNoteInvoice[];
+}
+
+/**
+ * A document from ANOTHER deal that this deal's invoices billed (billing-run
+ * deals). Display-only: it renders as a card in this deal's document history
+ * but stays in its original deal — never re-parented.
+ */
+interface BorrowedDoc extends DocWithMeta {
+  sourceDealId: string;
+  sourceDealNumber: string | null;
 }
 
 
@@ -146,6 +163,7 @@ export default function DealDetailPage() {
   const devIssueDate = clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
   const todayString = () => businessToday;
   const [docsWithMeta, setDocsWithMeta] = useState<DocWithMeta[]>([]);
+  const [borrowedDocs, setBorrowedDocs] = useState<BorrowedDoc[]>([]);
   const [activities, setActivities] = useState<DealActivity[]>([]);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -285,6 +303,93 @@ export default function DealDetailPage() {
           billing_invoices: billingByDoc.get(doc.id) || [],
         }))
       );
+
+      // Billing-run cross-references: documents from OTHER deals that this
+      // deal's invoices billed (junction links + invoice line sources).
+      // Display-only — they appear as history cards but stay in their
+      // original deals.
+      try {
+        const ownInvoiceIds = docs.filter((doc) => doc.doc_type === "invoice").map((doc) => doc.id);
+        if (ownInvoiceIds.length > 0) {
+          const sourceIds = new Set<string>();
+          for (const line of (lineItemsData || []) as DocumentLineItem[]) {
+            if (line.source_document_id && ownInvoiceIds.includes(line.document_id)) {
+              sourceIds.add(line.source_document_id);
+            }
+          }
+          const { data: dnLinks } = await supabase
+            .from("invoice_delivery_notes")
+            .select("delivery_note_id, invoice_id")
+            .in("invoice_id", ownInvoiceIds)
+            .is("released_at", null);
+          for (const link of (dnLinks || []) as Array<{ delivery_note_id: string }>) {
+            if (link.delivery_note_id) sourceIds.add(link.delivery_note_id);
+          }
+          const borrowedCandidates = Array.from(sourceIds).filter((id) => !docIds.includes(id));
+          if (borrowedCandidates.length > 0) {
+            const { data: sourceDocsData } = await supabase
+              .from("documents")
+              .select("*")
+              .in("id", borrowedCandidates);
+            const sourceDocs = ((sourceDocsData || []) as Document[]).filter(
+              (doc) =>
+                doc.user_id === userId &&
+                doc.deal_id &&
+                doc.deal_id !== dealId &&
+                doc.status !== "voided",
+            );
+            if (sourceDocs.length > 0) {
+              const sourceDocIds = sourceDocs.map((doc) => doc.id);
+              const sourceDealIds = Array.from(
+                new Set(sourceDocs.map((doc) => doc.deal_id as string)),
+              );
+              const [{ data: sourceLines }, { data: sourceDeals }] = await Promise.all([
+                supabase
+                  .from("document_line_items")
+                  .select("*")
+                  .in("document_id", sourceDocIds)
+                  .order("sort_order", { ascending: true }),
+                supabase.from("deals").select("id, deal_number").in("id", sourceDealIds),
+              ]);
+              const dealNumberById = new Map(
+                ((sourceDeals || []) as Array<{ id: string; deal_number: string | null }>).map(
+                  (d) => [d.id, d.deal_number],
+                ),
+              );
+              const linesBySourceDoc = new Map<string, DocumentLineItem[]>();
+              ((sourceLines || []) as DocumentLineItem[]).forEach((line) => {
+                const list = linesBySourceDoc.get(line.document_id) || [];
+                list.push(line);
+                linesBySourceDoc.set(line.document_id, list);
+              });
+              setBorrowedDocs(
+                sourceDocs
+                  .map((doc) => ({
+                    document: doc,
+                    stage: getDocStage(doc),
+                    line_items: linesBySourceDoc.get(doc.id) || [],
+                    billing_invoices: [],
+                    sourceDealId: doc.deal_id as string,
+                    sourceDealNumber: dealNumberById.get(doc.deal_id as string) ?? null,
+                  }))
+                  .sort((a, b) =>
+                    (a.document.created_at || "").localeCompare(b.document.created_at || ""),
+                  ),
+              );
+            } else {
+              setBorrowedDocs([]);
+            }
+          } else {
+            setBorrowedDocs([]);
+          }
+        } else {
+          setBorrowedDocs([]);
+        }
+      } catch (crossRefError) {
+        // Borrowed cards are informational; never fail the page over them.
+        console.warn("[deal billing cross-refs]", crossRefError);
+        setBorrowedDocs([]);
+      }
     } catch (err: any) {
       // eslint-disable-next-line no-console
       console.error(err);
@@ -755,6 +860,18 @@ export default function DealDetailPage() {
     [docsWithMeta]
   );
 
+  // Document history = this deal's own documents + documents from source
+  // deals that this deal's invoices billed. Borrowed documents are
+  // display-only cards; deal logic (money, stages, actions) uses
+  // nonVoidedDocs only.
+  const historyDocs = useMemo(
+    () =>
+      [...nonVoidedDocs, ...borrowedDocs].sort((a, b) =>
+        (a.document.created_at || "").localeCompare(b.document.created_at || ""),
+      ),
+    [nonVoidedDocs, borrowedDocs]
+  );
+
   const replacementBySourceId = useMemo(() => {
     const map = new Map<string, Document>();
     for (const item of docsWithMeta) {
@@ -1135,6 +1252,49 @@ export default function DealDetailPage() {
     [amountDoc, nonVoidedDocs],
   );
 
+  // Billing cross-references (best-effort): this deal's documents billed in
+  // another deal's invoice (source deals), or other deals' documents combined
+  // into this deal's invoice (billing-run deals).
+  const [billingRefs, setBillingRefs] = useState<{
+    billedIn: BillingRef | null;
+    sourceDeals: Array<{ dealId: string; dealNumber: string | null; invoiceNumber: string | null }>;
+  }>({ billedIn: null, sourceDeals: [] });
+
+  useEffect(() => {
+    if (!userId || !deal || nonVoidedDocs.length === 0) {
+      setBillingRefs({ billedIn: null, sourceDeals: [] });
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const refs = await fetchWorkspaceBillingRefs(userId);
+        if (cancelled) return;
+        let billedIn: BillingRef | null = null;
+        for (const item of nonVoidedDocs) {
+          const ref = refs.get(item.document.id);
+          if (ref && ref.dealId !== deal.id) {
+            billedIn = ref;
+            break;
+          }
+        }
+        const myInvoiceIds = nonVoidedDocs
+          .filter((item) => item.document.doc_type === "invoice")
+          .map((item) => item.document.id);
+        const sourceDeals = myInvoiceIds.length
+          ? await fetchSourceDealsForInvoices(userId, myInvoiceIds, deal.id)
+          : [];
+        if (cancelled) return;
+        setBillingRefs({ billedIn, sourceDeals });
+      } catch {
+        if (!cancelled) setBillingRefs({ billedIn: null, sourceDeals: [] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, deal, nonVoidedDocs]);
+
   if (authLoading || loading) {
     return (
       <AppShell title="งานขาย" showBack>
@@ -1285,6 +1445,52 @@ export default function DealDetailPage() {
               </Button>
             </div>
           </div>
+          {(billingRefs.billedIn || billingRefs.sourceDeals.length > 0) && (
+            <div className="mt-3 space-y-2">
+              {billingRefs.billedIn && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/deals/${billingRefs.billedIn!.dealId}`)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                    invoicePaymentTone(billingRefs.billedIn.invoiceStatus) === "paid"
+                      ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      : "border-amber-100 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  }`}
+                >
+                  <span>
+                    {billingRefs.billedIn.kind === "billing_note"
+                      ? "งานนี้ถูกวางบิลในใบวางบิลของ"
+                      : "งานนี้ถูกรวมออกบิลเป็นใบแจ้งหนี้ใน"}{" "}
+                    <span className="font-semibold">
+                      {billingRefs.billedIn.dealNumber || billingRefs.billedIn.invoiceNumber || "งานขายอื่น"}
+                    </span>{" "}
+                    · {invoicePaymentLabel(billingRefs.billedIn.invoiceStatus)}
+                  </span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                </button>
+              )}
+              {billingRefs.sourceDeals.length > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                  <FileStack className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    รวมจาก {billingRefs.sourceDeals.length} งานขาย:{" "}
+                    {billingRefs.sourceDeals.map((s, i) => (
+                      <span key={s.dealId}>
+                        {i > 0 && ", "}
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/deals/${s.dealId}`)}
+                          className="font-semibold hover:underline"
+                        >
+                          {s.dealNumber || "(ไม่มีเลขงานขาย)"}
+                        </button>
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           {isOverdue && activeDoc?.document.due_date && (
             <div className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-700">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -1763,24 +1969,92 @@ export default function DealDetailPage() {
         <>
         <div>
           <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
-          {nonVoidedDocs.length === 0 ? (
+          {historyDocs.length === 0 ? (
             <Card className="border-[0.5px]">
               <EmptyState title="ยังไม่มีเอกสาร" description="กดปุ่มด้านบนเพื่อเริ่มต้นขั้นตอนของงานขายนี้" />
             </Card>
           ) : (
             <div className="space-y-0">
-              {nonVoidedDocs.map((item, index) => {
+              {historyDocs.map((item, index) => {
                 const doc = item.document;
+                const isBorrowed = "sourceDealId" in item;
+                const borrowed = isBorrowed ? (item as BorrowedDoc) : null;
                 const copiedFromDoc = doc.copied_from_id
                   ? docsWithMeta.find((source) => source.document.id === doc.copied_from_id)?.document
                   : null;
                 const convertedFromDoc = doc.doc_type === "receipt" && doc.converted_from_id
                   ? docsWithMeta.find((source) => source.document.id === doc.converted_from_id)?.document
                   : null;
-                const isCurrent = activeDoc?.document.id === doc.id;
+                const isCurrent = !isBorrowed && activeDoc?.document.id === doc.id;
                 const overdue = isDocumentOverdue(doc);
                 const isDoneStage = item.stage === "done" && !isCurrent;
                 const isFinancialDocument = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
+                if (isBorrowed && borrowed) {
+                  return (
+                    <div key={doc.id} className={`flex gap-3 ${isDoneStage ? "opacity-80" : ""}`}>
+                      <div className="w-7 flex flex-col items-center shrink-0">
+                        <div
+                          className={[
+                            "mt-1 rounded-full",
+                            "w-2.5 h-2.5",
+                            doc.status === "draft" ? "bg-stone-300" : "",
+                            doc.status === "paid" || doc.status === "generated" || doc.status === "issued" ? "bg-paid-text" : "",
+                            doc.status === "converted" ? "bg-stone-400" : "",
+                            overdue ? "bg-danger" : "",
+                          ].join(" ")}
+                        />
+                        {index < historyDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
+                      </div>
+                      <Card
+                        className="mb-2 flex-1 bg-paper-field"
+                        onClick={() => navigate(`/documents/${doc.id}`)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-gray-900">
+                              {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
+                            </div>
+                            <div className="mt-0.5 text-[11px] text-gray-500">
+                              {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/deals/${borrowed.sourceDealId}`);
+                              }}
+                              className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700 hover:bg-blue-100"
+                              title="เปิดงานขายต้นทางของเอกสารนี้"
+                            >
+                              จากงานขาย {borrowed.sourceDealNumber || "(ไม่มีเลขงานขาย)"}
+                            </button>
+                            <div className="mt-1 text-2xs text-gray-400">
+                              {formatBuddhistDate(doc.issue_date)}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <div className="text-right">
+                              <div className="text-2xs text-gray-400">ยอดรวม</div>
+                              <div className="text-sm font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
+                            </div>
+                            <Badge status={overdue ? "overdue" : doc.status} />
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleOpenPreview(doc);
+                              }}
+                              className="rounded-md p-1.5 text-gray-400 hover:bg-stone-100 hover:text-primary transition-colors"
+                              title="พรีวิวเอกสาร"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+                  );
+                }
                 return (
                   <div key={doc.id} className={`flex gap-3 ${isDoneStage ? "opacity-80" : ""}`}>
                     <div className="w-7 flex flex-col items-center shrink-0">
@@ -1796,7 +2070,7 @@ export default function DealDetailPage() {
                           (doc.status === "sent" || doc.status === "in_billing") && !overdue && !isCurrent ? "bg-primary" : "",
                         ].join(" ")}
                       />
-                      {index < nonVoidedDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
+                       {index < historyDocs.length - 1 && <div className="mt-1 w-px flex-1 bg-card-border" />}
                     </div>
                     <Card
                       className={`mb-2 flex-1 ${isCurrent ? "border-primary bg-blue-50/30" : ""} ${isDoneStage ? "bg-paper-field" : ""}`}
@@ -1825,7 +2099,7 @@ export default function DealDetailPage() {
                           ) : null}
                           {isFinancialDocument ? (() => {
                             const sourceDocById = new Map(
-                              docsWithMeta
+                              historyDocs
                                 .filter((d) => d.document.doc_type === "delivery_note" || d.document.doc_type === "quotation")
                                 .map((d) => [d.document.id, {
                                   number: d.document.doc_number || d.document.id.slice(0, 8),

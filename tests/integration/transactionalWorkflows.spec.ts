@@ -532,6 +532,75 @@ describe("transactional workflow RPCs", () => {
       expect(error).not.toBeNull();
       expect(error!.message).toContain("different customer");
     });
+
+    it("marks a delivery note converted when billed in reference mode, and restores it on void", async () => {
+      const cust = await createCustomer();
+      const deal = await createDeal(cust.id);
+      const dn = await createDocument({
+        id: uid(),
+        deal_id: deal.id,
+        customer_id: cust.id,
+        doc_type: "delivery_note",
+        doc_number: docNum("DN"),
+        status: "sent",
+        issue_date: today(),
+      });
+      await createLineItems([
+        {
+          document_id: dn.id,
+          user_id: getTestUserId(),
+          item_name: "ค่าบริการรายเดือน",
+          item_type: "service",
+          unit: "เดือน",
+          unit_price: 120,
+          quantity: 1,
+          line_total: 120,
+          sort_order: 0,
+        },
+      ]);
+
+      // Ref-mode: one invoice line per delivery note, no source_line_item_id.
+      const { data, error } = await client.rpc("create_invoice_from_sources", {
+        p_user_id: getTestUserId(),
+        p_document: {
+          doc_type: "invoice",
+          status: "sent",
+          customer_id: cust.id,
+          deal_id: null,
+          doc_number: docNum("INV"),
+          issue_date: today(),
+          title: `ออกบิลรวม ${cust.name}`,
+        },
+        p_lines: [
+          {
+            item_name: `ใบส่งของ ${dn.doc_number}`,
+            item_type: "service",
+            unit: "",
+            unit_price: 120,
+            quantity: 1,
+            line_total: 120,
+            source_document_id: dn.id,
+            source_line_item_id: null,
+            sort_order: 0,
+          },
+        ],
+        p_source_ids: [dn.id],
+      });
+      expect(error).toBeNull();
+      const record = Array.isArray(data) ? data[0] : data;
+
+      // DN is fully billed in ref-mode -> converted (cannot be billed twice).
+      expect((await getDocumentAdmin(dn.id)).status).toBe("converted");
+
+      // Voiding the invoice and reverting releases the DN back to unbilled.
+      await client.from("documents").update({ status: "voided" }).eq("id", record.document_id);
+      const { error: revertError } = await client.rpc("revert_invoice_sources", {
+        p_invoice_id: record.document_id,
+        p_user_id: getTestUserId(),
+      });
+      expect(revertError).toBeNull();
+      expect((await getDocumentAdmin(dn.id)).status).toBe("sent");
+    });
   });
 
   describe("revert_invoice_sources", () => {

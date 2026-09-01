@@ -717,7 +717,7 @@ export function InvoiceFromDeliveryNotesForm() {
           note: note || null,
           dn_appendix: dnAppendix,
           show_dn_variance: showDnVariance,
-          title: selectedCustomer.name,
+          title: `ออกบิลรวม ${selectedCustomer.name}`,
         },
         p_lines: lineRecords,
         p_source_ids: selectedDeliveryNotes.map((dn) => dn.id),

@@ -41,7 +41,9 @@ export async function resolveHandler(segments, baseDir) {
     const entries = await readdir(dir).catch(() => []);
     const dynFile = entries.find((entry) => /^\[\w+\]\.js$/.test(entry));
     if (dynFile) {
-      params[dynFile.slice(1, -3)] = seg;
+      // "[action].js" → param name "action". slice(1, -3) left the closing
+      // "]", producing params like "action]" instead of "action".
+      params[dynFile.replace(/^\[(\w+)\]\.js$/, "$1")] = seg;
       return { file: path.join(dir, dynFile), params };
     }
 

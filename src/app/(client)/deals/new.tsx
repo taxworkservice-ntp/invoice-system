@@ -1345,7 +1345,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         }
         const { data: createdBn, error: bnCreateError } = await supabase.rpc("create_billing_note_with_links", {
           p_user_id: userId,
-          p_document: { ...docPayload, title: null },
+          p_document: {
+            ...docPayload,
+            title: selectedCustomer ? `ใบวางบิลรวม ${selectedCustomer.name}` : null,
+          },
           p_invoice_ids: selectedInvoices.map((inv) => inv.id),
         });
         const bnRecord = Array.isArray(createdBn) ? createdBn[0] : createdBn;
