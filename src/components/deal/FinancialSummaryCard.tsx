@@ -63,6 +63,13 @@ export function FinancialSummaryCard({
   children?: React.ReactNode;
 }) {
   const hasAdjustments = summary.creditTotal > 0 || summary.debitTotal > 0;
+  const hasCollectionDoc = summary.hasCollectionDoc;
+  const fallbackLabel =
+    summary.sourceDocType === "delivery_note"
+      ? "ใบส่งของ"
+      : summary.sourceDocType === "quotation"
+        ? "ใบเสนอราคา"
+        : "เอกสารอ้างอิง";
 
   return (
     <Card>
@@ -81,14 +88,19 @@ export function FinancialSummaryCard({
       </div>
 
       <div className="mt-3 divide-y divide-card-border">
-        {/* 1) Per invoice */}
+        {/* 1) Per collection document — or the display-amount reference doc */}
         <section className="pb-2">
-          <GroupHeader>ตามใบกำกับภาษี</GroupHeader>
+          <GroupHeader>{hasCollectionDoc ? "ตามใบกำกับภาษี" : `ยอดอ้างอิงจาก${fallbackLabel}`}</GroupHeader>
           <Row label="ยอดรวม (รวม VAT)" value={summary.grossAmount} />
           {summary.expectedWhtAmount > 0 && (
             <Row label="หัก ณ ที่จ่ายตามเอกสาร" value={summary.expectedWhtAmount} prefix="−" tone="amber" />
           )}
           <Row label="ยอดสุทธิตามเอกสาร" value={summary.netPayable} strong />
+          {!hasCollectionDoc && (
+            <p className="mt-1 rounded-md bg-stone-50 px-2 py-1.5 text-[11px] leading-4 text-gray-500">
+              ยังไม่มีใบแจ้งหนี้ / ใบกำกับภาษี — ยอดนี้เป็นยอดอ้างอิงจาก{fallbackLabel} ยังไม่ถือเป็นลูกหนี้
+            </p>
+          )}
         </section>
 
         {/* 2) Adjustments — VAT gross effect plus optional confirmed WHT effect */}
@@ -122,22 +134,30 @@ export function FinancialSummaryCard({
         {/* 3) Collection */}
         <section className="py-2">
           <GroupHeader>การรับเงิน</GroupHeader>
-          <Row label="รับแล้ว" value={summary.amountReceived} tone="green" />
-          {summary.outstanding > 0 ? (
-            <Row label="ค้างรับ" value={summary.outstanding} tone="red" strong />
+          {!hasCollectionDoc && summary.amountReceived === 0 ? (
+            <p className="rounded-md bg-stone-50 px-2 py-1.5 text-[11px] leading-4 text-gray-500">
+              ยังไม่มีเอกสารเรียกเก็บเงิน — จะเริ่มนับยอดค้างรับหลังออกใบแจ้งหนี้ / ใบกำกับภาษี
+            </p>
           ) : (
-            <Row label="ค้างรับ" value={0} tone="green" />
-          )}
-          {summary.customerCredit > 0 && (
             <>
-              <Row label="เครดิตเงินสดคงเหลือ" value={summary.customerCredit} tone="blue" strong />
-              <p className="mt-1 rounded-md bg-blue-50 px-2 py-1.5 text-[11px] leading-4 text-blue-800">
-                 ลูกค้าชำระเกินหลังปรับปรุง — เครดิตส่วนนี้ใช้หักกลบใบกำกับถัดไปได้
-              </p>
+              <Row label="รับแล้ว" value={summary.amountReceived} tone="green" />
+              {summary.outstanding > 0 ? (
+                <Row label="ค้างรับ" value={summary.outstanding} tone="red" strong />
+              ) : (
+                <Row label="ค้างรับ" value={0} tone="green" />
+              )}
+              {summary.customerCredit > 0 && (
+                <>
+                  <Row label="เครดิตเงินสดคงเหลือ" value={summary.customerCredit} tone="blue" strong />
+                  <p className="mt-1 rounded-md bg-blue-50 px-2 py-1.5 text-[11px] leading-4 text-blue-800">
+                     ลูกค้าชำระเกินหลังปรับปรุง — เครดิตส่วนนี้ใช้หักกลบใบกำกับถัดไปได้
+                  </p>
+                </>
+              )}
+              {summary.whtAmount > 0 && (
+                <Row label="หัก ณ ที่จ่ายสะสม (ตามใบเสร็จ)" value={summary.whtAmount} tone="muted" />
+              )}
             </>
-          )}
-          {summary.whtAmount > 0 && (
-            <Row label="หัก ณ ที่จ่ายสะสม (ตามใบเสร็จ)" value={summary.whtAmount} tone="muted" />
           )}
         </section>
       </div>

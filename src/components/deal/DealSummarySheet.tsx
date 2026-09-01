@@ -322,9 +322,13 @@ function StatementRows({ summary }: { summary: DealFinancialSummary }) {
        ? [{ label: "ยอดคงเหลือหลังปรับปรุง", value: Math.max(0, summary.afterAdjustment), strong: true }]
       : []),
     { label: "รับแล้ว", value: summary.amountReceived },
-    summary.outstanding > 0
-      ? { label: "ค้างรับ", value: summary.outstanding, tone: "red", strong: true }
-      : { label: "ค้างรับ", value: 0 },
+    ...(summary.hasCollectionDoc
+      ? [
+          summary.outstanding > 0
+            ? { label: "ค้างรับ", value: summary.outstanding, tone: "red", strong: true }
+            : { label: "ค้างรับ", value: 0 },
+        ]
+      : [{ label: "ยังไม่มีเอกสารเรียกเก็บเงิน", value: 0 }]),
     ...(summary.customerCredit > 0
        ? [{ label: "เครดิตเงินสดคงเหลือ", value: summary.customerCredit, tone: "blue", strong: true }]
       : []),

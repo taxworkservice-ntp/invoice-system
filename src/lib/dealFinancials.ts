@@ -42,6 +42,10 @@ export interface DealFinancialSummary {
   whtAmount: number;
   /** WHT stated on the source invoice */
   expectedWhtAmount: number;
+  /** doc_type of the document the amounts come from (null = no documents) */
+  sourceDocType: string | null;
+  /** A real collection document exists (billing note / invoice / tax invoice receipt) */
+  hasCollectionDoc: boolean;
   receiptCount: number;
 }
 
@@ -141,6 +145,8 @@ export function computeDealFinancialSummary(
     customerCredit,
     whtAmount,
     expectedWhtAmount,
+    sourceDocType: source?.doc_type ?? null,
+    hasCollectionDoc: collectionDocs.length > 0,
     receiptCount: receipts.length,
   };
 }

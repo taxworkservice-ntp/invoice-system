@@ -85,4 +85,33 @@ describe("computeDealFinancialSummary", () => {
     expect(summary.creditTotal).toBe(0);
     expect(summary.afterAdjustment).toBe(1070);
   });
+
+  it("flags reference-only source when only a quotation and delivery note exist", () => {
+    // QT + DN issued but nothing billable yet — the deal detail summary must
+    // present the amounts as reference figures, not as a tax-invoice receivable.
+    const summary = computeDealFinancialSummary(
+      [
+        doc({
+          doc_type: "quotation", status: "sent",
+          total_amount: 695500, wht_amount: 19500, net_payable: 676000,
+        }),
+        doc({ doc_type: "delivery_note", status: "sent", total_amount: 695500, net_payable: 695500 }),
+      ],
+      doc({
+        doc_type: "quotation", status: "sent",
+        total_amount: 695500, wht_amount: 19500, net_payable: 676000,
+      }),
+    );
+    expect(summary.hasCollectionDoc).toBe(false);
+    expect(summary.sourceDocType).toBe("quotation");
+    expect(summary.netPayable).toBe(676000);
+  });
+
+  it("flags a collection document when an invoice exists", () => {
+    const summary = computeDealFinancialSummary([
+      doc({ doc_type: "invoice", status: "sent", total_amount: 1070, net_payable: 1070 }),
+    ]);
+    expect(summary.hasCollectionDoc).toBe(true);
+    expect(summary.sourceDocType).toBe("invoice");
+  });
 });
