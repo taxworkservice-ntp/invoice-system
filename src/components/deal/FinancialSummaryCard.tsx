@@ -64,6 +64,10 @@ export function FinancialSummaryCard({
 }) {
   const hasAdjustments = summary.creditTotal > 0 || summary.debitTotal > 0;
   const hasCollectionDoc = summary.hasCollectionDoc;
+  const vatRatePct =
+    summary.subtotalBeforeVat > 0
+      ? Math.round((summary.vatAmount / summary.subtotalBeforeVat) * 100)
+      : null;
   const fallbackLabel =
     summary.sourceDocType === "delivery_note"
       ? "ใบส่งของ"
@@ -92,6 +96,12 @@ export function FinancialSummaryCard({
         <section className="pb-2">
           <GroupHeader>{hasCollectionDoc ? "ตามใบกำกับภาษี" : `ยอดอ้างอิงจาก${fallbackLabel}`}</GroupHeader>
           <Row label="ยอดรวม (รวม VAT)" value={summary.grossAmount} />
+          {summary.vatAmount > 0 && (
+            <div className="pb-1 pl-2 text-2xs text-gray-400">
+              ก่อน VAT ฿{formatCurrency(summary.subtotalBeforeVat)} · VAT {vatRatePct}% ฿
+              {formatCurrency(summary.vatAmount)}
+            </div>
+          )}
           {summary.expectedWhtAmount > 0 && (
             <Row label="หัก ณ ที่จ่ายตามเอกสาร" value={summary.expectedWhtAmount} prefix="−" tone="amber" />
           )}

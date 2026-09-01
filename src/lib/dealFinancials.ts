@@ -16,6 +16,10 @@ export interface FinancialsDocLike {
 export interface DealFinancialSummary {
   /** Invoice total incl. VAT (ยอดรวม) */
   grossAmount: number;
+  /** Source-document amount before VAT (ยอดก่อน VAT) */
+  subtotalBeforeVat: number;
+  /** Source-document VAT amount */
+  vatAmount: number;
   /** Invoice net payable after WHT (ยอดสุทธิตามเอกสาร) */
   netPayable: number;
   /** Cash actually received per receipts / source documents */
@@ -99,6 +103,8 @@ export function computeDealFinancialSummary(
     null;
 
   const grossAmount = source?.total_amount || 0;
+  const vatAmount = source?.vat_amount || 0;
+  const subtotalBeforeVat = round2(grossAmount - vatAmount);
   const netPayable = source?.net_payable || 0;
 
   const receipts = active.filter(
@@ -132,6 +138,8 @@ export function computeDealFinancialSummary(
 
   return {
     grossAmount,
+    subtotalBeforeVat,
+    vatAmount,
     netPayable,
     amountReceived,
     outstanding,

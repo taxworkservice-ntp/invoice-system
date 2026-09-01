@@ -296,8 +296,18 @@ function EmptyLine({ children }: { children: React.ReactNode }) {
 }
 
 function StatementRows({ summary }: { summary: DealFinancialSummary }) {
+  const vatRatePct =
+    summary.subtotalBeforeVat > 0
+      ? Math.round((summary.vatAmount / summary.subtotalBeforeVat) * 100)
+      : null;
   const rows: { label: string; value: number; prefix?: string; tone?: string; strong?: boolean }[] = [
     { label: "ยอดรวม (รวม VAT)", value: summary.grossAmount },
+    ...(summary.vatAmount > 0
+      ? [
+          { label: "ยอดก่อน VAT", value: summary.subtotalBeforeVat, tone: "muted" },
+          { label: `VAT ${vatRatePct}%`, value: summary.vatAmount, tone: "muted" },
+        ]
+      : []),
     ...(summary.expectedWhtAmount > 0
       ? [{ label: "หัก ณ ที่จ่ายตามเอกสาร", value: summary.expectedWhtAmount, prefix: "−", tone: "amber" }]
       : []),
@@ -350,7 +360,9 @@ function StatementRows({ summary }: { summary: DealFinancialSummary }) {
                     ? "text-amber-700"
                     : row.tone === "blue"
                       ? "text-blue-700"
-                      : "text-ink-900"
+                      : row.tone === "muted"
+                        ? "text-gray-400"
+                        : "text-ink-900"
             } ${row.strong ? "text-sm font-semibold" : "text-[13px] font-medium"}`}
           >
             {row.prefix}฿{formatCurrency(row.value)}

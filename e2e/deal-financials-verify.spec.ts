@@ -87,6 +87,7 @@ test.describe.serial("financial summary correctness", () => {
     await page.goto(`/deals/${dealId}`);
 
     expect(await readCardRow(page, "ยอดรวม (รวม VAT)")).toBe(INVOICE.total);
+    await expect(page.getByText(/ก่อน VAT ฿/)).toBeVisible();
     expect(await readCardRow(page, "หัก ณ ที่จ่ายตามเอกสาร")).toBe(INVOICE.wht);
     expect(await readCardRow(page, "ยอดสุทธิตามเอกสาร")).toBe(expected.netPayable);
     expect(expected.netPayable).toBe(INVOICE.net);

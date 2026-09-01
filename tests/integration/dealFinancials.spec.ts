@@ -26,6 +26,23 @@ describe("computeDealFinancialSummary", () => {
     expect(summary.customerCredit).toBe(0);
   });
 
+  it("exposes the before-VAT breakdown of the source document", () => {
+    const summary = computeDealFinancialSummary([
+      doc({
+        doc_type: "invoice", status: "sent",
+        subtotal: 380_000, vat_amount: 26_600, total_amount: 406_600, net_payable: 406_600,
+      }),
+    ]);
+    expect(summary.subtotalBeforeVat).toBe(380_000);
+    expect(summary.vatAmount).toBe(26_600);
+    // VAT-exempt / legacy docs without vat_amount keep the breakdown hidden
+    const exempt = computeDealFinancialSummary([
+      doc({ doc_type: "invoice", status: "sent", total_amount: 1_000, net_payable: 1_000 }),
+    ]);
+    expect(exempt.vatAmount).toBe(0);
+    expect(exempt.subtotalBeforeVat).toBe(1_000);
+  });
+
   it("reconciles a fully-paid deal", () => {
     const summary = computeDealFinancialSummary([
       doc({
