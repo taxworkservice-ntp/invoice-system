@@ -296,6 +296,12 @@ export function PrintDocumentClassicV2({
               </div>
             </div>
             <div className="print-classic-top-right">
+              <div className="print-classic-doc-title print-classic-doc-title--inline">
+                <div className="print-classic-doc-title-th">{titleTh}</div>
+                {titleEn ? (
+                  <div className="print-classic-doc-title-en">{titleEn}</div>
+                ) : null}
+              </div>
               <div className="print-classic-copy-badge">
                 <div className="print-classic-copy-th">{copyLabel}</div>
                 <div className="print-classic-copy-en">
@@ -304,14 +310,6 @@ export function PrintDocumentClassicV2({
               </div>
             </div>
           </header>
-
-          {/* ============== DOCUMENT TITLE ============== */}
-          <div className="print-classic-doc-title">
-            <div className="print-classic-doc-title-th">{titleTh}</div>
-            {titleEn ? (
-              <div className="print-classic-doc-title-en">{titleEn}</div>
-            ) : null}
-          </div>
 
           {/* ============== INFO BAND ============== */}
           <section className="print-classic-info-band">

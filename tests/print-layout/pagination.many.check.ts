@@ -187,6 +187,55 @@ for (const { preset, mult } of scales) {
   console.log(`  classic_v2 items-1.44: ${batches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
 }
 
+// 7. classic_v2 distribution: first page maximal, continuation pages packed,
+// finalized page keeps only the remainder (floor 1 item)
+{
+  const makeSimple = (n: number): DocumentLineItem => ({
+    ...makeItem(n),
+    item_name: `Item ${n}`,
+    line_note: null,
+    source_document_id: null,
+    source_line_item_id: null,
+    source_delivered_qty: null,
+    source_unit_price: null,
+  });
+  const estimateSimple = (item: DocumentLineItem) =>
+    estimateLineItemHeight(item, "classic_v2", {});
+  // rest > last-capacity → last page must hold exactly 1 item
+  const forty = Array.from({ length: 40 }, (_, i) => makeSimple(i + 1));
+  const manyBatches = paginateLineItems(forty, "classic_v2", {
+    estimateHeight: estimateSimple,
+  });
+  const lastBatch = manyBatches[manyBatches.length - 1];
+  assert.equal(lastBatch.mode, "last");
+  assert.equal(lastBatch.items.length, 1, "classic_v2: finalized page keeps only 1 item when rest > last capacity");
+  // rest within last capacity → all remaining rows stay on the last page
+  const someBatches = paginateLineItems(
+    Array.from({ length: 25 }, (_, i) => makeSimple(i + 1)),
+    "classic_v2",
+    { estimateHeight: estimateSimple },
+  );
+  const someLast = someBatches[someBatches.length - 1];
+  assert.equal(someLast.mode, "last");
+  assert.ok(someLast.items.length > 1, "classic_v2: remainder within capacity stays on the last page");
+  // coverage + continuity for both runs
+  for (const batches of [manyBatches, someBatches]) {
+    let n = 1;
+    for (const batch of batches) {
+      assert.equal(batch.startIndex, n, "classic_v2 distribution: startIndex continuity");
+      n += batch.items.length;
+      assert.ok(batch.items.length > 0, "classic_v2: no empty batches");
+    }
+    assert.equal(n - 1, batches === manyBatches ? 40 : 25, "classic_v2 distribution: full coverage");
+  }
+  console.log(
+    `  classic_v2 distribution (40): ${manyBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`,
+  );
+  console.log(
+    `  classic_v2 distribution (25): ${someBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`,
+  );
+}
+
 console.log("pagination.many: all assertions passed");
 console.log(
   `  modern batches: ${modernBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`,

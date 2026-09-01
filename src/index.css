@@ -931,6 +931,14 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-theme-classic-v2 .print-classic-fine-terms-title { color: #000000; }
 .print-theme-classic-v2 .print-classic-settle-row { color: #111827; }
+/* items table: every font (head, rows, notes, accents) pure black */
+.print-theme-classic-v2 .print-classic-items-table thead th,
+.print-theme-classic-v2 .print-classic-items-table thead th .en,
+.print-theme-classic-v2 .print-classic-item-note,
+.print-theme-classic-v2 .print-classic-discount-note,
+.print-theme-classic-v2 .print-classic-dn-note {
+  color: #000000;
+}
 /* colored accents stay colored, just darker */
 .print-theme-classic-v2 .print-classic-discount-note { color: #92400e; }
 .print-theme-classic-v2 .print-classic-payment-status,

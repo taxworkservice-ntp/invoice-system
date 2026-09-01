@@ -19,6 +19,10 @@ type PaginationKind = "line_items" | "summary_rows";
 const LINE_ITEM_CAPACITY = {
   modern: { first: 20, continuation: 26, last: 14 },
   classic: { first: 18, continuation: 22, last: 12 },
+  // V2 keeps the doc title inside the header's right column, freeing row area
+  // on the first page; measured row space: first ~131mm (19 rows), continuation
+  // ~241mm (30 rows keeps a wide safety margin), last ~191mm.
+  classic_v2: { first: 19, continuation: 30, last: 16 },
 };
 
 // Summary tables share the page with the document header and final totals.
@@ -36,7 +40,7 @@ const SUMMARY_ROW_CAPACITY = {
 // conservatively); budgets shrink by Σ coefficient × (section scale − 1).
 // Summary pages carry the full header + totals on every page, so they reserve
 // every section on every page.
-const FONT_SCALE_SECTION_RESERVE_MM = { header: 60, items: 5, totals: 56, footer: 24 } as const;
+const FONT_SCALE_SECTION_RESERVE_MM = { header: 51, items: 5, totals: 48, footer: 21 } as const;
 
 const FONT_SCALE_PAGE_SECTIONS = {
   line_items: {
@@ -80,7 +84,7 @@ export function getRowBudgets(
   const baseMm = getBaseRowMm(template);
   const capacity = kind === "summary_rows"
     ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : "classic"]
-    : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : "classic"];
+    : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"];
   const scales = normalizeFontScales(fontScale);
   const reserve = (mode: "first" | "continuation" | "last") => {
     if (template === "modern") return 0;
@@ -135,9 +139,9 @@ export function paginateRows<T>(
   kind: PaginationKind = "line_items",
   options: PaginateOptions<T> = {},
 ): GenericPageBatch<T>[] {
-  const templateKind = template === "modern" ? "modern" : "classic";
+  const templateKind = template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic";
   const capacity = kind === "summary_rows"
-    ? SUMMARY_ROW_CAPACITY[templateKind]
+    ? SUMMARY_ROW_CAPACITY[templateKind === "classic_v2" ? "classic" : templateKind]
     : LINE_ITEM_CAPACITY[templateKind];
   const fp = capacity.first;
   const cp = capacity.continuation;
@@ -156,7 +160,7 @@ export function paginateRows<T>(
     );
   }
 
-  return paginateRowsByCount(rows, fp, cp, lp);
+  return paginateRowsByCount(rows, fp, cp, lp, template === "classic_v2");
 }
 
 function paginateRowsByCount<T>(
@@ -164,6 +168,7 @@ function paginateRowsByCount<T>(
   fp: number,
   cp: number,
   lp: number,
+  packLastMinOne = false,
 ): GenericPageBatch<T>[] {
   if (rows.length <= fp) {
     return [{ items: rows, mode: "single", startIndex: 1 }];
@@ -175,7 +180,9 @@ function paginateRowsByCount<T>(
   batches.push({ items: rows.slice(0, fp), mode: "first", startIndex: 1 });
 
   const remaining = rows.slice(fp);
-  const lastCount = Math.min(lp, remaining.length);
+  // Classic V2: keep only the remainder (floor 1) on the finalized page.
+  const lastCount =
+    packLastMinOne && remaining.length > lp ? 1 : Math.min(lp, remaining.length);
   const contTotal = remaining.length - lastCount;
 
   let head = 0; // cursor into `remaining`
@@ -260,7 +267,14 @@ function paginateRowsByHeight<T>(
   });
 
   const rest = rows.length - firstCount;
-  const lastCount = fitFromEnd(rows.length, budgets.last, Math.min(lp, rest));
+  // Classic V2 packs continuation pages as full as budgets allow and leaves
+  // only the remainder on the finalized page (footer + at least one item) —
+  // instead of carving a full last page off the end, which produced sparse
+  // middle pages (e.g. 31 rows → first(18) cont(1) last(12)).
+  const lastCount =
+    template === "classic_v2" && rest > lp
+      ? 1
+      : fitFromEnd(rows.length, budgets.last, Math.min(lp, rest));
   const midEnd = rows.length - lastCount;
   const midCount = midEnd - firstCount;
 
