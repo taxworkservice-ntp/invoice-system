@@ -273,6 +273,9 @@ create table client_profiles (
   signature_scale       text not null default 'medium',
   stamp_scale           text not null default 'medium',
 
+  -- Classic V2 template font-size preset ('small' | 'normal' | 'large' | 'xlarge')
+  classic_v2_font_scale text not null default 'normal',
+
   -- Signature & stamp visibility on WHT forms
   show_signature_on_wht  boolean not null default true,
   show_stamp_on_wht      boolean not null default true,

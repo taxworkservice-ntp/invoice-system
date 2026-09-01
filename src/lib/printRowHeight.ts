@@ -33,7 +33,21 @@ const NAME_CHARS_PER_LINE = {
   classicNoAmounts: 48,
 };
 
-export function getBaseRowMm(template: PrintTemplate): number {
+// Portion of a classic row that does NOT grow with --classic-font-scale:
+// the fixed mm cell padding + border (the text line above it does scale).
+const CLASSIC_ROW_FIXED_MM = 3.1;
+// DN header text portion: DN_HEADER_MM.classic - CLASSIC_ROW_FIXED_MM.
+const CLASSIC_DN_HEADER_TEXT_MM = 5.0;
+
+/**
+ * Estimated base row height in mm. `fontScale` is the --classic-font-scale
+ * multiplier (1 = default); only classic templates scale, and only the text
+ * portion does — the mm padding stays constant, matching the CSS.
+ */
+export function getBaseRowMm(template: PrintTemplate, fontScale = 1): number {
+  if (template !== "modern" && fontScale !== 1) {
+    return CLASSIC_ROW_FIXED_MM + TEXT_LINE_MM.classic * fontScale;
+  }
   return template === "modern" ? BASE_ROW_MM.modern : BASE_ROW_MM.classic;
 }
 
@@ -66,25 +80,37 @@ export function estimateLineItemHeight(
     hasInvoiceRef?: boolean;
     /** DN variance sub-line (show_dn_variance) rendered under the row. */
     hasDnVariance?: boolean;
+    /** --classic-font-scale multiplier (classic templates only, 1 = default). */
+    fontScale?: number;
   } = {},
 ): number {
   const isClassic = template !== "modern";
   const key = isClassic ? "classic" : "modern";
-  const base = BASE_ROW_MM[key];
+  const fontScale = isClassic && opts.fontScale ? opts.fontScale : 1;
+  const base = isClassic ? getBaseRowMm(template, fontScale) : BASE_ROW_MM[key];
 
   const isDnHeader =
     !!(item.source_document_id && !item.source_line_item_id) &&
     item.quantity === 0 &&
     item.unit_price === 0;
   if (isDnHeader) {
-    return isClassic ? DN_HEADER_MM.classic : base;
+    if (!isClassic) return base;
+    return fontScale === 1
+      ? DN_HEADER_MM.classic
+      : CLASSIC_ROW_FIXED_MM + CLASSIC_DN_HEADER_TEXT_MM * fontScale;
   }
 
-  const charsPerLine = isClassic
+  const rawCharsPerLine = isClassic
     ? opts.hideDeliveryAmounts
       ? NAME_CHARS_PER_LINE.classicNoAmounts
       : NAME_CHARS_PER_LINE.classic
     : NAME_CHARS_PER_LINE.modern;
+  // Wrapped-text capacity shrinks as the font grows; floor keeps the
+  // estimate conservative (over-estimates wrapped lines).
+  const charsPerLine =
+    fontScale === 1
+      ? rawCharsPerLine
+      : Math.max(1, Math.floor(rawCharsPerLine / fontScale));
 
   const nameLines = countLines(item.item_name, charsPerLine);
   const noteText = getPrintableLineNote(item.line_note);
@@ -97,12 +123,16 @@ export function estimateLineItemHeight(
   if (opts.hasInvoiceRef) subLines += 1;
   if (opts.hasDnVariance) subLines += 1;
 
-  const nameMm = base + (nameLines - 1) * TEXT_LINE_MM[key];
-  const noteMm = noteLines * NOTE_LINE_MM[key];
-  const subMm = subLines * SUBLINE_MM[key];
+  const textScale = (mm: number) => (fontScale === 1 ? mm : mm * fontScale);
+  const nameMm = base + (nameLines - 1) * textScale(TEXT_LINE_MM[key]);
+  const noteMm = noteLines * textScale(NOTE_LINE_MM[key]);
+  const subMm = subLines * textScale(SUBLINE_MM[key]);
   return nameMm + noteMm + subMm + ROW_SAFETY_MM;
 }
 
-export function estimateSummaryRowHeight(template: PrintTemplate): number {
-  return getBaseRowMm(template);
+export function estimateSummaryRowHeight(
+  template: PrintTemplate,
+  fontScale = 1,
+): number {
+  return getBaseRowMm(template, fontScale);
 }

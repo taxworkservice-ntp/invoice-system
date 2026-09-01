@@ -10,7 +10,7 @@ import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS } from "../../../constants";
+import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS } from "../../../constants";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { ClientProfile } from "../../../types";
@@ -40,6 +40,7 @@ export default function SettingsDocumentsPage() {
   const [showCompanyName, setShowCompanyName] = useState(true);
   const [logoLayout, setLogoLayout] = useState<"left" | "above">("left");
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic" | "classic_v2">("modern");
+  const [classicV2FontScale, setClassicV2FontScale] = useState("normal");
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export default function SettingsDocumentsPage() {
       setShowCompanyName(clientProfile.show_company_name !== false);
       setLogoLayout(clientProfile.logo_layout === "above" ? "above" : "left");
       setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
+      setClassicV2FontScale(clientProfile.classic_v2_font_scale || "normal");
       setClassicTerms(clientProfile.classic_terms || "");
       setSignatureKey(clientProfile.signature_url || null);
       setStampKey(clientProfile.stamp_url || null);
@@ -114,6 +116,7 @@ export default function SettingsDocumentsPage() {
       show_company_name: showCompanyName,
       logo_layout: logoLayout,
       pdf_template: pdfTemplate,
+      classic_v2_font_scale: classicV2FontScale,
       classic_terms: classicTerms.trim() || null,
       signature_url: signatureKey,
       stamp_url: stampKey,
@@ -182,6 +185,7 @@ export default function SettingsDocumentsPage() {
 
   const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template || "modern") ||
+    classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
     classicTerms !== (clientProfile?.classic_terms || "") ||
     logoKey !== (clientProfile?.logo_url ?? null) ||
     logoSize !== (clientProfile?.logo_size || "square") ||
@@ -293,6 +297,22 @@ export default function SettingsDocumentsPage() {
               <p className="text-[11px] text-[#888780] mt-1">
                 เทมเพลตเริ่มต้นสำหรับเอกสารทุกประเภท มีผลกับเอกสารใหม่เท่านั้น
               </p>
+              {pdfTemplate === "classic_v2" && (
+                <div className="mt-3">
+                  <Select
+                    label="ขนาดตัวอักษร (คลาสสิก V2)"
+                    value={classicV2FontScale}
+                    onChange={(e) => { setClassicV2FontScale(e.target.value); setSaved(false); }}
+                  >
+                    {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </Select>
+                  <p className="text-[11px] text-[#888780] mt-1">
+                    ปรับขนาดตัวอักษรทั้งเอกสาร — ระบบจะคำนวณจำนวนรายการต่อหน้าให้อัตโนมัติ
+                  </p>
+                </div>
+              )}
               <div className="mt-3">
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   ข้อความเงื่อนไขท้ายเอกสาร

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "../src/index.css";
 import { PrintDocument } from "../src/components/print/PrintDocument";
 import { PrintDocumentClassic } from "../src/components/print/PrintDocumentClassic";
+import { PrintDocumentClassicV2 } from "../src/components/print/PrintDocumentClassicV2";
 import { PrintAppendix } from "../src/components/print/PrintAppendix";
 import { applyAppendixToData } from "../src/lib/print";
 import type { CopyType } from "../src/components/print/PrintDocument";
@@ -316,12 +317,23 @@ const manyData = (template: HtmlPrintTemplate): PrintDocumentData => ({
 
 
 const params = new URLSearchParams(window.location.search);
-const template = params.get("template") === "classic" ? "classic" : "modern";
+const rawTemplate = params.get("template");
+const template: HtmlPrintTemplate =
+  rawTemplate === "classic" ? "classic"
+  : rawTemplate === "classic_v2" ? "classic_v2"
+  : "modern";
 const copyType: CopyType =
   params.get("copyType") === "copy" ? "copy" : "original";
 const docVariant = params.get("doc") === "many" ? "many" : "base";
 const appendixOn = params.get("appendix") === "1";
+const fontScalePreset = params.get("fontScale");
 const baseData = docVariant === "many" ? manyData(template) : data(template);
+if (fontScalePreset) {
+  baseData.clientProfile = {
+    ...baseData.clientProfile,
+    classic_v2_font_scale: fontScalePreset,
+  };
+}
 const activeData = appendixOn
   ? { ...baseData, document: { ...baseData.document, dn_appendix: true } }
   : baseData;
@@ -336,6 +348,8 @@ createRoot(document.getElementById("root")!).render(
       <div className="print-export-page">
         {template === "classic" ? (
           <PrintDocumentClassic data={activeData} copyType={copyType} />
+        ) : template === "classic_v2" ? (
+          <PrintDocumentClassicV2 data={activeData} copyType={copyType} />
         ) : (
           <PrintDocument data={activeData} copyType={copyType} />
         )}

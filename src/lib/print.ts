@@ -104,6 +104,7 @@ import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 import { estimateLineItemHeight } from "./printRowHeight";
 import { getDnVarianceParts } from "./dnVariance";
+import { getClassicV2FontScaleMult } from "../constants";
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -173,6 +174,7 @@ export function isHtmlPrintTemplate(
 function makeLineItemEstimate(
   data: PrintableDocumentDataBase,
   template: HtmlPrintTemplate,
+  fontScale = 1,
 ) {
   const hideDeliveryAmounts =
     data.document.doc_type === "delivery_note" &&
@@ -183,6 +185,7 @@ function makeLineItemEstimate(
   const showVariance = data.document.show_dn_variance === true;
   return (item: DocumentLineItem) =>
     estimateLineItemHeight(item, template, {
+      fontScale,
       hideDeliveryAmounts,
       hasLineDiscount:
         (item.discount_amount ?? 0) > 0 || (item.discount_percent ?? 0) > 0,
@@ -1098,8 +1101,11 @@ async function renderClassicV2PrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
+  const fontScale = getClassicV2FontScaleMult(
+    data.clientProfile.classic_v2_font_scale,
+  );
   const batches = paginateLineItems(data.lineItems, "classic", {
-    estimateHeight: makeLineItemEstimate(data, "classic"),
+    estimateHeight: makeLineItemEstimate(data, "classic", fontScale),
   });
   if (batches.length <= 1) {
     return [await renderClassicV2PrintCanvas(data, copyType)];

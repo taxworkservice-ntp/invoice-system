@@ -16,6 +16,7 @@ import {
   type PrintAppendixData,
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
+import { getClassicV2FontScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import {
@@ -40,12 +41,15 @@ type PrintBatch =
 function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix = data.document.dn_appendix): PrintBatch[] {
   const { filteredLineItems } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
   const lineItemsForPagination = filteredLineItems;
+  const fontScale = data.template === "classic_v2"
+    ? getClassicV2FontScaleMult(data.clientProfile.classic_v2_font_scale)
+    : 1;
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
     return paginateRows(
       data.billingNoteInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template) },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, fontScale) },
     ).map((batch) => ({ kind: "billing_invoices", batch }));
   }
 
@@ -58,7 +62,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.receiptInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template) },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, fontScale) },
     ).map((batch) => ({ kind: "receipt_invoices", batch }));
   }
 
@@ -74,6 +78,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   return paginateRows(lineItemsForPagination, data.template, "line_items", {
     estimateHeight: (item) =>
       estimateLineItemHeight(item, data.template, {
+        fontScale,
         hideDeliveryAmounts: effectiveHideAmounts,
         hasLineDiscount:
           (item.discount_amount ?? 0) > 0 || (item.discount_percent ?? 0) > 0,

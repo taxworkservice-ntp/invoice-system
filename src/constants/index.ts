@@ -102,6 +102,22 @@ export const ASSET_SCALE_MULT: Record<string, number> = Object.fromEntries(
   ASSET_SCALE_OPTIONS.map((option) => [option.value, option.mult]),
 );
 
+export const CLASSIC_V2_FONT_SCALE_OPTIONS: { value: string; label: string; mult: number }[] = [
+  { value: "small", label: "เล็ก", mult: 0.9 },
+  { value: "normal", label: "ปกติ", mult: 1 },
+  { value: "large", label: "ใหญ่", mult: 1.1 },
+  { value: "xlarge", label: "ใหญ่มาก", mult: 1.2 },
+];
+
+export const CLASSIC_V2_FONT_SCALE_MULT: Record<string, number> = Object.fromEntries(
+  CLASSIC_V2_FONT_SCALE_OPTIONS.map((option) => [option.value, option.mult]),
+);
+
+/** Multiplier for a classic_v2_font_scale preset value; defaults to 1 (ปกติ). */
+export function getClassicV2FontScaleMult(value?: string | null): number {
+  return CLASSIC_V2_FONT_SCALE_MULT[value ?? "normal"] ?? 1;
+}
+
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "เงินสด",
   bank_transfer: "โอนเงิน",
