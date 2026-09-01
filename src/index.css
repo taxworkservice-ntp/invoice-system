@@ -923,6 +923,25 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-top--no-name .print-classic-top-right {
   grid-area: auto;
 }
+/* V2 override: name hidden + ตำแหน่งโลโก้ = ด้านบน — keep the above-logo layout
+   (logo on its own row, meta below it) instead of the side-by-side no-name grid */
+.print-theme-classic-v2 .print-classic-top--no-name.print-classic-top--above {
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "logo badge"
+    "meta badge";
+}
+.print-theme-classic-v2 .print-classic-top--no-name.print-classic-top--above .print-classic-logo {
+  grid-area: logo;
+  justify-content: flex-start;
+}
+.print-theme-classic-v2 .print-classic-top--no-name.print-classic-top--above .print-classic-company {
+  grid-area: meta;
+  margin-top: 0;
+}
+.print-theme-classic-v2 .print-classic-top--no-name.print-classic-top--above .print-classic-top-right {
+  grid-area: badge;
+}
 
 /* =====================================================================
    V2 READABILITY: darker text + rules (elderly-friendly printing).

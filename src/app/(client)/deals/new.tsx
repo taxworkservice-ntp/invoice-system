@@ -8,7 +8,7 @@ import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
-import { Input, Select } from "../../../components/ui/Input";
+import { Input } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
 import { DocumentOptionsCard, DocumentOptionRow } from "../../../components/documents/DocumentOptions";
 import { StepHeading } from "../../../components/documents/FormStep";
@@ -24,7 +24,7 @@ import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
-import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS, CLASSIC_V2_FONT_SCALE_OPTIONS, DOCUMENT_FONT_SCALE_DEFAULT } from "../../../constants";
+import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
 import { AlertTriangle, ChevronDown, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { Document, DocumentLineItem, DocumentType, DocumentStatus, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
@@ -468,8 +468,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   });
   const [isBlankForm, setIsBlankForm] = useState(false);
   const [showFullTotals, setShowFullTotals] = useState(false);
-  const [printFontScale, setPrintFontScale] = useState(DOCUMENT_FONT_SCALE_DEFAULT);
-  const isClassicV2Template = clientProfile?.pdf_template === "classic_v2";
   const totalsTouched = useRef(false);
 
   useEffect(() => {
@@ -638,7 +636,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         if (draftDoc.doc_type === "delivery_note" && draftDoc.show_full_totals != null) {
           setShowFullTotals(draftDoc.show_full_totals);
         }
-        setPrintFontScale(draftDoc.print_font_scale || DOCUMENT_FONT_SCALE_DEFAULT);
         setLineItems(((lineData || []) as DocumentLineItem[]).map((line) => ({
           id: line.id || crypto.randomUUID(),
           item_id: line.item_id,
@@ -1336,7 +1333,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         amount_received: isTaxInvoiceReceipt ? tax.netPayable : null,
         note: note.trim() ? note : null,
         ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: showFullTotals } : {}),
-        ...(isClassicV2Template ? { print_font_scale: printFontScale === DOCUMENT_FONT_SCALE_DEFAULT ? null : printFontScale } : {}),
       };
 
       let savedDocumentId = documentId || "";
@@ -2456,28 +2452,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 onChange={(checked) => { totalsTouched.current = true; setShowFullTotals(checked); }}
               />
             )}
-          </DocumentOptionsCard>
-        )}
-
-        {isClassicV2Template && (
-          <DocumentOptionsCard>
-            <div className="px-1 py-0.5">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                ขนาดตัวอักษรใน PDF (เทมเพลตคลาสสิก V2)
-              </label>
-              <Select
-                value={printFontScale}
-                onChange={(e) => setPrintFontScale(e.target.value)}
-              >
-                <option value={DOCUMENT_FONT_SCALE_DEFAULT}>ตามค่าเริ่มต้นของร้าน</option>
-                {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </Select>
-              <p className="text-[11px] text-[#888780] mt-1">
-                ปรับขนาดตัวอักษรเฉพาะเอกสารนี้เท่านั้น (ไม่กระทบเอกสารอื่น) ระบบจะคำนวณจำนวนรายการต่อหน้าให้อัตโนมัติ
-              </p>
-            </div>
           </DocumentOptionsCard>
         )}
 

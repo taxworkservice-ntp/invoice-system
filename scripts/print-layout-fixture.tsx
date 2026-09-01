@@ -345,6 +345,12 @@ if (params.get("noCompanyName") === "1") {
     show_company_name: false,
   };
 }
+if (params.get("logoLayout") === "above") {
+  baseData.clientProfile = {
+    ...baseData.clientProfile,
+    logo_layout: "above",
+  };
+}
 const docFontScale = params.get("docFontScale");
 if (docFontScale) {
   baseData.document = { ...baseData.document, print_font_scale: docFontScale };
