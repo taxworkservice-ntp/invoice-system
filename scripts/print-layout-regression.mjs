@@ -23,6 +23,7 @@ const variants = [
   { template: "classic", copyType: "original", doc: "many" },
   { template: "classic_v2", copyType: "original", doc: "many" },
   { template: "classic_v2", copyType: "original", doc: "many", fontScale: "xlarge" },
+  { template: "classic_v2", copyType: "original", doc: "many", fontScale: "xxlarge" },
   { template: "modern", copyType: "original", doc: "many", appendix: true },
 ];
 

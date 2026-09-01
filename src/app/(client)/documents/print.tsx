@@ -49,7 +49,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.billingNoteInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, fontScale) },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, fontScale), fontScale },
     ).map((batch) => ({ kind: "billing_invoices", batch }));
   }
 
@@ -62,7 +62,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.receiptInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, fontScale) },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, fontScale), fontScale },
     ).map((batch) => ({ kind: "receipt_invoices", batch }));
   }
 
@@ -85,6 +85,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
         hasInlineDnRef: !!data.showInlineDeliveryNotes && !!data.lineDeliveryNoteMap[item.id],
         hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],
       }),
+    fontScale,
   }).map((batch) => ({ kind: "line_items", batch }));
 }
 

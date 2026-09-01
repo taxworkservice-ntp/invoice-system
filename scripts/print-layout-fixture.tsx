@@ -327,6 +327,11 @@ const copyType: CopyType =
 const docVariant = params.get("doc") === "many" ? "many" : "base";
 const appendixOn = params.get("appendix") === "1";
 const fontScalePreset = params.get("fontScale");
+const pageModeParam = params.get("pageMode");
+const pageMode =
+  pageModeParam === "first" || pageModeParam === "continuation" || pageModeParam === "last"
+    ? pageModeParam
+    : "single";
 const baseData = docVariant === "many" ? manyData(template) : data(template);
 if (fontScalePreset) {
   baseData.clientProfile = {
@@ -349,7 +354,7 @@ createRoot(document.getElementById("root")!).render(
         {template === "classic" ? (
           <PrintDocumentClassic data={activeData} copyType={copyType} />
         ) : template === "classic_v2" ? (
-          <PrintDocumentClassicV2 data={activeData} copyType={copyType} />
+          <PrintDocumentClassicV2 data={activeData} copyType={copyType} pageMode={pageMode} />
         ) : (
           <PrintDocument data={activeData} copyType={copyType} />
         )}

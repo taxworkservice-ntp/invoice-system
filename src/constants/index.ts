@@ -107,6 +107,8 @@ export const CLASSIC_V2_FONT_SCALE_OPTIONS: { value: string; label: string; mult
   { value: "normal", label: "ปกติ", mult: 1 },
   { value: "large", label: "ใหญ่", mult: 1.1 },
   { value: "xlarge", label: "ใหญ่มาก", mult: 1.2 },
+  // 1.2 (ใหญ่มาก) + 20%
+  { value: "xxlarge", label: "ใหญ่มากพิเศษ", mult: 1.44 },
 ];
 
 export const CLASSIC_V2_FONT_SCALE_MULT: Record<string, number> = Object.fromEntries(

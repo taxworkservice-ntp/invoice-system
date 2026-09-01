@@ -1106,6 +1106,7 @@ async function renderClassicV2PrintPages(
   );
   const batches = paginateLineItems(data.lineItems, "classic", {
     estimateHeight: makeLineItemEstimate(data, "classic", fontScale),
+    fontScale,
   });
   if (batches.length <= 1) {
     return [await renderClassicV2PrintCanvas(data, copyType)];

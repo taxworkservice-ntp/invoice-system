@@ -28,6 +28,44 @@ const SUMMARY_ROW_CAPACITY = {
   classic: { first: 12, continuation: 16, last: 8 },
 };
 
+// Row-area budgets above are tuned at --classic-font-scale = 1, but the fixed
+// page blocks (header, info band, terms/totals, signatures, table head) also
+// contain text that grows with the scale, eating into the row area. These
+// coefficients are measured fixed-block growth in mm per unit of font scale
+// (classic V2 fixture renders, rounded up conservatively) — budgets shrink by
+// coefficient × (scale − 1). Summary pages carry the full header + totals on
+// every page, so they always reserve the first-page coefficient.
+const FONT_SCALE_BUDGET_RESERVE_MM = {
+  line_items: { first: 150, continuation: 10, last: 45 },
+  summary_rows: { first: 150, continuation: 150, last: 150 },
+};
+
+/**
+ * Estimated row-area budget (mm) per page mode. `fontScale` is the classic V2
+ * --classic-font-scale multiplier (1 = default, budgets unscaled).
+ */
+export function getRowBudgets(
+  template: "modern" | "classic" | "classic_v2",
+  fontScale = 1,
+  kind: PaginationKind = "line_items",
+): { first: number; continuation: number; last: number } {
+  const baseMm = getBaseRowMm(template);
+  const capacity = kind === "summary_rows"
+    ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : "classic"]
+    : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : "classic"];
+  const reserve = (mode: "first" | "continuation" | "last") =>
+    template !== "modern" && fontScale !== 1
+      ? // Never grow budgets below scale 1: if a user's fixed content doesn't
+        // actually shrink, under-filled pages are harmless but overflow is not.
+        Math.max(0, FONT_SCALE_BUDGET_RESERVE_MM[kind][mode] * (fontScale - 1))
+      : 0;
+  return {
+    first: Math.max(baseMm, capacity.first * baseMm - reserve("first")),
+    continuation: Math.max(baseMm, capacity.continuation * baseMm - reserve("continuation")),
+    last: Math.max(baseMm, capacity.last * baseMm - reserve("last")),
+  };
+}
+
 export interface GenericPageBatch<T> {
   items: T[];
   mode: PageMode;
@@ -39,10 +77,15 @@ export interface PaginateOptions<T> {
    * Estimated rendered height in mm for each row. When provided, pages are
    * broken by height as well as count so that tall rows (multi-line notes,
    * wrapped names, classic DN headers) never overflow the fixed sheet and the
-   * last page always has room for the totals footer. When omitted, the tuned
+   * last page always has room for the totals/signature footer. When omitted, the tuned
    * count-based capacities are used unchanged.
    */
   estimateHeight?: (row: T, index: number) => number;
+  /**
+   * Classic V2 --classic-font-scale multiplier (1 = default). Shrinks the
+   * per-page row budgets to make room for the scaled fixed page blocks.
+   */
+  fontScale?: number;
 }
 
 /**
@@ -69,7 +112,16 @@ export function paginateRows<T>(
   const lp = capacity.last;
 
   if (options.estimateHeight) {
-    return paginateRowsByHeight(rows, template, fp, cp, lp, options.estimateHeight);
+    return paginateRowsByHeight(
+      rows,
+      template,
+      fp,
+      cp,
+      lp,
+      options.estimateHeight,
+      options.fontScale ?? 1,
+      kind,
+    );
   }
 
   return paginateRowsByCount(rows, fp, cp, lp);
@@ -129,13 +181,10 @@ function paginateRowsByHeight<T>(
   cp: number,
   lp: number,
   estimateHeight: (row: T, index: number) => number,
+  fontScale = 1,
+  kind: PaginationKind = "line_items",
 ): GenericPageBatch<T>[] {
-  const baseMm = getBaseRowMm(template);
-  const budgets = {
-    first: fp * baseMm,
-    continuation: cp * baseMm,
-    last: lp * baseMm,
-  };
+  const budgets = getRowBudgets(template, fontScale, kind);
   const heights = rows.map((row, i) => estimateHeight(row, i));
   const totalHeight = heights.reduce((sum, h) => sum + h, 0);
 
@@ -216,10 +265,11 @@ function paginateRowsByHeight<T>(
 export function paginateLineItems(
   lineItems: DocumentLineItem[],
   template: "modern" | "classic" | "classic_v2",
-  opts: { estimateHeight?: (item: DocumentLineItem) => number } = {},
+  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number } = {},
 ): PageBatch[] {
   return paginateRows(lineItems, template, "line_items", {
     estimateHeight: opts.estimateHeight,
+    fontScale: opts.fontScale,
   }) as PageBatch[];
 }
 
