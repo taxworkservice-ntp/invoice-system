@@ -62,12 +62,17 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const itemsScale = docOverrideMult ?? (isClassicV2
     ? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, globalScale)
     : 1);
+  const numScale = docOverrideMult ?? (isClassicV2
+    ? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, globalScale)
+    : 1);
   // Budgets account for every fixed page block; row-text estimates use the
-  // items-table scale.
+  // description (items) + numeric column scales.
   const budgetScales: number | ClassicV2FontScales = docOverrideMult ?? (isClassicV2
     ? {
         header: getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale),
         items: itemsScale,
+        num: numScale,
+        thead: getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, globalScale),
         totals: getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale),
         footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
       }
@@ -107,6 +112,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     estimateHeight: (item) =>
       estimateLineItemHeight(item, data.template, {
         fontScale: itemsScale,
+        numScale,
         hideDeliveryAmounts: effectiveHideAmounts,
         hasLineDiscount:
           (item.discount_amount ?? 0) > 0 || (item.discount_percent ?? 0) > 0,

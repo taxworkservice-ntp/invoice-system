@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { AppShell } from "../../../components/layout/AppShell";
-import { Card } from "../../../components/ui/Card";
+import { SectionCard } from "../../../components/ui/SectionCard";
+import { SettingRow } from "../../../components/ui/SettingRow";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -39,16 +40,19 @@ export default function SettingsCompanyPage() {
   const [savingBank, setSavingBank] = useState(false);
   const [editingBankId, setEditingBankId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (clientProfile) {
-      setCompanyNameTh(clientProfile.company_name_th || "");
-      setCompanyNameEn(clientProfile.company_name_en || "");
-      setTaxId(clientProfile.tax_id || "");
-      setAddress(clientProfile.address || "");
-      setPhone(clientProfile.phone || "");
-      setContactName(clientProfile.contact_name || "");
-    }
+  const hydrateFromProfile = useCallback(() => {
+    if (!clientProfile) return;
+    setCompanyNameTh(clientProfile.company_name_th || "");
+    setCompanyNameEn(clientProfile.company_name_en || "");
+    setTaxId(clientProfile.tax_id || "");
+    setAddress(clientProfile.address || "");
+    setPhone(clientProfile.phone || "");
+    setContactName(clientProfile.contact_name || "");
   }, [clientProfile]);
+
+  useEffect(() => {
+    hydrateFromProfile();
+  }, [hydrateFromProfile]);
 
   function startAddBank() {
     setEditingBankId(null);
@@ -236,34 +240,36 @@ export default function SettingsCompanyPage() {
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/company" />
 
-        <Card>
-          <div className="space-y-3">
-            <Input
-              label="ชื่อบริษัท (ภาษาไทย) *"
-              value={companyNameTh}
-              onChange={(e) => { setCompanyNameTh(e.target.value); setSaved(false); }}
-              placeholder="บริษัท มาลี จำกัด"
-            />
-            <Input
-              label="ชื่อบริษัท (ภาษาอังกฤษ)"
-              value={companyNameEn}
-              onChange={(e) => { setCompanyNameEn(e.target.value); setSaved(false); }}
-              placeholder="Malee Co., Ltd. (ไม่บังคับ)"
-            />
-
-            <Input
+        <SectionCard title="ข้อมูลบริษัท" description="ข้อมูลที่พิมพ์บนเอกสารทุกฉบับ">
+          <div className="divide-y divide-[#F0EEE8]">
+            <SettingRow label="ชื่อบริษัท (ภาษาไทย) *" controlWidthClass="sm:flex-1 sm:max-w-none">
+              <Input
+                value={companyNameTh}
+                onChange={(e) => { setCompanyNameTh(e.target.value); setSaved(false); }}
+                placeholder="บริษัท มาลี จำกัด"
+              />
+            </SettingRow>
+            <SettingRow label="ชื่อบริษัท (ภาษาอังกฤษ)" controlWidthClass="sm:flex-1 sm:max-w-none">
+              <Input
+                value={companyNameEn}
+                onChange={(e) => { setCompanyNameEn(e.target.value); setSaved(false); }}
+                placeholder="Malee Co., Ltd. (ไม่บังคับ)"
+              />
+            </SettingRow>
+            <SettingRow
               label="เลขที่ผู้เสียภาษี"
-              value={taxId}
-              onChange={(e) => setTaxId(e.target.value.replace(/\D/g, "").slice(0, 13))}
-              placeholder="0000000000000"
-              maxLength={13}
-            />
-            <p className="text-[11px] text-[#888780] -mt-2">
-              13 หลัก จำเป็นสำหรับใบกำกับภาษี
-            </p>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              description="13 หลัก จำเป็นสำหรับใบกำกับภาษี"
+              controlWidthClass="sm:w-[240px]"
+            >
+              <Input
+                value={taxId}
+                onChange={(e) => setTaxId(e.target.value.replace(/\D/g, "").slice(0, 13))}
+                placeholder="0000000000000"
+                maxLength={13}
+              />
+            </SettingRow>
+            <div className="py-2.5">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 ที่อยู่
               </label>
               <textarea
@@ -274,35 +280,37 @@ export default function SettingsCompanyPage() {
                 className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 placeholder:text-gray-400 resize-none"
               />
             </div>
-
-            <Input
-              label="เบอร์โทรศัพท์"
-              value={phone}
-              onChange={(e) => { setPhone(e.target.value); setSaved(false); }}
-            />
-            <Input
+            <SettingRow label="เบอร์โทรศัพท์" controlWidthClass="sm:w-[240px]">
+              <Input
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); setSaved(false); }}
+              />
+            </SettingRow>
+            <SettingRow
               label="ชื่อผู้ติดต่อ / ชื่อเจ้าของ"
-              value={contactName}
-              onChange={(e) => { setContactName(e.target.value); setSaved(false); }}
-              placeholder="ชื่อที่ใช้แสดงในการทักทาย"
-            />
-            <p className="text-[11px] text-[#888780] -mt-2">
-              ใช้สำหรับข้อความทักทายในแอป
-            </p>
+              description="ใช้สำหรับข้อความทักทายในแอป"
+              controlWidthClass="sm:flex-1 sm:max-w-none"
+            >
+              <Input
+                value={contactName}
+                onChange={(e) => { setContactName(e.target.value); setSaved(false); }}
+                placeholder="ชื่อที่ใช้แสดงในการทักทาย"
+              />
+            </SettingRow>
+          </div>
+        </SectionCard>
 
-            <div className="border-t border-[#E8E6DF] pt-3">
-              <p className="text-[11px] font-semibold text-[#888780] mb-2">บัญชีธนาคาร</p>
-              <p className="text-[11px] text-[#888780] mb-2">
-                เพิ่มบัญชีธนาคารได้หลายบัญชี เลือกตอนรับชำระเงินแบบโอนและแสดงบนเอกสาร
-              </p>
-              {bankLoading ? (
-                <Spinner />
-              ) : bankAccounts.length === 0 ? (
-                <p className="text-xs text-[#888780] mb-2">
+        <SectionCard title="บัญชีธนาคาร" description="เพิ่มได้หลายบัญชี เลือกตอนรับชำระเงินแบบโอนและแสดงบนเอกสาร">
+          {bankLoading ? (
+            <Spinner />
+          ) : (
+            <>
+              {bankAccounts.length === 0 ? (
+                <p className="text-xs text-[#888780] mb-3">
                   ยังไม่มีบัญชีธนาคาร เพิ่มบัญชีแรกด้านล่าง
                 </p>
               ) : (
-                <div className="space-y-2 mb-3">
+                <div className="space-y-2 mb-4">
                   {bankAccounts.map((account) => (
                     <div
                       key={account.id}
@@ -347,30 +355,32 @@ export default function SettingsCompanyPage() {
                   ))}
                 </div>
               )}
-              <div className="rounded-lg border border-[#E8E6DF] p-3">
+              <div className="rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-3">
                 <p className="text-[11px] font-semibold text-[#888780] mb-2">
                   {editingBankId ? "แก้ไขบัญชีธนาคาร" : "เพิ่มบัญชีธนาคาร"}
                 </p>
-                <Input
-                  label="ชื่อธนาคาร"
-                  value={bankName}
-                  onChange={(e) => { setBankName(e.target.value); setSaved(false); }}
-                  placeholder="ธนาคารกสิกรไทย"
-                />
-                <Input
-                  label="เลขที่บัญชี"
-                  value={bankAccount}
-                  onChange={(e) => { setBankAccount(e.target.value); setSaved(false); }}
-                  placeholder="XXX-X-XXXXX-X"
-                />
-                <Input
-                  label="ชื่อบัญชี"
-                  value={accountHolder}
-                  onChange={(e) => { setAccountHolder(e.target.value); setSaved(false); }}
-                  placeholder="บจก. ... (ไม่บังคับ)"
-                />
+                <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-3">
+                  <Input
+                    label="ชื่อธนาคาร"
+                    value={bankName}
+                    onChange={(e) => { setBankName(e.target.value); setSaved(false); }}
+                    placeholder="ธนาคารกสิกรไทย"
+                  />
+                  <Input
+                    label="เลขที่บัญชี"
+                    value={bankAccount}
+                    onChange={(e) => { setBankAccount(e.target.value); setSaved(false); }}
+                    placeholder="XXX-X-XXXXX-X"
+                  />
+                  <Input
+                    label="ชื่อบัญชี"
+                    value={accountHolder}
+                    onChange={(e) => { setAccountHolder(e.target.value); setSaved(false); }}
+                    placeholder="บจก. ... (ไม่บังคับ)"
+                  />
+                </div>
                 <div className="mt-3 flex gap-2">
-                  <Button onClick={handleSaveBank} disabled={savingBank} className="flex-1">
+                  <Button onClick={handleSaveBank} disabled={savingBank}>
                     {savingBank ? "กำลังบันทึก..." : editingBankId ? "บันทึกบัญชีธนาคาร" : "เพิ่มบัญชีธนาคาร"}
                   </Button>
                   {editingBankId && (
@@ -380,21 +390,42 @@ export default function SettingsCompanyPage() {
                   )}
                 </div>
               </div>
-            </div>
+            </>
+          )}
+        </SectionCard>
 
-            {error && <p className="text-xs text-red-500">{error}</p>}
-            {saved && <p className="text-xs text-green-600">บันทึกแล้ว</p>}
-
-            <div className="relative">
-              <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? "กำลังบันทึก..." : "บันทึกข้อมูลบริษัท"}
-              </Button>
-              {isDirty && !saved && (
-                <div className="absolute top-1 right-1 w-[6px] h-[6px] rounded-full bg-[#378ADD]" />
+        <div className="sticky bottom-3 z-10">
+          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1 text-xs">
+                {error ? (
+                  <span className="text-red-500">{error}</span>
+                ) : saved ? (
+                  <span className="text-green-600">บันทึกแล้ว</span>
+                ) : isDirty ? (
+                  <span className="flex items-center gap-1.5 text-[#888780]">
+                    <span className="w-[6px] h-[6px] rounded-full bg-[#378ADD] inline-block" />
+                    ยังไม่ได้บันทึก
+                  </span>
+                ) : (
+                  <span className="text-gray-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
+                )}
+              </div>
+              {isDirty && !saving && (
+                <button
+                  type="button"
+                  onClick={hydrateFromProfile}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                >
+                  ยกเลิกการแก้ไข
+                </button>
               )}
+              <Button onClick={handleSave} disabled={saving} className="shrink-0">
+                {saving ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     </AppShell>
   );

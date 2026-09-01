@@ -40,35 +40,48 @@ const SUMMARY_ROW_CAPACITY = {
 // conservatively); budgets shrink by Σ coefficient × (section scale − 1).
 // Summary pages carry the full header + totals on every page, so they reserve
 // every section on every page.
-const FONT_SCALE_SECTION_RESERVE_MM = { header: 51, items: 5, totals: 48, footer: 21 } as const;
+const FONT_SCALE_SECTION_RESERVE_MM = { header: 51, items: 0, thead: 5, totals: 48, footer: 21 } as const;
 
 const FONT_SCALE_PAGE_SECTIONS = {
   line_items: {
-    first: ["header", "items", "totals", "footer"],
-    continuation: ["items"],
-    last: ["items", "totals", "footer"],
+    first: ["header", "thead", "totals", "footer"],
+    continuation: ["thead"],
+    last: ["thead", "totals", "footer"],
   },
   // Full document layout on every summary page.
   summary_rows: {
-    first: ["header", "items", "totals", "footer"],
-    continuation: ["header", "items", "totals", "footer"],
-    last: ["header", "items", "totals", "footer"],
+    first: ["header", "thead", "totals", "footer"],
+    continuation: ["header", "thead", "totals", "footer"],
+    last: ["header", "thead", "totals", "footer"],
   },
 } as const;
 
 export type ClassicV2FontScales = {
   header: number;
+  /** Item description (names/notes) scale — drives row heights. */
   items: number;
+  /** Numeric column scale — falls back to `items` when unset. */
+  num?: number;
+  /** Table head scale — falls back to `items` when unset. */
+  thead?: number;
   totals: number;
   footer: number;
 };
 
 function normalizeFontScales(
   fontScale: number | ClassicV2FontScales,
-): ClassicV2FontScales {
-  return typeof fontScale === "number"
-    ? { header: fontScale, items: fontScale, totals: fontScale, footer: fontScale }
-    : fontScale;
+): Required<ClassicV2FontScales> {
+  if (typeof fontScale === "number") {
+    return { header: fontScale, items: fontScale, num: fontScale, thead: fontScale, totals: fontScale, footer: fontScale };
+  }
+  return {
+    header: fontScale.header,
+    items: fontScale.items,
+    num: fontScale.num ?? fontScale.items,
+    thead: fontScale.thead ?? fontScale.items,
+    totals: fontScale.totals,
+    footer: fontScale.footer,
+  };
 }
 
 /**

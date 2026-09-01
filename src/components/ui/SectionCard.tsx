@@ -4,12 +4,13 @@ type SectionTone = "default" | "success" | "warning" | "danger" | "info";
 
 interface SectionCardProps {
   title?: React.ReactNode;
+  description?: React.ReactNode;
   icon?: React.ReactNode;
   titleRight?: React.ReactNode;
   tone?: SectionTone;
   padding?: "default" | "none";
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 const TONES: Record<SectionTone, string> = {
@@ -22,6 +23,7 @@ const TONES: Record<SectionTone, string> = {
 
 export function SectionCard({
   title,
+  description,
   icon,
   titleRight,
   tone = "default",
@@ -35,7 +37,12 @@ export function SectionCard({
       {hasHeader && (
         <div className={`flex items-center gap-2 ${padding === "none" ? "p-4 pb-0 sm:p-5 sm:pb-0" : "mb-4"}`}>
           {icon ? <span className="text-ink-400">{icon}</span> : null}
-          <h3 className="text-sm font-semibold text-ink-900">{title}</h3>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-ink-900">{title}</h3>
+            {description ? (
+              <p className="mt-0.5 text-[11px] text-[#888780]">{description}</p>
+            ) : null}
+          </div>
           {titleRight ? <div className="ml-auto">{titleRight}</div> : null}
         </div>
       )}

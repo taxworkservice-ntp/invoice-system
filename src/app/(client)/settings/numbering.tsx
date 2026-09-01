@@ -3,7 +3,8 @@ import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { AppShell } from "../../../components/layout/AppShell";
-import { Card } from "../../../components/ui/Card";
+import { SectionCard } from "../../../components/ui/SectionCard";
+import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -188,7 +189,7 @@ export default function SettingsNumberingPage() {
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/numbering" />
 
-        <Card>
+        <SectionCard title="เลขที่เอกสาร" description="กำหนด prefix และการรีเซ็ตเลขรันของแต่ละประเภทเอกสาร">
           <div className="space-y-4">
             {isDevMode && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
@@ -233,7 +234,7 @@ export default function SettingsNumberingPage() {
                     <th className="text-left py-2 pr-2">ประเภทเอกสาร</th>
                     <th className="text-left py-2 pr-2">Prefix</th>
                     {isDevMode && <th className="text-left py-2 pr-2">Start at</th>}
-                    <th className="text-center py-2">รีเซ็ตทุกเดือน</th>
+                    <th className="text-center py-2">รีเซ็ตทุกปี</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -266,27 +267,36 @@ export default function SettingsNumberingPage() {
                         </td>
                       )}
                       <td className="py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={getResetYearly(docType)}
-                          onChange={(e) => setResetYearly(docType, e.target.checked)}
-                          className="w-4 h-4 text-primary rounded border-card-border"
-                        />
+                        <div className="flex justify-center">
+                          <Switch checked={getResetYearly(docType)} onChange={(checked) => setResetYearly(docType, checked)} />
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {error && <p className="text-xs text-red-500">{error}</p>}
-            {success && <p className="text-xs text-green-500">{success}</p>}
-
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "กำลังบันทึก..." : "บันทึกทั้งหมด"}
-            </Button>
           </div>
-        </Card>
+        </SectionCard>
+
+        <div className="sticky bottom-3 z-10">
+          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1 text-xs">
+                {error ? (
+                  <span className="text-red-500">{error}</span>
+                ) : success ? (
+                  <span className="text-green-600">{success}</span>
+                ) : (
+                  <span className="text-gray-400">บันทึกครั้งเดียวใช้ได้กับทุกประเภทเอกสาร</span>
+                )}
+              </div>
+              <Button onClick={handleSave} disabled={saving} className="shrink-0">
+                {saving ? "กำลังบันทึก..." : "บันทึกทั้งหมด"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </AppShell>
   );

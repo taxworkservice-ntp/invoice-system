@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { SectionCard } from "../../../components/ui/SectionCard";
 import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -396,14 +397,10 @@ export default function SettingsTeamPage() {
     <AppShell title="ตั้งค่า > ทีมงานและสิทธิ์">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/team" />
-        <Card>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-[#1A1A18]">ทีมงานและสิทธิ์</h2>
-              <p className="mt-1 text-xs leading-5 text-gray-500">
-                สมาชิกใหม่เริ่มต้นโดยไม่มีสิทธิ์ใดๆ กำหนดบทบาทหรือเปิดสิทธิ์ให้แต่ละคนเอง
-              </p>
-            </div>
+        <SectionCard
+          title="ทีมงานและสิทธิ์"
+          description="สมาชิกใหม่เริ่มต้นโดยไม่มีสิทธิ์ใดๆ กำหนดบทบาทหรือเปิดสิทธิ์ให้แต่ละคนเอง"
+          titleRight={
             <div className="flex gap-1 rounded-lg bg-[#F1EFE8] p-1">
               {tabs.map((item) => (
                 <button
@@ -416,8 +413,8 @@ export default function SettingsTeamPage() {
                 </button>
               ))}
             </div>
-          </div>
-        </Card>
+          }
+        />
 
         {loading ? <Spinner /> : tab === "members" ? (
           members.length === 0 ? (

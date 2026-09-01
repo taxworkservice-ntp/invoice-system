@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
-import { Card } from "../../../components/ui/Card";
+import { SectionCard } from "../../../components/ui/SectionCard";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { SettingsTabs } from "./_components/SettingsTabs";
@@ -81,54 +81,59 @@ export default function SettingsAccountPage() {
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/account" />
 
-        <Card>
-          <div className="space-y-3">
+        <SectionCard title="บัญชีผู้ใช้" description="อีเมลเข้าใช้งานและรหัสผ่าน">
+          <div className="space-y-4">
             <div>
               <p className="text-[12px] text-[#888780]">อีเมล</p>
               <p className="text-[13px] text-[#1A1A18]">{email}</p>
             </div>
 
-            <div className="border-t border-[#E8E6DF] pt-3">
-              <Input
-                label="รหัสผ่านปัจจุบัน"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => { setCurrentPassword(e.target.value); setPasswordSaved(false); }}
-                placeholder="รหัสผ่านปัจจุบัน"
-              />
-              <Input
-                label="รหัสผ่านใหม่"
-                type="password"
-                value={newPassword}
-                onChange={(e) => { setNewPassword(e.target.value); setPasswordSaved(false); }}
-                placeholder="รหัสผ่านอย่างน้อย 6 ตัวอักษร"
-              />
-              <Input
-                label="ยืนยันรหัสผ่านใหม่"
-                type="password"
-                value={newPasswordConfirm}
-                onChange={(e) => { setNewPasswordConfirm(e.target.value); setPasswordSaved(false); }}
-                placeholder="ใส่รหัสผ่านอีกครั้ง"
-              />
+            <div className="border-t border-[#F0EEE8] pt-4">
+              <p className="text-xs font-medium text-gray-700 mb-2">เปลี่ยนรหัสผ่าน</p>
+              <div className="space-y-3 max-w-sm">
+                <Input
+                  label="รหัสผ่านปัจจุบัน"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => { setCurrentPassword(e.target.value); setPasswordSaved(false); }}
+                  placeholder="รหัสผ่านปัจจุบัน"
+                />
+                <Input
+                  label="รหัสผ่านใหม่"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setPasswordSaved(false); }}
+                  placeholder="รหัสผ่านอย่างน้อย 6 ตัวอักษร"
+                />
+                <Input
+                  label="ยืนยันรหัสผ่านใหม่"
+                  type="password"
+                  value={newPasswordConfirm}
+                  onChange={(e) => { setNewPasswordConfirm(e.target.value); setPasswordSaved(false); }}
+                  placeholder="ใส่รหัสผ่านอีกครั้ง"
+                />
+              </div>
 
-              {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
-              {passwordSaved && <p className="text-xs text-green-600">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว</p>}
+              {passwordError && <p className="mt-3 text-xs text-red-500">{passwordError}</p>}
+              {passwordSaved && <p className="mt-3 text-xs text-green-600">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว</p>}
 
-              <Button onClick={handleChangePassword} disabled={changingPassword} className="w-full">
+              <Button onClick={handleChangePassword} disabled={changingPassword} className="mt-4">
                 {changingPassword ? "กำลังเปลี่ยน..." : "เปลี่ยนรหัสผ่าน"}
               </Button>
             </div>
 
-            <button
-              onClick={() => {
-                if (window.confirm("ออกจากระบบ?")) handleLogout();
-              }}
-              className="text-red-500 text-[13px] font-medium hover:underline"
-            >
-              ออกจากระบบ
-            </button>
+            <div className="border-t border-[#F0EEE8] pt-4">
+              <button
+                onClick={() => {
+                  if (window.confirm("ออกจากระบบ?")) handleLogout();
+                }}
+                className="text-red-500 text-[13px] font-medium hover:underline"
+              >
+                ออกจากระบบ
+              </button>
+            </div>
           </div>
-        </Card>
+        </SectionCard>
       </div>
     </AppShell>
   );

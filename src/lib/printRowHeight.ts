@@ -80,8 +80,10 @@ export function estimateLineItemHeight(
     hasInvoiceRef?: boolean;
     /** DN variance sub-line (show_dn_variance) rendered under the row. */
     hasDnVariance?: boolean;
-    /** --classic-font-scale multiplier (classic templates only, 1 = default). */
+    /** --classic-font-scale multiplier for the description column (classic templates only, 1 = default). */
     fontScale?: number;
+    /** Numeric-column scale — single-line cells; falls back to fontScale. */
+    numScale?: number;
   } = {},
 ): number {
   const isClassic = template !== "modern";
@@ -99,6 +101,14 @@ export function estimateLineItemHeight(
       ? DN_HEADER_MM.classic
       : CLASSIC_ROW_FIXED_MM + CLASSIC_DN_HEADER_TEXT_MM * fontScale;
   }
+
+  // Numeric columns are single-line: their line height scales with numScale
+  // and must not shrink the row below the description text.
+  const numScale = opts.numScale ?? fontScale;
+  const firstLineMm = TEXT_LINE_MM[key] * Math.max(fontScale, numScale);
+  const baseRowMm = isClassic
+    ? CLASSIC_ROW_FIXED_MM + firstLineMm
+    : base;
 
   const rawCharsPerLine = isClassic
     ? opts.hideDeliveryAmounts
@@ -124,7 +134,7 @@ export function estimateLineItemHeight(
   if (opts.hasDnVariance) subLines += 1;
 
   const textScale = (mm: number) => (fontScale === 1 ? mm : mm * fontScale);
-  const nameMm = base + (nameLines - 1) * textScale(TEXT_LINE_MM[key]);
+  const nameMm = baseRowMm + (nameLines - 1) * textScale(TEXT_LINE_MM[key]);
   const noteMm = noteLines * textScale(NOTE_LINE_MM[key]);
   const subMm = subLines * textScale(SUBLINE_MM[key]);
   return nameMm + noteMm + subMm + ROW_SAFETY_MM;

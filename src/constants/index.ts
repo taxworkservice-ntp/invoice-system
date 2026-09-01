@@ -102,30 +102,51 @@ export const ASSET_SCALE_MULT: Record<string, number> = Object.fromEntries(
   ASSET_SCALE_OPTIONS.map((option) => [option.value, option.mult]),
 );
 
+/** Base pt of the main reading text (item description body) — the reference for all labels. */
+export const CLASSIC_V2_BASE_FONT_PT = 7.5;
+export const CLASSIC_V2_MIN_FONT_PT = 6;
+export const CLASSIC_V2_MAX_FONT_PT = 13.5;
+
+/** Prefix for per-slot custom sizes stored as `pt:<number>`. */
+export const CLASSIC_V2_CUSTOM_PT_PREFIX = "pt:";
+
 export const CLASSIC_V2_FONT_SCALE_OPTIONS: { value: string; label: string; mult: number }[] = [
-  { value: "small", label: "เล็ก", mult: 0.9 },
-  { value: "normal", label: "ปกติ", mult: 1 },
-  { value: "large", label: "ใหญ่", mult: 1.1 },
-  { value: "xlarge", label: "ใหญ่มาก", mult: 1.2 },
-  // 1.2 (ใหญ่มาก) + 20%
-  { value: "xxlarge", label: "ใหญ่มากพิเศษ", mult: 1.44 },
-  // 1.44 (ใหญ่มากพิเศษ) + 15%
-  { value: "xxxlarge", label: "ใหญ่ที่สุด", mult: 1.65 },
+  { value: "small", label: "6pt", mult: 0.8 },
+  { value: "normal", label: "7.5pt", mult: 1 },
+  { value: "large", label: "9pt", mult: 1.2 },
+  { value: "xlarge", label: "10.5pt", mult: 1.4 },
+  { value: "xxlarge", label: "12pt", mult: 1.6 },
+  { value: "xxxlarge", label: "13pt", mult: 13 / CLASSIC_V2_BASE_FONT_PT },
 ];
 
 export const CLASSIC_V2_FONT_SCALE_MULT: Record<string, number> = Object.fromEntries(
   CLASSIC_V2_FONT_SCALE_OPTIONS.map((option) => [option.value, option.mult]),
 );
 
-/** Multiplier for a classic_v2_font_scale preset value; defaults to 1 (ปกติ). */
+/** Multiplier for a preset value or a custom `pt:<number>` string; defaults to 1 (ปกติ). */
 export function getClassicV2FontScaleMult(value?: string | null): number {
-  return CLASSIC_V2_FONT_SCALE_MULT[value ?? "normal"] ?? 1;
+  if (!value) return 1;
+  if (value.startsWith(CLASSIC_V2_CUSTOM_PT_PREFIX)) {
+    const pt = parseFloat(value.slice(CLASSIC_V2_CUSTOM_PT_PREFIX.length));
+    if (!Number.isFinite(pt)) return 1;
+    return (
+      Math.min(CLASSIC_V2_MAX_FONT_PT, Math.max(CLASSIC_V2_MIN_FONT_PT, pt)) /
+      CLASSIC_V2_BASE_FONT_PT
+    );
+  }
+  return CLASSIC_V2_FONT_SCALE_MULT[value] ?? 1;
 }
 
 /** Sentinel stored on a document meaning "follow the workspace default". */
 export const DOCUMENT_FONT_SCALE_DEFAULT = "default";
 
-export type ClassicV2SectionFontKey = "header" | "items" | "totals" | "footer";
+export type ClassicV2SectionFontKey =
+  | "header"
+  | "items"
+  | "num"
+  | "thead"
+  | "totals"
+  | "footer";
 
 /** Preset value meaning "follow the workspace default". */
 export const CLASSIC_V2_SECTION_INHERIT = "inherit";
@@ -133,8 +154,17 @@ export const CLASSIC_V2_SECTION_INHERIT = "inherit";
 export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
   "header",
   "items",
+  "num",
+  "thead",
   "totals",
   "footer",
+];
+
+/** Keys of the ตารางรายการ (items table) sub-group. */
+export const CLASSIC_V2_ITEMS_TABLE_ROWS: { key: ClassicV2SectionFontKey; label: string }[] = [
+  { key: "items", label: "ชื่อสินค้า/คำอธิบาย" },
+  { key: "num", label: "ตัวเลข/จำนวน" },
+  { key: "thead", label: "หัวตาราง/คอลัมน์" },
 ];
 
 /**
@@ -148,7 +178,7 @@ export function getClassicV2SectionScaleMult(
 ): number {
   const value = sectionScales?.[section];
   if (!value || value === CLASSIC_V2_SECTION_INHERIT) return globalMult;
-  return CLASSIC_V2_FONT_SCALE_MULT[value] ?? globalMult;
+  return getClassicV2FontScaleMult(value);
 }
 
 /** Document types that can have their own font-scale overrides (classic V2). */
@@ -207,7 +237,7 @@ export function getClassicV2EffectiveSectionScaleMult(
 ): number {
   const typeValue = typeSectionScales?.[section];
   if (typeValue && typeValue !== CLASSIC_V2_SECTION_INHERIT) {
-    return CLASSIC_V2_FONT_SCALE_MULT[typeValue] ?? globalMult;
+    return getClassicV2FontScaleMult(typeValue);
   }
   return getClassicV2SectionScaleMult(section, sectionScales, globalMult);
 }

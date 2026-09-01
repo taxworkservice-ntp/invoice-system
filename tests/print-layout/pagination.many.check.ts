@@ -8,6 +8,7 @@
 import assert from "node:assert";
 import { paginateLineItems, getRowBudgets } from "../../src/lib/pagination";
 import { estimateLineItemHeight } from "../../src/lib/printRowHeight";
+import { getClassicV2FontScaleMult } from "../../src/constants";
 import type { DocumentLineItem } from "../../src/types";
 
 function makeItem(n: number, opts: { changed?: boolean; longNote?: boolean } = {}): DocumentLineItem {
@@ -95,12 +96,12 @@ for (const batch of modernBatches) {
 // 5. classic V2 font-scale: row budgets shrink with the scale so scaled fixed
 // blocks (header/info/terms/signatures) never push rows off the fixed sheet.
 const scales = [
-  { preset: "small", mult: 0.9 },
-  { preset: "normal", mult: 1 },
-  { preset: "large", mult: 1.1 },
-  { preset: "xlarge", mult: 1.2 },
-  { preset: "xxlarge", mult: 1.44 },
-  { preset: "xxxlarge", mult: 1.65 },
+  { preset: "small (6pt)", mult: 0.8 },
+  { preset: "normal (7.5pt)", mult: 1 },
+  { preset: "large (9pt)", mult: 1.2 },
+  { preset: "xlarge (10.5pt)", mult: 1.4 },
+  { preset: "xxlarge (12pt)", mult: 1.6 },
+  { preset: "xxxlarge (13pt)", mult: 13 / 7.5 },
 ];
 const estimateClassic = (item: DocumentLineItem, mult: number) =>
   estimateLineItemHeight(item, "classic", {
@@ -191,6 +192,45 @@ for (const { preset, mult } of scales) {
   console.log(`  classic_v2 items-1.44: ${batches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
 }
 
+// 6b. numeric columns scale independently of the description column
+{
+  const estimateMixed = (item: DocumentLineItem, desc: number, num: number) =>
+    estimateLineItemHeight(item, "classic", {
+      fontScale: desc,
+      numScale: num,
+      hasDnVariance: true,
+    });
+  const simpleItems = Array.from({ length: 20 }, (_, i) => {
+    const base = makeItem(i + 1);
+    return { ...base, item_name: `Item ${i + 1}`, line_note: null, source_document_id: null, source_line_item_id: null, source_delivered_qty: null, source_unit_price: null };
+  });
+  // numbers smaller than description: row height identical to desc-only rows
+  const descOnly = estimateMixed(simpleItems[0], 1.44, 1.44);
+  const descBigNumSmall = estimateMixed(simpleItems[0], 1.44, 1.0);
+  assert.equal(descBigNumSmall, descOnly, "num <= desc must not change row height");
+  // numbers bigger than description: single number line grows the row
+  // (first line at num scale + variance sub-line at desc scale + safety)
+  const descSmallNumBig = estimateMixed(simpleItems[0], 1.0, 1.65);
+  const oneLineAt1 = estimateLineItemHeight(simpleItems[0], "classic", {});
+  const expectedBig = 3.1 + 3.4 * 1.65 + 3.4 * 1.0 + 0.8;
+  assert.ok(
+    descSmallNumBig > oneLineAt1 && Math.abs(descSmallNumBig - expectedBig) < 0.01,
+    `num > desc grows the row to the numeric line height (${descSmallNumBig.toFixed(2)} vs ${expectedBig.toFixed(2)})`,
+  );
+  // paginates with mixed scales and respects budgets
+  const batches = paginateLineItems(simpleItems, "classic", {
+    estimateHeight: (item) => estimateMixed(item, 1.65, 1.0),
+    fontScale: { header: 1, items: 1.65, num: 1.0, thead: 1, totals: 1, footer: 1 },
+  });
+  const budgets = getRowBudgets("classic", { header: 1, items: 1.65, num: 1.0, thead: 1, totals: 1, footer: 1 });
+  for (const batch of batches) {
+    if (batch.items.length <= 1) continue;
+    const sum = batch.items.reduce((acc, it) => acc + estimateMixed(it, 1.65, 1.0), 0);
+    assert.ok(sum <= budgets[batch.mode] + 0.5, `mixed: ${batch.mode} within budget`);
+  }
+  console.log(`  classic_v2 desc1.65/num1.0: ${batches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
+}
+
 // 7. classic_v2 distribution: first page maximal, continuation pages packed,
 // finalized page keeps only the remainder (floor 1 item)
 {
@@ -244,3 +284,27 @@ console.log("pagination.many: all assertions passed");
 console.log(
   `  modern batches: ${modernBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`,
 );
+
+// 8. pt-based custom sizes: parsing, clamping, preset ladder
+{
+  assert.equal(getClassicV2FontScaleMult("pt:9"), 1.2, "pt:9 = 9pt / 7.5pt base");
+  assert.equal(getClassicV2FontScaleMult("normal"), 1, "preset passthrough");
+  assert.equal(getClassicV2FontScaleMult("pt:6"), 0.8, "min clamp = 6pt");
+  assert.equal(getClassicV2FontScaleMult("pt:99"), 1.8, "max clamp = 13.5pt");
+  assert.equal(getClassicV2FontScaleMult("pt:garbage"), 1, "invalid pt falls back to ปกติ");
+  assert.equal(getClassicV2FontScaleMult("xxxlarge"), 13 / 7.5, "xxxlarge = 13pt top rung");
+  // a custom pt value paginates end-to-end
+  const customBatches = paginateLineItems(items, "classic", {
+    estimateHeight: (item) => estimateLineItemHeight(item, "classic", { fontScale: getClassicV2FontScaleMult("pt:9") }),
+    fontScale: getClassicV2FontScaleMult("pt:9"),
+  });
+  assert.ok(customBatches.length >= 2, "custom pt:9 paginates many-line docs");
+  // the 13pt top rung paginates within budgets (≥1 row floor keeps pages valid)
+  const maxBatches = paginateLineItems(items, "classic", {
+    estimateHeight: (item) => estimateLineItemHeight(item, "classic", { fontScale: getClassicV2FontScaleMult("xxxlarge") }),
+    fontScale: getClassicV2FontScaleMult("xxxlarge"),
+  });
+  assert.ok(maxBatches.length > 2, "13pt paginates many-line docs into multiple pages");
+  console.log(`  custom pt:9: ${customBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
+  console.log(`  preset 13pt: ${maxBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
+}

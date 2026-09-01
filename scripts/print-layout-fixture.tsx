@@ -345,12 +345,20 @@ if (docFontScale) {
 }
 const typeDoc = params.get("typeDoc");
 const typeItems = params.get("typeItems");
+const typeNum = params.get("typeNum");
+const typeThead = params.get("typeThead");
 if (typeDoc) {
   baseData.document = { ...baseData.document, doc_type: typeDoc as Document["doc_type"] };
-  if (typeItems) {
+  if (typeItems || typeNum || typeThead) {
     baseData.clientProfile = {
       ...baseData.clientProfile,
-      classic_v2_type_font_scales: { [typeDoc]: { items: typeItems } },
+      classic_v2_type_font_scales: {
+        [typeDoc]: {
+          ...(typeItems ? { items: typeItems } : {}),
+          ...(typeNum ? { num: typeNum } : {}),
+          ...(typeThead ? { thead: typeThead } : {}),
+        },
+      },
     };
   }
 }

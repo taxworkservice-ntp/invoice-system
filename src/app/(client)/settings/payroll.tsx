@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { AppShell } from "../../../components/layout/AppShell";
-import { Card } from "../../../components/ui/Card";
+import { SectionCard } from "../../../components/ui/SectionCard";
+import { SettingRow } from "../../../components/ui/SettingRow";
+import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -143,120 +145,76 @@ export default function SettingsPayrollPage() {
         <SettingsTabs activePath="/settings/payroll" />
 
         {/* Calculation conventions */}
-        <Card>
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm font-semibold text-[#1A1A18]">กฎการคำนวณ</div>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-[#888780]">
-                ตั้งค่าวิธีแปลงเงินเดือนรายเดือนเป็นอัตรารายวัน/รายชั่วโมง การหักวันขาดงาน และการปัดเศษ
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Select
-                label="ฐานคำนวณรายวัน"
-                value={prorateMode}
-                onChange={(e) => setProrateMode(e.target.value)}
-              >
+        <SectionCard title="กฎการคำนวณ" description="ตั้งค่าวิธีแปลงเงินเดือนรายเดือนเป็นอัตรารายวัน/รายชั่วโมง การหักวันขาดงาน และการปัดเศษ">
+          <div className="divide-y divide-[#F0EEE8]">
+            <SettingRow label="ฐานคำนวณรายวัน" controlWidthClass="sm:w-[260px]">
+              <Select value={prorateMode} onChange={(e) => setProrateMode(e.target.value)}>
                 <option value="fixed_30">ตายที่นิยม (ตามตัวหารด้านล่าง)</option>
                 <option value="actual_days">จำนวนวันจริงของเดือน</option>
               </Select>
-
-              <Select
-                label="กฎการปัดเศษ"
-                value={roundingRule}
-                onChange={(e) => setRoundingRule(e.target.value)}
-              >
+            </SettingRow>
+            <SettingRow label="กฎการปัดเศษ" controlWidthClass="sm:w-[260px]">
+              <Select value={roundingRule} onChange={(e) => setRoundingRule(e.target.value)}>
                 <option value="round">ปัดเศษปกติ (0.5 ขึ้นไป)</option>
                 <option value="floor">ปัดลง (ฝ่ายนายจ้าง)</option>
                 <option value="ceil">ปัดขึ้น (ฝ่ายพนักงาน)</option>
               </Select>
-
-              <Select
-                label="หักค่าจ้างเมื่อขาดงาน"
-                value={absenceDeduction ? "on" : "off"}
-                onChange={(e) => setAbsenceDeduction(e.target.value === "on")}
-              >
-                <option value="on">หักอัตโนมัติตามวันขาด</option>
-                <option value="off">ไม่หัก (บันทึกเอง)</option>
-              </Select>
-
+            </SettingRow>
+            <SettingRow
+              label="หักค่าจ้างเมื่อขาดงาน"
+              description={absenceDeduction ? "หักอัตโนมัติตามวันขาด" : "ไม่หัก (บันทึกเอง)"}
+              controlAlign="right"
+            >
+              <Switch checked={absenceDeduction} onChange={setAbsenceDeduction} />
+            </SettingRow>
+            <SettingRow
+              label="เพดานประกันสังคม (บาท)"
+              description="เว้นว่าง = ตามกฎหมาย"
+              controlWidthClass="sm:w-[220px]"
+            >
               <Input
-                label="เพดานประกันสังคม (บาท) — เว้นว่าง = ตามกฎหมาย"
                 type="number"
                 min="0"
                 value={ssoCeilingOverride}
                 onChange={(e) => setSsoCeilingOverride(e.target.value)}
                 placeholder="17500"
               />
-            </div>
+            </SettingRow>
           </div>
-        </Card>
+        </SectionCard>
 
         {/* OT */}
-        <Card>
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm font-semibold text-[#1A1A18]">การคำนวณ OT (ล่วงเวลา)</div>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-[#888780]">
-                ตั้งค่าอัตราการคำนวณค่าแรงล่วงเวลา ใช้กับระบบจัดการเงินเดือน
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Input
-                label="ตัวหารอัตรารายชั่วโมง"
-                type="number"
-                min="1"
-                value={otDivisor}
-                onChange={(e) => setOtDivisor(e.target.value)}
-                placeholder="30"
-              />
-              <p className="text-[11px] text-[#888780] -mt-2 sm:col-span-3">
-                {prorateMode === "actual_days"
-                  ? "ใช้จำนวนวันจริงของเดือนแทนตัวหารนี้ในการแปลงเป็นอัตรารายชั่วโมง (ตั้ง \"ฐานคำนวณรายวัน\" ด้านบน)"
-                  : "อัตรารายชั่วโมง = เงินเดือน ÷ ตัวหาร ÷ 8 (ค่าเริ่มต้น: 30 วัน)"}
-              </p>
-
-              <Input
-                label="OT ปกติ (เท่า)"
-                type="number"
-                min="0"
-                step="0.5"
-                value={normalOtMultiplier}
-                onChange={(e) => setNormalOtMultiplier(e.target.value)}
-                placeholder="1.5"
-              />
-              <p className="text-[11px] text-[#888780] -mt-2">
-                ค่าคูณสำหรับ OT วันปกติ (ค่าเริ่มต้น: 1.5×)
-              </p>
-
-              <Input
-                label="OT วันหยุด (เท่า)"
-                type="number"
-                min="0"
-                step="0.5"
-                value={holidayOtMultiplier}
-                onChange={(e) => setHolidayOtMultiplier(e.target.value)}
-                placeholder="3.0"
-              />
-              <p className="text-[11px] text-[#888780] -mt-2">
-                ค่าคูณสำหรับ OT วันหยุด (ค่าเริ่มต้น: 3×)
-              </p>
-            </div>
+        <SectionCard title="การคำนวณ OT (ล่วงเวลา)" description="ตั้งค่าอัตราการคำนวณค่าแรงล่วงเวลา ใช้กับระบบจัดการเงินเดือน">
+          <div className="divide-y divide-[#F0EEE8]">
+            <SettingRow
+              label="ตัวหารอัตรารายชั่วโมง"
+              description={prorateMode === "actual_days"
+                ? "ใช้จำนวนวันจริงของเดือนแทนตัวหารนี้ (ตั้ง \"ฐานคำนวณรายวัน\" ด้านบน)"
+                : "อัตรารายชั่วโมง = เงินเดือน ÷ ตัวหาร ÷ 8 (ค่าเริ่มต้น: 30 วัน)"}
+              controlWidthClass="sm:w-[160px]"
+            >
+              <Input type="number" min="1" value={otDivisor} onChange={(e) => setOtDivisor(e.target.value)} placeholder="30" />
+            </SettingRow>
+            <SettingRow
+              label="OT ปกติ (เท่า)"
+              description="ค่าคูณสำหรับ OT วันปกติ (ค่าเริ่มต้น: 1.5×)"
+              controlWidthClass="sm:w-[160px]"
+            >
+              <Input type="number" min="0" step="0.5" value={normalOtMultiplier} onChange={(e) => setNormalOtMultiplier(e.target.value)} placeholder="1.5" />
+            </SettingRow>
+            <SettingRow
+              label="OT วันหยุด (เท่า)"
+              description="ค่าคูณสำหรับ OT วันหยุด (ค่าเริ่มต้น: 3×)"
+              controlWidthClass="sm:w-[160px]"
+            >
+              <Input type="number" min="0" step="0.5" value={holidayOtMultiplier} onChange={(e) => setHolidayOtMultiplier(e.target.value)} placeholder="3.0" />
+            </SettingRow>
           </div>
-        </Card>
+        </SectionCard>
 
         {/* Pay cycle */}
-        <Card>
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm font-semibold text-[#1A1A18]">รอบการจ่ายเงิน</div>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-[#888780]">
-                เลือกรอบที่บริษัทจ่ายค่าจ้าง ระบบจะเสนอช่วงรอบถัดไปให้อัตโนมัติ (ภาษี/ประกันสังคมสรุปตามเดือนเสมอ)
-              </p>
-            </div>
-
+        <SectionCard title="รอบการจ่ายเงิน" description="เลือกรอบที่บริษัทจ่ายค่าจ้าง ระบบจะเสนอช่วงรอบถัดไปให้อัตโนมัติ (ภาษี/ประกันสังคมสรุปตามเดือนเสมอ)">
+          <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Select
                 label="ความถี่การจ่าย"
@@ -300,18 +258,11 @@ export default function SettingsPayrollPage() {
               </p>
             )}
           </div>
-        </Card>
+        </SectionCard>
 
         {/* Mini-calculator */}
-        <Card>
+        <SectionCard title="ทดลองคำนวณ" description="ใช้ค่าที่กรอกด้านบน (ยังไม่บันทึก) คำนวณตัวอย่างสลิปพนักงานรายเดือน">
           <div className="space-y-4">
-            <div>
-              <div className="text-sm font-semibold text-[#1A1A18]">ทดลองคำนวณ</div>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-[#888780]">
-                ใช้ค่าที่กรอกด้านบน (ยังไม่บันทึก) คำนวณตัวอย่างสลิปพนักงานรายเดือน
-              </p>
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 label="เงินเดือนฐาน (บาท)"
@@ -351,14 +302,23 @@ export default function SettingsPayrollPage() {
               </div>
             </div>
           </div>
-        </Card>
+        </SectionCard>
 
-        {saved && <p className="text-xs text-green-600">บันทึกแล้ว</p>}
-
-        <div className="relative">
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? "กำลังบันทึก..." : "บันทึก"}
-          </Button>
+        <div className="sticky bottom-3 z-10">
+          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1 text-xs">
+                {saved ? (
+                  <span className="text-green-600">บันทึกแล้ว</span>
+                ) : (
+                  <span className="text-gray-400">การตั้งค่าใช้กับระบบจัดการเงินเดือน</span>
+                )}
+              </div>
+              <Button onClick={handleSave} disabled={saving} className="shrink-0">
+                {saving ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </AppShell>

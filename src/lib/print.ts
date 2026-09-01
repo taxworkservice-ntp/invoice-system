@@ -175,6 +175,7 @@ function makeLineItemEstimate(
   data: PrintableDocumentDataBase,
   template: HtmlPrintTemplate,
   fontScale = 1,
+  numScale = fontScale,
 ) {
   const hideDeliveryAmounts =
     data.document.doc_type === "delivery_note" &&
@@ -186,6 +187,7 @@ function makeLineItemEstimate(
   return (item: DocumentLineItem) =>
     estimateLineItemHeight(item, template, {
       fontScale,
+      numScale,
       hideDeliveryAmounts,
       hasLineDiscount:
         (item.discount_amount ?? 0) > 0 || (item.discount_percent ?? 0) > 0,
@@ -1115,14 +1117,17 @@ async function renderClassicV2PrintPages(
   );
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
   const itemsScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, globalScale);
+  const numScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, globalScale);
   const budgetScales = docOverrideMult ?? {
     header: getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale),
     items: itemsScale,
+    num: numScale,
+    thead: getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, globalScale),
     totals: getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale),
     footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
   };
   const batches = paginateLineItems(data.lineItems, "classic", {
-    estimateHeight: makeLineItemEstimate(data, "classic", itemsScale),
+    estimateHeight: makeLineItemEstimate(data, "classic", itemsScale, numScale),
     fontScale: budgetScales,
   });
   if (batches.length <= 1) {

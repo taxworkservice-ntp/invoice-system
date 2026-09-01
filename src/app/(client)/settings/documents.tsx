@@ -1,17 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useClientFeatures } from "../../../hooks/useClientFeatures";
 import { AppShell } from "../../../components/layout/AppShell";
-import { Card } from "../../../components/ui/Card";
+import { SectionCard } from "../../../components/ui/SectionCard";
+import { SettingRow } from "../../../components/ui/SettingRow";
+import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
 import { Select } from "../../../components/ui/Input";
 import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT, CLASSIC_V2_TYPE_FONT_KEYS, CLASSIC_V2_TYPE_GLOBAL_KEY } from "../../../constants";
+import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT, CLASSIC_V2_TYPE_FONT_KEYS, CLASSIC_V2_TYPE_GLOBAL_KEY, CLASSIC_V2_ITEMS_TABLE_ROWS, CLASSIC_V2_BASE_FONT_PT, CLASSIC_V2_MIN_FONT_PT, CLASSIC_V2_MAX_FONT_PT, CLASSIC_V2_CUSTOM_PT_PREFIX, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import type { ClassicV2SectionFontKey } from "../../../constants";
+import { FontPreviewChip } from "../../../components/ui/FontPreviewChip";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { ClientProfile } from "../../../types";
@@ -27,6 +30,157 @@ const DOC_VISIBILITY_TYPES = [
   { key: "debit_note", label: "ใบเพิ่มหนี้" },
   { key: "wht", label: "หัก ณ ที่จ่าย (ภ.ง.ด.)" },
 ];
+
+function ScaleRow({
+  label,
+  value,
+  onSet,
+  indent = false,
+}: {
+  label: string;
+  value: string;
+  onSet: (v: string) => void;
+  indent?: boolean;
+}) {
+  return (
+    <div className={`flex items-center justify-between gap-4 py-1.5 ${indent ? "sm:pl-6" : ""}`}>
+      <span className={`text-xs ${indent ? "text-gray-500" : "text-gray-600"}`}>{label}</span>
+      <div className="w-[280px] shrink-0">
+        <FontScaleControl value={value} onChange={onSet} allowInherit />
+      </div>
+    </div>
+  );
+}
+
+/** Full-width per-section scale rows with the ตารางรายการ group indented. */
+function SectionScaleEditor({
+  getValue,
+  setValue,
+}: {
+  getValue: (key: ClassicV2SectionFontKey) => string;
+  setValue: (key: ClassicV2SectionFontKey, v: string) => void;
+}) {
+  return (
+    <div className="divide-y divide-[#F0EEE8]">
+      <ScaleRow
+        label="ส่วนหัว (ชื่อบริษัท/ลูกค้า)"
+        value={getValue("header")}
+        onSet={(v) => setValue("header", v)}
+      />
+      <div className="py-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">ตารางรายการ</p>
+        <div className="mt-0.5 space-y-0.5">
+          {CLASSIC_V2_ITEMS_TABLE_ROWS.map((row) => (
+            <ScaleRow
+              key={row.key}
+              indent
+              label={row.label}
+              value={getValue(row.key)}
+              onSet={(v) => setValue(row.key, v)}
+            />
+          ))}
+        </div>
+      </div>
+      <ScaleRow
+        label="ยอดรวม/เงื่อนไข"
+        value={getValue("totals")}
+        onSet={(v) => setValue("totals", v)}
+      />
+      <ScaleRow
+        label="ลายเซ็น/ท้ายเอกสาร"
+        value={getValue("footer")}
+        onSet={(v) => setValue("footer", v)}
+      />
+    </div>
+  );
+}
+
+const pillClass = (active: boolean) =>
+  `rounded-lg border px-3 py-2 text-xs transition-colors ${active ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB] font-medium" : "border-[#E8E6DF] bg-white text-[#5F5B54] hover:border-[#c9d5e3]"}`;
+
+const FONT_CUSTOM = "__custom__";
+
+/**
+ * Font-size control used by every row of the scale panel: pt-labeled presets,
+ * optional custom exact-pt input, and a live size chip.
+ */
+function FontScaleControl({
+  value,
+  onChange,
+  allowInherit,
+  showChip = false,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  allowInherit: boolean;
+  showChip?: boolean;
+  label?: string;
+}) {
+  const isCustom = value.startsWith(CLASSIC_V2_CUSTOM_PT_PREFIX);
+  const mult = getClassicV2FontScaleMult(value);
+  return (
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <Select
+          label={label}
+          value={isCustom ? FONT_CUSTOM : value}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === FONT_CUSTOM) {
+              const pt = Math.min(
+                CLASSIC_V2_MAX_FONT_PT,
+                Math.max(CLASSIC_V2_MIN_FONT_PT, mult * CLASSIC_V2_BASE_FONT_PT),
+              );
+              onChange(`${CLASSIC_V2_CUSTOM_PT_PREFIX}${pt}`);
+            } else {
+              onChange(v);
+            }
+          }}
+        >
+          {allowInherit && <option value={CLASSIC_V2_SECTION_INHERIT}>ตามขนาดหลัก</option>}
+          {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+          <option value={FONT_CUSTOM}>ขนาดเอง…</option>
+        </Select>
+        {isCustom && (
+          <div className="mt-1 flex items-center gap-1.5">
+            <input
+              type="number"
+              min={CLASSIC_V2_MIN_FONT_PT}
+              max={CLASSIC_V2_MAX_FONT_PT}
+              step={0.5}
+              value={parseFloat(value.slice(CLASSIC_V2_CUSTOM_PT_PREFIX.length)) || ""}
+              onChange={(e) => {
+                const n = parseFloat(e.target.value);
+                if (Number.isFinite(n)) {
+                  const clamped = Math.min(CLASSIC_V2_MAX_FONT_PT, Math.max(CLASSIC_V2_MIN_FONT_PT, n));
+                  onChange(`${CLASSIC_V2_CUSTOM_PT_PREFIX}${clamped}`);
+                }
+              }}
+              className="w-20 rounded-lg border border-[#E8E6DF] bg-white px-2 py-1 text-xs focus:border-[#378ADD] focus:outline-none"
+            />
+            <span className="text-[11px] text-[#888780]">pt ({CLASSIC_V2_MIN_FONT_PT}–{CLASSIC_V2_MAX_FONT_PT})</span>
+          </div>
+        )}
+      </div>
+      {showChip && <FontPreviewChip mult={mult} />}
+    </div>
+  );
+}
+
+/** ตามขนาดหลัก + the six presets — shared by every font-scale select. */
+function FontScaleOptions() {
+  return (
+    <>
+      <option value={CLASSIC_V2_SECTION_INHERIT}>ตามขนาดหลัก</option>
+      {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </>
+  );
+}
 
 export default function SettingsDocumentsPage() {
   const { profile } = useAuth();
@@ -45,11 +199,13 @@ export default function SettingsDocumentsPage() {
   const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>({
     header: CLASSIC_V2_SECTION_INHERIT,
     items: CLASSIC_V2_SECTION_INHERIT,
+    num: CLASSIC_V2_SECTION_INHERIT,
+    thead: CLASSIC_V2_SECTION_INHERIT,
     totals: CLASSIC_V2_SECTION_INHERIT,
     footer: CLASSIC_V2_SECTION_INHERIT,
   });
   const [classicV2TypeScales, setClassicV2TypeScales] = useState<Record<string, Record<string, string>>>({});
-  const [selectedTypeFontKey, setSelectedTypeFontKey] = useState<string>("tax_invoice_receipt");
+  const [scaleTab, setScaleTab] = useState<string>("default");
   const [classicTerms, setClassicTerms] = useState("");
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
@@ -66,59 +222,60 @@ export default function SettingsDocumentsPage() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    if (clientProfile) {
-      setLogoKey(clientProfile.logo_url);
-      setLogoSize(clientProfile.logo_size || "square");
-      setShowLogo(clientProfile.show_logo !== false);
-      setShowCompanyName(clientProfile.show_company_name !== false);
-      setLogoLayout(clientProfile.logo_layout === "above" ? "above" : "left");
-      setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
-      setClassicV2FontScale(clientProfile.classic_v2_font_scale || "normal");
-      setClassicV2SectionScales({
-        header: CLASSIC_V2_SECTION_INHERIT,
-        items: CLASSIC_V2_SECTION_INHERIT,
-        totals: CLASSIC_V2_SECTION_INHERIT,
-        footer: CLASSIC_V2_SECTION_INHERIT,
-        ...(clientProfile.classic_v2_section_font_scales || {}),
-      });
-      setClassicV2TypeScales(clientProfile.classic_v2_type_font_scales || {});
-      setClassicTerms(clientProfile.classic_terms || "");
-      setSignatureKey(clientProfile.signature_url || null);
-      setStampKey(clientProfile.stamp_url || null);
-      setSignatureScale(clientProfile.signature_scale || "medium");
-      setStampScale(clientProfile.stamp_scale || "medium");
-      setShowSignatureOnWht(clientProfile.show_signature_on_wht !== false);
-      setShowStampOnWht(clientProfile.show_stamp_on_wht !== false);
-      setShowSignatureOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
-        if (t.key === "wht") {
-          acc[t.key] = clientProfile.show_signature_on_wht !== false;
-        } else {
-          const map = clientProfile.show_signature_on_docs as Record<string, boolean> | null;
-          acc[t.key] = map ? (map[t.key] !== false) : true;
-        }
-        return acc;
-      }, {} as Record<string, boolean>));
-      const sigDocsAllOn = DOC_VISIBILITY_TYPES
-        .filter(t => t.key !== "wht")
-        .every(t => showSignatureOnDocs[t.key] !== false);
-      // Need computed from above, but above state hasn't updated yet. Compute raw:
-      const sigMap = clientProfile.show_signature_on_docs as Record<string, boolean> | null;
-      setShowSignatureMaster(!sigMap || !Object.values(sigMap).every(v => v === false));
-      const stpMap = clientProfile.show_stamp_on_docs as Record<string, boolean> | null;
-      setShowStampMaster(!stpMap || !Object.values(stpMap).every(v => v === false));
-      setShowStampOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
-        if (t.key === "wht") {
-          acc[t.key] = clientProfile.show_stamp_on_wht !== false;
-        } else {
-          const map = clientProfile.show_stamp_on_docs as Record<string, boolean> | null;
-          acc[t.key] = map ? (map[t.key] !== false) : true;
-        }
-        return acc;
-      }, {} as Record<string, boolean>));
-      setDnShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
-    }
+  const hydrateFromProfile = useCallback(() => {
+    if (!clientProfile) return;
+    setLogoKey(clientProfile.logo_url);
+    setLogoSize(clientProfile.logo_size || "square");
+    setShowLogo(clientProfile.show_logo !== false);
+    setShowCompanyName(clientProfile.show_company_name !== false);
+    setLogoLayout(clientProfile.logo_layout === "above" ? "above" : "left");
+    setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
+    setClassicV2FontScale(clientProfile.classic_v2_font_scale || "normal");
+    setClassicV2SectionScales({
+      header: CLASSIC_V2_SECTION_INHERIT,
+      items: CLASSIC_V2_SECTION_INHERIT,
+      num: CLASSIC_V2_SECTION_INHERIT,
+      thead: CLASSIC_V2_SECTION_INHERIT,
+      totals: CLASSIC_V2_SECTION_INHERIT,
+      footer: CLASSIC_V2_SECTION_INHERIT,
+      ...(clientProfile.classic_v2_section_font_scales || {}),
+    });
+    setClassicV2TypeScales(clientProfile.classic_v2_type_font_scales || {});
+    setClassicTerms(clientProfile.classic_terms || "");
+    setSignatureKey(clientProfile.signature_url || null);
+    setStampKey(clientProfile.stamp_url || null);
+    setSignatureScale(clientProfile.signature_scale || "medium");
+    setStampScale(clientProfile.stamp_scale || "medium");
+    setShowSignatureOnWht(clientProfile.show_signature_on_wht !== false);
+    setShowStampOnWht(clientProfile.show_stamp_on_wht !== false);
+    setShowSignatureOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
+      if (t.key === "wht") {
+        acc[t.key] = clientProfile.show_signature_on_wht !== false;
+      } else {
+        const map = clientProfile.show_signature_on_docs as Record<string, boolean> | null;
+        acc[t.key] = map ? (map[t.key] !== false) : true;
+      }
+      return acc;
+    }, {} as Record<string, boolean>));
+    const sigMap = clientProfile.show_signature_on_docs as Record<string, boolean> | null;
+    setShowSignatureMaster(!sigMap || !Object.values(sigMap).every(v => v === false));
+    const stpMap = clientProfile.show_stamp_on_docs as Record<string, boolean> | null;
+    setShowStampMaster(!stpMap || !Object.values(stpMap).every(v => v === false));
+    setShowStampOnDocs(DOC_VISIBILITY_TYPES.reduce((acc, t) => {
+      if (t.key === "wht") {
+        acc[t.key] = clientProfile.show_stamp_on_wht !== false;
+      } else {
+        const map = clientProfile.show_stamp_on_docs as Record<string, boolean> | null;
+        acc[t.key] = map ? (map[t.key] !== false) : true;
+      }
+      return acc;
+    }, {} as Record<string, boolean>));
+    setDnShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
   }, [clientProfile]);
+
+  useEffect(() => {
+    hydrateFromProfile();
+  }, [hydrateFromProfile]);
 
   async function handleSave() {
     if (!profile || !clientProfile) return;
@@ -225,95 +382,118 @@ export default function SettingsDocumentsPage() {
     signatureScale !== (clientProfile?.signature_scale || "medium") ||
     stampScale !== (clientProfile?.stamp_scale || "medium");
 
+  const typeScalesConfiguredCount = Object.values(classicV2TypeScales).filter((scales) =>
+    Object.values(scales || {}).some((v) => v && v !== CLASSIC_V2_SECTION_INHERIT),
+  ).length;
+  const visibleTypeEntries = DOC_VISIBILITY_TYPES.filter((t) => (CLASSIC_V2_TYPE_FONT_KEYS as string[]).includes(t.key));
+  const selectedTypeLabel = DOC_VISIBILITY_TYPES.find((t) => t.key === scaleTab)?.label || scaleTab;
+
+  // Live specimen preview: effective size per section for the active tab.
+  const isDefaultScaleTab = scaleTab === "default";
+  const tabTypeScales = isDefaultScaleTab ? undefined : classicV2TypeScales[scaleTab];
+  const specimenGlobalMult = isDefaultScaleTab
+    ? getClassicV2FontScaleMult(classicV2FontScale)
+    : getClassicV2EffectiveFontScaleMult(
+        undefined,
+        tabTypeScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
+        classicV2FontScale,
+      );
+  const specimenMult = (section: ClassicV2SectionFontKey) =>
+    isDefaultScaleTab
+      ? getClassicV2SectionScaleMult(section, classicV2SectionScales, specimenGlobalMult)
+      : getClassicV2EffectiveSectionScaleMult(section, tabTypeScales, classicV2SectionScales, specimenGlobalMult);
+  const specimenRows = [
+    { label: "ส่วนหัว", mult: specimenMult("header"), text: "บริษัท ตัวอย่าง จำกัด · 02-123-4567" },
+    { label: "ชื่อสินค้า/คำอธิบาย", mult: specimenMult("items"), text: "ปูนซีเมนต์ออลพัรโพส บรรจุถุง ทดสอบการตัดคำชื่อสินค้ายาว" },
+    { label: "ตัวเลข/จำนวน", mult: specimenMult("num"), text: "12 × 350.00 = 4,200.00" },
+    { label: "หัวตาราง", mult: specimenMult("thead"), text: "รายการ จำนวน หน่วย ราคา จำนวนเงิน" },
+    { label: "ยอดรวม/เงื่อนไข", mult: specimenMult("totals"), text: "ยอดรวมทั้งสิ้น / NET PAYABLE" },
+    { label: "ลายเซ็น/ท้ายเอกสาร", mult: specimenMult("footer"), text: "ผู้มีอำนาจลงนาม / วันที่" },
+  ];
+
   return (
     <AppShell title="ตั้งค่า > รูปแบบเอกสาร">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/documents" />
 
-        <Card>
-          <div className="space-y-3">
-            {profile && (
-              <LogoUpload
-                userId={profile.id}
-                currentLogoKey={logoKey}
-                onLogoChange={(k) => {
-                  setLogoKey(k);
-                  if (k) setShowLogo(true);
-                  void saveAssetField("logo_url", k);
-                }}
-              />
-            )}
-
+        <SectionCard title="โลโก้และชื่อบริษัท" description="โลโก้และข้อมูลหัวเอกสารที่พิมพ์ทุกฉบับ">
+          <div className="divide-y divide-[#F0EEE8]">
+            <div className="pb-2">
+              {profile && (
+                <LogoUpload
+                  userId={profile.id}
+                  currentLogoKey={logoKey}
+                  onLogoChange={(k) => {
+                    setLogoKey(k);
+                    if (k) setShowLogo(true);
+                    void saveAssetField("logo_url", k);
+                  }}
+                />
+              )}
+            </div>
             {logoKey && (
-              <Select
-                label="ขนาดโลโก้บนเอกสาร"
-                value={logoSize}
-                onChange={(e) => { setLogoSize(e.target.value); setSaved(false); }}
-              >
-                {LOGO_SIZE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label} ({opt.px}px)</option>
-                ))}
-              </Select>
-            )}
-
-            {logoKey && (
-              <div>
-                <p className="text-[11px] font-semibold text-[#888780] mb-1.5">ตำแหน่งโลโก้</p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setLogoLayout("left"); setSaved(false); }}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-xs ${logoLayout === "left" ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
+              <>
+                <SettingRow
+                  label="ขนาดโลโก้บนเอกสาร"
+                  controlWidthClass="sm:w-[220px]"
+                >
+                  <Select
+                    value={logoSize}
+                    onChange={(e) => { setLogoSize(e.target.value); setSaved(false); }}
                   >
-                    ชิดซ้าย (ข้างชื่อ)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setLogoLayout("above"); setSaved(false); }}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-xs ${logoLayout === "above" ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
-                  >
-                    ด้านบน (เหนือชื่อ)
-                  </button>
-                </div>
-                <p className="text-[11px] text-[#888780] mt-1">
-                  {!showLogo
+                    {LOGO_SIZE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label} ({opt.px}px)</option>
+                    ))}
+                  </Select>
+                </SettingRow>
+                <SettingRow
+                  label="ตำแหน่งโลโก้"
+                  description={!showLogo
                     ? "โลโก้ถูกซ่อนในเอกสาร — ตำแหน่งจะมีผลเมื่อเปิดแสดงโลโก้"
                     : !showCompanyName
                       ? "เมื่อปิดชื่อบริษัท โลโก้จะแสดงด้านบนอยู่แล้ว — ตำแหน่งมีผลเมื่อเปิดชื่อบริษัท"
                       : "“ด้านบน” วางโลโก้ชิดซ้ายเหนือชื่อบริษัท — แก้การเลื่อนเมื่อชื่อยาว"}
-                </p>
-              </div>
+                  controlWidthClass="sm:w-[280px]"
+                >
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setLogoLayout("left"); setSaved(false); }}
+                      className={`flex-1 ${pillClass(logoLayout === "left")}`}
+                    >
+                      ชิดซ้าย
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLogoLayout("above"); setSaved(false); }}
+                      className={`flex-1 ${pillClass(logoLayout === "above")}`}
+                    >
+                      ด้านบน
+                    </button>
+                  </div>
+                </SettingRow>
+                <SettingRow label="แสดงโลโก้ในเอกสาร" controlAlign="right">
+                  <Switch checked={showLogo} onChange={(checked) => { setShowLogo(checked); setSaved(false); }} />
+                </SettingRow>
+              </>
             )}
+            <SettingRow
+              label="แสดงชื่อบริษัทในเอกสาร"
+              description={!showCompanyName ? 'เมื่อปิดชื่อบริษัท โลโก้จะถูกใช้แทน ให้เลือกขนาด "ใหญ่ (แทนชื่อบริษัท)"' : undefined}
+              controlAlign="right"
+            >
+              <Switch checked={showCompanyName} onChange={(checked) => { setShowCompanyName(checked); setSaved(false); }} />
+            </SettingRow>
+          </div>
+        </SectionCard>
 
-            {logoKey && (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showLogo}
-                  onChange={(e) => { setShowLogo(e.target.checked); setSaved(false); }}
-                  className="w-3.5 h-3.5 accent-primary rounded"
-                />
-                <span className="text-xs text-gray-600">แสดงโลโก้ในเอกสาร</span>
-              </label>
-            )}
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showCompanyName}
-                onChange={(e) => { setShowCompanyName(e.target.checked); setSaved(false); }}
-                className="w-3.5 h-3.5 accent-primary rounded"
-              />
-              <span className="text-xs text-gray-600">แสดงชื่อบริษัทในเอกสาร</span>
-            </label>
-            {!showCompanyName && (
-              <p className="text-[11px] text-[#888780] -mt-1">
-                เมื่อปิดชื่อบริษัท โลโก้จะถูกใช้แทน ให้เลือกขนาด "ใหญ่ (แทนชื่อบริษัท)" และอัปโหลดโลโก้ที่มีรายละเอียดครบ
-              </p>
-            )}
-
-            <div className="border-t border-[#E8E6DF] pt-3">
-              <p className="text-[11px] font-semibold text-[#888780] mb-2">เทมเพลต PDF</p>
+        <SectionCard title="เทมเพลตเอกสาร" description="รูปแบบ PDF และข้อความท้ายเอกสาร — มีผลกับเอกสารใหม่เท่านั้น">
+          <div className="divide-y divide-[#F0EEE8]">
+            <SettingRow
+              label="เทมเพลต PDF"
+              description="เทมเพลตเริ่มต้นสำหรับเอกสารทุกประเภท มีผลกับเอกสารใหม่เท่านั้น"
+              controlWidthClass="sm:w-[260px]"
+            >
               <Select
                 value={pdfTemplate}
                 onChange={(e) => { setPdfTemplate(e.target.value as "modern" | "classic" | "classic_v2"); setSaved(false); }}
@@ -322,291 +502,288 @@ export default function SettingsDocumentsPage() {
                 <option value="classic">คลาสสิก (Thai Classic)</option>
                 {hasClassicV2 && <option value="classic_v2">คลาสสิก V2</option>}
               </Select>
-              <p className="text-[11px] text-[#888780] mt-1">
-                เทมเพลตเริ่มต้นสำหรับเอกสารทุกประเภท มีผลกับเอกสารใหม่เท่านั้น
-              </p>
-              {pdfTemplate === "classic_v2" && (
-                <div className="mt-3">
-                  <Select
-                    label="ขนาดตัวอักษร (คลาสสิก V2)"
-                    value={classicV2FontScale}
-                    onChange={(e) => { setClassicV2FontScale(e.target.value); setSaved(false); }}
-                  >
-                    {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </Select>
-                  <p className="text-[11px] text-[#888780] mt-1">
-                    ปรับขนาดตัวอักษรทั้งเอกสาร — ระบบจะคำนวณจำนวนรายการต่อหน้าให้อัตโนมัติ
-                  </p>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
-                    {(
-                      [
-                        { key: "header" as const, label: "ส่วนหัว (ชื่อบริษัท/ลูกค้า)" },
-                        { key: "items" as const, label: "ตารางรายการ" },
-                        { key: "totals" as const, label: "ยอดรวม/เงื่อนไข" },
-                        { key: "footer" as const, label: "ลายเซ็น/ท้ายเอกสาร" },
-                      ]
-                    ).map(({ key, label }) => (
-                      <Select
-                        key={key}
-                        label={label}
-                        value={classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT}
-                        onChange={(e) => {
-                          setClassicV2SectionScales({ ...classicV2SectionScales, [key]: e.target.value });
-                          setSaved(false);
-                        }}
-                      >
-                        <option value={CLASSIC_V2_SECTION_INHERIT}>ตามขนาดหลัก</option>
-                        {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </Select>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-[#888780] mt-1">
-                    ปรับขนาดเฉพาะส่วน — ค่าเริ่มต้น “ตามขนาดหลัก” ใช้ขนาดตัวอักษรด้านบน
-                  </p>
-                  <div className="mt-3 border-t border-[#E8E6DF] pt-3">
-                    <p className="text-[11px] font-semibold text-[#888780] mb-2">ปรับขนาดตามประเภทเอกสาร</p>
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      {DOC_VISIBILITY_TYPES.filter((t) => (CLASSIC_V2_TYPE_FONT_KEYS as string[]).includes(t.key)).map((t) => (
-                        <button
-                          key={t.key}
-                          type="button"
-                          onClick={() => { setSelectedTypeFontKey(t.key); setSaved(false); }}
-                          className={`rounded-lg border px-2.5 py-1.5 text-xs ${selectedTypeFontKey === t.key ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB]" : "border-[#E8E6DF] bg-white text-[#5F5B54]"}`}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                    {(() => {
-                      const typeLabel = DOC_VISIBILITY_TYPES.find((t) => t.key === selectedTypeFontKey)?.label || selectedTypeFontKey;
-                      const current = classicV2TypeScales[selectedTypeFontKey] || {};
-                      const setValue = (key: string, value: string) => {
-                        setClassicV2TypeScales({ ...classicV2TypeScales, [selectedTypeFontKey]: { ...current, [key]: value } });
-                      };
-                      const rows: { key: string; label: string }[] = [
-                        { key: CLASSIC_V2_TYPE_GLOBAL_KEY, label: "ทั้งเอกสาร" },
-                        { key: "header", label: "ส่วนหัว (ชื่อบริษัท/ลูกค้า)" },
-                        { key: "items", label: "ตารางรายการ" },
-                        { key: "totals", label: "ยอดรวม/เงื่อนไข" },
-                        { key: "footer", label: "ลายเซ็น/ท้ายเอกสาร" },
-                      ];
-                      return (
-                        <div className="grid grid-cols-1 gap-2">
-                          {rows.map(({ key, label }) => (
-                            <Select
-                              key={key}
-                              label={`${typeLabel} — ${label}`}
-                              value={current[key] || CLASSIC_V2_SECTION_INHERIT}
-                              onChange={(e) => { setValue(key, e.target.value); setSaved(false); }}
-                            >
-                              <option value={CLASSIC_V2_SECTION_INHERIT}>ตามขนาดหลัก</option>
-                              {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                            </Select>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                    <p className="text-[11px] text-[#888780] mt-1">
-                      ค่าที่ตั้งที่นี่ใช้กับเอกสารประเภทนี้ทุกฉบับ — หน้าแก้ไขเอกสารแต่ละฉบับยังตั้งทับได้อีกชั้น
-                    </p>
-                  </div>
-                </div>
-              )}
-              <div className="mt-3">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  ข้อความเงื่อนไขท้ายเอกสาร
-                </label>
-                <textarea
-                  value={classicTerms}
-                  onChange={(e) => { setClassicTerms(e.target.value); setSaved(false); }}
-                  rows={4}
-                  placeholder="เว้นว่าง = ไม่แสดงเงื่อนไขท้ายเอกสาร"
-                  className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 resize-none"
-                />
-                <p className="text-[11px] text-[#888780] mt-1">
-                  ใช้ข้อความของคุณเองเท่านั้น (หนึ่งบรรทัดต่อหนึ่งข้อ) หากเว้นว่างจะไม่พิมพ์เงื่อนไขท้ายเอกสาร
-                </p>
-              </div>
-            </div>
-
-            <div className="border-t border-[#E8E6DF] pt-3">
-              <p className="text-[11px] font-semibold text-[#888780] mb-2">ใบส่งของ</p>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={dnShowFullTotals}
-                  onChange={(e) => { setDnShowFullTotals(e.target.checked); setSaved(false); }}
-                  className="w-3.5 h-3.5 accent-primary rounded"
-                />
-                <span className="text-xs text-gray-600">แสดงยอดรวมแบบใบแจ้งหนี้สำหรับใบส่งของ (ค่าเริ่มต้น)</span>
+            </SettingRow>
+            <div className="pt-3">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                ข้อความเงื่อนไขท้ายเอกสาร
               </label>
+              <textarea
+                value={classicTerms}
+                onChange={(e) => { setClassicTerms(e.target.value); setSaved(false); }}
+                rows={4}
+                placeholder="เว้นว่าง = ไม่แสดงเงื่อนไขท้ายเอกสาร"
+                className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 resize-none"
+              />
               <p className="text-[11px] text-[#888780] mt-1">
-                ค่าเริ่มต้นสำหรับใบส่งของใหม่ แสดง VAT / หัก ณ ที่จ่าย / ยอดสุทธิแบบใบแจ้งหนี้ หากปิดจะแสดงเฉพาะมูลค่ารวม สามารถปรับแต่งได้รายเอกสาร
+                ใช้ข้อความของคุณเองเท่านั้น (หนึ่งบรรทัดต่อหนึ่งข้อ) หากเว้นว่างจะไม่พิมพ์เงื่อนไขท้ายเอกสาร
               </p>
-            </div>
-
-            <div className="border-t border-[#E8E6DF] pt-3">
-              <p className="text-[11px] font-semibold text-[#888780] mb-2">ลายเซ็นและตราประทับ</p>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <ImageUpload
-                    userId={profile!.id}
-                    storageKeyFn={signatureKeyFn}
-                    currentKey={signatureKey}
-                    onKeyChange={(k) => {
-                      setSignatureKey(k);
-                      void saveAssetField("signature_url", k);
-                    }}
-                    label="ลายเซ็น"
-                  />
-                  {signatureKey && (
-                    <div className="flex items-center gap-2 ml-1">
-                      <label className="text-xs text-gray-600 shrink-0">ขนาด:</label>
-                      <select
-                        value={signatureScale}
-                        onChange={(e) => { setSignatureScale(e.target.value); setSaved(false); }}
-                        className="rounded-lg border border-card-border bg-white px-2 py-1.5 text-xs"
-                      >
-                        {ASSET_SCALE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {signatureKey && (
-                    <div>
-                      <label className="flex items-center gap-2 cursor-pointer mb-2">
-                        <input
-                          type="checkbox"
-                          checked={showSignatureMaster}
-                          onChange={(e) => {
-                            const on = e.target.checked;
-                            setShowSignatureMaster(on);
-                            const next: Record<string, boolean> = {};
-                            DOC_VISIBILITY_TYPES.forEach(t => { next[t.key] = on; });
-                            setShowSignatureOnDocs(next);
-                            if (!on) setShowSignatureOnWht(false);
-                            else setShowSignatureOnWht(true);
-                            setSaved(false);
-                          }}
-                          className="w-3.5 h-3.5 accent-primary rounded"
-                        />
-                        <span className="text-xs text-gray-600">แสดงลายเซ็นในเอกสาร</span>
-                      </label>
-                      {showSignatureMaster && (
-                        <div className="grid grid-cols-4 gap-x-3 gap-y-1 ml-5">
-                          {DOC_VISIBILITY_TYPES.map((t) => (
-                            <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={showSignatureOnDocs[t.key] !== false}
-                                onChange={(e) => {
-                                  setShowSignatureOnDocs({ ...showSignatureOnDocs, [t.key]: e.target.checked });
-                                  if (t.key === "wht") setShowSignatureOnWht(e.target.checked);
-                                  setSaved(false);
-                                }}
-                                className="w-3 h-3 accent-primary rounded"
-                              />
-                              <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <ImageUpload
-                    userId={profile!.id}
-                    storageKeyFn={stampKeyFn}
-                    currentKey={stampKey}
-                    onKeyChange={(k) => {
-                      setStampKey(k);
-                      void saveAssetField("stamp_url", k);
-                    }}
-                    label="ตราประทับ"
-                  />
-                  {stampKey && (
-                    <div className="flex items-center gap-2 ml-1">
-                      <label className="text-xs text-gray-600 shrink-0">ขนาด:</label>
-                      <select
-                        value={stampScale}
-                        onChange={(e) => { setStampScale(e.target.value); setSaved(false); }}
-                        className="rounded-lg border border-card-border bg-white px-2 py-1.5 text-xs"
-                      >
-                        {ASSET_SCALE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {stampKey && (
-                    <div>
-                      <label className="flex items-center gap-2 cursor-pointer mb-2">
-                        <input
-                          type="checkbox"
-                          checked={showStampMaster}
-                          onChange={(e) => {
-                            const on = e.target.checked;
-                            setShowStampMaster(on);
-                            const next: Record<string, boolean> = {};
-                            DOC_VISIBILITY_TYPES.forEach(t => { next[t.key] = on; });
-                            setShowStampOnDocs(next);
-                            if (!on) setShowStampOnWht(false);
-                            else setShowStampOnWht(true);
-                            setSaved(false);
-                          }}
-                          className="w-3.5 h-3.5 accent-primary rounded"
-                        />
-                        <span className="text-xs text-gray-600">แสดงตราประทับในเอกสาร</span>
-                      </label>
-                      {showStampMaster && (
-                        <div className="grid grid-cols-4 gap-x-3 gap-y-1 ml-5">
-                          {DOC_VISIBILITY_TYPES.map((t) => (
-                            <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={showStampOnDocs[t.key] !== false}
-                                onChange={(e) => {
-                                  setShowStampOnDocs({ ...showStampOnDocs, [t.key]: e.target.checked });
-                                  if (t.key === "wht") setShowStampOnWht(e.target.checked);
-                                  setSaved(false);
-                                }}
-                                className="w-3 h-3 accent-primary rounded"
-                              />
-                              <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <p className="text-[11px] text-[#888780] mt-2">
-                ลายเซ็นและตราสามารถตั้งค่าแยกแต่ละประเภทเอกสารได้ การตั้งค่านี้มีผลกับเอกสารใหม่ที่สร้างหลังจากบันทึก
-              </p>
-            </div>
-
-            {error && <p className="text-xs text-red-500">{error}</p>}
-            {saved && <p className="text-xs text-green-600">บันทึกแล้ว</p>}
-
-            <div className="relative">
-              <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? "กำลังบันทึก..." : "บันทึกรูปแบบเอกสาร"}
-              </Button>
-              {isDirty && !saved && (
-                <div className="absolute top-1 right-1 w-[6px] h-[6px] rounded-full bg-[#378ADD]" />
-              )}
             </div>
           </div>
-        </Card>
+        </SectionCard>
+
+        {pdfTemplate === "classic_v2" && (
+          <SectionCard title="ขนาดตัวอักษร (คลาสสิก V2)" description="ปรับให้ผู้สูงอายุอ่านได้ชัดขึ้น — ระบบคำนวณจำนวนรายการต่อหน้าให้อัตโนมัติ">
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setScaleTab("default"); setSaved(false); }}
+                className={pillClass(scaleTab === "default")}
+              >
+                ค่าเริ่มต้น (ทุกประเภท)
+              </button>
+              {visibleTypeEntries.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => { setScaleTab(t.key); setSaved(false); }}
+                  className={pillClass(scaleTab === t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {scaleTab === "default" ? (
+              <div className="divide-y divide-[#F0EEE8]">
+                <SettingRow
+                  label="ทั้งเอกสาร"
+                  description="ขนาดตัวอักษรหลัก (ข้อความในตารางรายการ) — ส่วนอื่นปรับตามสัดส่วนอัตโนมัติ"
+                  controlWidthClass="sm:w-[300px]"
+                >
+                  <FontScaleControl
+                    value={classicV2FontScale}
+                    onChange={(v) => { setClassicV2FontScale(v); setSaved(false); }}
+                    allowInherit={false}
+                    showChip
+                  />
+                </SettingRow>
+                <div className="py-2.5">
+                  <div className="text-xs font-medium text-gray-700">ปรับขนาดเฉพาะส่วน</div>
+                  <p className="mt-0.5 text-[11px] text-[#888780]">
+                    เลือก “ตามขนาดหลัก” เพื่อใช้ขนาดด้านบน — ช่องตัวเลขขนาดใหญ่มากอาจล้นคอลัมน์แคบ
+                  </p>
+                  <div className="mt-1">
+                    <SectionScaleEditor
+                      getValue={(key) => classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT}
+                      setValue={(key, v) => { setClassicV2SectionScales({ ...classicV2SectionScales, [key]: v }); setSaved(false); }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#F0EEE8]">
+                <SettingRow
+                  label={`${selectedTypeLabel} — ทั้งเอกสาร`}
+                  description="เว้นไว้ที่ “ตามขนาดหลัก” เพื่อใช้ขนาดของแท็บค่าเริ่มต้น"
+                  controlWidthClass="sm:w-[300px]"
+                >
+                  {(() => {
+                    const current = classicV2TypeScales[scaleTab] || {};
+                    return (
+                      <FontScaleControl
+                        value={current[CLASSIC_V2_TYPE_GLOBAL_KEY] || CLASSIC_V2_SECTION_INHERIT}
+                        onChange={(v) => { setClassicV2TypeScales({ ...classicV2TypeScales, [scaleTab]: { ...current, [CLASSIC_V2_TYPE_GLOBAL_KEY]: v } }); setSaved(false); }}
+                        allowInherit
+                        showChip
+                      />
+                    );
+                  })()}
+                </SettingRow>
+                <div className="py-2.5">
+                  <div className="text-xs font-medium text-gray-700">ปรับขนาดเฉพาะส่วน</div>
+                  <p className="mt-0.5 text-[11px] text-[#888780]">
+                    ใช้กับ{selectedTypeLabel}ทุกฉบับ — หน้าแก้ไขเอกสารแต่ละฉบับยังตั้งทับได้อีกชั้น
+                  </p>
+                  <div className="mt-1">
+                    <SectionScaleEditor
+                      getValue={(key) => (classicV2TypeScales[scaleTab] || {})[key] || CLASSIC_V2_SECTION_INHERIT}
+                      setValue={(key, v) => {
+                        const current = classicV2TypeScales[scaleTab] || {};
+                        setClassicV2TypeScales({ ...classicV2TypeScales, [scaleTab]: { ...current, [key]: v } });
+                        setSaved(false);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="mt-3 rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">ตัวอย่างขนาดจริง</p>
+              <div className="space-y-1.5">
+                {specimenRows.map((row) => (
+                  <div key={row.label} className="flex items-baseline gap-3">
+                    <span className="w-[120px] shrink-0 text-[10px] text-gray-400">{row.label}</span>
+                    <span className="min-w-0 truncate text-gray-700" style={{ fontSize: `calc(${CLASSIC_V2_BASE_FONT_PT}pt * ${row.mult})` }}>
+                      {row.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SectionCard>
+        )}
+
+        <SectionCard title="ลายเซ็นและตราประทับ" description="ปรากฏท้ายเอกสาร — การตั้งค่ามีผลกับเอกสารใหม่ที่สร้างหลังจากบันทึก">
+          {profile && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="space-y-1">
+                <ImageUpload
+                  userId={profile.id}
+                  storageKeyFn={signatureKeyFn}
+                  currentKey={signatureKey}
+                  onKeyChange={(k) => {
+                    setSignatureKey(k);
+                    void saveAssetField("signature_url", k);
+                  }}
+                  label="ลายเซ็น"
+                />
+                {signatureKey && (
+                  <>
+                    <SettingRow label="ขนาดลายเซ็น" controlWidthClass="w-[140px]">
+                      <Select value={signatureScale} onChange={(e) => { setSignatureScale(e.target.value); setSaved(false); }}>
+                        {ASSET_SCALE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </Select>
+                    </SettingRow>
+                    <div className="py-1.5 sm:pl-4">
+                      <Switch
+                        checked={showSignatureMaster}
+                        onChange={(on) => {
+                          setShowSignatureMaster(on);
+                          const next: Record<string, boolean> = {};
+                          DOC_VISIBILITY_TYPES.forEach(t => { next[t.key] = on; });
+                          setShowSignatureOnDocs(next);
+                          setShowSignatureOnWht(on);
+                          setSaved(false);
+                        }}
+                        label="แสดงลายเซ็นในเอกสาร"
+                      />
+                    </div>
+                    {showSignatureMaster && (
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:pl-4">
+                        {DOC_VISIBILITY_TYPES.map((t) => (
+                          <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={showSignatureOnDocs[t.key] !== false}
+                              onChange={(e) => {
+                                setShowSignatureOnDocs({ ...showSignatureOnDocs, [t.key]: e.target.checked });
+                                if (t.key === "wht") setShowSignatureOnWht(e.target.checked);
+                                setSaved(false);
+                              }}
+                              className="w-3 h-3 accent-primary rounded"
+                            />
+                            <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="space-y-1">
+                <ImageUpload
+                  userId={profile.id}
+                  storageKeyFn={stampKeyFn}
+                  currentKey={stampKey}
+                  onKeyChange={(k) => {
+                    setStampKey(k);
+                    void saveAssetField("stamp_url", k);
+                  }}
+                  label="ตราประทับ"
+                />
+                {stampKey && (
+                  <>
+                    <SettingRow label="ขนาดตราประทับ" controlWidthClass="w-[140px]">
+                      <Select value={stampScale} onChange={(e) => { setStampScale(e.target.value); setSaved(false); }}>
+                        {ASSET_SCALE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </Select>
+                    </SettingRow>
+                    <div className="py-1.5 sm:pl-4">
+                      <Switch
+                        checked={showStampMaster}
+                        onChange={(on) => {
+                          setShowStampMaster(on);
+                          const next: Record<string, boolean> = {};
+                          DOC_VISIBILITY_TYPES.forEach(t => { next[t.key] = on; });
+                          setShowStampOnDocs(next);
+                          setShowStampOnWht(on);
+                          setSaved(false);
+                        }}
+                        label="แสดงตราประทับในเอกสาร"
+                      />
+                    </div>
+                    {showStampMaster && (
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:pl-4">
+                        {DOC_VISIBILITY_TYPES.map((t) => (
+                          <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={showStampOnDocs[t.key] !== false}
+                              onChange={(e) => {
+                                setShowStampOnDocs({ ...showStampOnDocs, [t.key]: e.target.checked });
+                                if (t.key === "wht") setShowStampOnWht(e.target.checked);
+                                setSaved(false);
+                              }}
+                              className="w-3 h-3 accent-primary rounded"
+                            />
+                            <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="ใบส่งของ" description="ค่าเริ่มต้นสำหรับใบส่งของใหม่ — ปรับแต่งรายเอกสารได้">
+          <SettingRow
+            label="แสดงยอดรวมแบบใบแจ้งหนี้"
+            description="แสดง VAT / หัก ณ ที่จ่าย / ยอดสุทธิแบบใบแจ้งหนี้ หากปิดจะแสดงเฉพาะมูลค่ารวม"
+            controlAlign="right"
+          >
+            <Switch checked={dnShowFullTotals} onChange={(checked) => { setDnShowFullTotals(checked); setSaved(false); }} />
+          </SettingRow>
+        </SectionCard>
+
+        <div className="sticky bottom-3 z-10">
+          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1 text-xs">
+                {error ? (
+                  <span className="text-red-500">{error}</span>
+                ) : saved ? (
+                  <span className="text-green-600">บันทึกแล้ว</span>
+                ) : isDirty ? (
+                  <span className="flex items-center gap-1.5 text-[#888780]">
+                    <span className="w-[6px] h-[6px] rounded-full bg-[#378ADD] inline-block" />
+                    ยังไม่ได้บันทึก
+                  </span>
+                ) : (
+                  <span className="text-gray-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
+                )}
+              </div>
+              {isDirty && !saving && (
+                <button
+                  type="button"
+                  onClick={hydrateFromProfile}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                >
+                  ยกเลิกการแก้ไข
+                </button>
+              )}
+              <Button onClick={handleSave} disabled={saving} className="shrink-0">
+                {saving ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </AppShell>
   );

@@ -176,6 +176,8 @@ export function PrintDocumentClassicV2({
   const sectionScales = clientProfile.classic_v2_section_font_scales;
   const headerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, fontScaleMult);
   const itemsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, fontScaleMult);
+  const numScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, fontScaleMult);
+  const theadScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, fontScaleMult);
   const totalsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, fontScaleMult);
   const footerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, fontScaleMult);
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
@@ -253,6 +255,8 @@ export function PrintDocumentClassicV2({
         "--classic-font-scale": fontScaleMult,
         "--classic-fs-header": headerScaleMult,
         "--classic-fs-items": itemsScaleMult,
+        "--classic-fs-num": numScaleMult,
+        "--classic-fs-thead": theadScaleMult,
         "--classic-fs-totals": totalsScaleMult,
         "--classic-fs-footer": footerScaleMult,
       } as React.CSSProperties}

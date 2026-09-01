@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
-import { Card } from "../../../components/ui/Card";
+import { SectionCard } from "../../../components/ui/SectionCard";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
@@ -53,13 +53,9 @@ export default function SettingsStockPage() {
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/stock" />
 
-        <Card>
-          <div className="space-y-4">
-            <div className="text-[13px] font-medium text-[#1A1A18]">
-              ตัดสต็อกอัตโนมัติเมื่อ
-            </div>
-
-            <label className="flex items-start gap-3 cursor-pointer">
+        <SectionCard title="การตัดสต็อก" description="เลือกจุดที่ระบบตัดสต็อกสินค้าอัตโนมัติ">
+          <div className="space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-[#E8E6DF] p-3 has-[:checked]:border-[#378ADD] has-[:checked]:bg-[#EEF6FF]/50">
               <input
                 type="radio"
                 name="stockTrigger"
@@ -76,7 +72,7 @@ export default function SettingsStockPage() {
               </div>
             </label>
 
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-[#E8E6DF] p-3 has-[:checked]:border-[#378ADD] has-[:checked]:bg-[#EEF6FF]/50">
               <input
                 type="radio"
                 name="stockTrigger"
@@ -92,14 +88,25 @@ export default function SettingsStockPage() {
                 </div>
               </div>
             </label>
-
-            {error && <p className="text-xs text-red-500">{error}</p>}
-
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "กำลังบันทึก..." : "บันทึก"}
-            </Button>
           </div>
-        </Card>
+        </SectionCard>
+
+        <div className="sticky bottom-3 z-10">
+          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1 text-xs">
+                {error ? (
+                  <span className="text-red-500">{error}</span>
+                ) : (
+                  <span className="text-gray-400">เลือกจุดตัดสต็อกแล้วกดบันทึก</span>
+                )}
+              </div>
+              <Button onClick={handleSave} disabled={saving} className="shrink-0">
+                {saving ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </AppShell>
   );

@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
-import { Card } from "../../../components/ui/Card";
+import { SectionCard } from "../../../components/ui/SectionCard";
+import { SettingRow } from "../../../components/ui/SettingRow";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
@@ -29,14 +30,17 @@ export default function SettingsTaxPage() {
   const [pendingVatRegistered, setPendingVatRegistered] = useState<boolean | null>(null);
   const [vatChangeConfirmed, setVatChangeConfirmed] = useState(false);
 
-  useEffect(() => {
-    if (clientProfile) {
-      setVatRegistered(clientProfile.vat_registered);
-      setVatRate(String(clientProfile.vat_rate));
-      setDefaultWhtRate(clientProfile.default_wht_rate);
-      setCreditTermDays(clientProfile.credit_term_days ?? 7);
-    }
+  const hydrateFromProfile = useCallback(() => {
+    if (!clientProfile) return;
+    setVatRegistered(clientProfile.vat_registered);
+    setVatRate(String(clientProfile.vat_rate));
+    setDefaultWhtRate(clientProfile.default_wht_rate);
+    setCreditTermDays(clientProfile.credit_term_days ?? 7);
   }, [clientProfile]);
+
+  useEffect(() => {
+    hydrateFromProfile();
+  }, [hydrateFromProfile]);
 
   async function handleSave() {
     if (!profile || !clientProfile) return;
@@ -113,128 +117,149 @@ export default function SettingsTaxPage() {
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/tax" />
 
-        <Card>
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-[#1A1A18]">สถานะ VAT ของกิจการ</div>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-[#888780]">
-                  ใช้กำหนดชื่อเอกสาร การแสดง VAT และยอดภาษีของเอกสารใหม่
-                </p>
-              </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                vatRegistered ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
-              }`}>
-                {vatRegistered ? "จด VAT" : "ไม่จด VAT"}
-              </span>
-            </div>
-
-            <div className={`rounded-[8px] border p-3 ${
-              vatRegistered ? "border-emerald-200 bg-emerald-50/60" : "border-[#E8E6DF] bg-[#FAF8F3]"
-            }`}>
+        <SectionCard title="ภาษีและการชำระเงิน" description="การตั้งค่ามีผลกับเอกสารใหม่เท่านั้น — เอกสารที่สร้างไปแล้วจะไม่เปลี่ยนแปลง">
+          <div className="divide-y divide-[#F0EEE8]">
+            <div className="py-2.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[13px] font-semibold text-[#1A1A18]">
-                    {vatRegistered ? "ใช้โหมดจดทะเบียน VAT" : "ใช้โหมดไม่จด VAT"}
-                  </div>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-[#66625C]">
-                    {vatRegistered
-                      ? "เอกสารขายใหม่จะเป็นใบกำกับภาษีและคำนวณ VAT ตามอัตราที่ตั้งไว้"
-                      : "เอกสารขายใหม่จะไม่มีรายการ VAT และรับเงินทันทีจะออกเป็นใบเสร็จรับเงิน"}
+                  <div className="text-xs font-medium text-gray-700">สถานะ VAT ของกิจการ</div>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-[#888780]">
+                    ใช้กำหนดชื่อเอกสาร การแสดง VAT และยอดภาษีของเอกสารใหม่
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => openVatChange(!vatRegistered)}
-                  className="shrink-0 !w-auto px-3 py-1.5 text-xs"
-                >
-                  เปลี่ยน
-                </Button>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                  vatRegistered ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
+                }`}>
+                  {vatRegistered ? "จด VAT" : "ไม่จด VAT"}
+                </span>
               </div>
-              <div className="mt-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
-                สถานะ VAT ถูกล็อกไว้เพื่อกันการกดผิด ต้องยืนยันแยกต่างหากก่อนเปลี่ยน
+            </div>
+
+            <div className="py-2.5">
+              <div className={`rounded-[8px] border p-3 ${
+                vatRegistered ? "border-emerald-200 bg-emerald-50/60" : "border-[#E8E6DF] bg-[#FAF8F3]"
+              }`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[13px] font-semibold text-[#1A1A18]">
+                      {vatRegistered ? "ใช้โหมดจดทะเบียน VAT" : "ใช้โหมดไม่จด VAT"}
+                    </div>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-[#66625C]">
+                      {vatRegistered
+                        ? "เอกสารขายใหม่จะเป็นใบกำกับภาษีและคำนวณ VAT ตามอัตราที่ตั้งไว้"
+                        : "เอกสารขายใหม่จะไม่มีรายการ VAT และรับเงินทันทีจะออกเป็นใบเสร็จรับเงิน"}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => openVatChange(!vatRegistered)}
+                    className="shrink-0 !w-auto px-3 py-1.5 text-xs"
+                  >
+                    เปลี่ยน
+                  </Button>
+                </div>
+                <div className="mt-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+                  สถานะ VAT ถูกล็อกไว้เพื่อกันการกดผิด ต้องยืนยันแยกต่างหากก่อนเปลี่ยน
+                </div>
               </div>
             </div>
 
             {vatRegistered && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  อัตราภาษีมูลค่าเพิ่ม
-                </label>
-                <div className="relative max-w-[120px]">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={vatRate}
-                  onChange={(e) => { setVatRate(e.target.value); setSaved(false); }}
-                  className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 pr-8 text-right text-sm focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#888780]">%</span>
+              <SettingRow label="อัตราภาษีมูลค่าเพิ่ม" controlWidthClass="sm:w-[140px]">
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={vatRate}
+                    onChange={(e) => { setVatRate(e.target.value); setSaved(false); }}
+                    className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 pr-8 text-right text-sm focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#888780]">%</span>
                 </div>
-              </div>
+              </SettingRow>
             )}
 
-            <div className="rounded-[8px] border border-[#E8E6DF] bg-[#FAF8F3] px-3 py-2.5 text-[12px] text-[#444441]">
-              <div className="font-medium text-[#1A1A18]">ตัวอย่างผลกับเอกสารใหม่</div>
-              <div className="mt-1 grid gap-1 sm:grid-cols-3">
-                <span>ใบขาย: {vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้"}</span>
-                <span>รับเงินทันที: {vatRegistered ? "ใบกำกับภาษี/ใบเสร็จ" : "ใบเสร็จรับเงิน"}</span>
-                <span>VAT: {effectiveVatRate}%</span>
+            <div className="py-2.5">
+              <div className="rounded-[8px] border border-[#E8E6DF] bg-[#FAF8F3] px-3 py-2.5 text-[12px] text-[#444441]">
+                <div className="font-medium text-[#1A1A18]">ตัวอย่างผลกับเอกสารใหม่</div>
+                <div className="mt-1 grid gap-1 sm:grid-cols-3">
+                  <span>ใบขาย: {vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้"}</span>
+                  <span>รับเงินทันที: {vatRegistered ? "ใบกำกับภาษี/ใบเสร็จ" : "ใบเสร็จรับเงิน"}</span>
+                  <span>VAT: {effectiveVatRate}%</span>
+                </div>
               </div>
             </div>
 
-            <Select
+            <SettingRow
               label="อัตราเริ่มต้นหัก ณ ที่จ่าย"
-              value={defaultWhtRate}
-              onChange={(e) => { setDefaultWhtRate(e.target.value as WhtRate); setSaved(false); }}
+              description="ใช้เป็นค่าเริ่มต้นในทุกเอกสาร แก้ไขได้ต่อเอกสาร"
+              controlWidthClass="sm:w-[220px]"
             >
-              {WHT_RATE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </Select>
-            <p className="text-[11px] text-[#888780] -mt-3">
-              ใช้เป็นค่าเริ่มต้นในทุกเอกสาร แก้ไขได้ต่อเอกสาร
-            </p>
+              <Select
+                value={defaultWhtRate}
+                onChange={(e) => { setDefaultWhtRate(e.target.value as WhtRate); setSaved(false); }}
+              >
+                {WHT_RATE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </Select>
+            </SettingRow>
 
+            <SettingRow
+              label="ระยะเวลาเครดิต"
+              description="ใช้คำนวณวันที่ครบกำหนดชำระในใบวางบิล (0-90 วัน)"
+              controlWidthClass="sm:w-[140px]"
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={90}
+                  value={creditTermDays}
+                  onChange={(e) => { setCreditTermDays(Number(e.target.value)); setSaved(false); }}
+                  className="w-20 px-2 py-1.5 text-sm text-right border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD]"
+                />
+                <span className="text-sm text-[#888780]">วัน</span>
+              </div>
+            </SettingRow>
+          </div>
+        </SectionCard>
+
+        <div className="sticky bottom-3 z-10">
+          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
             <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-[#1A1A18] shrink-0">
-                ระยะเวลาเครดิต (วัน)
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={90}
-                value={creditTermDays}
-                onChange={(e) => { setCreditTermDays(Number(e.target.value)); setSaved(false); }}
-                className="w-20 px-2 py-1.5 text-sm text-right border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD]"
-              />
-              <span className="text-sm text-[#888780]">วัน</span>
-            </div>
-            <p className="text-[11px] text-[#888780] -mt-3">
-              ใช้คำนวณวันที่ครบกำหนดชำระในใบวางบิล
-            </p>
-
-            <div className="bg-[#E6F1FB] text-[#0C447C] rounded-[8px] px-3 py-2.5 text-[12px]">
-              การเปลี่ยนแปลงการตั้งค่าภาษีจะมีผลกับเอกสารใหม่เท่านั้น
-              เอกสารที่สร้างไปแล้วจะไม่เปลี่ยนแปลง
-            </div>
-
-            {error && <p className="text-xs text-red-500">{error}</p>}
-            {saved && <p className="text-xs text-green-600">บันทึกแล้ว</p>}
-
-            <div className="relative">
-              <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? "กำลังบันทึก..." : "บันทึกการตั้งค่าภาษี"}
-              </Button>
-              {isDirty && !saved && (
-                <div className="absolute right-1 top-1 h-[6px] w-[6px] rounded-full bg-[#378ADD]" />
+              <div className="min-w-0 flex-1 text-xs">
+                {error ? (
+                  <span className="text-red-500">{error}</span>
+                ) : saved ? (
+                  <span className="text-green-600">บันทึกแล้ว</span>
+                ) : isDirty ? (
+                  <span className="flex items-center gap-1.5 text-[#888780]">
+                    <span className="w-[6px] h-[6px] rounded-full bg-[#378ADD] inline-block" />
+                    ยังไม่ได้บันทึก
+                  </span>
+                ) : (
+                  <span className="text-gray-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
+                )}
+              </div>
+              {isDirty && !saving && (
+                <button
+                  type="button"
+                  onClick={hydrateFromProfile}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                >
+                  ยกเลิกการแก้ไข
+                </button>
               )}
+              <Button onClick={handleSave} disabled={saving} className="shrink-0">
+                {saving ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
             </div>
           </div>
-        </Card>
+        </div>
 
         <Modal
           open={vatChangeOpen}
