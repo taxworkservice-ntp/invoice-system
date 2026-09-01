@@ -31,3 +31,27 @@ export async function getChromiumExecutablePath() {
   }
   return local;
 }
+
+/**
+ * Launch options for playwright.chromium.launch().
+ *
+ * @sparticuz/chromium's args (--single-process, --no-zygote, headless shell)
+ * are tuned for its bundled AWS Lambda binary — system Chrome on macOS hangs
+ * in newPage() with them, so local/dev launches use plain headless Chrome.
+ * Linux (production) keeps the bundled binary + its args unchanged.
+ */
+export async function getChromiumLaunchOptions() {
+  const executablePath = await getChromiumExecutablePath();
+  if (process.platform === "linux") {
+    return {
+      executablePath,
+      args: chromium.args,
+      headless: chromium.headless,
+    };
+  }
+  return {
+    executablePath,
+    args: [],
+    headless: true,
+  };
+}

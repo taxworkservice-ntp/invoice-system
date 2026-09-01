@@ -1,12 +1,17 @@
-import chromium from "@sparticuz/chromium";
 import playwright from "playwright-core";
 import { requireUser } from "../_lib/auth.js";
-import { getChromiumExecutablePath } from "../_lib/chromium.js";
+import { getChromiumLaunchOptions } from "../_lib/chromium.js";
 import { ApiError, readJsonBody, sendError } from "../_lib/http.js";
 import { supabaseAdmin } from "../_lib/supabase.js";
 import { getEnv } from "../_lib/env.js";
 
 function originFromRequest(req) {
+  // Local dev API (npm run dev:api) only serves /api routes — render from the
+  // Vite origin in dev. Vercel (NODE_ENV=production) serves app + API on one
+  // origin and keeps request-origin logic.
+  if (process.env.NODE_ENV !== "production") {
+    return process.env.DEV_APP_ORIGIN || "http://localhost:5173";
+  }
   const host = req.headers["x-forwarded-host"] || req.headers.host;
   const proto = req.headers["x-forwarded-proto"] || "https";
   if (!host) throw new ApiError(400, "Missing request host");
@@ -112,11 +117,7 @@ export default async function handler(req, res) {
     if (body.hideSignature) exportUrl.searchParams.set("hideSignature", "1");
     if (body.hideStamp) exportUrl.searchParams.set("hideStamp", "1");
 
-    browser = await playwright.chromium.launch({
-      args: chromium.args,
-      executablePath: await getChromiumExecutablePath(),
-      headless: chromium.headless,
-    });
+    browser = await playwright.chromium.launch(await getChromiumLaunchOptions());
 
     const isPnd = layout === "pnd";
     const viewport = isPnd
