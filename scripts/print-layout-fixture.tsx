@@ -339,6 +339,12 @@ if (fontScalePreset) {
     classic_v2_font_scale: fontScalePreset,
   };
 }
+if (params.get("noCompanyName") === "1") {
+  baseData.clientProfile = {
+    ...baseData.clientProfile,
+    show_company_name: false,
+  };
+}
 const docFontScale = params.get("docFontScale");
 if (docFontScale) {
   baseData.document = { ...baseData.document, print_font_scale: docFontScale };

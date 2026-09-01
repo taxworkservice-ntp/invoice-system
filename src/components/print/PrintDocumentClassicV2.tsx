@@ -277,7 +277,7 @@ export function PrintDocumentClassicV2({
                 <img
                   src={clientProfile.logo_url}
                   alt={clientProfile.company_name_th}
-                  style={clientProfile.show_company_name === false ? undefined : { width: getLogoPx(clientProfile.logo_size) }}
+                  style={{ width: getLogoPx(clientProfile.logo_size) }}
                   className="print-classic-logo-img"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />

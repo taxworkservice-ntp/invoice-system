@@ -898,6 +898,31 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-top--above {
   gap: 2mm 3mm;
 }
+/* V2 override: with the company name hidden, keep the chosen logo size and
+   move the company meta (address/tax/phone) up beside the logo — instead of
+   shrinking the logo and stacking the meta below it (V1 behavior). */
+.print-theme-classic-v2 .print-classic-top--no-name {
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: none;
+}
+.print-theme-classic-v2 .print-classic-top--no-name .print-classic-logo {
+  grid-area: auto;
+  justify-content: flex-start;
+}
+.print-theme-classic-v2 .print-classic-top--no-name .print-classic-logo-img {
+  max-width: none;
+  max-height: none;
+}
+.print-theme-classic-v2 .print-classic-top--no-name .print-classic-company {
+  grid-area: auto;
+  margin-top: 0;
+}
+.print-theme-classic-v2 .print-classic-top--no-name .print-classic-company-meta {
+  margin-top: 0;
+}
+.print-theme-classic-v2 .print-classic-top--no-name .print-classic-top-right {
+  grid-area: auto;
+}
 
 /* =====================================================================
    V2 READABILITY: darker text + rules (elderly-friendly printing).

@@ -479,7 +479,7 @@ export default function SettingsDocumentsPage() {
             )}
             <SettingRow
               label="แสดงชื่อบริษัทในเอกสาร"
-              description={!showCompanyName ? 'เมื่อปิดชื่อบริษัท โลโก้จะถูกใช้แทน ให้เลือกขนาด "ใหญ่ (แทนชื่อบริษัท)"' : undefined}
+              description={!showCompanyName ? 'เมื่อปิดชื่อบริษัท ที่อยู่ เลขผู้เสียภาษี และเบอร์โทรจะขยับขึ้นไปอยู่ข้างโลโก้แทนที่ชื่อ — โลโก้คงขนาดที่เลือกไว้' : undefined}
               controlAlign="right"
             >
               <Switch checked={showCompanyName} onChange={(checked) => { setShowCompanyName(checked); setSaved(false); }} />
