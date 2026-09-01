@@ -16,7 +16,7 @@ import {
   type PrintAppendixData,
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
-import { getClassicV2FontScaleMult, getClassicV2SectionScaleMult } from "../../../constants";
+import { getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -45,7 +45,10 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const isClassicV2 = data.template === "classic_v2";
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
   const globalScale = isClassicV2
-    ? getClassicV2FontScaleMult(data.clientProfile.classic_v2_font_scale)
+    ? getClassicV2EffectiveFontScaleMult(
+        data.document.print_font_scale,
+        data.clientProfile.classic_v2_font_scale,
+      )
     : 1;
   const itemsScale = isClassicV2
     ? getClassicV2SectionScaleMult("items", sectionScales, globalScale)

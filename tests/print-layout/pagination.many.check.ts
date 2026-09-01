@@ -100,6 +100,7 @@ const scales = [
   { preset: "large", mult: 1.1 },
   { preset: "xlarge", mult: 1.2 },
   { preset: "xxlarge", mult: 1.44 },
+  { preset: "xxxlarge", mult: 1.65 },
 ];
 const estimateClassic = (item: DocumentLineItem, mult: number) =>
   estimateLineItemHeight(item, "classic", {
@@ -116,8 +117,11 @@ for (const { preset, mult } of scales) {
   const budgets = getRowBudgets("classic", mult);
   // budgets only shrink as the scale grows
   assert.ok(budgets.first <= 18 * 6.5 + 0.001, `${preset}: first budget within unscaled budget`);
-  // every page's estimated content stays within its (scaled) budget
+  // every multi-row page's estimated content stays within its (scaled) budget;
+  // single-row pages are exempt — at extreme scales one tall row exceeds the
+  // budget and the paginator still places it (≥1 row per page guarantee)
   for (const batch of batches) {
+    if (batch.items.length <= 1) continue;
     const sum = batch.items.reduce((acc, it) => acc + estimateClassic(it, mult), 0);
     assert.ok(
       sum <= budgets[batch.mode] + 0.5,

@@ -94,10 +94,14 @@ export function getRowBudgets(
       return sum + FONT_SCALE_SECTION_RESERVE_MM[section] * Math.max(0, scales[section] - 1);
     }, 0);
   };
+  // At extreme scales a single estimated row can exceed the reserve-shrunk
+  // budget; the paginator always places at least one row, so budgets never
+  // drop below one scaled row height.
+  const minRowMm = getBaseRowMm(template, scales.items);
   return {
-    first: Math.max(baseMm, capacity.first * baseMm - reserve("first")),
-    continuation: Math.max(baseMm, capacity.continuation * baseMm - reserve("continuation")),
-    last: Math.max(baseMm, capacity.last * baseMm - reserve("last")),
+    first: Math.max(minRowMm, capacity.first * baseMm - reserve("first")),
+    continuation: Math.max(minRowMm, capacity.continuation * baseMm - reserve("continuation")),
+    last: Math.max(minRowMm, capacity.last * baseMm - reserve("last")),
   };
 }
 

@@ -109,6 +109,8 @@ export const CLASSIC_V2_FONT_SCALE_OPTIONS: { value: string; label: string; mult
   { value: "xlarge", label: "ใหญ่มาก", mult: 1.2 },
   // 1.2 (ใหญ่มาก) + 20%
   { value: "xxlarge", label: "ใหญ่มากพิเศษ", mult: 1.44 },
+  // 1.44 (ใหญ่มากพิเศษ) + 15%
+  { value: "xxxlarge", label: "ใหญ่ที่สุด", mult: 1.65 },
 ];
 
 export const CLASSIC_V2_FONT_SCALE_MULT: Record<string, number> = Object.fromEntries(
@@ -118,6 +120,25 @@ export const CLASSIC_V2_FONT_SCALE_MULT: Record<string, number> = Object.fromEnt
 /** Multiplier for a classic_v2_font_scale preset value; defaults to 1 (ปกติ). */
 export function getClassicV2FontScaleMult(value?: string | null): number {
   return CLASSIC_V2_FONT_SCALE_MULT[value ?? "normal"] ?? 1;
+}
+
+/** Sentinel stored on a document meaning "follow the workspace default". */
+export const DOCUMENT_FONT_SCALE_DEFAULT = "default";
+
+/**
+ * Effective classic V2 global scale for one document: a per-document
+ * override (documents.print_font_scale) wins, otherwise the workspace
+ * profile preset applies. Non-classic-V2 callers pass through unchanged.
+ */
+export function getClassicV2EffectiveFontScaleMult(
+  documentValue: string | null | undefined,
+  profileValue: string | null | undefined,
+): number {
+  const preset =
+    documentValue && documentValue !== DOCUMENT_FONT_SCALE_DEFAULT
+      ? documentValue
+      : profileValue;
+  return getClassicV2FontScaleMult(preset);
 }
 
 export type ClassicV2SectionFontKey = "header" | "items" | "totals" | "footer";

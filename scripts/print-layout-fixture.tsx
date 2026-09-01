@@ -339,6 +339,10 @@ if (fontScalePreset) {
     classic_v2_font_scale: fontScalePreset,
   };
 }
+const docFontScale = params.get("docFontScale");
+if (docFontScale) {
+  baseData.document = { ...baseData.document, print_font_scale: docFontScale };
+}
 const activeData = appendixOn
   ? { ...baseData, document: { ...baseData.document, dn_appendix: true } }
   : baseData;

@@ -666,6 +666,9 @@ create table documents (
   -- Invoice generated from delivery notes: print the variance (qty/price diff vs DN) on the tax invoice.
   show_dn_variance     boolean not null default false,
 
+  -- Classic V2: per-document font-size override ('small'|'normal'|'large'|'xlarge'|'xxlarge'|'xxxlarge'); NULL = workspace default
+  print_font_scale    text,
+
   -- Receipt-specific fields
   payment_method      payment_method,
   bank_account_id     uuid references bank_accounts(id) on delete set null,

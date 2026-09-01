@@ -732,11 +732,11 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   z-index: 1;
 }
 .print-classic-frame-section {
-  border-top: 0.35px solid #d1d5db;
+  border-top: 0.5px solid #d1d5db;
 }
 .print-classic-frame-section-title {
   padding: 1.5mm 2.5mm;
-  border-bottom: 0.35px solid #d1d5db;
+  border-bottom: 0.5px solid #d1d5db;
   background: #f8fafc;
   color: #1f2937;
   font-size: calc(7pt * var(--classic-fs-items));
@@ -802,8 +802,8 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-items-table tbody td {
   border: 0;
-  border-right: 0.35px solid #d1d5db;
-  border-bottom: 0.35px solid #d1d5db;
+  border-right: 0.5px solid #d1d5db;
+  border-bottom: 0.5px solid #d1d5db;
   padding: 1.5mm 2.5mm;
   vertical-align: top;
   font-size: calc(7.5pt * var(--classic-fs-items));
@@ -869,17 +869,28 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(108 * 100% / 182 - 0.35px);
+  left: calc(108 * 100% / 182 - 0.5px);
   z-index: 2;
   pointer-events: none;
-  border-left: 0.35px solid #d1d5db;
+  border-left: 0.5px solid #d1d5db;
 }
 /* V2 override: divider aligns to UNIT left edge (12+87+23=122mm) */
 .print-theme-classic-v2 .print-classic-bottom-row {
   grid-template-columns: 122fr 60fr;
 }
 .print-theme-classic-v2 .print-classic-bottom-row::before {
-  left: calc(122 * 100% / 182 - 0.35px);
+  left: calc(122 * 100% / 182 - 0.5px);
+}
+/* V2 override: tighter logo ↔ company-info gap (elderly-friendly larger text
+   needs the horizontal room) */
+.print-theme-classic-v2 .print-classic-top {
+  gap: 3mm;
+}
+.print-theme-classic-v2 .print-classic-top--no-name {
+  gap: 0 3mm;
+}
+.print-theme-classic-v2 .print-classic-top--above {
+  gap: 2mm 3mm;
 }
 
 /* =====================================================================
@@ -983,7 +994,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   grid-template-columns: 88fr 48fr;
 }
 .print-classic-bottom-row.print-classic-bottom-row-receipt::before {
-  left: calc(88 * 100% / 136 - 0.35px);
+  left: calc(88 * 100% / 136 - 0.5px);
 }
 
 .print-classic-terms-col {
@@ -1000,7 +1011,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-terms-section + .print-classic-terms-section {
   margin-top: 1.8mm;
   padding-top: 1.5mm;
-  border-top: 0.35px solid #e5e7eb;
+  border-top: 0.5px solid #e5e7eb;
 }
 .print-classic-terms-title {
   font-size: calc(8pt * var(--classic-fs-totals));
@@ -1028,7 +1039,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   flex-direction: column;
   font-size: calc(8.2pt * var(--classic-fs-totals));
   background: #f1f3f5;
-  border-right: 0.35px solid #d1d5db;
+  border-right: 0.5px solid #d1d5db;
 }
 .print-classic-totals-row {
   display: flex;
@@ -1036,7 +1047,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   align-items: center;
   min-height: 8mm;
   padding: 1.1mm 2.5mm;
-  border-bottom: 0.35px solid #d1d5db;
+  border-bottom: 0.5px solid #d1d5db;
   background: #f1f3f5;
   gap: 2mm;
 }
@@ -1228,7 +1239,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-fine-terms {
   margin-top: 1.8mm;
   padding: 1.5mm 2mm 0;
-  border-top: 0.35px solid #e5e7eb;
+  border-top: 0.5px solid #e5e7eb;
   color: #4b5563;
   font-size: calc(6.2pt * var(--classic-fs-footer));
   line-height: 1.25;

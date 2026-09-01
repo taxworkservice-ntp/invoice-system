@@ -362,6 +362,8 @@ export interface Document {
   is_blank_form?: boolean;
   show_full_totals?: boolean;
   show_dn_variance?: boolean;
+  /** Classic V2 per-document font-scale override (null = workspace default). */
+  print_font_scale?: string | null;
   created_at: string;
   updated_at: string;
   customer?: Customer;

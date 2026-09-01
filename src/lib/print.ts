@@ -104,7 +104,7 @@ import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 import { estimateLineItemHeight } from "./printRowHeight";
 import { getDnVarianceParts } from "./dnVariance";
-import { getClassicV2FontScaleMult, getClassicV2SectionScaleMult } from "../constants";
+import { getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult } from "../constants";
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -1101,7 +1101,8 @@ async function renderClassicV2PrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
-  const globalScale = getClassicV2FontScaleMult(
+  const globalScale = getClassicV2EffectiveFontScaleMult(
+    data.document.print_font_scale,
     data.clientProfile.classic_v2_font_scale,
   );
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
