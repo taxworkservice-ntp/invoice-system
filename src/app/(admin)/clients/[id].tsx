@@ -476,10 +476,14 @@ export default function AdminClientDetailPage() {
 
     setResettingDocs(true);
     try {
-      await resetClientDocuments(id);
+      const result = await resetClientDocuments(id);
       setShowResetDocsModal(false);
       setResetDocsConfirm("");
-      toast.success("ล้างเอกสารและตั้งเลขใหม่เรียบร้อยแล้ว");
+      const summary = result?.summary;
+      const summaryText = summary
+        ? ` (เอกสาร ${summary.documents_deleted} · งานขาย ${summary.deals_deleted} · คืนสต็อก ${summary.items_stock_restored} รายการ)`
+        : "";
+      toast.success("ล้างเอกสารและตั้งเลขใหม่เรียบร้อยแล้ว" + summaryText);
       await fetchData();
     } catch (error: any) {
       toast.error(error.message || "Reset documents failed");
@@ -915,8 +919,8 @@ export default function AdminClientDetailPage() {
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">Start New Workspace</div>
               <p className="mt-1 text-sm leading-6 text-amber-900">
-                Archive active deals, customers, and catalog items for this client, then reset document numbering to start from the beginning again.
-                Old documents remain available as history.
+                Archive active deals, customers, and catalog items for this client, then reset document numbering.
+                Old documents remain available as history, and deal numbers (DL-) continue after the highest archived number.
               </p>
               <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-amber-900/80">
                 <div>Active deals: {activeDealCount}</div>
@@ -938,8 +942,9 @@ export default function AdminClientDetailPage() {
             <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-orange-800">Clear Documents &amp; Numbering</div>
               <p className="mt-1 text-sm leading-6 text-orange-900">
-                Delete all documents, deals, and stock movements for this client.
-                Document numbering will be reset to 1. Customers, catalog items, and
+                End-of-trial cleanup: delete all documents, deals, stock movements, and WHT records for this client.
+                Document numbering restarts at 1 and deal numbering (DL-) restarts at 00001.
+                Item stock counts are restored to their pre-trial levels. Customers, catalog items, and
                 profile settings are preserved. This action cannot be undone.
               </p>
               <Button
@@ -957,8 +962,8 @@ export default function AdminClientDetailPage() {
             <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-orange-800">Reset All Data</div>
               <p className="mt-1 text-sm leading-6 text-orange-900">
-                Permanently delete all documents, deals, customers, catalog items, and stock history.
-                Number sequences will be reset. The client account and profile settings are preserved.
+                Permanently delete all documents, deals, customers, catalog items, stock history, and WHT records.
+                Number sequences (documents and deals) will be reset. The client account and profile settings are preserved.
                 This action cannot be undone.
               </p>
               <Button
@@ -1209,7 +1214,8 @@ export default function AdminClientDetailPage() {
         <div className="space-y-4">
           <p className="text-sm leading-6 text-gray-700">
             This will hide the client&apos;s active workspace from normal day-to-day screens by archiving active deals, customers, and items.
-            It will also reset document numbering back to the start. Existing documents remain in the database as history.
+            It will also reset document numbering. Existing documents remain in the database as history, and deal numbers
+            (DL-) continue after the highest archived number.
           </p>
           <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700">
             <div>Active deals to archive: {activeDealCount}</div>
@@ -1253,8 +1259,9 @@ export default function AdminClientDetailPage() {
       >
         <div className="space-y-4">
           <p className="text-sm leading-6 text-gray-700">
-            This will permanently delete all documents, deals, and stock movements for
-            this client. Document numbering will be reset to start from 1.
+            This will permanently delete all documents, deals, stock movements, and WHT records for this client.
+            Document numbering will restart from 1 and deal numbering (DL-) from 00001. Item stock counts will be
+            restored to their pre-trial levels (document-driven movements are reversed; manual stock-ins stay counted).
           </p>
           <p className="text-sm leading-6 text-gray-700 font-medium">
             The following will be preserved:
@@ -1262,6 +1269,7 @@ export default function AdminClientDetailPage() {
           <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
             <li>Customers ({activeCustomerCount} active)</li>
             <li>Catalog items ({activeItemCount} active)</li>
+            <li>WHT vendors (master data)</li>
             <li>Profile settings (company name, tax ID, logo, etc.)</li>
           </ul>
           <p className="text-sm font-semibold text-amber-700">This action cannot be undone. The documents will be permanently deleted.</p>
@@ -1303,9 +1311,9 @@ export default function AdminClientDetailPage() {
         <div className="space-y-4">
           <p className="text-sm leading-6 text-gray-700">
             This will permanently delete all documents, deals, customers, catalog items,
-            and stock history for this client. Document numbering will be reset to defaults.
-            The client account and profile settings (company name, tax ID, logo, PDF template, etc.)
-            will be preserved. This action cannot be undone.
+            stock history, and WHT records for this client. Number sequences for documents
+            and deals will be reset to defaults. The client account and profile settings
+            (company name, tax ID, logo, PDF template, etc.) will be preserved. This action cannot be undone.
           </p>
           <Input
             id="reset-all-confirm"

@@ -71,7 +71,19 @@ export async function resetAllClientData(id: string) {
   });
 }
 
-export async function resetClientDocuments(id: string) {
+export interface ResetDocumentsSummary {
+  documents_deleted: number;
+  deals_deleted: number;
+  line_items_deleted: number;
+  stock_movements_deleted: number;
+  wht_records_deleted: number;
+  items_stock_restored: number;
+  doc_sequences_reset: number;
+  deal_sequences_reset: number;
+  r2_keys: string[];
+}
+
+export async function resetClientDocuments(id: string): Promise<{ success: boolean; summary: ResetDocumentsSummary }> {
   return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
     body: JSON.stringify({ action: "reset-documents" }),
