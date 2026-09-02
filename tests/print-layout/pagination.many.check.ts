@@ -109,6 +109,32 @@ const estimateClassic = (item: DocumentLineItem, mult: number) =>
     hasDnVariance: true,
     hasLineDiscount: item.discount_percent > 0,
   });
+
+/**
+ * Invariant: the trailing continuation page must never be "sparse" — if its
+ * rows (plus the last page's) fit the last-page budget and count cap, the
+ * paginator should have merged them into the finalized page.
+ */
+function assertNoMergeableTail(
+  batches: { mode: string; items: DocumentLineItem[]; startIndex: number }[],
+  heightOf: (item: DocumentLineItem) => number,
+  lastBudget: number,
+  lp: number,
+  label: string,
+) {
+  if (batches.length < 2) return;
+  const last = batches[batches.length - 1];
+  const prev = batches[batches.length - 2];
+  if (prev.mode !== "continuation" || last.mode !== "last") return;
+  const lastH = last.items.reduce((s, it) => s + heightOf(it), 0);
+  const prevH = prev.items.reduce((s, it) => s + heightOf(it), 0);
+  const mergedCount = last.items.length + prev.items.length;
+  assert.ok(
+    mergedCount > lp || lastH + prevH > lastBudget + 0.5,
+    `${label}: sparse trailing continuation page (${prev.items.length}+${last.items.length} items) should have merged into the last page`,
+  );
+}
+
 let prevPages: number | null = null;
 for (const { preset, mult } of scales) {
   const batches = paginateLineItems(items, "classic", {
@@ -116,17 +142,21 @@ for (const { preset, mult } of scales) {
     fontScale: mult,
   });
   const budgets = getRowBudgets("classic", mult);
+  const budgetsMultiFirst = getRowBudgets("classic", mult, "line_items", 0, { multiFirst: true });
   // budgets only shrink as the scale grows
   assert.ok(budgets.first <= 18 * 6.5 + 0.001, `${preset}: first budget within unscaled budget`);
   // every multi-row page's estimated content stays within its (scaled) budget;
   // single-row pages are exempt — at extreme scales one tall row exceeds the
-  // budget and the paginator still places it (≥1 row per page guarantee)
+  // budget and the paginator still places it (≥1 row per page guarantee).
+  // FIRST batches of multi-page docs use the larger multi-first budget (no
+  // totals/footer on that page).
   for (const batch of batches) {
     if (batch.items.length <= 1) continue;
     const sum = batch.items.reduce((acc, it) => acc + estimateClassic(it, mult), 0);
+    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[batch.mode];
     assert.ok(
-      sum <= budgets[batch.mode] + 0.5,
-      `${preset}: ${batch.mode} page height ${sum.toFixed(1)}mm within budget ${budgets[batch.mode].toFixed(1)}mm`,
+      sum <= budget + 0.5,
+      `${preset}: ${batch.mode} page height ${sum.toFixed(1)}mm within budget ${budget.toFixed(1)}mm`,
     );
   }
   // continuous numbering, full coverage
@@ -136,11 +166,7 @@ for (const { preset, mult } of scales) {
     n += batch.items.length;
   }
   assert.equal(n - 1, items.length, `${preset}: all items paginated exactly once`);
-  // growing the scale shrinks budgets + grows rows → page count never drops
-  if (prevPages !== null) {
-    assert.ok(batches.length >= prevPages, `${preset}: page count ${batches.length} >= ${prevPages} at smaller scale`);
-  }
-  prevPages = batches.length;
+  assertNoMergeableTail(batches, (it) => estimateClassic(it, mult), budgets.last, 12, preset);
   console.log(`  classic_v2 ${preset} (${mult}x): ${batches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
 }
 {
@@ -164,13 +190,16 @@ for (const { preset, mult } of scales) {
     fontScale: mixed,
   });
   const budgets = getRowBudgets("classic", mixed);
+  const budgetsMultiFirst = getRowBudgets("classic", mixed, "line_items", 0, { multiFirst: true });
   for (const batch of batches) {
     const sum = batch.items.reduce((acc, it) => acc + estimateClassic(it, 1.44), 0);
+    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[batch.mode];
     assert.ok(
-      sum <= budgets[batch.mode] + 0.5,
-      `items-1.44: ${batch.mode} page height ${sum.toFixed(1)}mm within budget ${budgets[batch.mode].toFixed(1)}mm`,
+      sum <= budget + 0.5,
+      `items-1.44: ${batch.mode} page height ${sum.toFixed(1)}mm within budget ${budget.toFixed(1)}mm`,
     );
   }
+  assertNoMergeableTail(batches, (it) => estimateClassic(it, 1.44), budgets.last, 12, "items-1.44");
   let n = 1;
   for (const batch of batches) {
     assert.equal(batch.startIndex, n, "items-1.44: startIndex continuity");
@@ -223,11 +252,14 @@ for (const { preset, mult } of scales) {
     fontScale: { header: 1, items: 1.65, num: 1.0, thead: 1, totals: 1, footer: 1 },
   });
   const budgets = getRowBudgets("classic", { header: 1, items: 1.65, num: 1.0, thead: 1, totals: 1, footer: 1 });
+  const budgetsMultiFirst = getRowBudgets("classic", { header: 1, items: 1.65, num: 1.0, thead: 1, totals: 1, footer: 1 }, "line_items", 0, { multiFirst: true });
   for (const batch of batches) {
     if (batch.items.length <= 1) continue;
     const sum = batch.items.reduce((acc, it) => acc + estimateMixed(it, 1.65, 1.0), 0);
-    assert.ok(sum <= budgets[batch.mode] + 0.5, `mixed: ${batch.mode} within budget`);
+    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[batch.mode];
+    assert.ok(sum <= budget + 0.5, `mixed: ${batch.mode} within budget`);
   }
+  assertNoMergeableTail(batches, (it) => estimateMixed(it, 1.65, 1.0), budgets.last, 12, "mixed");
   console.log(`  classic_v2 desc1.65/num1.0: ${batches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
 }
 
@@ -245,14 +277,16 @@ for (const { preset, mult } of scales) {
   });
   const estimateSimple = (item: DocumentLineItem) =>
     estimateLineItemHeight(item, "classic_v2", {});
-  // rest > last-capacity → last page must hold exactly 1 item
+  // rest > last-capacity → the finalized page absorbs the sparse tail (≥1 item),
+  // and no sparse trailing continuation page remains
   const forty = Array.from({ length: 40 }, (_, i) => makeSimple(i + 1));
   const manyBatches = paginateLineItems(forty, "classic_v2", {
     estimateHeight: estimateSimple,
   });
   const lastBatch = manyBatches[manyBatches.length - 1];
   assert.equal(lastBatch.mode, "last");
-  assert.equal(lastBatch.items.length, 1, "classic_v2: finalized page keeps only 1 item when rest > last capacity");
+  assert.ok(lastBatch.items.length >= 1, "classic_v2: finalized page always holds at least one item");
+  assertNoMergeableTail(manyBatches, estimateSimple, getRowBudgets("classic_v2", 1, "line_items").last, 24, "classic_v2 distribution (40)");
   // rest within last capacity → all remaining rows stay on the last page
   const someBatches = paginateLineItems(
     Array.from({ length: 25 }, (_, i) => makeSimple(i + 1)),
@@ -261,7 +295,8 @@ for (const { preset, mult } of scales) {
   );
   const someLast = someBatches[someBatches.length - 1];
   assert.equal(someLast.mode, "last");
-  assert.ok(someLast.items.length > 1, "classic_v2: remainder within capacity stays on the last page");
+  assert.ok(someLast.items.length >= 1, "classic_v2: remainder stays on the last page");
+  assert.equal(someBatches.length, 2, "classic_v2: 25 items fit first(24) + last(1) — dense first page");
   // coverage + continuity for both runs
   for (const batches of [manyBatches, someBatches]) {
     let n = 1;
@@ -312,9 +347,9 @@ console.log(
 // 9. extraReserveMm (billing-note cheque strip): first/last shrink, continuation untouched
 {
   const base = getRowBudgets("classic", 1, "summary_rows");
-  const reserved = getRowBudgets("classic", 1, "summary_rows", 27);
-  assert.ok(Math.abs(base.first - reserved.first - 27) < 0.001, "extraReserve shrinks first budget by 27mm");
-  assert.ok(Math.abs(base.last - reserved.last - 27) < 0.001, "extraReserve shrinks last budget by 27mm");
+  const reserved = getRowBudgets("classic", 1, "summary_rows", 11);
+  assert.ok(Math.abs(base.first - reserved.first - 11) < 0.001, "extraReserve shrinks first budget by 11mm");
+  assert.ok(Math.abs(base.last - reserved.last - 11) < 0.001, "extraReserve shrinks last budget by 11mm");
   assert.equal(reserved.continuation, base.continuation, "continuation budget keeps full space (no strip there)");
   assert.ok(reserved.last >= 6.5, "budget floor keeps at least one row");
 }

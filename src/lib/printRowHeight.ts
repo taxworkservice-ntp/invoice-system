@@ -26,11 +26,15 @@ const ROW_SAFETY_MM = 0.8;
 // Classic DN header rows render at 11pt (taller than a normal 7.5pt row).
 const DN_HEADER_MM = { modern: 6.9, classic: 8.1 };
 // Conservative characters per line for the description column, used to
-// estimate name wrapping. Over-estimating wrap lines keeps heights safe.
+// estimate name wrapping. Calibrated empirically in the 87mm description
+// column with the app font (Thai + Latin mix): ~75 chars/line at 7.5pt,
+// ~54 at 10.5pt — width growth is linear in the font scale, so the estimate
+// divides by the scale; 63 ≈ 85% of measured capacity keeps the estimate
+// conservative (over-counts wrapped lines slightly).
 const NAME_CHARS_PER_LINE = {
   modern: 32,
-  classic: 28,
-  classicNoAmounts: 48,
+  classic: 63,
+  classicNoAmounts: 100,
 };
 
 // Portion of a classic row that does NOT grow with --classic-font-scale:

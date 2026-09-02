@@ -26,6 +26,60 @@ function SigDateFill() {
   );
 }
 
+/** Per-document-type wording for the signature boxes (Box 1 + Box 2; Box 3 is always the company signer). */
+const SIG_LABELS: Record<string, { box1Title: string; box1TitleEn: string; box1Role: string; box2Role: string }> = {
+  invoice: {
+    box1Title: "ได้รับสินค้า/บริการถูกต้องแล้ว",
+    box1TitleEn: "GOODS & SERVICES RECEIVED",
+    box1Role: "ผู้รับสินค้า/บริการ / RECEIVED BY",
+    box2Role: "ผู้จ่ายเงิน / PAYER",
+  },
+  tax_invoice_receipt: {
+    box1Title: "ได้รับชำระเงินถูกต้องแล้ว",
+    box1TitleEn: "PAYMENT RECEIVED",
+    box1Role: "ผู้รับเงิน / RECEIVER",
+    box2Role: "ผู้จ่ายเงิน / PAYER",
+  },
+  receipt: {
+    box1Title: "ได้รับชำระเงินถูกต้องแล้ว",
+    box1TitleEn: "PAYMENT RECEIVED",
+    box1Role: "ผู้รับเงิน / RECEIVER",
+    box2Role: "ผู้จ่ายเงิน / PAYER",
+  },
+  billing_note: {
+    box1Title: "ได้รับใบวางบิลถูกต้อง",
+    box1TitleEn: "BILLING ACKNOWLEDGED",
+    box1Role: "ผู้รับใบวางบิล / ACKNOWLEDGED BY",
+    box2Role: "ผู้จ่ายเงิน / PAYER",
+  },
+  quotation: {
+    box1Title: "ยืนยันคำสั่งซื้อ",
+    box1TitleEn: "ORDER CONFIRMED",
+    box1Role: "ผู้ยืนยันคำสั่งซื้อ / CONFIRMED BY",
+    box2Role: "ผู้เสนอราคา / QUOTED BY",
+  },
+  delivery_note: {
+    box1Title: "ได้รับสินค้า/บริการถูกต้องแล้ว",
+    box1TitleEn: "GOODS/SERVICES RECEIVED",
+    box1Role: "ผู้รับของ / RECEIVED BY",
+    box2Role: "ผู้ส่งของ / DELIVERED BY",
+  },
+  credit_note: {
+    box1Title: "ได้รับใบลดหนี้ถูกต้อง",
+    box1TitleEn: "CREDIT NOTE ACKNOWLEDGED",
+    box1Role: "ผู้รับใบลดหนี้ / ACKNOWLEDGED BY",
+    box2Role: "ผู้อนุมัติใบลดหนี้ / APPROVED BY",
+  },
+  debit_note: {
+    box1Title: "ได้รับใบเพิ่มหนี้ถูกต้อง",
+    box1TitleEn: "DEBIT NOTE ACKNOWLEDGED",
+    box1Role: "ผู้รับใบเพิ่มหนี้ / ACKNOWLEDGED BY",
+    box2Role: "ผู้อนุมัติใบเพิ่มหนี้ / APPROVED BY",
+  },
+};
+
+const SIG_LABELS_DEFAULT = SIG_LABELS.invoice;
+
 export type CopyType = "original" | "copy";
 
 const COPY_LABELS: Record<CopyType, string> = {
@@ -160,9 +214,11 @@ export function PrintDocumentClassicV2({
   const receiptReferenceAmount = referenceDoc?.total_amount ?? document.total_amount;
   const receiptPaidInFull = isReceipt && receiptOutstanding !== undefined && receiptOutstanding <= 0.01;
   const showFooter = pageMode === "single" || pageMode === "last";
-  const showHeader = pageMode === "single" || pageMode === "first";
-  const showContinuationHeader =
-    pageMode === "continuation" || pageMode === "last";
+  const fullHeaderPerPage = clientProfile.classic_v2_full_page_header === true;
+  const isContinuationPage = pageMode === "continuation" || pageMode === "last";
+  const showHeader =
+    pageMode === "single" || pageMode === "first" || (fullHeaderPerPage && isContinuationPage);
+  const showContinuationHeader = isContinuationPage && !fullHeaderPerPage;
   const documentClass = isDeliveryNote ? " print-delivery-note" : "";
   const showBank = SHOW_BANK_TYPES.has(document.doc_type) &&
     (document.doc_type !== "receipt" || !!bankAccount);
@@ -653,7 +709,9 @@ export function PrintDocumentClassicV2({
               </thead>
               <tbody>
                 {(() => {
-                  let running = 0;
+                  // Global row numbering — continues across pages (startIndex is
+                  // the 1-based first row of this page's batch).
+                  let running = (startIndex ?? 1) - 1;
                   return lineItems.map((item, index) => {
                     const isDnSub = !!(item.source_document_id && item.source_line_item_id);
                     const isDnHeader = item.source_document_id && !item.source_line_item_id && item.quantity === 0 && item.unit_price === 0;
@@ -1080,97 +1138,71 @@ export function PrintDocumentClassicV2({
 
           {showFooter && document.doc_type === "billing_note" && (
             <div className="print-classic-cheque-strip">
-              <div className="print-classic-cheque-strip-title">
-                รายละเอียดเช็ค <span className="en">/ CHEQUE DETAILS</span>
-              </div>
-              <div className="print-classic-cheque-grid">
-                <div className="print-classic-cheque-field">
-                  <div className="fill" />
-                  <div className="lab">ธนาคาร / BANK</div>
-                </div>
-                <div className="print-classic-cheque-field">
-                  <div className="fill" />
-                  <div className="lab">เลขที่เช็ค / CHEQUE NO.</div>
-                </div>
-                <div className="print-classic-cheque-field">
-                  <div className="fill" />
-                  <div className="lab">วันที่รับเช็ค / CHEQUE RECEIVED DATE</div>
-                </div>
-                <div className="print-classic-cheque-field">
-                  <div className="fill" />
-                  <div className="lab">จำนวนเงิน (บาท) / AMOUNT</div>
-                </div>
-              </div>
+              <span className="print-classic-cheque-label">
+                วันที่รับเช็ค <span className="en">/ CHEQUE RECEIVED DATE</span>
+              </span>
+              <span className="print-classic-cheque-fill" />
             </div>
           )}
 
           {/* ============== BOTTOM BAND (signatures) ============== */}
           <div className="print-classic-bottom-band">
-            <div className="print-classic-sig-cell">
-              <div className="print-classic-sig-th">
-                {isDeliveryNote
-                  ? "ได้รับสินค้า/บริการถูกต้องแล้ว"
-                  : "ได้รับชำระเงินถูกต้องแล้ว"}
-              </div>
-              <div className="print-classic-sig-th-en">
-                {isDeliveryNote
-                  ? "GOODS/SERVICES RECEIVED"
-                  : "PAYMENT RECEIVED"}
-              </div>
-              <div className="print-classic-sig-line"></div>
-              <div className="print-classic-sig-dt">วันที่ / DATE</div>
-              <SigDateFill />
-              <div className="print-classic-sig-role">
-                {isDeliveryNote
-                  ? "ผู้รับของ / RECEIVED BY"
-                  : "ผู้รับเงิน / RECEIVER"}
-              </div>
-            </div>
-            <div className="print-classic-sig-cell print-classic-sig-cell-mid">
-              <div className="print-classic-sig-line"></div>
-              <div className="print-classic-sig-dt">วันที่ / DATE</div>
-              <SigDateFill />
-              <div className="print-classic-sig-role">
-                {isDeliveryNote
-                  ? "ผู้ส่งของ / DELIVERED BY"
-                  : "ผู้จ่ายเงิน / PAYER"}
-              </div>
-            </div>
-            <div className="print-classic-sig-cell">
-              <div className="print-classic-sig-th">
-                ในนาม&nbsp;{clientProfile.company_name_th}
-              </div>
-              <div className="print-classic-sig-th-en">
-                FOR{" "}
-                {clientProfile.company_name_en?.toUpperCase() ||
-                  clientProfile.company_name_th.toUpperCase()}
-              </div>
-              <div className="print-classic-sig-line">
-                {signatureUrl ? (
-                  <img
-                    src={signatureUrl}
-                    alt="ลายเซ็น"
-                    className="print-classic-sig-img"
-                    style={{ height: `${(12 * signatureScaleMult).toFixed(1)}mm` }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                ) : null}
-                {stampUrl ? (
-                  <img
-                    src={stampUrl}
-                    alt="ตราประทับ"
-                    className="print-classic-sig-stamp"
-                    style={{ height: `${(18 * stampScaleMult).toFixed(1)}mm` }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                ) : null}
-              </div>
-              <div className="print-classic-sig-dt">วันที่ / DATE</div>
-              <SigDateFill />
-              <div className="print-classic-sig-role">
-                ผู้มีอำนาจลงนาม / AUTHORIZED BY
-              </div>
-            </div>
+            {(() => {
+              const sig = SIG_LABELS[document.doc_type] ?? SIG_LABELS_DEFAULT;
+              return (
+                <>
+                  <div className="print-classic-sig-cell">
+                    <div className="print-classic-sig-th">{sig.box1Title}</div>
+                    <div className="print-classic-sig-th-en">{sig.box1TitleEn}</div>
+                    <div className="print-classic-sig-line"></div>
+                    <div className="print-classic-sig-dt">วันที่ / DATE</div>
+                    <SigDateFill />
+                    <div className="print-classic-sig-role">{sig.box1Role}</div>
+                  </div>
+                  <div className="print-classic-sig-cell print-classic-sig-cell-mid">
+                    <div className="print-classic-sig-line"></div>
+                    <div className="print-classic-sig-dt">วันที่ / DATE</div>
+                    <SigDateFill />
+                    <div className="print-classic-sig-role">{sig.box2Role}</div>
+                  </div>
+                  <div className="print-classic-sig-cell">
+                    <div className="print-classic-sig-th">
+                      ในนาม&nbsp;{clientProfile.company_name_th}
+                    </div>
+                    <div className="print-classic-sig-th-en">
+                      FOR{" "}
+                      {clientProfile.company_name_en?.toUpperCase() ||
+                        clientProfile.company_name_th.toUpperCase()}
+                    </div>
+                    <div className="print-classic-sig-line">
+                      {signatureUrl ? (
+                        <img
+                          src={signatureUrl}
+                          alt="ลายเซ็น"
+                          className="print-classic-sig-img"
+                          style={{ height: `${(12 * signatureScaleMult).toFixed(1)}mm` }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : null}
+                      {stampUrl ? (
+                        <img
+                          src={stampUrl}
+                          alt="ตราประทับ"
+                          className="print-classic-sig-stamp"
+                          style={{ height: `${(18 * stampScaleMult).toFixed(1)}mm` }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : null}
+                    </div>
+                    <div className="print-classic-sig-dt">วันที่ / DATE</div>
+                    <SigDateFill />
+                    <div className="print-classic-sig-role">
+                      ผู้มีอำนาจลงนาม / AUTHORIZED BY
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           {/* ============== FOOTER ============== */}

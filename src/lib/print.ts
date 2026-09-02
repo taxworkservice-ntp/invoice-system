@@ -1133,6 +1133,7 @@ async function renderClassicV2PrintPages(
       data.document.doc_type === "billing_note"
         ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
         : 0,
+    continuationFullHeader: data.clientProfile.classic_v2_full_page_header === true,
   });
   if (batches.length <= 1) {
     return [await renderClassicV2PrintCanvas(data, copyType)];

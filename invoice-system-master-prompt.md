@@ -756,9 +756,55 @@ Do not build these in v1. They can be added without redesigning the system:
 | Multi-page distribution | Evenly distribute continuation page items (no sparse almost-empty pages); always ensure a "last" page for footer/signature | Clean presentation, signature always renders |
 ---
 
+## Classic V2 Template — Fonts, Pagination & Per-Page Header (2026-09)
+
+The classic V2 template has its own typography and pagination engine, fully pt-based
+and workspace-configurable. All sizing flows through CSS variables
+(`--classic-font-scale` + per-slot `--classic-fs-*`), so V1 and modern templates are
+never affected.
+
+**Font system (Settings > รูปแบบเอกสาร):**
+- pt-only presets — 6 / 7.5 / 9 / 10.5 / 12 / 13pt (main reading text = item body, base 7.5pt)
+- Resolution chain (most specific wins): per-document override (`documents.print_font_scale`)
+  → per-doc-type (`classic_v2_type_font_scales` jsonb: global + 6 slots) → workspace
+  per-section (`classic_v2_section_font_scales`: 6 slots) → workspace global
+  (`classic_v2_font_scale`) → 7.5pt. Custom exact sizes stored as `pt:<n>` (clamped 6–13.5).
+- 6 slots: ส่วนหัว / ตารางรายการ (ชื่อสินค้า·ตัวเลข·หัวตาราง) / ยอดรวม / ลายเซ็น.
+  Numeric columns are single-line (row height = max(desc block, number line)).
+- Live feedback: "กAa" preview chips + a ตัวอย่างขนาดจริง specimen block in Settings.
+
+**Pagination (src/lib/pagination.ts + printRowHeight.ts):**
+- Wrap estimate: chars-per-line = 63 ÷ scale (100 when amount columns hidden),
+  empirically calibrated in the 87mm description column; row height = 3.1mm fixed
+  padding + 3.4mm × max(desc scale, num scale) per first line + extra lines.
+- Densities (classic_v2, rows per page): single-page 19 / multi-page first 28 /
+  continuation 34 (28 when full header repeats) / last 24. Summary rows: 12 / 26 / 32 (26) / 22.
+- Distribution: sequential fill — pages pack in order to their budgets, the finalized
+  page takes the remainder with totals + signatures (≥1 row). Sparse trailing
+  continuation pages merge into the last page when the merged height fits.
+- Fixed-content reserves scale with the font presets (FONT_SCALE_SECTION_RESERVE_MM) and
+  shrink budgets; billing notes reserve 11mm for the cheque-date strip (first/last pages).
+
+**Per-page header:** default = full header + customer info band on page 1, compact
+identifier strip (company · doc type · number · BILL TO · page X/Y) on continuation pages.
+Workspace toggle `classic_v2_full_page_header` repeats the full layout on every page
+(continuation capacity drops 34 → 28 — documented paper trade-off).
+
+**Billing note cheque strip:** when printing a billing note, a slim hand-fill strip
+(วันที่รับเช็ค / CHEQUE RECEIVED DATE + dotted line, 11mm) renders between totals and the
+signature band; reserved from first/last page budgets. Signature boxes use segmented
+hand-fill dates `[DD] / [MM] / [YYYY]` and per-type wording (e.g. billing note:
+ได้รับใบวางบิลถูกต้อง / BILLING ACKNOWLEDGED; quotation: ยืนยันคำสั่งซื้อ / ORDER CONFIRMED;
+delivery note: ผู้รับของ / ผู้ส่งของ; money documents: ผู้รับเงิน / ผู้จ่ายเงิน).
+
+---
+
 ## Current Rollout Status
 
 Completed:
+- Classic V2 overhaul (2026-09): pt-based font system (6 presets 6–13pt + custom pt, 6 slots: header/items/num/thead/totals/footer, per-doc-type tabs + per-document override chain), empirically recalibrated wrap + density pagination (first 28 / cont 34 / last 24 rows, sequential fill, sparse-tail merge, ≥1-row floors), per-type signature wording + segmented [DD]/[MM]/[YYYY] date fills, billing-note cheque-date strip, optional full header on every page, all-black table fonts, logo-gap + hidden-name header fixes
+- Settings pages professionally reorganized (all 8): SectionCard sections, two-column SettingRow, Switch toggles, sticky save bars with dirty/discard — shared ui/{SectionCard,SettingRow,Switch,FontPreviewChip}
+- Local dev + prod PDF export fixes: platform-aware Chromium launch (sparticuz args only on Linux), dev render origin fix, stale-session 401 on PDF export (apiFetchBlob refresh + retry), 0.5px hairlines (0.35px vanished in PDF viewers)
 - Pre-launch security hardening (2026-08-25): dev mode locked behind admin-only paths — toggle_dev_mode RPC verifies is_admin() + revoked PUBLIC/anon execute; trigger blocks non-admin updates of dev_mode_enabled/dev_effective_date via the owner client_profiles policy (sql/20260825_lock_dev_mode.sql, behaviorally verified against production DB)
 - Secrets hygiene: removed VITE_-prefixed fallbacks for SUPABASE_SERVICE_ROLE_KEY and R2 credentials in api/_lib (Vite inlines VITE_* into the client bundle); .env.example documents all required vars; scripts/check-env.mjs (`npm run check:env`) validates names + forbids secret prefixes
 - Credit note ref-summary pollution fixed: invoice-from-DN/QT print-marker rows (ใบส่งของ DN-… qty 0) no longer copied into CN/DB forms — shared isRefSummaryLine lib (src/lib/refSummary.ts) detects both lineage and lineage-stripped signatures; scripts/cleanup_cn_ref_summary_rows.mjs cleaned existing rows

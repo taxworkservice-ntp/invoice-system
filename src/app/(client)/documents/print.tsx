@@ -51,6 +51,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const extraReserveMm = isClassicV2 && data.document.doc_type === "billing_note"
     ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
     : 0;
+  const continuationFullHeader = isClassicV2 && data.clientProfile.classic_v2_full_page_header === true;
   // An explicit per-document override applies to the whole document (all
   // sections) — it beats type and workspace scales.
   const docOverrideMult =
@@ -126,6 +127,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       }),
     fontScale: budgetScales,
     extraReserveMm,
+    continuationFullHeader,
   }).map((batch) => ({ kind: "line_items", batch }));
 }
 

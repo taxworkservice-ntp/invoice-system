@@ -196,6 +196,7 @@ export default function SettingsDocumentsPage() {
   const [logoLayout, setLogoLayout] = useState<"left" | "above">("left");
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic" | "classic_v2">("modern");
   const [classicV2FontScale, setClassicV2FontScale] = useState("normal");
+  const [classicV2FullPageHeader, setClassicV2FullPageHeader] = useState(false);
   const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>({
     header: CLASSIC_V2_SECTION_INHERIT,
     items: CLASSIC_V2_SECTION_INHERIT,
@@ -242,6 +243,7 @@ export default function SettingsDocumentsPage() {
     });
     setClassicV2TypeScales(clientProfile.classic_v2_type_font_scales || {});
     setClassicTerms(clientProfile.classic_terms || "");
+    setClassicV2FullPageHeader(clientProfile.classic_v2_full_page_header === true);
     setSignatureKey(clientProfile.signature_url || null);
     setStampKey(clientProfile.stamp_url || null);
     setSignatureScale(clientProfile.signature_scale || "medium");
@@ -290,6 +292,7 @@ export default function SettingsDocumentsPage() {
       show_company_name: showCompanyName,
       logo_layout: logoLayout,
       pdf_template: pdfTemplate,
+      classic_v2_full_page_header: classicV2FullPageHeader,
       classic_v2_font_scale: classicV2FontScale,
       classic_v2_section_font_scales: classicV2SectionScales,
       classic_v2_type_font_scales: Object.fromEntries(
@@ -366,6 +369,7 @@ export default function SettingsDocumentsPage() {
 
   const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template || "modern") ||
+    classicV2FullPageHeader !== (clientProfile?.classic_v2_full_page_header === true) ||
     classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
     JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.classic_v2_type_font_scales || {}) ||
     CLASSIC_V2_SECTION_FONT_KEYS.some(
@@ -503,6 +507,15 @@ export default function SettingsDocumentsPage() {
                 {hasClassicV2 && <option value="classic_v2">คลาสสิก V2</option>}
               </Select>
             </SettingRow>
+            {pdfTemplate === "classic_v2" && hasClassicV2 && (
+              <SettingRow
+                label="หัวกระดาษเต็มรูปแบบทุกหน้า (คลาสสิก V2)"
+                description="พิมพ์โลโก้ ชื่อบริษัท และข้อมูลลูกค้าซ้ำทุกหน้าของเอกสารหลายหน้า — ใช้กระดาษมากขึ้น (ปิด = หน้าต่อไปใช้แถบสรุปแบบกระชับ)"
+                controlAlign="right"
+              >
+                <Switch checked={classicV2FullPageHeader} onChange={(checked) => { setClassicV2FullPageHeader(checked); setSaved(false); }} />
+              </SettingRow>
+            )}
             <div className="pt-3">
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 ข้อความเงื่อนไขท้ายเอกสาร

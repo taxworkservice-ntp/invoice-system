@@ -282,6 +282,9 @@ create table client_profiles (
   -- Classic V2 per-document-type font-size overrides (jsonb: doc_type -> { global/header/items/totals/footer -> preset or 'inherit' })
   classic_v2_type_font_scales jsonb default null,
 
+  -- Classic V2: repeat the full header + customer info on every page of multi-page documents
+  classic_v2_full_page_header boolean not null default false,
+
   -- Signature & stamp visibility on WHT forms
   show_signature_on_wht  boolean not null default true,
   show_stamp_on_wht      boolean not null default true,

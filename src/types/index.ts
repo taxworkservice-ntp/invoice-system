@@ -116,6 +116,8 @@ export interface ClientProfile {
   classic_v2_font_scale?: string | null;
   classic_v2_section_font_scales?: Record<string, string> | null;
   classic_v2_type_font_scales?: Record<string, Record<string, string>> | null;
+  /** Classic V2: repeat the full header + customer info on every page. */
+  classic_v2_full_page_header?: boolean;
   show_signature_on_wht: boolean;
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;

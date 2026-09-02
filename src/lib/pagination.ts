@@ -16,20 +16,26 @@ export interface PageBatch {
 
 type PaginationKind = "line_items" | "summary_rows";
 
-const LINE_ITEM_CAPACITY = {
+type CapacityRow = { first: number; firstMulti?: number; continuation: number; continuationFullHeader?: number; last: number };
+
+const LINE_ITEM_CAPACITY: Record<"modern" | "classic" | "classic_v2", CapacityRow> = {
   modern: { first: 20, continuation: 26, last: 14 },
   classic: { first: 18, continuation: 22, last: 12 },
-  // V2 keeps the doc title inside the header's right column, freeing row area
-  // on the first page; measured row space: first ~131mm (19 rows), continuation
-  // ~241mm (30 rows keeps a wide safety margin), last ~191mm.
-  classic_v2: { first: 19, continuation: 30, last: 16 },
+  // classic_v2: multi-page FIRST pages carry only header + info band (totals
+  // and signatures live on the last page), so they pack ~28 rows vs 19 on a
+  // single-page document; continuation/last caps measured against the fixed
+  // blocks at ปกติ with the font-scale reserves on top. continuationFullHeader
+  // = the full header + info band repeats on continuation pages (workspace
+  // setting) → fewer rows per continuation page.
+  classic_v2: { first: 19, firstMulti: 28, continuation: 34, continuationFullHeader: 28, last: 24 },
 };
 
 // Summary tables share the page with the document header and final totals.
 // Keep their capacity lower so payment details never get pushed off-page.
-const SUMMARY_ROW_CAPACITY = {
+const SUMMARY_ROW_CAPACITY: Record<"modern" | "classic" | "classic_v2", CapacityRow> = {
   modern: { first: 12, continuation: 18, last: 8 },
   classic: { first: 12, continuation: 16, last: 8 },
+  classic_v2: { first: 12, firstMulti: 26, continuation: 32, continuationFullHeader: 26, last: 22 },
 };
 
 // Row-area budgets above are tuned at --classic-font-scale = 1, but the fixed
@@ -45,13 +51,17 @@ const FONT_SCALE_SECTION_RESERVE_MM = { header: 51, items: 0, thead: 5, totals: 
 const FONT_SCALE_PAGE_SECTIONS = {
   line_items: {
     first: ["header", "thead", "totals", "footer"],
+    first_multi: ["header", "thead"],
     continuation: ["thead"],
+    continuation_full_header: ["header", "thead"],
     last: ["thead", "totals", "footer"],
   },
   // Full document layout on every summary page.
   summary_rows: {
     first: ["header", "thead", "totals", "footer"],
+    first_multi: ["header", "thead"],
     continuation: ["header", "thead", "totals", "footer"],
+    continuation_full_header: ["header", "thead"],
     last: ["header", "thead", "totals", "footer"],
   },
 } as const;
@@ -87,20 +97,23 @@ function normalizeFontScales(
 /**
  * Estimated row-area budget (mm) per page mode. `fontScale` is the classic V2
  * font scale — either one uniform multiplier (1 = default, budgets unscaled)
- * or per-section multipliers ({@link ClassicV2FontScales}).
+ * or per-section multipliers ({@link ClassicV2FontScales}). `opts.multiFirst`
+ * switches the FIRST-page budget to the multi-page layout (no totals/footer on
+ * that page — they live on the last page), which packs more rows.
  */
 export function getRowBudgets(
   template: "modern" | "classic" | "classic_v2",
   fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
   extraReserveMm = 0,
+  opts: { multiFirst?: boolean; continuationFullHeader?: boolean } = {},
 ): { first: number; continuation: number; last: number } {
   const baseMm = getBaseRowMm(template);
-  const capacity = kind === "summary_rows"
-    ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : "classic"]
+  const cap = kind === "summary_rows"
+    ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
     : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"];
   const scales = normalizeFontScales(fontScale);
-  const reserve = (mode: "first" | "continuation" | "last") => {
+  const reserve = (mode: "first" | "first_multi" | "continuation" | "continuation_full_header" | "last") => {
     if (template === "modern") return 0;
     return FONT_SCALE_PAGE_SECTIONS[kind][mode].reduce((sum, section) => {
       // Never grow budgets below scale 1: if a user's fixed content doesn't
@@ -112,12 +125,18 @@ export function getRowBudgets(
   // budget; the paginator always places at least one row, so budgets never
   // drop below one scaled row height. extraReserveMm applies to first/last
   // pages only — footer-area content (e.g. the billing-note cheque strip)
-  // does not render on continuation pages.
+  // does not render on continuation pages, and the multi-page first page has
+  // no footer either.
   const minRowMm = getBaseRowMm(template, scales.items);
+  const firstReserve = opts.multiFirst ? reserve("first_multi") : reserve("first");
+  const firstExtra = opts.multiFirst ? 0 : extraReserveMm;
+  const firstCap = opts.multiFirst ? (cap.firstMulti ?? cap.first) : cap.first;
+  const contMode = opts.continuationFullHeader ? "continuation_full_header" : "continuation";
+  const contCap = opts.continuationFullHeader ? (cap.continuationFullHeader ?? cap.continuation) : cap.continuation;
   return {
-    first: Math.max(minRowMm, capacity.first * baseMm - reserve("first") - extraReserveMm),
-    continuation: Math.max(minRowMm, capacity.continuation * baseMm - reserve("continuation")),
-    last: Math.max(minRowMm, capacity.last * baseMm - reserve("last") - extraReserveMm),
+    first: Math.max(minRowMm, firstCap * baseMm - firstReserve - firstExtra),
+    continuation: Math.max(minRowMm, contCap * baseMm - reserve(contMode)),
+    last: Math.max(minRowMm, cap.last * baseMm - reserve("last") - extraReserveMm),
   };
 }
 
@@ -148,6 +167,11 @@ export interface PaginateOptions<T> {
    * does not render on continuation pages.
    */
   extraReserveMm?: number;
+  /**
+   * Classic V2: repeat the full header + customer info on continuation pages
+   * (workspace setting) — continuation budgets/caps shrink accordingly.
+   */
+  continuationFullHeader?: boolean;
 }
 
 /**
@@ -169,8 +193,9 @@ export function paginateRows<T>(
   const capacity = kind === "summary_rows"
     ? SUMMARY_ROW_CAPACITY[templateKind === "classic_v2" ? "classic" : templateKind]
     : LINE_ITEM_CAPACITY[templateKind];
+  const fullHeader = options.continuationFullHeader === true && template === "classic_v2";
   const fp = capacity.first;
-  const cp = capacity.continuation;
+  const cp = fullHeader ? (capacity.continuationFullHeader ?? capacity.continuation) : capacity.continuation;
   const lp = capacity.last;
 
   if (options.estimateHeight) {
@@ -184,6 +209,7 @@ export function paginateRows<T>(
       options.fontScale ?? 1,
       kind,
       options.extraReserveMm ?? 0,
+      fullHeader,
     );
   }
 
@@ -250,14 +276,11 @@ function paginateRowsByHeight<T>(
   fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
   extraReserveMm = 0,
+  continuationFullHeader = false,
 ): GenericPageBatch<T>[] {
-  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm);
+  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader });
   const heights = rows.map((row, i) => estimateHeight(row, i));
   const totalHeight = heights.reduce((sum, h) => sum + h, 0);
-
-  if (rows.length <= fp && totalHeight <= budgets.first + HEIGHT_EPSILON) {
-    return [{ items: rows, mode: "single", startIndex: 1 }];
-  }
 
   const fitFromStart = (from: number, budget: number, maxCount: number): number => {
     if (from >= heights.length) return 0;
@@ -285,9 +308,28 @@ function paginateRowsByHeight<T>(
     return Math.max(1, n);
   };
 
+  // A single row is one page, period.
+  if (rows.length <= 1) {
+    return [{ items: rows, mode: "single", startIndex: 1 }];
+  }
+
+  // Everything fits the single-page layout (totals + signatures included)?
+  if (rows.length <= fp && totalHeight <= budgets.first + HEIGHT_EPSILON) {
+    return [{ items: rows, mode: "single", startIndex: 1 }];
+  }
+
+  // Multi-page: the FIRST page carries only header + info band (totals and
+  // signatures are on the last page), so it packs to the larger multi-first
+  // budget — but always leaves at least one row for the finalized page.
+  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true });
+  const multiFirstCap = (kind === "summary_rows"
+    ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
+    : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
+  ).firstMulti ?? fp;
   const batches: GenericPageBatch<T>[] = [];
 
-  const firstCount = fitFromStart(0, budgets.first, fp);
+  let firstCount = fitFromStart(0, multiBudgets.first, multiFirstCap);
+  firstCount = Math.min(firstCount, rows.length - 1);
   batches.push({
     items: rows.slice(0, firstCount),
     mode: "first",
@@ -295,42 +337,58 @@ function paginateRowsByHeight<T>(
   });
 
   const rest = rows.length - firstCount;
-  // Classic V2 packs continuation pages as full as budgets allow and leaves
-  // only the remainder on the finalized page (footer + at least one item) —
-  // instead of carving a full last page off the end, which produced sparse
-  // middle pages (e.g. 31 rows → first(18) cont(1) last(12)).
-  const lastCount =
-    template === "classic_v2" && rest > lp
-      ? 1
-      : fitFromEnd(rows.length, budgets.last, Math.min(lp, rest));
-  const midEnd = rows.length - lastCount;
-  const midCount = midEnd - firstCount;
 
-  let head = 0;
-
-  if (midCount > 0) {
-    const contPages = Math.ceil(midCount / cp);
-    const perPage = Math.ceil(midCount / contPages);
-
-    for (let i = 0; i < contPages + midCount && head < midCount; i++) {
-      const idx = firstCount + head;
-      const take = fitFromStart(idx, budgets.continuation, Math.min(perPage, midCount - head));
+  // If every remaining row fits the finalized page, put them all there
+  // (fewest pages — e.g. 40 items → first(24) + last(16)). Otherwise fill
+  // continuation pages sequentially in order — each as full as its budget
+  // and cap allow, always leaving ≥1 row — and the finalized page takes the
+  // tail together with the totals/signature block (QuickBooks/Xero-style
+  // sequential fill; no thin orphan pages mid-document).
+  const allOnLast = fitFromEnd(rows.length, budgets.last, Math.min(lp, rest));
+  let midEnd: number;
+  if (allOnLast === rest) {
+    midEnd = firstCount;
+  } else {
+    let idx = firstCount;
+    let remaining = rest;
+    while (remaining > 1) {
+      const take = fitFromStart(idx, budgets.continuation, Math.min(cp, remaining - 1));
       if (take <= 0) break;
       batches.push({
         items: rows.slice(idx, idx + take),
         mode: "continuation",
         startIndex: idx + 1,
       });
-      head += take;
+      idx += take;
+      remaining -= take;
     }
+    midEnd = idx;
   }
 
-  if (lastCount > 0) {
-    batches.push({
-      items: rows.slice(midEnd),
-      mode: "last",
-      startIndex: midEnd + 1,
-    });
+  batches.push({
+    items: rows.slice(midEnd),
+    mode: "last",
+    startIndex: midEnd + 1,
+  });
+
+  // Sparse-tail merge: never ship a thin trailing continuation page when its
+  // rows fit on the last page — fold it in (within the last-page budget and
+  // count cap) and drop the page. Repeat: merging can expose another sparse
+  // tail. Only ever reduces the page count.
+  if (heights.length === rows.length) {
+    for (;;) {
+      if (batches.length < 2) break;
+      const last = batches[batches.length - 1];
+      const prev = batches[batches.length - 2];
+      if (prev.mode !== "continuation" || last.mode !== "last") break;
+      const lastH = last.items.reduce((s, _it, i) => s + heights[last.startIndex - 1 + i], 0);
+      const prevH = prev.items.reduce((s, _it, i) => s + heights[prev.startIndex - 1 + i], 0);
+      const mergedCount = last.items.length + prev.items.length;
+      if (mergedCount > lp || lastH + prevH > budgets.last + HEIGHT_EPSILON) break;
+      last.items = [...prev.items, ...last.items];
+      last.startIndex = prev.startIndex;
+      batches.splice(batches.length - 2, 1);
+    }
   }
 
   return batches;
@@ -339,12 +397,13 @@ function paginateRowsByHeight<T>(
 export function paginateLineItems(
   lineItems: DocumentLineItem[],
   template: "modern" | "classic" | "classic_v2",
-  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number | ClassicV2FontScales; extraReserveMm?: number } = {},
+  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number | ClassicV2FontScales; extraReserveMm?: number; continuationFullHeader?: boolean } = {},
 ): PageBatch[] {
   return paginateRows(lineItems, template, "line_items", {
     estimateHeight: opts.estimateHeight,
     fontScale: opts.fontScale,
     extraReserveMm: opts.extraReserveMm,
+    continuationFullHeader: opts.continuationFullHeader,
   }) as PageBatch[];
 }
 
