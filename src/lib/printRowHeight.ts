@@ -25,6 +25,9 @@ const SUBLINE_MM = { modern: 3.7, classic: 3.4 };
 const ROW_SAFETY_MM = 0.8;
 // Classic DN header rows render at 11pt (taller than a normal 7.5pt row).
 const DN_HEADER_MM = { modern: 6.9, classic: 8.1 };
+// Classic V2 DN group bands (ใบส่งของ DN-… divider row) — slim full-width
+// row: ~2.4mm padding + a 7pt text line. classic_v2 only.
+const DN_BAND_MM = { classic: 6.5 };
 // Conservative characters per line for the description column, used to
 // estimate name wrapping. Calibrated empirically in the 87mm description
 // column with the app font (Thai + Latin mix): ~75 chars/line at 7.5pt,
@@ -84,6 +87,8 @@ export function estimateLineItemHeight(
     hasInvoiceRef?: boolean;
     /** DN variance sub-line (show_dn_variance) rendered under the row. */
     hasDnVariance?: boolean;
+    /** classic_v2: this line starts a DN group → a band row renders above it. */
+    hasDnGroupBand?: boolean;
     /** --classic-font-scale multiplier for the description column (classic templates only, 1 = default). */
     fontScale?: number;
     /** Numeric-column scale — single-line cells; falls back to fontScale. */
@@ -141,7 +146,8 @@ export function estimateLineItemHeight(
   const nameMm = baseRowMm + (nameLines - 1) * textScale(TEXT_LINE_MM[key]);
   const noteMm = noteLines * textScale(NOTE_LINE_MM[key]);
   const subMm = subLines * textScale(SUBLINE_MM[key]);
-  return nameMm + noteMm + subMm + ROW_SAFETY_MM;
+  const bandMm = isClassic && opts.hasDnGroupBand ? textScale(DN_BAND_MM.classic) : 0;
+  return nameMm + noteMm + subMm + bandMm + ROW_SAFETY_MM;
 }
 
 export function estimateSummaryRowHeight(

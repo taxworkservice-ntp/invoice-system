@@ -106,6 +106,66 @@ import { estimateLineItemHeight } from "./printRowHeight";
 import { getDnVarianceParts } from "./dnVariance";
 import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../constants";
 
+// ============================================================
+// โหมดอ้างอิง collapse (print-time): each DN group (marker row qty 0 + its
+// item lines) prints as ONE line — qty 1, unit ใบ, amounts = group totals.
+// Invoice totals are preserved (Σ group totals = Σ lines). Lines outside
+// groups pass through.
+// ============================================================
+
+export interface RefCollapsibleLine {
+  item_name?: string | null;
+  line_note?: string | null;
+  unit?: string | null;
+  quantity?: number | null;
+  unit_price?: number | null;
+  line_total?: number | null;
+  source_document_id?: string | null;
+  source_line_item_id?: string | null;
+}
+
+export function isDnMarkerLine(line: RefCollapsibleLine): boolean {
+  return line.quantity === 0 && !!line.source_document_id && !line.source_line_item_id;
+}
+
+export function collapseDeliveryNoteGroups<T extends RefCollapsibleLine>(
+  lines: T[],
+  markerDate: (marker: T) => string | null,
+): T[] {
+  if (!lines.some((l) => isDnMarkerLine(l))) return lines;
+  const out: T[] = [];
+  let group: { marker: T; items: T[] } | null = null;
+  const flush = () => {
+    if (!group) return;
+    const total = Math.round(group.items.reduce((s, l) => s + (Number(l.line_total) || 0), 0) * 100) / 100;
+    const date = markerDate(group.marker);
+    out.push({
+      ...group.marker,
+      ref_collapsed: true,
+      quantity: 1,
+      unit: "ใบ",
+      unit_price: total,
+      line_total: total,
+      source_document_id: null,
+      source_line_item_id: null,
+      item_name: `${group.marker.item_name || ""}${date ? ` (วันที่ ${date})` : ""}`,
+      line_note: null,
+    });
+    group = null;
+  };
+  for (const line of lines) {
+    if (isDnMarkerLine(line)) {
+      flush();
+      group = { marker: line, items: [] };
+      continue;
+    }
+    if (group) group.items.push(line);
+    else out.push(line);
+  }
+  flush();
+  return out;
+}
+
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
 const PDF_CANVAS_SCALE = 3;

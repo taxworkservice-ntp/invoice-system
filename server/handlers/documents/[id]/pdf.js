@@ -118,6 +118,8 @@ export default async function handler(req, res) {
     const exportUrl = new URL(`/documents/${encodeURIComponent(id)}/print`, origin);
     exportUrl.searchParams.set("export", "pdf");
     exportUrl.searchParams.set("copyTypes", normalizedCopyTypes.join(","));
+    // Print-time reference collapse (classic V2): one line per DN group
+    if (body.refCollapse) exportUrl.searchParams.set("refCollapse", "1");
 
     browser = await playwright.chromium.launch(await getChromiumLaunchOptions());
 

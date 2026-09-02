@@ -114,7 +114,7 @@ function getStage(docType: string, status: string): "quote" | "invoice" | "colle
   if (status === "paid" || status === "generated") return "done";
   if (status === "partially_paid") return "collect";
   if (docType === "receipt") return status === "draft" ? "collect" : "done";
-  if (docType === "delivery_note") return "done";
+  if (docType === "delivery_note") return status === "draft" ? "collect" : "done";
   return "invoice";
 }
 

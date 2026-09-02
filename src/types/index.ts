@@ -411,6 +411,8 @@ export interface DocumentLineItem {
   source_line_item_id: string | null;
   source_delivered_qty: number | null;
   source_unit_price: number | null;
+  /** Display-only marker: collapsed into a โหมดอ้างอิง reference line at print time. */
+  ref_collapsed?: boolean;
   line_total: number;
   hide_amounts_on_print: boolean;
   sort_order: number;

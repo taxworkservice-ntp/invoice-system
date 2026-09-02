@@ -5,7 +5,8 @@ import { PrintDocument } from "../src/components/print/PrintDocument";
 import { PrintDocumentClassic } from "../src/components/print/PrintDocumentClassic";
 import { PrintDocumentClassicV2 } from "../src/components/print/PrintDocumentClassicV2";
 import { PrintAppendix } from "../src/components/print/PrintAppendix";
-import { applyAppendixToData } from "../src/lib/print";
+import { applyAppendixToData, collapseDeliveryNoteGroups } from "../src/lib/print";
+import { formatBuddhistDate } from "../src/lib/dates";
 import type { CopyType } from "../src/components/print/PrintDocument";
 import type { HtmlPrintTemplate, PrintDocumentData } from "../src/lib/print";
 import type {
@@ -315,6 +316,130 @@ const manyData = (template: HtmlPrintTemplate): PrintDocumentData => ({
   invoiceDeliveryNotes: manyLinks,
 });
 
+// --- "dn" fixture: invoice built from TWO delivery notes (detail mode) ---
+// Mirrors what InvoiceFromDeliveryNotesForm saves in detail mode: per DN a
+// marker row (ใบส่งของ …, qty 0, unit_price 0, note วันที่ส่งของ) followed by
+// that DN's item lines (source_line_item_id set), then standalone lines.
+const dnSources = [
+  { id: "dn-src-1", number: "DN-2608-001", issue_date: "2026-08-20" },
+  { id: "dn-src-2", number: "DN-2608-002", issue_date: "2026-08-25" },
+];
+
+const dnDraftLines: DocumentLineItem[] = [
+  {
+    id: "dn-marker-1", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "ใบส่งของ DN-2608-001",
+    line_note: "วันที่ส่งของ: 20/8/2569", item_sku: null, item_type: "service",
+    unit: "", unit_price: 0, quantity: 0, base_quantity: null,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-1", source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 0, sort_order: 0, created_at: now,
+  },
+  {
+    id: "dn-line-1", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: "item-dn-1", item_name: "กระดาษ A4 Double A 80gsm",
+    line_note: "ส่งที่ อาคาร B ชั้น 3", item_sku: "PP-A4-80", item_type: "product",
+    unit: "แพ็ค", unit_price: 120, quantity: 10, base_quantity: 10,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-1", source_line_item_id: "src-line-1",
+    source_delivered_qty: 10, source_unit_price: 120,
+    line_total: 1200, sort_order: 1, created_at: now,
+  },
+  {
+    id: "dn-line-2", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: "item-dn-2", item_name: "ปากกาเจล 0.5 หมึกน้ำเงิน",
+    line_note: null, item_sku: "PEN-G05", item_type: "product",
+    unit: "ด้าม", unit_price: 15, quantity: 24, base_quantity: 24,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-1", source_line_item_id: "src-line-2",
+    source_delivered_qty: 24, source_unit_price: 15,
+    line_total: 360, sort_order: 2, created_at: now,
+  },
+  {
+    id: "dn-marker-2", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "ใบส่งของ DN-2608-002",
+    line_note: "วันที่ส่งของ: 25/8/2569", item_sku: null, item_type: "service",
+    unit: "", unit_price: 0, quantity: 0, base_quantity: null,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-2", source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 0, sort_order: 3, created_at: now,
+  },
+  {
+    id: "dn-line-3", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: "item-dn-3", item_name: "กล่องกระดาษชนิดพับ (ขนาดกลาง)",
+    line_note: null, item_sku: "BOX-M", item_type: "product",
+    unit: "กล่อง", unit_price: 88, quantity: 5, base_quantity: 5,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-2", source_line_item_id: "src-line-3",
+    source_delivered_qty: 5, source_unit_price: 88,
+    line_total: 440, sort_order: 4, created_at: now,
+  },
+  {
+    id: "dn-line-4", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "ค่าจัดส่ง",
+    line_note: null, item_sku: null, item_type: "service",
+    unit: "งาน", unit_price: 100, quantity: 1, base_quantity: 1,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: null, source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 100, sort_order: 5, created_at: now,
+  },
+] as unknown as DocumentLineItem[];
+
+const dnSubtotal = 2100;
+const dnDocumentData: Document = {
+  ...documentData,
+  id: "doc-dn",
+  doc_number: "INV-2026-08-DN",
+  issue_date: "2026-08-31",
+  due_date: "2026-09-30",
+  discount_percent: 0,
+  discount_amount: 0,
+  subtotal: dnSubtotal,
+  vat_amount: Math.round(dnSubtotal * 7) / 100,
+  total_amount: dnSubtotal + Math.round(dnSubtotal * 7) / 100,
+  wht_rate: 0,
+  wht_amount: 0,
+  net_payable: dnSubtotal + Math.round(dnSubtotal * 7) / 100,
+  note: null,
+};
+
+const dnLinks: InvoiceDeliveryNote[] = [
+  {
+    id: "dn-link-1", invoice_id: "doc-dn", delivery_note_id: "dn-src-1",
+    user_id: "user-layout-baseline", delivery_note_number: "DN-2608-001",
+    issue_date: "2026-08-20", subtotal: 1560, vat_amount: 109.2,
+    total_amount: 1669.2, released_at: null, created_at: now,
+  },
+  {
+    id: "dn-link-2", invoice_id: "doc-dn", delivery_note_id: "dn-src-2",
+    user_id: "user-layout-baseline", delivery_note_number: "DN-2608-002",
+    issue_date: "2026-08-25", subtotal: 440, vat_amount: 30.8,
+    total_amount: 470.8, released_at: null, created_at: now,
+  },
+];
+
+const dnSourceById = new Map(dnSources.map((s) => [s.id, s]));
+const dnLineDeliveryNoteMap = Object.fromEntries(
+  dnDraftLines
+    .filter((l) => l.source_document_id)
+    .map((l) => {
+      const src = dnSourceById.get(l.source_document_id!)!;
+      return [l.id, { number: src.number, issue_date: src.issue_date }];
+    }),
+);
+
+const dnData = (template: HtmlPrintTemplate): PrintDocumentData => ({
+  ...data(template),
+  document: dnDocumentData,
+  lineItems: dnDraftLines,
+  invoiceDeliveryNotes: dnLinks,
+  lineDeliveryNoteMap: dnLineDeliveryNoteMap as PrintDocumentData["lineDeliveryNoteMap"],
+  showInlineDeliveryNotes: true,
+});
+
 
 const params = new URLSearchParams(window.location.search);
 const rawTemplate = params.get("template");
@@ -324,7 +449,10 @@ const template: HtmlPrintTemplate =
   : "modern";
 const copyType: CopyType =
   params.get("copyType") === "copy" ? "copy" : "original";
-const docVariant = params.get("doc") === "many" ? "many" : "base";
+const docVariant =
+  params.get("doc") === "many" ? "many"
+  : params.get("doc") === "dn" ? "dn"
+  : "base";
 const appendixOn = params.get("appendix") === "1";
 const fontScalePreset = params.get("fontScale");
 const pageModeParam = params.get("pageMode");
@@ -332,38 +460,60 @@ const pageMode =
   pageModeParam === "first" || pageModeParam === "continuation" || pageModeParam === "last"
     ? pageModeParam
     : "single";
-const baseData = docVariant === "many" ? manyData(template) : data(template);
+const baseData = docVariant === "many" ? manyData(template) : docVariant === "dn" ? dnData(template) : data(template);
+// โหมดอ้างอิง (classic V2):
+//   refCollapse=1 → pass the refCollapse prop — DN reference table replaces
+//                   the items table (the PDF-export path, เหมือนใบวางบิล)
+//   refCollapse=lines → collapse each DN group to one items-table row via the
+//                   real collapseDeliveryNoteGroups (kept for lib regression)
+const refCollapseParam = params.get("refCollapse");
+const refCollapseProp =
+  refCollapseParam === "1" && template === "classic_v2" &&
+  baseData.document.doc_type === "invoice" && baseData.invoiceDeliveryNotes.length > 0;
+const collapsedLineItems =
+  refCollapseParam === "lines" && template === "classic_v2"
+    ? collapseDeliveryNoteGroups(baseData.lineItems, (marker) => {
+        const key = marker.source_document_id || "";
+        const dnRef = key
+          ? baseData.invoiceDeliveryNotes.find((dn) => dn.delivery_note_id === key)
+          : undefined;
+        return dnRef?.issue_date ? formatBuddhistDate(dnRef.issue_date) : null;
+      })
+    : null;
+const activeBaseData = collapsedLineItems
+  ? { ...baseData, lineItems: collapsedLineItems }
+  : baseData;
 if (fontScalePreset) {
-  baseData.clientProfile = {
-    ...baseData.clientProfile,
+  activeBaseData.clientProfile = {
+    ...activeBaseData.clientProfile,
     classic_v2_font_scale: fontScalePreset,
   };
 }
 if (params.get("noCompanyName") === "1") {
-  baseData.clientProfile = {
-    ...baseData.clientProfile,
+  activeBaseData.clientProfile = {
+    ...activeBaseData.clientProfile,
     show_company_name: false,
   };
 }
 if (params.get("logoLayout") === "above") {
-  baseData.clientProfile = {
-    ...baseData.clientProfile,
+  activeBaseData.clientProfile = {
+    ...activeBaseData.clientProfile,
     logo_layout: "above",
   };
 }
 const docFontScale = params.get("docFontScale");
 if (docFontScale) {
-  baseData.document = { ...baseData.document, print_font_scale: docFontScale };
+  activeBaseData.document = { ...activeBaseData.document, print_font_scale: docFontScale };
 }
 const typeDoc = params.get("typeDoc");
 const typeItems = params.get("typeItems");
 const typeNum = params.get("typeNum");
 const typeThead = params.get("typeThead");
 if (typeDoc) {
-  baseData.document = { ...baseData.document, doc_type: typeDoc as Document["doc_type"] };
+  activeBaseData.document = { ...activeBaseData.document, doc_type: typeDoc as Document["doc_type"] };
   if (typeItems || typeNum || typeThead) {
-    baseData.clientProfile = {
-      ...baseData.clientProfile,
+    activeBaseData.clientProfile = {
+      ...activeBaseData.clientProfile,
       classic_v2_type_font_scales: {
         [typeDoc]: {
           ...(typeItems ? { items: typeItems } : {}),
@@ -375,8 +525,8 @@ if (typeDoc) {
   }
 }
 const activeData = appendixOn
-  ? { ...baseData, document: { ...baseData.document, dn_appendix: true } }
-  : baseData;
+  ? { ...activeBaseData, document: { ...activeBaseData.document, dn_appendix: true } }
+  : activeBaseData;
 
 document.documentElement.classList.add("print-export-document");
 document.body.classList.add("print-export-document");
@@ -389,7 +539,7 @@ createRoot(document.getElementById("root")!).render(
         {template === "classic" ? (
           <PrintDocumentClassic data={activeData} copyType={copyType} />
         ) : template === "classic_v2" ? (
-          <PrintDocumentClassicV2 data={activeData} copyType={copyType} pageMode={pageMode} />
+          <PrintDocumentClassicV2 data={activeData} copyType={copyType} pageMode={pageMode} refCollapse={refCollapseProp} />
         ) : (
           <PrintDocument data={activeData} copyType={copyType} />
         )}

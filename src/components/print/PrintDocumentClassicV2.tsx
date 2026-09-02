@@ -1,4 +1,6 @@
+import { Fragment } from "react";
 import { formatCurrency, paymentMethodText } from "../../lib/format";
+import { isDnMarkerLine } from "../../lib/print";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
@@ -155,8 +157,10 @@ interface PrintDocumentClassicProps {
   batchLineItems?: DocumentLineItem[];
   batchBillingNoteInvoices?: BillingNoteInvoice[];
   batchReceiptInvoices?: ReceiptInvoice[];
+  batchStartIndex?: number;
   summaryStartIndex?: number;
   blankForm?: boolean;
+  refCollapse?: boolean;
 }
 
 export function PrintDocumentClassicV2({
@@ -168,8 +172,10 @@ export function PrintDocumentClassicV2({
   batchLineItems,
   batchBillingNoteInvoices,
   batchReceiptInvoices,
+  batchStartIndex,
   summaryStartIndex = 1,
   blankForm = false,
+  refCollapse = false,
 }: PrintDocumentClassicProps) {
   const {
     document,
@@ -180,7 +186,6 @@ export function PrintDocumentClassicV2({
     receiptInvoices,
     invoiceDeliveryNotes,
     lineDeliveryNoteMap,
-    showInlineDeliveryNotes,
     invoiceNumberMap,
     receiptOutstanding,
     receiptPaymentNumber,
@@ -188,11 +193,16 @@ export function PrintDocumentClassicV2({
     bankAccount,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
+  // classic V2 detail mode: qty-0 DN marker rows never render — group bands
+  // are derived from the item lines' source refs at render time instead.
+  const tableLines = lineItems.filter((item) => !isDnMarkerLine(item));
   const billingRows = batchBillingNoteInvoices ?? billingNoteInvoices;
   const receiptRows = batchReceiptInvoices ?? receiptInvoices;
-  const startIndex = batchLineItems
-    ? data.lineItems.indexOf(batchLineItems[0]) + 1
-    : summaryStartIndex;
+  // Collapsed reference batches contain NEW row objects — the caller passes
+  // the batch's real start index because indexOf can't find them.
+  const startIndex =
+    batchStartIndex ??
+    (batchLineItems ? data.lineItems.indexOf(batchLineItems[0]) + 1 : summaryStartIndex);
   const isCopy = copyType === "copy";
   const isDeliveryNote = document.doc_type === "delivery_note";
   const hideDeliveryAmounts =
@@ -253,8 +263,27 @@ export function PrintDocumentClassicV2({
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = splitTerms(clientProfile.classic_terms);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
+  // Band rows (ใบส่งของ DN-… dividers) occupy physical rows on the sheet —
+  // count them so the blank-row padding keeps the fixed sheet height.
+  const dnBandLabelFor = (item: DocumentLineItem): string | null => {
+    if (!item.source_document_id || !item.source_line_item_id) return null;
+    const ref = lineDeliveryNoteMap[item.id];
+    if (!ref) return null;
+    const prefix = ref.kind === "quotation" ? "ใบเสนอราคา" : "ใบส่งของ";
+    const date = ref.issue_date ? ` (วันที่ ${formatDateBuddhist(ref.issue_date)})` : "";
+    return `${prefix} ${ref.number}${date}`;
+  };
+  const isDnBandStart = (lines: DocumentLineItem[], i: number): boolean => {
+    const line = lines[i];
+    if (!dnBandLabelFor(line)) return false;
+    return i === 0 || lines[i - 1].source_document_id !== line.source_document_id;
+  };
+  const dnBandCount = tableLines.reduce(
+    (count, _line, i) => count + (isDnBandStart(tableLines, i) ? 1 : 0),
+    0,
+  );
   const blankLineCount = isLastOrSingle
-    ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length)
+    ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - (tableLines.length + dnBandCount))
     : 0;
   const billingBlankCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - billingRows.length)
@@ -530,15 +559,72 @@ export function PrintDocumentClassicV2({
           </div>
         ) : (
           <div className="print-classic-items-title">
-            {document.doc_type === "receipt"
-              ? "รายการที่ชำระ"
-              : "รายการสินค้าและบริการ"}
+            {refCollapse && document.doc_type === "invoice" && invoiceDeliveryNotes.length > 0
+              ? "รายการใบส่งของ (DELIVERY NOTES)"
+              : document.doc_type === "receipt"
+                ? "รายการที่ชำระ"
+                : "รายการสินค้าและบริการ"}
             <span className="en">ITEMS</span>
           </div>
         )}
 
         <div className="print-classic-table-frame">
-          {isBillingNote && document.vat_registered ? (
+          {refCollapse && document.doc_type === "invoice" && invoiceDeliveryNotes.length > 0 ? (
+            <table className="print-classic-items-table">
+              <colgroup>
+                <col style={{ width: "12mm" }} />
+                <col style={{ width: "32mm" }} />
+                <col style={{ width: "20mm" }} />
+                <col style={{ width: "24mm" }} />
+                <col style={{ width: "24mm" }} />
+                <col style={{ width: "24mm" }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>
+                    เลขที่<span className="en">NO.</span>
+                  </th>
+                  <th>
+                    เลขที่ใบส่งของ<span className="en">DELIVERY NOTE NO.</span>
+                  </th>
+                  <th>
+                    วันที่ส่งของ<span className="en">DELIVERY DATE</span>
+                  </th>
+                  <th style={{ textAlign: "right" }}>
+                    มูลค่า<span className="en">SUBTOTAL</span>
+                  </th>
+                  <th style={{ textAlign: "right" }}>
+                    ภาษีมูลค่าเพิ่ม<span className="en">VAT</span>
+                  </th>
+                  <th style={{ textAlign: "right" }}>
+                    รวม<span className="en">AMOUNT</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoiceDeliveryNotes.map((dn, i) => (
+                  <tr key={dn.id}>
+                    <td className="center">{i + 1}</td>
+                    <td>{dn.delivery_note_number}</td>
+                    <td>{dn.issue_date ? formatDateBuddhist(dn.issue_date) : "-"}</td>
+                    <td className="right">{formatCurrency(dn.subtotal)}</td>
+                    <td className="right">{formatCurrency(dn.vat_amount)}</td>
+                    <td className="right bold">{formatCurrency(dn.total_amount)}</td>
+                  </tr>
+                ))}
+                {Array.from({ length: Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - invoiceDeliveryNotes.length) }).map((_, index) => (
+                  <tr key={`dn-blank-${index}`} className="print-classic-blank-row">
+                    <td className="center">&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td className="center">&nbsp;</td>
+                    <td className="right">&nbsp;</td>
+                    <td className="right">&nbsp;</td>
+                    <td className="right bold">&nbsp;</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : isBillingNote && document.vat_registered ? (
             <table className="print-classic-items-table">
               <colgroup>
                 <col style={{ width: "12mm" }} />
@@ -710,100 +796,85 @@ export function PrintDocumentClassicV2({
               <tbody>
                 {(() => {
                   // Global row numbering — continues across pages (startIndex is
-                  // the 1-based first row of this page's batch).
+                  // the 1-based first row of this page's batch). DN group bands
+                  // are unnumbered dividers and don't consume a number.
                   let running = (startIndex ?? 1) - 1;
-                  return lineItems.map((item, index) => {
-                    const isDnSub = !!(item.source_document_id && item.source_line_item_id);
-                    const isDnHeader = item.source_document_id && !item.source_line_item_id && item.quantity === 0 && item.unit_price === 0;
-
-                    if (isDnHeader) {
-                      running++;
-                      const dnRef = lineDeliveryNoteMap[item.id];
-                      const dateStr = item.line_note || (dnRef?.issue_date ? `วันที่ส่งของ: ${formatDateBuddhist(dnRef.issue_date)}` : "");
-                      return (
-                        <tr key={item.id} className="print-classic-dn-header-row">
-                          <td className="center">{running}</td>
-                          <td className="print-classic-dn-header-label">{item.item_name}{dateStr ? ` — ${dateStr}` : ""}</td>
-                          <td className="center">&nbsp;</td>
-                          <td className="center">&nbsp;</td>
-                          {showAmountColumns && (
-                            <>
-                              <td className="right">&nbsp;</td>
-                              <td className="right">&nbsp;</td>
-                            </>
-                          )}
-                        </tr>
-                      );
-                    }
-
-                    if (!isDnSub) running++;
+                  return tableLines.map((item, index) => {
+                    const bandLabel = isDnBandStart(tableLines, index)
+                      ? dnBandLabelFor(item)
+                      : null;
+                    running++;
 
                     const hasLineDiscount =
                       item.discount_amount > 0 || item.discount_percent > 0;
                     const deliveryNoteRef = lineDeliveryNoteMap[item.id];
                     const printableNote = getPrintableLineNote(item.line_note);
                     return (
-                      <tr key={item.id}>
-                        <td className="center">{isDnSub ? "" : running}</td>
-                        <td className="print-classic-item-name">
-                          {item.item_name}
-                          {printableNote ? (
-                            <div className="print-classic-item-note">
-                              {printableNote}
-                            </div>
-                          ) : null}
-                          {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print && !blankForm ? (
-                            <div className="print-classic-discount-note">
-                              ส่วนลด {item.discount_percent || 0}%
-                              {item.discount_amount > 0
-                                ? ` | -${formatCurrency(item.discount_amount)}`
-                                : ""}
-                            </div>
-                          ) : null}
-                          {showInlineDeliveryNotes && deliveryNoteRef && !isDnSub ? (
-                            <div className="print-classic-dn-note">
-                              อ้างอิง {deliveryNoteRef.number}
-                              {deliveryNoteRef.issue_date
-                                ? ` (${formatDateBuddhist(deliveryNoteRef.issue_date)})`
-                                : ""}
-                            </div>
-                           ) : null}
-                           {document.show_dn_variance && item.source_document_id ? (() => {
-                            const parts = getDnVarianceParts({
-                              deliveredQty: item.source_delivered_qty,
-                              billedQty: Number(item.quantity) || 0,
-                              unit: item.unit || "ชิ้น",
-                              dnUnitPrice: item.source_unit_price,
-                              unitPrice: Number(item.unit_price) || 0,
-                              dnDocNumber: deliveryNoteRef?.number,
-                              sourceKind: deliveryNoteRef?.kind,
-                            });
-                            return parts.length ? (
-                              <div className="print-classic-dn-note">{parts.join(" | ")}</div>
-                            ) : null;
-                          })() : null}
-                           {!document.vat_registered &&
-                           (receiptRows.length > 1 ||
-                             billingRows.length > 1) &&
-                           invoiceNumberMap[item.document_id] ? (
-                             <div className="print-classic-dn-note">
-                               ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
-                             </div>
-                           ) : null}
-                        </td>
-                        <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
-                        <td className="center">{item.unit}</td>
-                        {showAmountColumns && (
-                          <>
-                            <td className="right">
-                              {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
+                      <Fragment key={item.id}>
+                        {bandLabel ? (
+                          <tr className="print-classic-dn-band-row">
+                            <td
+                              className="print-classic-dn-band-label"
+                              colSpan={showAmountColumns ? 6 : 4}
+                            >
+                              {bandLabel}
                             </td>
-                            <td className="right bold">
-                              {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
-                            </td>
-                          </>
-                        )}
-                      </tr>
+                          </tr>
+                        ) : null}
+                        <tr>
+                          <td className="center">{running}</td>
+                          <td className="print-classic-item-name">
+                            {item.item_name}
+                            {printableNote ? (
+                              <div className="print-classic-item-note">
+                                {printableNote}
+                              </div>
+                            ) : null}
+                            {hasLineDiscount && !hideDeliveryAmounts && !item.hide_amounts_on_print && !blankForm ? (
+                              <div className="print-classic-discount-note">
+                                ส่วนลด {item.discount_percent || 0}%
+                                {item.discount_amount > 0
+                                  ? ` | -${formatCurrency(item.discount_amount)}`
+                                  : ""}
+                              </div>
+                            ) : null}
+                            {document.show_dn_variance && item.source_document_id ? (() => {
+                              const parts = getDnVarianceParts({
+                                deliveredQty: item.source_delivered_qty,
+                                billedQty: Number(item.quantity) || 0,
+                                unit: item.unit || "ชิ้น",
+                                dnUnitPrice: item.source_unit_price,
+                                unitPrice: Number(item.unit_price) || 0,
+                                dnDocNumber: deliveryNoteRef?.number,
+                                sourceKind: deliveryNoteRef?.kind,
+                              });
+                              return parts.length ? (
+                                <div className="print-classic-dn-note">{parts.join(" | ")}</div>
+                              ) : null;
+                            })() : null}
+                            {!document.vat_registered &&
+                            (receiptRows.length > 1 ||
+                              billingRows.length > 1) &&
+                            invoiceNumberMap[item.document_id] ? (
+                              <div className="print-classic-dn-note">
+                                ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
+                          <td className="center">{item.unit}</td>
+                          {showAmountColumns && (
+                            <>
+                              <td className="right">
+                                {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
+                              </td>
+                              <td className="right bold">
+                                {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      </Fragment>
                     );
                   });
                 })()}

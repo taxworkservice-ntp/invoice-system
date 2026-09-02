@@ -860,6 +860,21 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   padding-left: 2mm;
 }
 
+/* classic V2: DN group band — slim full-width divider above a DN group's
+   item lines (replaces the old qty-0 marker header row). */
+.print-classic-dn-band-row td {
+  background: #f8fafc;
+  border-right: 0;
+  padding: 1.2mm 2mm;
+}
+
+.print-classic-dn-band-label {
+  font-size: calc(7pt * var(--classic-fs-items));
+  color: #64748b;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+
 /* TERMS + TOTALS */
 .print-classic-bottom-row {
   position: relative;

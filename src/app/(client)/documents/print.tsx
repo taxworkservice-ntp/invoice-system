@@ -16,6 +16,7 @@ import {
   type PrintAppendixData,
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
+import { isDnMarkerLine } from "../../../lib/print";
 import { apiFetchBlob } from "../../../lib/api";
 import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
@@ -42,7 +43,6 @@ type PrintBatch =
 
 function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix = data.document.dn_appendix): PrintBatch[] {
   const { filteredLineItems } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
-  const lineItemsForPagination = filteredLineItems;
   const isClassicV2 = data.template === "classic_v2";
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
   const typeFontScales = data.clientProfile.classic_v2_type_font_scales?.[data.document.doc_type];
@@ -114,7 +114,31 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     !data.document.vat_registered &&
     (data.receiptInvoices.length > 1 || data.billingNoteInvoices.length > 1);
 
-  return paginateRows(lineItemsForPagination, data.template, "line_items", {
+  // classic V2 detail mode renders DN group bands derived at print time —
+  // the qty-0 marker rows never render, so pagination must exclude them.
+  // classic V1 still renders marker rows; modern renders plain lines.
+  const itemsForPagination = isClassicV2
+    ? filteredLineItems.filter((item) => !isDnMarkerLine(item))
+    : filteredLineItems;
+  // A band renders above a line that starts a DN group (its source differs
+  // from the previous line's); the band's height is charged to that line.
+  const dnBandStartIds = new Set<string>();
+  if (isClassicV2) {
+    let prevSource: string | null = null;
+    for (const item of itemsForPagination) {
+      if (
+        item.source_document_id &&
+        item.source_line_item_id &&
+        data.lineDeliveryNoteMap[item.id] &&
+        item.source_document_id !== prevSource
+      ) {
+        dnBandStartIds.add(item.id);
+      }
+      prevSource = item.source_document_id ?? null;
+    }
+  }
+
+  return paginateRows(itemsForPagination, data.template, "line_items", {
     estimateHeight: (item) =>
       estimateLineItemHeight(item, data.template, {
         fontScale: itemsScale,
@@ -122,7 +146,11 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
         hideDeliveryAmounts: effectiveHideAmounts,
         hasLineDiscount:
           (item.discount_amount ?? 0) > 0 || (item.discount_percent ?? 0) > 0,
-        hasInlineDnRef: !!data.showInlineDeliveryNotes && !!data.lineDeliveryNoteMap[item.id],
+        hasInlineDnRef:
+          data.template !== "classic_v2" &&
+          !!data.showInlineDeliveryNotes &&
+          !!data.lineDeliveryNoteMap[item.id],
+        hasDnGroupBand: dnBandStartIds.has(item.id),
         hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],
       }),
     fontScale: budgetScales,
@@ -158,6 +186,35 @@ export default function DocumentPrintPreviewPage() {
     : searchParams.get("copyTypes") === "original,copy"
       ? ["original", "copy"] as CopyType[]
       : [searchParams.get("copyType") === "copy" ? "copy" : "original"] as CopyType[];
+  // โหมดอ้างอิง (classic V2): the DN reference table (เหมือนใบวางบิล) replaces
+  // the items table in BOTH the preview and the exported PDF.
+  // PDF render instances get the flag from the URL; the preview uses state.
+  // Default is รายการเต็ม — reference mode is opt-in (remembered per browser).
+  const refCollapseParam = searchParams.get("refCollapse");
+  const [refCollapse, setRefCollapse] = useState(() => {
+    if (refCollapseParam !== null) return refCollapseParam === "1";
+    return window.localStorage.getItem("invoice-system.ref-collapse") === "1";
+  });
+  const toggleRefCollapse = (value: boolean) => {
+    setRefCollapse(value);
+    window.localStorage.setItem("invoice-system.ref-collapse", value ? "1" : "0");
+  };
+  const hasDnMarkers = !!data?.lineItems?.some(
+    (l) => l.quantity === 0 && l.source_document_id && !l.source_line_item_id,
+  );
+  const isClassicV2 = data?.template === "classic_v2";
+  // Reference mode prints the DN reference table only when the invoice has
+  // invoice_delivery_notes links to render it from; otherwise fall back to
+  // the full detail lines (docs with bare DN markers, e.g. tax_invoice_receipt).
+  const showDnReferenceTable =
+    isClassicV2 &&
+    refCollapse &&
+    data?.document.doc_type === "invoice" &&
+    (data.invoiceDeliveryNotes.length ?? 0) > 0;
+  const showRefModeToggle =
+    isClassicV2 &&
+    (hasDnMarkers ||
+      (data?.document.doc_type === "invoice" && (data.invoiceDeliveryNotes.length ?? 0) > 0));
   const [copyType, setCopyType] = useState<CopyType>(exportCopyTypes[0] || "original");
   const [copyOrder, setCopyOrder] = useState<CopyOrder>(() => {
     if (typeof window === "undefined") return "original-first";
@@ -347,7 +404,7 @@ export default function DocumentPrintPreviewPage() {
     // getSession() fetch sends stale tokens after an idle tab and fails.
     return apiFetchBlob(`/api/documents/${encodeURIComponent(id)}/pdf`, {
       method: "POST",
-      body: JSON.stringify({ copyTypes }),
+      body: JSON.stringify({ copyTypes, refCollapse: refCollapse ? 1 : 0 }),
     });
   }
 
@@ -407,6 +464,20 @@ export default function DocumentPrintPreviewPage() {
   }
 
   if (exportMode) {
+    // โหมดอ้างอิง (classic V2): the DN reference table renders from links — single page
+    if (showDnReferenceTable) {
+      return (
+        <div className="print-export-stack">
+          <PrintErrorBoundary onError={() => {}}>
+            {exportCopyTypes.map((type) => (
+              <div className="print-export-page" key={type}>
+                <PrintDocumentClassicV2 data={data} copyType={type} pageMode="single" refCollapse />
+              </div>
+            ))}
+          </PrintErrorBoundary>
+        </div>
+      );
+    }
     const batches = getPrintBatches(data, blankForm);
     const { appendix } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
     return (
@@ -438,6 +509,7 @@ export default function DocumentPrintPreviewPage() {
                     batchLineItems={kind === "line_items" ? batch.items : undefined}
                     batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
                     batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
+                    batchStartIndex={kind === "line_items" ? batch.startIndex : undefined}
                     summaryStartIndex={batch.startIndex}
                     blankForm={blankForm}
                   />
@@ -528,6 +600,27 @@ return (
                <span>พิมพ์แล้วให้พนักงานกรอกจำนวนและราคาด้วยมือ</span>
              </div>
                ) : null}
+            {showRefModeToggle ? (
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
+                <span>รูปแบบรายการ:</span>
+                <div className="inline-flex overflow-hidden rounded-md border border-cool-200">
+                  <button
+                    type="button"
+                    onClick={() => toggleRefCollapse(true)}
+                    className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${refCollapse ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
+                  >
+                    แบบอ้างอิง (ตารางใบส่งของ)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleRefCollapse(false)}
+                    className={`border-l border-cool-200 px-2.5 py-0.5 text-[10px] font-medium transition-colors ${!refCollapse ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
+                  >
+                    รายการเต็ม
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         {dnAppendixFeatureEnabled && data && data.invoiceDeliveryNotes.length > 0 && (
@@ -583,30 +676,42 @@ return (
             }}
           >
             <PrintErrorBoundary onError={() => {}}>
-              {(() => {
-const batches = getPrintBatches(data, blankForm);
-                return batches.map(({ kind, batch }, i) => {
-                  const props = {
-                    data,
-                    copyType,
-                    pageMode: batch.mode,
-                    pageIndex: i + 1,
-                    totalPages: batches.length,
-                    batchLineItems: kind === "line_items" ? batch.items : undefined,
-                    batchBillingNoteInvoices: kind === "billing_invoices" ? batch.items : undefined,
-                    batchReceiptInvoices: kind === "receipt_invoices" ? batch.items : undefined,
-                    summaryStartIndex: batch.startIndex,
-                    blankForm,
-                  };
-                  return data.template === "classic" ? (
-                    <PrintDocumentClassic key={`p${i}`} {...props} />
-                  ) : data.template === "classic_v2" ? (
-                    <PrintDocumentClassicV2 key={`p${i}`} {...props} />
-                  ) : (
-                    <PrintDocument key={`p${i}`} {...props} />
-                  );
-                });
-              })()}
+              {showDnReferenceTable ? (
+                // โหมดอ้างอิง (classic V2): DN reference table from links —
+                // identical to what the exported PDF prints.
+                <PrintDocumentClassicV2
+                  data={data}
+                  copyType={copyType}
+                  pageMode="single"
+                  refCollapse
+                />
+              ) : (
+                (() => {
+                  const batches = getPrintBatches(data, blankForm);
+                  return batches.map(({ kind, batch }, i) => {
+                    const props = {
+                      data,
+                      copyType,
+                      pageMode: batch.mode,
+                      pageIndex: i + 1,
+                      totalPages: batches.length,
+                      batchLineItems: kind === "line_items" ? batch.items : undefined,
+                      batchBillingNoteInvoices: kind === "billing_invoices" ? batch.items : undefined,
+                      batchReceiptInvoices: kind === "receipt_invoices" ? batch.items : undefined,
+                      batchStartIndex: kind === "line_items" ? batch.startIndex : undefined,
+                      summaryStartIndex: batch.startIndex,
+                      blankForm,
+                    };
+                    return data.template === "classic" ? (
+                      <PrintDocumentClassic key={`p${i}`} {...props} />
+                    ) : data.template === "classic_v2" ? (
+                      <PrintDocumentClassicV2 key={`p${i}`} {...props} />
+                    ) : (
+                      <PrintDocument key={`p${i}`} {...props} />
+                    );
+                  });
+                })()
+              )}
             </PrintErrorBoundary>
           </div>
         </div>
