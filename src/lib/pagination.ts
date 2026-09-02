@@ -93,6 +93,7 @@ export function getRowBudgets(
   template: "modern" | "classic" | "classic_v2",
   fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
+  extraReserveMm = 0,
 ): { first: number; continuation: number; last: number } {
   const baseMm = getBaseRowMm(template);
   const capacity = kind === "summary_rows"
@@ -109,12 +110,14 @@ export function getRowBudgets(
   };
   // At extreme scales a single estimated row can exceed the reserve-shrunk
   // budget; the paginator always places at least one row, so budgets never
-  // drop below one scaled row height.
+  // drop below one scaled row height. extraReserveMm applies to first/last
+  // pages only — footer-area content (e.g. the billing-note cheque strip)
+  // does not render on continuation pages.
   const minRowMm = getBaseRowMm(template, scales.items);
   return {
-    first: Math.max(minRowMm, capacity.first * baseMm - reserve("first")),
+    first: Math.max(minRowMm, capacity.first * baseMm - reserve("first") - extraReserveMm),
     continuation: Math.max(minRowMm, capacity.continuation * baseMm - reserve("continuation")),
-    last: Math.max(minRowMm, capacity.last * baseMm - reserve("last")),
+    last: Math.max(minRowMm, capacity.last * baseMm - reserve("last") - extraReserveMm),
   };
 }
 
@@ -139,6 +142,12 @@ export interface PaginateOptions<T> {
    * budgets to make room for the scaled fixed page blocks.
    */
   fontScale?: number | ClassicV2FontScales;
+  /**
+   * Fixed extra reserve (mm) subtracted from the FIRST and LAST page budgets
+   * only — footer-area content such as the billing-note cheque-details strip
+   * does not render on continuation pages.
+   */
+  extraReserveMm?: number;
 }
 
 /**
@@ -174,6 +183,7 @@ export function paginateRows<T>(
       options.estimateHeight,
       options.fontScale ?? 1,
       kind,
+      options.extraReserveMm ?? 0,
     );
   }
 
@@ -239,8 +249,9 @@ function paginateRowsByHeight<T>(
   estimateHeight: (row: T, index: number) => number,
   fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
+  extraReserveMm = 0,
 ): GenericPageBatch<T>[] {
-  const budgets = getRowBudgets(template, fontScale, kind);
+  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm);
   const heights = rows.map((row, i) => estimateHeight(row, i));
   const totalHeight = heights.reduce((sum, h) => sum + h, 0);
 
@@ -328,11 +339,12 @@ function paginateRowsByHeight<T>(
 export function paginateLineItems(
   lineItems: DocumentLineItem[],
   template: "modern" | "classic" | "classic_v2",
-  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number | ClassicV2FontScales } = {},
+  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number | ClassicV2FontScales; extraReserveMm?: number } = {},
 ): PageBatch[] {
   return paginateRows(lineItems, template, "line_items", {
     estimateHeight: opts.estimateHeight,
     fontScale: opts.fontScale,
+    extraReserveMm: opts.extraReserveMm,
   }) as PageBatch[];
 }
 

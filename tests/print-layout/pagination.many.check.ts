@@ -308,3 +308,13 @@ console.log(
   console.log(`  custom pt:9: ${customBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
   console.log(`  preset 13pt: ${maxBatches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
 }
+
+// 9. extraReserveMm (billing-note cheque strip): first/last shrink, continuation untouched
+{
+  const base = getRowBudgets("classic", 1, "summary_rows");
+  const reserved = getRowBudgets("classic", 1, "summary_rows", 27);
+  assert.ok(Math.abs(base.first - reserved.first - 27) < 0.001, "extraReserve shrinks first budget by 27mm");
+  assert.ok(Math.abs(base.last - reserved.last - 27) < 0.001, "extraReserve shrinks last budget by 27mm");
+  assert.equal(reserved.continuation, base.continuation, "continuation budget keeps full space (no strip there)");
+  assert.ok(reserved.last >= 6.5, "budget floor keeps at least one row");
+}

@@ -17,7 +17,7 @@ import {
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { apiFetchBlob } from "../../../lib/api";
-import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -46,6 +46,11 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const isClassicV2 = data.template === "classic_v2";
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
   const typeFontScales = data.clientProfile.classic_v2_type_font_scales?.[data.document.doc_type];
+  // Billing notes carry the cheque-details strip (~22mm fixed) — reserved
+  // from every page budget so rows never clip under it.
+  const extraReserveMm = isClassicV2 && data.document.doc_type === "billing_note"
+    ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
+    : 0;
   // An explicit per-document override applies to the whole document (all
   // sections) — it beats type and workspace scales.
   const docOverrideMult =
@@ -82,7 +87,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.billingNoteInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale), fontScale: budgetScales },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale), fontScale: budgetScales, extraReserveMm },
     ).map((batch) => ({ kind: "billing_invoices", batch }));
   }
 
@@ -120,6 +125,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
         hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],
       }),
     fontScale: budgetScales,
+    extraReserveMm,
   }).map((batch) => ({ kind: "line_items", batch }));
 }
 

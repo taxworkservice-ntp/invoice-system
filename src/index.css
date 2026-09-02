@@ -1279,6 +1279,65 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   height: 5mm;
   margin: 1mm auto 0;
 }
+/* V2 segmented hand-fill date: [DD] / [MM] / [YYYY] */
+.print-classic-sig-date-fill {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 1mm;
+  width: 60%;
+  margin: 1mm auto 0;
+}
+.print-classic-sig-date-fill .seg {
+  border-bottom: 0.5px dotted #6b7280;
+  height: 4.5mm;
+}
+.print-classic-sig-date-fill .seg-dd,
+.print-classic-sig-date-fill .seg-mm {
+  width: 8mm;
+}
+.print-classic-sig-date-fill .seg-yy {
+  width: 12mm;
+}
+.print-classic-sig-date-fill .slash {
+  font-size: calc(6.5pt * var(--classic-fs-footer));
+  color: #6b7280;
+  line-height: 1;
+  padding-bottom: 0.5mm;
+}
+/* V2 billing-note cheque details strip (hand-fill blanks) */
+.print-classic-cheque-strip {
+  margin-top: 2mm;
+  border: 0.5px solid #9ca3af;
+  border-radius: 1mm;
+  background: #fafaf8;
+  padding: 1.5mm 3mm 1mm;
+}
+.print-classic-cheque-strip-title {
+  font-size: calc(7pt * var(--classic-fs-totals));
+  font-weight: 700;
+  color: #1f2937;
+}
+.print-classic-cheque-strip-title .en {
+  font-weight: 400;
+  color: #6b7280;
+}
+.print-classic-cheque-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5mm 6mm;
+  margin-top: 0.5mm;
+}
+.print-classic-cheque-field .fill {
+  border-bottom: 0.5px dotted #6b7280;
+  height: 6mm;
+}
+.print-classic-cheque-field .lab {
+  font-size: calc(6.2pt * var(--classic-fs-totals));
+  color: #6b7280;
+  margin-top: 0.4mm;
+  line-height: 1.1;
+}
 .print-classic-sig-role {
   text-align: center;
   font-weight: 600;

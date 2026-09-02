@@ -104,7 +104,7 @@ import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 import { estimateLineItemHeight } from "./printRowHeight";
 import { getDnVarianceParts } from "./dnVariance";
-import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../constants";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../constants";
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -1129,6 +1129,10 @@ async function renderClassicV2PrintPages(
   const batches = paginateLineItems(data.lineItems, "classic", {
     estimateHeight: makeLineItemEstimate(data, "classic", itemsScale, numScale),
     fontScale: budgetScales,
+    extraReserveMm:
+      data.document.doc_type === "billing_note"
+        ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
+        : 0,
   });
   if (batches.length <= 1) {
     return [await renderClassicV2PrintCanvas(data, copyType)];

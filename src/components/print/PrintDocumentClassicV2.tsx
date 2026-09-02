@@ -13,6 +13,19 @@ import type {
 import type { PageMode } from "../../lib/pagination";
 import { PrintContinuationHeader } from "./PrintContinuationHeader";
 
+/** Segmented hand-fill date: [DD] / [MM] / [YYYY] (classic V2 signature boxes). */
+function SigDateFill() {
+  return (
+    <div className="print-classic-sig-date-fill">
+      <span className="seg seg-dd" />
+      <span className="slash">/</span>
+      <span className="seg seg-mm" />
+      <span className="slash">/</span>
+      <span className="seg seg-yy" />
+    </div>
+  );
+}
+
 export type CopyType = "original" | "copy";
 
 const COPY_LABELS: Record<CopyType, string> = {
@@ -1065,6 +1078,32 @@ export function PrintDocumentClassicV2({
             </div>
           ) : null}
 
+          {showFooter && document.doc_type === "billing_note" && (
+            <div className="print-classic-cheque-strip">
+              <div className="print-classic-cheque-strip-title">
+                รายละเอียดเช็ค <span className="en">/ CHEQUE DETAILS</span>
+              </div>
+              <div className="print-classic-cheque-grid">
+                <div className="print-classic-cheque-field">
+                  <div className="fill" />
+                  <div className="lab">ธนาคาร / BANK</div>
+                </div>
+                <div className="print-classic-cheque-field">
+                  <div className="fill" />
+                  <div className="lab">เลขที่เช็ค / CHEQUE NO.</div>
+                </div>
+                <div className="print-classic-cheque-field">
+                  <div className="fill" />
+                  <div className="lab">วันที่รับเช็ค / CHEQUE RECEIVED DATE</div>
+                </div>
+                <div className="print-classic-cheque-field">
+                  <div className="fill" />
+                  <div className="lab">จำนวนเงิน (บาท) / AMOUNT</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ============== BOTTOM BAND (signatures) ============== */}
           <div className="print-classic-bottom-band">
             <div className="print-classic-sig-cell">
@@ -1080,7 +1119,7 @@ export function PrintDocumentClassicV2({
               </div>
               <div className="print-classic-sig-line"></div>
               <div className="print-classic-sig-dt">วันที่ / DATE</div>
-              <div className="print-classic-sig-date-line" />
+              <SigDateFill />
               <div className="print-classic-sig-role">
                 {isDeliveryNote
                   ? "ผู้รับของ / RECEIVED BY"
@@ -1090,7 +1129,7 @@ export function PrintDocumentClassicV2({
             <div className="print-classic-sig-cell print-classic-sig-cell-mid">
               <div className="print-classic-sig-line"></div>
               <div className="print-classic-sig-dt">วันที่ / DATE</div>
-              <div className="print-classic-sig-date-line" />
+              <SigDateFill />
               <div className="print-classic-sig-role">
                 {isDeliveryNote
                   ? "ผู้ส่งของ / DELIVERED BY"
@@ -1127,7 +1166,7 @@ export function PrintDocumentClassicV2({
                 ) : null}
               </div>
               <div className="print-classic-sig-dt">วันที่ / DATE</div>
-              <div className="print-classic-sig-date-line" />
+              <SigDateFill />
               <div className="print-classic-sig-role">
                 ผู้มีอำนาจลงนาม / AUTHORIZED BY
               </div>

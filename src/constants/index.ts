@@ -206,6 +206,9 @@ export const CLASSIC_V2_TYPE_FONT_KEYS: ClassicV2TypeFontKey[] = [
 /** Key inside a per-type override object for the whole-document scale. */
 export const CLASSIC_V2_TYPE_GLOBAL_KEY = "global";
 
+/** Fixed height (mm) of the billing-note cheque-details strip — reserved from first/last page budgets. */
+export const CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM = 27;
+
 /**
  * Effective classic V2 global scale for one document — precedence:
  * per-document override → per-document-type global → workspace profile preset.
