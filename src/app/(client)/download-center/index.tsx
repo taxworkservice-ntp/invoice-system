@@ -23,7 +23,6 @@ type ConfirmAction =
 
 const PRESET_TYPES: { key: string; label: string; docType: DocumentType; variant: "thisMonth" | "unpaid" }[] = [
   { key: "invoice", label: "ใบแจ้งหนี้เดือนนี้", docType: "invoice", variant: "thisMonth" },
-  { key: "tax_invoice", label: "ใบกำกับภาษีเดือนนี้", docType: "tax_invoice_receipt", variant: "thisMonth" },
   { key: "billing", label: "ใบวางบิลเดือนนี้", docType: "billing_note", variant: "thisMonth" },
   { key: "receipt", label: "ใบเสร็จเดือนนี้", docType: "receipt", variant: "thisMonth" },
   { key: "delivery", label: "ใบส่งของเดือนนี้", docType: "delivery_note", variant: "thisMonth" },
@@ -178,10 +177,8 @@ export default function DownloadCenterPage() {
 
   const presetTypes = useMemo(() => {
     return PRESET_TYPES
-      .filter(p => isVatRegistered || p.docType !== "tax_invoice_receipt")
       .map(p => {
         let label = p.label;
-        if (p.key === "tax_invoice") label = "ใบกำกับภาษี/ใบเสร็จเดือนนี้";
         if (p.key === "invoice" && isVatRegistered) label = "ใบกำกับภาษีเดือนนี้";
         if (p.variant === "thisMonth") {
           label = label.replace("เดือนนี้", `(${monthSuffix})`);
@@ -451,7 +448,7 @@ export default function DownloadCenterPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <MonthSelect label="เดือน" value={customMonth} onChange={setCustomMonth} />
                 <YearSelect label="ปี" value={customYear} onChange={setCustomYear} />
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">ประเภทเอกสาร</label><Select value={customDocType} onChange={(e) => setCustomDocType(e.target.value as DocumentType)}>{Object.entries(docTypeLabels).filter(([key]) => isVatRegistered || key !== "tax_invoice_receipt").map(([key, label]) => (<option key={key} value={key}>{label.th}</option>))}</Select></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1">ประเภทเอกสาร</label><Select value={customDocType} onChange={(e) => setCustomDocType(e.target.value as DocumentType)}>{Object.entries(docTypeLabels).map(([key, label]) => (<option key={key} value={key}>{label.th}</option>))}</Select></div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">ลูกค้า (ไม่บังคับ)</label><CustomerQuickSelect value={customCustomerId} onChange={setCustomCustomerId} userId={userId} /></div>
               </div>
               <Button onClick={handleCustomConfirm} disabled={busy} loading={downloading} className="w-full mt-3">

@@ -14,15 +14,14 @@ import { PrintTotals } from "./PrintTotals";
 import { PrintContinuationHeader } from "./PrintContinuationHeader";
 import type { PageMode } from "../../lib/pagination";
 
-const SHOW_BANK_TYPES = new Set(["invoice", "tax_invoice_receipt", "billing_note", "receipt"]);
-const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "tax_invoice_receipt", "receipt"]);
+const SHOW_BANK_TYPES = new Set(["invoice", "billing_note", "receipt"]);
+const SHOW_PAYMENT_METHOD_TYPES = new Set(["invoice", "receipt"]);
 
 export type CopyType = "original" | "copy";
 
 const DOC_ACCENT_COLORS: Record<DocumentType, string> = {
   quotation: "#7E57C2",
   invoice: "#378ADD",
-  tax_invoice_receipt: "#1F9D73",
   billing_note: "#D97706",
   receipt: "#2F855A",
   delivery_note: "#0F9AA8",
@@ -243,7 +242,7 @@ export function PrintDocument({
                   </div>
                 ) : null}
                 {data.document.wht_certificate_no ? <div>เลขที่หนังสือรับรองหัก ณ ที่จ่าย: {data.document.wht_certificate_no}</div> : null}
-                {(data.document.doc_type === "receipt" || data.document.doc_type === "tax_invoice_receipt") && data.document.amount_received != null ? <div>จำนวนเงินที่รับ: {formatCurrency(data.document.amount_received)}</div> : null}
+                {data.document.doc_type === "receipt" && data.document.amount_received != null ? <div>จำนวนเงินที่รับ: {formatCurrency(data.document.amount_received)}</div> : null}
               </>
             </div>
           </div>

@@ -10,13 +10,13 @@ import type { ClientMemberRole } from "../../types";
 interface NewDealSheetProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (type: "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill") => void;
+  onSelect: (type: "quotation" | "invoice" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill") => void;
   vatRegistered?: boolean;
   workspaceRole?: ClientMemberRole | null;
   workspacePermissions?: WorkspacePermissions;
 }
 
-type NewDealType = "quotation" | "invoice" | "tax_invoice_receipt" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill";
+type NewDealType = "quotation" | "invoice" | "delivery_note" | "billing_note" | "invoice_from_delivery_notes" | "utility_bill";
 
 const GROUPS: {
   title: string;
@@ -34,7 +34,6 @@ const GROUPS: {
     options: [
         { icon: ClipboardList, title: "ออกใบเสนอราคา", subtitle: "Flow ครบ: เสนอราคา → ส่งของถ้าต้องใช้ → ออกบิล → วางบิลถ้าต้องใช้", type: "quotation", tag: "QT" },
         { icon: FileText, title: "ออกใบแจ้งหนี้ทันที", subtitle: "ใช้เมื่อตกลงงานแล้ว และไม่ต้องมีใบเสนอราคาในระบบ", type: "invoice", tag: "INV" },
-        { icon: ReceiptText, title: "รับเงินทันที ออกใบกำกับภาษี/ใบเสร็จ", subtitle: "ชำระทันที ปิดงานในเอกสารเดียว", type: "tax_invoice_receipt", tag: "IVR" },
     ],
   },
   {
@@ -53,12 +52,11 @@ const GROUPS: {
   },
 ];
 
-const DEFAULT_FAVORITES: NewDealType[] = ["quotation", "invoice", "tax_invoice_receipt"];
+const DEFAULT_FAVORITES: NewDealType[] = ["quotation", "invoice"];
 
 const TAG_STYLES: Record<NewDealType, string> = {
   quotation: "bg-blue-50 text-blue-700",
   invoice: "bg-indigo-50 text-indigo-700",
-  tax_invoice_receipt: "bg-emerald-50 text-emerald-700",
   delivery_note: "bg-amber-50 text-amber-700",
   invoice_from_delivery_notes: "bg-purple-50 text-purple-700",
   utility_bill: "bg-cyan-50 text-cyan-700",
@@ -166,15 +164,11 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
   }
 
   function optionTitle(option: (typeof allOptions)[number]) {
-    return option.type === "tax_invoice_receipt" && !vatRegistered
-      ? "รับเงินแล้ว ออกใบเสร็จรับเงิน"
-      : option.title;
+    return option.title;
   }
 
   function optionSubtitle(option: (typeof allOptions)[number]) {
-    return option.type === "tax_invoice_receipt" && !vatRegistered
-      ? "ชำระทันที ปิดงานในเอกสารเดียว และไม่มี VAT"
-      : option.subtitle;
+    return option.subtitle;
   }
 
   function renderOption(option: (typeof allOptions)[number]) {

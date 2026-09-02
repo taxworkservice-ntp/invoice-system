@@ -34,7 +34,6 @@ const CUSTOMER_LOCKING_DOC_TYPES = [
   "invoice",
   "delivery_note",
   "receipt",
-  "tax_invoice_receipt",
   "billing_note",
   "credit_note",
 ] as const;

@@ -45,13 +45,12 @@ export function sortDocsNewestFirst<T extends StatusDocLike>(documents: T[]): T[
 const AMOUNT_DOC_ORDER = [
   "billing_note",
   "invoice",
-  "tax_invoice_receipt",
   "quotation",
   "delivery_note",
 ];
 
 /**
- * Which document headlines the deal's money. Order: BN > INV > TIR > QT > DN,
+ * Which document headlines the deal's money. Order: BN > INV > QT > DN,
  * newest within each type. Used identically on home and the deal page so both
  * always show the same amount.
  */

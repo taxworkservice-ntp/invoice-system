@@ -850,6 +850,17 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   margin-top: 0.5mm;
   line-height: 1.2;
 }
+/* classic V2 quotation: per-line example photo (≈4 cells tall) under the
+   item name inside the description cell. */
+.print-classic-line-image {
+  display: block;
+  height: 26mm;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left top;
+  margin-top: 1mm;
+  border-radius: 1mm;
+}
 
 .print-classic-dn-header-row td {
   border-right: 0;
@@ -1319,6 +1330,52 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   color: #6b7280;
   line-height: 1;
   padding-bottom: 0.5mm;
+}
+/* classic V2: workspace setting ซ่อนป้ายภาษาอังกฤษ — collapse every EN
+   sub-label (thead, meta, totals, signatures, title, copy badge). The
+   company's English NAME stays visible (identity, not a label). */
+.print-theme-classic-v2.print-hide-en .en,
+.print-theme-classic-v2.print-hide-en .print-classic-totals-en,
+.print-theme-classic-v2.print-hide-en .print-classic-meta-th-en,
+.print-theme-classic-v2.print-hide-en .print-classic-label-en,
+.print-theme-classic-v2.print-hide-en .print-classic-sig-th-en,
+.print-theme-classic-v2.print-hide-en .print-classic-doc-title-en,
+.print-theme-classic-v2.print-hide-en .print-classic-copy-en,
+.print-theme-classic-v2.print-hide-en .print-classic-paid-badge-en,
+.print-theme-classic-v2.print-hide-en .print-classic-sig-role-en,
+.print-theme-classic-v2.print-hide-en .print-classic-sig-dt-en {
+  display: none !important;
+}
+/* classic V2: workspace setting ลายเซ็น/ท้ายเอกสารกระชับ — slimmer
+   signature band (single-line feel, reduced fill heights). */
+.print-theme-classic-v2.print-sig-compact .print-classic-bottom-band {
+  margin-top: 1.5mm;
+}
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-cell {
+  padding: 1mm 3mm;
+}
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-th-en {
+  margin-top: 0.2mm;
+}
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-line {
+  height: 8mm;
+  margin: 1.8mm 4mm 0.4mm 4mm;
+}
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-date-fill {
+  margin-top: 0.5mm;
+}
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-date-fill .seg {
+  height: 3.6mm;
+}
+/* classic V2: tighter inter-section margins (vertical-space saving). */
+.print-theme-classic-v2 .print-classic-top {
+  padding-bottom: 2mm;
+}
+.print-theme-classic-v2 .print-classic-items-wrap {
+  margin-top: 2mm;
+}
+.print-theme-classic-v2 .print-classic-bottom-band {
+  margin-top: 1.8mm;
 }
 /* V2 billing-note cheque received date (hand-fill blank) — slim single-row strip */
 .print-classic-cheque-strip {

@@ -243,6 +243,8 @@ export default function DocumentDetailPage() {
             wht_amount: doc.wht_amount,
             net_payable: doc.net_payable,
             note: doc.note,
+            customer_po_number: doc.customer_po_number,
+            task_name: doc.task_name,
             converted_from_id:
               doc.doc_type === "credit_note" || doc.doc_type === "debit_note"
                 ? doc.converted_from_id
@@ -281,6 +283,7 @@ export default function DocumentDetailPage() {
                 source_document_id: lineItem.source_document_id,
                 source_line_item_id: lineItem.source_line_item_id,
                 line_total: lineItem.line_total,
+                image_url: lineItem.image_url || null,
                 sort_order: index,
               }))
             );
@@ -438,7 +441,6 @@ export default function DocumentDetailPage() {
   const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
   const isCorrectionCandidate =
     doc.doc_type === "invoice" ||
-    doc.doc_type === "tax_invoice_receipt" ||
     doc.doc_type === "credit_note" ||
     doc.doc_type === "debit_note";
   const correctionTitle =
@@ -446,9 +448,7 @@ export default function DocumentDetailPage() {
       ? doc.doc_type === "credit_note"
         ? "ยกเลิกใบลดหนี้และออกฉบับใหม่"
         : "ยกเลิกใบเพิ่มหนี้และออกฉบับใหม่"
-      : doc.doc_type === "tax_invoice_receipt"
-        ? "ยกเลิกและออกฉบับใหม่"
-        : "แก้ไขโดยออกฉบับใหม่";
+      : "แก้ไขโดยออกฉบับใหม่";
   const statusMessage = isVoided
     ? "ยกเลิกแล้ว เก็บไว้เป็นประวัติ"
     : doc.doc_type === "delivery_note" && isConverted
@@ -545,7 +545,7 @@ export default function DocumentDetailPage() {
               <div className="flex items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {(() => {
                   const steps = dealChain.map(d => {
-                    const vatReg = d.doc_type === "invoice" ? doc.vat_registered : d.doc_type === "tax_invoice_receipt";
+                    const vatReg = d.doc_type === "invoice" ? doc.vat_registered : false;
                     return {
                       key: d.doc_type,
                       label: documentTypeLabel(d.doc_type, vatReg).thai,
@@ -842,7 +842,7 @@ export default function DocumentDetailPage() {
         </DetailCard>
       )}
 
-      {(doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") && doc.invoice_delivery_notes && doc.invoice_delivery_notes.length > 0 && (
+      {doc.doc_type === "invoice" && doc.invoice_delivery_notes && doc.invoice_delivery_notes.length > 0 && (
         <DetailCard title="อ้างอิงใบส่งของ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
           <div className="-mt-4 overflow-x-auto">
           <table className={TABLE.table}>
@@ -1310,36 +1310,7 @@ export default function DocumentDetailPage() {
             </div>
           )}
 
-          {isIssued && doc.doc_type === "tax_invoice_receipt" && permissions.canVoidDocuments && (
-            <div className="space-y-2">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                ใบกำกับภาษีออกแล้ว หากยอดลดลงควรออกใบลดหนี้ หากออกผิดให้ยกเลิกและออกฉบับใหม่พร้อมเหตุผล
-              </div>
-              <Button
-                variant="secondary"
-                size="md"
-                className="w-full"
-                onClick={() => navigate(`/documents/new?type=credit_note&dealId=${doc.deal_id || ""}`)}
-              >
-                ออกใบลดหนี้
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                className="w-full"
-                onClick={() => {
-                  setVoidReason("");
-                  setCorrectionReason("");
-                  setVoidAndRecreate(true);
-                  setVoidModal(true);
-                }}
-              >
-                ยกเลิกและออกฉบับใหม่
-              </Button>
-            </div>
-          )}
-
-          {(isSent || (isIssued && doc.doc_type === "tax_invoice_receipt")) && doc.doc_type !== "quotation" && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && doc.doc_type !== "tax_invoice_receipt" && permissions.canVoidDocuments && (
+          {isSent && !isPaid && !isVoided && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && permissions.canVoidDocuments && (
             <Button
               variant="danger"
               size="md"

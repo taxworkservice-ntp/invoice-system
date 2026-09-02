@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, ChevronDown, FileStack, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
@@ -129,6 +129,12 @@ export function InvoiceFromQuotationForm() {
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
   const [note, setNote] = useState("");
+  // Optional PO reference + task name, printed on the tax invoice.
+  const [customerPo, setCustomerPo] = useState("");
+  const [taskName, setTaskName] = useState("");
+  // Tracks the last value derived from the selected quotations so manual
+  // edits survive selection changes while untouched fields keep following.
+  const derivedPoTaskRef = useRef({ po: "", task: "" });
 
   const [quotations, setQuotations] = useState<QuotationOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -343,6 +349,23 @@ export function InvoiceFromQuotationForm() {
     () => quotations.filter((doc) => selectedIds.has(doc.id)),
     [quotations, selectedIds],
   );
+
+  // Flow-down: follow the first selected quotation's PO/task until the user
+  // edits the field manually (manual edits survive selection changes).
+  const selectedQtIdsKey = selectedQuotations.map((qt) => qt.id).join(",");
+  useEffect(() => {
+    const first = selectedQuotations[0];
+    const po = first?.customer_po_number || "";
+    const task = first?.task_name || "";
+    setCustomerPo((current) =>
+      current === derivedPoTaskRef.current.po || current === "" ? po : current,
+    );
+    setTaskName((current) =>
+      current === derivedPoTaskRef.current.task || current === "" ? task : current,
+    );
+    derivedPoTaskRef.current = { po, task };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedQtIdsKey]);
 
   // Rebuild editable invoice lines from the selected quotations, preserving
   // any manual edits the user already made to lines that are still present.
@@ -656,6 +679,8 @@ export function InvoiceFromQuotationForm() {
           wht_amount: tax.whtAmount,
           net_payable: tax.netPayable,
           note: note || null,
+          customer_po_number: customerPo.trim() || null,
+          task_name: taskName.trim() || null,
           show_dn_variance: showVariance,
           converted_from_id: selectedQuotations[0]?.id || null,
           title: selectedCustomer.name,
@@ -1107,6 +1132,8 @@ export function InvoiceFromQuotationForm() {
                 </option>
               ))}
             </Select>
+            <Input label="ชื่องาน (JOB NAME)" value={taskName} onChange={(event) => setTaskName(event.target.value)} placeholder="เช่น งานติดตั้งไฟโรงงาน A" />
+            <Input label="เลขที่ใบสั่งซื้อ (PO NO.)" value={customerPo} onChange={(event) => setCustomerPo(event.target.value)} placeholder="เช่น PO-2569-001" />
             <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้" />
             <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">

@@ -107,7 +107,6 @@ function hasPartial(docs: DealCardData[]) {
 
 function getStage(docType: string, status: string): "quote" | "invoice" | "collect" | "done" {
   if (docType === "quotation") return "quote";
-  if (docType === "tax_invoice_receipt") return "done";
   if (docType === "credit_note") return status === "draft" ? "collect" : "done";
   if (docType === "invoice" && status !== "paid" && status !== "partially_paid") return "invoice";
   if (docType === "billing_note" && status !== "paid" && status !== "partially_paid") return "collect";
@@ -130,11 +129,6 @@ function getCompletionDoc(docs: DealCardData[]) {
     .reverse()
     .find((doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status));
   if (receipt && !isPartial) return receipt;
-
-  const combined = [...nonVoided]
-    .reverse()
-    .find((doc) => doc.doc_type === "tax_invoice_receipt" && ["issued", "paid"].includes(doc.status));
-  if (combined && !isPartial) return combined;
 
   const paidBilling = [...nonVoided]
     .reverse()

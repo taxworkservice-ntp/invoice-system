@@ -13,7 +13,7 @@ export function getDisplayAmount(doc: Pick<Document, "doc_type" | "total_amount"
  * gross total; collection docs show the net payable.
  */
 export function getDealDocumentAmount(doc: Pick<Document, "doc_type" | "total_amount" | "net_payable">): number {
-  if (["quotation", "invoice", "tax_invoice_receipt", "delivery_note"].includes(doc.doc_type)) {
+  if (["quotation", "invoice", "delivery_note"].includes(doc.doc_type)) {
     return doc.total_amount;
   }
   return doc.net_payable;
@@ -32,7 +32,6 @@ export function isOverdueDocument(doc: Pick<Document, "status" | "doc_type" | "d
 export function getDocStage(doc: Pick<Document, "status" | "doc_type">): "quote" | "invoice" | "collect" | "done" {
   if (doc.status === "voided" || doc.status === "converted") return "done";
   if (doc.doc_type === "quotation") return "quote";
-  if (doc.doc_type === "tax_invoice_receipt") return "done";
   if (doc.doc_type === "invoice" && doc.status !== "paid" && doc.status !== "partially_paid") return "invoice";
   if (doc.doc_type === "billing_note" && doc.status !== "paid" && doc.status !== "partially_paid") return "collect";
   if (doc.status === "paid" || doc.status === "generated") return "done";

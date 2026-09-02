@@ -20,7 +20,7 @@ export async function getReceiptTotalsForDocument(sourceDocument: Document, user
       .eq("user_id", userId);
     if (error) throw error;
     invoiceIds = (data || []).map((link) => link.invoice_id).filter(Boolean);
-  } else if (sourceDocument.doc_type === "invoice" || sourceDocument.doc_type === "tax_invoice_receipt") {
+  } else if (sourceDocument.doc_type === "invoice") {
     invoiceIds = [sourceDocument.id];
   }
 

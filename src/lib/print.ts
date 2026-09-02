@@ -358,11 +358,9 @@ export async function getPrintableDocumentDataBase(
     if (document.doc_type === "receipt") parentBillingNote = billingNote;
     const sourceInvoice = hasParentRef
       ? docList.find(
-          (d) => d.id === document.converted_from_id && (d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt"),
+          (d) => d.id === document.converted_from_id && d.doc_type === "invoice",
         )
-      : docList.find(
-          (d) => d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt",
-        );
+      : docList.find((d) => d.doc_type === "invoice");
 
     if (billingNote) {
       if (document.doc_type === "receipt") {
@@ -442,11 +440,7 @@ export async function getPrintableDocumentDataBase(
     document.subtotal + (document.discount_amount || 0) + lineDiscountTotal;
   let invoiceDeliveryNotes = document.invoice_delivery_notes || [];
 
-  if (
-    (document.doc_type === "invoice" ||
-      document.doc_type === "tax_invoice_receipt") &&
-    invoiceDeliveryNotes.length === 0
-  ) {
+  if (document.doc_type === "invoice" && invoiceDeliveryNotes.length === 0) {
     const { data: deliveryNotes } = await supabase
       .from("invoice_delivery_notes")
       .select("*")
@@ -538,8 +532,7 @@ export async function getPrintableDocumentDataBase(
     invoiceDeliveryNotes.map((dn) => dn.delivery_note_id),
   );
   const isDeliveryNoteSummaryInvoice =
-    (document.doc_type === "invoice" ||
-      document.doc_type === "tax_invoice_receipt") &&
+    document.doc_type === "invoice" &&
     invoiceDeliveryNotes.length > 0 &&
     lineItems.length === invoiceDeliveryNotes.length &&
     lineItems.every(

@@ -22,14 +22,14 @@ export async function getReceiptInvoiceSources(sourceDocument: Document, userId:
       .select("id, doc_number, issue_date, subtotal, vat_amount, total_amount, net_payable")
       .eq("user_id", userId)
       .in("id", invoiceIds)
-      .in("doc_type", ["invoice", "tax_invoice_receipt"])
+      .in("doc_type", ["invoice"])
       .order("issue_date", { ascending: true });
     if (invoiceError) throw invoiceError;
 
     return (invoices || []) as ReceiptInvoiceSource[];
   }
 
-  if (sourceDocument.doc_type === "invoice" || sourceDocument.doc_type === "tax_invoice_receipt") {
+  if (sourceDocument.doc_type === "invoice") {
     return [sourceDocument as ReceiptInvoiceSource];
   }
 

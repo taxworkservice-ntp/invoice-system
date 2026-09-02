@@ -48,12 +48,12 @@ export interface DealFinancialSummary {
   expectedWhtAmount: number;
   /** doc_type of the document the amounts come from (null = no documents) */
   sourceDocType: string | null;
-  /** A real collection document exists (billing note / invoice / tax invoice receipt) */
+  /** A real collection document exists (billing note / invoice) */
   hasCollectionDoc: boolean;
   receiptCount: number;
 }
 
-const COLLECTION_TYPES = ["billing_note", "invoice", "tax_invoice_receipt"];
+const COLLECTION_TYPES = ["billing_note", "invoice"];
 const RECEIPT_STATUSES = ["generated", "issued", "paid"];
 const ADJUSTMENT_STATUSES_EXCLUDED = ["draft"];
 
@@ -98,7 +98,6 @@ export function computeDealFinancialSummary(
   const source =
     collectionDocs.find((d) => d.doc_type === "billing_note") ||
     collectionDocs.find((d) => d.doc_type === "invoice") ||
-    collectionDocs.find((d) => d.doc_type === "tax_invoice_receipt") ||
     fallbackSource ||
     null;
 
@@ -114,9 +113,7 @@ export function computeDealFinancialSummary(
 
   const sourceGroup = collectionDocs.some((d) => d.doc_type === "billing_note")
     ? collectionDocs.filter((d) => d.doc_type === "billing_note")
-    : collectionDocs.some((d) => d.doc_type === "invoice")
-      ? collectionDocs.filter((d) => d.doc_type === "invoice")
-      : collectionDocs.filter((d) => d.doc_type === "tax_invoice_receipt");
+    : collectionDocs.filter((d) => d.doc_type === "invoice");
   const sourceReceived = sourceGroup.reduce((sum, d) => sum + (d.amount_received || 0), 0);
 
   const amountReceived = Math.max(receiptReceived, sourceReceived);

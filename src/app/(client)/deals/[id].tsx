@@ -91,7 +91,6 @@ type MainAction =
 function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
   if (doc.status === "voided" || doc.status === "converted") return "done";
   if (doc.doc_type === "quotation") return "quote";
-  if (doc.doc_type === "tax_invoice_receipt") return "done";
   if (doc.doc_type === "invoice" && doc.status !== "paid" && doc.status !== "partially_paid") return "invoice";
   if (doc.doc_type === "billing_note" && doc.status !== "paid" && doc.status !== "partially_paid") return "collect";
   if (doc.status === "paid" || doc.status === "generated") return "done";
@@ -109,7 +108,7 @@ function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
 }
 
 function getDocumentAmount(doc: Document) {
-  if (doc.doc_type === "quotation" || doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt" || doc.doc_type === "delivery_note") return doc.total_amount;
+  if (doc.doc_type === "quotation" || doc.doc_type === "invoice" || doc.doc_type === "delivery_note") return doc.total_amount;
   return doc.net_payable;
 }
 
@@ -432,7 +431,7 @@ export default function DealDetailPage() {
       return;
     }
     // Financial documents lock on send — confirm in-app, not via window.confirm.
-    if (["invoice", "billing_note", "tax_invoice_receipt"].includes(doc.doc_type)) {
+    if (["invoice", "billing_note"].includes(doc.doc_type)) {
       setSendConfirmDoc(doc);
       return;
     }
@@ -525,6 +524,8 @@ export default function DealDetailPage() {
             wht_amount: voidDocument.wht_amount,
             net_payable: voidDocument.net_payable,
             note: voidDocument.note,
+            customer_po_number: voidDocument.customer_po_number,
+            task_name: voidDocument.task_name,
             payment_method: null,
             amount_received: null,
             paid_at: null,
@@ -560,6 +561,7 @@ export default function DealDetailPage() {
                 source_document_id: li.source_document_id,
                 source_line_item_id: li.source_line_item_id,
                 line_total: li.line_total,
+                image_url: li.image_url || null,
                 sort_order: idx,
               }))
             );
@@ -1007,9 +1009,7 @@ export default function DealDetailPage() {
   }, [latestQuotation, nonVoidedDocs]);
 
   const allDone = nonVoidedDocs.length > 0 && nonVoidedDocs.every((item) => item.stage === "done");
-  const hasPaidDocs = nonVoidedDocs.some(
-    (item) => item.document.status === "paid" || (item.document.doc_type === "tax_invoice_receipt" && item.document.status === "issued")
-  );
+  const hasPaidDocs = nonVoidedDocs.some((item) => item.document.status === "paid");
   const deliveryNotes = useMemo(
     () => nonVoidedDocs.filter((item) => item.document.doc_type === "delivery_note"),
     [nonVoidedDocs]
@@ -1063,11 +1063,6 @@ export default function DealDetailPage() {
       .reverse()
       .find((item) => item.document.doc_type === "receipt");
     if (latestReceipt) return latestReceipt.document;
-
-    const latestCombined = [...nonVoidedDocs]
-      .reverse()
-      .find((item) => item.document.doc_type === "tax_invoice_receipt");
-    if (latestCombined) return latestCombined.document;
 
     const latestPaid = [...nonVoidedDocs]
       .reverse()
@@ -1205,7 +1200,7 @@ export default function DealDetailPage() {
       if (doc.doc_type === "invoice" && !map.has(2)) map.set(2, item);
       if (doc.doc_type === "delivery_note" && !map.has(2)) map.set(2, item);
       if (doc.doc_type === "billing_note" && !map.has(3)) map.set(3, item);
-      if ((doc.doc_type === "receipt" || doc.doc_type === "tax_invoice_receipt") && !map.has(4)) map.set(4, item);
+      if (doc.doc_type === "receipt" && !map.has(4)) map.set(4, item);
     }
     if (!map.has(4)) {
       const paidDoc = nonVoidedDocs.find((item) => item.document.status === "paid" || item.document.status === "generated");
@@ -1225,7 +1220,6 @@ export default function DealDetailPage() {
       .sort((a, b) => {
         const priority = (d: any) =>
           d.doc_type === "billing_note" ? 1 :
-          d.doc_type === "tax_invoice_receipt" ? 2 :
           d.doc_type === "invoice" ? 3 :
           d.doc_type === "receipt" ? 4 : 5;
         const pa = priority(a.document);
@@ -1988,7 +1982,7 @@ export default function DealDetailPage() {
                 const isCurrent = !isBorrowed && activeDoc?.document.id === doc.id;
                 const overdue = isDocumentOverdue(doc);
                 const isDoneStage = item.stage === "done" && !isCurrent;
-                const isFinancialDocument = doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt";
+                const isFinancialDocument = doc.doc_type === "invoice";
                 if (isBorrowed && borrowed) {
                   return (
                     <div key={doc.id} className={`flex gap-3 ${isDoneStage ? "opacity-80" : ""}`}>
@@ -2301,7 +2295,7 @@ export default function DealDetailPage() {
             <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-5 text-stone-700">
               {activeDoc.document.status === "draft"
                 ? "เอกสารร่างสามารถแก้ไขได้โดยตรง"
-                : activeDoc.document.doc_type === "invoice" || activeDoc.document.doc_type === "tax_invoice_receipt"
+                : activeDoc.document.doc_type === "invoice"
                   ? "ระบบจะเก็บเอกสารเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข"
                 : "เอกสารที่ส่งแล้วจะถูกยกเลิกและสร้างฉบับร่างใหม่ โดยเก็บฉบับเดิมไว้เป็นประวัติ"}
             </div>
@@ -2345,26 +2339,7 @@ export default function DealDetailPage() {
                    </Modal>
                  </div>
              )}
-            {activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued" && canSendDocumentType(permissions, "credit_note") ? (
-              <>
-                <Button
-                  variant="secondary"
-                  tone="amber"
-                  className="justify-center"
-                  onClick={handleCreateCreditNote}
-                >
-                  ออกใบลดหนี้
-                </Button>
-                <Button
-                  variant="secondary"
-                  tone="blue"
-                  className="justify-center"
-                  onClick={() => handleOpenVoidModal(activeDoc.document, true)}
-                >
-                  ยกเลิกและออกฉบับใหม่
-                </Button>
-              </>
-            ) : activeDoc?.document.status === "draft" ? null : (
+            {activeDoc?.document.status === "draft" ? null : (
               <Button
                 variant="secondary"
                 tone="blue"
@@ -2398,7 +2373,7 @@ export default function DealDetailPage() {
                 แยกใบส่งของออกจากใบแจ้งหนี้
               </Button>
             )}
-            {allDone && hasPaidDocs && canSendDocumentType(permissions, "credit_note") && !(activeDoc?.document.doc_type === "tax_invoice_receipt" && activeDoc.document.status === "issued") && (
+            {allDone && hasPaidDocs && canSendDocumentType(permissions, "credit_note") && (
               <div className="col-span-2 grid grid-cols-2 gap-2">
                 <Button variant="secondary" tone="slate" className="justify-center" onClick={handleCreateCreditNote}>
                   ออกใบลดหนี้
@@ -2471,11 +2446,7 @@ export default function DealDetailPage() {
       <Modal
         open={voidModalOpen}
         onClose={() => setVoidModalOpen(false)}
-        title={voidAndRecreate
-          ? voidDocument?.doc_type === "tax_invoice_receipt"
-            ? "ยกเลิกและออกฉบับใหม่"
-            : "แก้ไขโดยออกฉบับใหม่"
-          : "ยกเลิกเอกสาร"}
+        title={voidAndRecreate ? "แก้ไขโดยออกฉบับใหม่" : "ยกเลิกเอกสาร"}
       >
         <div className="space-y-3">
           {voidDocument && (
@@ -2488,7 +2459,7 @@ export default function DealDetailPage() {
               ? "ระบบจะเก็บเอกสารเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข โดยฉบับใหม่จะใช้เลขที่เอกสารใหม่"
               : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้? สินค้าจะถูกคืนสต็อก"}
           </p>
-          {voidAndRecreate && voidDocument && (voidDocument.doc_type === "invoice" || voidDocument.doc_type === "tax_invoice_receipt") && (
+          {voidAndRecreate && voidDocument && voidDocument.doc_type === "invoice" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
               หากเอกสารนี้ผูกกับใบวางบิล ใบเสร็จ หรือใบส่งของ ระบบจะปลดสถานะที่เกี่ยวข้องตามกฎการยกเลิกเดิม และเก็บประวัติไว้ตรวจสอบย้อนหลัง
             </div>
@@ -2507,7 +2478,7 @@ export default function DealDetailPage() {
                   ยกเลิกอย่างเดียว
                 </Button>
                 <Button variant="primary" className="flex-1" onClick={handleConfirmVoid} loading={voiding}>
-                  {voiding ? "กำลังยกเลิก..." : voidDocument?.doc_type === "tax_invoice_receipt" ? "ยกเลิกและออกฉบับใหม่" : "แก้ไขโดยออกฉบับใหม่"}
+                  {voiding ? "กำลังยกเลิก..." : "แก้ไขโดยออกฉบับใหม่"}
                 </Button>
               </>
             ) : (

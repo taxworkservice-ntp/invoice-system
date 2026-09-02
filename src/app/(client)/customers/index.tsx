@@ -21,7 +21,7 @@ import { TABLE } from "../../../lib/tableStyles";
 import type { Customer, DocumentStatus, DocumentType } from "../../../types";
 
 type FilterMode = "all" | "favorites" | "hasDeals";
-const SALES_JOB_DOCUMENT_TYPES = ["quotation", "invoice", "tax_invoice_receipt", "delivery_note"];
+const SALES_JOB_DOCUMENT_TYPES = ["quotation", "invoice", "delivery_note"];
 const RESOLVED_DEAL_STATUSES = new Set<DocumentStatus>(["paid", "converted", "generated", "issued", "voided"]);
 const EMPTY_DEAL_STATS = { active: 0, done: 0, total: 0 };
 

@@ -84,6 +84,9 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   const [existingDraft, setExistingDraft] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [note, setNote] = useState("");
+  // Optional PO reference + task name, printed on the delivery note.
+  const [customerPo, setCustomerPo] = useState("");
+  const [taskName, setTaskName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
@@ -197,9 +200,15 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
         if (documentId && existingDoc) {
           setIssueDate((existingDoc as Document).issue_date || todayString());
           setNote((existingDoc as Document).note || "");
+          setCustomerPo((existingDoc as Document).customer_po_number || "");
+          setTaskName((existingDoc as Document).task_name || "");
           setDocNumberOverride((existingDoc as Document).doc_number || "");
           setHideAmountsOnPrint((existingDoc as Document).hide_amounts_on_print ?? true);
           setShowFullTotals((existingDoc as Document).show_full_totals ?? false);
+        } else {
+          // Flow-down: carry the quotation's PO/task onto the new DN.
+          setCustomerPo(quote.customer_po_number || "");
+          setTaskName(quote.task_name || "");
         }
 
         const activeDraft = draftDoc && draftDoc.id !== documentId
@@ -430,6 +439,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           wht_amount: 0,
           net_payable: tax.total,
           note: note || null,
+          customer_po_number: customerPo.trim() || null,
+          task_name: taskName.trim() || null,
           hide_amounts_on_print: hideAmountsOnPrint,
           show_full_totals: showFullTotals,
           converted_from_id: quotation.id,
@@ -784,6 +795,18 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
 
         <FormStep number={3} title="สรุปและบันทึก">
           <div className="space-y-3">
+            <Input
+              label="ชื่องาน (JOB NAME)"
+              value={taskName}
+              onChange={(event) => setTaskName(event.target.value)}
+              placeholder="เช่น งานติดตั้งไฟโรงงาน A"
+            />
+            <Input
+              label="เลขที่ใบสั่งซื้อ (PO NO.)"
+              value={customerPo}
+              onChange={(event) => setCustomerPo(event.target.value)}
+              placeholder="เช่น PO-2569-001"
+            />
             <Input
               label="หมายเหตุบนใบส่งของ"
               value={note}

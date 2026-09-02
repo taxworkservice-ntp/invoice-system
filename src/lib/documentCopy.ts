@@ -41,7 +41,6 @@ export async function copyDocumentAsDraft(
     const issueDate = opts.issueDate || localTodayString();
     const docNumber = await resolveDocNumber(userId, doc.doc_type, issueDate, opts.docNumberOverride);
 
-    const isTir = doc.doc_type === "tax_invoice_receipt";
     const isDn = doc.doc_type === "delivery_note";
 
     const payload: Record<string, unknown> = {
@@ -64,10 +63,12 @@ export async function copyDocumentAsDraft(
       wht_amount: doc.wht_amount,
       net_payable: doc.net_payable,
       note: doc.note,
-      payment_method: isTir ? doc.payment_method : null,
-      amount_received: isTir ? doc.amount_received : null,
-      paid_at: isTir ? doc.paid_at : null,
-      wht_certificate_no: isTir ? doc.wht_certificate_no : null,
+      customer_po_number: doc.customer_po_number,
+      task_name: doc.task_name,
+      payment_method: null,
+      amount_received: null,
+      paid_at: null,
+      wht_certificate_no: null,
     };
     if (opts.setCopiedFromId !== false) {
       payload.copied_from_id = doc.id;
@@ -127,6 +128,7 @@ export async function copyDocumentAsDraft(
           qty_carton: li.qty_carton,
           carton_unit: li.carton_unit,
           line_total: li.line_total,
+          image_url: li.image_url || null,
           hide_amounts_on_print: li.hide_amounts_on_print,
           sort_order: idx,
         })),

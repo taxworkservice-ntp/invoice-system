@@ -53,13 +53,11 @@ function adjustmentCorrectAmount(original: number, adjustment: number, isCreditN
 
 const SHOW_BANK_TYPES = new Set([
   "invoice",
-  "tax_invoice_receipt",
   "billing_note",
   "receipt",
 ]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set([
   "invoice",
-  "tax_invoice_receipt",
   "receipt",
 ]);
 const MIN_CLASSIC_ITEM_ROWS = 8;
@@ -186,7 +184,7 @@ export function PrintDocumentClassic({
     showPaymentMethod && document.payment_method
       ? `วิธีชำระเงิน: ${paymentMethodText(PAYMENT_METHOD_LABELS[document.payment_method] || document.payment_method, document)}`
       : null,
-    (document.doc_type === "receipt" || document.doc_type === "tax_invoice_receipt") && document.amount_received != null
+    document.doc_type === "receipt" && document.amount_received != null
       ? `จำนวนเงินที่รับ: ${formatCurrency(document.amount_received)}`
       : null,
     document.wht_certificate_no
@@ -208,20 +206,10 @@ export function PrintDocumentClassic({
     if (!referenceDoc) return null;
     if (document.doc_type === "credit_note" || document.doc_type === "debit_note") {
       if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
-      if (referenceDoc.doc_type === "tax_invoice_receipt") {
-        return referenceDoc.vat_registered
-          ? "อ้างอิงใบกำกับภาษี"
-          : "อ้างอิงใบเสร็จรับเงิน";
-      }
       if (referenceDoc.doc_type === "receipt") return "อ้างอิงใบเสร็จรับเงิน";
     }
     if (document.doc_type === "receipt") {
       if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
-      if (referenceDoc.doc_type === "tax_invoice_receipt") {
-        return referenceDoc.vat_registered
-          ? "อ้างอิงใบกำกับภาษี"
-          : "อ้างอิงใบเสร็จรับเงิน";
-      }
       if (referenceDoc.doc_type === "billing_note") return "อ้างอิงใบวางบิล";
     }
     return "เอกสารอ้างอิง";

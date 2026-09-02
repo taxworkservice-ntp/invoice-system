@@ -5,7 +5,6 @@ export type ClientMemberStatus = "active" | "disabled";
 export type DocumentType =
   | "quotation"
   | "invoice"
-  | "tax_invoice_receipt"
   | "billing_note"
   | "receipt"
   | "delivery_note"
@@ -118,6 +117,10 @@ export interface ClientProfile {
   classic_v2_type_font_scales?: Record<string, Record<string, string>> | null;
   /** Classic V2: repeat the full header + customer info on every page. */
   classic_v2_full_page_header?: boolean;
+  /** Classic V2: hide English sub-labels (thead, meta, totals, signatures) to save vertical space. */
+  classic_v2_hide_english_labels?: boolean;
+  /** Classic V2: compact signature band (single-line titles, reduced fill heights). */
+  classic_v2_compact_signature?: boolean;
   show_signature_on_wht: boolean;
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;
@@ -343,6 +346,10 @@ export interface Document {
   wht_amount: number;
   net_payable: number;
   note: string | null;
+  /** Optional customer PO reference — prints as เลขที่ใบสั่งซื้อ / PO NO. (classic V2). */
+  customer_po_number: string | null;
+  /** Optional task/job name — prints as ชื่องาน / JOB NAME (classic V2). */
+  task_name: string | null;
   payment_method: PaymentMethod | null;
   bank_account_id: string | null;
   payment_detail?: {
@@ -411,6 +418,8 @@ export interface DocumentLineItem {
   source_line_item_id: string | null;
   source_delivered_qty: number | null;
   source_unit_price: number | null;
+  /** Optional per-line example photo (R2 proxied URL) — printed on classic V2 quotations. */
+  image_url: string | null;
   /** Display-only marker: collapsed into a โหมดอ้างอิง reference line at print time. */
   ref_collapsed?: boolean;
   line_total: number;

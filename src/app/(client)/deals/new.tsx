@@ -4,7 +4,6 @@ import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useCustomers } from "../../../hooks/useCustomers";
 import { useItems } from "../../../hooks/useItems";
 import { useClientFeatures } from "../../../hooks/useClientFeatures";
-import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -21,16 +20,18 @@ import { getDocNumberErrorMessage, resolveDocNumber } from "../../../lib/docNumb
 import { businessTodayString, localTodayString, monthStartString as getMonthStartString } from "../../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
-import { cartonsToBase, deductStockOnDocumentSent, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
+import { cartonsToBase, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
+import { LineImageUpload } from "../../../components/documents/LineImageUpload";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
-import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT, PAYMENT_METHOD_LABELS } from "../../../constants";
+import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../../constants";
 import { AlertTriangle, ChevronDown, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
-import type { Document, DocumentLineItem, DocumentType, DocumentStatus, Customer, WhtRate, PaymentMethod, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
+import type { Document, DocumentLineItem, DocumentType, DocumentStatus, Customer, WhtRate, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
 interface LineItemForm {
   id: string;
+  image_url?: string | null;
   item_id: string | null;
   item_sku?: string | null;
   item_name: string;
@@ -218,6 +219,7 @@ function createEmptyLine(): LineItemForm {
     job_material: "",
     job_remark: "",
     job_detail_values: {},
+    image_url: null,
     hide_amounts_on_print: false,
   };
 }
@@ -412,9 +414,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         ? "แก้ไขร่างใบส่งของ"
         : isUtilityBill ? "ออกบิลประจำรอบ" : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
   const isBillingNote = type === "billing_note";
-  const isTaxInvoiceReceipt = type === "tax_invoice_receipt";
   const isDeliveryNote = type === "delivery_note";
-  const isLineItemDocument = type === "quotation" || type === "invoice" || isTaxInvoiceReceipt || isDeliveryNote;
+  const isLineItemDocument = type === "quotation" || type === "invoice" || isDeliveryNote;
 
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
@@ -424,7 +425,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const { hasFeature } = useClientFeatures(userId);
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const { items, addItem } = useItems(userId);
-  const { active: bankAccounts, primary: primaryBank } = useBankAccounts(userId);
   const jobDetailsFeatureEnabled = hasFeature("service_job_details");
   const businessToday = businessTodayString(clientProfile);
   const todayString = () => businessToday;
@@ -439,19 +439,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [vatRate, setVatRate] = useState<number>(clientProfile?.vat_rate ?? VAT_DEFAULT);
   const [whtRate, setWhtRate] = useState<WhtRate>(clientProfile?.default_wht_rate ?? "0");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank_transfer");
-  const [paymentBankAccountId, setPaymentBankAccountId] = useState<string | null>(primaryBank?.id ?? null);
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
-  const [paymentDate, setPaymentDate] = useState(() => businessTodayString(clientProfile));
   const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
 
-  useEffect(() => {
-    if (!paymentBankAccountId && primaryBank) {
-      setPaymentBankAccountId(primaryBank.id);
-    }
-  }, [primaryBank, paymentBankAccountId]);
-  const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
   const [note, setNote] = useState("");
+  // Optional PO reference + task name, printed on the document (classic V2).
+  const [customerPo, setCustomerPo] = useState("");
+  const [taskName, setTaskName] = useState("");
   const [utilityServiceItemId, setUtilityServiceItemId] = useState<string | null>(null);
   const [utilityServiceName, setUtilityServiceName] = useState("");
   const [utilityUnit, setUtilityUnit] = useState("หน่วย");
@@ -496,12 +490,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     if (documentId) return;
     const realToday = businessTodayString(null);
     if (issueDate === realToday) setIssueDate(businessToday);
-    if (paymentDate === realToday) setPaymentDate(businessToday);
     if (utilityPeriodEnd === realToday) setUtilityPeriodEnd(businessToday);
     if (utilityPeriodStart === getMonthStartString(realToday)) {
       setUtilityPeriodStart(getMonthStartString(businessToday));
     }
-  }, [businessToday, documentId, issueDate, paymentDate, utilityPeriodEnd, utilityPeriodStart]);
+  }, [businessToday, documentId, issueDate, utilityPeriodEnd, utilityPeriodStart]);
 
   const serviceItems = useMemo(() => items.filter((item) => item.item_type === "service"), [items]);
   const jobDetailServiceItems = useMemo(
@@ -551,6 +544,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         item_sku: line.item_sku,
         item_name: line.item_name,
         line_note: line.line_note || "",
+        image_url: line.image_url || null,
         item_type: line.item_type,
         unit_price: line.unit_price,
         quantity: line.quantity,
@@ -626,6 +620,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         setWhtRate(String(draftDoc.wht_rate) as WhtRate);
         setDocumentDiscountPercent(draftDoc.discount_percent || 0);
         setNote(draftDoc.note || "");
+        setCustomerPo(draftDoc.customer_po_number || "");
+        setTaskName(draftDoc.task_name || "");
         setDocNumberOverride(draftDoc.doc_number || "");
         if (draftDoc.doc_type === "delivery_note" && draftDoc.hide_amounts_on_print != null) {
           setHideAmountsOnPrint(draftDoc.hide_amounts_on_print);
@@ -682,14 +678,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       setSelectedCustomer(match);
     }
   }, [searchParams, customers, customersLoading, selectedCustomer]);
-
-  useEffect(() => {
-    if (!isTaxInvoiceReceipt) return;
-    setVatRegistered(clientProfile?.vat_registered ?? false);
-    if (clientProfile?.vat_rate) {
-      setVatRate(clientProfile.vat_rate);
-    }
-  }, [clientProfile?.vat_rate, clientProfile?.vat_registered, isTaxInvoiceReceipt]);
 
   useEffect(() => {
     if (isBillingNote && selectedCustomer && userId) {
@@ -1241,15 +1229,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       return;
     }
 
-    if (isTaxInvoiceReceipt && !permissions.canRecordPayments) {
-      setError("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
-      return;
-    }
-
     // Duplicate-invoice guard: warn (non-blocking) when an invoice with the
     // same total was issued to the same customer within the last 30 days.
     setDuplicateWarning(null);
-    if ((type === "invoice" || type === "tax_invoice_receipt") && userId) {
+    if (type === "invoice" && userId) {
       try {
         // 30-day cutoff anchored to Bangkok today (issue_date is date-only).
         const cutoff = addDaysString(localTodayString(), -30);
@@ -1306,7 +1289,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         createdDealId = deal.id;
       }
 
-      const documentIssueDate = isTaxInvoiceReceipt ? paymentDate : issueDate;
+      const documentIssueDate = issueDate;
       const docNumber = await resolveDocNumber(userId, type, documentIssueDate, docNumberOverride, documentId);
 
       const docPayload: Record<string, unknown> = {
@@ -1315,7 +1298,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         customer_id: selectedCustomer.id,
         doc_type: type,
         doc_number: docNumber,
-        status: isTaxInvoiceReceipt ? "issued" : "draft",
+        status: "draft",
         issue_date: documentIssueDate,
         vat_registered: vatRegistered,
         vat_rate: vatRate,
@@ -1327,11 +1310,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         total_amount: tax.total,
         wht_amount: tax.whtAmount,
         net_payable: tax.netPayable,
-        payment_method: isTaxInvoiceReceipt ? paymentMethod : null,
-        bank_account_id: isTaxInvoiceReceipt && paymentMethod === "bank_transfer" ? paymentBankAccountId : null,
-        paid_at: isTaxInvoiceReceipt ? new Date(`${paymentDate}T00:00:00`).toISOString() : null,
-        amount_received: isTaxInvoiceReceipt ? tax.netPayable : null,
+        payment_method: null,
+        bank_account_id: null,
+        paid_at: null,
+        amount_received: null,
         note: note.trim() ? note : null,
+        customer_po_number: customerPo.trim() || null,
+        task_name: taskName.trim() || null,
         ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: showFullTotals } : {}),
       };
 
@@ -1378,6 +1363,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             qty_carton: soldByCarton ? lineItem.quantity : null,
             carton_unit: soldByCarton ? lineItem.carton_unit : null,
             line_total: lineCalc.lineTotal,
+            image_url: lineItem.image_url || null,
             hide_amounts_on_print: lineItem.hide_amounts_on_print,
             sort_order: idx,
           };
@@ -1442,6 +1428,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               qty_carton: soldByCarton ? lineItem.quantity : null,
               carton_unit: soldByCarton ? lineItem.carton_unit : null,
               line_total: lineCalc.lineTotal,
+              image_url: lineItem.image_url || null,
               hide_amounts_on_print: lineItem.hide_amounts_on_print,
               sort_order: idx,
             };
@@ -1449,10 +1436,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           const { error: itemsError } = await supabase.from("document_line_items").insert(lineItemRecords);
           if (itemsError) throw itemsError;
         }
-      }
-
-      if (isTaxInvoiceReceipt) {
-        await deductStockOnDocumentSent(savedDocumentId, userId);
       }
 
       if (documentId) {
@@ -1497,7 +1480,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
   const canSave = selectedCustomer && (isBillingNote ? selectedInvoiceIds.size > 0 : lineItems.some((lineItem) => lineItem.item_name.trim()));
   const isIssueDateToday = issueDate === todayString();
-  const isPaymentDateToday = paymentDate === todayString();
 
   useEffect(() => {
     window.localStorage.setItem("invoice-system.hideAmountsOnPrint", String(hideAmountsOnPrint));
@@ -1552,7 +1534,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         </div>
       )}
 
-      {(type === "invoice" || isTaxInvoiceReceipt) && clientProfile?.vat_registered && !clientProfile?.tax_id && (
+      {type === "invoice" && clientProfile?.vat_registered && !clientProfile?.tax_id && (
         <div className="mb-4 p-3 bg-warning-soft border-[0.5px] border-warning-border rounded-lg text-sm text-pending-text flex items-center gap-3">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <div className="flex-1">
@@ -1565,21 +1547,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           >
             ตั้งค่าเลย →
           </button>
-        </div>
-      )}
-
-      {isTaxInvoiceReceipt && (
-        <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-          vatRegistered
-            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-            : "border-blue-200 bg-blue-50 text-blue-900"
-        }`}>
-          <p className="font-medium">เอกสารนี้ไม่มีฉบับร่าง</p>
-          <p className="mt-1 text-xs leading-5">
-            {vatRegistered
-              ? "เมื่อบันทึก ระบบจะออกใบกำกับภาษี/ใบเสร็จรับเงินทันที และถือว่ารับชำระแล้วในขั้นตอนเดียว"
-              : "บัญชีนี้ไม่ได้จด VAT เมื่อบันทึก ระบบจะออกเป็นใบเสร็จรับเงินทันที ไม่มีรายการ VAT และถือว่ารับชำระแล้วในขั้นตอนเดียว"}
-          </p>
         </div>
       )}
 
@@ -1644,20 +1611,19 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           <Card>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <StepHeading number={2} title={isTaxInvoiceReceipt ? "วันที่เอกสารและรับชำระ" : "วันที่ออกเอกสาร"} />
+                <StepHeading number={2} title="วันที่ออกเอกสาร" />
                 <p className="mt-1 text-xs text-gray-500">
                   ค่าเริ่มต้นเป็นวันนี้ และเปลี่ยนได้เมื่อต้องการออกย้อนหลัง
                 </p>
               </div>
-              {((isTaxInvoiceReceipt && !isPaymentDateToday) || (!isTaxInvoiceReceipt && !isIssueDateToday)) && (
+              {!isIssueDateToday && (
                 <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
                   ย้อนหลัง
                 </span>
               )}
             </div>
 
-            {!isTaxInvoiceReceipt ? (
-              <div className="mt-4 rounded-xl border border-line-soft bg-paper-field px-4 py-3">
+            <div className="mt-4 rounded-xl border border-line-soft bg-paper-field px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">วันที่ที่ใช้บนเอกสาร</div>
@@ -1705,56 +1671,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="mt-4 rounded-xl border border-line-soft bg-paper-field px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">วันที่รับชำระและวันที่บนเอกสาร</div>
-                    <div className="mt-1 text-sm font-semibold text-ink-900">{formatBuddhistDate(paymentDate)}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    {!isPaymentDateToday && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPaymentDate(todayString());
-                          setShowPaymentDatePicker(false);
-                        }}
-                        className="rounded-lg border border-cool-200 px-3 py-2 text-xs font-medium text-cool-500 transition-colors hover:bg-white"
-                      >
-                        ใช้วันนี้
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setPaymentDate(addDaysString(paymentDate, 1))}
-                      className="rounded-lg border border-cool-200 px-3 py-2 text-xs font-medium text-cool-500 transition-colors hover:bg-white"
-                    >
-                      เลือกวันถัดไป
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowPaymentDatePicker((prev) => !prev)}
-                      className="rounded-lg border border-cool-200 bg-white px-3 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-gray-50"
-                    >
-                      {showPaymentDatePicker || !isPaymentDateToday ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
-                    </button>
-                  </div>
-                </div>
-                {(showPaymentDatePicker || !isPaymentDateToday) && (
-                  <div className="mt-3 border-t border-line-faint pt-3">
-                      <Input
-                        id="paymentDateSummary"
-                        label="วันที่รับชำระ"
-                        type="date"
-                        value={paymentDate}
-                        max={addDaysString(todayString(), 365)}
-                        onChange={(e) => setPaymentDate(e.target.value)}
-                      />
-                  </div>
-                )}
-              </div>
-            )}
           </Card>
         )}
 
@@ -2092,6 +2008,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       className="mb-2 w-full rounded-lg border border-card-border bg-white px-3 py-2 text-xs text-ink-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   )}
+                  {type === "quotation" && (
+                    <LineImageUpload
+                      userId={userId!}
+                      imageKey={item.image_url || null}
+                      onKeyChange={(key: string | null) => updateLineItem(item.id, "image_url", key ?? "")}
+                    />
+                  )}
                   <div className="grid grid-cols-2 gap-2 items-start sm:flex sm:gap-1">
                     <label className="col-span-1 block sm:w-[160px]">
                       <span className="text-2xs text-gray-400 block mb-0.5">จำนวน</span>
@@ -2304,63 +2227,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           </Card>
         )}
 
-        {isTaxInvoiceReceipt && (
-          <Card>
-            <div className="mb-3">{StepHeading({ number: 4, title: "ข้อมูลการรับชำระ" })}</div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  วิธีชำระเงิน
-                </label>
-                <select
-                  className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                >
-                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {paymentMethod === "bank_transfer" && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    รับเข้าบัญชี
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
-                    value={paymentBankAccountId ?? ""}
-                    onChange={(e) => setPaymentBankAccountId(e.target.value || null)}
-                  >
-                    {bankAccounts.length === 0 ? (
-                      <option value="" disabled>
-                        ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า
-                      </option>
-                    ) : (
-                      bankAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.bank_name} · {account.account_number}
-                          {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              )}
-              <div className="rounded-lg bg-stone-50 px-3 py-3 text-sm text-stone-700">
-                <div className="flex items-center justify-between">
-                  <span>ยอดที่จะบันทึกรับชำระ</span>
-                  <span className="font-semibold">
-                    ฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        )}
-
         <Card>
           <button
             type="button"
@@ -2374,13 +2240,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${showAdditionalDetails ? "rotate-180" : ""}`} />
           </button>
           {showAdditionalDetails && <div className="mt-3 space-y-3">
-            {isTaxInvoiceReceipt && (
-              <p className="rounded-lg bg-paper-soft px-3 py-2 text-xs text-gray-600">
-                {vatRegistered
-                  ? "บัญชีนี้จด VAT เอกสารจึงเป็นใบกำกับภาษี/ใบเสร็จรับเงินและคำนวณ VAT ตามอัตราที่ตั้งไว้"
-                  : "บัญชีนี้ไม่ได้จด VAT เอกสารจึงเป็นใบเสร็จรับเงินและไม่คำนวณ VAT"}
-              </p>
-            )}
             {vatRegistered && (
               <Input
                 label="อัตรา VAT (%)"
@@ -2405,6 +2264,28 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="border-t border-card-border pt-3">
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                ชื่องาน (JOB NAME)
+              </label>
+              <input
+                value={taskName}
+                onChange={(event) => setTaskName(event.target.value)}
+                placeholder="เช่น งานติดตั้งไฟโรงงาน A"
+                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
+              />
+            </div>
+            <div className="border-t border-card-border pt-3">
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                เลขที่ใบสั่งซื้อ (PO NO.)
+              </label>
+              <input
+                value={customerPo}
+                onChange={(event) => setCustomerPo(event.target.value)}
+                placeholder="เช่น PO-2569-001"
+                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
+              />
             </div>
             <div className="border-t border-card-border pt-3">
               <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -2472,12 +2353,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             value={docNumberOverride}
             onChange={setDocNumberOverride}
             placeholder="เลขที่เอกสาร (เว้นว่าง = สร้างอัตโนมัติ)"
-            autoGenerate={async () => await resolveDocNumber(userId!, type, isTaxInvoiceReceipt ? paymentDate : issueDate)}
+            autoGenerate={async () => await resolveDocNumber(userId!, type, issueDate)}
             className="mb-3"
           />}
 
           <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
-            {saving ? "กำลังบันทึก..." : isTaxInvoiceReceipt ? "ออกเอกสารทันที" : isEditingDraft ? "บันทึกร่าง" : experience.isSimpleMode ? "บันทึกร่าง" : "ตรวจสอบและบันทึก"}
+            {saving ? "กำลังบันทึก..." : isEditingDraft ? "บันทึกร่าง" : experience.isSimpleMode ? "บันทึกร่าง" : "ตรวจสอบและบันทึก"}
           </Button>
         </div>
 
@@ -2544,7 +2425,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="secondary" onClick={() => setShowConfirmModal(false)} disabled={saving}>ยกเลิก</Button>
-              <Button onClick={executeSave} loading={saving}>{isTaxInvoiceReceipt ? "ออกเอกสาร" : "บันทึก"}</Button>
+              <Button onClick={executeSave} loading={saving}>{"บันทึก"}</Button>
             </div>
           </div>
         </Modal>

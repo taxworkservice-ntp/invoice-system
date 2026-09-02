@@ -162,9 +162,6 @@ function getMonthsBack(count: number) {
 
 function isRecognizedSalesDocument(doc: any, vatRegistered: boolean) {
   if (vatRegistered) {
-    if (doc.doc_type === "tax_invoice_receipt" && (doc.status === "issued" || doc.status === "paid")) {
-      return true;
-    }
     if (doc.doc_type === "invoice" && !["draft", "voided", "converted"].includes(doc.status)) {
       return true;
     }
@@ -174,14 +171,14 @@ function isRecognizedSalesDocument(doc: any, vatRegistered: boolean) {
 }
 
 function getRecognitionDate(doc: any) {
-  if (doc.doc_type === "tax_invoice_receipt" || doc.doc_type === "invoice") {
+  if (doc.doc_type === "invoice") {
     return (doc.issue_date || doc.paid_at || "").slice(0, 10);
   }
   return (doc.paid_at || doc.issue_date || "").slice(0, 10);
 }
 
 function getTransactionStatusLabel(doc: any) {
-  if (doc.doc_type === "receipt" || doc.doc_type === "tax_invoice_receipt") {
+  if (doc.doc_type === "receipt") {
     return STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
   }
 
@@ -253,25 +250,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
 
       const recognizedSalesDocs = docs.filter((d) => isRecognizedSalesDocument(d, vatRegistered));
 
-      const tirDealIds = vatRegistered
-        ? new Set(
-            docs
-              .filter(
-                (d) =>
-                  d.doc_type === "tax_invoice_receipt" &&
-                  (d.status === "issued" || d.status === "paid"),
-              )
-              .map((d) => d.deal_id as string)
-              .filter(Boolean),
-          )
-        : new Set<string>();
-
-      const dedupedSalesDocs = recognizedSalesDocs.filter((d) => {
-        if (d.doc_type === "invoice" && d.deal_id && tirDealIds.has(d.deal_id)) return false;
-        return true;
-      });
-
-      const paidThisPeriod = dedupedSalesDocs.filter((d) => {
+      const paidThisPeriod = recognizedSalesDocs.filter((d) => {
         const recognitionDate = getRecognitionDate(d);
         return recognitionDate >= start && recognitionDate <= end;
       });
@@ -358,8 +337,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       const adjustedVatCollected = Math.max(0, vatCollected - periodCreditVat + periodDebitVat);
 
       const isArDoc = (d: any) =>
-        (d.status === "sent" || d.status === "overdue" || d.status === "partially_paid" ||
-          (d.doc_type === "tax_invoice_receipt" && d.status === "issued"));
+        d.status === "sent" || d.status === "overdue" || d.status === "partially_paid";
 
       const grossOutstanding = docs
         .filter(
@@ -423,7 +401,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       const monthlyTrendData: MonthlyRevenue[] = [];
       for (const m of trendMonths) {
         const { start: ms, end: me } = getMonthRange(m.year, m.month);
-        const inMonth = dedupedSalesDocs.filter((d) => {
+        const inMonth = recognizedSalesDocs.filter((d) => {
           const recognitionDate = getRecognitionDate(d);
           return recognitionDate >= ms && recognitionDate <= me;
         });
@@ -570,7 +548,6 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       const docTypeLabelsExport: Record<string, string> = {
         quotation: "ใบเสนอราคา",
         invoice: "ใบแจ้งหนี้",
-        tax_invoice_receipt: "ใบกำกับภาษี/ใบเสร็จรับเงิน",
         billing_note: "ใบวางบิล",
         receipt: "ใบเสร็จรับเงิน",
         delivery_note: "ใบส่งของ",
@@ -598,7 +575,6 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       const docTypeLabels: Record<string, string> = {
         quotation: "ใบเสนอราคา",
         invoice: vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้",
-        tax_invoice_receipt: "ใบกำกับภาษี/ใบเสร็จรับเงิน",
         billing_note: "ใบวางบิล",
         receipt: "ใบเสร็จรับเงิน",
         delivery_note: "ใบส่งของ",
@@ -624,7 +600,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         wht_certificate_no: d.wht_certificate_no || null,
         net_payable: d.net_payable || 0,
         status: getTransactionStatusLabel(d),
-        is_paid: d.status === "paid" || d.doc_type === "receipt" || d.doc_type === "tax_invoice_receipt",
+        is_paid: d.status === "paid" || d.doc_type === "receipt",
         paid_at: d.paid_at || null,
       }));
 
@@ -668,7 +644,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
 
       const whtDocs = docs.filter((d: any) =>
         d.wht_amount > 0 &&
-        (d.doc_type === "receipt" || d.doc_type === "tax_invoice_receipt") &&
+        d.doc_type === "receipt" &&
         !["draft", "voided"].includes(d.status),
       );
       const whtTransactions: Transaction[] = whtDocs.map((d: any) => ({
@@ -699,7 +675,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       // (month → prev month, YTD → same window last year, quarter → prev quarter, year → prev year).
       const prevWindow = getPreviousPeriodRange(start, end);
       if (prevWindow) {
-        const prevInWindow = dedupedSalesDocs.filter((d) => {
+        const prevInWindow = recognizedSalesDocs.filter((d) => {
           const recognitionDate = getRecognitionDate(d);
           return recognitionDate >= prevWindow.start && recognitionDate <= prevWindow.end;
         });

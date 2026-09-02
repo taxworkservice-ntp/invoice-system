@@ -22,7 +22,6 @@ import type { ClientProfile } from "../../../types";
 const DOC_VISIBILITY_TYPES = [
   { key: "quotation", label: "ใบเสนอราคา" },
   { key: "invoice", label: "ใบแจ้งหนี้" },
-  { key: "tax_invoice_receipt", label: "ใบกำกับภาษี" },
   { key: "billing_note", label: "ใบวางบิล" },
   { key: "receipt", label: "ใบเสร็จ" },
   { key: "delivery_note", label: "ใบส่งของ" },
@@ -36,17 +35,19 @@ function ScaleRow({
   value,
   onSet,
   indent = false,
+  inheritOptionLabel,
 }: {
   label: string;
   value: string;
   onSet: (v: string) => void;
   indent?: boolean;
+  inheritOptionLabel?: string;
 }) {
   return (
     <div className={`flex items-center justify-between gap-4 py-1.5 ${indent ? "sm:pl-6" : ""}`}>
       <span className={`text-xs ${indent ? "text-gray-500" : "text-gray-600"}`}>{label}</span>
       <div className="w-[280px] shrink-0">
-        <FontScaleControl value={value} onChange={onSet} allowInherit />
+        <FontScaleControl value={value} onChange={onSet} allowInherit inheritOptionLabel={inheritOptionLabel} />
       </div>
     </div>
   );
@@ -56,16 +57,21 @@ function ScaleRow({
 function SectionScaleEditor({
   getValue,
   setValue,
+  inheritOptionLabel,
 }: {
   getValue: (key: ClassicV2SectionFontKey) => string;
   setValue: (key: ClassicV2SectionFontKey, v: string) => void;
+  /** Shown in every "ตามขนาดหลัก" option — state what it resolves to. */
+  inheritOptionLabel?: string;
 }) {
+  const rowProps = { inheritOptionLabel };
   return (
     <div className="divide-y divide-[#F0EEE8]">
       <ScaleRow
         label="ส่วนหัว (ชื่อบริษัท/ลูกค้า)"
         value={getValue("header")}
         onSet={(v) => setValue("header", v)}
+        {...rowProps}
       />
       <div className="py-1.5">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">ตารางรายการ</p>
@@ -77,6 +83,7 @@ function SectionScaleEditor({
               label={row.label}
               value={getValue(row.key)}
               onSet={(v) => setValue(row.key, v)}
+              {...rowProps}
             />
           ))}
         </div>
@@ -85,11 +92,13 @@ function SectionScaleEditor({
         label="ยอดรวม/เงื่อนไข"
         value={getValue("totals")}
         onSet={(v) => setValue("totals", v)}
+        {...rowProps}
       />
       <ScaleRow
         label="ลายเซ็น/ท้ายเอกสาร"
         value={getValue("footer")}
         onSet={(v) => setValue("footer", v)}
+        {...rowProps}
       />
     </div>
   );
@@ -99,6 +108,14 @@ const pillClass = (active: boolean) =>
   `rounded-lg border px-3 py-2 text-xs transition-colors ${active ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB] font-medium" : "border-[#E8E6DF] bg-white text-[#5F5B54] hover:border-[#c9d5e3]"}`;
 
 const FONT_CUSTOM = "__custom__";
+
+/** Human label for any font-scale value — presets use their pt label, custom pt shows the number. */
+function fontScaleLabel(value: string): string {
+  if (value.startsWith(CLASSIC_V2_CUSTOM_PT_PREFIX)) {
+    return `${value.slice(CLASSIC_V2_CUSTOM_PT_PREFIX.length)}pt`;
+  }
+  return CLASSIC_V2_FONT_SCALE_OPTIONS.find((opt) => opt.value === value)?.label || value;
+}
 
 /**
  * Font-size control used by every row of the scale panel: pt-labeled presets,
@@ -110,12 +127,15 @@ function FontScaleControl({
   allowInherit,
   showChip = false,
   label,
+  inheritOptionLabel = "ตามขนาดหลัก",
 }: {
   value: string;
   onChange: (v: string) => void;
   allowInherit: boolean;
   showChip?: boolean;
   label?: string;
+  /** Text for the "inherit" option — always state what it resolves to. */
+  inheritOptionLabel?: string;
 }) {
   const isCustom = value.startsWith(CLASSIC_V2_CUSTOM_PT_PREFIX);
   const mult = getClassicV2FontScaleMult(value);
@@ -138,7 +158,7 @@ function FontScaleControl({
             }
           }}
         >
-          {allowInherit && <option value={CLASSIC_V2_SECTION_INHERIT}>ตามขนาดหลัก</option>}
+          {allowInherit && <option value={CLASSIC_V2_SECTION_INHERIT}>{inheritOptionLabel}</option>}
           {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
@@ -170,18 +190,6 @@ function FontScaleControl({
   );
 }
 
-/** ตามขนาดหลัก + the six presets — shared by every font-scale select. */
-function FontScaleOptions() {
-  return (
-    <>
-      <option value={CLASSIC_V2_SECTION_INHERIT}>ตามขนาดหลัก</option>
-      {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
-      ))}
-    </>
-  );
-}
-
 export default function SettingsDocumentsPage() {
   const { profile } = useAuth();
   const { clientProfile, loading, setClientProfile } = useClientProfile(profile?.id);
@@ -197,6 +205,8 @@ export default function SettingsDocumentsPage() {
   const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic" | "classic_v2">("modern");
   const [classicV2FontScale, setClassicV2FontScale] = useState("normal");
   const [classicV2FullPageHeader, setClassicV2FullPageHeader] = useState(false);
+  const [classicV2HideEnglishLabels, setClassicV2HideEnglishLabels] = useState(false);
+  const [classicV2CompactSignature, setClassicV2CompactSignature] = useState(false);
   const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>({
     header: CLASSIC_V2_SECTION_INHERIT,
     items: CLASSIC_V2_SECTION_INHERIT,
@@ -244,6 +254,8 @@ export default function SettingsDocumentsPage() {
     setClassicV2TypeScales(clientProfile.classic_v2_type_font_scales || {});
     setClassicTerms(clientProfile.classic_terms || "");
     setClassicV2FullPageHeader(clientProfile.classic_v2_full_page_header === true);
+    setClassicV2HideEnglishLabels(clientProfile.classic_v2_hide_english_labels === true);
+    setClassicV2CompactSignature(clientProfile.classic_v2_compact_signature === true);
     setSignatureKey(clientProfile.signature_url || null);
     setStampKey(clientProfile.stamp_url || null);
     setSignatureScale(clientProfile.signature_scale || "medium");
@@ -293,6 +305,8 @@ export default function SettingsDocumentsPage() {
       logo_layout: logoLayout,
       pdf_template: pdfTemplate,
       classic_v2_full_page_header: classicV2FullPageHeader,
+      classic_v2_hide_english_labels: classicV2HideEnglishLabels,
+      classic_v2_compact_signature: classicV2CompactSignature,
       classic_v2_font_scale: classicV2FontScale,
       classic_v2_section_font_scales: classicV2SectionScales,
       classic_v2_type_font_scales: Object.fromEntries(
@@ -370,6 +384,8 @@ export default function SettingsDocumentsPage() {
   const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template || "modern") ||
     classicV2FullPageHeader !== (clientProfile?.classic_v2_full_page_header === true) ||
+    classicV2HideEnglishLabels !== (clientProfile?.classic_v2_hide_english_labels === true) ||
+    classicV2CompactSignature !== (clientProfile?.classic_v2_compact_signature === true) ||
     classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
     JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.classic_v2_type_font_scales || {}) ||
     CLASSIC_V2_SECTION_FONT_KEYS.some(
@@ -516,6 +532,24 @@ export default function SettingsDocumentsPage() {
                 <Switch checked={classicV2FullPageHeader} onChange={(checked) => { setClassicV2FullPageHeader(checked); setSaved(false); }} />
               </SettingRow>
             )}
+            {pdfTemplate === "classic_v2" && hasClassicV2 && (
+              <SettingRow
+                label="ซ่อนป้ายภาษาอังกฤษ (คลาสสิก V2)"
+                description="พิมพ์เฉพาะป้ายภาษาไทยในตารางรายการ กล่องข้อมูล และยอดรวม — ประหยัดพื้นที่แนวตั้ง เหมาะกับเอกสารลูกค้าไทย (ชื่อบริษัทภาษาอังกฤษยังแสดงตามปกติ)"
+                controlAlign="right"
+              >
+                <Switch checked={classicV2HideEnglishLabels} onChange={(checked) => { setClassicV2HideEnglishLabels(checked); setSaved(false); }} />
+              </SettingRow>
+            )}
+            {pdfTemplate === "classic_v2" && hasClassicV2 && (
+              <SettingRow
+                label="ลายเซ็น/ท้ายเอกสารกระชับ (คลาสสิก V2)"
+                description="ลดความสูงช่องลายเซ็นและตราประทับ — เหลือพื้นที่สำหรับรายการสินค้ามากขึ้น"
+                controlAlign="right"
+              >
+                <Switch checked={classicV2CompactSignature} onChange={(checked) => { setClassicV2CompactSignature(checked); setSaved(false); }} />
+              </SettingRow>
+            )}
             <div className="pt-3">
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 ข้อความเงื่อนไขท้ายเอกสาร
@@ -559,8 +593,8 @@ export default function SettingsDocumentsPage() {
             {scaleTab === "default" ? (
               <div className="divide-y divide-[#F0EEE8]">
                 <SettingRow
-                  label="ทั้งเอกสาร"
-                  description="ขนาดตัวอักษรหลัก (ข้อความในตารางรายการ) — ส่วนอื่นปรับตามสัดส่วนอัตโนมัติ"
+                  label="ขนาดหลัก (ทั้งเอกสาร)"
+                  description="ขนาดฐานของเอกสาร — ทุกส่วนด้านล่างที่ตั้งเป็น “ตามขนาดหลัก” จะใช้ขนาดนี้"
                   controlWidthClass="sm:w-[300px]"
                 >
                   <FontScaleControl
@@ -573,12 +607,13 @@ export default function SettingsDocumentsPage() {
                 <div className="py-2.5">
                   <div className="text-xs font-medium text-gray-700">ปรับขนาดเฉพาะส่วน</div>
                   <p className="mt-0.5 text-[11px] text-[#888780]">
-                    เลือก “ตามขนาดหลัก” เพื่อใช้ขนาดด้านบน — ช่องตัวเลขขนาดใหญ่มากอาจล้นคอลัมน์แคบ
+                    ส่วนที่ตั้งเป็น “ตามขนาดหลัก” จะปรับตามขนาดหลักด้านบนทันที — ช่องตัวเลขขนาดใหญ่มากอาจล้นคอลัมน์แคบ
                   </p>
                   <div className="mt-1">
                     <SectionScaleEditor
                       getValue={(key) => classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT}
                       setValue={(key, v) => { setClassicV2SectionScales({ ...classicV2SectionScales, [key]: v }); setSaved(false); }}
+                      inheritOptionLabel={`ตามขนาดหลัก (${fontScaleLabel(classicV2FontScale)})`}
                     />
                   </div>
                 </div>
@@ -586,8 +621,8 @@ export default function SettingsDocumentsPage() {
             ) : (
               <div className="divide-y divide-[#F0EEE8]">
                 <SettingRow
-                  label={`${selectedTypeLabel} — ทั้งเอกสาร`}
-                  description="เว้นไว้ที่ “ตามขนาดหลัก” เพื่อใช้ขนาดของแท็บค่าเริ่มต้น"
+                  label={`${selectedTypeLabel} — ขนาดหลัก`}
+                  description="ขนาดฐานของประเภทนี้ — เว้นไว้ที่ “ตามค่าเริ่มต้น” เพื่อใช้ขนาดหลักของแท็บค่าเริ่มต้น"
                   controlWidthClass="sm:w-[300px]"
                 >
                   {(() => {
@@ -598,6 +633,7 @@ export default function SettingsDocumentsPage() {
                         onChange={(v) => { setClassicV2TypeScales({ ...classicV2TypeScales, [scaleTab]: { ...current, [CLASSIC_V2_TYPE_GLOBAL_KEY]: v } }); setSaved(false); }}
                         allowInherit
                         showChip
+                        inheritOptionLabel="ตามค่าเริ่มต้น (ทุกประเภท)"
                       />
                     );
                   })()}
@@ -615,6 +651,9 @@ export default function SettingsDocumentsPage() {
                         setClassicV2TypeScales({ ...classicV2TypeScales, [scaleTab]: { ...current, [key]: v } });
                         setSaved(false);
                       }}
+                      inheritOptionLabel={`ตามขนาดหลักของ${selectedTypeLabel} (${fontScaleLabel(
+                        (classicV2TypeScales[scaleTab] || {})[CLASSIC_V2_TYPE_GLOBAL_KEY] || classicV2FontScale,
+                      )})`}
                     />
                   </div>
                 </div>

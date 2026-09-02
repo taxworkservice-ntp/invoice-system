@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { deleteDocumentFiles } from "./r2";
+import { deleteDocumentFiles, deleteFromR2 } from "./r2";
 
 /**
  * Deletes a DRAFT document and cleans up everything it owns.
@@ -28,6 +28,16 @@ export async function deleteDraftDocument(doc: {
         .eq("status", "in_billing");
     }
     await supabase.from("billing_note_invoices").delete().eq("billing_note_id", doc.id);
+  }
+
+  // Best-effort cleanup of per-line example photos (R2 keys stored on lines).
+  const { data: imageLines } = await supabase
+    .from("document_line_items")
+    .select("image_url")
+    .eq("document_id", doc.id)
+    .not("image_url", "is", null);
+  for (const line of imageLines || []) {
+    if (line.image_url) await deleteFromR2(line.image_url).catch(() => undefined);
   }
 
   await supabase.from("document_line_items").delete().eq("document_id", doc.id);

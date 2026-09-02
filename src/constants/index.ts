@@ -3,7 +3,6 @@ import type { WhtRate, DocumentType, DocumentStatus } from "../types";
 export const DOC_TYPE_LABELS: Record<DocumentType, { th: string; en: string }> = {
   quotation: { th: "ใบเสนอราคา", en: "Quotation" },
   invoice: { th: "ใบแจ้งหนี้", en: "Invoice" },
-  tax_invoice_receipt: { th: "ใบกำกับภาษี/ใบเสร็จรับเงิน", en: "Tax Invoice / Receipt" },
   billing_note: { th: "ใบวางบิล", en: "Billing Note" },
   receipt: { th: "ใบเสร็จรับเงิน", en: "Receipt" },
   delivery_note: { th: "ใบส่งของ", en: "Delivery Note" },
@@ -18,7 +17,6 @@ export const DOC_TYPE_NOTES: Partial<Record<DocumentType, string>> = {
 export const DOC_TYPE_SHORT: Record<DocumentType, string> = {
   quotation: "QT",
   invoice: "INV",
-  tax_invoice_receipt: "TIR",
   billing_note: "BN",
   receipt: "RC",
   delivery_note: "DN",
@@ -55,7 +53,6 @@ export const STATUS_COLORS: Record<DocumentStatus, { bg: string; text: string }>
 export const DOC_TYPE_COLORS: Record<DocumentType, { bg: string; text: string }> = {
   quotation: { bg: "bg-purple-100", text: "text-purple-700" },
   invoice: { bg: "bg-blue-100", text: "text-blue-700" },
-  tax_invoice_receipt: { bg: "bg-emerald-100", text: "text-emerald-700" },
   billing_note: { bg: "bg-orange-100", text: "text-orange-700" },
   receipt: { bg: "bg-green-100", text: "text-green-700" },
   delivery_note: { bg: "bg-teal-100", text: "text-teal-700" },
@@ -185,7 +182,6 @@ export function getClassicV2SectionScaleMult(
 export type ClassicV2TypeFontKey =
   | "quotation"
   | "invoice"
-  | "tax_invoice_receipt"
   | "billing_note"
   | "receipt"
   | "delivery_note"
@@ -195,7 +191,6 @@ export type ClassicV2TypeFontKey =
 export const CLASSIC_V2_TYPE_FONT_KEYS: ClassicV2TypeFontKey[] = [
   "quotation",
   "invoice",
-  "tax_invoice_receipt",
   "billing_note",
   "receipt",
   "delivery_note",
@@ -208,6 +203,28 @@ export const CLASSIC_V2_TYPE_GLOBAL_KEY = "global";
 
 /** Fixed height (mm) of the billing-note cheque-date strip — reserved from first/last page budgets. */
 export const CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM = 11;
+
+/**
+ * Height (mm) of one optional document-meta row (ชื่องาน / JOB NAME,
+ * เลขที่ใบสั่งซื้อ / PO NO.) in the classic V2 info band — measured 6.35mm at
+ * ปกติ, rounded up; scales with the header section. Reserved from first/last
+ * page budgets when the field is filled so dense pages never overflow A4.
+ */
+export const CLASSIC_V2_META_ROW_RESERVE_MM = 6.5;
+
+/**
+ * Measured vertical savings (mm) of the classic V2 compact-layout settings —
+ * returned to the row budgets as fixed-block deltas (measured on the print
+ * fixture; rounded down so budgets stay conservative):
+ *  - HIDE_EN_META_ROW: each info-band meta row (TH+EN stacked → TH only)
+ *  - HIDE_EN_THEAD: the items-table head row
+ *  - HIDE_EN_SIG: signature box titles/roles (TH+EN stacked → TH only)
+ *  - COMPACT_SIG: the whole signature band in ลายเซ็นกระชับ mode
+ */
+export const CLASSIC_V2_HIDE_EN_META_ROW_MM = 1.8;
+export const CLASSIC_V2_HIDE_EN_THEAD_MM = 2.2;
+export const CLASSIC_V2_HIDE_EN_SIG_MM = 3;
+export const CLASSIC_V2_COMPACT_SIG_MM = 5.5;
 
 /**
  * Effective classic V2 global scale for one document — precedence:

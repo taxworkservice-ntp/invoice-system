@@ -63,7 +63,6 @@ const DOC_TYPE_FILTERS: { label: string; value: DocumentType | "all" }[] = [
   { label: "ทั้งหมด", value: "all" },
   { label: "ใบเสนอราคา", value: "quotation" },
   { label: "ใบแจ้งหนี้หรือใบกำกับภาษี", value: "invoice" },
-  { label: "ใบกำกับภาษี/ใบเสร็จรับเงิน", value: "tax_invoice_receipt" },
   { label: "ใบวางบิล", value: "billing_note" },
   { label: "ใบเสร็จรับเงิน", value: "receipt" },
   { label: "ใบส่งของ", value: "delivery_note" },
@@ -131,7 +130,6 @@ function getDisplayAmountLabel(doc: Document): string {
 const DOC_TYPE_BORDER: Record<DocumentType, string> = {
   quotation: "border-l-purple-400",
   invoice: "border-l-blue-400",
-  tax_invoice_receipt: "border-l-emerald-400",
   billing_note: "border-l-orange-400",
   receipt: "border-l-green-400",
   delivery_note: "border-l-teal-400",
@@ -834,7 +832,7 @@ function DocumentCard({
                 )}
 
               {(doc.status !== "draft" && doc.status !== "voided" &&
-                ["invoice", "quotation", "billing_note", "delivery_note", "tax_invoice_receipt"].includes(doc.doc_type)) && (
+                ["invoice", "quotation", "billing_note", "delivery_note"].includes(doc.doc_type)) && (
                  <button
                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                    onClick={() => onMenuAction("copy")}
@@ -1346,7 +1344,7 @@ export default function DocumentsPage() {
     }
     if (
       action === "send" &&
-      ["invoice", "billing_note", "tax_invoice_receipt"].includes(doc.doc_type)
+      ["invoice", "billing_note"].includes(doc.doc_type)
     ) {
       // Financial documents lock on send — confirm in-app.
       setSendConfirmDoc(doc);

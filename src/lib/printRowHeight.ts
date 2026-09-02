@@ -89,6 +89,8 @@ export function estimateLineItemHeight(
     hasDnVariance?: boolean;
     /** classic_v2: this line starts a DN group → a band row renders above it. */
     hasDnGroupBand?: boolean;
+    /** Quotation line with an example photo (≈26mm image under the name). */
+    hasLineImage?: boolean;
     /** --classic-font-scale multiplier for the description column (classic templates only, 1 = default). */
     fontScale?: number;
     /** Numeric-column scale — single-line cells; falls back to fontScale. */
@@ -147,7 +149,9 @@ export function estimateLineItemHeight(
   const noteMm = noteLines * textScale(NOTE_LINE_MM[key]);
   const subMm = subLines * textScale(SUBLINE_MM[key]);
   const bandMm = isClassic && opts.hasDnGroupBand ? textScale(DN_BAND_MM.classic) : 0;
-  return nameMm + noteMm + subMm + bandMm + ROW_SAFETY_MM;
+  // Example photo: fixed 26mm print height (font-scale independent) + gap.
+  const imageMm = isClassic && opts.hasLineImage ? 26.8 : 0;
+  return nameMm + noteMm + subMm + bandMm + imageMm + ROW_SAFETY_MM;
 }
 
 export function estimateSummaryRowHeight(

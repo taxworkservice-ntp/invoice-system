@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, CalendarDays, ChevronDown, FileStack, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
@@ -142,6 +142,12 @@ export function InvoiceFromDeliveryNotesForm() {
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
   const [note, setNote] = useState("");
+  // Optional PO reference + task name, printed on the invoice. Flow-down:
+  // pre-filled from the selected DNs when they all share the same value.
+  const [customerPo, setCustomerPo] = useState("");
+  const [taskName, setTaskName] = useState("");
+  // Tracks the last derived value so manual edits survive selection changes.
+  const derivedPoTaskRef = useRef({ po: "", task: "" });
 
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -371,6 +377,27 @@ export function InvoiceFromDeliveryNotesForm() {
     () => deliveryNotes.filter((doc) => selectedIds.has(doc.id)),
     [deliveryNotes, selectedIds],
   );
+
+  // Flow-down: when every selected DN carries the same PO/task, follow it
+  // (until the user edits the field manually); mixed values stay blank.
+  const selectedDnIdsKey = selectedDeliveryNotes.map((dn) => dn.id).join(",");
+  useEffect(() => {
+    const unique = (values: Array<string | null>) => new Set(values.map((v) => v || "")).size <= 1;
+    const po = unique(selectedDeliveryNotes.map((dn) => dn.customer_po_number))
+      ? selectedDeliveryNotes[0]?.customer_po_number || ""
+      : "";
+    const task = unique(selectedDeliveryNotes.map((dn) => dn.task_name))
+      ? selectedDeliveryNotes[0]?.task_name || ""
+      : "";
+    setCustomerPo((current) =>
+      current === derivedPoTaskRef.current.po || current === "" ? po : current,
+    );
+    setTaskName((current) =>
+      current === derivedPoTaskRef.current.task || current === "" ? task : current,
+    );
+    derivedPoTaskRef.current = { po, task };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDnIdsKey]);
 
   // Rebuild editable invoice lines from the selected delivery notes, preserving
   // any manual edits the user already made to lines that are still present.
@@ -715,6 +742,8 @@ export function InvoiceFromDeliveryNotesForm() {
           wht_amount: tax.whtAmount,
           net_payable: tax.netPayable,
           note: note || null,
+          customer_po_number: customerPo.trim() || null,
+          task_name: taskName.trim() || null,
           dn_appendix: dnAppendix,
           show_dn_variance: showDnVariance,
           title: `ออกบิลรวม ${selectedCustomer.name}`,
@@ -1202,6 +1231,8 @@ export function InvoiceFromDeliveryNotesForm() {
                 </option>
               ))}
             </Select>
+            <Input label="ชื่องาน (JOB NAME)" value={taskName} onChange={(event) => setTaskName(event.target.value)} placeholder="เช่น งานติดตั้งไฟโรงงาน A" />
+            <Input label="เลขที่ใบสั่งซื้อ (PO NO.)" value={customerPo} onChange={(event) => setCustomerPo(event.target.value)} placeholder="เช่น PO-2569-001" />
             <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบส่งของประจำเดือนนี้" />
             <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">

@@ -403,6 +403,8 @@ const dnDocumentData: Document = {
   wht_rate: 0,
   wht_amount: 0,
   net_payable: dnSubtotal + Math.round(dnSubtotal * 7) / 100,
+  task_name: "งานติดตั้งไฟโรงงาน A",
+  customer_po_number: "PO-2569-001",
   note: null,
 };
 
@@ -431,6 +433,67 @@ const dnLineDeliveryNoteMap = Object.fromEntries(
     }),
 );
 
+// --- "qt" fixture: quotation with per-line example photos (classic V2) ---
+const qtImageSvg = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+    <rect width="640" height="480" fill="#eef2f7"/>
+    <rect x="60" y="120" width="300" height="220" fill="#378ADD" opacity="0.8"/>
+    <rect x="420" y="180" width="160" height="160" fill="#f59e0b" opacity="0.8"/>
+    <text x="320" y="440" font-family="Arial" font-size="28" fill="#475467" text-anchor="middle">ตัวอย่างงานติดตั้ง</text>
+  </svg>`,
+)}`;
+
+const qtLines: DocumentLineItem[] = [
+  {
+    id: "qt-line-1", document_id: "doc-qt", user_id: "user-layout-baseline",
+    item_id: null, item_name: "งานติดตั้งไฟโรงงาน A (โครงสร้างครบชุด)",
+    line_note: "ตัวอย่างผลงานจากโครงการก่อนหน้า", item_sku: null, item_type: "service",
+    unit: "งาน", unit_price: 35000, quantity: 1, base_quantity: 1,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: null, source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    image_url: qtImageSvg,
+    line_total: 35000, sort_order: 1, created_at: now,
+  },
+  {
+    id: "qt-line-2", document_id: "doc-qt", user_id: "user-layout-baseline",
+    item_id: null, item_name: "งานทาสีอาคาร (2 ชั้น)",
+    line_note: null, item_sku: null, item_type: "service",
+    unit: "ตร.ม.", unit_price: 120, quantity: 400, base_quantity: 400,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: null, source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    image_url: null,
+    line_total: 48000, sort_order: 2, created_at: now,
+  },
+] as unknown as DocumentLineItem[];
+
+const qtSubtotal = 83000;
+const qtDocument: Document = {
+  ...documentData,
+  id: "doc-qt",
+  doc_type: "quotation",
+  doc_number: "QT-2026-09-001",
+  issue_date: "2026-09-02",
+  due_date: null,
+  wht_rate: 0,
+  wht_amount: 0,
+  subtotal: qtSubtotal,
+  vat_amount: Math.round(qtSubtotal * 7) / 100,
+  total_amount: qtSubtotal + Math.round(qtSubtotal * 7) / 100,
+  net_payable: qtSubtotal + Math.round(qtSubtotal * 7) / 100,
+  note: null,
+};
+
+const qtData = (template: HtmlPrintTemplate): PrintDocumentData => ({
+  ...data(template),
+  document: qtDocument,
+  lineItems: qtLines,
+  invoiceDeliveryNotes: [],
+  lineDeliveryNoteMap: {},
+  showInlineDeliveryNotes: false,
+});
+
 const dnData = (template: HtmlPrintTemplate): PrintDocumentData => ({
   ...data(template),
   document: dnDocumentData,
@@ -452,6 +515,7 @@ const copyType: CopyType =
 const docVariant =
   params.get("doc") === "many" ? "many"
   : params.get("doc") === "dn" ? "dn"
+  : params.get("doc") === "qt" ? "qt"
   : "base";
 const appendixOn = params.get("appendix") === "1";
 const fontScalePreset = params.get("fontScale");
@@ -460,7 +524,7 @@ const pageMode =
   pageModeParam === "first" || pageModeParam === "continuation" || pageModeParam === "last"
     ? pageModeParam
     : "single";
-const baseData = docVariant === "many" ? manyData(template) : docVariant === "dn" ? dnData(template) : data(template);
+const baseData = docVariant === "many" ? manyData(template) : docVariant === "dn" ? dnData(template) : docVariant === "qt" ? qtData(template) : data(template);
 // โหมดอ้างอิง (classic V2):
 //   refCollapse=1 → pass the refCollapse prop — DN reference table replaces
 //                   the items table (the PDF-export path, เหมือนใบวางบิล)
@@ -523,6 +587,18 @@ if (typeDoc) {
       },
     };
   }
+}
+if (params.get("hideEn") === "1") {
+  activeBaseData.clientProfile = {
+    ...activeBaseData.clientProfile,
+    classic_v2_hide_english_labels: true,
+  };
+}
+if (params.get("compactSig") === "1") {
+  activeBaseData.clientProfile = {
+    ...activeBaseData.clientProfile,
+    classic_v2_compact_signature: true,
+  };
 }
 const activeData = appendixOn
   ? { ...activeBaseData, document: { ...activeBaseData.document, dn_appendix: true } }

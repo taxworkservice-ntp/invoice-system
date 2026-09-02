@@ -149,9 +149,7 @@ export async function deductStockOnDocumentSent(
   if (!document) return { warnings: [], movementCreated: false };
 
   const shouldDeduct =
-    (trigger === "invoice" &&
-      (document.doc_type === "invoice" ||
-        document.doc_type === "tax_invoice_receipt")) ||
+    (trigger === "invoice" && document.doc_type === "invoice") ||
     (trigger === "delivery_note" && document.doc_type === "delivery_note");
 
   if (!shouldDeduct) return { warnings: [], movementCreated: false };
@@ -230,9 +228,7 @@ export async function deductStockOnDocumentSent(
     const reasonLabel =
       document.doc_type === "delivery_note"
         ? "ใบส่งของ"
-        : document.doc_type === "tax_invoice_receipt"
-          ? "ใบกำกับภาษี/ใบเสร็จรับเงิน"
-          : "ใบแจ้งหนี้";
+        : "ใบแจ้งหนี้";
 
     const { error: movementError } = await supabase.from("stock_movements").insert({
       item_id: li.item_id,

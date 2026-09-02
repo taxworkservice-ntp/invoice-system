@@ -130,7 +130,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
       .select("*")
       .eq("deal_id", dealId)
       .eq("user_id", userId)
-      .in("doc_type", ["invoice", "tax_invoice_receipt"])
+      .in("doc_type", ["invoice"])
       .in("status", ["paid", "generated", "issued"])
       .order("created_at", { ascending: false });
 

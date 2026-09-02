@@ -106,7 +106,7 @@ export function getRowBudgets(
   fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
   extraReserveMm = 0,
-  opts: { multiFirst?: boolean; continuationFullHeader?: boolean } = {},
+  opts: { multiFirst?: boolean; continuationFullHeader?: boolean; spaceBonusMm?: { first?: number; continuation?: number; last?: number } } = {},
 ): { first: number; continuation: number; last: number } {
   const baseMm = getBaseRowMm(template);
   const cap = kind === "summary_rows"
@@ -134,9 +134,9 @@ export function getRowBudgets(
   const contMode = opts.continuationFullHeader ? "continuation_full_header" : "continuation";
   const contCap = opts.continuationFullHeader ? (cap.continuationFullHeader ?? cap.continuation) : cap.continuation;
   return {
-    first: Math.max(minRowMm, firstCap * baseMm - firstReserve - firstExtra),
-    continuation: Math.max(minRowMm, contCap * baseMm - reserve(contMode)),
-    last: Math.max(minRowMm, cap.last * baseMm - reserve("last") - extraReserveMm),
+    first: Math.max(minRowMm, firstCap * baseMm - firstReserve - firstExtra + (opts.spaceBonusMm?.first ?? 0)),
+    continuation: Math.max(minRowMm, contCap * baseMm - reserve(contMode) + (opts.spaceBonusMm?.continuation ?? 0)),
+    last: Math.max(minRowMm, cap.last * baseMm - reserve("last") - extraReserveMm + (opts.spaceBonusMm?.last ?? 0)),
   };
 }
 
@@ -161,6 +161,14 @@ export interface PaginateOptions<T> {
    * budgets to make room for the scaled fixed page blocks.
    */
   fontScale?: number | ClassicV2FontScales;
+  /**
+   * Classic V2 space savings (mm) returned by the compact-layout settings
+   * (ซ่อนป้ายภาษาอังกฤษ / ลายเซ็นกระชับ): fixed blocks render smaller, so the
+   * per-page row budgets grow by the measured delta. Per page mode.
+   * `firstMulti` overrides `first` for the multi-page first page (header +
+   * info band only — no totals/signature band there).
+   */
+  spaceBonusMm?: { first?: number; firstMulti?: number; continuation?: number; last?: number };
   /**
    * Fixed extra reserve (mm) subtracted from the FIRST and LAST page budgets
    * only — footer-area content such as the billing-note cheque-details strip
@@ -210,6 +218,7 @@ export function paginateRows<T>(
       kind,
       options.extraReserveMm ?? 0,
       fullHeader,
+      options.spaceBonusMm,
     );
   }
 
@@ -277,8 +286,9 @@ function paginateRowsByHeight<T>(
   kind: PaginationKind = "line_items",
   extraReserveMm = 0,
   continuationFullHeader = false,
+  spaceBonusMm?: { first?: number; firstMulti?: number; continuation?: number; last?: number },
 ): GenericPageBatch<T>[] {
-  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader });
+  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader, spaceBonusMm });
   const heights = rows.map((row, i) => estimateHeight(row, i));
   const totalHeight = heights.reduce((sum, h) => sum + h, 0);
 
@@ -321,7 +331,7 @@ function paginateRowsByHeight<T>(
   // Multi-page: the FIRST page carries only header + info band (totals and
   // signatures are on the last page), so it packs to the larger multi-first
   // budget — but always leaves at least one row for the finalized page.
-  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true });
+  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true, spaceBonusMm: { first: spaceBonusMm?.firstMulti ?? spaceBonusMm?.first } });
   const multiFirstCap = (kind === "summary_rows"
     ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
     : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]

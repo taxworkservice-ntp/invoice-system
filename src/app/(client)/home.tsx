@@ -246,13 +246,6 @@ function getDealWhtAmount(documents: DealDoc[]) {
     return receipts.reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
   }
 
-  const combinedReceipts = nonVoided.filter(
-    (doc) => doc.doc_type === "tax_invoice_receipt" && ["issued", "paid"].includes(doc.status),
-  );
-  if (combinedReceipts.length > 0) {
-    return combinedReceipts.reduce((sum, receipt) => sum + (receipt.wht_amount || 0), 0);
-  }
-
   return 0;
 }
 
@@ -278,7 +271,6 @@ function getCompletionDoc(documents: DealDoc[]) {
   const nonVoided = sortDocuments(documents.filter((doc) => doc.status !== "voided"));
   return (
     nonVoided.find((doc) => doc.doc_type === "receipt" && ["generated", "paid", "issued"].includes(doc.status)) ||
-    nonVoided.find((doc) => doc.doc_type === "tax_invoice_receipt" && ["issued", "paid"].includes(doc.status)) ||
     nonVoided.find((doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status)) ||
     nonVoided.find((doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status)) ||
     null
@@ -335,13 +327,10 @@ function getDealReceivedAmount(documents: DealDoc[]) {
   const invoiceReceived = nonVoided
     .filter((doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status))
     .reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
-  const combinedReceived = nonVoided
-    .filter((doc) => doc.doc_type === "tax_invoice_receipt" && ["paid", "issued"].includes(doc.status))
-    .reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
 
   // Receipts and source documents can be populated by different workflows;
   // use the highest authoritative cumulative total without double-counting them.
-  return Math.max(receiptReceived, billingReceived, invoiceReceived, combinedReceived);
+  return Math.max(receiptReceived, billingReceived, invoiceReceived);
 }
 
 // Unique non-voided document types in pipeline order — rendered as badges
@@ -350,7 +339,6 @@ const DONE_BADGE_ORDER = [
   "quotation",
   "delivery_note",
   "invoice",
-  "tax_invoice_receipt",
   "billing_note",
   "receipt",
   "credit_note",
@@ -400,7 +388,6 @@ function getNextActionLabel(doc: DealDoc | null) {
     return "บันทึกว่าส่งของแล้ว →";
   if (doc.doc_type === "delivery_note" && doc.status === "sent")
     return "สร้างบิลจากใบส่งของ →";
-  if (doc.doc_type === "tax_invoice_receipt") return "";
   if (doc.doc_type === "billing_note" && doc.status === "draft")
     return "ส่งใบวางบิลให้ลูกค้า →";
   if (doc.doc_type === "billing_note" && doc.status === "sent")
@@ -605,7 +592,7 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
   const isPartiallyPaid = (deal.documents || []).some((d) => d.status === "partially_paid");
 
   const taxDoc = (deal.documents || []).find(
-    (d) => d.doc_type === "tax_invoice_receipt" || d.doc_type === "invoice",
+    (d) => d.doc_type === "invoice",
   ) || null;
   const taxDocNumber = taxDoc?.doc_number || null;
 

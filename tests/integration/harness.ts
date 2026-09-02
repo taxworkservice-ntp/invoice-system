@@ -86,7 +86,6 @@ const SEQ_TYPES: Array<[string, string]> = [
   ["delivery_note", "DN"],
   ["billing_note", "BN"],
   ["receipt", "RC"],
-  ["tax_invoice_receipt", "IVR"],
 ];
 
 // The app seeds doc-number sequences at signup; the test user created via admin

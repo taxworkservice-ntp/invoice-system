@@ -28,7 +28,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 const DOC_ORDER = [
-  "quotation", "delivery_note", "invoice", "tax_invoice_receipt",
+  "quotation", "delivery_note", "invoice",
   "billing_note", "receipt", "credit_note", "debit_note",
 ];
 

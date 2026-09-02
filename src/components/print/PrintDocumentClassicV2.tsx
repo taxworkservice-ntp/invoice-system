@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { formatCurrency, paymentMethodText } from "../../lib/format";
+import { getProxiedImageUrl } from "../../lib/storageApi";
 import { isDnMarkerLine } from "../../lib/print";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
@@ -29,54 +30,62 @@ function SigDateFill() {
 }
 
 /** Per-document-type wording for the signature boxes (Box 1 + Box 2; Box 3 is always the company signer). */
-const SIG_LABELS: Record<string, { box1Title: string; box1TitleEn: string; box1Role: string; box2Role: string }> = {
+const SIG_LABELS: Record<string, { box1Title: string; box1TitleEn: string; box1RoleTh: string; box1RoleEn: string; box2RoleTh: string; box2RoleEn: string }> = {
   invoice: {
     box1Title: "ได้รับสินค้า/บริการถูกต้องแล้ว",
     box1TitleEn: "GOODS & SERVICES RECEIVED",
-    box1Role: "ผู้รับสินค้า/บริการ / RECEIVED BY",
-    box2Role: "ผู้จ่ายเงิน / PAYER",
-  },
-  tax_invoice_receipt: {
-    box1Title: "ได้รับชำระเงินถูกต้องแล้ว",
-    box1TitleEn: "PAYMENT RECEIVED",
-    box1Role: "ผู้รับเงิน / RECEIVER",
-    box2Role: "ผู้จ่ายเงิน / PAYER",
+    box1RoleTh: "ผู้รับสินค้า/บริการ",
+    box1RoleEn: "RECEIVED BY",
+    box2RoleTh: "ผู้จ่ายเงิน",
+    box2RoleEn: "PAYER",
   },
   receipt: {
     box1Title: "ได้รับชำระเงินถูกต้องแล้ว",
     box1TitleEn: "PAYMENT RECEIVED",
-    box1Role: "ผู้รับเงิน / RECEIVER",
-    box2Role: "ผู้จ่ายเงิน / PAYER",
+    box1RoleTh: "ผู้รับเงิน",
+    box1RoleEn: "RECEIVER",
+    box2RoleTh: "ผู้จ่ายเงิน",
+    box2RoleEn: "PAYER",
   },
   billing_note: {
     box1Title: "ได้รับใบวางบิลถูกต้อง",
     box1TitleEn: "BILLING ACKNOWLEDGED",
-    box1Role: "ผู้รับใบวางบิล / ACKNOWLEDGED BY",
-    box2Role: "ผู้จ่ายเงิน / PAYER",
+    box1RoleTh: "ผู้รับใบวางบิล",
+    box1RoleEn: "ACKNOWLEDGED BY",
+    box2RoleTh: "ผู้จ่ายเงิน",
+    box2RoleEn: "PAYER",
   },
   quotation: {
     box1Title: "ยืนยันคำสั่งซื้อ",
     box1TitleEn: "ORDER CONFIRMED",
-    box1Role: "ผู้ยืนยันคำสั่งซื้อ / CONFIRMED BY",
-    box2Role: "ผู้เสนอราคา / QUOTED BY",
+    box1RoleTh: "ผู้ยืนยันคำสั่งซื้อ",
+    box1RoleEn: "CONFIRMED BY",
+    box2RoleTh: "ผู้เสนอราคา",
+    box2RoleEn: "QUOTED BY",
   },
   delivery_note: {
     box1Title: "ได้รับสินค้า/บริการถูกต้องแล้ว",
     box1TitleEn: "GOODS/SERVICES RECEIVED",
-    box1Role: "ผู้รับของ / RECEIVED BY",
-    box2Role: "ผู้ส่งของ / DELIVERED BY",
+    box1RoleTh: "ผู้รับของ",
+    box1RoleEn: "RECEIVED BY",
+    box2RoleTh: "ผู้ส่งของ",
+    box2RoleEn: "DELIVERED BY",
   },
   credit_note: {
     box1Title: "ได้รับใบลดหนี้ถูกต้อง",
     box1TitleEn: "CREDIT NOTE ACKNOWLEDGED",
-    box1Role: "ผู้รับใบลดหนี้ / ACKNOWLEDGED BY",
-    box2Role: "ผู้อนุมัติใบลดหนี้ / APPROVED BY",
+    box1RoleTh: "ผู้รับใบลดหนี้",
+    box1RoleEn: "ACKNOWLEDGED BY",
+    box2RoleTh: "ผู้อนุมัติใบลดหนี้",
+    box2RoleEn: "APPROVED BY",
   },
   debit_note: {
     box1Title: "ได้รับใบเพิ่มหนี้ถูกต้อง",
     box1TitleEn: "DEBIT NOTE ACKNOWLEDGED",
-    box1Role: "ผู้รับใบเพิ่มหนี้ / ACKNOWLEDGED BY",
-    box2Role: "ผู้อนุมัติใบเพิ่มหนี้ / APPROVED BY",
+    box1RoleTh: "ผู้รับใบเพิ่มหนี้",
+    box1RoleEn: "ACKNOWLEDGED BY",
+    box2RoleTh: "ผู้อนุมัติใบเพิ่มหนี้",
+    box2RoleEn: "APPROVED BY",
   },
 };
 
@@ -122,13 +131,11 @@ function adjustmentCorrectAmount(original: number, adjustment: number, isCreditN
 
 const SHOW_BANK_TYPES = new Set([
   "invoice",
-  "tax_invoice_receipt",
   "billing_note",
   "receipt",
 ]);
 const SHOW_PAYMENT_METHOD_TYPES = new Set([
   "invoice",
-  "tax_invoice_receipt",
   "receipt",
 ]);
 const MIN_CLASSIC_ITEM_ROWS = 8;
@@ -303,7 +310,7 @@ export function PrintDocumentClassicV2({
     showPaymentMethod && document.payment_method
       ? `วิธีชำระเงิน: ${paymentMethodText(PAYMENT_METHOD_LABELS[document.payment_method] || document.payment_method, document)}`
       : null,
-    (document.doc_type === "receipt" || document.doc_type === "tax_invoice_receipt") && document.amount_received != null
+    document.doc_type === "receipt" && document.amount_received != null
       ? `จำนวนเงินที่รับ: ${formatCurrency(document.amount_received)}`
       : null,
     document.wht_certificate_no
@@ -325,20 +332,10 @@ export function PrintDocumentClassicV2({
     if (!referenceDoc) return null;
     if (document.doc_type === "credit_note" || document.doc_type === "debit_note") {
       if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
-      if (referenceDoc.doc_type === "tax_invoice_receipt") {
-        return referenceDoc.vat_registered
-          ? "อ้างอิงใบกำกับภาษี"
-          : "อ้างอิงใบเสร็จรับเงิน";
-      }
       if (referenceDoc.doc_type === "receipt") return "อ้างอิงใบเสร็จรับเงิน";
     }
     if (document.doc_type === "receipt") {
       if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
-      if (referenceDoc.doc_type === "tax_invoice_receipt") {
-        return referenceDoc.vat_registered
-          ? "อ้างอิงใบกำกับภาษี"
-          : "อ้างอิงใบเสร็จรับเงิน";
-      }
       if (referenceDoc.doc_type === "billing_note") return "อ้างอิงใบวางบิล";
     }
     return "เอกสารอ้างอิง";
@@ -348,6 +345,8 @@ export function PrintDocumentClassicV2({
     <article
       className={
         `print-sheet print-theme-classic print-theme-classic-v2${isCopy ? " print-copy" : ""}${documentClass}`
+        + `${clientProfile.classic_v2_hide_english_labels ? " print-hide-en" : ""}`
+        + `${clientProfile.classic_v2_compact_signature ? " print-sig-compact" : ""}`
       }
       style={{
         "--classic-font-scale": fontScaleMult,
@@ -491,6 +490,15 @@ export function PrintDocumentClassicV2({
                       {document.doc_number || "-"}
                     </td>
                   </tr>
+                  {document.customer_po_number ? (
+                    <tr>
+                      <th>
+                        <span className="print-classic-meta-th-th">เลขที่ใบสั่งซื้อ</span>
+                        <span className="print-classic-meta-th-en">PO NO.</span>
+                      </th>
+                      <td className="print-classic-meta-val">{document.customer_po_number}</td>
+                    </tr>
+                  ) : null}
                   {isReceipt && receiptPaymentNumber && !receiptPaidInFull ? (
                     <tr>
                       <th>
@@ -534,6 +542,15 @@ export function PrintDocumentClassicV2({
                       <td className="print-classic-meta-val">
                         {formatDate(document.due_date)}
                       </td>
+                    </tr>
+                  ) : null}
+                  {document.task_name ? (
+                    <tr>
+                      <th>
+                        <span className="print-classic-meta-th-th">ชื่องาน</span>
+                        <span className="print-classic-meta-th-en">JOB NAME</span>
+                      </th>
+                      <td className="print-classic-meta-val">{document.task_name}</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -859,6 +876,13 @@ export function PrintDocumentClassicV2({
                               <div className="print-classic-dn-note">
                                 ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
                               </div>
+                            ) : null}
+                            {document.doc_type === "quotation" && item.image_url ? (
+                              <img
+                                src={getProxiedImageUrl(item.image_url)}
+                                alt={`รูปตัวอย่าง: ${item.item_name}`}
+                                className="print-classic-line-image"
+                              />
                             ) : null}
                           </td>
                           <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
@@ -1226,15 +1250,25 @@ export function PrintDocumentClassicV2({
                     <div className="print-classic-sig-th">{sig.box1Title}</div>
                     <div className="print-classic-sig-th-en">{sig.box1TitleEn}</div>
                     <div className="print-classic-sig-line"></div>
-                    <div className="print-classic-sig-dt">วันที่ / DATE</div>
+                    <div className="print-classic-sig-dt">
+                      วันที่ <span className="print-classic-sig-dt-en">/ DATE</span>
+                    </div>
                     <SigDateFill />
-                    <div className="print-classic-sig-role">{sig.box1Role}</div>
+                    <div className="print-classic-sig-role">
+                      <span className="print-classic-sig-role-th">{sig.box1RoleTh}</span>
+                      <span className="print-classic-sig-role-en"> / {sig.box1RoleEn}</span>
+                    </div>
                   </div>
                   <div className="print-classic-sig-cell print-classic-sig-cell-mid">
                     <div className="print-classic-sig-line"></div>
-                    <div className="print-classic-sig-dt">วันที่ / DATE</div>
+                    <div className="print-classic-sig-dt">
+                      วันที่ <span className="print-classic-sig-dt-en">/ DATE</span>
+                    </div>
                     <SigDateFill />
-                    <div className="print-classic-sig-role">{sig.box2Role}</div>
+                    <div className="print-classic-sig-role">
+                      <span className="print-classic-sig-role-th">{sig.box2RoleTh}</span>
+                      <span className="print-classic-sig-role-en"> / {sig.box2RoleEn}</span>
+                    </div>
                   </div>
                   <div className="print-classic-sig-cell">
                     <div className="print-classic-sig-th">
@@ -1265,10 +1299,13 @@ export function PrintDocumentClassicV2({
                         />
                       ) : null}
                     </div>
-                    <div className="print-classic-sig-dt">วันที่ / DATE</div>
+                    <div className="print-classic-sig-dt">
+                      วันที่ <span className="print-classic-sig-dt-en">/ DATE</span>
+                    </div>
                     <SigDateFill />
                     <div className="print-classic-sig-role">
-                      ผู้มีอำนาจลงนาม / AUTHORIZED BY
+                      <span className="print-classic-sig-role-th">ผู้มีอำนาจลงนาม</span>
+                      <span className="print-classic-sig-role-en"> / AUTHORIZED BY</span>
                     </div>
                   </div>
                 </>

@@ -72,26 +72,12 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
 
         <div className="print-modern-title-panel shrink-0 text-right text-[#111827] w-[64mm] px-2">
           <div className="print-modern-copy-label text-[#7A8699]">{copyLabel}</div>
-          {document.doc_type === "tax_invoice_receipt" && document.vat_registered ? (
-            <>
-              <div className="print-modern-doc-title font-semibold text-[#111827]">
-                <div className="print-modern-doc-title-th">ใบกำกับภาษี /</div>
-                <div className="print-modern-doc-title-th">ใบเสร็จรับเงิน</div>
-              </div>
-              <div className="print-modern-doc-title-en font-semibold text-[#94a3b8]">
-                TAX INVOICE / RECEIPT
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="print-modern-doc-title print-modern-doc-title-th font-semibold text-[#111827]">
-                {label.thai}
-              </div>
-              <div className="print-modern-doc-title-en font-semibold text-[#94a3b8]">
-                {label.en.toUpperCase()}
-              </div>
-            </>
-          )}
+          <div className="print-modern-doc-title print-modern-doc-title-th font-semibold text-[#111827]">
+            {label.thai}
+          </div>
+          <div className="print-modern-doc-title-en font-semibold text-[#94a3b8]">
+            {label.en.toUpperCase()}
+          </div>
           {document.doc_type === "receipt" && receiptPaymentNumber && !receiptPaidInFull ? (
             <div className="flex justify-between gap-2">
               <div className="flex flex-col">
@@ -132,16 +118,10 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
                   <span className="text-[#6B7280]">{(() => {
                     if (document.doc_type === "credit_note" || document.doc_type === "debit_note") {
                       if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
-                      if (referenceDoc.doc_type === "tax_invoice_receipt") {
-                        return referenceDoc.vat_registered ? "อ้างอิงใบกำกับภาษี" : "อ้างอิงใบเสร็จรับเงิน";
-                      }
                       if (referenceDoc.doc_type === "receipt") return "อ้างอิงใบเสร็จรับเงิน";
                     }
                     if (document.doc_type === "receipt") {
                       if (referenceDoc.doc_type === "invoice") return "อ้างอิงใบแจ้งหนี้";
-                      if (referenceDoc.doc_type === "tax_invoice_receipt") {
-                        return referenceDoc.vat_registered ? "อ้างอิงใบกำกับภาษี" : "อ้างอิงใบเสร็จรับเงิน";
-                      }
                       if (referenceDoc.doc_type === "billing_note") return "อ้างอิงใบวางบิล";
                     }
                     return "เอกสารอ้างอิง";

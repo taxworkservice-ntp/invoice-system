@@ -14,14 +14,13 @@ interface SendDocumentOptions {
 }
 
 function getSentStatus(document: SendableDocument): DocumentStatus {
-  return document.doc_type === "tax_invoice_receipt" ? "issued" : "sent";
+  return "sent";
 }
 
 function canCreateStockMovement(document: SendableDocument): boolean {
   return (
     document.doc_type === "invoice" ||
-    document.doc_type === "delivery_note" ||
-    document.doc_type === "tax_invoice_receipt"
+    document.doc_type === "delivery_note"
   );
 }
 

@@ -91,12 +91,11 @@ type DealHistoryItem = {
 };
 
 const DEAL_HISTORY_VIEW_STORAGE_KEY = "customer_deal_history_view";
-const SALES_JOB_DOCUMENT_TYPES = new Set(["quotation", "invoice", "tax_invoice_receipt", "delivery_note"]);
+const SALES_JOB_DOCUMENT_TYPES = new Set(["quotation", "invoice", "delivery_note"]);
 
 const REP_DOC_PRIORITY: Record<string, number> = {
   billing_note: 5,
   invoice: 4,
-  tax_invoice_receipt: 3,
   quotation: 2,
   delivery_note: 1,
   receipt: 0,
@@ -168,9 +167,7 @@ function getDealReceived(docs: Document[]) {
     return invoices.reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
   }
 
-  return nonVoided
-    .filter((doc) => doc.doc_type === "tax_invoice_receipt" && ["paid", "issued"].includes(doc.status))
-    .reduce((sum, doc) => sum + (doc.amount_received || doc.net_payable || 0), 0);
+  return 0;
 }
 
 function getDealOutstanding(docs: Document[]) {

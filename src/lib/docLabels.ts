@@ -19,26 +19,6 @@ export function invoiceLabel(vatRegistered: boolean): {
   };
 }
 
-export function taxInvoiceReceiptLabel(vatRegistered = true): {
-  thai: string;
-  en: string;
-  short: string;
-} {
-  if (!vatRegistered) {
-    return {
-      thai: "ใบเสร็จรับเงิน",
-      en: "Receipt",
-      short: "RC",
-    };
-  }
-
-  return {
-    thai: "ใบกำกับภาษี/ใบเสร็จรับเงิน",
-    en: "Tax Invoice / Receipt",
-    short: "TAX INV / RC",
-  };
-}
-
 export function documentTypeLabel(
   docType: DocumentType,
   vatRegistered: boolean,
@@ -46,8 +26,6 @@ export function documentTypeLabel(
   switch (docType) {
     case "invoice":
       return invoiceLabel(vatRegistered);
-    case "tax_invoice_receipt":
-      return taxInvoiceReceiptLabel(vatRegistered);
     case "quotation":
       return { thai: "ใบเสนอราคา", en: "Quotation" };
     case "billing_note":

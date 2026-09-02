@@ -97,7 +97,7 @@ export async function getDocumentDetail(documentId: string) {
 
     if (dealDocs) {
       const billingNote = dealDocs.find((d: any) => d.doc_type === "billing_note");
-      const invoiceDoc = dealDocs.find((d: any) => d.doc_type === "invoice" || d.doc_type === "tax_invoice_receipt");
+      const invoiceDoc = dealDocs.find((d: any) => d.doc_type === "invoice");
 
       let sourceIds: string[] = [];
       if (billingNote) {
@@ -130,7 +130,7 @@ export async function getDocumentDetail(documentId: string) {
     doc.billing_invoices = (invoices || []) as BillingNoteInvoice[];
   }
 
-  if (doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") {
+  if (doc.doc_type === "invoice") {
     const { data: deliveryNotes } = await supabase
       .from("invoice_delivery_notes")
       .select("*")

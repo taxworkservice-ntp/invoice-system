@@ -18,7 +18,7 @@ import {
 import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
 import { apiFetchBlob } from "../../../lib/api";
-import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -46,12 +46,6 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const isClassicV2 = data.template === "classic_v2";
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
   const typeFontScales = data.clientProfile.classic_v2_type_font_scales?.[data.document.doc_type];
-  // Billing notes carry the cheque-details strip (~22mm fixed) — reserved
-  // from every page budget so rows never clip under it.
-  const extraReserveMm = isClassicV2 && data.document.doc_type === "billing_note"
-    ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
-    : 0;
-  const continuationFullHeader = isClassicV2 && data.clientProfile.classic_v2_full_page_header === true;
   // An explicit per-document override applies to the whole document (all
   // sections) — it beats type and workspace scales.
   const docOverrideMult =
@@ -71,11 +65,14 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const numScale = docOverrideMult ?? (isClassicV2
     ? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, globalScale)
     : 1);
+  const headerScale = docOverrideMult ?? (isClassicV2
+    ? getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale)
+    : 1);
   // Budgets account for every fixed page block; row-text estimates use the
   // description (items) + numeric column scales.
   const budgetScales: number | ClassicV2FontScales = docOverrideMult ?? (isClassicV2
     ? {
-        header: getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale),
+        header: headerScale,
         items: itemsScale,
         num: numScale,
         thead: getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, globalScale),
@@ -83,12 +80,49 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
         footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
       }
     : 1);
+  // Billing notes carry the cheque-details strip (~22mm fixed) — reserved
+  // from every page budget so rows never clip under it. Optional meta rows
+  // (ชื่องาน / PO NO.) grow the info band the same way — reserve their
+  // measured height so dense pages never overflow A4. With ซ่อนป้ายภาษาอังกฤษ
+  // the meta rows render shorter, so their reserve shrinks accordingly.
+  const hideEn = isClassicV2 && data.clientProfile.classic_v2_hide_english_labels === true;
+  const compactSig = isClassicV2 && data.clientProfile.classic_v2_compact_signature === true;
+  const metaRowReserveMm = hideEn
+    ? CLASSIC_V2_META_ROW_RESERVE_MM - CLASSIC_V2_HIDE_EN_META_ROW_MM
+    : CLASSIC_V2_META_ROW_RESERVE_MM;
+  const extraReserveMm = (isClassicV2 && data.document.doc_type === "billing_note"
+    ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
+    : 0) + (isClassicV2
+    ? ((data.document.task_name ? metaRowReserveMm : 0) +
+       (data.document.customer_po_number ? metaRowReserveMm : 0)) * headerScale
+    : 0);
+  // Space savings returned to the budgets (fixed blocks render smaller):
+  // hide-EN shrinks each visible meta row + thead + signature titles; the
+  // compact signature band shrinks the whole band. DATE/NO always print;
+  // DUE DATE / PO / JOB NAME are conditional. The multi-page first page has
+  // no totals/signature band, so its bonus covers the band + thead only.
+  const metaRowCount =
+    2 +
+    (data.document.due_date ? 1 : 0) +
+    (data.document.task_name ? 1 : 0) +
+    (data.document.customer_po_number ? 1 : 0);
+  const hideEnBandMm = hideEn ? metaRowCount * CLASSIC_V2_HIDE_EN_META_ROW_MM : 0;
+  const hideEnTheadMm = hideEn ? CLASSIC_V2_HIDE_EN_THEAD_MM : 0;
+  const spaceBonusMm = isClassicV2 && (hideEn || compactSig)
+    ? {
+        first: hideEnBandMm + hideEnTheadMm + (hideEn ? CLASSIC_V2_HIDE_EN_SIG_MM : 0) + (compactSig ? CLASSIC_V2_COMPACT_SIG_MM : 0),
+        firstMulti: hideEnBandMm + hideEnTheadMm,
+        continuation: hideEnTheadMm,
+        last: hideEnBandMm + hideEnTheadMm + (hideEn ? CLASSIC_V2_HIDE_EN_SIG_MM : 0) + (compactSig ? CLASSIC_V2_COMPACT_SIG_MM : 0),
+      }
+    : undefined;
+  const continuationFullHeader = isClassicV2 && data.clientProfile.classic_v2_full_page_header === true;
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
     return paginateRows(
       data.billingNoteInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale), fontScale: budgetScales, extraReserveMm },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm },
     ).map((batch) => ({ kind: "billing_invoices", batch }));
   }
 
@@ -151,11 +185,14 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
           !!data.showInlineDeliveryNotes &&
           !!data.lineDeliveryNoteMap[item.id],
         hasDnGroupBand: dnBandStartIds.has(item.id),
+        hasLineImage:
+          isClassicV2 && data.document.doc_type === "quotation" && !!item.image_url,
         hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],
       }),
     fontScale: budgetScales,
     extraReserveMm,
     continuationFullHeader,
+    spaceBonusMm,
   }).map((batch) => ({ kind: "line_items", batch }));
 }
 
@@ -205,7 +242,7 @@ export default function DocumentPrintPreviewPage() {
   const isClassicV2 = data?.template === "classic_v2";
   // Reference mode prints the DN reference table only when the invoice has
   // invoice_delivery_notes links to render it from; otherwise fall back to
-  // the full detail lines (docs with bare DN markers, e.g. tax_invoice_receipt).
+  // the full detail lines (docs with bare DN markers).
   const showDnReferenceTable =
     isClassicV2 &&
     refCollapse &&
