@@ -242,6 +242,16 @@ export default function PayrollPage() {
   const [schemaOutdated, setSchemaOutdated] = useState(false);
   const [whtSync, setWhtSync] = useState<WhtSyncResult | null>(null);
   const [syncingWht, setSyncingWht] = useState(false);
+  // Selective WHT sync: manual by default, user picks who gets synced (tax > 0 pre-checked).
+  const [syncOnFinalize, setSyncOnFinalize] = useState(false);
+  const [whtPickIds, setWhtPickIds] = useState<string[] | null>(null);
+  const [showWhtPickModal, setShowWhtPickModal] = useState(false);
+  const [whtPickLoading, setWhtPickLoading] = useState(false);
+  const [whtExistingCount, setWhtExistingCount] = useState<number | null>(null);
+  // Fix-after-close: reopen guard + reason.
+  const [reopenReason, setReopenReason] = useState("");
+  const [reopenDoneCount, setReopenDoneCount] = useState<number | null>(null);
+  const [reopening, setReopening] = useState(false);
   const [payDateSaved, setPayDateSaved] = useState(false);
   const [payDateInvalid, setPayDateInvalid] = useState(false);
   const payDateSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -258,6 +268,20 @@ export default function PayrollPage() {
     tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     setDeepLinkScrollId(null);
   }, [deepLinkScrollId, run?.id, loading]);
+
+  // Know whether a finalized run already has tax rows (drives the "not synced yet" prompt).
+  useEffect(() => {
+    if (run?.status !== "finalized" || !run) {
+      return;
+    }
+    const runId = run.id;
+    supabase
+      .from("wht_records")
+      .select("id")
+      .eq("payroll_run_id", runId)
+      .eq("source", "payroll")
+      .then(({ data }) => setWhtExistingCount((data ?? []).length));
+  }, [run?.id, run?.status]);
 
   // One-time schema capability check: new period columns must exist before this page can query.
   useEffect(() => {
@@ -663,11 +687,18 @@ export default function PayrollPage() {
     setDeletingRun(false);
   }
 
-  async function runWhtSync(): Promise<WhtSyncResult | null> {
+  // Default WHT pick: only employees who actually owe tax. User can override per close/sync.
+  function defaultWhtPick(): string[] {
+    return employees
+      .filter((emp) => (calcLineItem(emp, getEffectiveItem(emp.id)).withholding_tax ?? 0) > 0)
+      .map((emp) => emp.id);
+  }
+
+  async function runWhtSync(onlyEmployeeIds?: string[]): Promise<WhtSyncResult | null> {
     if (!run || !userId) return null;
     setSyncingWht(true);
     try {
-      const syncResult = await syncRunToWht(userId, run);
+      const syncResult = await syncRunToWht(userId, run, onlyEmployeeIds ? { onlyEmployeeIds } : undefined);
       setWhtSync(syncResult);
       await logAuditEvent({
         action: AUDIT_ACTIONS.PAYROLL_WHT_SYNCED,
@@ -679,6 +710,7 @@ export default function PayrollPage() {
           deleted: syncResult.deleted,
           kept_done: syncResult.keptDone,
           skipped: syncResult.skipped.length,
+          selected: onlyEmployeeIds ? onlyEmployeeIds.length : "all",
         },
       });
       return syncResult;
@@ -690,11 +722,46 @@ export default function PayrollPage() {
     }
   }
 
+  async function refreshWhtExistingCount(runId: string) {
+    const { data } = await supabase
+      .from("wht_records")
+      .select("id")
+      .eq("payroll_run_id", runId)
+      .eq("source", "payroll");
+    setWhtExistingCount((data ?? []).length);
+  }
+
+  // Manual sync entry: open the picker (pre-filled with prior intent + anyone taxed),
+  // never sync blindly.
   async function handleSyncWht() {
-    const syncResult = await runWhtSync();
+    if (!run || !userId) return;
+    setWhtPickLoading(true);
+    setShowWhtPickModal(true);
+    try {
+      const { data } = await supabase
+        .from("wht_records")
+        .select("employee_id")
+        .eq("payroll_run_id", run.id)
+        .eq("source", "payroll");
+      const prior = new Set(
+        ((data ?? []) as { employee_id: string | null }[]).map((r) => r.employee_id).filter(Boolean) as string[],
+      );
+      defaultWhtPick().forEach((id) => prior.add(id));
+      setWhtPickIds([...prior].filter((id) => employees.some((e) => e.id === id)));
+    } finally {
+      setWhtPickLoading(false);
+    }
+  }
+
+  async function handleConfirmWhtPick() {
+    if (!run) return;
+    const ids = whtPickIds ?? [];
+    setShowWhtPickModal(false);
+    const syncResult = await runWhtSync(ids);
     if (syncResult) {
       const skippedNote = syncResult.skipped.length > 0 ? ` · ข้าม ${syncResult.skipped.length} คน` : "";
       toast.success(`ซิงกรายการภาษีหัก ณ ที่จ่ายแล้ว · สร้าง ${syncResult.created} · อัปเดต ${syncResult.updated}${skippedNote}`);
+      await refreshWhtExistingCount(run.id);
     }
   }
 
@@ -727,31 +794,63 @@ export default function PayrollPage() {
         action: AUDIT_ACTIONS.PAYROLL_RUN_FINALIZED,
         entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
         entity_id: run.id,
-        details: { employee_count: employees.length, total_net: totals.net },
+        details: {
+          employee_count: employees.length,
+          total_net: totals.net,
+          wht_sync_on_close: syncOnFinalize,
+          wht_selected: syncOnFinalize ? (whtPickIds ?? defaultWhtPick()).length : 0,
+        },
       });
-      const syncResult = await runWhtSync();
-      if (syncResult) {
-        const skippedNote = syncResult.skipped.length > 0 ? ` · ข้าม ${syncResult.skipped.length} คน (ไม่มีเลขผู้เสียภาษี/ยังไม่บันทึก)` : "";
-        toast.success(`สร้างรายการภาษีหัก ณ ที่จ่าย ${syncResult.created + syncResult.updated} รายการ${skippedNote}`);
+      if (syncOnFinalize) {
+        const picks = whtPickIds ?? defaultWhtPick();
+        setWhtPickIds(null);
+        const syncResult = await runWhtSync(picks);
+        if (syncResult) {
+          const skippedNote = syncResult.skipped.length > 0 ? ` · ข้าม ${syncResult.skipped.length} คน` : "";
+          toast.success(`สร้างรายการภาษีหัก ณ ที่จ่าย ${syncResult.created + syncResult.updated} รายการ${skippedNote}`);
+          await refreshWhtExistingCount(run.id);
+        }
+      } else {
+        setWhtPickIds(null);
+        setWhtExistingCount(0);
+        toast.info("ปิดรอบแล้ว — ยังไม่ได้สร้างรายการภาษี กดซิงก์ได้จากแถบด้านบนเมื่อพร้อม");
       }
     }
   }
 
-  function handleRequestReopen() {
+  // Fix-after-close: check for confirmed tax rows BEFORE touching the run — never half-reopen.
+  async function handleRequestReopen() {
     if (!run || !userId) return;
+    setReopenReason("");
+    setReopenDoneCount(null);
     setShowReopenModal(true);
+    const { count } = await supabase
+      .from("wht_records")
+      .select("id", { count: "exact", head: true })
+      .eq("payroll_run_id", run.id)
+      .eq("source", "payroll")
+      .eq("status", "done");
+    setReopenDoneCount(count ?? 0);
   }
 
   async function handleReopen() {
-    if (!run || !userId) return;
-    setShowReopenModal(false);
+    if (!run || !userId || reopening) return;
+    if ((reopenDoneCount ?? 0) > 0) return; // blocked — resolve confirmed rows at the WHT page first
 
-    const { error } = await supabase.from("payroll_runs").update({ status: "draft" }).eq("id", run.id).eq("user_id", userId);
+    setReopening(true);
+    setShowReopenModal(false);
+    const nextRevision = (run.revision ?? 1) + 1;
+    const { error } = await supabase
+      .from("payroll_runs")
+      .update({ status: "draft", revision: nextRevision })
+      .eq("id", run.id)
+      .eq("user_id", userId);
     if (error) {
       toast.error("ไม่สามารถเปิดรอบใหม่ได้");
     } else {
-      setRuns((prev) => prev.map((r) => (r.id === run.id ? { ...r, status: "draft", revision: (r.revision ?? 1) + 1 } : r)));
+      setRuns((prev) => prev.map((r) => (r.id === run.id ? { ...r, status: "draft", revision: nextRevision } : r)));
       setWhtSync(null);
+      setWhtExistingCount(null);
       try {
         const cleanup = await cleanupRunWht(run.id);
         if (cleanup.deleted > 0) {
@@ -763,14 +862,15 @@ export default function PayrollPage() {
       } catch {
         toast.error("ล้างรายการภาษีหัก ณ ที่จ่ายไม่สำเร็จ");
       }
-      toast.success("เปิดรอบใหม่แล้ว");
+      toast.success(`เปิดรอบมาแก้ไขแล้ว (Revision ${nextRevision})`);
       await logAuditEvent({
         action: AUDIT_ACTIONS.PAYROLL_RUN_REOPENED,
         entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
         entity_id: run.id,
-        details: {},
+        details: { revision: nextRevision, reason: reopenReason.trim() || null },
       });
     }
+    setReopening(false);
   }
 
   function buildCalcRows(): PayrollCalcRow[] {
@@ -881,6 +981,7 @@ export default function PayrollPage() {
       : await supabase.from("payroll_line_items").insert(payload);
 
     if (error) {
+      console.error("[payroll] save line item failed:", error);
       toast.error("บันทึกไม่สำเร็จ");
       return false;
     } else {
@@ -1050,6 +1151,17 @@ export default function PayrollPage() {
   }).length;
   const incompleteEmployees = employees.filter((emp) => getRowStatus(emp, getEffectiveItem(emp.id)) !== "complete");
 
+  // WHT picker rows: employee + what they'd owe. Pre-checked only when tax > 0.
+  const whtCandidates = useMemo(
+    () =>
+      employees.map((emp) => ({
+        employee: emp,
+        tax: calcLineItem(emp, getEffectiveItem(emp.id)).withholding_tax ?? 0,
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [employees, lineItems, settings, month],
+  );
+
   const progressPercent = employees.length > 0 ? Math.round((completedCount / employees.length) * 100) : 0;
 
   const filteredEmployees = search.trim()
@@ -1122,6 +1234,7 @@ export default function PayrollPage() {
                 toast.error(`วันจ่ายตอนนี้คือ ${payDate} — ต้องเป็น ${run.period_end} ขึ้นไป แก้ไขได้ที่ช่อง "วันจ่าย" ด้านบน`);
                 return;
               }
+              setWhtPickIds(defaultWhtPick());
               setShowFinalizeModal(true);
             }} className="!rounded-lg" disabled={employees.length === 0 || incompleteEmployees.length > 0}>
               ปิดรอบ
@@ -1314,8 +1427,21 @@ export default function PayrollPage() {
                       รายการภาษีหัก ณ ที่จ่าย: สร้าง {whtSync.created} · อัปเดต {whtSync.updated} · ยืนยันแล้ว {whtSync.keptDone}
                       {whtSync.skipped.length > 0 ? ` · ข้าม ${whtSync.skipped.length}` : ""}
                     </span>
+                  ) : whtExistingCount === null ? null : whtExistingCount === 0 ? (
+                    <span className="flex flex-wrap items-center gap-2 text-xs text-amber-700">
+                      ยังไม่ได้สร้างรายการภาษีหัก ณ ที่จ่ายสำหรับรอบนี้
+                      <button
+                        type="button"
+                        onClick={handleSyncWht}
+                        className="font-medium underline underline-offset-2 hover:text-amber-900"
+                      >
+                        ซิงก์ตอนนี้
+                      </button>
+                    </span>
                   ) : (
-                    <span className="text-xs text-green-700">รายการภาษีหัก ณ ที่จ่าย (ภ.ง.ด.1/ภ.ง.ด.3) ถูกสร้างอัตโนมัติเมื่อปิดรอบ</span>
+                    <span className="text-xs text-green-700">
+                      มีรายการภาษีหัก ณ ที่จ่าย {whtExistingCount} รายการจากรอบนี้
+                    </span>
                   )}
                   <button
                     onClick={() => navigate(`/wht?source=payroll&month=${run.pay_date.slice(0, 7)}`)}
@@ -1324,6 +1450,23 @@ export default function PayrollPage() {
                     ดูที่หน้าภาษีหัก ณ ที่จ่าย →
                   </button>
                 </div>
+              </div>
+            )}
+
+            {run.status === "draft" && (run.revision ?? 1) > 1 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-card p-4">
+                <div className="flex items-center gap-2 text-amber-800">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span className="text-sm font-medium">
+                    รอบนี้เคยปิดแล้ว (Revision {run.revision}) และถูกเปิดมาแก้ไข — ยังเป็นร่างจนกว่าจะปิดรอบอีกครั้ง
+                  </span>
+                </div>
+                <ol className="mt-2 ml-6 text-xs text-amber-700 space-y-0.5 list-decimal">
+                  <li>แก้ไขข้อมูลพนักงานให้ถูกต้อง</li>
+                  <li>กดปิดรอบอีกครั้ง (เลือกได้ว่าจะสร้างรายการภาษีพร้อมกันหรือไม่)</li>
+                  <li>ซิงก์รายการภาษีหัก ณ ที่จ่าย ถ้ายังไม่ได้ซิงก์</li>
+                  <li>ส่งสลิปที่ถูกต้องให้พนักงานอีกครั้ง</li>
+                </ol>
               </div>
             )}
 
@@ -1739,7 +1882,7 @@ export default function PayrollPage() {
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800">
-              เมื่อปิดรอบแล้ว จะไม่สามารถแก้ไขข้อมูลได้อีก และระบบจะสร้างรายการภาษีหัก ณ ที่จ่าย (ภ.ง.ด.1 / ภ.ง.ด.3) ให้อัตโนมัติ คุณต้องการดำเนินการต่อหรือไม่?
+              เมื่อปิดรอบแล้ว จะไม่สามารถแก้ไขข้อมูลได้อีก (ต้องเปิดรอบใหม่เป็น Revision ถัดไป) คุณต้องการดำเนินการต่อหรือไม่?
             </p>
           </div>
           {incompleteEmployees.length > 0 && (
@@ -1779,6 +1922,40 @@ export default function PayrollPage() {
               <div className="text-sm font-bold text-primary-deep tabular-nums">฿{formatCurrency(totals.net)}</div>
             </div>
           </div>
+          <div className="rounded-lg border border-card-border p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-cool-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={syncOnFinalize}
+                onChange={(e) => {
+                  setSyncOnFinalize(e.target.checked);
+                  if (e.target.checked && whtPickIds === null) setWhtPickIds(defaultWhtPick());
+                }}
+                className="h-4 w-4 shrink-0"
+              />
+              สร้างรายการภาษีหัก ณ ที่จ่ายพร้อมปิดรอบ
+            </label>
+            <p className="mt-1 text-xs text-cool-500">
+              ปกติไม่ต้องติ๊ก — ปิดรอบก่อน แล้วค่อยกดซิงก์เมื่อพร้อมยื่นภาษี
+            </p>
+            {syncOnFinalize && (
+              <div className="mt-3">
+                <WhtPickList
+                  candidates={whtCandidates}
+                  selected={whtPickIds ?? []}
+                  onToggle={(id) =>
+                    setWhtPickIds((prev) => {
+                      const base = prev ?? defaultWhtPick();
+                      return base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+                    })
+                  }
+                  onSelectTaxed={() => setWhtPickIds(whtCandidates.filter((c) => c.tax > 0).map((c) => c.employee.id))}
+                  onSelectAll={() => setWhtPickIds(whtCandidates.map((c) => c.employee.id))}
+                  onClear={() => setWhtPickIds([])}
+                />
+              </div>
+            )}
+          </div>
           <div className="flex gap-2 pt-2">
             <Button variant="secondary" onClick={() => setShowFinalizeModal(false)} className="flex-1">
               ยกเลิก
@@ -1790,25 +1967,159 @@ export default function PayrollPage() {
         </div>
       </Modal>
 
-      <Modal open={showReopenModal} onClose={() => setShowReopenModal(false)} title="เปิดรอบใหม่?">
+      <Modal open={showReopenModal} onClose={() => setShowReopenModal(false)} title="เปิดรอบที่ปิดแล้วมาแก้ไข?">
         <div className="space-y-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-amber-800">
-              ข้อมูลเดิมจะถูกเก็บไว้และสามารถแก้ไขได้อีกครั้ง รอบจะถูกนับเป็น revision ใหม่
-            </p>
-          </div>
+          {reopenDoneCount === null ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-sm text-cool-500">
+              <Loader2 className="w-4 h-4 animate-spin" /> กำลังตรวจสอบรายการภาษีที่ยืนยันแล้ว...
+            </div>
+          ) : reopenDoneCount > 0 ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800">
+                    เปิดไม่ได้ — มีรายการภาษีหัก ณ ที่จ่ายที่ยืนยันแล้ว {reopenDoneCount} รายการ
+                  </p>
+                  <p className="mt-1 text-xs text-red-700">
+                    รายการที่ยืนยันแล้วถือว่ายื่น/ล็อกแล้ว ต้องไปยกเลิก (un-done) ที่หน้าภาษีก่อน แล้วค่อยกลับมาเปิดรอบนี้
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => {
+                      setShowReopenModal(false);
+                      if (run) navigate(`/wht?source=payroll&month=${run.pay_date.slice(0, 7)}`);
+                    }}
+                  >
+                    ไปที่หน้าภาษีหัก ณ ที่จ่าย
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium">สิ่งที่จะเกิดขึ้น (Revision {(run?.revision ?? 1) + 1}):</p>
+                    <ul className="mt-1 ml-4 list-disc space-y-0.5 text-[13px]">
+                      <li>รอบกลับเป็นร่าง แก้ไขข้อมูลได้อีกครั้ง</li>
+                      <li>รายการภาษีที่ยังไม่ยืนยันจะถูกลบ — ต้องซิงก์ใหม่หลังปิดรอบ</li>
+                      <li>สลิปที่ส่งให้พนักงานไปแล้วถือว่าล้าสมัย — ต้องส่งใหม่</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="reopen-reason" className="mb-1 block text-xs font-medium text-cool-600">
+                  เหตุผลการแก้ไข <span className="font-normal text-cool-400">(ไม่บังคับ — เก็บในประวัติตรวจสอบ)</span>
+                </label>
+                <input
+                  id="reopen-reason"
+                  type="text"
+                  value={reopenReason}
+                  onChange={(e) => setReopenReason(e.target.value)}
+                  placeholder="เช่น แก้ OT คุณสมชาย เพิ่ม 2 ชม."
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-card-border bg-white placeholder:text-cool-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+              </div>
+            </>
+          )}
           <div className="flex gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setShowReopenModal(false)} className="flex-1">
+            <Button variant="secondary" onClick={() => setShowReopenModal(false)} className="flex-1" disabled={reopening}>
               ยกเลิก
             </Button>
-            <Button onClick={handleReopen} className="flex-1">
-              เปิดรอบใหม่
+            <Button onClick={handleReopen} className="flex-1" disabled={reopening || reopenDoneCount === null || reopenDoneCount > 0}>
+              {reopening ? "กำลังเปิดรอบ..." : "เปิดรอบมาแก้ไข"}
             </Button>
           </div>
         </div>
       </Modal>
+
+      <Modal open={showWhtPickModal} onClose={() => setShowWhtPickModal(false)} title="ซิงก์ภาษีหัก ณ ที่จ่าย">
+        {whtPickLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-cool-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> กำลังโหลด...
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <WhtPickList
+              candidates={whtCandidates}
+              selected={whtPickIds ?? []}
+              onToggle={(id) =>
+                setWhtPickIds((prev) => {
+                  const base = prev ?? [];
+                  return base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+                })
+              }
+              onSelectTaxed={() => setWhtPickIds(whtCandidates.filter((c) => c.tax > 0).map((c) => c.employee.id))}
+              onSelectAll={() => setWhtPickIds(whtCandidates.map((c) => c.employee.id))}
+              onClear={() => setWhtPickIds([])}
+            />
+            <div className="flex gap-2 pt-1">
+              <Button variant="secondary" onClick={() => setShowWhtPickModal(false)} className="flex-1" disabled={syncingWht}>
+                ยกเลิก
+              </Button>
+              <Button onClick={handleConfirmWhtPick} className="flex-1" disabled={syncingWht}>
+                {syncingWht ? "กำลังซิงก์..." : `ซิงก์ ${(whtPickIds ?? []).length} คน`}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </AppShell>
+  );
+}
+
+interface WhtCandidate {
+  employee: Employee;
+  tax: number;
+}
+
+function WhtPickList({ candidates, selected, onToggle, onSelectTaxed, onSelectAll, onClear }: {
+  candidates: WhtCandidate[];
+  selected: string[];
+  onToggle: (id: string) => void;
+  onSelectTaxed: () => void;
+  onSelectAll: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-medium text-cool-600">เลือกพนักงานที่จะสร้างรายการภาษี ({selected.length} คน)</span>
+        <div className="flex gap-3 text-xs font-medium text-primary">
+          <button type="button" onClick={onSelectTaxed} className="hover:underline">เฉพาะคนมีภาษี</button>
+          <button type="button" onClick={onSelectAll} className="hover:underline">ทั้งหมด</button>
+          <button type="button" onClick={onClear} className="hover:underline">ล้าง</button>
+        </div>
+      </div>
+      <div className="max-h-56 overflow-auto divide-y divide-stone-100 rounded-lg border border-card-border">
+        {candidates.map(({ employee, tax }) => (
+          <label key={employee.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selected.includes(employee.id)}
+              onChange={() => onToggle(employee.id)}
+              className="h-4 w-4 shrink-0"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm text-cool-900">{employee.full_name || employee.employee_code}</span>
+              <span className="block text-[11px] text-cool-400">
+                {employee.employee_code} · {employee.sso_registered === false ? "ภ.ง.ด.3" : "ภ.ง.ด.1"}
+              </span>
+            </span>
+            <span className={`text-xs tabular-nums shrink-0 ${tax > 0 ? "text-cool-700 font-medium" : "text-cool-300"}`}>
+              ฿{formatCurrency(tax)}
+            </span>
+          </label>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[11px] text-cool-400">ติ๊กไว้เฉพาะคนที่มีภาษีแล้ว — รายการที่ยืนยัน (done) ที่หน้า WHT จะไม่ถูกแตะต้อง</p>
+    </div>
   );
 }
 

@@ -7,7 +7,12 @@ import type { Employee, PayrollRun } from "../../types";
 export interface WhtSyncSkip {
   employee_code: string;
   full_name: string;
-  reason: "no_tax_id" | "unsaved" | "no_vendor";
+  reason: "no_tax_id" | "unsaved" | "no_vendor" | "excluded";
+}
+
+export interface WhtSyncOptions {
+  /** When set, only these employees are synced; unconfirmed rows of excluded employees are removed. */
+  onlyEmployeeIds?: string[];
 }
 
 export interface WhtSyncResult {
@@ -31,8 +36,9 @@ function backComputedRate(amount: number, whtAmount: number): number {
   return Math.round((whtAmount / amount) * 100 * 100) / 100;
 }
 
-export async function syncRunToWht(userId: string, run: PayrollRun): Promise<WhtSyncResult> {
+export async function syncRunToWht(userId: string, run: PayrollRun, opts?: WhtSyncOptions): Promise<WhtSyncResult> {
   const result: WhtSyncResult = { created: 0, updated: 0, deleted: 0, keptDone: 0, skipped: [] };
+  const allowlist = opts?.onlyEmployeeIds ? new Set(opts.onlyEmployeeIds) : null;
 
   const [{ data: itemsData, error: itemsError }, { data: existingRecords, error: recordsError }] =
     await Promise.all([
@@ -129,6 +135,24 @@ export async function syncRunToWht(userId: string, run: PayrollRun): Promise<Wht
     for (const [employeeId, item] of itemByEmployee) {
       const employee = employeeById.get(employeeId);
       if (!employee) continue;
+      if (allowlist && !allowlist.has(employeeId)) {
+        const existingRecord = existingByEmployee.get(employeeId);
+        if (existingRecord) {
+          if (existingRecord.status === "done") {
+            result.keptDone++;
+          } else {
+            const { error: deleteError } = await supabase.from("wht_records").delete().eq("id", existingRecord.id);
+            if (deleteError) throw deleteError;
+            result.deleted++;
+          }
+        }
+        result.skipped.push({
+          employee_code: employee.employee_code,
+          full_name: employee.full_name,
+          reason: "excluded",
+        });
+        continue;
+      }
       const taxId = normalizeTaxId(employee.tax_id);
       const vendorId = vendorIdByEmployee.get(employeeId);
       if (!taxId) {

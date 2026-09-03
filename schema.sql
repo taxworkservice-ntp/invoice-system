@@ -1509,6 +1509,8 @@ create table if not exists payroll_line_items (
   payroll_run_id  uuid not null references payroll_runs(id) on delete cascade,
   employee_id     uuid not null references employees(id) on delete cascade,
   days_worked     numeric(5,1),
+  absent_days     numeric(4,1),
+  absence_daily_rate numeric(12,2),
   ot_entries      jsonb not null default '[]',
   additions       jsonb not null default '[]',
   deductions      jsonb not null default '[]',
@@ -1517,6 +1519,11 @@ create table if not exists payroll_line_items (
   sso_employer    numeric(12,2),
   withholding_tax numeric(12,2),
   net_pay         numeric(12,2),
+  employee_code_snapshot text,
+  full_name_snapshot text,
+  position_snapshot text,
+  salary_type_snapshot text,
+  base_salary_snapshot numeric(12,2),
   unique (payroll_run_id, employee_id)
 );
 
