@@ -1424,6 +1424,7 @@ create table if not exists employees (
   employee_code   text not null,
   full_name       text not null,
   tax_id          text,
+  address         text,
   position        text not null,
   department      text,
   salary_type     text not null check (salary_type in ('monthly', 'daily')),

@@ -22,6 +22,7 @@ interface EmployeeForm {
   employee_code: string;
   full_name: string;
   tax_id: string;
+  address: string;
   position: string;
   department: string;
   salary_type: "monthly" | "daily";
@@ -46,6 +47,7 @@ function emptyForm(): EmployeeForm {
     employee_code: "",
     full_name: "",
     tax_id: "",
+    address: "",
     position: "",
     department: "",
     salary_type: "monthly",
@@ -65,6 +67,7 @@ function employeeToForm(emp: Employee): EmployeeForm {
     employee_code: emp.employee_code,
     full_name: emp.full_name,
     tax_id: emp.tax_id ?? "",
+    address: emp.address ?? "",
     position: emp.position,
     department: emp.department ?? "",
     salary_type: emp.salary_type,
@@ -195,6 +198,7 @@ export default function EmployeesPage() {
       employee_code: form.employee_code.trim(),
       full_name: form.full_name.trim(),
       tax_id: form.tax_id.trim() || null,
+      address: form.address.trim() || null,
       position: form.position.trim(),
       department: form.department.trim() || null,
       salary_type: form.salary_type,
@@ -280,6 +284,14 @@ export default function EmployeesPage() {
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
         details: { field: "base_salary", old_value: prevEmployee.base_salary, new_value: payload.base_salary },
+      });
+    }
+    if ((prevEmployee.address ?? "") !== form.address.trim()) {
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
+        entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
+        entity_id: employeeId,
+        details: { field: "address", old_value: prevEmployee.address ?? "", new_value: form.address.trim() },
       });
     }
     if ((prevEmployee.bank_name ?? "") !== form.bank_name.trim()) {
@@ -576,6 +588,15 @@ export default function EmployeesPage() {
                   onChange={(e) => updateField("department", e.target.value)}
                   placeholder="เช่น บัญชี, ขาย"
                 />
+                <div className="sm:col-span-2">
+                  <Input
+                    label="ที่อยู่"
+                    value={modal.form.address}
+                    onChange={(e) => updateField("address", e.target.value)}
+                    placeholder="บ้านเลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"
+                  />
+                  <p className="mt-1 text-[11px] text-cool-400">ใช้เป็นที่อยู่ผู้รับเงินบนใบรับรองหักภาษี ณ ที่จ่าย</p>
+                </div>
                 <Input
                   label="ธนาคาร"
                   value={modal.form.bank_name}

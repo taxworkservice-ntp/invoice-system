@@ -523,6 +523,7 @@ export interface Employee {
   employee_code: string;
   full_name: string;
   tax_id: string | null;
+  address: string | null;
   position: string;
   department: string | null;
   salary_type: "monthly" | "daily";

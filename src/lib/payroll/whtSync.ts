@@ -91,9 +91,12 @@ export async function syncRunToWht(userId: string, run: PayrollRun, opts?: WhtSy
       .eq("user_id", userId);
     if (vendorsError) throw vendorsError;
 
-    const vendors = (vendorsData ?? []) as { id: string; tax_id: string | null; is_active: boolean }[];
+    const vendors = (vendorsData ?? []) as { id: string; tax_id: string | null; address: string | null; is_active: boolean }[];
     const vendorByTaxId = new Map(
       vendors.filter((vendor) => vendor.is_active).map((vendor) => [normalizeTaxId(vendor.tax_id), vendor.id]),
+    );
+    const vendorAddressById = new Map(
+      vendors.filter((vendor) => vendor.is_active).map((vendor) => [vendor.id, vendor.address ?? null] as [string, string | null]),
     );
     const vendorIdByEmployee = new Map<string, string>();
     const vendorCreateQueue = new Map<string, { employee: Employee; taxId: string }>();
@@ -118,6 +121,7 @@ export async function syncRunToWht(userId: string, run: PayrollRun, opts?: WhtSy
             name: employee.full_name || employee.employee_code,
             vendor_type: "individual" as const,
             tax_id: employee.tax_id,
+            address: employee.address ?? null,
           })),
         )
         .select("id, tax_id");
@@ -129,6 +133,21 @@ export async function syncRunToWht(userId: string, run: PayrollRun, opts?: WhtSy
         const vendorId = vendorByTaxId.get(normalizeTaxId(employee.tax_id));
         if (vendorId) vendorIdByEmployee.set(employee.id, vendorId);
       }
+    }
+
+    // Backfill blank vendor addresses from employee records.
+    // Never overwrites an address someone set manually on the WHT side.
+    for (const employee of employees) {
+      const empAddress = (employee.address ?? "").trim();
+      if (!empAddress) continue;
+      const vendorId = vendorIdByEmployee.get(employee.id);
+      if (!vendorId || (vendorAddressById.get(vendorId) ?? "").trim()) continue;
+      vendorAddressById.set(vendorId, empAddress);
+      const { error: addressError } = await supabase
+        .from("wht_vendors")
+        .update({ address: empAddress })
+        .eq("id", vendorId);
+      if (addressError) throw addressError;
     }
 
     const periodLabel = run.label || formatPayRangeLabel({ start: run.period_start, end: run.period_end });
