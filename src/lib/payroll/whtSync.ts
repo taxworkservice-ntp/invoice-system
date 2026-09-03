@@ -13,6 +13,8 @@ export interface WhtSyncSkip {
 export interface WhtSyncOptions {
   /** When set, only these employees are synced; unconfirmed rows of excluded employees are removed. */
   onlyEmployeeIds?: string[];
+  /** Per-employee ประเภทรายจ่าย override for PND3 rows (default "ค่าจ้างทำของ"). PND1 rows always use the salary label. */
+  descriptions?: Record<string, string>;
 }
 
 export interface WhtSyncResult {
@@ -174,7 +176,7 @@ export async function syncRunToWht(userId: string, run: PayrollRun, opts?: WhtSy
 
       const isContract = employee.sso_registered === false;
       const formType = isContract ? "pnd3" : "pnd1";
-      const description = isContract ? "ค่าจ้างทำของ" : `เงินเดือน ${periodLabel}`;
+      const description = isContract ? (opts?.descriptions?.[employeeId] ?? "ค่าจ้างทำของ") : `เงินเดือน ${periodLabel}`;
       const rate = isContract ? PND3_HIRE_RATE * 100 : backComputedRate(item.gross_pay, item.withholding_tax);
 
       const fields = {

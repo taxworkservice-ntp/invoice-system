@@ -86,6 +86,10 @@ const MONTHS = [
 
 type RowStatus = "complete" | "warning" | "incomplete" | "untouched";
 
+// PND3 ประเภทรายจ่าย for payroll-synced contractors — all 3% so the rate math never breaks.
+const WHT_PND3_DEFAULT_DESC = "ค่าจ้างทำของ";
+const WHT_PND3_DESC_OPTIONS = [WHT_PND3_DEFAULT_DESC, "ค่าบริการ", "ค่านายหน้า"] as const;
+
 function createEmptyLineItem(runId: string, employeeId: string): PayrollLineItem {
   return {
     id: "",
@@ -245,6 +249,8 @@ export default function PayrollPage() {
   // Selective WHT sync: manual by default, user picks who gets synced (tax > 0 pre-checked).
   const [syncOnFinalize, setSyncOnFinalize] = useState(false);
   const [whtPickIds, setWhtPickIds] = useState<string[] | null>(null);
+  // Per-employee ประเภทรายจ่าย override for PND3 rows; absent = default "ค่าจ้างทำของ".
+  const [whtDescOverrides, setWhtDescOverrides] = useState<Record<string, string>>({});
   const [showWhtPickModal, setShowWhtPickModal] = useState(false);
   const [whtPickLoading, setWhtPickLoading] = useState(false);
   const [whtExistingCount, setWhtExistingCount] = useState<number | null>(null);
@@ -284,11 +290,13 @@ export default function PayrollPage() {
   }, [run?.id, run?.status]);
 
   // One-time schema capability check: new period columns must exist before this page can query.
+  // NOTE: plain GET, not a HEAD/count query — HEAD requests fail unreliably in production.
   useEffect(() => {
     if (!userId) return;
     supabase
       .from("payroll_runs")
-      .select("period_end", { count: "exact", head: true })
+      .select("period_end")
+      .limit(1)
       .then(({ error }) => {
         if (error && (error.code === "42703" || /does not exist/i.test(error.message))) {
           setSchemaOutdated(true);
@@ -384,16 +392,17 @@ export default function PayrollPage() {
     }
     setPayDate(effectivePayDate);
 
-    const [{ data: empData }, { count }] = await Promise.all([
+    const [{ data: empData }, { data: allEmps }] = await Promise.all([
       supabase.from("employees").select("*")
         .lte("start_date", run.period_end)
         .or(`end_date.is.null,end_date.gte.${run.period_start}`)
         .order("employee_code"),
-      supabase.from("employees").select("id", { count: "exact", head: true }).eq("user_id", userId),
+      // NOTE: plain GET, not a HEAD/count query — HEAD requests fail unreliably in production.
+      supabase.from("employees").select("id").eq("user_id", userId),
     ]);
     const eligibleEmployees = (empData ?? []) as Employee[];
     setEmployees(eligibleEmployees);
-    setExcludedEmployeeCount(Math.max(0, (count ?? 0) - eligibleEmployees.length));
+    setExcludedEmployeeCount(Math.max(0, (allEmps ?? []).length - eligibleEmployees.length));
 
     // Active recurring templates for every employee (drives draft auto-population)
     const { data: recData, error: recError } = await supabase
@@ -694,11 +703,28 @@ export default function PayrollPage() {
       .map((emp) => emp.id);
   }
 
-  async function runWhtSync(onlyEmployeeIds?: string[]): Promise<WhtSyncResult | null> {
+  function handleWhtDescChange(employeeId: string, desc: string) {
+    setWhtDescOverrides((prev) => {
+      if (!desc || desc === WHT_PND3_DEFAULT_DESC) {
+        if (!(employeeId in prev)) return prev;
+        const next = { ...prev };
+        delete next[employeeId];
+        return next;
+      }
+      return { ...prev, [employeeId]: desc };
+    });
+  }
+
+  async function runWhtSync(onlyEmployeeIds?: string[], descriptions?: Record<string, string>): Promise<WhtSyncResult | null> {
     if (!run || !userId) return null;
     setSyncingWht(true);
     try {
-      const syncResult = await syncRunToWht(userId, run, onlyEmployeeIds ? { onlyEmployeeIds } : undefined);
+      const descMap = descriptions && Object.keys(descriptions).length > 0 ? descriptions : undefined;
+      const syncResult = await syncRunToWht(
+        userId,
+        run,
+        onlyEmployeeIds || descMap ? { onlyEmployeeIds, descriptions: descMap } : undefined,
+      );
       setWhtSync(syncResult);
       await logAuditEvent({
         action: AUDIT_ACTIONS.PAYROLL_WHT_SYNCED,
@@ -711,6 +737,7 @@ export default function PayrollPage() {
           kept_done: syncResult.keptDone,
           skipped: syncResult.skipped.length,
           selected: onlyEmployeeIds ? onlyEmployeeIds.length : "all",
+          desc_overrides: descMap ? Object.keys(descMap).length : 0,
         },
       });
       return syncResult;
@@ -748,6 +775,7 @@ export default function PayrollPage() {
       );
       defaultWhtPick().forEach((id) => prior.add(id));
       setWhtPickIds([...prior].filter((id) => employees.some((e) => e.id === id)));
+      setWhtDescOverrides({});
     } finally {
       setWhtPickLoading(false);
     }
@@ -756,8 +784,10 @@ export default function PayrollPage() {
   async function handleConfirmWhtPick() {
     if (!run) return;
     const ids = whtPickIds ?? [];
+    const descs = { ...whtDescOverrides };
     setShowWhtPickModal(false);
-    const syncResult = await runWhtSync(ids);
+    setWhtDescOverrides({});
+    const syncResult = await runWhtSync(ids, descs);
     if (syncResult) {
       const skippedNote = syncResult.skipped.length > 0 ? ` · ข้าม ${syncResult.skipped.length} คน` : "";
       toast.success(`ซิงกรายการภาษีหัก ณ ที่จ่ายแล้ว · สร้าง ${syncResult.created} · อัปเดต ${syncResult.updated}${skippedNote}`);
@@ -799,12 +829,15 @@ export default function PayrollPage() {
           total_net: totals.net,
           wht_sync_on_close: syncOnFinalize,
           wht_selected: syncOnFinalize ? (whtPickIds ?? defaultWhtPick()).length : 0,
+          wht_desc_overrides: syncOnFinalize ? Object.keys(whtDescOverrides).length : 0,
         },
       });
       if (syncOnFinalize) {
         const picks = whtPickIds ?? defaultWhtPick();
+        const descs = { ...whtDescOverrides };
         setWhtPickIds(null);
-        const syncResult = await runWhtSync(picks);
+        setWhtDescOverrides({});
+        const syncResult = await runWhtSync(picks, descs);
         if (syncResult) {
           const skippedNote = syncResult.skipped.length > 0 ? ` · ข้าม ${syncResult.skipped.length} คน` : "";
           toast.success(`สร้างรายการภาษีหัก ณ ที่จ่าย ${syncResult.created + syncResult.updated} รายการ${skippedNote}`);
@@ -812,6 +845,7 @@ export default function PayrollPage() {
         }
       } else {
         setWhtPickIds(null);
+        setWhtDescOverrides({});
         setWhtExistingCount(0);
         toast.info("ปิดรอบแล้ว — ยังไม่ได้สร้างรายการภาษี กดซิงก์ได้จากแถบด้านบนเมื่อพร้อม");
       }
@@ -824,13 +858,14 @@ export default function PayrollPage() {
     setReopenReason("");
     setReopenDoneCount(null);
     setShowReopenModal(true);
-    const { count } = await supabase
+    // NOTE: plain GET, not a HEAD/count query — HEAD requests fail unreliably in production.
+    const { data: doneRows } = await supabase
       .from("wht_records")
-      .select("id", { count: "exact", head: true })
+      .select("id")
       .eq("payroll_run_id", run.id)
       .eq("source", "payroll")
       .eq("status", "done");
-    setReopenDoneCount(count ?? 0);
+    setReopenDoneCount((doneRows ?? []).length);
   }
 
   async function handleReopen() {
@@ -1235,6 +1270,7 @@ export default function PayrollPage() {
                 return;
               }
               setWhtPickIds(defaultWhtPick());
+              setWhtDescOverrides({});
               setShowFinalizeModal(true);
             }} className="!rounded-lg" disabled={employees.length === 0 || incompleteEmployees.length > 0}>
               ปิดรอบ
@@ -1943,6 +1979,8 @@ export default function PayrollPage() {
                 <WhtPickList
                   candidates={whtCandidates}
                   selected={whtPickIds ?? []}
+                  descOverrides={whtDescOverrides}
+                  onDescChange={handleWhtDescChange}
                   onToggle={(id) =>
                     setWhtPickIds((prev) => {
                       const base = prev ?? defaultWhtPick();
@@ -2049,6 +2087,8 @@ export default function PayrollPage() {
             <WhtPickList
               candidates={whtCandidates}
               selected={whtPickIds ?? []}
+              descOverrides={whtDescOverrides}
+              onDescChange={handleWhtDescChange}
               onToggle={(id) =>
                 setWhtPickIds((prev) => {
                   const base = prev ?? [];
@@ -2079,9 +2119,11 @@ interface WhtCandidate {
   tax: number;
 }
 
-function WhtPickList({ candidates, selected, onToggle, onSelectTaxed, onSelectAll, onClear }: {
+function WhtPickList({ candidates, selected, descOverrides, onDescChange, onToggle, onSelectTaxed, onSelectAll, onClear }: {
   candidates: WhtCandidate[];
   selected: string[];
+  descOverrides: Record<string, string>;
+  onDescChange: (id: string, desc: string) => void;
   onToggle: (id: string) => void;
   onSelectTaxed: () => void;
   onSelectAll: () => void;
@@ -2098,27 +2140,44 @@ function WhtPickList({ candidates, selected, onToggle, onSelectTaxed, onSelectAl
         </div>
       </div>
       <div className="max-h-56 overflow-auto divide-y divide-stone-100 rounded-lg border border-card-border">
-        {candidates.map(({ employee, tax }) => (
-          <label key={employee.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={selected.includes(employee.id)}
-              onChange={() => onToggle(employee.id)}
-              className="h-4 w-4 shrink-0"
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm text-cool-900">{employee.full_name || employee.employee_code}</span>
-              <span className="block text-[11px] text-cool-400">
-                {employee.employee_code} · {employee.sso_registered === false ? "ภ.ง.ด.3" : "ภ.ง.ด.1"}
+        {candidates.map(({ employee, tax }) => {
+          const isPnd3 = employee.sso_registered === false;
+          return (
+            <div key={employee.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50">
+              <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(employee.id)}
+                  onChange={() => onToggle(employee.id)}
+                  className="h-4 w-4 shrink-0"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-cool-900">{employee.full_name || employee.employee_code}</span>
+                  <span className="block text-[11px] text-cool-400">
+                    {employee.employee_code} · {isPnd3 ? "ภ.ง.ด.3" : "ภ.ง.ด.1"}
+                  </span>
+                </span>
+              </label>
+              {isPnd3 && (
+                <select
+                  aria-label={`ประเภทรายจ่ายของ ${employee.full_name || employee.employee_code}`}
+                  value={descOverrides[employee.id] ?? WHT_PND3_DEFAULT_DESC}
+                  onChange={(e) => onDescChange(employee.id, e.target.value)}
+                  className="max-w-[118px] shrink-0 text-[11px] border border-card-border rounded-md px-1.5 py-1 bg-white text-cool-600 focus:outline-none focus:border-primary"
+                >
+                  {WHT_PND3_DESC_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              )}
+              <span className={`text-xs tabular-nums shrink-0 ${tax > 0 ? "text-cool-700 font-medium" : "text-cool-300"}`}>
+                ฿{formatCurrency(tax)}
               </span>
-            </span>
-            <span className={`text-xs tabular-nums shrink-0 ${tax > 0 ? "text-cool-700 font-medium" : "text-cool-300"}`}>
-              ฿{formatCurrency(tax)}
-            </span>
-          </label>
-        ))}
+            </div>
+          );
+        })}
       </div>
-      <p className="mt-1.5 text-[11px] text-cool-400">ติ๊กไว้เฉพาะคนที่มีภาษีแล้ว — รายการที่ยืนยัน (done) ที่หน้า WHT จะไม่ถูกแตะต้อง</p>
+      <p className="mt-1.5 text-[11px] text-cool-400">ติ๊กไว้เฉพาะคนที่มีภาษีแล้ว — ประเภทรายจ่ายของ ภ.ง.ด.3 เปลี่ยนได้ทีละคน (ค่าเริ่มต้น ค่าจ้างทำของ) · รายการที่ยืนยัน (done) ที่หน้า WHT จะไม่ถูกแตะต้อง</p>
     </div>
   );
 }
