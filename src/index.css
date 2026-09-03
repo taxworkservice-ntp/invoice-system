@@ -1390,32 +1390,28 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-bottom-band {
   margin-top: 1.8mm;
 }
-/* V2 billing-note cheque received date (hand-fill blank) — slim single-row strip */
+/* V2 billing-note cheque received date (hand-fill blank) — slim unboxed row */
 .print-classic-cheque-strip {
-  margin-top: 2mm;
-  border: 0.5px solid #9ca3af;
-  border-radius: 1mm;
-  background: #fafaf8;
-  padding: 1.5mm 3mm;
+  margin-top: 1.5mm;
   display: flex;
   align-items: flex-end;
-  gap: 4mm;
+  gap: 3mm;
 }
 .print-classic-cheque-label {
-  font-size: calc(7pt * var(--classic-fs-totals));
-  font-weight: 700;
-  color: #1f2937;
+  font-size: calc(6.5pt * var(--classic-fs-totals));
+  font-weight: 600;
+  color: #374151;
   white-space: nowrap;
   line-height: 1.2;
 }
 .print-classic-cheque-label .en {
   font-weight: 400;
-  color: #6b7280;
+  color: #9ca3af;
 }
 .print-classic-cheque-fill {
   flex: 1;
-  border-bottom: 0.5px dotted #6b7280;
-  height: 5.5mm;
+  border-bottom: 0.5px dotted #9ca3af;
+  height: 4mm;
 }
 .print-classic-sig-role {
   text-align: center;

@@ -8,7 +8,7 @@
 import assert from "node:assert";
 import { paginateLineItems, getRowBudgets, type PageMode } from "../../src/lib/pagination";
 import { estimateLineItemHeight } from "../../src/lib/printRowHeight";
-import { getClassicV2FontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../src/constants";
+import { getClassicV2FontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM } from "../../src/constants";
 import type { DocumentLineItem } from "../../src/types";
 
 function makeItem(n: number, opts: { changed?: boolean; longNote?: boolean } = {}): DocumentLineItem {
@@ -400,10 +400,11 @@ console.log(
 
 // 9. extraReserveMm (billing-note cheque strip): first/last shrink, continuation untouched
 {
+  const strip = CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM;
   const base = getRowBudgets("classic", 1, "summary_rows");
-  const reserved = getRowBudgets("classic", 1, "summary_rows", 11);
-  assert.ok(Math.abs(base.first - reserved.first - 11) < 0.001, "extraReserve shrinks first budget by 11mm");
-  assert.ok(Math.abs(base.last - reserved.last - 11) < 0.001, "extraReserve shrinks last budget by 11mm");
+  const reserved = getRowBudgets("classic", 1, "summary_rows", strip);
+  assert.ok(Math.abs(base.first - reserved.first - strip) < 0.001, "extraReserve shrinks first budget by the strip reserve");
+  assert.ok(Math.abs(base.last - reserved.last - strip) < 0.001, "extraReserve shrinks last budget by the strip reserve");
   assert.equal(reserved.continuation, base.continuation, "continuation budget keeps full space (no strip there)");
   assert.ok(reserved.last >= 6.5, "budget floor keeps at least one row");
 }

@@ -1,4 +1,4 @@
-# Classic V2 Fonts + Line-Images + Catalog Create + PO/Job Chain — Session Record
+# Classic V2 Fonts + Line-Images + Catalog Create + PO/Job Chain + Cheque Strip — Session Record
 
 _Session date: 2026-09-03. Builds on the 2026-09-02 font-system session. **No pending migrations** — `sql/20260903_files_line_images_purpose.sql`, `sql/20260903_fix_create_deal_document_image_url.sql`, and `sql/20260903_po_task_propagation.sql` were all applied to production Supabase (`fbhoqcpqqtbiorzbuqcl`) via Management API and verified. The font sub-slots need no migration (additive jsonb keys in existing columns)._
 
@@ -55,6 +55,24 @@ whole money chain and prints in the classic V2 info band on every document:
 - Verified: tsc ✓, production build ✓; manual QA matrix pending
   (all-agree / one-blank / one-different DN mixes → invoice prefill + hint;
   invoice → receipt/billing/credit print the PO/job row).
+
+### Polish: billing-note cheque-date strip goes slim + paid-aware
+The boxed strip (border + bg + radius) stacked a third bordered zone between
+terms and signatures. Now a slim unboxed row — small 6.5pt label, muted EN,
+single dotted baseline (~5.5mm vs ~10mm):
+
+- `PrintDocumentClassicV2.tsx` — strip renders only while the BN is unpaid
+  (`document.status !== "paid"`); paid notes already have a receipt.
+- `index.css` — `.print-classic-cheque-strip`: no border/bg/radius, tighter
+  margin/gap (6.5pt semibold label, 4mm dotted fill). Hide-EN already covered
+  globally (`.print-hide-en .en`).
+- `constants/index.ts` — `CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM` 11 → 7;
+  `print.tsx` reserve skips paid BNs (matches the render condition) + stale
+  "~22mm" comment corrected.
+- `pagination.many.check.ts` §9 now imports the constant instead of hardcoding 11.
+- No client migration; no regression baselines cover billing notes (only a
+  type stub in print-layout-fixture.tsx) — nothing to regenerate.
+- Verified: tsc ✓, pagination.many ✓, production build ✓.
 
 ### Fix: create_deal_document 400 — "column image_url of relation documents does not exist"
 `sql/20260902_quotation_line_images.sql` had put `image_url` in the RPC's
@@ -160,6 +178,8 @@ unset, so existing workspaces render pixel-identically:
   see 2026-09-02 record); defaults/parent-only configs must render identically
 
 ## Pending / resume points
+- [ ] Visual QA: print an unpaid billing note — slim cheque-date row above
+  signatures; print a paid one — no strip, no gap
 - [ ] Manual QA: PO/job chain — 1 PO → 3 DNs (all agree / one blank / one
   different) → invoice prefill + amber hint; invoice → receipt/billing-note/
   credit-note print the PO/job row; suggestions + source chips in all 4 forms

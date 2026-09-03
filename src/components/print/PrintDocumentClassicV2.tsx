@@ -1241,7 +1241,7 @@ export function PrintDocumentClassicV2({
             </div>
           ) : null}
 
-          {showFooter && document.doc_type === "billing_note" && (
+          {showFooter && document.doc_type === "billing_note" && document.status !== "paid" && (
             <div className="print-classic-cheque-strip">
               <span className="print-classic-cheque-label">
                 วันที่รับเช็ค <span className="en">/ CHEQUE RECEIVED DATE</span>

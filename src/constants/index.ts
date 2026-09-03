@@ -264,7 +264,7 @@ export const CLASSIC_V2_TYPE_FONT_KEYS: ClassicV2TypeFontKey[] = [
 export const CLASSIC_V2_TYPE_GLOBAL_KEY = "global";
 
 /** Fixed height (mm) of the billing-note cheque-date strip — reserved from first/last page budgets. */
-export const CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM = 11;
+export const CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM = 7;
 
 /**
  * Height (mm) of one optional document-meta row (ชื่องาน / JOB NAME,

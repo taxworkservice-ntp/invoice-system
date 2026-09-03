@@ -87,7 +87,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
         footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
       }
     : 1);
-  // Billing notes carry the cheque-details strip (~22mm fixed) — reserved
+  // Billing notes carry the slim cheque-date row (CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM) — reserved
   // from every page budget so rows never clip under it. Optional meta rows
   // (ชื่องาน / PO NO.) grow the info band the same way — reserve their
   // measured height so dense pages never overflow A4. With ซ่อนป้ายภาษาอังกฤษ
@@ -97,7 +97,9 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const metaRowReserveMm = hideEn
     ? CLASSIC_V2_META_ROW_RESERVE_MM - CLASSIC_V2_HIDE_EN_META_ROW_MM
     : CLASSIC_V2_META_ROW_RESERVE_MM;
-  const extraReserveMm = (isClassicV2 && data.document.doc_type === "billing_note"
+  // The strip only prints while the billing note is unpaid — paid notes get
+  // the space back (matches PrintDocumentClassicV2's render condition).
+  const extraReserveMm = (isClassicV2 && data.document.doc_type === "billing_note" && data.document.status !== "paid"
     ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
     : 0) + (isClassicV2
     ? ((data.document.task_name ? metaRowReserveMm : 0) +
