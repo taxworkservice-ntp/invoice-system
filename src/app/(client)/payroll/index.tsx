@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Printer, Plus, Users, Wallet, Receipt, Banknote, Copy, Check, AlertCircle, CheckCircle2, Clock, Sparkles, X, Pencil, Circle, UserRoundX, TrendingUp, TrendingDown, Download, FileSpreadsheet, FileArchive, CalendarRange, Layers, Trash2, Loader2, RefreshCw } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -140,6 +140,7 @@ function getRowStatus(employee: Employee, item: PayrollLineItem): RowStatus {
 
 export default function PayrollPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
   const { workspaceUserId, profile } = useWorkspaceRole();
   const userId = workspaceUserId;
@@ -171,6 +172,29 @@ export default function PayrollPage() {
       setMonth(stored.month);
       setYear(stored.year);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // Honor ?run=<id> deep links (e.g. from the WHT page): jump to that run's month and select it.
+  useEffect(() => {
+    if (!userId || didHonorRunParam.current) return;
+    const runId = searchParams.get("run");
+    if (!runId) return;
+    didHonorRunParam.current = true;
+    supabase
+      .from("payroll_runs")
+      .select("id, period_end")
+      .eq("user_id", userId)
+      .eq("id", runId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const target = data as { id: string; period_end: string } | null;
+        if (!target?.period_end) return; // unknown id — ignore silently
+        deepLinkRunId.current = target.id;
+        setMonth(Number(target.period_end.slice(5, 7)));
+        setYear(Number(target.period_end.slice(0, 4)));
+        setDeepLinkScrollId(target.id);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -223,6 +247,17 @@ export default function PayrollPage() {
   const payDateSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payDateTouched = useRef(false);
   const tableRef = useRef<HTMLDivElement>(null);
+  // Deep link from WHT (?run=<payroll_run_id>): jump to that run's month and select it.
+  const deepLinkRunId = useRef<string | null>(null);
+  const didHonorRunParam = useRef(false);
+  const [deepLinkScrollId, setDeepLinkScrollId] = useState<string | null>(null);
+
+  // After the deep-linked run loads, bring its table into view.
+  useEffect(() => {
+    if (!deepLinkScrollId || run?.id !== deepLinkScrollId || loading) return;
+    tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setDeepLinkScrollId(null);
+  }, [deepLinkScrollId, run?.id, loading]);
 
   // One-time schema capability check: new period columns must exist before this page can query.
   useEffect(() => {
@@ -273,7 +308,12 @@ export default function PayrollPage() {
 
     const list = (runsData ?? []) as PayrollRun[];
     setRuns(list);
-    setSelectedRunId((prev) => (prev && list.some((r) => r.id === prev) ? prev : list[0]?.id ?? null));
+    setSelectedRunId((prev) => {
+      if (deepLinkRunId.current && list.some((r) => r.id === deepLinkRunId.current)) {
+        return deepLinkRunId.current;
+      }
+      return prev && list.some((r) => r.id === prev) ? prev : list[0]?.id ?? null;
+    });
 
     const { data: historyData } = await supabase
       .from("payroll_runs")
@@ -1278,7 +1318,7 @@ export default function PayrollPage() {
                     <span className="text-xs text-green-700">รายการภาษีหัก ณ ที่จ่าย (ภ.ง.ด.1/ภ.ง.ด.3) ถูกสร้างอัตโนมัติเมื่อปิดรอบ</span>
                   )}
                   <button
-                    onClick={() => navigate("/wht?source=payroll")}
+                    onClick={() => navigate(`/wht?source=payroll&month=${run.pay_date.slice(0, 7)}`)}
                     className="ml-auto text-xs font-medium text-green-700 hover:text-green-900 underline underline-offset-2"
                   >
                     ดูที่หน้าภาษีหัก ณ ที่จ่าย →

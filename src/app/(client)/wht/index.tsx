@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Circle, Check, Wallet, BadgeCheck, ReceiptText, Sparkles } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { Download, Trash2, Plus, FileText, Users, Eye, EyeOff, Pencil, Info, CheckCircle, Circle, Check, Wallet, BadgeCheck, ReceiptText, Sparkles, ExternalLink } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
@@ -158,6 +158,7 @@ export default function WhtPage() {
   const { profile } = useAuth();
   const { clientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
+  const navigate = useNavigate();
   const userId = profile?.id;
   const [searchParams, setSearchParams] = useSearchParams();
   const {
@@ -170,7 +171,10 @@ export default function WhtPage() {
 
   const [tab, setTab] = useState<Tab>(TAB_RECORDS);
   const [doneView, setDoneView] = useState<"active" | "done" | "all">("active");
-  const [month, setMonth] = useState("");
+  const [month, setMonth] = useState(() => {
+    const m = searchParams.get("month") ?? "";
+    return /^\d{4}-(0[1-9]|1[0-2])$/.test(m) ? m : "";
+  });
   const [vendorFilter, setVendorFilter] = useState("");
   const [formFilter, setFormFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"" | "manual" | "payroll">(
@@ -278,6 +282,37 @@ export default function WhtPage() {
       generated: filtered.filter((r) => r.certificate_no).length,
     };
   }, [filteredRecords]);
+
+  const payrollStrip = useMemo(() => {
+    if (sourceFilter !== "payroll") return null;
+    const pnd1 = filteredRecords.filter((r) => r.form_type === "pnd1");
+    const pnd3 = filteredRecords.filter((r) => r.form_type === "pnd3");
+    return {
+      count: filteredRecords.length,
+      totalWht: filteredRecords.reduce((s, r) => s + r.wht_amount, 0),
+      pnd1Count: pnd1.length,
+      pnd1Wht: pnd1.reduce((s, r) => s + r.wht_amount, 0),
+      pnd3Count: pnd3.length,
+      pnd3Wht: pnd3.reduce((s, r) => s + r.wht_amount, 0),
+    };
+  }, [sourceFilter, filteredRecords]);
+
+  const [missingTaxIdCount, setMissingTaxIdCount] = useState(0);
+  useEffect(() => {
+    if (sourceFilter !== "payroll" || !userId) {
+      setMissingTaxIdCount(0);
+      return;
+    }
+    supabase
+      .from("employees")
+      .select("id, tax_id")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .then(({ data }) => {
+        const list = (data ?? []) as { id: string; tax_id: string | null }[];
+        setMissingTaxIdCount(list.filter((e) => !(e.tax_id ?? "").trim()).length);
+      });
+  }, [sourceFilter, userId]);
 
   const vendorStats = useMemo(() => {
     const map = new Map<string, { count: number; totalPaid: number; totalWht: number; lastDate: string | null }>();
@@ -614,6 +649,42 @@ export default function WhtPage() {
               </div>
             )}
 
+            {payrollStrip && (
+              <div className="rounded-xl border border-teal-200 bg-teal-50/60 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+                  <span className="inline-flex items-center gap-1 font-medium text-teal-800">
+                    <Sparkles size={13} /> จากรอบเงินเดือน
+                  </span>
+                  <span className="text-teal-700">{payrollStrip.count} รายการ · ภาษีรวม <strong className="tabular-nums">฿{formatCurrency(payrollStrip.totalWht)}</strong></span>
+                  <span className="text-[12px] text-teal-600">
+                    ภ.ง.ด.1 {payrollStrip.pnd1Count} (฿{formatCurrency(payrollStrip.pnd1Wht)}) · ภ.ง.ด.3 {payrollStrip.pnd3Count} (฿{formatCurrency(payrollStrip.pnd3Wht)})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/payroll")}
+                    className="ml-auto text-[12px] font-medium text-teal-700 hover:text-teal-900 underline underline-offset-2"
+                  >
+                    ← กลับหน้าเงินเดือน
+                  </button>
+                </div>
+                {missingTaxIdCount > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1 text-[12px] text-amber-700">
+                    <Info size={13} className="shrink-0" />
+                    <span>
+                      พนักงาน {missingTaxIdCount} คนยังไม่มีเลขภาษี — ภาษีของพวกเขาจะไม่ถูกสร้างตอนซิงก์
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/payroll/employees")}
+                      className="font-medium underline underline-offset-2 hover:text-amber-900"
+                    >
+                      ไปเพิ่มที่หน้าพนักงาน
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
               <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขที่ผู้เสียภาษี เลขใบรับรอง..." className="flex-1 min-w-[200px]" />
               <select aria-label="กรองตามเดือน" value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
@@ -813,10 +884,15 @@ export default function WhtPage() {
                               >
                                 {WHT_FORM_TYPE_LABELS[r.form_type] || r.form_type}
                               </span>
-                              {r.source === "payroll" && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 text-[10px] font-medium" title="สร้างอัตโนมัติจากรอบเงินเดือน — แก้ไขที่หน้าเงินเดือน">
+                              {r.source === "payroll" && r.payroll_run_id && (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/payroll?run=${r.payroll_run_id}`)}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 text-[10px] font-medium hover:bg-teal-100 transition-colors"
+                                  title="สร้างอัตโนมัติจากรอบเงินเดือน — กดเพื่อเปิดรอบนั้น"
+                                >
                                   <Sparkles size={10} /> Payroll
-                                </span>
+                                </button>
                               )}
                             </div>
                           </td>
@@ -842,6 +918,11 @@ export default function WhtPage() {
                               {r.status !== "done" && r.source !== "payroll" && (
                                 <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
                                   <Trash2 size={15} />
+                                </button>
+                              )}
+                              {r.source === "payroll" && r.payroll_run_id && (
+                                <button type="button" onClick={() => navigate(`/payroll?run=${r.payroll_run_id}`)} className="p-1.5 rounded-md hover:bg-teal-50 text-[#CCCCCC] hover:text-teal-700 transition-colors" title="แก้ไขที่รอบเงินเดือน">
+                                  <ExternalLink size={15} />
                                 </button>
                               )}
                             </div>
