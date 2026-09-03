@@ -13,6 +13,7 @@ import { DocumentOptionsCard, DocumentOptionRow } from "../../../components/docu
 import { StepHeading } from "../../../components/documents/FormStep";
 import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
+import { ItemCreateModal } from "../../../components/catalog/ItemCreateModal";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
@@ -25,7 +26,7 @@ import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFi
 import { LineImageUpload } from "../../../components/documents/LineImageUpload";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../../constants";
-import { AlertTriangle, ChevronDown, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, Plus, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { Document, DocumentLineItem, DocumentType, DocumentStatus, Customer, WhtRate, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
@@ -424,13 +425,20 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const { clientProfile } = useClientProfile(userId);
   const { hasFeature } = useClientFeatures(userId);
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
-  const { items, addItem } = useItems(userId);
+  const { items, addItem, refetch: refetchItems } = useItems(userId);
   const jobDetailsFeatureEnabled = hasFeature("service_job_details");
   const businessToday = businessTodayString(clientProfile);
   const todayString = () => businessToday;
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  // In-form full catalog creation (ItemCreateModal): targetLineId = the line
+  // whose picker opened it (auto-select into that line), or null = the
+  // section-level "+ สร้าง" button (apply to the last empty line, else append).
+  const [itemCreateModal, setItemCreateModal] = useState<{ open: boolean; targetLineId: string | null }>({
+    open: false,
+    targetLineId: null,
+  });
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([]);
   const [serviceJobDetailFields, setServiceJobDetailFields] = useState<Record<string, JobDetailFieldConfig[]>>({});
@@ -1136,6 +1144,29 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     );
   };
 
+  // Full catalog creation from the deal form (ItemCreateModal): refresh the
+  // picker list, then fill the target line — or, for the section-level entry,
+  // the last still-empty line, appending a fresh pre-filled line otherwise.
+  const handleFullCreateItem = (created: Item) => {
+    void refetchItems();
+    const targetLineId = itemCreateModal.targetLineId;
+    if (targetLineId) {
+      selectCatalogItem(targetLineId, created);
+      return;
+    }
+    setLineItems((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && !last.item_id && !last.item_name.trim() && !last.unit_price) {
+        return prev.map((lineItem) =>
+          lineItem.id === last.id
+            ? applyCatalogItemToLine(lineItem, created, jobDetailsFeatureEnabled)
+            : lineItem,
+        );
+      }
+      return [...prev, applyCatalogItemToLine(createEmptyLine(), created, jobDetailsFeatureEnabled)];
+    });
+  };
+
   const renderJobDetailPresetInput = (
     lineItemId: string,
     itemId: string,
@@ -1814,7 +1845,20 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           <Card>
             <div className="mb-3 flex items-center justify-between gap-2">
               <StepHeading number={3} title={isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการสินค้าและบริการ"} />
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700">จำเป็น</span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700">จำเป็น</span>
+                {permissions.canManageCatalog && (
+                  <button
+                    type="button"
+                    onClick={() => setItemCreateModal({ open: true, targetLineId: null })}
+                    title="สร้างสินค้า/บริการใหม่ในแคตตาล็อก"
+                    className="inline-flex items-center gap-1 rounded-lg border border-card-border bg-white px-2.5 py-1.5 text-xs font-medium text-[#5F5B54] transition-colors hover:border-[#378ADD] hover:text-[#1A56DB]"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    สร้าง
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               {!isUtilityBill && lineItems.length === 0 && (
@@ -1903,6 +1947,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                             throw err;
                           }
                         }}
+                        onFullCreate={
+                          permissions.canManageCatalog
+                            ? () => setItemCreateModal({ open: true, targetLineId: item.id })
+                            : undefined
+                        }
                       />
                       </div>
                       {lineItems.length > 1 && (
@@ -2429,6 +2478,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             </div>
           </div>
         </Modal>
+
+        <ItemCreateModal
+          open={itemCreateModal.open}
+          onClose={() => setItemCreateModal({ open: false, targetLineId: null })}
+          onCreated={handleFullCreateItem}
+        />
       </div>
     </AppShell>
   );

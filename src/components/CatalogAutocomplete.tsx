@@ -20,6 +20,9 @@ interface CatalogAutocompleteProps {
     item_type: "product" | "service";
     has_job_details?: boolean;
   }) => Promise<Item>;
+  /** Bubbled to the picker modal — opens the full create form (this
+   * component closes its dropdown + picker first so the modals don't stack). */
+  onFullCreate?: () => void;
 }
 
 const INITIAL_RESULT_LIMIT = 12;
@@ -36,6 +39,7 @@ export function CatalogAutocomplete({
   createItemType = "product",
   createDefaultUnit = "ชิ้น",
   onCreate,
+  onFullCreate,
 }: CatalogAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -235,6 +239,15 @@ export function CatalogAutocomplete({
         createItemType={createItemType}
         createDefaultUnit={createDefaultUnit}
         onCreate={onCreate}
+        onFullCreate={
+          onFullCreate
+            ? () => {
+                setPickerOpen(false);
+                close();
+                onFullCreate();
+              }
+            : undefined
+        }
       />
     </div>
   );

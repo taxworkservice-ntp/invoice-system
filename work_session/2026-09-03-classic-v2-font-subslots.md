@@ -1,8 +1,33 @@
-# Classic V2 Font Sub-Slots + Line-Image Fixes — Session Record
+# Classic V2 Font Sub-Slots + Line-Image Fixes + In-Form Catalog Create — Session Record
 
 _Session date: 2026-09-03. Builds on the 2026-09-02 font-system session. **No pending migrations** — both `sql/20260903_files_line_images_purpose.sql` and `sql/20260903_fix_create_deal_document_image_url.sql` were applied to production Supabase (`fbhoqcpqqtbiorzbuqcl`) via Management API and verified. The font sub-slots need no migration (additive jsonb keys in existing columns)._
 
 ## What shipped
+
+### Feature: create catalog items from the deal form (รายการสินค้าและบริการ)
+Full ItemForm in a modal — one source of truth with /catalog/new (SKU, type,
+carton unit, ตั้งค่างานบริการ, สต๊อกเริ่มต้น). The 3-field inline quick-create
+in the picker stays untouched (available to all members).
+
+- `ItemForm.tsx` — optional `onCreated?: (item: Item) => void` fired with the
+  fresh row after insert + stock/preset setup (create mode only); hosts apply
+  it without waiting for a refetch. Existing `onSave`/`onCancel` unchanged →
+  /catalog/new + /catalog/:id/edit untouched.
+- `ItemCreateModal.tsx` (new) — `<Modal size="xl" title="สร้างสินค้า/บริการใหม่">`
+  wrapping `<ItemForm item={null}>`; unmounts when closed → fresh state per open.
+- `CatalogItemPickerModal.tsx` — optional `onFullCreate` prop renders a
+  "สร้างแบบเต็ม (SKU, หน่วยรอง, ตั้งค่างาน)…" link beside เพิ่มรายการใหม่.
+- `CatalogAutocomplete.tsx` — optional `onFullCreate` pass-through; closes its
+  dropdown + picker first so modals never stack (Modal.tsx is z-50 DOM-order).
+- `deals/new.tsx` — `itemCreateModal { open, targetLineId }` state +
+  `handleFullCreateItem`: refetchItems() (also re-derives service job-detail
+  setup via the jobDetailServiceItems effect) then
+  - picker path: `applyCatalogItemToLine(targetLineId, created)`
+  - section path ("+ สร้าง" button in the step-3 header): applies to the last
+    still-empty line, else appends a new pre-filled line
+- Permissions: both entry points render only for `canManageCatalog`; inline
+  quick-create intentionally ungated (per product decision).
+- Verified: tsc ✓, production build ✓; manual QA pending in the running app.
 
 ### Fix: create_deal_document 400 — "column image_url of relation documents does not exist"
 `sql/20260902_quotation_line_images.sql` had put `image_url` in the RPC's
@@ -99,6 +124,10 @@ unset, so existing workspaces render pixel-identically:
   see 2026-09-02 record); defaults/parent-only configs must render identically
 
 ## Pending / resume points
+- [ ] Manual QA: in-form catalog create — picker path (auto-select into that
+  line), section "+ สร้าง" path (last-empty-line / append), product with carton
+  unit, service with ตั้งค่างานบริการ, duplicate-SKU inline error, member
+  without canManageCatalog sees no entry points
 - [ ] Re-test in the quotation editor: create deal → quotation (RPC), line-image
   upload → thumbnail → print render (all server blockers fixed + smoke-tested)
 - [ ] **Rotate the Management API token pasted in chat (sbp_2c13a0…)** —

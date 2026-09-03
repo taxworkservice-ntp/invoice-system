@@ -39,9 +39,12 @@ interface Props {
   item?: Item | null;
   onSave: (itemId?: string) => void;
   onCancel: () => void;
+  /** Create mode only — called with the fresh row after insert + stock setup
+   * (lets in-form hosts apply the new item without waiting for a refetch). */
+  onCreated?: (item: Item) => void;
 }
 
-export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
+export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props) {
   const { profile } = useAuth();
   const { hasFeature } = useClientFeatures(profile?.id);
   const toast = useToast();
@@ -397,6 +400,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel }: Props) {
         }
 
         toast.success("เพิ่มสินค้าเรียบร้อย");
+        onCreated?.(newItem);
         onSave(newItem.id);
       }
     } catch (err: unknown) {

@@ -22,6 +22,8 @@ interface CatalogItemPickerModalProps {
     item_type: "product" | "service";
     has_job_details?: boolean;
   }) => Promise<Item>;
+  /** "สร้างแบบเต็ม…" — opens the full ItemForm (host closes this picker first). */
+  onFullCreate?: () => void;
 }
 
 function itemSearchText(item: Item) {
@@ -37,6 +39,7 @@ export function CatalogItemPickerModal({
   createItemType = "product",
   createDefaultUnit = "ชิ้น",
   onCreate,
+  onFullCreate,
 }: CatalogItemPickerModalProps) {
   const [search, setSearch] = useState(initialSearch);
   const [adding, setAdding] = useState(false);
@@ -157,17 +160,28 @@ export function CatalogItemPickerModal({
             </div>
           </div>
         ) : onCreate ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setNewItem((prev) => ({ ...prev, name: search.trim() || prev.name }));
-              setAdding(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            เพิ่มรายการใหม่
-          </Button>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setNewItem((prev) => ({ ...prev, name: search.trim() || prev.name }));
+                setAdding(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              เพิ่มรายการใหม่
+            </Button>
+            {onFullCreate && (
+              <button
+                type="button"
+                onClick={onFullCreate}
+                className="text-xs font-medium text-[#378ADD] hover:underline"
+              >
+                สร้างแบบเต็ม (SKU, หน่วยรอง, ตั้งค่างาน)…
+              </button>
+            )}
+          </div>
         ) : null}
 
         <div className="max-h-[58vh] overflow-y-auto rounded-xl border border-card-border">
