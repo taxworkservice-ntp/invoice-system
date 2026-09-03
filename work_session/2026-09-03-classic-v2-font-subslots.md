@@ -1,8 +1,27 @@
-# Classic V2 Font Sub-Slots + Line-Image Upload Fix — Session Record
+# Classic V2 Font Sub-Slots + Line-Image Fixes — Session Record
 
-_Session date: 2026-09-03. Builds on the 2026-09-02 font-system session. **No pending migrations** — `sql/20260903_files_line_images_purpose.sql` was applied to production Supabase (`fbhoqcpqqtbiorzbuqcl`) via Management API and verified via `pg_constraint` (CHECK now includes `line-images`). The font sub-slots need no migration (additive jsonb keys in existing columns)._
+_Session date: 2026-09-03. Builds on the 2026-09-02 font-system session. **No pending migrations** — both `sql/20260903_files_line_images_purpose.sql` and `sql/20260903_fix_create_deal_document_image_url.sql` were applied to production Supabase (`fbhoqcpqqtbiorzbuqcl`) via Management API and verified. The font sub-slots need no migration (additive jsonb keys in existing columns)._
 
 ## What shipped
+
+### Fix: create_deal_document 400 — "column image_url of relation documents does not exist"
+`sql/20260902_quotation_line_images.sql` had put `image_url` in the RPC's
+DOCUMENTS insert whitelist (the column only exists on document_line_items) —
+every deal→document creation via the RPC failed. The migration had been
+applied to production in that broken shape on 2026-09-02.
+
+- `sql/20260903_fix_create_deal_document_image_url.sql` — ✅ applied via
+  Management API: re-creates the RPC with image_url only in the LINE-ITEMS
+  insert (keeps print_font_scale / customer_po_number / task_name), plus
+  hardening: `base_quantity` falls back to `quantity` and `discount_amount`
+  to 0 when omitted (both were bare casts → NOT NULL violations on lean
+  payloads; the real client always sent them).
+- The repo's `20260902_quotation_line_images.sql` corrected the same way so a
+  fresh replay can't reintroduce the bug.
+- Verified live via Management API query: prosrc references image_url only in
+  the line-items section; transactional smoke tests (rolled back, burned a few
+  quotation sequence numbers) — full payload ✓ and lean payload ✓ both return
+  deal_id/document_id.
 
 ### Fix: "+ เพิ่มรูปตัวอย่าง" 400 Invalid storage key (Round 7 line images were never server-allowlisted)
 The quotation per-line photo upload (shipped 2026-09-02) POSTs
@@ -80,8 +99,8 @@ unset, so existing workspaces render pixel-identically:
   see 2026-09-02 record); defaults/parent-only configs must render identically
 
 ## Pending / resume points
-- [ ] Re-test line-image upload + print render in the quotation editor
-  (all three blockers fixed: server allowlist, image proxy, DB constraint)
+- [ ] Re-test in the quotation editor: create deal → quotation (RPC), line-image
+  upload → thumbnail → print render (all server blockers fixed + smoke-tested)
 - [ ] **Rotate the Management API token pasted in chat (sbp_2c13a0…)** —
   Dashboard → Account → Access Tokens (same drill as the 2026-09-02 sbp_ tokens)
 - [ ] Regenerate print-layout baselines on this machine when convenient

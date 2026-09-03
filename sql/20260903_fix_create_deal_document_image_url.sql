@@ -1,11 +1,12 @@
--- Quotation line images (self-contained).
--- document_line_items.image_url: optional per-line example photo (R2 proxied
--- URL) printed under the item name on classic V2 QUOTATIONS only.
--- Also recreates create_deal_document so saves persist the new column
--- (the RPC has an explicit column whitelist for both documents and lines).
--- Run this whole file in the Supabase SQL editor.
-
-alter table public.document_line_items add column if not exists image_url text;
+-- Fix create_deal_document: the 20260902_quotation_line_images.sql re-create
+-- mistakenly put image_url in the DOCUMENTS insert whitelist — the column
+-- only exists on document_line_items, so EVERY call failed with
+-- 'column "image_url" of relation "documents" does not exist'.
+-- This re-create removes image_url from the documents INSERT and keeps it in
+-- the line-items INSERT (per-line example photos on quotations). Also keeps
+-- print_font_scale / customer_po_number / task_name from the earlier versions,
+-- and coalesces the optional line numerics (base_quantity, discount_amount)
+-- so payloads that omit them no longer violate the NOT NULL constraints.
 
 create or replace function public.create_deal_document(
   p_user_id uuid,
@@ -103,8 +104,10 @@ begin
     coalesce(nullif(line->>'item_type', '')::public.item_type, 'service'::public.item_type),
     coalesce(nullif(line->>'unit', ''), 'ชิ้น'),
     (line->>'unit_price')::numeric, (line->>'quantity')::numeric,
-    (line->>'base_quantity')::numeric, coalesce((line->>'discount_percent')::numeric, 0),
-    (line->>'discount_amount')::numeric, (line->>'qty_carton')::numeric,
+    coalesce((line->>'base_quantity')::numeric, (line->>'quantity')::numeric),
+    coalesce((line->>'discount_percent')::numeric, 0),
+    coalesce((line->>'discount_amount')::numeric, 0),
+    (line->>'qty_carton')::numeric,
     nullif(line->>'carton_unit', ''), (line->>'line_total')::numeric,
     nullif(line->>'image_url', ''),
     coalesce((line->>'sort_order')::int, 0)
@@ -114,3 +117,5 @@ begin
 end;
 $$;
 
+revoke execute on function public.create_deal_document(uuid, uuid, jsonb, jsonb, text) from public;
+grant execute on function public.create_deal_document(uuid, uuid, jsonb, jsonb, text) to authenticated;
