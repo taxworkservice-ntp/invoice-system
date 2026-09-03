@@ -1,6 +1,6 @@
-# Classic V2 Font Sub-Slots + Line-Image Fixes + In-Form Catalog Create — Session Record
+# Classic V2 Fonts + Line-Images + Catalog Create + PO/Job Chain — Session Record
 
-_Session date: 2026-09-03. Builds on the 2026-09-02 font-system session. **No pending migrations** — both `sql/20260903_files_line_images_purpose.sql` and `sql/20260903_fix_create_deal_document_image_url.sql` were applied to production Supabase (`fbhoqcpqqtbiorzbuqcl`) via Management API and verified. The font sub-slots need no migration (additive jsonb keys in existing columns)._
+_Session date: 2026-09-03. Builds on the 2026-09-02 font-system session. **No pending migrations** — `sql/20260903_files_line_images_purpose.sql`, `sql/20260903_fix_create_deal_document_image_url.sql`, and `sql/20260903_po_task_propagation.sql` were all applied to production Supabase (`fbhoqcpqqtbiorzbuqcl`) via Management API and verified. The font sub-slots need no migration (additive jsonb keys in existing columns)._
 
 ## What shipped
 
@@ -28,6 +28,33 @@ in the picker stays untouched (available to all members).
 - Permissions: both entry points render only for `canManageCatalog`; inline
   quick-create intentionally ungated (per product decision).
 - Verified: tsc ✓, production build ✓; manual QA pending in the running app.
+
+### Feature: PO / job-name full-chain propagation + shared form row
+One PO / one job name entered once (usually on the quotation) now follows the
+whole money chain and prints in the classic V2 info band on every document:
+
+- `PoTaskFields.tsx` (new) — shared two-column row (ชื่องาน/JOB NAME |
+  เลขที่ใบสั่งซื้อ/PO NO.) with icons, `<datalist>` suggestions, optional
+  source chip ("ค่าอัตโนมัติจากใบส่งของ DN-102 — แก้ไขได้") and amber conflict
+  hint. Replaces the stacked raw inputs in all 4 forms: `deals/new.tsx:2317–2338`,
+  `InvoiceFromQuotationForm`, `InvoiceFromDeliveryNotesForm`, `DeliveryNoteFromQuotationForm`.
+- `useCustomerReferenceHistory.ts` (new) — distinct past PO/job values for this
+  customer (latest 300 docs), so recurring jobs become pick-not-type.
+- DN→invoice: unanimity replaced by **first non-empty wins** (`InvoiceFromDeliveryNotesForm`);
+  disagreeing DNs listed inline ("DN-105 ระบุต่างออก — โปรดตรวจสอบ").
+  Manual-edit protection (`derivedPoTaskRef`) preserved.
+- Downstream carry: receipt (`PaymentModal` copies both from `sourceDoc`);
+  billing note (silent prefill from selected invoices + RPC whitelist);
+  credit/debit (prefill from referenced invoice + RPC whitelist).
+- `deals/new.tsx` "โหลดรายการจากใบแจ้งหนี้ล่าสุด" also carries PO/task now.
+- `sql/20260903_po_task_propagation.sql` — ✅ applied via Management API:
+  `create_billing_note_with_links` + `save_adjustment_note` whitelists rebuilt
+  from the LIVE `pg_get_functiondef` snapshots (guard against whitelist drift —
+  the image_url lesson). Verified via `pg_proc` positions + rolled-back smoke
+  tests: invoice→billing-note chain ✓, draft credit note ✓.
+- Verified: tsc ✓, production build ✓; manual QA matrix pending
+  (all-agree / one-blank / one-different DN mixes → invoice prefill + hint;
+  invoice → receipt/billing/credit print the PO/job row).
 
 ### Fix: create_deal_document 400 — "column image_url of relation documents does not exist"
 `sql/20260902_quotation_line_images.sql` had put `image_url` in the RPC's
@@ -115,15 +142,27 @@ unset, so existing workspaces render pixel-identically:
 - src/app/(client)/settings/documents.tsx — indented sub-rows, sub-inherit labels, specimens
 - tests/print-layout/pagination.many.check.ts — section 6c: block-max reserves, parent
   fallback == parent-driven budgets, uniform sub-slots == scalar, resolution-chain cases
+- PO/job chain: `components/documents/PoTaskFields.tsx` + `hooks/useCustomerReferenceHistory.ts`
+  (new); `InvoiceFromDeliveryNotesForm` (first-non-empty + conflicts),
+  `InvoiceFromQuotationForm` + `DeliveryNoteFromQuotationForm` (shared row +
+  suggestions + source chip), `deals/new.tsx` (shared row + latest-invoice
+  prefill), `payments/PaymentModal.tsx` (receipt copy), `BillingNoteForm.tsx`
+  + `CreditNoteForm.tsx` (prefill + payload), `sql/20260903_po_task_propagation.sql`
 
 ## Verification
 - tsc ✓, production build ✓, `npx tsx tests/print-layout/pagination.many.check.ts` ✓
   (incl. new 6c sub-slot assertions)
-- No migration pending; jsonb additive — no data changes
+- RPC migrations applied via Management API + verified: `pg_proc` whitelist
+  positions ✓; rolled-back smoke tests — invoice→billing-note chain ✓,
+  draft credit note ✓ (a few sequence numbers burned, no data persisted)
+- No migration pending; font sub-slots jsonb additive — no data changes
 - Playwright print-layout regression NOT run (baselines stale from before this session —
   see 2026-09-02 record); defaults/parent-only configs must render identically
 
 ## Pending / resume points
+- [ ] Manual QA: PO/job chain — 1 PO → 3 DNs (all agree / one blank / one
+  different) → invoice prefill + amber hint; invoice → receipt/billing-note/
+  credit-note print the PO/job row; suggestions + source chips in all 4 forms
 - [ ] Manual QA: in-form catalog create — picker path (auto-select into that
   line), section "+ สร้าง" path (last-empty-line / append), product with carton
   unit, service with ตั้งค่างานบริการ, duplicate-SKU inline error, member

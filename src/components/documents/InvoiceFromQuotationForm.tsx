@@ -15,6 +15,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { CustomerPickerModal } from "../customers/CustomerPickerModal";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
+import { useCustomerReferenceHistory } from "../../hooks/useCustomerReferenceHistory";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { resolveDocNumber } from "../../lib/docNumber";
@@ -26,6 +27,7 @@ import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../lib/stock";
 import { WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../constants";
 import type { Customer, Document, DocumentLineItem, DocumentStatus, WhtRate } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
+import { PoTaskFields } from "./PoTaskFields";
 
 const EPS = 1e-9;
 
@@ -119,7 +121,6 @@ export function InvoiceFromQuotationForm() {
   const todayString = () => businessToday;
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const toast = useToast();
-
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
@@ -138,6 +139,7 @@ export function InvoiceFromQuotationForm() {
 
   const [quotations, setQuotations] = useState<QuotationOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const referenceHistory = useCustomerReferenceHistory(selectedCustomerId || null);
   const [invoiceLines, setInvoiceLines] = useState<EditableInvoiceLine[]>([]);
   const [loadingQts, setLoadingQts] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1132,8 +1134,19 @@ export function InvoiceFromQuotationForm() {
                 </option>
               ))}
             </Select>
-            <Input label="ชื่องาน (JOB NAME)" value={taskName} onChange={(event) => setTaskName(event.target.value)} placeholder="เช่น งานติดตั้งไฟโรงงาน A" />
-            <Input label="เลขที่ใบสั่งซื้อ (PO NO.)" value={customerPo} onChange={(event) => setCustomerPo(event.target.value)} placeholder="เช่น PO-2569-001" />
+            <PoTaskFields
+              taskName={taskName}
+              onTaskNameChange={setTaskName}
+              customerPo={customerPo}
+              onCustomerPoChange={setCustomerPo}
+              taskSuggestions={referenceHistory.taskValues}
+              poSuggestions={referenceHistory.poValues}
+              sourceHint={
+                selectedQuotations[0]?.customer_po_number?.trim() || selectedQuotations[0]?.task_name?.trim()
+                  ? `ใบเสนอราคา ${selectedQuotations[0]?.doc_number || ""}`
+                  : null
+              }
+            />
             <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้" />
             <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">

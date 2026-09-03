@@ -213,6 +213,10 @@ export function PaymentModal({
           status: "draft",
           issue_date: payDate,
           converted_from_id: sourceDoc.id,
+          // Keep the source invoice's PO/job reference on the receipt —
+          // printed in the classic V2 info band.
+          customer_po_number: sourceDoc.customer_po_number,
+          task_name: sourceDoc.task_name,
           vat_registered: sourceDoc.vat_registered,
           vat_rate: sourceDoc.vat_rate,
           wht_rate: sourceDoc.wht_rate,

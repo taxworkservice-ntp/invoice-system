@@ -142,6 +142,12 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
   const [note, setNote] = useState("");
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
+  // PO/job reference carried from the invoiced side (printed in the classic V2
+  // info band). No inputs here — first non-empty value among the selected
+  // invoices wins silently; restored from the saved draft on edit.
+  const [customerPo, setCustomerPo] = useState("");
+  const [taskName, setTaskName] = useState("");
+  const derivedPoTaskRef = useRef({ po: "", task: "" });
 
   const [invoiceOptions, setInvoiceOptions] = useState<InvoiceOption[]>([]);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(
@@ -169,6 +175,24 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
       invoiceOptions.filter((invoice) => selectedInvoiceIds.has(invoice.id)),
     [invoiceOptions, selectedInvoiceIds],
   );
+
+  // Flow-down: first non-empty PO/task among the selected invoices (until the
+  // user-editable draft value differs — same guard as the invoice forms).
+  const selectedInvoiceIdsKey = selectedInvoices.map((invoice) => invoice.id).join(",");
+  useEffect(() => {
+    const withPo = selectedInvoices.find((invoice) => (invoice.customer_po_number || "").trim());
+    const withTask = selectedInvoices.find((invoice) => (invoice.task_name || "").trim());
+    const po = withPo?.customer_po_number?.trim() || "";
+    const task = withTask?.task_name?.trim() || "";
+    setCustomerPo((current) =>
+      current === derivedPoTaskRef.current.po || current === "" ? po : current,
+    );
+    setTaskName((current) =>
+      current === derivedPoTaskRef.current.task || current === "" ? task : current,
+    );
+    derivedPoTaskRef.current = { po, task };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInvoiceIdsKey]);
 
   const availableCurrentDealInvoices = useMemo(() => {
     if (!dealId) return [];
@@ -442,6 +466,8 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             ),
         );
         setNote(document.note || "");
+        setCustomerPo(document.customer_po_number || "");
+        setTaskName(document.task_name || "");
         setWhtRate(
           String(
             document.wht_rate || clientProfile?.default_wht_rate || "0",
@@ -644,6 +670,8 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         wht_amount: totals.whtAmount,
         net_payable: totals.netPayable,
         note: note || null,
+        customer_po_number: customerPo.trim() || null,
+        task_name: taskName.trim() || null,
       };
 
       if (docNumberOverride.trim()) {

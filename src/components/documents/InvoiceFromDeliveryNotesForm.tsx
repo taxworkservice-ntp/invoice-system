@@ -16,6 +16,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { CustomerPickerModal } from "../customers/CustomerPickerModal";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
+import { useCustomerReferenceHistory } from "../../hooks/useCustomerReferenceHistory";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { resolveDocNumber } from "../../lib/docNumber";
@@ -27,6 +28,7 @@ import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../lib/stock";
 import { WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../constants";
 import type { Customer, Document, DocumentLineItem, DocumentStatus, WhtRate } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
+import { PoTaskFields } from "./PoTaskFields";
 
 const EPS = 1e-9;
 const MANUAL_MAX = 1e9;
@@ -143,7 +145,8 @@ export function InvoiceFromDeliveryNotesForm() {
   const [whtRate, setWhtRate] = useState<WhtRate>("0");
   const [note, setNote] = useState("");
   // Optional PO reference + task name, printed on the invoice. Flow-down:
-  // pre-filled from the selected DNs when they all share the same value.
+  // pre-filled from the selected DNs — first non-empty value wins; DNs that
+  // disagree are flagged inline (PoTaskFields conflicts) instead of blanking.
   const [customerPo, setCustomerPo] = useState("");
   const [taskName, setTaskName] = useState("");
   // Tracks the last derived value so manual edits survive selection changes.
@@ -151,6 +154,7 @@ export function InvoiceFromDeliveryNotesForm() {
 
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const referenceHistory = useCustomerReferenceHistory(selectedCustomerId || null);
   const [invoiceLines, setInvoiceLines] = useState<EditableInvoiceLine[]>([]);
   const [loadingDns, setLoadingDns] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -378,24 +382,44 @@ export function InvoiceFromDeliveryNotesForm() {
     [deliveryNotes, selectedIds],
   );
 
-  // Flow-down: when every selected DN carries the same PO/task, follow it
-  // (until the user edits the field manually); mixed values stay blank.
+  // Flow-down derivation: first non-empty value among the selected DNs wins
+  // (a scratch DN left blank no longer blanks the whole invoice); DNs that
+  // disagree with the chosen value are flagged for the inline amber warning.
+  const poTaskDerivation = useMemo(() => {
+    const withPo = selectedDeliveryNotes.filter((dn) => (dn.customer_po_number || "").trim());
+    const chosenPo = withPo[0]?.customer_po_number?.trim() || "";
+    const poConflicts = chosenPo
+      ? selectedDeliveryNotes
+          .filter((dn) => (dn.customer_po_number || "").trim() && (dn.customer_po_number || "").trim() !== chosenPo)
+          .map((dn) => dn.doc_number || dn.id.slice(0, 8))
+      : [];
+    const withTask = selectedDeliveryNotes.filter((dn) => (dn.task_name || "").trim());
+    const chosenTask = withTask[0]?.task_name?.trim() || "";
+    const taskConflicts = chosenTask
+      ? selectedDeliveryNotes
+          .filter((dn) => (dn.task_name || "").trim() && (dn.task_name || "").trim() !== chosenTask)
+          .map((dn) => dn.doc_number || dn.id.slice(0, 8))
+      : [];
+    const source = withPo[0] || withTask[0];
+    return {
+      chosenPo,
+      chosenTask,
+      poConflicts,
+      taskConflicts,
+      sourceHint: source ? `ใบส่งของ ${source.doc_number || source.id.slice(0, 8)}` : null,
+    };
+  }, [selectedDeliveryNotes]);
+
+  // Follow the derived values (until the user edits the field manually).
   const selectedDnIdsKey = selectedDeliveryNotes.map((dn) => dn.id).join(",");
   useEffect(() => {
-    const unique = (values: Array<string | null>) => new Set(values.map((v) => v || "")).size <= 1;
-    const po = unique(selectedDeliveryNotes.map((dn) => dn.customer_po_number))
-      ? selectedDeliveryNotes[0]?.customer_po_number || ""
-      : "";
-    const task = unique(selectedDeliveryNotes.map((dn) => dn.task_name))
-      ? selectedDeliveryNotes[0]?.task_name || ""
-      : "";
     setCustomerPo((current) =>
-      current === derivedPoTaskRef.current.po || current === "" ? po : current,
+      current === derivedPoTaskRef.current.po || current === "" ? poTaskDerivation.chosenPo : current,
     );
     setTaskName((current) =>
-      current === derivedPoTaskRef.current.task || current === "" ? task : current,
+      current === derivedPoTaskRef.current.task || current === "" ? poTaskDerivation.chosenTask : current,
     );
-    derivedPoTaskRef.current = { po, task };
+    derivedPoTaskRef.current = { po: poTaskDerivation.chosenPo, task: poTaskDerivation.chosenTask };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDnIdsKey]);
 
@@ -1231,8 +1255,17 @@ export function InvoiceFromDeliveryNotesForm() {
                 </option>
               ))}
             </Select>
-            <Input label="ชื่องาน (JOB NAME)" value={taskName} onChange={(event) => setTaskName(event.target.value)} placeholder="เช่น งานติดตั้งไฟโรงงาน A" />
-            <Input label="เลขที่ใบสั่งซื้อ (PO NO.)" value={customerPo} onChange={(event) => setCustomerPo(event.target.value)} placeholder="เช่น PO-2569-001" />
+            <PoTaskFields
+              taskName={taskName}
+              onTaskNameChange={setTaskName}
+              customerPo={customerPo}
+              onCustomerPoChange={setCustomerPo}
+              taskSuggestions={referenceHistory.taskValues}
+              poSuggestions={referenceHistory.poValues}
+              sourceHint={poTaskDerivation.sourceHint}
+              poConflicts={poTaskDerivation.poConflicts}
+              taskConflicts={poTaskDerivation.taskConflicts}
+            />
             <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบส่งของประจำเดือนนี้" />
             <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">

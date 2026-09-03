@@ -9,6 +9,7 @@ import { DateInput } from "../ui/DateInput";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
+import { useCustomerReferenceHistory } from "../../hooks/useCustomerReferenceHistory";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { resolveDocNumber } from "../../lib/docNumber";
@@ -20,6 +21,7 @@ import type { Customer, Document, DocumentLineItem, DocumentStatus } from "../..
 import { EditableDocNumber } from "./EditableDocNumber";
 import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
 import { FormStep } from "./FormStep";
+import { PoTaskFields } from "./PoTaskFields";
 import { FormActionBar } from "./FormActionBar";
 
 type QuotationWithCustomer = Document & { customer?: Customer };
@@ -80,6 +82,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
 
   const [quotation, setQuotation] = useState<QuotationWithCustomer | null>(null);
   const [quotationLines, setQuotationLines] = useState<DocumentLineItem[]>([]);
+  const referenceHistory = useCustomerReferenceHistory(quotation?.customer_id || null);
   const [lines, setLines] = useState<DeliveryLine[]>([]);
   const [existingDraft, setExistingDraft] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
@@ -795,17 +798,18 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
 
         <FormStep number={3} title="สรุปและบันทึก">
           <div className="space-y-3">
-            <Input
-              label="ชื่องาน (JOB NAME)"
-              value={taskName}
-              onChange={(event) => setTaskName(event.target.value)}
-              placeholder="เช่น งานติดตั้งไฟโรงงาน A"
-            />
-            <Input
-              label="เลขที่ใบสั่งซื้อ (PO NO.)"
-              value={customerPo}
-              onChange={(event) => setCustomerPo(event.target.value)}
-              placeholder="เช่น PO-2569-001"
+            <PoTaskFields
+              taskName={taskName}
+              onTaskNameChange={setTaskName}
+              customerPo={customerPo}
+              onCustomerPoChange={setCustomerPo}
+              taskSuggestions={referenceHistory.taskValues}
+              poSuggestions={referenceHistory.poValues}
+              sourceHint={
+                taskName.trim() || customerPo.trim()
+                  ? `ใบเสนอราคา ${quotation?.doc_number || ""}`
+                  : null
+              }
             />
             <Input
               label="หมายเหตุบนใบส่งของ"

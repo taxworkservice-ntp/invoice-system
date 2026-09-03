@@ -14,6 +14,7 @@ import { StepHeading } from "../../../components/documents/FormStep";
 import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { ItemCreateModal } from "../../../components/catalog/ItemCreateModal";
+import { PoTaskFields } from "../../../components/documents/PoTaskFields";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
@@ -25,6 +26,7 @@ import { cartonsToBase, formatMixedStock, restoreStockOnVoid, round3 } from "../
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
 import { LineImageUpload } from "../../../components/documents/LineImageUpload";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
+import { useCustomerReferenceHistory } from "../../../hooks/useCustomerReferenceHistory";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../../constants";
 import { AlertTriangle, ChevronDown, Plus, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
@@ -454,6 +456,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   // Optional PO reference + task name, printed on the document (classic V2).
   const [customerPo, setCustomerPo] = useState("");
   const [taskName, setTaskName] = useState("");
+  // Distinct past values for this customer — recurring jobs become pick-not-type.
+  const referenceHistory = useCustomerReferenceHistory(selectedCustomer?.id || null);
   const [utilityServiceItemId, setUtilityServiceItemId] = useState<string | null>(null);
   const [utilityServiceName, setUtilityServiceName] = useState("");
   const [utilityUnit, setUtilityUnit] = useState("หน่วย");
@@ -528,7 +532,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     try {
       const { data: invoices } = await supabase
         .from("documents")
-        .select("id")
+        .select("id, customer_po_number, task_name")
         .eq("user_id", userId)
         .eq("customer_id", selectedCustomer.id)
         .eq("doc_type", "invoice")
@@ -577,6 +581,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         return;
       }
       setLineItems(mapped);
+      // Carry the PO/job reference along with the lines — same customer,
+      // same job context.
+      if ((latest as { customer_po_number?: string | null }).customer_po_number) {
+        setCustomerPo((latest as { customer_po_number: string }).customer_po_number);
+      }
+      if ((latest as { task_name?: string | null }).task_name) {
+        setTaskName((latest as { task_name: string }).task_name);
+      }
       toast.success("โหลดรายการจากใบแจ้งหนี้ล่าสุดแล้ว");
     } catch (err: any) {
       toast.error(err.message || "โหลดรายการไม่สำเร็จ");
@@ -2314,28 +2326,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 ))}
               </select>
             </div>
-            <div className="border-t border-card-border pt-3">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                ชื่องาน (JOB NAME)
-              </label>
-              <input
-                value={taskName}
-                onChange={(event) => setTaskName(event.target.value)}
-                placeholder="เช่น งานติดตั้งไฟโรงงาน A"
-                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
-              />
-            </div>
-            <div className="border-t border-card-border pt-3">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                เลขที่ใบสั่งซื้อ (PO NO.)
-              </label>
-              <input
-                value={customerPo}
-                onChange={(event) => setCustomerPo(event.target.value)}
-                placeholder="เช่น PO-2569-001"
-                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
-              />
-            </div>
+            <PoTaskFields
+              taskName={taskName}
+              onTaskNameChange={setTaskName}
+              customerPo={customerPo}
+              onCustomerPoChange={setCustomerPo}
+              taskSuggestions={referenceHistory.taskValues}
+              poSuggestions={referenceHistory.poValues}
+            />
             <div className="border-t border-card-border pt-3">
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 หมายเหตุ

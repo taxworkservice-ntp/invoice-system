@@ -77,6 +77,10 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
   const [existingCreditTotal, setExistingCreditTotal] = useState(0);
   const [items, setItems] = useState<CreditItem[]>([]);
   const [note, setNote] = useState("");
+  // PO/job reference carried from the referenced invoice (printed in the
+  // classic V2 info band); restored from the saved draft on edit.
+  const [customerPo, setCustomerPo] = useState("");
+  const [taskName, setTaskName] = useState("");
   const [documentDiscountPercent, setDocumentDiscountPercent] = useState(0);
   const [addItemInput, setAddItemInput] = useState("");
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
@@ -163,6 +167,8 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
     setExistingStatus((doc as any).status);
     setDocId((doc as any).id);
     setNote((doc as any).note || "");
+    setCustomerPo((doc as any).customer_po_number || "");
+    setTaskName((doc as any).task_name || "");
     setDocumentDiscountPercent((doc as any).discount_percent || 0);
     setIssueDate((doc as any).issue_date || todayString());
     setWhtRate(Number((doc as any).wht_rate) || 0);
@@ -278,6 +284,15 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
   useEffect(() => {
     if (refInvoiceId && !isEditing) loadRefInvoiceLines();
   }, [refInvoiceId, loadRefInvoiceLines, isEditing]);
+
+  // Carry the referenced invoice's PO/job onto new credit/debit notes.
+  useEffect(() => {
+    if (isEditing || !refInvoiceId || paidInvoices.length === 0) return;
+    const ref = paidInvoices.find((d) => d.id === refInvoiceId);
+    if (!ref) return;
+    setCustomerPo((current) => current || ref.customer_po_number || "");
+    setTaskName((current) => current || ref.task_name || "");
+  }, [refInvoiceId, paidInvoices, isEditing]);
 
   function updateItem(key: string, field: "quantity" | "unitPrice" | "unit" | "discountPercent", value: string) {
     setItems((prev) =>
@@ -419,6 +434,8 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           wht_amount: taxResult.whtAmount,
           net_payable: taxResult.netPayable,
           note: note || null,
+          customer_po_number: customerPo.trim() || null,
+          task_name: taskName.trim() || null,
           converted_from_id: refInvoiceId || null,
         },
         p_lines: pLines,
