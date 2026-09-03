@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileStack, FileText, PackageCheck, ExternalLink, Clock, Pencil, ScrollText } from "lucide-react";
+import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileStack, FileText, PackageCheck, ExternalLink, Clock, Pencil, ScrollText, Printer } from "lucide-react";
 import {
   fetchSourceDealsForInvoices,
   fetchWorkspaceBillingRefs,
@@ -1332,14 +1332,31 @@ export default function DealDetailPage() {
       title={title}
       showBack
       action={(
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setCloneChooserOpen(true)}
-        >
-          <Copy size={14} className="mr-1" />
-          งานขายใหม่
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={nonVoidedDocs.length === 0}
+            onClick={() => {
+              if (nonVoidedDocs.length === 1) {
+                handleOpenPreview(nonVoidedDocs[0].document);
+              } else if (nonVoidedDocs.length > 1) {
+                setShowDocList(true);
+              }
+            }}
+          >
+            <Printer size={14} className="mr-1" />
+            พิมพ์เอกสาร
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setCloneChooserOpen(true)}
+          >
+            <Copy size={14} className="mr-1" />
+            งานขายใหม่
+          </Button>
+        </div>
       )}
     >
       <div className="flex flex-col space-y-3">
@@ -2301,44 +2318,18 @@ export default function DealDetailPage() {
             </div>
           )}
            <div className="mt-3 grid grid-cols-2 gap-2">
-             {nonVoidedDocs.length > 0 && (
-                 <div className="col-span-2">
-                   <Button
-                     variant="secondary"
-                     tone="blue"
-                     className="w-full justify-center"
-                     onClick={() => setShowDocList(true)}
-                   >
-                     พิมพ์เอกสาร ({nonVoidedDocs.length})
-                   </Button>
-
-                   <Modal open={showDocList} onClose={() => setShowDocList(false)} title="เลือกเอกสาร">
-                     <div className="divide-y divide-stone-100">
-                       {nonVoidedDocs.map((item) => {
-                         const doc = item.document;
-                         return (
-                           <button
-                             key={doc.id}
-                             type="button"
-                             onClick={() => { handleOpenPreview(doc); setShowDocList(false); }}
-                             className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-stone-50 transition-colors text-left"
-                           >
-                             <div className="min-w-0">
-                               <div className="text-sm font-medium text-gray-900">
-                                 {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
-                               </div>
-                               <div className="text-[12px] text-gray-500">
-                                 {doc.doc_number || "ยังไม่มีเลขเอกสาร"} · {formatBuddhistDate(doc.issue_date)}
-                               </div>
-                             </div>
-                             <ExternalLink size={14} className="shrink-0 text-gray-300" />
-                           </button>
-                         );
-                       })}
-                     </div>
-                   </Modal>
-                 </div>
-             )}
+              {nonVoidedDocs.length > 0 && (
+                  <div className="col-span-2">
+                    <Button
+                      variant="secondary"
+                      tone="blue"
+                      className="w-full justify-center"
+                      onClick={() => setShowDocList(true)}
+                    >
+                      พิมพ์เอกสาร ({nonVoidedDocs.length})
+                    </Button>
+                  </div>
+              )}
             {activeDoc?.document.status === "draft" ? null : (
               <Button
                 variant="secondary"
@@ -2424,6 +2415,32 @@ export default function DealDetailPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal open={showDocList} onClose={() => setShowDocList(false)} title="เลือกเอกสาร">
+        <div className="divide-y divide-stone-100">
+          {nonVoidedDocs.map((item) => {
+            const doc = item.document;
+            return (
+              <button
+                key={doc.id}
+                type="button"
+                onClick={() => { handleOpenPreview(doc); setShowDocList(false); }}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-stone-50 transition-colors text-left"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900">
+                    {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
+                  </div>
+                  <div className="text-[12px] text-gray-500">
+                    {doc.doc_number || "ยังไม่มีเลขเอกสาร"} · {formatBuddhistDate(doc.issue_date)}
+                  </div>
+                </div>
+                <ExternalLink size={14} className="shrink-0 text-gray-300" />
+              </button>
+            );
+          })}
+        </div>
       </Modal>
 
       <Modal open={cloneChooserOpen} onClose={() => setCloneChooserOpen(false)} title="สร้างงานขายเหมือนงานนี้">
