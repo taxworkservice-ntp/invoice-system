@@ -459,10 +459,15 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   font-size: calc(9pt * var(--classic-font-scale));
   --classic-font-scale: 1;
   --classic-fs-header: var(--classic-font-scale);
+  --classic-fs-company: var(--classic-fs-header);
+  --classic-fs-title: var(--classic-fs-header);
+  --classic-fs-info: var(--classic-fs-header);
   --classic-fs-items: var(--classic-font-scale);
   --classic-fs-num: var(--classic-fs-items);
   --classic-fs-thead: var(--classic-fs-items);
   --classic-fs-totals: var(--classic-font-scale);
+  --classic-fs-net: var(--classic-fs-totals);
+  --classic-fs-payment: var(--classic-fs-totals);
   --classic-fs-footer: var(--classic-font-scale);
   line-height: 1.4;
   background: #ffffff;
@@ -549,7 +554,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   font-size: calc(9pt * var(--classic-fs-header));
 }
 .print-classic-company-th {
-  font-size: calc(17pt * var(--classic-fs-header));
+  font-size: calc(17pt * var(--classic-fs-company));
   font-weight: 800;
   color: #0f172a;
   line-height: 1.15;
@@ -557,7 +562,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   word-break: break-word;
 }
 .print-classic-company-en {
-  font-size: calc(14pt * var(--classic-fs-header));
+  font-size: calc(14pt * var(--classic-fs-company));
   font-weight: 800;
   color: #0f172a;
   line-height: 1.15;
@@ -566,7 +571,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   word-break: break-word;
 }
 .print-classic-company-meta {
-  font-size: calc(8.5pt * var(--classic-fs-header));
+  font-size: calc(8.5pt * var(--classic-fs-company));
   color: #4b5563;
   line-height: 1.55;
   margin-top: 2.5mm;
@@ -585,10 +590,10 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   text-align: center;
 }
 .print-classic-doc-title--inline .print-classic-doc-title-th {
-  font-size: calc(15pt * var(--classic-fs-header));
+  font-size: calc(15pt * var(--classic-fs-title));
 }
 .print-classic-doc-title--inline .print-classic-doc-title-en {
-  font-size: calc(10pt * var(--classic-fs-header));
+  font-size: calc(10pt * var(--classic-fs-title));
   margin-top: 0.5mm;
 }
 .print-classic-copy-badge {
@@ -600,11 +605,11 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-copy-th {
   font-weight: 700;
-  font-size: calc(10pt * var(--classic-fs-header));
+  font-size: calc(10pt * var(--classic-fs-title));
   color: #1f2937;
 }
 .print-classic-copy-en {
-  font-size: calc(8pt * var(--classic-fs-header));
+  font-size: calc(8pt * var(--classic-fs-title));
   color: #4b5563;
   letter-spacing: 0.05em;
   margin-top: 1mm;
@@ -616,13 +621,13 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   margin: 2mm 0 4mm 0;
 }
 .print-classic-doc-title-th {
-  font-size: calc(15pt * var(--classic-fs-header));
+  font-size: calc(15pt * var(--classic-fs-title));
   font-weight: 800;
   color: #0f172a;
   line-height: 1.15;
 }
 .print-classic-doc-title-en {
-  font-size: calc(11pt * var(--classic-fs-header));
+  font-size: calc(11pt * var(--classic-fs-title));
   font-weight: 700;
   color: #0f172a;
   letter-spacing: 0.02em;
@@ -646,7 +651,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   grid-template-columns: 22mm 1fr;
   row-gap: 0.6mm;
   column-gap: 2mm;
-  font-size: calc(8pt * var(--classic-fs-header));
+  font-size: calc(8pt * var(--classic-fs-info));
   align-items: start;
 }
 .print-classic-label {
@@ -657,18 +662,18 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-label-th {
   font-weight: 600;
   color: #1f2937;
-  font-size: calc(7.6pt * var(--classic-fs-header));
+  font-size: calc(7.6pt * var(--classic-fs-info));
 }
 .print-classic-label-en {
   color: #4b5563;
-  font-size: calc(5.4pt * var(--classic-fs-header));
+  font-size: calc(5.4pt * var(--classic-fs-info));
   display: block;
   line-height: 1.05;
 }
 .print-classic-val {
   line-height: 1.3;
   color: #1f2937;
-  font-size: calc(8pt * var(--classic-fs-header));
+  font-size: calc(8pt * var(--classic-fs-info));
   word-break: break-word;
 }
 
@@ -676,7 +681,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-meta-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: calc(8pt * var(--classic-fs-header));
+  font-size: calc(8pt * var(--classic-fs-info));
 }
 .print-classic-meta-table th,
 .print-classic-meta-table td {
@@ -693,19 +698,19 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-meta-th-th {
   font-weight: 600;
-  font-size: calc(7.6pt * var(--classic-fs-header));
+  font-size: calc(7.6pt * var(--classic-fs-info));
   color: #1f2937;
   display: block;
 }
 .print-classic-meta-th-en {
   color: #4b5563;
-  font-size: calc(5.4pt * var(--classic-fs-header));
+  font-size: calc(5.4pt * var(--classic-fs-info));
   display: block;
   line-height: 1.05;
   letter-spacing: 0.02em;
 }
 .print-classic-meta-val {
-  font-size: calc(8pt * var(--classic-fs-header));
+  font-size: calc(8pt * var(--classic-fs-info));
   font-weight: 600;
   color: #1f2937;
 }
@@ -1102,6 +1107,14 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   color: #1f2937;
   line-height: 1.5;
 }
+/* ข้อมูลการชำระเงิน (classic V2 sub-slot): the PAYMENT section follows
+   --classic-fs-payment instead of the terms/totals column scale. */
+.print-classic-terms-section--payment {
+  font-size: calc(7.5pt * var(--classic-fs-payment));
+}
+.print-classic-terms-section--payment .print-classic-terms-title {
+  font-size: calc(8pt * var(--classic-fs-payment));
+}
 .print-classic-payment-list {
   margin: 0;
   padding: 0;
@@ -1160,7 +1173,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-totals-row-grand .print-classic-totals-th,
 .print-classic-totals-row-grand .print-classic-totals-val {
   font-weight: 700;
-  font-size: calc(8.8pt * var(--classic-fs-totals));
+  font-size: calc(8.8pt * var(--classic-fs-net));
 }
 .print-classic-totals-row-net {
   background: #e5e7eb;
@@ -1168,7 +1181,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-totals-row-net .print-classic-totals-th,
 .print-classic-totals-row-net .print-classic-totals-val {
   font-weight: 800;
-  font-size: calc(9pt * var(--classic-fs-totals));
+  font-size: calc(9pt * var(--classic-fs-net));
 }
 .print-classic-totals-block-sep {
   border-top: 1.4px solid #9aa4af;
@@ -1181,12 +1194,12 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   background: #f0fbf4;
   color: #176b3a;
   text-align: center;
-  font-size: calc(8.5pt * var(--classic-fs-totals));
+  font-size: calc(8.5pt * var(--classic-fs-net));
   font-weight: 700;
 }
 .print-classic-payment-status-en {
   color: #5b9b75;
-  font-size: calc(6.5pt * var(--classic-fs-totals));
+  font-size: calc(6.5pt * var(--classic-fs-net));
   font-weight: 500;
   letter-spacing: 0.08em;
 }

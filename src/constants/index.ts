@@ -139,10 +139,15 @@ export const DOCUMENT_FONT_SCALE_DEFAULT = "default";
 
 export type ClassicV2SectionFontKey =
   | "header"
+  | "header_company"
+  | "header_title"
+  | "header_info"
   | "items"
   | "num"
   | "thead"
   | "totals"
+  | "totals_net"
+  | "payment"
   | "footer";
 
 /** Preset value meaning "follow the workspace default". */
@@ -150,12 +155,38 @@ export const CLASSIC_V2_SECTION_INHERIT = "inherit";
 
 export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
   "header",
+  "header_company",
+  "header_title",
+  "header_info",
   "items",
   "num",
   "thead",
   "totals",
+  "totals_net",
+  "payment",
   "footer",
 ];
+
+/**
+ * Sub-slot → parent slot. A sub-slot refines one visual part of its parent's
+ * fixed block; when unset it resolves to the parent slot, which in turn
+ * resolves to the global scale — so keys absent from stored jsonb render
+ * exactly as before this refinement shipped.
+ */
+export const CLASSIC_V2_SUB_SLOT_PARENT: Partial<Record<ClassicV2SectionFontKey, ClassicV2SectionFontKey>> = {
+  header_company: "header",
+  header_title: "header",
+  header_info: "header",
+  totals_net: "totals",
+  payment: "totals",
+};
+
+/** Default workspace section-scale state — every slot follows its parent. */
+export const CLASSIC_V2_DEFAULT_SECTION_SCALES: Record<ClassicV2SectionFontKey, string> =
+  Object.fromEntries(CLASSIC_V2_SECTION_FONT_KEYS.map((key) => [key, CLASSIC_V2_SECTION_INHERIT])) as Record<
+    ClassicV2SectionFontKey,
+    string
+  >;
 
 /** Keys of the ตารางรายการ (items table) sub-group. */
 export const CLASSIC_V2_ITEMS_TABLE_ROWS: { key: ClassicV2SectionFontKey; label: string }[] = [
@@ -165,17 +196,48 @@ export const CLASSIC_V2_ITEMS_TABLE_ROWS: { key: ClassicV2SectionFontKey; label:
 ];
 
 /**
+ * Sub-rows rendered indented beneath their parent slot in Settings
+ * (รูปแบบเอกสาร > ขนาดตัวอักษร คลาสสิก V2).
+ */
+export const CLASSIC_V2_SECTION_SUB_ROWS: Partial<
+  Record<ClassicV2SectionFontKey, { key: ClassicV2SectionFontKey; label: string }[]>
+> = {
+  header: [
+    { key: "header_company", label: "ชื่อบริษัท/ที่อยู่" },
+    { key: "header_title", label: "ชื่อเอกสาร/ตราสำเนา" },
+    { key: "header_info", label: "กล่องข้อมูล/ลูกค้า" },
+  ],
+  totals: [
+    { key: "totals_net", label: "ยอดรวมสุดท้าย" },
+    { key: "payment", label: "ข้อมูลการชำระเงิน" },
+  ],
+};
+
+/** Short parent names used in sub-row inherit labels ("ตามส่วนหัว (9pt)"). */
+export const CLASSIC_V2_SECTION_PARENT_LABELS: Record<
+  "header" | "totals",
+  string
+> = { header: "ส่วนหัว", totals: "ยอดรวม" };
+
+/**
  * Multiplier for one Classic V2 section: an explicit workspace preset wins,
- * otherwise the section follows the global font scale.
+ * otherwise a sub-slot follows its parent slot, which follows the global
+ * font scale.
  */
 export function getClassicV2SectionScaleMult(
   section: ClassicV2SectionFontKey,
   sectionScales: Record<string, string> | null | undefined,
   globalMult: number,
 ): number {
-  const value = sectionScales?.[section];
-  if (!value || value === CLASSIC_V2_SECTION_INHERIT) return globalMult;
-  return getClassicV2FontScaleMult(value);
+  for (
+    let slot: ClassicV2SectionFontKey | undefined = section;
+    slot;
+    slot = CLASSIC_V2_SUB_SLOT_PARENT[slot]
+  ) {
+    const value = sectionScales?.[slot];
+    if (value && value !== CLASSIC_V2_SECTION_INHERIT) return getClassicV2FontScaleMult(value);
+  }
+  return globalMult;
 }
 
 /** Document types that can have their own font-scale overrides (classic V2). */
@@ -245,9 +307,10 @@ export function getClassicV2EffectiveFontScaleMult(
 }
 
 /**
- * Effective classic V2 section scale for one document — precedence:
- * per-type section override → workspace section scale → the document's
- * effective global scale.
+ * Effective classic V2 section scale for one document — precedence, walking
+ * the sub-slot → parent chain within each scope first:
+ * per-type section override → per-type parent override → workspace section
+ * scale → workspace parent scale → the document's effective global scale.
  */
 export function getClassicV2EffectiveSectionScaleMult(
   section: ClassicV2SectionFontKey,
@@ -255,11 +318,17 @@ export function getClassicV2EffectiveSectionScaleMult(
   sectionScales: Record<string, string> | null | undefined,
   globalMult: number,
 ): number {
-  const typeValue = typeSectionScales?.[section];
-  if (typeValue && typeValue !== CLASSIC_V2_SECTION_INHERIT) {
-    return getClassicV2FontScaleMult(typeValue);
+  for (const levels of [typeSectionScales, sectionScales]) {
+    for (
+      let slot: ClassicV2SectionFontKey | undefined = section;
+      slot;
+      slot = CLASSIC_V2_SUB_SLOT_PARENT[slot]
+    ) {
+      const value = levels?.[slot];
+      if (value && value !== CLASSIC_V2_SECTION_INHERIT) return getClassicV2FontScaleMult(value);
+    }
   }
-  return getClassicV2SectionScaleMult(section, sectionScales, globalMult);
+  return globalMult;
 }
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {

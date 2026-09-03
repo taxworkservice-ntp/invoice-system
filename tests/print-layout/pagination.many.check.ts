@@ -6,9 +6,9 @@
  * Run: npm run test:pagination
  */
 import assert from "node:assert";
-import { paginateLineItems, getRowBudgets } from "../../src/lib/pagination";
+import { paginateLineItems, getRowBudgets, type PageMode } from "../../src/lib/pagination";
 import { estimateLineItemHeight } from "../../src/lib/printRowHeight";
-import { getClassicV2FontScaleMult } from "../../src/constants";
+import { getClassicV2FontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../src/constants";
 import type { DocumentLineItem } from "../../src/types";
 
 function makeItem(n: number, opts: { changed?: boolean; longNote?: boolean } = {}): DocumentLineItem {
@@ -89,8 +89,10 @@ for (const template of ["modern", "classic"] as const) {
 
 // 4. capacity respected per mode
 const caps = { first: 20, continuation: 26, last: 14 };
+const pageMode = (mode: PageMode): "first" | "continuation" | "last" =>
+  mode === "single" ? "first" : mode;
 for (const batch of modernBatches) {
-  assert.ok(batch.items.length <= caps[batch.mode], `batch ${batch.mode} within capacity`);
+  assert.ok(batch.items.length <= caps[pageMode(batch.mode)], `batch ${batch.mode} within capacity`);
 }
 
 // 5. classic V2 font-scale: row budgets shrink with the scale so scaled fixed
@@ -153,7 +155,7 @@ for (const { preset, mult } of scales) {
   for (const batch of batches) {
     if (batch.items.length <= 1) continue;
     const sum = batch.items.reduce((acc, it) => acc + estimateClassic(it, mult), 0);
-    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[batch.mode];
+    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[pageMode(batch.mode)];
     assert.ok(
       sum <= budget + 0.5,
       `${preset}: ${batch.mode} page height ${sum.toFixed(1)}mm within budget ${budget.toFixed(1)}mm`,
@@ -193,7 +195,7 @@ for (const { preset, mult } of scales) {
   const budgetsMultiFirst = getRowBudgets("classic", mixed, "line_items", 0, { multiFirst: true });
   for (const batch of batches) {
     const sum = batch.items.reduce((acc, it) => acc + estimateClassic(it, 1.44), 0);
-    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[batch.mode];
+    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[pageMode(batch.mode)];
     assert.ok(
       sum <= budget + 0.5,
       `items-1.44: ${batch.mode} page height ${sum.toFixed(1)}mm within budget ${budget.toFixed(1)}mm`,
@@ -256,11 +258,63 @@ for (const { preset, mult } of scales) {
   for (const batch of batches) {
     if (batch.items.length <= 1) continue;
     const sum = batch.items.reduce((acc, it) => acc + estimateMixed(it, 1.65, 1.0), 0);
-    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[batch.mode];
+    const budget = batch.mode === "first" ? budgetsMultiFirst.first : budgets[pageMode(batch.mode)];
     assert.ok(sum <= budget + 0.5, `mixed: ${batch.mode} within budget`);
   }
   assertNoMergeableTail(batches, (it) => estimateMixed(it, 1.65, 1.0), budgets.last, 12, "mixed");
   console.log(`  classic_v2 desc1.65/num1.0: ${batches.map((b) => `${b.mode}(${b.items.length})`).join(" -> ")}`);
+}
+
+// 6c. sub-slot scales: fixed-block reserves use the block maximum and the
+// resolution chain sub → parent → global
+{
+  const unscaled = getRowBudgets("classic", 1);
+  // one enlarged header sub-slot must shrink header-block budgets even though
+  // the header slot itself stays at 1×
+  const infoOnly = getRowBudgets("classic", { header: 1, header_info: 1.44, items: 1, totals: 1, footer: 1 });
+  assert.ok(infoOnly.first < unscaled.first, "header_info scale must shrink first-page budget (block max)");
+  assert.equal(infoOnly.continuation, unscaled.continuation, "continuation pages carry no full header");
+  // totals sub-slots ride the totals block
+  const netOnly = getRowBudgets("classic", { header: 1, items: 1, totals: 1, totals_net: 1.44, payment: 1, footer: 1 });
+  assert.ok(netOnly.first < unscaled.first, "totals_net scale must shrink first-page budget (block max)");
+  assert.ok(netOnly.last < unscaled.last, "totals_net scale must shrink last-page budget (block max)");
+  // absent sub-slots fall back to their parent: an all-parents-at-1.44 object
+  // with implicit subs is identical to one with every sub spelled out
+  const parentDriven = getRowBudgets("classic", { header: 1.44, items: 1, totals: 1.44, footer: 1 });
+  const withSubs = getRowBudgets("classic", {
+    header: 1.44, header_company: 1.44, header_title: 1.44, header_info: 1.44,
+    items: 1, totals: 1.44, totals_net: 1.44, payment: 1.44, footer: 1,
+  });
+  for (const mode of ["first", "continuation", "last"] as const) {
+    assert.ok(Math.abs(parentDriven[mode] - withSubs[mode]) < 0.001, `sub-slot fallback matches parent (${mode})`);
+  }
+  // uniform scale via explicit sub-slots matches the scalar form
+  const scalar = getRowBudgets("classic", 1.44);
+  const uniformSubs = getRowBudgets("classic", {
+    header: 1.44, header_company: 1.44, header_title: 1.44, header_info: 1.44,
+    items: 1.44, num: 1.44, thead: 1.44, totals: 1.44, totals_net: 1.44, payment: 1.44,
+    footer: 1.44,
+  });
+  for (const mode of ["first", "continuation", "last"] as const) {
+    assert.ok(Math.abs(uniformSubs[mode] - scalar[mode]) < 0.001, `uniform sub-slot scales match scalar (${mode})`);
+  }
+  // resolution chain: sub → parent → global
+  assert.equal(getClassicV2SectionScaleMult("header_company", { header: "large" }, 1), 1.2, "sub-slot inherits parent preset");
+  assert.equal(getClassicV2SectionScaleMult("header_company", { header_company: "pt:12", header: "large" }, 1), 1.6, "explicit sub beats parent");
+  assert.equal(getClassicV2SectionScaleMult("payment", { totals_net: "pt:12" }, 1), 1, "sibling sub-slot is not inherited");
+  assert.equal(getClassicV2SectionScaleMult("header_info", {}, 1), 1, "empty chain falls back to global");
+  // effective chain: type levels beat workspace levels within the slot walk
+  assert.equal(
+    getClassicV2EffectiveSectionScaleMult("header_info", { header: "large" }, { header_info: "pt:12" }, 1),
+    1.2,
+    "type parent wins over workspace sub",
+  );
+  assert.equal(
+    getClassicV2EffectiveSectionScaleMult("header_info", { header_company: "pt:6" }, { header_info: "pt:12" }, 1),
+    1.6,
+    "workspace sub wins when the type chain is unset",
+  );
+  console.log("  classic_v2 sub-slot reserves + resolution chain: ok");
 }
 
 // 7. classic_v2 distribution: first page maximal, continuation pages packed,

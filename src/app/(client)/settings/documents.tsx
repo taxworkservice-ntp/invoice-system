@@ -12,7 +12,7 @@ import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT, CLASSIC_V2_TYPE_FONT_KEYS, CLASSIC_V2_TYPE_GLOBAL_KEY, CLASSIC_V2_ITEMS_TABLE_ROWS, CLASSIC_V2_BASE_FONT_PT, CLASSIC_V2_MIN_FONT_PT, CLASSIC_V2_MAX_FONT_PT, CLASSIC_V2_CUSTOM_PT_PREFIX, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT, CLASSIC_V2_TYPE_FONT_KEYS, CLASSIC_V2_TYPE_GLOBAL_KEY, CLASSIC_V2_ITEMS_TABLE_ROWS, CLASSIC_V2_SECTION_SUB_ROWS, CLASSIC_V2_SECTION_PARENT_LABELS, CLASSIC_V2_DEFAULT_SECTION_SCALES, CLASSIC_V2_BASE_FONT_PT, CLASSIC_V2_MIN_FONT_PT, CLASSIC_V2_MAX_FONT_PT, CLASSIC_V2_CUSTOM_PT_PREFIX, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import type { ClassicV2SectionFontKey } from "../../../constants";
 import { FontPreviewChip } from "../../../components/ui/FontPreviewChip";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
@@ -53,26 +53,53 @@ function ScaleRow({
   );
 }
 
-/** Full-width per-section scale rows with the ตารางรายการ group indented. */
+/**
+ * Full-width per-section scale rows: sub-groups (ตารางรายการ, header/totals
+ * refinements) render indented beneath their parent row.
+ */
 function SectionScaleEditor({
   getValue,
   setValue,
   inheritOptionLabel,
+  subInheritLabels,
 }: {
   getValue: (key: ClassicV2SectionFontKey) => string;
   setValue: (key: ClassicV2SectionFontKey, v: string) => void;
   /** Shown in every "ตามขนาดหลัก" option — state what it resolves to. */
   inheritOptionLabel?: string;
+  /** "ตามส่วนหัว (9pt)" labels for sub-rows — state the parent's effective size. */
+  subInheritLabels?: { header?: string; totals?: string };
 }) {
   const rowProps = { inheritOptionLabel };
+  const subRow = (parent: "header" | "totals") => {
+    const rows = CLASSIC_V2_SECTION_SUB_ROWS[parent];
+    if (!rows?.length) return null;
+    return (
+      <div className="mt-0.5 space-y-0.5">
+        {rows.map((row) => (
+          <ScaleRow
+            key={row.key}
+            indent
+            label={row.label}
+            value={getValue(row.key)}
+            onSet={(v) => setValue(row.key, v)}
+            inheritOptionLabel={subInheritLabels?.[parent] || `ตาม${CLASSIC_V2_SECTION_PARENT_LABELS[parent]}`}
+          />
+        ))}
+      </div>
+    );
+  };
   return (
     <div className="divide-y divide-[#F0EEE8]">
-      <ScaleRow
-        label="ส่วนหัว (ชื่อบริษัท/ลูกค้า)"
-        value={getValue("header")}
-        onSet={(v) => setValue("header", v)}
-        {...rowProps}
-      />
+      <div className="py-1.5">
+        <ScaleRow
+          label="ส่วนหัว (ชื่อบริษัท/ลูกค้า)"
+          value={getValue("header")}
+          onSet={(v) => setValue("header", v)}
+          {...rowProps}
+        />
+        {subRow("header")}
+      </div>
       <div className="py-1.5">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">ตารางรายการ</p>
         <div className="mt-0.5 space-y-0.5">
@@ -88,12 +115,15 @@ function SectionScaleEditor({
           ))}
         </div>
       </div>
-      <ScaleRow
-        label="ยอดรวม/เงื่อนไข"
-        value={getValue("totals")}
-        onSet={(v) => setValue("totals", v)}
-        {...rowProps}
-      />
+      <div className="py-1.5">
+        <ScaleRow
+          label="ยอดรวม/เงื่อนไข"
+          value={getValue("totals")}
+          onSet={(v) => setValue("totals", v)}
+          {...rowProps}
+        />
+        {subRow("totals")}
+      </div>
       <ScaleRow
         label="ลายเซ็น/ท้ายเอกสาร"
         value={getValue("footer")}
@@ -207,14 +237,9 @@ export default function SettingsDocumentsPage() {
   const [classicV2FullPageHeader, setClassicV2FullPageHeader] = useState(false);
   const [classicV2HideEnglishLabels, setClassicV2HideEnglishLabels] = useState(false);
   const [classicV2CompactSignature, setClassicV2CompactSignature] = useState(false);
-  const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>({
-    header: CLASSIC_V2_SECTION_INHERIT,
-    items: CLASSIC_V2_SECTION_INHERIT,
-    num: CLASSIC_V2_SECTION_INHERIT,
-    thead: CLASSIC_V2_SECTION_INHERIT,
-    totals: CLASSIC_V2_SECTION_INHERIT,
-    footer: CLASSIC_V2_SECTION_INHERIT,
-  });
+  const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>(
+    CLASSIC_V2_DEFAULT_SECTION_SCALES,
+  );
   const [classicV2TypeScales, setClassicV2TypeScales] = useState<Record<string, Record<string, string>>>({});
   const [scaleTab, setScaleTab] = useState<string>("default");
   const [classicTerms, setClassicTerms] = useState("");
@@ -243,12 +268,7 @@ export default function SettingsDocumentsPage() {
     setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
     setClassicV2FontScale(clientProfile.classic_v2_font_scale || "normal");
     setClassicV2SectionScales({
-      header: CLASSIC_V2_SECTION_INHERIT,
-      items: CLASSIC_V2_SECTION_INHERIT,
-      num: CLASSIC_V2_SECTION_INHERIT,
-      thead: CLASSIC_V2_SECTION_INHERIT,
-      totals: CLASSIC_V2_SECTION_INHERIT,
-      footer: CLASSIC_V2_SECTION_INHERIT,
+      ...CLASSIC_V2_DEFAULT_SECTION_SCALES,
       ...(clientProfile.classic_v2_section_font_scales || {}),
     });
     setClassicV2TypeScales(clientProfile.classic_v2_type_font_scales || {});
@@ -424,12 +444,25 @@ export default function SettingsDocumentsPage() {
       : getClassicV2EffectiveSectionScaleMult(section, tabTypeScales, classicV2SectionScales, specimenGlobalMult);
   const specimenRows = [
     { label: "ส่วนหัว", mult: specimenMult("header"), text: "บริษัท ตัวอย่าง จำกัด · 02-123-4567" },
+    { label: "ชื่อบริษัท/ที่อยู่", mult: specimenMult("header_company"), text: "บริษัท ตัวอย่าง จำกัด" },
+    { label: "ชื่อเอกสาร/ตราสำเนา", mult: specimenMult("header_title"), text: "ใบแจ้งหนี้ / INVOICE" },
+    { label: "กล่องข้อมูล/ลูกค้า", mult: specimenMult("header_info"), text: "เลขที่: INV-2609-0001 · วันที่" },
     { label: "ชื่อสินค้า/คำอธิบาย", mult: specimenMult("items"), text: "ปูนซีเมนต์ออลพัรโพส บรรจุถุง ทดสอบการตัดคำชื่อสินค้ายาว" },
     { label: "ตัวเลข/จำนวน", mult: specimenMult("num"), text: "12 × 350.00 = 4,200.00" },
     { label: "หัวตาราง", mult: specimenMult("thead"), text: "รายการ จำนวน หน่วย ราคา จำนวนเงิน" },
     { label: "ยอดรวม/เงื่อนไข", mult: specimenMult("totals"), text: "ยอดรวมทั้งสิ้น / NET PAYABLE" },
+    { label: "ยอดรวมสุดท้าย", mult: specimenMult("totals_net"), text: "ยอดรวมทั้งสิ้น 12,500.00" },
+    { label: "ข้อมูลการชำระเงิน", mult: specimenMult("payment"), text: "ธนาคาร: ธนาคารตัวอย่าง · เลขที่บัญชี 123-4-56789-0" },
     { label: "ลายเซ็น/ท้ายเอกสาร", mult: specimenMult("footer"), text: "ผู้มีอำนาจลงนาม / วันที่" },
   ];
+  // Sub-row inherit labels state the parent group's effective size, e.g.
+  // "ตามส่วนหัว (9pt)" — mirrors the "ตามขนาดหลัก (7.5pt)" convention.
+  const multToPtLabel = (mult: number) =>
+    `${parseFloat((mult * CLASSIC_V2_BASE_FONT_PT).toFixed(2))}pt`;
+  const subInheritLabels = {
+    header: `ตามส่วนหัว (${multToPtLabel(specimenMult("header"))})`,
+    totals: `ตามยอดรวม (${multToPtLabel(specimenMult("totals"))})`,
+  };
 
   return (
     <AppShell title="ตั้งค่า > รูปแบบเอกสาร">
@@ -607,13 +640,15 @@ export default function SettingsDocumentsPage() {
                 <div className="py-2.5">
                   <div className="text-xs font-medium text-gray-700">ปรับขนาดเฉพาะส่วน</div>
                   <p className="mt-0.5 text-[11px] text-[#888780]">
-                    ส่วนที่ตั้งเป็น “ตามขนาดหลัก” จะปรับตามขนาดหลักด้านบนทันที — ช่องตัวเลขขนาดใหญ่มากอาจล้นคอลัมน์แคบ
+                    ส่วนที่ตั้งเป็น “ตามขนาดหลัก” จะปรับตามขนาดหลักด้านบนทันที — รายการย่อยที่ตั้งเป็น “ตาม…” จะปรับตามกลุ่มแม่ของตัวเอง
+                    ช่องตัวเลขขนาดใหญ่มากอาจล้นคอลัมน์แคบ
                   </p>
                   <div className="mt-1">
                     <SectionScaleEditor
                       getValue={(key) => classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT}
                       setValue={(key, v) => { setClassicV2SectionScales({ ...classicV2SectionScales, [key]: v }); setSaved(false); }}
                       inheritOptionLabel={`ตามขนาดหลัก (${fontScaleLabel(classicV2FontScale)})`}
+                      subInheritLabels={subInheritLabels}
                     />
                   </div>
                 </div>
@@ -654,6 +689,7 @@ export default function SettingsDocumentsPage() {
                       inheritOptionLabel={`ตามขนาดหลักของ${selectedTypeLabel} (${fontScaleLabel(
                         (classicV2TypeScales[scaleTab] || {})[CLASSIC_V2_TYPE_GLOBAL_KEY] || classicV2FontScale,
                       )})`}
+                      subInheritLabels={subInheritLabels}
                     />
                   </div>
                 </div>

@@ -41,33 +41,42 @@ const SUMMARY_ROW_CAPACITY: Record<"modern" | "classic" | "classic_v2", Capacity
 // Row-area budgets above are tuned at --classic-font-scale = 1, but the fixed
 // page blocks (header, info band, terms/totals, signatures, table head) also
 // contain text that grows with the font scale, eating into the row area.
-// These per-section coefficients are the measured fixed-block growth in mm per
-// unit of that section's font scale (classic V2 fixture renders, rounded up
-// conservatively); budgets shrink by Σ coefficient × (section scale − 1).
+// These per-block coefficients are the measured fixed-block growth in mm per
+// unit of that block's font scale (classic V2 fixture renders, rounded up
+// conservatively); budgets shrink by Σ coefficient × (block scale − 1).
+// Header/totals blocks are keyed by their BLOCK scale — the max of the block's
+// own slot and its sub-slots (company/title/info; net/payment) — so refining
+// one part of a block still reserves enough room.
 // Summary pages carry the full header + totals on every page, so they reserve
-// every section on every page.
-const FONT_SCALE_SECTION_RESERVE_MM = { header: 51, items: 0, thead: 5, totals: 48, footer: 21 } as const;
+// every block on every page.
+const FONT_SCALE_SECTION_RESERVE_MM = { headerBlock: 51, thead: 5, totalsBlock: 48, footer: 21 } as const;
 
 const FONT_SCALE_PAGE_SECTIONS = {
   line_items: {
-    first: ["header", "thead", "totals", "footer"],
-    first_multi: ["header", "thead"],
+    first: ["headerBlock", "thead", "totalsBlock", "footer"],
+    first_multi: ["headerBlock", "thead"],
     continuation: ["thead"],
-    continuation_full_header: ["header", "thead"],
-    last: ["thead", "totals", "footer"],
+    continuation_full_header: ["headerBlock", "thead"],
+    last: ["thead", "totalsBlock", "footer"],
   },
   // Full document layout on every summary page.
   summary_rows: {
-    first: ["header", "thead", "totals", "footer"],
-    first_multi: ["header", "thead"],
-    continuation: ["header", "thead", "totals", "footer"],
-    continuation_full_header: ["header", "thead"],
-    last: ["header", "thead", "totals", "footer"],
+    first: ["headerBlock", "thead", "totalsBlock", "footer"],
+    first_multi: ["headerBlock", "thead"],
+    continuation: ["headerBlock", "thead", "totalsBlock", "footer"],
+    continuation_full_header: ["headerBlock", "thead"],
+    last: ["headerBlock", "thead", "totalsBlock", "footer"],
   },
 } as const;
 
 export type ClassicV2FontScales = {
   header: number;
+  /** Company block (name/address/meta) scale — falls back to `header`. */
+  header_company?: number;
+  /** Document title + copy badge scale — falls back to `header`. */
+  header_title?: number;
+  /** Info band (doc no/date/customer/meta table) scale — falls back to `header`. */
+  header_info?: number;
   /** Item description (names/notes) scale — drives row heights. */
   items: number;
   /** Numeric column scale — falls back to `items` when unset. */
@@ -75,22 +84,61 @@ export type ClassicV2FontScales = {
   /** Table head scale — falls back to `items` when unset. */
   thead?: number;
   totals: number;
+  /** Grand/net totals rows scale — falls back to `totals`. */
+  totals_net?: number;
+  /** PAYMENT section in the terms column — falls back to `totals`. */
+  payment?: number;
   footer: number;
+};
+
+type NormalizedClassicV2FontScales = Required<ClassicV2FontScales> & {
+  /** Max of the header block's scales (header + company/title/info). */
+  headerBlock: number;
+  /** Max of the totals block's scales (totals + net/payment). */
+  totalsBlock: number;
 };
 
 function normalizeFontScales(
   fontScale: number | ClassicV2FontScales,
-): Required<ClassicV2FontScales> {
+): NormalizedClassicV2FontScales {
   if (typeof fontScale === "number") {
-    return { header: fontScale, items: fontScale, num: fontScale, thead: fontScale, totals: fontScale, footer: fontScale };
+    return {
+      header: fontScale,
+      header_company: fontScale,
+      header_title: fontScale,
+      header_info: fontScale,
+      items: fontScale,
+      num: fontScale,
+      thead: fontScale,
+      totals: fontScale,
+      totals_net: fontScale,
+      payment: fontScale,
+      footer: fontScale,
+      headerBlock: fontScale,
+      totalsBlock: fontScale,
+    };
   }
+  const header = fontScale.header;
+  const headerCompany = fontScale.header_company ?? header;
+  const headerTitle = fontScale.header_title ?? header;
+  const headerInfo = fontScale.header_info ?? header;
+  const totals = fontScale.totals;
+  const totalsNet = fontScale.totals_net ?? totals;
+  const payment = fontScale.payment ?? totals;
   return {
-    header: fontScale.header,
+    header,
+    header_company: headerCompany,
+    header_title: headerTitle,
+    header_info: headerInfo,
     items: fontScale.items,
     num: fontScale.num ?? fontScale.items,
     thead: fontScale.thead ?? fontScale.items,
-    totals: fontScale.totals,
+    totals,
+    totals_net: totalsNet,
+    payment,
     footer: fontScale.footer,
+    headerBlock: Math.max(header, headerCompany, headerTitle, headerInfo),
+    totalsBlock: Math.max(totals, totalsNet, payment),
   };
 }
 

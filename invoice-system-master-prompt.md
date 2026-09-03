@@ -766,12 +766,22 @@ never affected.
 **Font system (Settings > รูปแบบเอกสาร):**
 - pt-only presets — 6 / 7.5 / 9 / 10.5 / 12 / 13pt (main reading text = item body, base 7.5pt)
 - Resolution chain (most specific wins): per-document override (`documents.print_font_scale`)
-  → per-doc-type (`classic_v2_type_font_scales` jsonb: global + 6 slots) → workspace
-  per-section (`classic_v2_section_font_scales`: 6 slots) → workspace global
+  → per-doc-type (`classic_v2_type_font_scales` jsonb: global + 11 slots) → workspace
+  per-section (`classic_v2_section_font_scales`: 11 slots) → workspace global
   (`classic_v2_font_scale`) → 7.5pt. Custom exact sizes stored as `pt:<n>` (clamped 6–13.5).
-- 6 slots: ส่วนหัว / ตารางรายการ (ชื่อสินค้า·ตัวเลข·หัวตาราง) / ยอดรวม / ลายเซ็น.
+- 11 slots — 6 base slots: ส่วนหัว / ตารางรายการ (ชื่อสินค้า·ตัวเลข·หัวตาราง) / ยอดรวม /
+  ลายเซ็น, plus 5 sub-slots refining their parent (absent key = inherit parent → global,
+  so older workspaces render unchanged): ชื่อบริษัท/ที่อยู่ (`header_company`),
+  ชื่อเอกสาร/ตราสำเนา (`header_title`), กล่องข้อมูล/ลูกค้า (`header_info`) under ส่วนหัว;
+  ยอดรวมสุดท้าย (`totals_net`), ข้อมูลการชำระเงิน (`payment`) under ยอดรวม.
   Numeric columns are single-line (row height = max(desc block, number line)).
-- Live feedback: "กAa" preview chips + a ตัวอย่างขนาดจริง specimen block in Settings.
+- CSS vars: `--classic-fs-company/title/info` default to `--classic-fs-header`;
+  `--classic-fs-net/payment` default to `--classic-fs-totals` (base block in index.css) —
+  classic V1 never sets them and is unaffected.
+- Pagination reserves use BLOCK maxima: header block = max(header, company/title/info),
+  totals block = max(totals, net/payment) — a refined sub-slot alone still shrinks budgets.
+- Live feedback: "กAa" preview chips + a ตัวอย่างขนาดจริง specimen block in Settings;
+  sub-row inherit options state the parent's effective size ("ตามส่วนหัว (9pt)").
 
 **Pagination (src/lib/pagination.ts + printRowHeight.ts):**
 - Wrap estimate: chars-per-line = 63 ÷ scale (100 when amount columns hidden),

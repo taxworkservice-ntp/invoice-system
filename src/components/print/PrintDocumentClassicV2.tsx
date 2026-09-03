@@ -261,10 +261,15 @@ export function PrintDocumentClassicV2({
   );
   const sectionScales = clientProfile.classic_v2_section_font_scales;
   const headerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, fontScaleMult);
+  const companyScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header_company", typeFontScales, sectionScales, fontScaleMult);
+  const titleScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header_title", typeFontScales, sectionScales, fontScaleMult);
+  const infoScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header_info", typeFontScales, sectionScales, fontScaleMult);
   const itemsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, fontScaleMult);
   const numScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, fontScaleMult);
   const theadScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, fontScaleMult);
   const totalsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, fontScaleMult);
+  const netScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals_net", typeFontScales, sectionScales, fontScaleMult);
+  const paymentScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("payment", typeFontScales, sectionScales, fontScaleMult);
   const footerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, fontScaleMult);
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
@@ -351,10 +356,15 @@ export function PrintDocumentClassicV2({
       style={{
         "--classic-font-scale": fontScaleMult,
         "--classic-fs-header": headerScaleMult,
+        "--classic-fs-company": companyScaleMult,
+        "--classic-fs-title": titleScaleMult,
+        "--classic-fs-info": infoScaleMult,
         "--classic-fs-items": itemsScaleMult,
         "--classic-fs-num": numScaleMult,
         "--classic-fs-thead": theadScaleMult,
         "--classic-fs-totals": totalsScaleMult,
+        "--classic-fs-net": netScaleMult,
+        "--classic-fs-payment": paymentScaleMult,
         "--classic-fs-footer": footerScaleMult,
       } as React.CSSProperties}
     >
@@ -988,7 +998,7 @@ export function PrintDocumentClassicV2({
                     </section>
                   ) : null}
                   {paymentLines.length > 0 ? (
-                    <section className="print-classic-terms-section">
+                    <section className="print-classic-terms-section print-classic-terms-section--payment">
                       <div className="print-classic-terms-title">
                         รายละเอียดการชำระเงิน (PAYMENT)
                       </div>
