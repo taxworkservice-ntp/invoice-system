@@ -696,10 +696,18 @@ export default function PayrollPage() {
     setDeletingRun(false);
   }
 
-  // Default WHT pick: only employees who actually owe tax. User can override per close/sync.
+  // Someone the sync can actually create a row for: has a tax id + a saved line item.
+  // (The sync reads saved rows from the DB — in-memory draft edits don't count.)
+  function isWhtSyncable(emp: Employee): boolean {
+    if (!(emp.tax_id ?? "").trim()) return false;
+    const savedItem = lineItems.get(emp.id);
+    return savedItem?.gross_pay != null && savedItem?.withholding_tax != null;
+  }
+
+  // Default WHT pick: only employees who actually owe tax AND can be synced.
   function defaultWhtPick(): string[] {
     return employees
-      .filter((emp) => (calcLineItem(emp, getEffectiveItem(emp.id)).withholding_tax ?? 0) > 0)
+      .filter((emp) => isWhtSyncable(emp) && (calcLineItem(emp, getEffectiveItem(emp.id)).withholding_tax ?? 0) > 0)
       .map((emp) => emp.id);
   }
 
@@ -1186,13 +1194,21 @@ export default function PayrollPage() {
   }).length;
   const incompleteEmployees = employees.filter((emp) => getRowStatus(emp, getEffectiveItem(emp.id)) !== "complete");
 
-  // WHT picker rows: employee + what they'd owe. Pre-checked only when tax > 0.
+  // WHT picker rows: employee + what they'd owe + whether the sync can take them.
+  // Pre-checked only when tax > 0 AND syncable (has tax id + saved row).
   const whtCandidates = useMemo(
     () =>
-      employees.map((emp) => ({
-        employee: emp,
-        tax: calcLineItem(emp, getEffectiveItem(emp.id)).withholding_tax ?? 0,
-      })),
+      employees.map((emp) => {
+        const savedItem = lineItems.get(emp.id);
+        const hasTaxId = Boolean((emp.tax_id ?? "").trim());
+        const saved = savedItem?.gross_pay != null && savedItem?.withholding_tax != null;
+        return {
+          employee: emp,
+          tax: calcLineItem(emp, getEffectiveItem(emp.id)).withholding_tax ?? 0,
+          syncable: hasTaxId && saved,
+          blocker: !hasTaxId ? "ไม่มีเลขผู้เสียภาษี" : !saved ? "ยังไม่บันทึกข้อมูล" : null as string | null,
+        };
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [employees, lineItems, settings, month],
   );
@@ -1459,10 +1475,27 @@ export default function PayrollPage() {
                       <Loader2 className="w-3.5 h-3.5 animate-spin" /> กำลังซิงกรายการภาษีหัก ณ ที่จ่าย...
                     </span>
                   ) : whtSync ? (
-                    <span className="text-xs text-green-700">
-                      รายการภาษีหัก ณ ที่จ่าย: สร้าง {whtSync.created} · อัปเดต {whtSync.updated} · ยืนยันแล้ว {whtSync.keptDone}
-                      {whtSync.skipped.length > 0 ? ` · ข้าม ${whtSync.skipped.length}` : ""}
-                    </span>
+                    <>
+                      <span className="text-xs text-green-700">
+                        รายการภาษีหัก ณ ที่จ่าย: สร้าง {whtSync.created} · อัปเดต {whtSync.updated} · ยืนยันแล้ว {whtSync.keptDone}
+                        {whtSync.skipped.length > 0 ? ` · ข้าม ${whtSync.skipped.length}` : ""}
+                      </span>
+                      {whtSync.skipped.length > 0 && (
+                        <details className="w-full text-xs text-green-700">
+                          <summary className="cursor-pointer underline underline-offset-2">
+                            ดูรายชื่อที่ข้าม ({whtSync.skipped.length} คน)
+                          </summary>
+                          <ul className="mt-1 space-y-0.5">
+                            {whtSync.skipped.map((s) => (
+                              <li key={`${s.employee_code}-${s.reason}`} className="flex flex-wrap gap-x-1">
+                                <span className="font-medium">{s.full_name || s.employee_code}</span>
+                                <span className="text-green-600">— {WHT_SKIP_REASON_LABELS[s.reason] ?? s.reason}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </>
                   ) : whtExistingCount === null ? null : whtExistingCount === 0 ? (
                     <span className="flex flex-wrap items-center gap-2 text-xs text-amber-700">
                       ยังไม่ได้สร้างรายการภาษีหัก ณ ที่จ่ายสำหรับรอบนี้
@@ -2117,7 +2150,16 @@ export default function PayrollPage() {
 interface WhtCandidate {
   employee: Employee;
   tax: number;
+  syncable: boolean;
+  blocker: string | null;
 }
+
+const WHT_SKIP_REASON_LABELS: Record<string, string> = {
+  no_tax_id: "ไม่มีเลขผู้เสียภาษี",
+  unsaved: "ยังไม่บันทึกข้อมูลเงินเดือน",
+  no_vendor: "สร้างผู้รับเงินไม่ได้",
+  excluded: "ไม่ได้เลือก",
+};
 
 function WhtPickList({ candidates, selected, descOverrides, onDescChange, onToggle, onSelectTaxed, onSelectAll, onClear }: {
   candidates: WhtCandidate[];
@@ -2140,22 +2182,29 @@ function WhtPickList({ candidates, selected, descOverrides, onDescChange, onTogg
         </div>
       </div>
       <div className="max-h-56 overflow-auto divide-y divide-stone-100 rounded-lg border border-card-border">
-        {candidates.map(({ employee, tax }) => {
+        {candidates.map(({ employee, tax, syncable, blocker }) => {
           const isPnd3 = employee.sso_registered === false;
           return (
-            <div key={employee.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50">
-              <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
+            <div key={employee.id} className={`flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 ${syncable ? "" : "opacity-70"}`}>
+              <label className={`flex items-center gap-2.5 flex-1 min-w-0 ${syncable ? "cursor-pointer" : "cursor-not-allowed"}`}>
                 <input
                   type="checkbox"
                   checked={selected.includes(employee.id)}
+                  disabled={!syncable}
+                  title={blocker ?? undefined}
                   onChange={() => onToggle(employee.id)}
-                  className="h-4 w-4 shrink-0"
+                  className="h-4 w-4 shrink-0 disabled:cursor-not-allowed"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-cool-900">{employee.full_name || employee.employee_code}</span>
                   <span className="block text-[11px] text-cool-400">
                     {employee.employee_code} · {isPnd3 ? "ภ.ง.ด.3" : "ภ.ง.ด.1"}
                   </span>
+                  {!syncable && blocker && (
+                    <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-amber-700">
+                      <AlertCircle className="w-3 h-3" /> {blocker} — ซิงก์ไม่ได้
+                    </span>
+                  )}
                 </span>
               </label>
               {isPnd3 && (
