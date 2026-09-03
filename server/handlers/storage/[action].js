@@ -10,6 +10,7 @@ const MAX_BYTES_BY_PURPOSE = {
   pdfs: 10 * 1024 * 1024,
   exports: 10 * 1024 * 1024,
   attachments: 10 * 1024 * 1024,
+  "line-images": 10 * 1024 * 1024,
 };
 
 function method(req, res, expected) {
@@ -144,7 +145,9 @@ async function handleImageProxy(req, res) {
   if (!key) throw new ApiError(400, "Missing key");
 
    const { purpose } = validateStorageKey(key);
-   if (!["logos", "signatures", "stamps"].includes(purpose)) {
+   // Branding assets + quotation line photos are served unauthenticated to
+   // <img> tags (keys are unguessable: {purpose}/{userId}/{uuid}.{ext}).
+   if (!["logos", "signatures", "stamps", "line-images"].includes(purpose)) {
      throw new ApiError(403, "Image proxy is only available for branding assets");
    }
 

@@ -62,7 +62,15 @@ export async function requireLogoAccess(req, key) {
 
 export function getStoragePurpose(key) {
   const purpose = key.split("/")[0];
-  const allowedPurposes = new Set(["logos", "signatures", "stamps", "pdfs", "exports", "attachments"]);
+  const allowedPurposes = new Set([
+    "logos",
+    "signatures",
+    "stamps",
+    "pdfs",
+    "exports",
+    "attachments",
+    "line-images",
+  ]);
   return allowedPurposes.has(purpose) ? purpose : null;
 }
 

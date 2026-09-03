@@ -39,7 +39,7 @@ export function getProxiedImageUrl(key: string): string {
 
 function inferPurpose(key: string): StoragePurpose {
   const purpose = key.split("/")[0] as StoragePurpose;
-  if (!["logos", "signatures", "stamps", "pdfs", "exports", "attachments"].includes(purpose)) {
+  if (!["logos", "signatures", "stamps", "pdfs", "exports", "attachments", "line-images"].includes(purpose)) {
     throw new Error("Unsupported storage path");
   }
   return purpose;

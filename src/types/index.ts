@@ -42,7 +42,13 @@ export type PaymentMethod = "cash" | "bank_transfer" | "cheque";
 export type WhtRate = "0" | "1" | "2" | "3" | "5";
 
 export type StoragePurpose =
-  "logos" | "signatures" | "stamps" | "pdfs" | "exports" | "attachments";
+  | "logos"
+  | "signatures"
+  | "stamps"
+  | "pdfs"
+  | "exports"
+  | "attachments"
+  | "line-images";
 
 export type WhtFormType =
   | "pnd1"
