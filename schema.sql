@@ -1428,6 +1428,7 @@ create table if not exists employees (
   department      text,
   salary_type     text not null check (salary_type in ('monthly', 'daily')),
   base_salary     numeric(12,2) not null default 0,
+  bank_name       text,
   bank_account    text,
   start_date      date not null,
   status          text not null default 'active' check (status in ('active', 'inactive')),

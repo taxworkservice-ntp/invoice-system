@@ -12,12 +12,14 @@ import { Modal } from "../../../components/ui/Modal";
 import { TABLE } from "../../../lib/tableStyles";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
-import { useWorkspaceRole } from "../../../hooks/useAuth";
+import { useWorkspaceRole, useClientProfile } from "../../../hooks/useAuth";
+import { getProxiedImageUrl } from "../../../lib/r2";
+import { thaiNumberToWords } from "../../../lib/thaiNumberToWords";
 import { useToast } from "../../../hooks/useToast";
 import { calculateBreakdown, calculateAbsenceDeduction, getEffectiveHourlyRate, getMonthDays, resolveDivisorDays, suggestLeaveProrate, type PayrollSettings } from "../../../lib/payroll/calculations";
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from "../../../lib/payroll/audit";
 import { buildRunSummaryWorkbook, buildBankPaymentWorkbook, buildWhtWorkbook, workbookToBlob, type PayrollCalcRow } from "../../../lib/payroll/reportXlsx";
-import { buildPayslipSlipNode } from "../../../lib/payroll/payslipPdf";
+import { buildPayslipSlipNode, type PayslipCompany } from "../../../lib/payroll/payslipPdf";
 import { slipNodeToPdfBlob, sanitizePdfFilename } from "../../../lib/payroll/payslipPdfRender";
 import { formatPayRangeLabel, suggestNextWindow } from "../../../lib/payroll/schedule";
 import { applyRecurringTemplates, type RecurringTemplate } from "../../../lib/payroll/recurring";
@@ -139,8 +141,20 @@ function getRowStatus(employee: Employee, item: PayrollLineItem): RowStatus {
 export default function PayrollPage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { workspaceUserId } = useWorkspaceRole();
+  const { workspaceUserId, profile } = useWorkspaceRole();
   const userId = workspaceUserId;
+  const { clientProfile } = useClientProfile(profile?.id);
+  const companyInfo: PayslipCompany | null = useMemo(() => {
+    if (!clientProfile) return null;
+    const logo = clientProfile.logo_url ? getProxiedImageUrl(clientProfile.logo_url) : null;
+    return {
+      name: clientProfile.company_name_th || null,
+      address: clientProfile.address,
+      taxId: clientProfile.tax_id,
+      phone: clientProfile.phone,
+      logoUrl: logo,
+    };
+  }, [clientProfile]);
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -770,7 +784,7 @@ export default function PayrollPage() {
         const calc = calcLineItem(emp, item);
         const hourlyRate = getEffectiveHourlyRate(emp.salary_type, emp.base_salary, resolveDivisorDays(settings, statutoryMonth, statutoryYear));
         const totalDeductions = item.deductions.reduce((s, d) => s + (Number(d.amount) || 0), 0);
-        const blob = await slipNodeToPdfBlob(buildPayslipSlipNode(emp, run, item, { ...calc, totalDeductions }, hourlyRate));
+        const blob = await slipNodeToPdfBlob(buildPayslipSlipNode(emp, run, item, { ...calc, totalDeductions }, hourlyRate, companyInfo));
         zip.file(`${sanitizePdfFilename(`${emp.employee_code}-${emp.full_name}`)}.pdf`, blob);
         okCount++;
       } catch (e) {
@@ -1024,7 +1038,7 @@ export default function PayrollPage() {
   } : null;
 
   if (printEmployee) {
-    return <PayslipView employee={printEmployee} run={run} lineItem={getEffectiveItem(printEmployee.id)} settings={settings} onBack={() => setPrintEmployee(null)} onPrint={() => {
+    return <PayslipView employee={printEmployee} run={run} lineItem={getEffectiveItem(printEmployee.id)} settings={settings} company={companyInfo} onBack={() => setPrintEmployee(null)} onPrint={() => {
       logAuditEvent({
         action: AUDIT_ACTIONS.PAYSLIP_PRINTED,
         entity_type: AUDIT_ENTITY_TYPES.PAYSLIP,
@@ -1171,13 +1185,15 @@ export default function PayrollPage() {
           const sumNet = finalized.reduce((s, r) => s + (Number(r.total_net) || 0), 0);
           const empMax = finalized.reduce((s, r) => s + (r.employee_count || 0), 0);
           return (
-            <div className="bg-green-50 border border-green-200 rounded-card p-4">
-              <div className="flex items-center gap-2 text-green-800 mb-2">
-                <Layers className="w-4 h-4" />
+            <details className="bg-white border border-card-border rounded-card px-4 py-3">
+              <summary className="flex items-center gap-2 text-cool-700 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <Layers className="w-4 h-4 text-cool-400" />
                 <span className="text-sm font-medium">
                   สรุปทั้งเดือน ({MONTHS[month - 1].label} {year + 543}) — {finalized.length} รอบที่ปิดแล้ว
                 </span>
-              </div>
+                <span className="ml-auto text-[11px] text-cool-400">สุทธิ ฿{formatCurrency(sumNet)}</span>
+              </summary>
+              <div className="pt-3">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div>
                   <div className="text-[11px] text-green-600 font-medium">ค่าแรงรวม</div>
@@ -1197,7 +1213,8 @@ export default function PayrollPage() {
                   <AlertCircle className="w-3.5 h-3.5" /> มีรอบ {draftCount} ช่วงยังเป็นร่าง — SSO/PND.1 ยื่นรายเดือน ต้องปิดทุกช่วงก่อนนับรวม
                 </p>
               )}
-            </div>
+              </div>
+            </details>
           );
         })()}
 
@@ -1246,24 +1263,6 @@ export default function PayrollPage() {
                   <span className="text-sm font-medium">
                     ปิดรอบแล้ว — {MONTHS[run.period_month - 1].label} {run.period_year + 543} · วันจ่าย {run.pay_date}
                   </span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div>
-                    <div className="text-[11px] text-green-600 font-medium">ค่าแรงรวม</div>
-                    <div className="text-sm font-semibold text-green-900 tabular-nums">฿{formatCurrency(totals.gross)}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-green-600 font-medium">ประกันสังคม</div>
-                    <div className="text-sm font-semibold text-green-900 tabular-nums">฿{formatCurrency(totals.sso)}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-green-600 font-medium">ภาษีหัก ณ ที่จ่าย</div>
-                    <div className="text-sm font-semibold text-green-900 tabular-nums">฿{formatCurrency(totals.wht)}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-green-600 font-medium">เงินเดือนสุทธิ</div>
-                    <div className="text-sm font-bold text-green-900 tabular-nums">฿{formatCurrency(totals.net)}</div>
-                  </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-green-200 flex flex-wrap items-center gap-2">
                   {syncingWht ? (
@@ -1336,11 +1335,10 @@ export default function PayrollPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <SummaryCard icon={<Users className="w-4 h-4" />} label="พนักงาน" value={`${employees.length} คน`} />
               <SummaryCard icon={<Wallet className="w-4 h-4" />} label="ค่าแรงรวม" value={`฿${formatCurrency(totals.gross)}`} />
-              <SummaryCard icon={<Receipt className="w-4 h-4" />} label="หักรวม" value={`฿${formatCurrency(totals.sso + totals.wht)}`} />
-              <SummaryCard icon={<Receipt className="w-4 h-4" />} label="ต้นทุนนายจ้าง" value={`฿${formatCurrency(totals.gross + totals.ssoEmp)}`} />
+              <SummaryCard icon={<Receipt className="w-4 h-4" />} label="หักรวม" value={`฿${formatCurrency(totals.sso + totals.wht)}`} sub={`นายจ้างสมทบ ฿${formatCurrency(totals.ssoEmp)}`} />
               <SummaryCard icon={<Banknote className="w-4 h-4" />} label="สุทธิ" value={`฿${formatCurrency(totals.net)}`} highlight />
             </div>
 
@@ -1778,10 +1776,11 @@ interface SummaryCardProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  sub?: string;
   highlight?: boolean;
 }
 
-function SummaryCard({ icon, label, value, highlight }: SummaryCardProps) {
+function SummaryCard({ icon, label, value, sub, highlight }: SummaryCardProps) {
   return (
     <div className={`rounded-card border p-3 transition-all duration-200 hover:shadow-sm ${highlight ? "bg-primary-soft border-primary/20" : "bg-white border-card-border"}`}>
       <div className="flex items-center gap-2 mb-1">
@@ -1789,6 +1788,7 @@ function SummaryCard({ icon, label, value, highlight }: SummaryCardProps) {
         <span className="text-[11px] font-medium text-cool-500">{label}</span>
       </div>
       <div className={`text-base font-bold tabular-nums ${highlight ? "text-primary-deep" : "text-cool-900"}`}>{value}</div>
+      {sub && <div className="mt-0.5 text-[10px] text-cool-400 tabular-nums">{sub}</div>}
     </div>
   );
 }
@@ -1844,6 +1844,9 @@ function PayrollExportMenu({ status, onExportSummary, onExportBank, onExportWht,
       </Button>
       {open && (
         <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-card-border rounded-lg shadow-lg z-30 py-1">
+          <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-cool-400">
+            {status === "finalized" ? "รอบปิดแล้ว — ส่งออกเอกสารจริง" : "รอบร่าง — ส่งออกได้เฉพาะสรุป/ภาษี"}
+          </div>
           <button disabled={busy !== null} onClick={() => run("summary", onExportSummary)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
             {busy === "summary" ? <Loader2 className="w-4 h-4 animate-spin text-green-600" /> : <FileSpreadsheet className="w-4 h-4 text-green-600" />} สรุปเงินเดือน (Excel)
           </button>
@@ -2714,11 +2717,12 @@ interface PayslipViewProps {
   run: PayrollRun | null;
   lineItem: PayrollLineItem;
   settings: PayrollSettings;
+  company?: PayslipCompany | null;
   onBack: () => void;
   onPrint?: () => void;
 }
 
-function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: PayslipViewProps) {
+function PayslipView({ employee, run, lineItem, settings, company, onBack, onPrint }: PayslipViewProps) {
   const calc = calculateBreakdown(
     {
       salary_type: employee.salary_type,
@@ -2765,15 +2769,22 @@ function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: Pay
       <div className="max-w-[210mm] mx-auto p-4 print:p-0">
         <div className="bg-white border border-card-border rounded-card print:border-none print:rounded-none print:p-0">
           <div className="p-8 print:p-6">
-            <div className="flex items-start justify-between mb-8">
-              <div>
-                <h1 className="text-xl font-bold text-ink-900">สลิปเงินเดือน</h1>
-                <p className="text-sm text-ink-500 mt-1">Pay Slip</p>
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="flex items-start gap-3 min-w-0">
+                {company?.logoUrl && (
+                  <img src={company.logoUrl} alt="" className="w-11 h-11 object-contain rounded-lg border border-card-border p-0.5 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  {company?.name && <div className="text-[15px] font-bold text-ink-900 leading-tight">{company.name}</div>}
+                  {company?.address && <div className="text-[11px] text-ink-400 mt-0.5 leading-snug">{company.address}</div>}
+                  {company?.taxId && <div className="text-[11px] text-ink-400">เลขประจำตัวผู้เสียภาษี {company.taxId}{company?.phone ? ` · โทร ${company.phone}` : ""}</div>}
+                </div>
               </div>
-              <div className="text-right">
-                <div className="text-xs text-ink-400">รอบการจ่าย</div>
+              <div className="text-right shrink-0">
+                <h1 className="text-xl font-bold text-ink-900">สลิปเงินเดือน</h1>
+                <p className="text-xs text-ink-400 mt-0.5">Pay Slip · {MONTHS[(run?.period_month ?? 1) - 1]?.label} {(run?.period_year ?? 2025) + 543}</p>
+                <div className="text-xs text-ink-400 mt-1">วันจ่าย</div>
                 <div className="text-sm font-medium text-ink-700">{run?.pay_date}</div>
-                <div className="text-xs text-ink-400 mt-1">{MONTHS[(run?.period_month ?? 1) - 1]?.label} {(run?.period_year ?? 2025) + 543}</div>
               </div>
             </div>
 
@@ -2870,6 +2881,22 @@ function PayslipView({ employee, run, lineItem, settings, onBack, onPrint }: Pay
                   <span className="text-xs text-ink-400 ml-2">Net Pay</span>
                 </div>
                 <span className="text-2xl font-bold text-ink-900 tabular-nums">฿{formatCurrency(calc.net_pay)}</span>
+              </div>
+              <div className="text-right text-xs text-ink-400 mt-1">({thaiNumberToWords(calc.net_pay)})</div>
+              {employee.sso_registered !== false ? (
+                <p className="text-[11px] text-ink-400 mt-2">นายจ้างสมทบประกันสังคม ฿{formatCurrency(calc.sso_employer)} (ไม่หักจากเงินเดือนสุทธิของพนักงาน)</p>
+              ) : (
+                <p className="text-[11px] text-ink-400 mt-2">พนักงานไม่ได้ลงทะเบียนประกันสังคม — ภาษีข้างต้นยื่นแบบ ภ.ง.ด.3 (ค่าจ้างทำของ 3%)</p>
+              )}
+              <div className="grid grid-cols-2 gap-8 mt-7 print:mt-8">
+                <div className="text-center text-xs text-ink-500">
+                  <div className="border-b border-dotted border-ink-400 h-7 mb-1" />
+                  ผู้จ่ายเงิน · วันที่ ......../......../........
+                </div>
+                <div className="text-center text-xs text-ink-500">
+                  <div className="border-b border-dotted border-ink-400 h-7 mb-1" />
+                  ผู้รับเงิน · วันที่ ......../......../........
+                </div>
               </div>
             </div>
           </div>

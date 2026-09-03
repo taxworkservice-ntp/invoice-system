@@ -26,6 +26,7 @@ interface EmployeeForm {
   department: string;
   salary_type: "monthly" | "daily";
   base_salary: string;
+  bank_name: string;
   bank_account: string;
   sso_registered: boolean;
   start_date: string;
@@ -49,6 +50,7 @@ function emptyForm(): EmployeeForm {
     department: "",
     salary_type: "monthly",
     base_salary: "0",
+    bank_name: "",
     bank_account: "",
     sso_registered: true,
     start_date: new Date().toISOString().split("T")[0],
@@ -67,6 +69,7 @@ function employeeToForm(emp: Employee): EmployeeForm {
     department: emp.department ?? "",
     salary_type: emp.salary_type,
     base_salary: String(emp.base_salary),
+    bank_name: emp.bank_name ?? "",
     bank_account: emp.bank_account ?? "",
     sso_registered: emp.sso_registered !== false,
     start_date: emp.start_date,
@@ -132,14 +135,25 @@ export default function EmployeesPage() {
       : `แก้ไขพนักงาน — ${modal.form.full_name || modal.form.employee_code}`
     : "";
 
+  const [modalTab, setModalTab] = useState<"info" | "job" | "recurring" | "history">("info");
+
   function openCreate() {
     const form = emptyForm();
     form.employee_code = `EMP${String(employees.length + 1).padStart(3, "0")}`;
+    setModalTab("info");
     setModal({ mode: "create", form });
   }
 
   function openEdit(emp: Employee) {
+    setModalTab("info");
     setModal({ mode: "edit", form: employeeToForm(emp) });
+  }
+
+  function initialsOf(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "–";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
   function closeModal() {
@@ -185,6 +199,7 @@ export default function EmployeesPage() {
       department: form.department.trim() || null,
       salary_type: form.salary_type,
       base_salary: parseFloat(form.base_salary) || 0,
+      bank_name: form.bank_name.trim() || null,
       bank_account: form.bank_account.trim() || null,
       sso_registered: form.sso_registered,
       start_date: form.start_date,
@@ -265,6 +280,14 @@ export default function EmployeesPage() {
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
         details: { field: "base_salary", old_value: prevEmployee.base_salary, new_value: payload.base_salary },
+      });
+    }
+    if ((prevEmployee.bank_name ?? "") !== form.bank_name.trim()) {
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
+        entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
+        entity_id: employeeId,
+        details: { field: "bank_name", old_value: prevEmployee.bank_name ?? "", new_value: form.bank_name.trim() },
       });
     }
     if ((prevEmployee.bank_account ?? "") !== form.bank_account.trim()) {
@@ -422,9 +445,14 @@ export default function EmployeesPage() {
                         <span className="text-cool-900 font-mono text-[11px]">{emp.employee_code}</span>
                       </td>
                       <td className="px-3 py-2 min-w-[180px]">
-                        <div className="flex flex-col">
-                          <span className="text-cool-900 font-medium">{emp.full_name || "—"}</span>
-                          {emp.department && <span className="text-cool-400 text-[10px]">{emp.department}</span>}
+                        <div className="flex items-center gap-2.5">
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${emp.status === "inactive" ? "bg-cool-100 text-cool-400" : "bg-primary-soft text-primary-deep"}`}>
+                            {initialsOf(emp.full_name || emp.employee_code)}
+                          </span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-cool-900 font-medium truncate">{emp.full_name || "—"}</span>
+                            {emp.department && <span className="text-cool-400 text-[10px]">{emp.department}</span>}
+                          </div>
                         </div>
                       </td>
                       <td className="px-3 py-2 min-w-[120px]">
@@ -460,7 +488,7 @@ export default function EmployeesPage() {
                           {emp.status === "active" && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setOffboardingEmployee(emp); setOffboardingDate(new Date().toISOString().split("T")[0]); }}
-                              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-amber-50 text-cool-400 hover:text-amber-600 transition-colors opacity-0 group-hover:opacity-100"
+                              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-amber-50 text-cool-300 hover:text-amber-600 transition-colors"
                               title="จบการจ้างงาน"
                             >
                               <UserRoundX className="w-3.5 h-3.5" />
@@ -475,7 +503,7 @@ export default function EmployeesPage() {
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeletingEmployee(emp); }}
-                            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-300 hover:text-red-500 transition-colors"
                             title="ลบ"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -493,52 +521,79 @@ export default function EmployeesPage() {
 
       <Modal open={modal !== null} onClose={closeModal} title={title} size="xl">
         {modal && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="รหัสพนักงาน"
-                value={modal.form.employee_code}
-                onChange={(e) => updateField("employee_code", e.target.value)}
-                placeholder="EMP001"
-              />
-              <Input
-                label="ชื่อ-นามสกุล"
-                value={modal.form.full_name}
-                onChange={(e) => updateField("full_name", e.target.value)}
-                placeholder="ชื่อ นามสกุล"
-              />
+          <div className="space-y-4">
+            <div className="inline-flex rounded-lg border border-card-border bg-cool-25 p-0.5 max-w-full overflow-x-auto">
+              {([
+                ["info", "ข้อมูลทั่วไป"],
+                ["job", "การจ้างงาน"],
+                ["recurring", "รายการประจำ"],
+                ["history", "ประวัติ"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setModalTab(key)}
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${modalTab === key ? "bg-white text-cool-900 shadow-sm" : "text-cool-500 hover:text-cool-700"}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="เลขบัตรประชาชน / เลขผู้เสียภาษี"
-                value={modal.form.tax_id}
-                onChange={(e) => updateField("tax_id", e.target.value)}
-                placeholder="0000000000000"
-                maxLength={13}
-              />
-              <Input
-                label="ตำแหน่ง"
-                value={modal.form.position}
-                onChange={(e) => updateField("position", e.target.value)}
-                placeholder="เช่น พนักงานขาย"
-              />
-              <Input
-                label="แผนก"
-                value={modal.form.department}
-                onChange={(e) => updateField("department", e.target.value)}
-                placeholder="เช่น บัญชี, ขาย"
-              />
-              <Input
-                label="เลขบัญชีธนาคาร"
-                value={modal.form.bank_account}
-                onChange={(e) => updateField("bank_account", e.target.value)}
-                placeholder="000-0-00000-0"
-              />
-            </div>
+            {modalTab === "info" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="รหัสพนักงาน"
+                  value={modal.form.employee_code}
+                  onChange={(e) => updateField("employee_code", e.target.value)}
+                  placeholder="EMP001"
+                />
+                <Input
+                  label="ชื่อ-นามสกุล"
+                  value={modal.form.full_name}
+                  onChange={(e) => updateField("full_name", e.target.value)}
+                  placeholder="ชื่อ นามสกุล"
+                />
+                <div>
+                  <Input
+                    label="เลขบัตรประชาชน / เลขผู้เสียภาษี"
+                    value={modal.form.tax_id}
+                    onChange={(e) => updateField("tax_id", e.target.value)}
+                    placeholder="0000000000000"
+                    maxLength={13}
+                  />
+                  <p className="mt-1 text-[11px] text-cool-400">เว้นว่างได้ — พนักงานที่ไม่มีเลขฯ จะถูกข้ามเมื่อซิงก์ภาษีหัก ณ ที่จ่าย</p>
+                </div>
+                <Input
+                  label="ตำแหน่ง"
+                  value={modal.form.position}
+                  onChange={(e) => updateField("position", e.target.value)}
+                  placeholder="เช่น พนักงานขาย"
+                />
+                <Input
+                  label="แผนก"
+                  value={modal.form.department}
+                  onChange={(e) => updateField("department", e.target.value)}
+                  placeholder="เช่น บัญชี, ขาย"
+                />
+                <Input
+                  label="ธนาคาร"
+                  value={modal.form.bank_name}
+                  onChange={(e) => updateField("bank_name", e.target.value)}
+                  placeholder="เช่น กสิกรไทย"
+                />
+                <div className="sm:col-span-2">
+                  <Input
+                    label="เลขบัญชีธนาคาร"
+                    value={modal.form.bank_account}
+                    onChange={(e) => updateField("bank_account", e.target.value)}
+                    placeholder="000-0-00000-0"
+                  />
+                </div>
+              </div>
+            )}
 
-            <div className="border-t border-cool-100 pt-4">
-              <div className="text-xs font-semibold text-cool-700 mb-3">ข้อมูลการจ้างงาน</div>
+            {modalTab === "job" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Select
                   label="ประเภทเงินเดือน"
@@ -586,27 +641,29 @@ export default function EmployeesPage() {
                   />
                 )}
               </div>
-            </div>
-
-            {modal.mode === "edit" && (
-              <div className="border-t border-cool-100 pt-4">
-                <RecurringPanel employeeId={modal.form.id} />
-              </div>
             )}
 
-            {modal.mode === "edit" && (
-              <div className="border-t border-cool-100 pt-4">
-                <ActivityPanel entityType="employee" entityId={modal.form.id} />
-              </div>
+            {modalTab === "recurring" && (
+              modal.mode === "edit"
+                ? <RecurringPanel employeeId={modal.form.id} />
+                : <p className="text-xs text-cool-400">บันทึกรายการพนักงานก่อน แล้วค่อยเพิ่มรายการประจำ (เช่น เงินกู้, ค่างวด) ในภายหลัง</p>
             )}
 
-            <div className="flex gap-2 pt-1">
-              <Button variant="secondary" onClick={closeModal} className="flex-1" disabled={saving}>
-                ยกเลิก
-              </Button>
-              <Button onClick={handleSave} className="flex-1" disabled={saving}>
-                {saving ? "กำลังบันทึก..." : "บันทึก"}
-              </Button>
+            {modalTab === "history" && (
+              modal.mode === "edit"
+                ? <ActivityPanel entityType="employee" entityId={modal.form.id} />
+                : <p className="text-xs text-cool-400">ประวัติจะแสดงหลังจากบันทึกพนักงานแล้ว</p>
+            )}
+
+            <div className="sticky bottom-0 -mx-1 bg-white/95 backdrop-blur pt-2 pb-1">
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={closeModal} className="flex-1" disabled={saving}>
+                  ยกเลิก
+                </Button>
+                <Button onClick={handleSave} className="flex-1" disabled={saving}>
+                  {saving ? "กำลังบันทึก..." : "บันทึก"}
+                </Button>
+              </div>
             </div>
           </div>
          )}

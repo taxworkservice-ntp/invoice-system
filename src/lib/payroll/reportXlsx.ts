@@ -53,7 +53,7 @@ export interface PayrollCalcRow {
   net_pay: number;
 }
 
-const MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+const MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
 function buildSummaryHeader(ws: ExcelJS.Worksheet, run: PayrollRun, rows: PayrollCalcRow[]) {
   ws.mergeCells("A1:K1");
@@ -128,12 +128,12 @@ export function buildBankPaymentWorkbook(run: PayrollRun, rows: PayrollCalcRow[]
   const ws = wb.addWorksheet("รายการโอน");
   applyPageSetup(ws);
 
-  ws.mergeCells("A1:E1");
+  ws.mergeCells("A1:F1");
   const titleCell = ws.getCell("A1");
   titleCell.value = `รายการโอนเงินเดือน — ${MONTHS[run.period_month - 1]} ${run.period_year + 543} · วันจ่าย ${run.pay_date}`;
   applyTitle(titleCell);
 
-  const headerRow = ws.addRow(["รหัส", "ชื่อ-นามสกุล", "เลขบัญชีธนาคาร", "จำนวนเงิน (บาท)", "หมายเหตุ"]);
+  const headerRow = ws.addRow(["รหัส", "ชื่อ-นามสกุล", "ธนาคาร", "เลขบัญชีธนาคาร", "จำนวนเงิน (บาท)", "หมายเหตุ"]);
   headerRow.eachCell((cell) => applyHeader(cell));
 
   let total = 0;
@@ -142,20 +142,21 @@ export function buildBankPaymentWorkbook(run: PayrollRun, rows: PayrollCalcRow[]
     const row = ws.addRow([
       r.employee.employee_code,
       r.employee.full_name,
+      r.employee.bank_name ?? "",
       r.employee.bank_account,
       r.net_pay,
       "",
     ]);
-    row.getCell(4).numFmt = CURRENCY_FMT;
-    row.eachCell((cell, col) => col === 4 ? applyBody(cell, { right: true }) : applyBody(cell));
+    row.getCell(5).numFmt = CURRENCY_FMT;
+    row.eachCell((cell, col) => col === 5 ? applyBody(cell, { right: true }) : applyBody(cell));
     total += r.net_pay;
   }
 
-  const totalRow = ws.addRow(["", "", "รวม", total, ""]);
-  totalRow.getCell(4).numFmt = CURRENCY_FMT;
-  totalRow.eachCell((cell, col) => applyBody(cell, { bold: true, right: col === 4 }));
+  const totalRow = ws.addRow(["", "", "", "รวม", total, ""]);
+  totalRow.getCell(5).numFmt = CURRENCY_FMT;
+  totalRow.eachCell((cell, col) => applyBody(cell, { bold: true, right: col === 5 }));
 
-  ws.columns = [{ width: 10 }, { width: 22 }, { width: 18 }, { width: 16 }, { width: 14 }];
+  ws.columns = [{ width: 10 }, { width: 22 }, { width: 16 }, { width: 18 }, { width: 16 }, { width: 14 }];
   return wb;
 }
 

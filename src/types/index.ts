@@ -527,6 +527,7 @@ export interface Employee {
   department: string | null;
   salary_type: "monthly" | "daily";
   base_salary: number;
+  bank_name: string | null;
   bank_account: string | null;
   sso_registered: boolean;
   start_date: string;
