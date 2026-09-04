@@ -5,7 +5,7 @@ import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
 import { EmptyState } from "../ui/EmptyState";
-import { getMonthRange, useFinancialReport } from "../../hooks/useReports";
+import { getMonthRange, deltaCaptionForRange, useFinancialReport } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
 import { TransactionTable } from "./TransactionTable";
 
@@ -27,7 +27,7 @@ function monthLabel(m: string) {
   return MONTH_NAMES_TH[i] || m;
 }
 
-function SummaryCard({ icon, label, value, alert = false, delta, deltaGood = true }: { icon: React.ReactNode; label: string; value: string; alert?: boolean; delta?: number | null; deltaGood?: boolean }) {
+function SummaryCard({ icon, label, scope, value, alert = false, delta, deltaGood = true, deltaCaption = "vs เดือนก่อน" }: { icon: React.ReactNode; label: string; scope?: string; value: string; alert?: boolean; delta?: number | null; deltaGood?: boolean; deltaCaption?: string }) {
   const deltaFormatted = delta !== null && delta !== undefined ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%` : null;
   const deltaColor = delta === null || delta === undefined
     ? ""
@@ -40,14 +40,17 @@ function SummaryCard({ icon, label, value, alert = false, delta, deltaGood = tru
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EAF4FF] text-primary">
           {icon}
         </span>
-        {label}
+        <span className="min-w-0">
+          {label}
+          {scope && <span className="block text-[10px] font-normal normal-case tracking-normal text-[#A8A6A0]">{scope}</span>}
+        </span>
       </div>
-      <div className={`mt-2 text-lg font-semibold leading-tight tabular-nums truncate ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`} title={`฿ ${value}`}>
-        ฿ {value}
+      <div className={`mt-2 text-lg font-semibold leading-tight tabular-nums truncate ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`} title={`฿${value}`}>
+        ฿{value}
       </div>
       {deltaFormatted && (
         <div className={`mt-0.5 text-[11px] font-medium ${deltaColor}`}>
-          {deltaFormatted} vs เดือนก่อน
+          {deltaFormatted} {deltaCaption}
         </div>
       )}
     </Card>
@@ -63,9 +66,10 @@ function BarChart({ data, max, activeIndex, onBarClick }: { data: { label: strin
     <div className="flex items-end gap-2 pt-2" style={{ height: MAX_BAR_HEIGHT + 32 }}>
       {data.map((d, i) => {
         const h = max > 0 ? (d.value / max) * MAX_BAR_HEIGHT : 0;
-        const isMax = d.value === maxVal;
+        const isMax = d.value === maxVal && maxVal > 0;
         const isActive = activeIndex === i;
         const isHovered = hoveredIndex === i;
+        const showValue = d.value > 0 && (isActive || isMax || isHovered);
         return (
           <div
             key={i}
@@ -73,19 +77,20 @@ function BarChart({ data, max, activeIndex, onBarClick }: { data: { label: strin
             onMouseEnter={() => setHoveredIndex(i)}
             onMouseLeave={() => setHoveredIndex(null)}
           >
-            {d.value > 0 && (isHovered || isActive) && (
-              <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#1A1A18] px-2 py-0.5 text-[10px] font-medium text-white shadow-sm">
+            {showValue && (
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#1A1A18] px-2 py-0.5 text-[10px] font-medium tabular-nums text-white shadow-sm">
                 ฿{formatCurrency(d.value)}
               </div>
             )}
             <div
               onClick={d.value > 0 && onBarClick ? () => onBarClick(d.month, d.year) : undefined}
+              title={d.value > 0 ? `฿${formatCurrency(d.value)} — แตะเพื่อดูรอบนี้` : "ไม่มีรายได้"}
               className={[
                 "w-full rounded-t-sm transition-all",
                 d.value > 0 ? "cursor-pointer hover:brightness-110" : "",
-                isActive ? "bg-primary" : isMax ? "bg-primary" : "bg-primary/40",
+                isActive ? "bg-primary" : isMax ? "bg-[#2E7D4F]" : "bg-primary/40",
               ].join(" ")}
-              style={{ height: Math.max(h, 2) }}
+              style={{ height: h }}
             />
             <span className={`text-[10px] ${isActive ? "font-semibold text-primary" : "text-gray-500"}`}>{d.label}</span>
           </div>
@@ -223,19 +228,22 @@ export function FinancialReport({ userId }: FinancialReportProps) {
 
       {summary && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <SummaryCard icon={<TrendingUp className="h-4 w-4" />} label="ยอดขายก่อน VAT" value={formatCurrency(summary.revenue - summary.vatCollected)} />
-          <SummaryCard icon={<FileText className="h-4 w-4" />} label="VAT" value={formatCurrency(summary.vatCollected)} />
-          <SummaryCard icon={<BarChart3 className="h-4 w-4" />} label="ยอดรวม" value={formatCurrency(summary.revenue)} delta={revenueDelta} />
-          <SummaryCard icon={<CircleDollarSign className="h-4 w-4" />} label="เก็บแล้ว" value={formatCurrency(summary.collected)} />
-          <SummaryCard icon={<Percent className="h-4 w-4" />} label="หัก ณ ที่จ่าย" value={formatCurrency(summary.whtWithheld)} />
-          <SummaryCard icon={<Wallet className="h-4 w-4" />} label="ค้างเก็บ" value={formatCurrency(summary.outstanding)} alert={summary.outstanding > 0} />
+          <SummaryCard icon={<TrendingUp className="h-4 w-4" />} label="ยอดขายก่อน VAT" scope="รอบนี้" value={formatCurrency(summary.revenue - summary.vatCollected)} />
+          <SummaryCard icon={<FileText className="h-4 w-4" />} label="VAT" scope="รอบนี้" value={formatCurrency(summary.vatCollected)} />
+          <SummaryCard icon={<BarChart3 className="h-4 w-4" />} label="ยอดรวม" scope="รอบนี้" value={formatCurrency(summary.revenue)} delta={revenueDelta} deltaCaption={deltaCaptionForRange(finRange.start, finRange.end)} />
+          <SummaryCard icon={<CircleDollarSign className="h-4 w-4" />} label="เก็บแล้ว" scope="รอบนี้" value={formatCurrency(summary.collected)} />
+          <SummaryCard icon={<Percent className="h-4 w-4" />} label="หัก ณ ที่จ่าย" scope="รอบนี้" value={formatCurrency(summary.whtWithheld)} />
+          <SummaryCard icon={<Wallet className="h-4 w-4" />} label="ค้างเก็บ" scope="สะสม · ณ วันนี้" value={formatCurrency(summary.outstanding)} alert={summary.outstanding > 0} />
         </div>
       )}
 
       {chartMonths.length > 0 && (
         <Card className="border-[0.5px] p-4 shadow-sm">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">{chartTitle}</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">
+              {chartTitle}
+              {chartMonths.length === 1 && <span className="ml-2 font-normal normal-case tracking-normal text-[#A8A6A0]">ข้อมูลเดือนเดียว</span>}
+            </h3>
             <div className="flex items-center gap-0.5 rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-0.5" role="tablist" aria-label="ช่วงเวลาของกราฟรายได้">
               {CHART_RANGES.map((range) => (
                 <button
@@ -267,7 +275,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
 
       {arByCustomer.length > 0 && (
         <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ</h3>
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ <span class="font-normal normal-case tracking-normal text-[#A8A6A0]">สะสม</span></h3>
           <div className="space-y-1">
             {arByCustomer.map((c) => (
               <div
@@ -290,7 +298,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
 
       {arByCustomer.length === 0 && summary && summary.outstanding > 0 && (
         <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ</h3>
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ <span class="font-normal normal-case tracking-normal text-[#A8A6A0]">สะสม</span></h3>
           <p className="text-center py-6 text-[13px] text-[#888780]">ไม่มีลูกค้าค้างชำระ</p>
         </Card>
       )}
@@ -300,7 +308,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       </div>
 
       {summary && summary.revenue === 0 && transactions.length === 0 && arByCustomer.length === 0 && (
-        <EmptyState title="ไม่มีข้อมูล" description="ยังไม่มีรายการที่ชำระเงินในเดือนนี้" />
+        <EmptyState title="ไม่มีข้อมูล" description="ยังไม่มีรายการในช่วงนี้" />
       )}
     </div>
   );

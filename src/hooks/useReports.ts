@@ -150,6 +150,24 @@ function getPreviousPeriodRange(from: string, to: string): { start: string; end:
   return { start: toISODate(prevStart), end: toISODate(prevEnd) };
 }
 
+/**
+ * Thai caption for the period-over-period delta ("vs เดือนก่อน" etc.)
+ * derived from the selected range so exports and reused hook callers
+ * (month / quarter / YTD / year in download-center) label it correctly.
+ */
+export function deltaCaptionForRange(from: string, to: string): string {
+  const f = new Date(`${from}T00:00:00`);
+  const t = new Date(`${to}T00:00:00`);
+  if (isNaN(f.getTime()) || isNaN(t.getTime()) || t < f) return "vs ช่วงก่อน";
+  const sameMonth = f.getFullYear() === t.getFullYear() && f.getMonth() === t.getMonth();
+  if (sameMonth) return "vs เดือนก่อน";
+  const fullYear = f.getMonth() === 0 && f.getDate() === 1 && t.getMonth() === 11 && t.getDate() === 31;
+  if (fullYear) return "vs ปีก่อน";
+  const spanDays = Math.round((t.getTime() - f.getTime()) / 86400000) + 1;
+  if (spanDays >= 89 && spanDays <= 93) return "vs ไตรมาสก่อน";
+  return "vs ช่วงก่อน";
+}
+
 function getMonthsBack(count: number) {
   const months: { year: number; month: number }[] = [];
   const now = new Date();
@@ -364,6 +382,17 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         docCount: paidThisPeriod.length,
       });
 
+      // Thai doc-type names, shared by the by-type breakdown and the
+      // transaction rows below (invoice label follows VAT registration).
+      const docTypeLabels: Record<string, string> = {
+        quotation: "ใบเสนอราคา",
+        invoice: vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้",
+        billing_note: "ใบวางบิล",
+        receipt: "ใบเสร็จรับเงิน",
+        delivery_note: "ใบส่งของ",
+        credit_note: "ใบลดหนี้",
+        debit_note: "ใบเพิ่มหนี้",
+      };
       const typeMap = new Map<string, { count: number; total: number }>();
       for (const d of paidThisPeriod) {
         const t = d.doc_type as string;
@@ -372,7 +401,6 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         existing.total += d.total_amount || d.net_payable || 0;
         typeMap.set(t, existing);
       }
-      // Adjustment rows keep the breakdown reconciled with the summary.
       for (const d of inPeriodAdjustment(activeCreditNotes)) {
         const t = d.doc_type as string;
         const existing = typeMap.get(t) || { count: 0, total: 0 };
@@ -392,7 +420,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       }
       setByType(
         Array.from(typeMap.entries())
-          .map(([docType, { count, total }]) => ({ docType, label: "", count, total }))
+          .map(([docType, { count, total }]) => ({ docType, label: docTypeLabels[docType] || docType, count, total }))
           .sort((a, b) => b.total - a.total)
       );
 
@@ -571,16 +599,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       }).sort((a, b) => b.netPayable - a.netPayable);
       setArDetails(arDetailsData);
 
-      // Transaction-level detail table
-      const docTypeLabels: Record<string, string> = {
-        quotation: "ใบเสนอราคา",
-        invoice: vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้",
-        billing_note: "ใบวางบิล",
-        receipt: "ใบเสร็จรับเงิน",
-        delivery_note: "ใบส่งของ",
-        credit_note: "ใบลดหนี้",
-        debit_note: "ใบเพิ่มหนี้",
-      };
+      // Transaction-level detail table (reuses docTypeLabels above).
       const txns: Transaction[] = paidThisPeriod.map((d: any) => ({
         id: d.id,
         deal_id: d.deal_id || null,
@@ -600,7 +619,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         wht_certificate_no: d.wht_certificate_no || null,
         net_payable: d.net_payable || 0,
         status: getTransactionStatusLabel(d),
-        is_paid: d.status === "paid" || d.doc_type === "receipt",
+        is_paid: d.status === "paid" || (d.doc_type === "receipt" && d.status !== "overdue"),
         paid_at: d.paid_at || null,
       }));
 
@@ -642,11 +661,12 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       txns.sort((a, b) => a.date.localeCompare(b.date));
       setTransactions(txns);
 
-      const whtDocs = docs.filter((d: any) =>
-        d.wht_amount > 0 &&
-        d.doc_type === "receipt" &&
-        !["draft", "voided"].includes(d.status),
-      );
+      const whtDocs = docs.filter((d: any) => {
+        if (!(d.wht_amount > 0) || d.doc_type !== "receipt" || ["draft", "voided"].includes(d.status)) return false;
+        // WHT sheet follows the selected period like every other export table.
+        const whtDate = ((d.issue_date || d.created_at) || "").slice(0, 10);
+        return whtDate >= start && whtDate <= end;
+      });
       const whtTransactions: Transaction[] = whtDocs.map((d: any) => ({
         id: d.id,
         deal_id: d.deal_id || null,

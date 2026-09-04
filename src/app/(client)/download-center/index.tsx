@@ -8,6 +8,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { DOC_TYPE_LABELS } from "../../../constants";
+import { formatBuddhistDate } from "../../../lib/dates";
 import { useFinancialReport } from "../../../hooks/useReports";
 import type { DocumentType } from "../../../types";
 import { Download, FileText, BarChart3, Package } from "lucide-react";
@@ -566,7 +567,7 @@ export default function DownloadCenterPage() {
                 <div className="flex justify-between"><span className="text-gray-500">รอบ:</span><span>{finPeriodLabel}</span></div>
               )}
               {confirmAction.reportType === "stock" && (
-                <div className="flex justify-between"><span className="text-gray-500">ช่วงวันที่:</span><span>{stockFrom} ถึง {stockTo}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">ช่วงวันที่:</span><span>{formatBuddhistDate(stockFrom)} ถึง {formatBuddhistDate(stockTo)}</span></div>
               )}
             </div>
           </div>

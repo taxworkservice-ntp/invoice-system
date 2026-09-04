@@ -77,6 +77,15 @@ export function formatBuddhistDate(isoDate: string): string {
   return `${day} ${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`;
 }
 
+/** Month picker label: "2026-09" → "ก.ย. 2569". Falls back to input. */
+export function formatBuddhistMonth(yearMonth: string): string {
+  const [y, m] = yearMonth.split("-");
+  const month = parseInt(m, 10);
+  const year = parseInt(y, 10);
+  if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12) return yearMonth;
+  return `${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`;
+}
+
 export function formatBuddhistDateTime(isoDate: string): string {
   const { date, time } = formatBuddhistDateTimeParts(isoDate);
   return `${date} เวลา ${time}`;

@@ -221,7 +221,10 @@ export function StockReport({ userId }: StockReportProps) {
           )}
           {hasWarnings && (
             <Card className="border-[0.5px] border-red-200 bg-red-50 p-4 shadow-sm">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-[#C0392B]">สินค้าที่ต้องเติมสต็อก</h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-[#C0392B]">
+              สินค้าที่ต้องเติมสต็อก
+              {lowStockItems.length > 10 && <span className="ml-2 font-normal normal-case tracking-normal text-[#C08080]">10 จาก {lowStockItems.length} รายการ</span>}
+            </h3>
               <div className="space-y-2">
                 {lowStockItems.slice(0, 5).map((item) => (
                   <div key={item.id} className="flex items-center justify-between text-sm cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
@@ -252,7 +255,9 @@ export function StockReport({ userId }: StockReportProps) {
       {subTab === "valuation" && (
         valuation && valuation.length > 0 ? (
           <Card className="border-[0.5px] p-4 shadow-sm">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">มูลค่าสต็อกตามทุนเฉลี่ย</h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">
+              มูลค่าสต็อกตามทุนเฉลี่ย <span className="font-normal normal-case tracking-normal text-[#A8A6A0]">สูงสุด 20 อันดับ</span>
+            </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -373,7 +378,12 @@ export function StockReport({ userId }: StockReportProps) {
           </div>
           {movements.length > 0 ? (
             <Card className="border-[0.5px] p-4 shadow-sm">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ประวัติความเคลื่อนไหวสต็อก</h3>
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ประวัติความเคลื่อนไหวสต็อก</h3>
+                {movementSort.sorted.length > 100 && (
+                  <span className="text-[11px] text-gray-400">แสดง 100 จาก {movementSort.sorted.length} รายการ · ทั้งหมดใน Excel</span>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

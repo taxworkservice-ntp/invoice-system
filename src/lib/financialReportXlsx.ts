@@ -497,11 +497,11 @@ function buildTopCustomersSheet(wb: ExcelJS.Workbook, topCustomers: TopCustomer[
 
 // ============ Monthly trend ============
 
-function buildMonthlyTrendSheet(wb: ExcelJS.Workbook, monthly: MonthlyRevenue[]) {
+function buildMonthlyTrendSheet(wb: ExcelJS.Workbook, monthly: MonthlyRevenue[], periodLabel?: string) {
   const ws = wb.addWorksheet("แนวโน้มรายได้");
 
   applyTitle(ws.getCell("A1"));
-  ws.getCell("A1").value = "รายได้ 6 เดือนย้อนหลัง";
+  ws.getCell("A1").value = periodLabel ? `แนวโน้มรายได้ (${periodLabel})` : "แนวโน้มรายได้";
 
   const headers = ["ปี พ.ศ.", "เดือน", "ยอดรวม", "เปลี่ยนแปลง (%)"];
   let row = 3;
@@ -567,7 +567,7 @@ function buildRevenueByTypeSheet(wb: ExcelJS.Workbook, byType: RevenueByType[]) 
   row = 4;
   for (const t of byType) {
     applyBody(ws.getCell(row, 1));
-    ws.getCell(row, 1).value = t.docType;
+    ws.getCell(row, 1).value = t.label || t.docType;
     applyBody(ws.getCell(row, 2), { right: true });
     ws.getCell(row, 2).value = t.count;
     applyBody(ws.getCell(row, 3), { right: true, bold: true });
@@ -618,7 +618,7 @@ export async function buildFinancialReportXlsx(opts: BuildOpts): Promise<Uint8Ar
     buildTopCustomersSheet(wb, opts.topCustomers);
   }
   if (opts.monthly && opts.monthly.length > 0) {
-    buildMonthlyTrendSheet(wb, opts.monthly);
+    buildMonthlyTrendSheet(wb, opts.monthly, opts.periodLabel);
   }
   if (opts.byType && opts.byType.length > 0) {
     buildRevenueByTypeSheet(wb, opts.byType);

@@ -51,7 +51,7 @@ export function TransactionTable({ transactions }: Props) {
 
   if (transactions.length === 0) {
     return (
-      <EmptyState title="ไม่มีรายการ" description="ยังไม่มีรายการที่ชำระเงินในเดือนนี้" />
+      <EmptyState title="ไม่มีรายการ" description="ยังไม่มีรายการในช่วงนี้" />
     );
   }
 
@@ -109,12 +109,13 @@ export function TransactionTable({ transactions }: Props) {
                   );
                 }
                 const val = getCellValue(t, col.key);
+                const isMoney = col.key === "subtotal" || col.key === "vat_amount" || col.key === "total_amount" || col.key === "wht_amount" || col.key === "net_payable";
                 return (
                   <td
                     key={col.key}
-                    className={`px-3 py-2 text-${col.align} whitespace-nowrap ${col.key === "total_amount" || col.key === "net_payable" ? "font-medium text-[#111827]" : "text-[#475467]"} ${col.key === "customer_name" ? "max-w-[140px] truncate" : ""}`}
+                    className={`px-3 py-2 text-${col.align} whitespace-nowrap tabular-nums ${col.key === "total_amount" || col.key === "net_payable" ? "font-medium text-[#111827]" : "text-[#475467]"} ${col.key === "customer_name" ? "max-w-[140px] truncate" : ""}`}
                   >
-                    {val}
+                    {isMoney ? `฿${val}` : val}
                   </td>
                 );
               })}
@@ -124,11 +125,11 @@ export function TransactionTable({ transactions }: Props) {
         <tfoot>
           <tr className="border-t-[1.5px] border-[#C9D5E3] bg-[#F8FAFC] font-semibold text-[#111827]">
             <td className="px-3 py-2 text-left" colSpan={4}>รวม</td>
-            <td className="px-3 py-2 text-right">{formatCurrency(totals.subtotal)}</td>
-            <td className="px-3 py-2 text-right">{formatCurrency(totals.vat_amount)}</td>
-            <td className="px-3 py-2 text-right">{formatCurrency(totals.total_amount)}</td>
-            <td className="px-3 py-2 text-right text-[#C0392B]">{formatCurrency(totals.wht_amount)}</td>
-            <td className="px-3 py-2 text-right">{formatCurrency(totals.net_payable)}</td>
+            <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.subtotal)}</td>
+            <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.vat_amount)}</td>
+            <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.total_amount)}</td>
+            <td className="px-3 py-2 text-right tabular-nums text-[#C0392B]">฿{formatCurrency(totals.wht_amount)}</td>
+            <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.net_payable)}</td>
             <td className="px-3 py-2"></td>
             <td className="px-3 py-2"></td>
           </tr>

@@ -19,7 +19,7 @@ import { useToast } from "../../../hooks/useToast";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
 import { localTodayString } from "../../../lib/devDate";
-import { formatBuddhistDate } from "../../../lib/dates";
+import { formatBuddhistDate, formatBuddhistMonth } from "../../../lib/dates";
 import type { WhtVendor, WhtFormType } from "../../../types";
 
 const WHT_FORM_TYPE_LABELS: Record<WhtFormType, string> = {
@@ -690,7 +690,7 @@ export default function WhtPage() {
               <select aria-label="กรองตามเดือน" value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
                 <option value="">ทุกเดือน</option>
                 {availableMonths.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>{formatBuddhistMonth(m)}</option>
                 ))}
               </select>
               <select aria-label="กรองตามผู้ขาย" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
