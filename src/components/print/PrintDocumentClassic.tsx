@@ -4,6 +4,7 @@ import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
 import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
 import { DocLogo } from "./DocLogo";
+import { RefItemName } from "./RefItemName";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
   BillingNoteInvoice,
@@ -634,7 +635,7 @@ export function PrintDocumentClassic({
                       <tr key={item.id}>
                         <td className="center">{isDnSub ? "" : running}</td>
                         <td className="print-classic-item-name">
-                          {item.item_name}
+                          <RefItemName name={item.item_name} />
                           {printableNote ? (
                             <div className="print-classic-item-note">
                               {printableNote}

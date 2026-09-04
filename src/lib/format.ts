@@ -5,6 +5,27 @@ export function formatCurrency(n: number): string {
   });
 }
 
+/**
+ * Split a single-line ref item name ("DO-2026-09-003 วันที่: 1 ก.ย. 2569")
+ * into its main part and date suffix so templates can render the date
+ * smaller. Returns null when the pattern is absent (normal item names).
+ * Only splits on " วันที่: " with a leading space, so "วันที่ส่งของ: …"
+ * notes never match.
+ */
+export function splitRefDateSuffix(name: string | null | undefined): {
+  main: string;
+  date: string;
+} | null {
+  if (!name) return null;
+  const sep = " วันที่: ";
+  const i = name.lastIndexOf(sep);
+  if (i < 0) return null;
+  const main = name.slice(0, i).trim();
+  const date = name.slice(i + sep.length).trim();
+  if (!main || !date) return null;
+  return { main, date };
+}
+
 export interface PaymentDetailLike {
   payment_method?: string | null;
   payment_detail?: {

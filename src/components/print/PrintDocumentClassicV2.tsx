@@ -16,6 +16,7 @@ import type {
 import type { PageMode } from "../../lib/pagination";
 import { PrintContinuationHeader } from "./PrintContinuationHeader";
 import { DocLogo } from "./DocLogo";
+import { RefItemName } from "./RefItemName";
 
 /** Segmented hand-fill date: [DD] / [MM] / [YYYY] (classic V2 signature boxes). */
 function SigDateFill() {
@@ -847,7 +848,7 @@ export function PrintDocumentClassicV2({
                         <tr>
                           <td className="center">{running}</td>
                           <td className="print-classic-item-name">
-                            {item.item_name}
+                            <RefItemName name={item.item_name} />
                             {printableNote ? (
                               <div className="print-classic-item-note">
                                 {printableNote}

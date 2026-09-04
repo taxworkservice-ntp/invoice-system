@@ -861,6 +861,13 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   margin-top: 0.5mm;
   white-space: pre-line;
 }
+/* Ref-row date suffix ("DO-2026-09-003 วันที่: 1 ก.ย. 2569") — same line,
+   smaller and muted. Relative sizing follows every template's item scale. */
+.print-ref-date {
+  font-size: 0.85em;
+  color: #6b7280;
+  font-weight: 400;
+}
 .print-classic-discount-note {
   font-size: calc(6.5pt * var(--classic-fs-items));
   color: #b45309;
