@@ -76,7 +76,17 @@ export async function copyDocumentAsDraft(
     if (isDn) {
       payload.hide_amounts_on_print = doc.hide_amounts_on_print;
       payload.is_blank_form = doc.is_blank_form;
-      payload.show_full_totals = doc.show_full_totals;
+      // Settings-only: a copy is a new doc, so it follows the workspace
+      // setting — falling back to the source value when unreadable.
+      const { data: profile } = await supabase
+        .from("client_profiles")
+        .select("delivery_note_show_full_totals")
+        .eq("user_id", userId)
+        .maybeSingle();
+      payload.show_full_totals =
+        profile && typeof profile.delivery_note_show_full_totals === "boolean"
+          ? profile.delivery_note_show_full_totals
+          : (doc.show_full_totals ?? false);
     }
 
     const { data: copy, error: insertError } = await supabase

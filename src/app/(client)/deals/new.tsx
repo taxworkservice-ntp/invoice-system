@@ -473,14 +473,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
   });
   const [isBlankForm, setIsBlankForm] = useState(false);
-  const [showFullTotals, setShowFullTotals] = useState(false);
-  const totalsTouched = useRef(false);
-
-  useEffect(() => {
-    if (!documentId && clientProfile && !totalsTouched.current) {
-      setShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
-    }
-  }, [documentId, clientProfile]);
+  // DN full-totals is settings-only (ตั้งค่า › ใบส่งของ): new docs follow the
+  // workspace setting, draft edits keep their saved value frozen at hydrate.
+  const frozenShowFullTotals = useRef<boolean | null>(null);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
 
   const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
@@ -493,6 +488,16 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [duplicateWarning, setDuplicateWarning] = useState<string[] | null>(null);
   const [editLoading, setEditLoading] = useState(Boolean(documentId));
   const [editingDealId, setEditingDealId] = useState<string | null>(null);
+  // Section 4 starts collapsed; auto-expand once when it holds non-default
+  // content (draft note / changed WHT) so it gets attention.
+  const detailsAutoExpanded = useRef(false);
+  useEffect(() => {
+    if (detailsAutoExpanded.current || editLoading) return;
+    detailsAutoExpanded.current = true;
+    if (note.trim() || whtRate !== (clientProfile?.default_wht_rate ?? "0")) {
+      setShowAdditionalDetails(true);
+    }
+  }, [editLoading, note, whtRate, clientProfile]);
   const useAtomicCreate = !documentId && !editingDealId && !isBillingNote && isLineItemDocument;
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -650,7 +655,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           setIsBlankForm(draftDoc.is_blank_form);
         }
         if (draftDoc.doc_type === "delivery_note" && draftDoc.show_full_totals != null) {
-          setShowFullTotals(draftDoc.show_full_totals);
+          frozenShowFullTotals.current = draftDoc.show_full_totals;
         }
         setLineItems(((lineData || []) as DocumentLineItem[]).map((line) => ({
           id: line.id || crypto.randomUUID(),
@@ -1360,7 +1365,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         note: note.trim() ? note : null,
         customer_po_number: customerPo.trim() || null,
         task_name: taskName.trim() || null,
-        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: showFullTotals } : {}),
+        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true } : {}),
       };
 
       let savedDocumentId = documentId || "";
@@ -2297,6 +2302,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           >
             <span>
               <span className="block text-sm font-medium">4. รายละเอียดเพิ่มเติม (VAT, หัก ณ ที่จ่าย และหมายเหตุ)</span>
+              {!showAdditionalDetails && (
+                <span className="mt-0.5 block text-[11px] text-gray-500">
+                  VAT {vatRate}% · หัก ณ ที่จ่าย {WHT_RATE_OPTIONS.find((o) => o.value === whtRate)?.label ?? whtRate} · {note.trim() ? "มีหมายเหตุ" : "ไม่มีหมายเหตุ"}
+                </span>
+              )}
             </span>
             <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${showAdditionalDetails ? "rotate-180" : ""}`} />
           </button>
@@ -2372,13 +2382,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               onChange={setIsBlankForm}
             />
             {!isBlankForm && (
-              <DocumentOptionRow
-                label="แสดงยอดรวมแบบใบแจ้งหนี้"
-                badge="รวม VAT และหัก ณ ที่จ่ายในใบส่งของ"
-                description="แสดงยอดสรุปแบบเต็ม (มูลค่าก่อนภาษี VAT ยอดรวมทั้งสิ้น หัก ณ ที่จ่าย และยอดสุทธิ) คล้ายใบแจ้งหนี้ หากปิด ใบส่งของจะแสดงเฉพาะมูลค่ารวม"
-                checked={showFullTotals}
-                onChange={(checked) => { totalsTouched.current = true; setShowFullTotals(checked); }}
-              />
+              <p className="px-1 text-[11px] text-gray-500">
+                ยอดรวมใบส่งของเป็นไปตาม ตั้งค่า › ใบส่งของ › แสดงยอดรวมแบบใบแจ้งหนี้
+                {clientProfile?.delivery_note_show_full_totals === true ? " (เปิดอยู่: สรุปแบบเต็ม)" : " (ปิดอยู่: มูลค่ารวม)"}
+              </p>
             )}
           </DocumentOptionsCard>
         )}

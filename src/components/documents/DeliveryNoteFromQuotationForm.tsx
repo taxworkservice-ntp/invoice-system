@@ -98,14 +98,9 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
     if (typeof window === "undefined") return true;
     return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
   });
-  const [showFullTotals, setShowFullTotals] = useState(false);
-  const totalsTouched = useRef(false);
-
-  useEffect(() => {
-    if (!documentId && clientProfile && !totalsTouched.current) {
-      setShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
-    }
-  }, [documentId, clientProfile]);
+  // DN full-totals is settings-only (ตั้งค่า › ใบส่งของ): new docs follow the
+  // workspace setting, draft edits keep their saved value frozen at hydrate.
+  const frozenShowFullTotals = useRef<boolean | null>(null);
 
   // Remember the last hide-amounts choice for the next delivery note
   // (shared with deals/new.tsx).
@@ -207,7 +202,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           setTaskName((existingDoc as Document).task_name || "");
           setDocNumberOverride((existingDoc as Document).doc_number || "");
           setHideAmountsOnPrint((existingDoc as Document).hide_amounts_on_print ?? true);
-          setShowFullTotals((existingDoc as Document).show_full_totals ?? false);
+          frozenShowFullTotals.current = (existingDoc as Document).show_full_totals ?? null;
         } else {
           // Flow-down: carry the quotation's PO/task onto the new DN.
           setCustomerPo(quote.customer_po_number || "");
@@ -445,7 +440,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           customer_po_number: customerPo.trim() || null,
           task_name: taskName.trim() || null,
           hide_amounts_on_print: hideAmountsOnPrint,
-          show_full_totals: showFullTotals,
+          show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true,
           converted_from_id: quotation.id,
         };
 
@@ -786,13 +781,10 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
             onChange={(checked) => setHideAmountsOnPrint(checked)}
           />
           {!hideAmountsOnPrint && (
-            <DocumentOptionRow
-              label="แสดงยอดรวมแบบใบแจ้งหนี้"
-              badge="รวม VAT และหัก ณ ที่จ่ายในใบส่งของ"
-              description="แสดงยอดสรุปแบบเต็ม (มูลค่าก่อนภาษี VAT ยอดรวมทั้งสิ้น หัก ณ ที่จ่าย และยอดสุทธิ) คล้ายใบแจ้งหนี้ หากปิด ใบส่งของจะแสดงเฉพาะมูลค่ารวม"
-              checked={showFullTotals}
-              onChange={(checked) => { totalsTouched.current = true; setShowFullTotals(checked); }}
-            />
+            <p className="px-1 text-[11px] text-gray-500">
+              ยอดรวมใบส่งของเป็นไปตาม ตั้งค่า › ใบส่งของ › แสดงยอดรวมแบบใบแจ้งหนี้
+              {clientProfile?.delivery_note_show_full_totals === true ? " (เปิดอยู่: สรุปแบบเต็ม)" : " (ปิดอยู่: มูลค่ารวม)"}
+            </p>
           )}
         </DocumentOptionsCard>
 

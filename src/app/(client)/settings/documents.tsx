@@ -420,7 +420,8 @@ export default function SettingsDocumentsPage() {
     signatureKey !== (clientProfile?.signature_url ?? null) ||
     stampKey !== (clientProfile?.stamp_url ?? null) ||
     signatureScale !== (clientProfile?.signature_scale || "medium") ||
-    stampScale !== (clientProfile?.stamp_scale || "medium");
+    stampScale !== (clientProfile?.stamp_scale || "medium") ||
+    dnShowFullTotals !== (clientProfile?.delivery_note_show_full_totals === true);
 
   const typeScalesConfiguredCount = Object.values(classicV2TypeScales).filter((scales) =>
     Object.values(scales || {}).some((v) => v && v !== CLASSIC_V2_SECTION_INHERIT),
@@ -849,7 +850,7 @@ export default function SettingsDocumentsPage() {
           )}
         </SectionCard>
 
-        <SectionCard title="ใบส่งของ" description="ค่าเริ่มต้นสำหรับใบส่งของใหม่ — ปรับแต่งรายเอกสารได้">
+        <SectionCard title="ใบส่งของ" description="ค่าเริ่มต้นสำหรับใบส่งของใหม่ — มีผลกับเอกสารใหม่เท่านั้น เอกสารเดิมคงค่าที่บันทึกไว้">
           <SettingRow
             label="แสดงยอดรวมแบบใบแจ้งหนี้"
             description="แสดง VAT / หัก ณ ที่จ่าย / ยอดสุทธิแบบใบแจ้งหนี้ หากปิดจะแสดงเฉพาะมูลค่ารวม"
