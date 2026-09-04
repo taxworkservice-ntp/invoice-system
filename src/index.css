@@ -12,6 +12,14 @@
 
 @font-face {
   font-family: "Sarabun";
+  src: url("/fonts/Sarabun-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sarabun";
   src: url("/fonts/Sarabun-SemiBold.ttf") format("truetype");
   font-weight: 600;
   font-style: normal;
@@ -1056,8 +1064,8 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-dn-note {
   color: #000000;
 }
-/* item name semibold, spec lines stay regular — name anchors the row */
-.print-theme-classic-v2 .print-classic-item-name { font-weight: 600; }
+/* item name medium, spec lines stay regular — name anchors the row */
+.print-theme-classic-v2 .print-classic-item-name { font-weight: 500; }
 .print-theme-classic-v2 .print-classic-item-note,
 .print-theme-classic-v2 .print-classic-discount-note,
 .print-theme-classic-v2 .print-classic-dn-note { font-weight: 400; }
