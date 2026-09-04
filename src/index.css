@@ -506,7 +506,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   margin-bottom: 2mm;
 }
 .print-logo-img--banner {
-  max-width: 81mm;
+  max-width: 90mm;
   max-height: 22mm;
 }
 /* When the company name is hidden, the large logo sits on top with the
@@ -533,7 +533,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   grid-area: badge;
 }
 .print-classic-top--no-name .print-classic-logo-img {
-  max-width: 81mm;
+  max-width: 90mm;
   max-height: 22mm;
   width: auto;
   height: auto;
@@ -959,7 +959,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   justify-content: flex-start;
 }
 .print-theme-classic-v2 .print-classic-top--no-name .print-classic-logo-img {
-  max-width: 81mm;
+  max-width: 90mm;
   max-height: 22mm;
 }
 .print-theme-classic-v2 .print-classic-top--no-name .print-classic-company {
