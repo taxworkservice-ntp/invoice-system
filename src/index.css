@@ -1056,6 +1056,11 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-dn-note {
   color: #000000;
 }
+/* item name semibold, spec lines stay regular — name anchors the row */
+.print-theme-classic-v2 .print-classic-item-name { font-weight: 600; }
+.print-theme-classic-v2 .print-classic-item-note,
+.print-theme-classic-v2 .print-classic-discount-note,
+.print-theme-classic-v2 .print-classic-dn-note { font-weight: 400; }
 /* colored accents stay colored, just darker */
 .print-theme-classic-v2 .print-classic-discount-note { color: #92400e; }
 .print-theme-classic-v2 .print-classic-payment-status,
