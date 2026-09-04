@@ -2369,6 +2369,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         {isDeliveryNote && (
           <DocumentOptionsCard>
+            {(!isBlankForm || hideAmountsOnPrint) && (
             <DocumentOptionRow
               label="ซ่อนจำนวนเงินใน PDF"
               badge="ซ่อนยอดเงินเมื่อพิมพ์"
@@ -2382,6 +2383,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 setHideAmountsOnPrint(checked);
               }}
             />
+            )}
+            {(!hideAmountsOnPrint || isBlankForm) && (
             <DocumentOptionRow
               label="ออกเป็นฟอร์มเปล่า (กรอกด้วยมือ)"
               badge="พิมพ์แล้วส่งพนักงานไปกรอก"
@@ -2389,6 +2392,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               checked={isBlankForm}
               onChange={setIsBlankForm}
             />
+            )}
           </DocumentOptionsCard>
         )}
 
