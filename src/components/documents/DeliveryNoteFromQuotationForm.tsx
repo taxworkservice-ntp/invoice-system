@@ -780,12 +780,6 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
             checked={hideAmountsOnPrint}
             onChange={(checked) => setHideAmountsOnPrint(checked)}
           />
-          {!hideAmountsOnPrint && (
-            <p className="px-1 text-[11px] text-gray-500">
-              ยอดรวมใบส่งของเป็นไปตาม ตั้งค่า › ใบส่งของ › แสดงยอดรวมแบบใบแจ้งหนี้
-              {clientProfile?.delivery_note_show_full_totals === true ? " (เปิดอยู่: สรุปแบบเต็ม)" : " (ปิดอยู่: มูลค่ารวม)"}
-            </p>
-          )}
         </DocumentOptionsCard>
 
         <FormStep number={3} title="สรุปและบันทึก">
