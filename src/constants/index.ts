@@ -88,7 +88,7 @@ export const LOGO_SIZE_OPTIONS: { value: string; label: string; px: number; mm: 
   { value: "square", label: "มาตรฐาน", px: 64, mm: "~17มม.", desc: "ค่าเริ่มต้น — สมดุลกับชื่อบริษัท" },
   { value: "medium", label: "กลาง", px: 96, mm: "~25มม.", desc: "โลโก้ตัวอักษรแนวนอนให้อ่านชัด" },
   { value: "rectangle", label: "ใหญ่", px: 128, mm: "~34มม.", desc: "โลโก้ตัวอักษรกว้าง" },
-  { value: "large", label: "แบนเนอร์", px: 200, mm: "~53มม.", desc: "ใช้ร่วมกับการปิดชื่อบริษัท" },
+  { value: "large", label: "แบนเนอร์", px: 260, mm: "~69มม.", desc: "ใช้ร่วมกับการปิดชื่อบริษัท" },
 ];
 
 /** Default logo size for new workspaces. */

@@ -505,7 +505,7 @@ export default function SettingsDocumentsPage() {
                   <div className="mt-2 flex items-center gap-2">
                     <div
                       className="h-5 rounded bg-[#243043]"
-                      style={{ width: Math.min(LOGO_SIZE_OPTIONS.find((o) => o.value === logoSize)?.px ?? 64, 200) }}
+                      style={{ width: Math.round((LOGO_SIZE_OPTIONS.find((o) => o.value === logoSize)?.px ?? 64) * (220 / 260)) }}
                       aria-hidden
                     />
                     <span className="text-[11px] text-[#888780]">
