@@ -190,6 +190,11 @@ export default function DealDetailPage() {
   const [reverting, setReverting] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [hasActiveDnLinks, setHasActiveDnLinks] = useState(false);
+  const [unlinkDnConfirm, setUnlinkDnConfirm] = useState<{
+    invoiceNo: string;
+    dns: { id: string; no: string }[];
+  } | null>(null);
+  const [unlinkingDn, setUnlinkingDn] = useState(false);
 
   const { customers, addCustomer } = useCustomers(userId);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
@@ -677,50 +682,84 @@ export default function DealDetailPage() {
     if (!activeDoc || !userId) return;
     const invoiceId = activeDoc.document.id;
 
-    const { data: links } = await supabase
+    const { data: links, error: linkError } = await supabase
       .from("invoice_delivery_notes")
       .select("delivery_note_id")
       .eq("invoice_id", invoiceId)
       .is("released_at", null);
 
+    if (linkError) {
+      toast.error("โหลดรายการใบส่งของไม่สำเร็จ");
+      return;
+    }
     const dnIds = (links || []).map((l) => l.delivery_note_id).filter(Boolean);
     if (dnIds.length === 0) return;
 
-    for (const dnId of dnIds) {
-      const { data: newDeal } = await supabase
-        .from("deals")
-        .insert({
-          user_id: userId,
-          customer_id: activeDoc.document.customer_id,
-          is_active: true,
-        })
-        .select("id")
-        .single();
+    const { data: dnDocs } = await supabase
+      .from("documents")
+      .select("id, doc_number")
+      .in("id", dnIds);
+    const noById = new Map(
+      (dnDocs || []).map((d) => [d.id, d.doc_number || d.id.slice(0, 8)]),
+    );
+    setUnlinkDnConfirm({
+      invoiceNo: activeDoc.document.doc_number || "ใบแจ้งหนี้",
+      dns: dnIds.map((id: string) => ({ id, no: noById.get(id) || id.slice(0, 8) })),
+    });
+  };
 
-      if (newDeal) {
-        await supabase
+  const handleConfirmUnlinkDeliveryNotes = async () => {
+    const target = unlinkDnConfirm;
+    if (!activeDoc || !userId || !target) return;
+    const invoiceId = activeDoc.document.id;
+
+    setUnlinkingDn(true);
+    try {
+      for (const dn of target.dns) {
+        const { data: newDeal, error: dealError } = await supabase
+          .from("deals")
+          .insert({
+            user_id: userId,
+            customer_id: activeDoc.document.customer_id,
+            is_active: true,
+          })
+          .select("id")
+          .single();
+
+        if (dealError || !newDeal) throw dealError || new Error("สร้างงานขายใหม่ไม่สำเร็จ");
+        const { error: dnError } = await supabase
           .from("documents")
           .update({ status: "sent" as DocumentStatus, deal_id: newDeal.id })
-          .eq("id", dnId);
+          .eq("id", dn.id);
+        if (dnError) throw dnError;
       }
+
+      const { error: releaseError } = await supabase
+        .from("invoice_delivery_notes")
+        .update({ released_at: new Date().toISOString() })
+        .eq("invoice_id", invoiceId)
+        .is("released_at", null);
+      if (releaseError) throw releaseError;
+
+      const { error: voidError } = await supabase
+        .from("documents")
+        .update({
+          status: "voided" as DocumentStatus,
+          voided_at: new Date().toISOString(),
+        })
+        .eq("id", invoiceId);
+      if (voidError) throw voidError;
+
+      setUnlinkDnConfirm(null);
+      toast.success(
+        `แยกใบส่งของ ${target.dns.length} ใบ (${target.dns.map((d) => d.no).join(", ")}) ออกจาก ${target.invoiceNo} แล้ว — ใบส่งของกลับไปออกบิลใหม่ได้ทันที`,
+      );
+      navigate("/home");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "แยกใบส่งของไม่สำเร็จ");
+    } finally {
+      setUnlinkingDn(false);
     }
-
-    await supabase
-      .from("invoice_delivery_notes")
-      .update({ released_at: new Date().toISOString() })
-      .eq("invoice_id", invoiceId)
-      .is("released_at", null);
-
-    await supabase
-      .from("documents")
-      .update({
-        status: "voided" as DocumentStatus,
-        voided_at: new Date().toISOString(),
-      })
-      .eq("id", invoiceId);
-
-    toast.success(`ยกเลิกเอกสารแล้ว — ${dnIds.length} ดีลถูกแยกกลับ · สร้างใหม่ได้ทันที`);
-    navigate("/home");
   };
 
   const handleCopyDeal = async (sourceType: DocumentType) => {
@@ -2510,6 +2549,37 @@ export default function DealDetailPage() {
             )}
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!unlinkDnConfirm}
+        onClose={() => { if (!unlinkingDn) setUnlinkDnConfirm(null); }}
+        title="แยกใบส่งของออกจากใบแจ้งหนี้"
+      >
+        {unlinkDnConfirm && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              <span className="font-semibold">{unlinkDnConfirm.invoiceNo}</span> จะถูกยกเลิกและเก็บไว้เป็นประวัติ
+              ใบส่งของ {unlinkDnConfirm.dns.length} ใบจะถูกแยกออกและกลับไปออกบิลใหม่ได้ทันที
+            </div>
+            <ul className="divide-y divide-stone-100 rounded-lg border border-stone-200">
+              {unlinkDnConfirm.dns.map((dn) => (
+                <li key={dn.id} className="px-3 py-2 text-sm text-gray-700">
+                  ใบส่งของ <span className="font-medium text-gray-900">{dn.no}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-gray-600">ยืนยันแยกใบส่งของเหล่านี้ออกจากใบแจ้งหนี้หรือไม่?</p>
+            <div className="flex gap-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setUnlinkDnConfirm(null)} disabled={unlinkingDn}>
+                ยกเลิก
+              </Button>
+              <Button variant="danger" className="flex-1" onClick={handleConfirmUnlinkDeliveryNotes} loading={unlinkingDn}>
+                {unlinkingDn ? "กำลังแยก..." : "ยืนยันการแยก"}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {payDocument && (
