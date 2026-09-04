@@ -162,9 +162,11 @@ export function InvoiceFromDeliveryNotesForm() {
   const [showDnVariance, setShowDnVariance] = useState(false);
   const [error, setError] = useState("");
   // Ref mode: one printed line per source delivery note instead of item detail.
+  // Default is detail (opt-in, remembered per browser) — ref-saved invoices
+  // can never be expanded back into item lines at print time.
   const [refOnlyMode, setRefOnlyMode] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem("invoice-system.invoiceRefOnly") !== "false";
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("invoice-system.invoiceRefOnly") === "true";
   });
 
   useEffect(() => {
