@@ -651,16 +651,13 @@ export function InvoiceFromDeliveryNotesForm() {
 
         if (refOnlyMode && groupLines.length > 0) {
           // Ref mode: one printed line per delivery note carrying its billed total.
+          // Single-line item name (no line_note) so it never wraps to 2 lines.
+          const dnLabel = dn.doc_number || dn.id.slice(0, 8);
           const groupTotal = groupLines.reduce((sum, l) => sum + lineNetAmount(l), 0);
           lineRecords.push({
             item_id: null,
-            item_name: `ใบส่งของ ${dn.doc_number || dn.id.slice(0, 8)}`,
-            line_note: [
-              dn.issue_date ? `วันที่ส่งของ: ${formatBuddhistDate(dn.issue_date)}` : null,
-              `รายการ ${groupLines.length} บรรทัด`,
-            ]
-              .filter(Boolean)
-              .join(" · "),
+            item_name: dn.issue_date ? `${dnLabel} วันที่: ${formatBuddhistDate(dn.issue_date)}` : dnLabel,
+            line_note: null,
             item_sku: null,
             item_type: "service",
             unit: "",
