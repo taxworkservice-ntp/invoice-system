@@ -444,7 +444,7 @@ export default function SettingsDocumentsPage() {
       : getClassicV2EffectiveSectionScaleMult(section, tabTypeScales, classicV2SectionScales, specimenGlobalMult);
   const specimenRows = [
     { label: "ส่วนหัว", mult: specimenMult("header"), text: "บริษัท ตัวอย่าง จำกัด · 02-123-4567" },
-    { label: "ชื่อบริษัท/ที่อยู่", mult: specimenMult("header_company"), text: "บริษัท ตัวอย่าง จำกัด" },
+    { label: "ชื่อบริษัท (ไทย+อังกฤษ)/ที่อยู่", mult: specimenMult("header_company"), text: "บริษัท ตัวอย่าง จำกัด" },
     { label: "ชื่อเอกสาร/ตราสำเนา", mult: specimenMult("header_title"), text: "ใบแจ้งหนี้ / INVOICE" },
     { label: "กล่องข้อมูล/ลูกค้า", mult: specimenMult("header_info"), text: "เลขที่: INV-2609-0001 · วันที่" },
     { label: "ชื่อสินค้า/คำอธิบาย", mult: specimenMult("items"), text: "ปูนซีเมนต์ออลพัรโพส บรรจุถุง ทดสอบการตัดคำชื่อสินค้ายาว" },

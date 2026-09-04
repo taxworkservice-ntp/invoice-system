@@ -217,7 +217,7 @@ export const CLASSIC_V2_SECTION_SUB_ROWS: Partial<
   Record<ClassicV2SectionFontKey, { key: ClassicV2SectionFontKey; label: string }[]>
 > = {
   header: [
-    { key: "header_company", label: "ชื่อบริษัท/ที่อยู่" },
+    { key: "header_company", label: "ชื่อบริษัท (ไทย+อังกฤษ)/ที่อยู่" },
     { key: "header_title", label: "ชื่อเอกสาร/ตราสำเนา" },
     { key: "header_info", label: "กล่องข้อมูล/ลูกค้า" },
   ],
