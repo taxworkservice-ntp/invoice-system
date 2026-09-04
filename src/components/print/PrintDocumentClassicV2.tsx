@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { formatCurrency, paymentMethodText } from "../../lib/format";
+import { formatBuddhistDate } from "../../lib/dates";
 import { getProxiedImageUrl } from "../../lib/storageApi";
 import { isDnMarkerLine } from "../../lib/print";
 import { getDnVarianceParts } from "../../lib/dnVariance";
@@ -273,15 +274,14 @@ export function PrintDocumentClassicV2({
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = splitTerms(clientProfile.classic_terms);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
-  // Band rows (ใบส่งของ DN-… dividers) occupy physical rows on the sheet —
+  // Band rows (DN-… dividers) occupy physical rows on the sheet —
   // count them so the blank-row padding keeps the fixed sheet height.
+  // Same canonical shape as ref-mode rows: "{number} วันที่: {date}".
   const dnBandLabelFor = (item: DocumentLineItem): string | null => {
     if (!item.source_document_id || !item.source_line_item_id) return null;
     const ref = lineDeliveryNoteMap[item.id];
     if (!ref) return null;
-    const prefix = ref.kind === "quotation" ? "ใบเสนอราคา" : "ใบส่งของ";
-    const date = ref.issue_date ? ` (วันที่ ${formatDateBuddhist(ref.issue_date)})` : "";
-    return `${prefix} ${ref.number}${date}`;
+    return ref.issue_date ? `${ref.number} วันที่: ${formatBuddhistDate(ref.issue_date)}` : ref.number;
   };
   const isDnBandStart = (lines: DocumentLineItem[], i: number): boolean => {
     const line = lines[i];
@@ -841,7 +841,7 @@ export function PrintDocumentClassicV2({
                               className="print-classic-dn-band-label"
                               colSpan={showAmountColumns ? 6 : 4}
                             >
-                              {bandLabel}
+                              <RefItemName name={bandLabel} />
                             </td>
                           </tr>
                         ) : null}
