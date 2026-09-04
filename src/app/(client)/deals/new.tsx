@@ -498,15 +498,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       setShowAdditionalDetails(true);
     }
   }, [editLoading, note, whtRate, clientProfile]);
-  // PO/job section: optional, collapsed by default; auto-expand once when
-  // values are present (flow-down from quotation/DN or draft restore).
-  const [showPoTask, setShowPoTask] = useState(false);
-  const poTaskAutoExpanded = useRef(false);
-  useEffect(() => {
-    if (poTaskAutoExpanded.current || editLoading) return;
-    poTaskAutoExpanded.current = true;
-    if (customerPo.trim() || taskName.trim()) setShowPoTask(true);
-  }, [editLoading, customerPo, taskName]);
   const useAtomicCreate = !documentId && !editingDealId && !isBillingNote && isLineItemDocument;
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1732,38 +1723,19 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         )}
 
         <Card>
-          <button
-            type="button"
-            onClick={() => setShowPoTask((current) => !current)}
-            aria-expanded={showPoTask}
-            className="flex w-full items-center justify-between gap-3 text-left"
-          >
-            <span>
-              <span className="block text-sm font-medium">
-                ชื่องาน / เลขที่ใบสั่งซื้อ <span className="font-normal text-gray-400">(ไม่บังคับ)</span>
-              </span>
-              {!showPoTask && (
-                <span className="mt-0.5 block text-[11px] text-gray-500">
-                  {[taskName.trim(), customerPo.trim() ? `PO ${customerPo.trim()}` : ""]
-                    .filter(Boolean)
-                    .join(" · ") || "ไม่ระบุ"}
-                </span>
-              )}
+          <div className="mb-3">
+            <span className="block text-sm font-medium">
+              ชื่องาน / เลขที่ใบสั่งซื้อ <span className="font-normal text-gray-400">(ไม่บังคับ)</span>
             </span>
-            <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${showPoTask ? "rotate-180" : ""}`} />
-          </button>
-          {showPoTask && (
-            <div className="mt-3">
-              <PoTaskFields
-                taskName={taskName}
-                onTaskNameChange={setTaskName}
-                customerPo={customerPo}
-                onCustomerPoChange={setCustomerPo}
-                taskSuggestions={referenceHistory.taskValues}
-                poSuggestions={referenceHistory.poValues}
-              />
-            </div>
-          )}
+          </div>
+          <PoTaskFields
+            taskName={taskName}
+            onTaskNameChange={setTaskName}
+            customerPo={customerPo}
+            onCustomerPoChange={setCustomerPo}
+            taskSuggestions={referenceHistory.taskValues}
+            poSuggestions={referenceHistory.poValues}
+          />
         </Card>
 
         {isUtilityBill && (
