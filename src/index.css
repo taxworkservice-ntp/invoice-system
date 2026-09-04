@@ -488,8 +488,26 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-logo-img {
   display: block;
-  max-width: 30mm;
+  max-width: 55mm;
+  max-height: 15mm;
   height: auto;
+  object-fit: contain;
+}
+/* Shared print logo guards: width comes from the size preset, height is
+   capped so wide typo/wordmark logos stay clean and never push the header. */
+.print-logo-img {
+  height: auto;
+  object-fit: contain;
+  max-width: 55mm;
+  max-height: 15mm;
+}
+.print-logo-img--modern {
+  display: block;
+  margin-bottom: 2mm;
+}
+.print-logo-img--banner {
+  max-width: 81mm;
+  max-height: 22mm;
 }
 /* When the company name is hidden, the large logo sits on top with the
    company meta (address/tax/phone) below it, and the copy badge on the right. */
@@ -516,7 +534,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-top--no-name .print-classic-logo-img {
   max-width: 81mm;
-  max-height: 18mm;
+  max-height: 22mm;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -941,8 +959,8 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   justify-content: flex-start;
 }
 .print-theme-classic-v2 .print-classic-top--no-name .print-classic-logo-img {
-  max-width: none;
-  max-height: none;
+  max-width: 81mm;
+  max-height: 22mm;
 }
 .print-theme-classic-v2 .print-classic-top--no-name .print-classic-company {
   grid-area: auto;

@@ -2,7 +2,8 @@ import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
-import { LOGO_SIZE_OPTIONS, PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
+import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
+import { DocLogo } from "./DocLogo";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
   BillingNoteInvoice,
@@ -19,10 +20,6 @@ const COPY_LABELS: Record<CopyType, string> = {
   original: "ต้นฉบับลูกค้า",
   copy: "สำเนา",
 };
-
-function getLogoPx(logoSize: string | null): number {
-  return LOGO_SIZE_OPTIONS.find((o) => o.value === logoSize)?.px ?? 64;
-}
 
 function formatDate(date: string | null | undefined): string {
   if (!date) return "-";
@@ -236,12 +233,11 @@ export function PrintDocumentClassic({
           <header className={`print-classic-top${clientProfile.logo_layout === "above" && clientProfile.show_logo !== false && clientProfile.show_company_name !== false && clientProfile.logo_url ? " print-classic-top--above" : ""}`}>
             <div className="print-classic-logo">
               {clientProfile.logo_url && clientProfile.show_logo !== false ? (
-                <img
+                <DocLogo
                   src={clientProfile.logo_url}
                   alt={clientProfile.company_name_th}
-                  style={{ width: getLogoPx(clientProfile.logo_size) }}
-                  className="print-classic-logo-img"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  logoSize={clientProfile.logo_size}
+                  banner={clientProfile.show_company_name === false}
                 />
               ) : null}
             </div>

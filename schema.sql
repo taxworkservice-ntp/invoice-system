@@ -238,7 +238,7 @@ create table client_profiles (
   phone                 text,
   contact_name          text,                -- ชื่อผู้ติดต่อ / ชื่อเจ้าของ
   logo_url              text,                -- Supabase Storage path
-  logo_size             text,                -- 'square' or 'full'
+  logo_size             text default 'square', -- small|square|medium|rectangle|large (see LOGO_SIZE_OPTIONS)
 
   -- Tax defaults (pre-fill on every new document)
   vat_registered        boolean not null default false,

@@ -1,11 +1,7 @@
 import { documentTypeLabel } from "../../lib/docLabels";
-import { LOGO_SIZE_OPTIONS } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type { CopyType } from "./PrintDocument";
-
-function getLogoPx(logoSize: string | null): number {
-  return LOGO_SIZE_OPTIONS.find(o => o.value === logoSize)?.px ?? 64;
-}
+import { DocLogo } from "./DocLogo";
 
 function formatDate(date: string | null | undefined) {
   if (!date) return "-";
@@ -28,12 +24,12 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
       <div className="flex gap-4 items-start">
         <div className="min-w-0 flex-1 px-2">
           {clientProfile.logo_url ? (
-            <img
+            <DocLogo
               src={clientProfile.logo_url}
               alt={clientProfile.company_name_th}
-              style={{ width: getLogoPx(clientProfile.logo_size) }}
-              className="mb-2 block"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              logoSize={clientProfile.logo_size}
+              banner={clientProfile.show_company_name === false}
+              modern
             />
           ) : null}
           <h1 className="text-[15px] font-semibold tracking-tight text-[#243043] leading-tight">

@@ -154,7 +154,7 @@ async function seed() {
     phone: "02-999-8888",
     contact_name: "คุณเทสท์ ตัวอย่าง",
     logo_url: logoUrl,
-    logo_size: "full",
+    logo_size: "rectangle",
     vat_registered: true,
     vat_rate: 7.00,
     default_wht_rate: "3",

@@ -83,11 +83,25 @@ export const PDF_TEMPLATE_OPTIONS: { value: string; label: string; desc: string 
   { value: "modern", label: "โมเดิร์น", desc: "ดีไซน์บางเบา เส้นสีอ่อน ดูทันสมัย" },
 ];
 
-export const LOGO_SIZE_OPTIONS: { value: string; label: string; px: number }[] = [
-  { value: "square", label: "สี่เหลี่ยมจัตุรัส", px: 64 },
-  { value: "rectangle", label: "สี่เหลี่ยมผืนผ้า", px: 128 },
-  { value: "large", label: "ใหญ่ (แทนชื่อบริษัท)", px: 200 },
+export const LOGO_SIZE_OPTIONS: { value: string; label: string; px: number; mm: string; desc: string }[] = [
+  { value: "small", label: "เล็ก", px: 48, mm: "~13มม.", desc: "ตราสัญลักษณ์สี่เหลี่ยม" },
+  { value: "square", label: "มาตรฐาน", px: 64, mm: "~17มม.", desc: "ค่าเริ่มต้น — สมดุลกับชื่อบริษัท" },
+  { value: "medium", label: "กลาง", px: 96, mm: "~25มม.", desc: "โลโก้ตัวอักษรแนวนอนให้อ่านชัด" },
+  { value: "rectangle", label: "ใหญ่", px: 128, mm: "~34มม.", desc: "โลโก้ตัวอักษรกว้าง" },
+  { value: "large", label: "แบนเนอร์", px: 200, mm: "~53มม.", desc: "ใช้ร่วมกับการปิดชื่อบริษัท" },
 ];
+
+/** Default logo size for new workspaces. */
+export const LOGO_DEFAULT_SIZE = "square";
+
+/**
+ * Width in px for a stored logo_size. Covers legacy values:
+ * "full" (old seed) maps to rectangle. Unknown/null falls back to 64.
+ */
+export function getLogoPx(logoSize?: string | null): number {
+  if (logoSize === "full") return 128;
+  return LOGO_SIZE_OPTIONS.find((o) => o.value === logoSize)?.px ?? 64;
+}
 
 export const ASSET_SCALE_OPTIONS: { value: string; label: string; mult: number }[] = [
   { value: "small", label: "เล็ก", mult: 0.75 },

@@ -12,7 +12,7 @@ import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
 import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
-import { LOGO_SIZE_OPTIONS, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT, CLASSIC_V2_TYPE_FONT_KEYS, CLASSIC_V2_TYPE_GLOBAL_KEY, CLASSIC_V2_ITEMS_TABLE_ROWS, CLASSIC_V2_SECTION_SUB_ROWS, CLASSIC_V2_SECTION_PARENT_LABELS, CLASSIC_V2_DEFAULT_SECTION_SCALES, CLASSIC_V2_BASE_FONT_PT, CLASSIC_V2_MIN_FONT_PT, CLASSIC_V2_MAX_FONT_PT, CLASSIC_V2_CUSTOM_PT_PREFIX, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { LOGO_SIZE_OPTIONS, LOGO_DEFAULT_SIZE, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT, CLASSIC_V2_TYPE_FONT_KEYS, CLASSIC_V2_TYPE_GLOBAL_KEY, CLASSIC_V2_ITEMS_TABLE_ROWS, CLASSIC_V2_SECTION_SUB_ROWS, CLASSIC_V2_SECTION_PARENT_LABELS, CLASSIC_V2_DEFAULT_SECTION_SCALES, CLASSIC_V2_BASE_FONT_PT, CLASSIC_V2_MIN_FONT_PT, CLASSIC_V2_MAX_FONT_PT, CLASSIC_V2_CUSTOM_PT_PREFIX, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import type { ClassicV2SectionFontKey } from "../../../constants";
 import { FontPreviewChip } from "../../../components/ui/FontPreviewChip";
 import { signatureKey as signatureKeyFn, stampKey as stampKeyFn } from "../../../lib/r2";
@@ -228,7 +228,7 @@ export default function SettingsDocumentsPage() {
 
   const hasClassicV2 = hasFeature("classic_v2_template");
   const [logoKey, setLogoKey] = useState<string | null>(null);
-  const [logoSize, setLogoSize] = useState(LOGO_SIZE_OPTIONS[0].value);
+  const [logoSize, setLogoSize] = useState(LOGO_DEFAULT_SIZE);
   const [showLogo, setShowLogo] = useState(true);
   const [showCompanyName, setShowCompanyName] = useState(true);
   const [logoLayout, setLogoLayout] = useState<"left" | "above">("left");
@@ -261,7 +261,7 @@ export default function SettingsDocumentsPage() {
   const hydrateFromProfile = useCallback(() => {
     if (!clientProfile) return;
     setLogoKey(clientProfile.logo_url);
-    setLogoSize(clientProfile.logo_size || "square");
+    setLogoSize(clientProfile.logo_size || LOGO_DEFAULT_SIZE);
     setShowLogo(clientProfile.show_logo !== false);
     setShowCompanyName(clientProfile.show_company_name !== false);
     setLogoLayout(clientProfile.logo_layout === "above" ? "above" : "left");
@@ -413,7 +413,7 @@ export default function SettingsDocumentsPage() {
     ) ||
     classicTerms !== (clientProfile?.classic_terms || "") ||
     logoKey !== (clientProfile?.logo_url ?? null) ||
-    logoSize !== (clientProfile?.logo_size || "square") ||
+    logoSize !== (clientProfile?.logo_size || LOGO_DEFAULT_SIZE) ||
     showLogo !== (clientProfile?.show_logo !== false) ||
     showCompanyName !== (clientProfile?.show_company_name !== false) ||
     logoLayout !== (clientProfile?.logo_layout === "above" ? "above" : "left") ||
@@ -483,11 +483,15 @@ export default function SettingsDocumentsPage() {
                   }}
                 />
               )}
+              <p className="-mt-1 pb-2 text-[11px] text-[#888780]">
+                โลโก้ตัวอักษรแนวนอน: ใช้ไฟล์พื้นหลังโปร่งใส กว้าง ≥1200px เว้นขอบรอบตัวอักษร — ระบบจะคงสัดส่วนและจำกัดความสูงให้เอง
+              </p>
             </div>
             {logoKey && (
               <>
                 <SettingRow
                   label="ขนาดโลโก้บนเอกสาร"
+                  description="ความกว้างเมื่อพิมพ์ — โลโก้แนวนอน (ตัวอักษร) จะถูกจำกัดความสูงอัตโนมัติให้หัวเอกสารสมดุล"
                   controlWidthClass="sm:w-[220px]"
                 >
                   <Select
@@ -495,9 +499,24 @@ export default function SettingsDocumentsPage() {
                     onChange={(e) => { setLogoSize(e.target.value); setSaved(false); }}
                   >
                     {LOGO_SIZE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label} ({opt.px}px)</option>
+                      <option key={opt.value} value={opt.value}>{opt.label} ({opt.mm}) — {opt.desc}</option>
                     ))}
                   </Select>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div
+                      className="h-5 rounded bg-[#243043]"
+                      style={{ width: Math.min(LOGO_SIZE_OPTIONS.find((o) => o.value === logoSize)?.px ?? 64, 200) }}
+                      aria-hidden
+                    />
+                    <span className="text-[11px] text-[#888780]">
+                      กว้าง {LOGO_SIZE_OPTIONS.find((o) => o.value === logoSize)?.mm ?? "~17มม."} · สูงไม่เกิน 15มม. (แบนเนอร์ 22มม.)
+                    </span>
+                  </div>
+                  {logoSize === "large" && showCompanyName && (
+                    <p className="mt-1 text-[11px] text-[#888780]">
+                      แบนเนอร์มักมีชื่อบริษัทอยู่ในโลโก้แล้ว — แนะนำให้ปิด “แสดงชื่อบริษัทในเอกสาร” ด้านล่าง
+                    </p>
+                  )}
                 </SettingRow>
                 <SettingRow
                   label="ตำแหน่งโลโก้"
