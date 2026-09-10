@@ -88,6 +88,9 @@ export default async function handler(req, res) {
     const body = readJsonBody(req);
     const { copyTypes } = body;
     const normalizedCopyTypes = normalizeCopyTypes(copyTypes);
+    // Two-copy page order: interleave pages (default) or print each copy
+    // complete first (?interleave=0). Always forwarded explicitly.
+    const interleave = body.interleave === 0 ? "0" : "1";
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
@@ -120,6 +123,7 @@ export default async function handler(req, res) {
     exportUrl.searchParams.set("copyTypes", normalizedCopyTypes.join(","));
     // Print-time reference collapse (classic V2): one line per DN group
     if (body.refCollapse) exportUrl.searchParams.set("refCollapse", "1");
+    exportUrl.searchParams.set("interleave", interleave);
 
     browser = await playwright.chromium.launch(await getChromiumLaunchOptions());
 

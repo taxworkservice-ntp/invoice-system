@@ -292,6 +292,16 @@ export default function DocumentPrintPreviewPage() {
       ? "copy-first"
       : "original-first";
   });
+  // Two-copy download layout: interleave pages (original p1, copy p1, …) or
+  // print each copy complete first. Remembered per browser like copyOrder.
+  const [interleaveCopies, setInterleaveCopies] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("invoice-system.interleave-copies") !== "0";
+  });
+  const toggleInterleaveCopies = (value: boolean) => {
+    setInterleaveCopies(value);
+    window.localStorage.setItem("invoice-system.interleave-copies", value ? "1" : "0");
+  };
 
   useEffect(() => {
     if (!exportMode) return;
@@ -474,7 +484,7 @@ export default function DocumentPrintPreviewPage() {
     // getSession() fetch sends stale tokens after an idle tab and fails.
     return apiFetchBlob(`/api/documents/${encodeURIComponent(id)}/pdf`, {
       method: "POST",
-      body: JSON.stringify({ copyTypes, refCollapse: refCollapse ? 1 : 0 }),
+      body: JSON.stringify({ copyTypes, refCollapse: refCollapse ? 1 : 0, interleave: interleaveCopies ? 1 : 0 }),
     });
   }
 
@@ -550,16 +560,21 @@ export default function DocumentPrintPreviewPage() {
     }
     const batches = getPrintBatches(data, blankForm);
     const { appendix } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
-    // Two-copy downloads interleave page-by-page (original p1, copy p1,
-    // original p2, copy p2…) so each page pair can be stapled/distributed
-    // together. exportCopyTypes order still decides which copy leads each
-    // pair (original-first vs copy-first setting). Page numbers stay
-    // per-copy (หน้า i/N of that copy), not per-PDF.
+    // Two-copy page order (?interleave=0 restores the legacy layout where
+    // each copy prints complete first). Default interleaves page-by-page
+    // (original p1, copy p1, …) so page pairs stay together;
+    // exportCopyTypes order still decides which copy leads each pair, and
+    // page numbers stay per-copy (หน้า i/N of that copy), not per-PDF.
+    const exportInterleave = searchParams.get("interleave") !== "0";
+    const pagePlan = exportInterleave
+      ? batches.flatMap((_, i) => exportCopyTypes.map((type) => ({ type, index: i })))
+      : exportCopyTypes.flatMap((type) => batches.map((_, i) => ({ type, index: i })));
     return (
       <div className="print-export-stack">
         <PrintErrorBoundary onError={() => {}}>
-          {batches.flatMap(({ kind, batch }, i) =>
-            exportCopyTypes.map((type) => (
+          {pagePlan.map(({ type, index: i }) => {
+            const { kind, batch } = batches[i];
+            return (
               <div className="print-export-page" key={`${type}-p${i}`}>
                 {data.template === "classic" ? (
                   <PrintDocumentClassic
@@ -603,8 +618,8 @@ export default function DocumentPrintPreviewPage() {
                   />
                 )}
               </div>
-            )),
-          )}
+            );
+          })}
           {appendix.enabled && (
             <div className="print-export-page">
               <PrintAppendix data={appendix} template={data.template} />
@@ -666,6 +681,25 @@ return (
                   className={`border-l border-cool-200 px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "copy-first" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
                 >
                   สำเนา → ต้นฉบับ
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
+              <span>การเรียงหน้าเมื่อดาวน์โหลด 2 ฉบับ:</span>
+              <div className="inline-flex overflow-hidden rounded-md border border-cool-200">
+                <button
+                  type="button"
+                  onClick={() => toggleInterleaveCopies(true)}
+                  className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${interleaveCopies ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
+                >
+                  สลับทีละหน้า
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleInterleaveCopies(false)}
+                  className={`border-l border-cool-200 px-2.5 py-1 text-[10px] font-medium transition-colors ${!interleaveCopies ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
+                >
+                  ต้นฉบับครบก่อน
                 </button>
               </div>
             </div>
