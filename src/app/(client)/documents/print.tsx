@@ -550,11 +550,16 @@ export default function DocumentPrintPreviewPage() {
     }
     const batches = getPrintBatches(data, blankForm);
     const { appendix } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
+    // Two-copy downloads interleave page-by-page (original p1, copy p1,
+    // original p2, copy p2…) so each page pair can be stapled/distributed
+    // together. exportCopyTypes order still decides which copy leads each
+    // pair (original-first vs copy-first setting). Page numbers stay
+    // per-copy (หน้า i/N of that copy), not per-PDF.
     return (
       <div className="print-export-stack">
         <PrintErrorBoundary onError={() => {}}>
-          {exportCopyTypes.flatMap((type) =>
-            batches.map(({ kind, batch }, i) => (
+          {batches.flatMap(({ kind, batch }, i) =>
+            exportCopyTypes.map((type) => (
               <div className="print-export-page" key={`${type}-p${i}`}>
                 {data.template === "classic" ? (
                   <PrintDocumentClassic
