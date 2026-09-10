@@ -21,8 +21,8 @@ function dedupe(values: Array<string | null | undefined>): string[] {
 }
 
 /**
- * Distinct past PO numbers / job names this customer has used, newest first —
- * feeds <datalist> suggestions so recurring jobs become pick-not-type.
+ * Distinct past PO numbers / project names this customer has used, newest first —
+ * feeds <datalist> suggestions so recurring projects become pick-not-type.
  */
 export function useCustomerReferenceHistory(customerId: string | null | undefined) {
   const [poValues, setPoValues] = useState<string[]>([]);

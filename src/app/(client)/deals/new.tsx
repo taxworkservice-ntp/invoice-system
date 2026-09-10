@@ -23,7 +23,7 @@ import { businessTodayString, localTodayString, monthStartString as getMonthStar
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
-import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, type JobDetailFieldConfig } from "../../../lib/jobDetails";
+import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, normalizeJobDetailsNote, type JobDetailFieldConfig } from "../../../lib/jobDetails";
 import { LineImageUpload } from "../../../components/documents/LineImageUpload";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 import { useCustomerReferenceHistory } from "../../../hooks/useCustomerReferenceHistory";
@@ -444,6 +444,17 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([]);
   const [serviceJobDetailFields, setServiceJobDetailFields] = useState<Record<string, JobDetailFieldConfig[]>>({});
+  // Known job-detail labels (defaults + every loaded custom config) — used to
+  // self-heal legacy blob notes back into one-field-per-line on restore.
+  const knownJobDetailLabels = useMemo(() => {
+    const labels = new Set(DEFAULT_JOB_DETAIL_FIELDS.map((f) => f.label));
+    for (const fields of Object.values(serviceJobDetailFields)) {
+      for (const f of fields) {
+        if (f.label) labels.add(f.label);
+      }
+    }
+    return [...labels];
+  }, [serviceJobDetailFields]);
   const [serviceJobDetailPresets, setServiceJobDetailPresets] = useState<Record<string, JobDetailSuggestions>>({});
   const [vatRegistered, setVatRegistered] = useState(clientProfile?.vat_registered ?? false);
   const [vatRate, setVatRate] = useState<number>(clientProfile?.vat_rate ?? VAT_DEFAULT);
@@ -560,7 +571,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         item_id: line.item_id,
         item_sku: line.item_sku,
         item_name: line.item_name,
-        line_note: line.line_note || "",
+        line_note: normalizeJobDetailsNote(line.line_note || "", knownJobDetailLabels),
         image_url: line.image_url || null,
         item_type: line.item_type,
         unit_price: line.unit_price,
@@ -662,7 +673,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           item_id: line.item_id,
           item_sku: line.item_sku,
           item_name: line.item_name,
-          line_note: line.line_note || "",
+          line_note: normalizeJobDetailsNote(line.line_note || "", knownJobDetailLabels),
           item_type: line.item_type,
           unit_price: line.unit_price,
           quantity: line.quantity,
@@ -1725,7 +1736,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         <Card>
           <div className="mb-3">
             <span className="block text-sm font-medium">
-              ชื่องาน / เลขที่ใบสั่งซื้อ <span className="font-normal text-gray-400">(ไม่บังคับ)</span>
+              ชื่อโครงการ / เลขที่ใบสั่งซื้อ <span className="font-normal text-gray-400">(ไม่บังคับ)</span>
             </span>
           </div>
           <PoTaskFields

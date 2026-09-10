@@ -42,7 +42,7 @@ export function PrintContinuationHeader({
       </div>
       <div className="flex items-center gap-3 shrink-0 text-[8px] text-[#667085]">
         <div className="text-[#94a3b8]">
-          <span className="text-[9px] font-semibold text-[#378ADD]">หน้ำ {pageIndex}</span>
+          <span className="text-[9px] font-semibold text-[#378ADD]">หน้า {pageIndex}</span>
           {" / "}{totalPages}
         </div>
       </div>

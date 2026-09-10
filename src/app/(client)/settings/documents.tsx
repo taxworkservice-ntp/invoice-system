@@ -114,6 +114,9 @@ function SectionScaleEditor({
             />
           ))}
         </div>
+        <p className="mt-1 text-[10px] leading-snug text-gray-400">
+          โหมดแบบอ้างอิง (ตารางใบส่งของ) ใช้ขนาด “ตัวเลข/จำนวน” กับ “หัวตาราง/คอลัมน์” — ตารางนั้นไม่มีคอลัมน์คำอธิบายสินค้า
+        </p>
       </div>
       <div className="py-1.5">
         <ScaleRow

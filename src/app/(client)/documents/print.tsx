@@ -17,6 +17,7 @@ import {
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
+import { buildDnBlocks, DN_GROUP_SPACER_MM, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
 import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
@@ -89,7 +90,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     : 1);
   // Billing notes carry the slim cheque-date row (CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM) — reserved
   // from every page budget so rows never clip under it. Optional meta rows
-  // (ชื่องาน / PO NO.) grow the info band the same way — reserve their
+  // (ชื่อโครงการ / PO NO.) grow the info band the same way — reserve their
   // measured height so dense pages never overflow A4. With ซ่อนป้ายภาษาอังกฤษ
   // the meta rows render shorter, so their reserve shrinks accordingly.
   const hideEn = isClassicV2 && data.clientProfile.classic_v2_hide_english_labels === true;
@@ -108,7 +109,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   // Space savings returned to the budgets (fixed blocks render smaller):
   // hide-EN shrinks each visible meta row + thead + signature titles; the
   // compact signature band shrinks the whole band. DATE/NO always print;
-  // DUE DATE / PO / JOB NAME are conditional. The multi-page first page has
+  // DUE DATE / PO / PROJECT are conditional. The multi-page first page has
   // no totals/signature band, so its bonus covers the band + thead only.
   const metaRowCount =
     2 +
@@ -157,28 +158,51 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     !data.document.vat_registered &&
     (data.receiptInvoices.length > 1 || data.billingNoteInvoices.length > 1);
 
-  // classic V2 detail mode renders DN group bands derived at print time —
-  // the qty-0 marker rows never render, so pagination must exclude them.
-  // classic V1 still renders marker rows; modern renders plain lines.
+  // Classic V2 detail mode renders hierarchical DN group headers derived at
+  // print time — the qty-0 marker rows never render, so pagination must
+  // exclude them. Each group header paginates as one atomic unit with its
+  // first child (strict keep-with-next: a header can never strand at a page
+  // bottom), so pagination runs on { item, hasHeader } units and unwraps back
+  // to plain line batches. Classic V1 still renders marker rows; modern
+  // renders plain lines.
   const itemsForPagination = isClassicV2
     ? filteredLineItems.filter((item) => !isDnMarkerLine(item))
     : filteredLineItems;
-  // A band renders above a line that starts a DN group (its source differs
-  // from the previous line's); the band's height is charged to that line.
-  const dnBandStartIds = new Set<string>();
+
   if (isClassicV2) {
-    let prevSource: string | null = null;
-    for (const item of itemsForPagination) {
-      if (
-        item.source_document_id &&
-        item.source_line_item_id &&
-        data.lineDeliveryNoteMap[item.id] &&
-        item.source_document_id !== prevSource
-      ) {
-        dnBandStartIds.add(item.id);
-      }
-      prevSource = item.source_document_id ?? null;
-    }
+    const units = planDnRows(
+      buildDnBlocks(itemsForPagination, data.lineDeliveryNoteMap),
+    ).map((p) => ({
+      item: p.item,
+      hasHeader: p.header !== null,
+      hasFooterAfter: p.footerAfter !== null,
+      hasSpacerAfter: p.spacerAfter,
+    }));
+    return paginateRows(units, data.template, "line_items", {
+      estimateHeight: (unit) =>
+        estimateLineItemHeight(unit.item, data.template, {
+          fontScale: itemsScale,
+          numScale,
+          hideDeliveryAmounts: effectiveHideAmounts,
+          hasLineDiscount:
+            (unit.item.discount_amount ?? 0) > 0 || (unit.item.discount_percent ?? 0) > 0,
+          hasInlineDnRef: false,
+          // Group header and sum rows share one geometry (single line, same
+          // padding), so both charge the same reserve. They never coincide on
+          // one unit: single-line groups get no sum row.
+          hasDnGroupBand: unit.hasHeader || unit.hasFooterAfter,
+          hasLineImage:
+            data.document.doc_type === "quotation" && !!unit.item.image_url,
+          hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[unit.item.document_id],
+        }) + (unit.hasSpacerAfter ? DN_GROUP_SPACER_MM : 0),
+      fontScale: budgetScales,
+      extraReserveMm,
+      continuationFullHeader,
+      spaceBonusMm,
+    }).map((batch) => ({
+      kind: "line_items" as const,
+      batch: { ...batch, items: batch.items.map((u) => u.item) },
+    }));
   }
 
   return paginateRows(itemsForPagination, data.template, "line_items", {
@@ -193,7 +217,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
           data.template !== "classic_v2" &&
           !!data.showInlineDeliveryNotes &&
           !!data.lineDeliveryNoteMap[item.id],
-        hasDnGroupBand: dnBandStartIds.has(item.id),
+        hasDnGroupBand: false,
         hasLineImage:
           isClassicV2 && data.document.doc_type === "quotation" && !!item.image_url,
         hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[item.document_id],

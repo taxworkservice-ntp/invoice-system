@@ -281,7 +281,7 @@ export const CLASSIC_V2_TYPE_GLOBAL_KEY = "global";
 export const CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM = 7;
 
 /**
- * Height (mm) of one optional document-meta row (ชื่องาน / JOB NAME,
+  * Height (mm) of one optional document-meta row (ชื่อโครงการ / PROJECT,
  * เลขที่ใบสั่งซื้อ / PO NO.) in the classic V2 info band — measured 6.35mm at
  * ปกติ, rounded up; scales with the header section. Reserved from first/last
  * page budgets when the field is filled so dense pages never overflow A4.

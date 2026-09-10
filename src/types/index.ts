@@ -354,7 +354,7 @@ export interface Document {
   note: string | null;
   /** Optional customer PO reference — prints as เลขที่ใบสั่งซื้อ / PO NO. (classic V2). */
   customer_po_number: string | null;
-  /** Optional task/job name — prints as ชื่องาน / JOB NAME (classic V2). */
+  /** Optional project name — prints as ชื่อโครงการ / PROJECT (classic V2). */
   task_name: string | null;
   payment_method: PaymentMethod | null;
   bank_account_id: string | null;

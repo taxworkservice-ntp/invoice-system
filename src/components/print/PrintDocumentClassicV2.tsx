@@ -1,8 +1,12 @@
 import { Fragment } from "react";
 import { formatCurrency, paymentMethodText } from "../../lib/format";
-import { formatBuddhistDate } from "../../lib/dates";
 import { getProxiedImageUrl } from "../../lib/storageApi";
-import { isDnMarkerLine } from "../../lib/print";
+import {
+  buildDnBlocks,
+  dnHeaderLabel,
+  filterDnRenderLines,
+  planDnRows,
+} from "../../lib/dnGroups";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
@@ -199,9 +203,18 @@ export function PrintDocumentClassicV2({
     bankAccount,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
-  // classic V2 detail mode: qty-0 DN marker rows never render — group bands
-  // are derived from the item lines' source refs at render time instead.
-  const tableLines = lineItems.filter((item) => !isDnMarkerLine(item));
+  // Classic V2 detail mode: qty-0 DN marker rows never render. Numbering is
+  // hierarchical (BOQ-style: groups 1..n, children 1.1..) derived from the
+  // FULL line list, so numbers stay continuous across page batches.
+  const tableLines = filterDnRenderLines(lineItems);
+  const dnRowPlanById = new Map(
+    planDnRows(
+      buildDnBlocks(
+        filterDnRenderLines(data.lineItems),
+        lineDeliveryNoteMap,
+      ),
+    ).map((p) => [p.item.id, p]),
+  );
   const billingRows = batchBillingNoteInvoices ?? billingNoteInvoices;
   const receiptRows = batchReceiptInvoices ?? receiptInvoices;
   // Collapsed reference batches contain NEW row objects — the caller passes
@@ -218,6 +231,12 @@ export function PrintDocumentClassicV2({
   const isBillingNote = document.doc_type === "billing_note";
   const isReceiptOrBillingNoteTable =
     (isBillingNote || (document.doc_type === "receipt" && receiptRows.length > 0)) && document.vat_registered;
+  // Reference mode renders the DN summary table (same 136-unit geometry as
+  // the billing-note/receipt tables), so the bottom-row divider must use the
+  // 88/48 VAT-edge grid instead of the detail table's 122/60 grid.
+  const showDnReferenceTable =
+    refCollapse && document.doc_type === "invoice" && invoiceDeliveryNotes.length > 0;
+  const useSummaryGrid = isReceiptOrBillingNoteTable || showDnReferenceTable;
   const isReceipt = document.doc_type === "receipt";
   const isCreditNote = document.doc_type === "credit_note";
   const isDebitNote = document.doc_type === "debit_note";
@@ -274,26 +293,22 @@ export function PrintDocumentClassicV2({
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = splitTerms(clientProfile.classic_terms);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
-  // Band rows (DN-… dividers) occupy physical rows on the sheet —
-  // count them so the blank-row padding keeps the fixed sheet height.
-  // Same canonical shape as ref-mode rows: "{number} วันที่: {date}".
-  const dnBandLabelFor = (item: DocumentLineItem): string | null => {
-    if (!item.source_document_id || !item.source_line_item_id) return null;
-    const ref = lineDeliveryNoteMap[item.id];
-    if (!ref) return null;
-    return ref.issue_date ? `${ref.number} วันที่: ${formatBuddhistDate(ref.issue_date)}` : ref.number;
-  };
-  const isDnBandStart = (lines: DocumentLineItem[], i: number): boolean => {
-    const line = lines[i];
-    if (!dnBandLabelFor(line)) return false;
-    return i === 0 || lines[i - 1].source_document_id !== line.source_document_id;
-  };
-  const dnBandCount = tableLines.reduce(
-    (count, _line, i) => count + (isDnBandStart(tableLines, i) ? 1 : 0),
+  // Group header rows, sum rows and inter-group spacers occupy physical rows
+  // on the sheet — count them so the blank-row padding keeps the fixed height.
+  const groupHeaderCount = tableLines.reduce(
+    (count, line) => count + (dnRowPlanById.get(line.id)?.header ? 1 : 0),
+    0,
+  );
+  const groupFooterCount = tableLines.reduce(
+    (count, line) => count + (dnRowPlanById.get(line.id)?.footerAfter ? 1 : 0),
+    0,
+  );
+  const groupSpacerCount = tableLines.reduce(
+    (count, line) => count + (dnRowPlanById.get(line.id)?.spacerAfter ? 1 : 0),
     0,
   );
   const blankLineCount = isLastOrSingle
-    ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - (tableLines.length + dnBandCount))
+    ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - (tableLines.length + groupHeaderCount + groupFooterCount + groupSpacerCount))
     : 0;
   const billingBlankCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - billingRows.length)
@@ -554,8 +569,8 @@ export function PrintDocumentClassicV2({
                   {document.task_name ? (
                     <tr>
                       <th>
-                        <span className="print-classic-meta-th-th">ชื่องาน</span>
-                        <span className="print-classic-meta-th-en">JOB NAME</span>
+                        <span className="print-classic-meta-th-th">ชื่อโครงการ</span>
+                        <span className="print-classic-meta-th-en">PROJECT</span>
                       </th>
                       <td className="print-classic-meta-val">{document.task_name}</td>
                     </tr>
@@ -583,7 +598,7 @@ export function PrintDocumentClassicV2({
           </div>
         ) : (
           <div className="print-classic-items-title">
-            {refCollapse && document.doc_type === "invoice" && invoiceDeliveryNotes.length > 0
+            {showDnReferenceTable
               ? "รายการใบส่งของ (DELIVERY NOTES)"
               : document.doc_type === "receipt"
                 ? "รายการที่ชำระ"
@@ -593,7 +608,7 @@ export function PrintDocumentClassicV2({
         )}
 
         <div className="print-classic-table-frame">
-          {refCollapse && document.doc_type === "invoice" && invoiceDeliveryNotes.length > 0 ? (
+          {showDnReferenceTable ? (
             <table className="print-classic-items-table">
               <colgroup>
                 <col style={{ width: "12mm" }} />
@@ -818,16 +833,16 @@ export function PrintDocumentClassicV2({
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  // Global row numbering — continues across pages (startIndex is
-                  // the 1-based first row of this page's batch). DN group bands
-                  // are unnumbered dividers and don't consume a number.
-                  let running = (startIndex ?? 1) - 1;
-                  return tableLines.map((item, index) => {
-                    const bandLabel = isDnBandStart(tableLines, index)
-                      ? dnBandLabelFor(item)
-                      : null;
-                    running++;
+                {tableLines.map((item) => {
+                    // Hierarchical number ("G" / "G.j") + optional group header
+                    // come from the global row plan, so numbering stays
+                    // continuous across page batches.
+                    const entry = dnRowPlanById.get(item.id);
+                    const number = entry?.number ?? "";
+                    const header = entry?.header ?? null;
+                    // Child numbers (G.j) print in front of the description —
+                    // only group and standalone numbers use the NO. column.
+                    const isChild = number.includes(".");
 
                     const hasLineDiscount =
                       item.discount_amount > 0 || item.discount_percent > 0;
@@ -835,19 +850,23 @@ export function PrintDocumentClassicV2({
                     const printableNote = getPrintableLineNote(item.line_note);
                     return (
                       <Fragment key={item.id}>
-                        {bandLabel ? (
-                          <tr className="print-classic-dn-band-row">
+                        {header ? (
+                          <tr className="print-classic-dn-group-row">
+                            <td className="center">{header.g}</td>
                             <td
-                              className="print-classic-dn-band-label"
-                              colSpan={showAmountColumns ? 6 : 4}
+                              className="print-classic-dn-group-label"
+                              colSpan={showAmountColumns ? 5 : 3}
                             >
-                              <RefItemName name={bandLabel} />
+                              <RefItemName name={dnHeaderLabel(header)} />
                             </td>
                           </tr>
                         ) : null}
-                        <tr>
-                          <td className="center">{running}</td>
+                        <tr className={isChild ? "print-classic-dn-child" : undefined}>
+                          <td className="center">{isChild ? "" : number}</td>
                           <td className="print-classic-item-name">
+                            {isChild ? (
+                              <span className="print-classic-dn-child-no">{number} </span>
+                            ) : null}
                             <RefItemName name={item.item_name} />
                             {printableNote ? (
                               <div className="print-classic-item-note">
@@ -905,10 +924,30 @@ export function PrintDocumentClassicV2({
                             </>
                           )}
                         </tr>
+                        {entry?.footerAfter ? (
+                          <tr className="print-classic-dn-group-sum">
+                            <td className="center" />
+                            <td
+                              className="print-classic-dn-group-sum-label"
+                              colSpan={showAmountColumns ? 4 : 3}
+                            >
+                              รวม
+                            </td>
+                            {showAmountColumns && (
+                              <td className="right bold">
+                                {blankForm ? "" : formatCurrency(entry.footerAfter.subtotal)}
+                              </td>
+                            )}
+                          </tr>
+                        ) : null}
+                        {entry?.spacerAfter ? (
+                          <tr className="print-classic-dn-spacer">
+                            <td colSpan={showAmountColumns ? 6 : 4} />
+                          </tr>
+                        ) : null}
                       </Fragment>
                     );
-                  });
-                })()}
+                  })}
                 {Array.from({ length: blankLineCount }).map((_, index) => (
                   <tr
                     key={`blank-${index}`}
@@ -973,7 +1012,7 @@ export function PrintDocumentClassicV2({
 
           {/* ============== NOTE / PAYMENT + TOTALS ============== */}
           {showFooter && (
-          <div className={`print-classic-bottom-row${isReceiptOrBillingNoteTable ? " print-classic-bottom-row-receipt" : ""}`}>
+          <div className={`print-classic-bottom-row${useSummaryGrid ? " print-classic-bottom-row-receipt" : ""}`}>
             <div className="print-classic-terms-col">
               {isDeliveryNote ? (
                 <>
@@ -1326,6 +1365,12 @@ export function PrintDocumentClassicV2({
 
       {isCopy && (
         <div className="print-copy-watermark">ฉบับสำเนา</div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="print-classic-page-no">
+          หน้า {pageIndex}/{totalPages}
+        </div>
       )}
     </article>
   );

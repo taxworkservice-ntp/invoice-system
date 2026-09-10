@@ -59,8 +59,8 @@ function ReferenceInput({
 }
 
 /**
- * ชื่องาน (JOB NAME) + เลขที่ใบสั่งซื้อ (PO NO.) — shared two-column row for
- * every form that creates PO/task-bearing documents. Both optional; values
+ * ชื่อโครงการ (PROJECT) + เลขที่ใบสั่งซื้อ (PO NO.) — shared two-column row for
+ * every form that creates PO/project-bearing documents. Both optional; values
  * print in the classic V2 info band and reserve pagination space per row.
  */
 export function PoTaskFields({
@@ -84,7 +84,7 @@ export function PoTaskFields({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ReferenceInput
           icon={<Briefcase size={14} />}
-          label="ชื่องาน (JOB NAME)"
+          label="ชื่อโครงการ (PROJECT)"
           value={taskName}
           onChange={onTaskNameChange}
           placeholder="เช่น งานติดตั้งไฟโรงงาน A"
@@ -109,7 +109,7 @@ export function PoTaskFields({
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
           <div className="space-y-0.5">
             {taskConflicts && taskConflicts.length > 0 && (
-              <div>ชื่องาน: {taskConflicts.join(", ")} ระบุต่างออก — โปรดตรวจสอบ</div>
+              <div>ชื่อโครงการ: {taskConflicts.join(", ")} ระบุต่างออก — โปรดตรวจสอบ</div>
             )}
             {poConflicts && poConflicts.length > 0 && (
               <div>PO: {poConflicts.join(", ")} ระบุต่างออก — โปรดตรวจสอบ</div>

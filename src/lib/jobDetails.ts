@@ -99,3 +99,39 @@ export function createCustomJobDetailField(label = "", fieldType: JobDetailField
 export function getJobDetailFieldLabel(fields: JobDetailFieldConfig[], fieldKey: JobDetailPresetField) {
   return fields.find((field) => field.field_key === fieldKey)?.label || "รายละเอียด";
 }
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Self-heal for legacy/hand-typed job-detail notes: when a note has NO line
+ * breaks but packs 2+ known "Label:" fields onto one line, re-split it so
+ * each field prints on its own line. Notes that already contain breaks, match
+ * fewer than 2 labels, or get no labels pass through untouched — the user
+ * always sees the result in the note field before saving.
+ */
+export function normalizeJobDetailsNote(
+  note: string | null | undefined,
+  labels: string[],
+): string {
+  const text = String(note || "");
+  if (!text || text.includes("\n")) return text;
+  const candidates = [...new Set(labels.map((l) => l.trim()).filter(Boolean))].sort(
+    (a, b) => b.length - a.length,
+  );
+  if (candidates.length === 0) return text;
+  const pattern = new RegExp(`(${candidates.map(escapeRegExp).join("|")}):`, "g");
+  const hits: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(text)) !== null) hits.push(m.index);
+  if (hits.length < 2) return text;
+  let out = "";
+  let last = 0;
+  for (const idx of hits) {
+    if (idx === 0) continue;
+    out += `${text.slice(last, idx).trimEnd()}\n`;
+    last = idx;
+  }
+  return `${out}${text.slice(last)}`.trim();
+}
