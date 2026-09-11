@@ -22,6 +22,7 @@ const DEFAULTS = {
   pay_frequency: "monthly" as PayFrequency,
   pay_anchor_day: 1,
   pay_cycle_len_days: null as number | null,
+  ot_batches_per_month: 0,
 };
 
 export default function SettingsPayrollPage() {
@@ -42,6 +43,7 @@ export default function SettingsPayrollPage() {
   const [payFrequency, setPayFrequency] = useState<PayFrequency>("monthly");
   const [payAnchorDay, setPayAnchorDay] = useState("1");
   const [payCycleLenDays, setPayCycleLenDays] = useState("");
+  const [otBatchesPerMonth, setOtBatchesPerMonth] = useState("0");
 
   // Mini-calculator state (unsaved values preview)
   const [calcBase, setCalcBase] = useState("15000");
@@ -68,6 +70,7 @@ export default function SettingsPayrollPage() {
           setPayFrequency(s.pay_frequency ?? DEFAULTS.pay_frequency);
           setPayAnchorDay(String(s.pay_anchor_day ?? 1));
           setPayCycleLenDays(s.pay_cycle_len_days != null ? String(s.pay_cycle_len_days) : "");
+          setOtBatchesPerMonth(String(s.ot_batches_per_month ?? 0));
         }
         setLoading(false);
       });
@@ -109,24 +112,28 @@ export default function SettingsPayrollPage() {
     setSaving(true);
     setSaved(false);
 
-    const { error } = await supabase
+    const payload = {
+      user_id: userId,
+      ot_divisor: parseFloat(otDivisor) || 30,
+      normal_ot_multiplier: parseFloat(normalOtMultiplier) || 1.5,
+      holiday_ot_multiplier: parseFloat(holidayOtMultiplier) || 3.0,
+      prorate_mode: prorateMode,
+      absence_deduction: absenceDeduction,
+      rounding_rule: roundingRule,
+      sso_ceiling_override: ssoCeilingOverride.trim() === "" ? null : parseFloat(ssoCeilingOverride) || null,
+      pay_frequency: payFrequency,
+      pay_anchor_day: parseInt(payAnchorDay) || 1,
+      pay_cycle_len_days: payCycleLenDays.trim() === "" ? null : parseInt(payCycleLenDays) || null,
+      ot_batches_per_month: Math.max(0, parseInt(otBatchesPerMonth) || 0),
+    };
+    // Pre-migration fallback: ot_batches_per_month column may not exist yet.
+    let { error } = await supabase
       .from("client_payroll_settings")
-      .upsert(
-        {
-          user_id: userId,
-          ot_divisor: parseFloat(otDivisor) || 30,
-          normal_ot_multiplier: parseFloat(normalOtMultiplier) || 1.5,
-          holiday_ot_multiplier: parseFloat(holidayOtMultiplier) || 3.0,
-          prorate_mode: prorateMode,
-          absence_deduction: absenceDeduction,
-          rounding_rule: roundingRule,
-          sso_ceiling_override: ssoCeilingOverride.trim() === "" ? null : parseFloat(ssoCeilingOverride) || null,
-          pay_frequency: payFrequency,
-          pay_anchor_day: parseInt(payAnchorDay) || 1,
-          pay_cycle_len_days: payCycleLenDays.trim() === "" ? null : parseInt(payCycleLenDays) || null,
-        },
-        { onConflict: "user_id" }
-      );
+      .upsert(payload, { onConflict: "user_id" });
+    if (error?.code === "42703") {
+      const { ot_batches_per_month: _omit, ...legacy } = payload;
+      ({ error } = await supabase.from("client_payroll_settings").upsert(legacy, { onConflict: "user_id" }));
+    }
 
     if (error) {
       toast.error("บันทึกไม่สำเร็จ");
@@ -213,7 +220,7 @@ export default function SettingsPayrollPage() {
         </SectionCard>
 
         {/* Pay cycle */}
-        <SectionCard title="รอบการจ่ายเงิน" description="เลือกรอบที่บริษัทจ่ายค่าจ้าง ระบบจะเสนอช่วงรอบถัดไปให้อัตโนมัติ (ภาษี/ประกันสังคมสรุปตามเดือนเสมอ)">
+        <SectionCard title="รอบการจ่ายเงิน" description="เงินเดือนกับ OT จ่ายแยกกันได้คนละรอบ ระบบจะเสนอช่วงรอบถัดไปให้อัตโนมัติ (ภาษี/ประกันสังคมสรุปตามเดือนเสมอ)"> 
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Select
@@ -250,11 +257,24 @@ export default function SettingsPayrollPage() {
                   placeholder="5"
                 />
               )}
+
+              <Input
+                label="รอบ OT ต่อเดือน"
+                type="number"
+                min="0"
+                max="31"
+                value={otBatchesPerMonth}
+                onChange={(e) => setOtBatchesPerMonth(e.target.value)}
+                placeholder="0"
+              />
             </div>
+            <p className="text-[11px] text-cool-400">
+              0 = จ่าย OT ตามจริงไม่กำหนดจำนวนรอบ (เช่น จ่ายแยกจากเงินเดือนเดือนละหลายครั้ง) — ตัวเลขนี้ใช้ตรวจเช็ครอบ OT ว่าครบตามแผนในหน้าสรุปทั้งเดือน
+            </p>
 
             {cyclePreviewWin && (
               <p className="text-[11px] text-primary-deep bg-primary-soft rounded-lg px-3 py-2 inline-block">
-                ตัวอย่างช่วงรอบแรก: {formatPayRangeLabel(cyclePreviewWin)} ({cyclePreviewWin.start} → {cyclePreviewWin.end})
+                ตัวอย่างช่วงรอบถัดไป: {formatPayRangeLabel(cyclePreviewWin)} ({cyclePreviewWin.start} → {cyclePreviewWin.end})
               </p>
             )}
           </div>

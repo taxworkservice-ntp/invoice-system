@@ -157,6 +157,14 @@ export function estimateLineItemHeight(
 export function estimateSummaryRowHeight(
   template: PrintTemplate,
   fontScale = 1,
+  /**
+   * Numeric-column scale. Summary tables (billing-note / receipt / DN
+   * reference) render every cell at the numeric scale, so the row height
+   * must be charged at numScale — charging the (often larger) items scale
+   * over-estimates and flips borderline docs to two pages. Defaults to
+   * fontScale, preserving all existing single-scale behavior.
+   */
+  numScale?: number,
 ): number {
-  return getBaseRowMm(template, fontScale);
+  return getBaseRowMm(template, numScale ?? fontScale);
 }

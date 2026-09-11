@@ -10,8 +10,10 @@ export interface StatusDocLike {
   created_at?: string;
 }
 
+const bangkokDayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" });
+
 function todayStart(): Date {
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+  const today = bangkokDayFormatter.format(new Date());
   return new Date(`${today}T00:00:00+07:00`);
 }
 

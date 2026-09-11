@@ -29,7 +29,7 @@ export function applyRecurringTemplates(
   templates: RecurringTemplate[],
 ): Pick<PayrollLineItem, "additions" | "deductions"> {
   const active = templates
-    .filter((t) => t.active)
+    .filter((t) => t.active && t.label.trim() !== "")
     .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label));
 
   const additions = [...source.additions];
@@ -49,7 +49,7 @@ export function applyRecurringTemplates(
 }
 
 export function countTemplateAdds(source: Pick<PayrollLineItem, "additions" | "deductions">, templates: RecurringTemplate[]): number {
-  const base = templates.filter((t) => t.active && !sameLabelExists(source, t)).length;
+  const base = templates.filter((t) => t.active && t.label.trim() !== "" && !sameLabelExists(source, t)).length;
   return base;
 }
 

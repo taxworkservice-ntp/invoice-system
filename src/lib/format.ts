@@ -1,8 +1,10 @@
+const currencyFormatter = new Intl.NumberFormat("th-TH", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export function formatCurrency(n: number): string {
-  return n.toLocaleString("th-TH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return currencyFormatter.format(n);
 }
 
 /**

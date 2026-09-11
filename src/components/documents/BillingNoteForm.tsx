@@ -862,6 +862,24 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     setErrors((prev) => ({ ...prev, invoices: "" }));
   };
 
+  // Select-all skips locked/voided rows (same guard as toggleInvoice).
+  const selectableInvoiceIds = useMemo(
+    () =>
+      invoiceOptions
+        .filter((invoice) => !invoice.isLockedByOtherBillingNote && !invoice.isVoidedLinked)
+        .map((invoice) => invoice.id),
+    [invoiceOptions],
+  );
+  const allSelectableSelected =
+    selectableInvoiceIds.length > 0 &&
+    selectableInvoiceIds.every((id) => selectedInvoiceIds.has(id));
+  const toggleAllInvoices = () => {
+    if (readOnly || selectableInvoiceIds.length === 0) return;
+    setIsDirty(true);
+    setSelectedInvoiceIds(allSelectableSelected ? new Set() : new Set(selectableInvoiceIds));
+    setErrors((prev) => ({ ...prev, invoices: "" }));
+  };
+
   const topAction =
     currentDocumentId && isDraft ? (
       <button
@@ -1087,7 +1105,17 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           </div>
         </FormStep>
 
-        <FormStep number={2} title="เลือกใบแจ้งหนี้">
+        <FormStep
+          number={2}
+          title="เลือกใบแจ้งหนี้"
+          right={
+            selectableInvoiceIds.length > 0 && !readOnly ? (
+              <Button variant="secondary" size="sm" onClick={toggleAllInvoices}>
+                {allSelectableSelected ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
+              </Button>
+            ) : undefined
+          }
+        >
           {!selectedCustomerId ? (
             <div className="rounded-xl border border-dashed border-card-border bg-page-bg px-4 py-6 text-center text-sm text-gray-500">
               เลือกลูกค้าก่อนเพื่อดูใบแจ้งหนี้

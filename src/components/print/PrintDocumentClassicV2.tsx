@@ -16,6 +16,7 @@ import type {
   BillingNoteInvoice,
   Customer,
   DocumentLineItem,
+  InvoiceDeliveryNote,
   ReceiptInvoice,
 } from "../../types";
 import type { PageMode } from "../../lib/pagination";
@@ -167,6 +168,8 @@ interface PrintDocumentClassicProps {
   batchLineItems?: DocumentLineItem[];
   batchBillingNoteInvoices?: BillingNoteInvoice[];
   batchReceiptInvoices?: ReceiptInvoice[];
+  batchDeliveryNotes?: InvoiceDeliveryNote[];
+  batchDeliveryNoteStartIndex?: number;
   batchStartIndex?: number;
   summaryStartIndex?: number;
   blankForm?: boolean;
@@ -182,6 +185,8 @@ export function PrintDocumentClassicV2({
   batchLineItems,
   batchBillingNoteInvoices,
   batchReceiptInvoices,
+  batchDeliveryNotes,
+  batchDeliveryNoteStartIndex,
   batchStartIndex,
   summaryStartIndex = 1,
   blankForm = false,
@@ -236,7 +241,11 @@ export function PrintDocumentClassicV2({
   // 88/48 VAT-edge grid instead of the detail table's 122/60 grid.
   const showDnReferenceTable =
     refCollapse && document.doc_type === "invoice" && invoiceDeliveryNotes.length > 0;
-  const useSummaryGrid = isReceiptOrBillingNoteTable || showDnReferenceTable;
+  // Paginated ref-mode batches arrive as row slices; single-page renders
+  // (fixture, legacy callers) fall back to the full link list.
+  const dnTableRows = batchDeliveryNotes ?? (showDnReferenceTable ? invoiceDeliveryNotes : undefined);
+  const dnTableStart = batchDeliveryNoteStartIndex ?? 1;
+  const useSummaryGrid = isReceiptOrBillingNoteTable || !!dnTableRows;
   const isReceipt = document.doc_type === "receipt";
   const isCreditNote = document.doc_type === "credit_note";
   const isDebitNote = document.doc_type === "debit_note";
@@ -315,6 +324,9 @@ export function PrintDocumentClassicV2({
     : 0;
   const receiptBlankCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_RECEIPT_ROWS - receiptRows.length)
+    : 0;
+  const dnBlankCount = isLastOrSingle && dnTableRows
+    ? Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - dnTableRows.length)
     : 0;
   const noteText = document.note?.trim();
   const bankInfo = [
@@ -598,7 +610,7 @@ export function PrintDocumentClassicV2({
           </div>
         ) : (
           <div className="print-classic-items-title">
-            {showDnReferenceTable
+            {dnTableRows
               ? "รายการใบส่งของ (DELIVERY NOTES)"
               : document.doc_type === "receipt"
                 ? "รายการที่ชำระ"
@@ -608,7 +620,7 @@ export function PrintDocumentClassicV2({
         )}
 
         <div className="print-classic-table-frame">
-          {showDnReferenceTable ? (
+          {dnTableRows ? (
             <table className="print-classic-items-table">
               <colgroup>
                 <col style={{ width: "12mm" }} />
@@ -641,9 +653,9 @@ export function PrintDocumentClassicV2({
                 </tr>
               </thead>
               <tbody>
-                {invoiceDeliveryNotes.map((dn, i) => (
+                {dnTableRows.map((dn, i) => (
                   <tr key={dn.id}>
-                    <td className="center">{i + 1}</td>
+                    <td className="center">{dnTableStart + i}</td>
                     <td>{dn.delivery_note_number}</td>
                     <td>{dn.issue_date ? formatDateBuddhist(dn.issue_date) : "-"}</td>
                     <td className="right">{formatCurrency(dn.subtotal)}</td>
@@ -651,7 +663,7 @@ export function PrintDocumentClassicV2({
                     <td className="right bold">{formatCurrency(dn.total_amount)}</td>
                   </tr>
                 ))}
-                {Array.from({ length: Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - invoiceDeliveryNotes.length) }).map((_, index) => (
+                {Array.from({ length: dnBlankCount }).map((_, index) => (
                   <tr key={`dn-blank-${index}`} className="print-classic-blank-row">
                     <td className="center">&nbsp;</td>
                     <td>&nbsp;</td>

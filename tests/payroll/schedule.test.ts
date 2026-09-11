@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysISO, formatPayRangeLabel, suggestNextWindow } from "../../src/lib/payroll/schedule";
+import { addDaysISO, expectedSalaryBatches, formatPayRangeLabel, suggestNextWindow } from "../../src/lib/payroll/schedule";
 
 describe("pay schedule windows", () => {
   it("chains monthly windows after the previous run", () => {
@@ -70,5 +70,12 @@ describe("pay schedule windows", () => {
   it("formats Thai range labels including cross-month spans", () => {
     expect(formatPayRangeLabel({ start: "2026-08-11", end: "2026-08-20" })).toBe("11–20 ส.ค.");
     expect(formatPayRangeLabel({ start: "2026-08-30", end: "2026-09-03" })).toBe("30 ส.ค.–3 ก.ย.");
+  });
+
+  it("expects deterministic salary batches per month (null when cadence varies)", () => {
+    expect(expectedSalaryBatches("monthly")).toBe(1);
+    expect(expectedSalaryBatches("semimonthly")).toBe(2);
+    expect(expectedSalaryBatches("weekly")).toBeNull();
+    expect(expectedSalaryBatches("custom")).toBeNull();
   });
 });

@@ -1474,6 +1474,7 @@ create table if not exists payroll_runs (
   period_year     int not null,
   pay_date        date not null,
   status          text not null default 'draft' check (status in ('draft', 'finalized')),
+  batch_type      text not null default 'salary' check (batch_type in ('salary', 'ot', 'adjustment')),
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
   unique (user_id, period_month, period_year)
@@ -1566,6 +1567,7 @@ create table if not exists client_payroll_settings (
   ot_divisor            numeric(4,1) not null default 30,
   normal_ot_multiplier  numeric(3,1) not null default 1.5,
   holiday_ot_multiplier numeric(3,1) not null default 3.0,
+  ot_batches_per_month  int not null default 0 check (ot_batches_per_month between 0 and 31),
   updated_at            timestamptz not null default now()
 );
 

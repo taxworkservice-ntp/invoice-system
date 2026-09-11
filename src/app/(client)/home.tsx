@@ -27,6 +27,7 @@ import { DealCard } from "../../components/home/DealCard";
 import { NewDealSheet } from "../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
+import { preloadDealDetail } from "../../lib/dealDetailCache";
 import { formatCurrency } from "../../lib/format";
 import { formatBuddhistDate, formatBuddhistDateTime, formatBuddhistDateTimeParts, formatBangkokTime } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
@@ -40,11 +41,12 @@ type DealDoc = Pick<
   | "id"
   | "doc_type"
   | "doc_number"
-   | "status"
-   | "total_amount"
-   | "net_payable"
-   | "wht_amount"
-   | "amount_received"
+  | "status"
+  | "total_amount"
+  | "vat_amount"
+  | "net_payable"
+  | "wht_amount"
+  | "amount_received"
   | "due_date"
   | "created_at"
   | "updated_at"
@@ -352,7 +354,13 @@ function getDoneDocBadges(documents: DealDoc[]) {
   return DONE_BADGE_ORDER.filter((t) => present.has(t));
 }
 
+// Active queue is recency-first: the most recently edited deal (deal or any
+// of its documents touched) sits on the top row. Queue priority is only the
+// tie-break so equal timestamps stay deterministic; urgency is still visible
+// via the overdue red accent + stage badge on each row.
 function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {
+  const recent = b.updatedAt.localeCompare(a.updatedAt);
+  if (recent !== 0) return recent;
   const queuePriority: Record<HomeQueue, number> = {
     overdue: 0,
     partial: 1,
@@ -362,13 +370,7 @@ function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {
     progress: 5,
     done: 6,
   };
-  const priority = queuePriority[a.queue] - queuePriority[b.queue];
-  if (priority !== 0) return priority;
-  if (a.queue === "overdue" || b.queue === "overdue") {
-    const due = (a.dueDate || "9999-12-31").localeCompare(b.dueDate || "9999-12-31");
-    if (due !== 0) return due;
-  }
-  return b.updatedAt.localeCompare(a.updatedAt);
+  return queuePriority[a.queue] - queuePriority[b.queue];
 }
 
 function getNextActionLabel(doc: DealDoc | null) {
@@ -671,6 +673,20 @@ export default function HomePage() {
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const [homeFilter, setHomeFilter] = useState<HomeFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  // Debounced search — filtering 100-300 derived deals + Intl formatting on
+  // every keystroke janks typing; the memos below read this instead.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 250);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+  // Active-queue render pagination: the table/list/grid used to map the full
+  // filtered array (100-300 heavy rows). Slice to a page + "load more".
+  const ACTIVE_PAGE_SIZE = 30;
+  const [activeVisibleCount, setActiveVisibleCount] = useState(ACTIVE_PAGE_SIZE);
+  useEffect(() => {
+    setActiveVisibleCount(ACTIVE_PAGE_SIZE);
+  }, [homeFilter, debouncedSearch]);
   const [donePage, setDonePage] = useState(1);
   const [doneSort, setDoneSort] = useState<"updatedAt" | "paidAt">(() => {
     if (typeof window === "undefined") return "updatedAt";
@@ -725,23 +741,89 @@ export default function HomePage() {
 
   const touchStartY = useRef<number | null>(null);
   const pulling = useRef(false);
+  // Guards the background enrichment pass so a stale fetch never overwrites
+  // a newer dashboard load (e.g. fast refresh / account switch).
+  const dashboardRequestId = useRef(0);
+
+  // Shared derivation: raw deals + line-items + billing refs → display deals.
+  // Used twice: fast first paint (empty maps) + background enrichment.
+  function buildDashboardDeals(
+    dealsWithRelations: DealWithRelations[],
+    lineItemsByDoc: Map<string, DocumentLineItem[]>,
+    billingRefs: Map<string, BillingRef>,
+  ): DashboardDeal[] {
+    const heldDocIds = new Set<string>();
+    for (const [docId, ref] of billingRefs) {
+      if (ref.kind === "billing_note") heldDocIds.add(docId);
+    }
+
+    const dashboardDeals = dealsWithRelations
+      .map((deal) => ({
+        ...deal,
+        documents: (deal.documents || []).map((doc) => ({
+          ...doc,
+          line_items: lineItemsByDoc.get(doc.id) || [],
+        })),
+      }))
+      .map((deal) => deriveDashboardDeal(deal, heldDocIds));
+
+    const docIdToSource = new Map<string, { dealId: string; dealNumber: string | null }>();
+    for (const deal of dealsWithRelations) {
+      for (const doc of deal.documents || []) {
+        docIdToSource.set(doc.id, { dealId: deal.id, dealNumber: (deal as any).deal_number ?? null });
+      }
+    }
+    const sourceDealsByRunDeal = new Map<string, Array<{ dealId: string; dealNumber: string | null }>>();
+    for (const [docId, ref] of billingRefs) {
+      const source = docIdToSource.get(docId);
+      if (!source || source.dealId === ref.dealId) continue;
+      const list = sourceDealsByRunDeal.get(ref.dealId) || [];
+      if (!list.some((s) => s.dealId === source.dealId)) {
+        list.push({ dealId: source.dealId, dealNumber: source.dealNumber });
+        sourceDealsByRunDeal.set(ref.dealId, list);
+      }
+    }
+    for (const d of dashboardDeals) {
+      if (d.isDone) {
+        for (const doc of d.documents) {
+          const ref = billingRefs.get(doc.id);
+          if (ref && ref.dealId !== d.dealId) {
+            d.billedIn = ref;
+            break;
+          }
+        }
+      }
+      d.billingSourceDeals = sourceDealsByRunDeal.get(d.dealId) || [];
+      if (d.billingSourceDeals.length > 0) {
+        d.stageHint = d.stageHint
+          ? `${d.stageHint} · รวม ${d.billingSourceDeals.length} งานขาย`
+          : `รวม ${d.billingSourceDeals.length} งานขาย`;
+      }
+    }
+    return dashboardDeals;
+  }
 
   const fetchDashboard = useCallback(
     async (showRefresh = false) => {
       if (!userId) return;
+      const requestId = ++dashboardRequestId.current;
       if (showRefresh) setRefreshing(true);
       else setLoading(true);
       setError(null);
 
+      // Phase 1 — lightweight first paint: deals + documents only.
+      // Line items (item preview / quote progress) and billing cross-refs
+      // enrich in the background so 100-300 deals paint immediately.
       const { data, error: fetchError } = await supabase
         .from("deals")
         .select(
           `
-        *,
+        id, user_id, customer_id, title, deal_number, manual_stage,
+        is_active, created_at, updated_at, notes,
         customers(id, name, code, avatar_initials, avatar_color),
         documents(
           id, doc_type, doc_number, status, converted_from_id,
-           total_amount, net_payable, wht_amount, amount_received,
+          total_amount, vat_amount, net_payable, wht_amount, amount_received,
           due_date, paid_at,
           created_at, updated_at
         )
@@ -752,6 +834,7 @@ export default function HomePage() {
         .order("updated_at", { ascending: false });
 
       if (fetchError) {
+        if (dashboardRequestId.current !== requestId) return;
         setError(fetchError.message);
         setLoading(false);
         setRefreshing(false);
@@ -759,86 +842,50 @@ export default function HomePage() {
       }
 
       const dealsWithRelations = (data || []) as unknown as DealWithRelations[];
-      const docIds = dealsWithRelations
-        .flatMap((deal) => (deal.documents || []).map((doc) => doc.id))
-        .filter(Boolean);
-      const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
+      if (dashboardRequestId.current !== requestId) return;
+      // Fast path: paint list + summaries without heavies.
+      setDeals(buildDashboardDeals(dealsWithRelations, new Map(), new Map()));
+      setLoading(false);
+      setRefreshing(false);
 
-      if (docIds.length > 0) {
-        const { data: lineItemsData } = await supabase
-          .from("document_line_items")
-          .select("*")
-          .in("document_id", docIds)
-          .order("sort_order", { ascending: true });
+      // Phase 2 — background enrichment (best-effort, never blocks paint).
+      try {
+        const docIds = dealsWithRelations
+          .flatMap((deal) => (deal.documents || []).map((doc) => doc.id))
+          .filter(Boolean);
 
-        for (const item of (lineItemsData || []) as DocumentLineItem[]) {
+        const [lineItemsRes, billingRefs] = await Promise.all([
+          docIds.length > 0
+            ? supabase
+                .from("document_line_items")
+                .select(
+                  "id, document_id, item_name, quantity, source_document_id, source_line_item_id, sort_order",
+                )
+                .in("document_id", docIds)
+                .order("sort_order", { ascending: true })
+            : Promise.resolve({ data: [] as DocumentLineItem[] }),
+          fetchWorkspaceBillingRefs(userId).catch(
+            () => new Map<string, BillingRef>(),
+          ),
+        ]);
+        if (dashboardRequestId.current !== requestId) return;
+
+        const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
+        for (const item of ((lineItemsRes as { data?: DocumentLineItem[] }).data || []) as DocumentLineItem[]) {
           const current = lineItemsByDoc.get(item.document_id) || [];
           current.push(item);
           lineItemsByDoc.set(item.document_id, current);
         }
-      }
-
-      // Billing cross-references (best-effort — never block the dashboard):
-      //   * source deals: "billed in <run deal> · <payment state>"
-      //   * billing-run deals: "combined from N deals"
-      let billingRefs = new Map<string, BillingRef>();
-      try {
-        billingRefs = await fetchWorkspaceBillingRefs(userId);
+        setDeals(
+          buildDashboardDeals(
+            dealsWithRelations,
+            lineItemsByDoc,
+            billingRefs as Map<string, BillingRef>,
+          ),
+        );
       } catch {
-        // Cross-references are informational; ignore lookup failures.
+        // Enrichment is informational; the light list already painted.
       }
-      const heldDocIds = new Set<string>();
-      for (const [docId, ref] of billingRefs) {
-        if (ref.kind === "billing_note") heldDocIds.add(docId);
-      }
-
-      const dashboardDeals = dealsWithRelations
-        .map((deal) => ({
-          ...deal,
-          documents: (deal.documents || []).map((doc) => ({
-            ...doc,
-            line_items: lineItemsByDoc.get(doc.id) || [],
-          })),
-        }))
-        .map((deal) => deriveDashboardDeal(deal, heldDocIds));
-
-      const docIdToSource = new Map<string, { dealId: string; dealNumber: string | null }>();
-      for (const deal of dealsWithRelations) {
-        for (const doc of deal.documents || []) {
-          docIdToSource.set(doc.id, { dealId: deal.id, dealNumber: (deal as any).deal_number ?? null });
-        }
-      }
-      const sourceDealsByRunDeal = new Map<string, Array<{ dealId: string; dealNumber: string | null }>>();
-      for (const [docId, ref] of billingRefs) {
-        const source = docIdToSource.get(docId);
-        if (!source || source.dealId === ref.dealId) continue;
-        const list = sourceDealsByRunDeal.get(ref.dealId) || [];
-        if (!list.some((s) => s.dealId === source.dealId)) {
-          list.push({ dealId: source.dealId, dealNumber: source.dealNumber });
-          sourceDealsByRunDeal.set(ref.dealId, list);
-        }
-      }
-      for (const d of dashboardDeals) {
-        if (d.isDone) {
-          for (const doc of d.documents) {
-            const ref = billingRefs.get(doc.id);
-            if (ref && ref.dealId !== d.dealId) {
-              d.billedIn = ref;
-              break;
-            }
-          }
-        }
-        d.billingSourceDeals = sourceDealsByRunDeal.get(d.dealId) || [];
-        if (d.billingSourceDeals.length > 0) {
-          d.stageHint = d.stageHint
-            ? `${d.stageHint} · รวม ${d.billingSourceDeals.length} งานขาย`
-            : `รวม ${d.billingSourceDeals.length} งานขาย`;
-        }
-      }
-
-      setDeals(dashboardDeals);
-      setLoading(false);
-      setRefreshing(false);
     },
     [userId],
   );
@@ -850,85 +897,82 @@ export default function HomePage() {
   useEffect(() => {
     if (!userId || !clientProfile || loading || nudgesLoaded) return;
 
-    const dismissed = JSON.parse(
-      localStorage.getItem("nudges_dismissed") || "{}",
-    ) as Record<string, boolean>;
+    // Deferred + parallel: nudge counts never compete with first paint.
+    // requestIdleCallback falls back to setTimeout on Safari/older browsers.
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const dismissed = JSON.parse(
+          localStorage.getItem("nudges_dismissed") || "{}",
+        ) as Record<string, boolean>;
 
-    if (clientProfile.company_name_th && !dismissed.profile) {
-      const missingProfile =
-        !clientProfile.address ||
-        (clientProfile.vat_registered && !clientProfile.tax_id);
-      if (missingProfile) {
-        setShowNudge("profile");
-        setNudgesLoaded(true);
-        return;
-      }
-    }
-
-    if (!dismissed.customer) {
-      supabase
-        .from("customers")
-        .select("id", { count: "exact" })
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .then(
-          ({ count }) => {
-            if (count === 0) {
-              setShowNudge("customer");
+        if (clientProfile.company_name_th && !dismissed.profile) {
+          const missingProfile =
+            !clientProfile.address ||
+            (clientProfile.vat_registered && !clientProfile.tax_id);
+          if (missingProfile) {
+            if (!cancelled) {
+              setShowNudge("profile");
               setNudgesLoaded(true);
-            } else if (!dismissed.items) {
-              supabase
-                .from("items")
-                .select("id", { count: "exact" })
+            }
+            return;
+          }
+        }
+
+        const needCustomers = !dismissed.customer;
+        const needItems = !dismissed.items;
+        if (!needCustomers && !needItems) {
+          if (!cancelled) setNudgesLoaded(true);
+          return;
+        }
+        const [customersRes, itemsRes] = await Promise.all([
+          needCustomers
+            ? supabase
+                .from("customers")
+                .select("id", { count: "exact", head: true })
                 .eq("user_id", userId)
                 .eq("is_active", true)
-                .then(
-                  ({ count: itemCount }) => {
-                    if ((itemCount || 0) < 3) {
-                      const accountAge = clientProfile.created_at
-                        ? Date.now() - new Date(clientProfile.created_at).getTime()
-                        : 0;
-                      if (accountAge > 24 * 60 * 60 * 1000) {
-                        setShowNudge("items");
-                      }
-                    }
-                    setNudgesLoaded(true);
-                  },
-                  () => setNudgesLoaded(true),
-                );
-            } else {
-              setNudgesLoaded(true);
-            }
-          },
-          () => setNudgesLoaded(true),
-        );
-      return;
-    }
-
-    if (!dismissed.items) {
-      supabase
-        .from("items")
-        .select("id", { count: "exact" })
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .then(
-          ({ count: itemCount }) => {
-            if ((itemCount || 0) < 3) {
-              const accountAge = clientProfile.created_at
-                ? Date.now() - new Date(clientProfile.created_at).getTime()
-                : 0;
-              if (accountAge > 24 * 60 * 60 * 1000) {
-                setShowNudge("items");
-              }
-            }
-            setNudgesLoaded(true);
-          },
-          () => setNudgesLoaded(true),
-        );
-      return;
-    }
-
-    setNudgesLoaded(true);
+            : Promise.resolve({ count: null as number | null }),
+          needItems
+            ? supabase
+                .from("items")
+                .select("id", { count: "exact", head: true })
+                .eq("user_id", userId)
+                .eq("is_active", true)
+            : Promise.resolve({ count: null as number | null }),
+        ]);
+        if (cancelled) return;
+        if (needCustomers && (customersRes.count ?? 0) === 0) {
+          setShowNudge("customer");
+        } else if (needItems && ((itemsRes.count ?? 0) < 3)) {
+          const accountAge = clientProfile.created_at
+            ? Date.now() - new Date(clientProfile.created_at).getTime()
+            : 0;
+          if (accountAge > 24 * 60 * 60 * 1000) setShowNudge("items");
+        }
+        setNudgesLoaded(true);
+      } catch {
+        if (!cancelled) setNudgesLoaded(true);
+      }
+    };
+    const schedule =
+      typeof window !== "undefined" && "requestIdleCallback" in window
+        ? (window as Window & { requestIdleCallback: (cb: () => void) => number })
+            .requestIdleCallback(run)
+        : setTimeout(run, 0);
+    return () => {
+      cancelled = true;
+      if (typeof schedule === "number") {
+        if (
+          typeof window !== "undefined" &&
+          "cancelIdleCallback" in window
+        ) {
+          (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(schedule);
+        } else {
+          clearTimeout(schedule);
+        }
+      }
+    };
   }, [userId, clientProfile, loading, nudgesLoaded]);
 
   function handleDismissNudge(type: string) {
@@ -1003,22 +1047,34 @@ export default function HomePage() {
           return deal.queue === homeFilter;
         })
         .filter((deal) => {
-          if (!searchQuery) return true;
-          const q = searchQuery.toLowerCase();
+          if (!debouncedSearch) return true;
+          const q = debouncedSearch.toLowerCase();
           return (
             deal.customerName.toLowerCase().includes(q) ||
             (deal.dealNumber || "").toLowerCase().includes(q) ||
             (deal.customerCode || "").toLowerCase().includes(q)
           );
         }),
-    [activeDealsAll, homeFilter, searchQuery],
+    [activeDealsAll, homeFilter, debouncedSearch],
   );
 
-  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "grossAmount" | "netPayable" | "whtAmount";
+  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "updatedAt" | "grossAmount" | "netPayable" | "whtAmount";
   const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, {
-    key: "createdAt",
+    key: "updatedAt",
     dir: "desc",
   });
+
+  // Visible slice of the (sorted) active queue — table slices after sort,
+  // list/grid slice before map. Keeps the DOM to ~30 heavy rows.
+  const visibleActiveDeals = useMemo(
+    () => activeDeals.slice(0, activeVisibleCount),
+    [activeDeals, activeVisibleCount],
+  );
+  const visibleSortedActiveDeals = useMemo(
+    () => dealSort.sorted.slice(0, activeVisibleCount),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dealSort.sorted, activeVisibleCount],
+  );
 
   const recentlyDone = useMemo(() => {
     const sortKey = doneSort;
@@ -1026,8 +1082,8 @@ export default function HomePage() {
       .filter((deal) => deal.isDone && !deal.isEmpty)
       .filter((deal) => !(hideCombinedDone && isCombinedDeal(deal)))
       .filter((deal) => {
-        if (!searchQuery) return true;
-        const q = searchQuery.toLowerCase();
+        if (!debouncedSearch) return true;
+        const q = debouncedSearch.toLowerCase();
         return (
           deal.customerName.toLowerCase().includes(q) ||
           (deal.dealNumber || "").toLowerCase().includes(q) ||
@@ -1045,7 +1101,7 @@ export default function HomePage() {
       .sort((a, b) =>
         (b[sortKey] || "").localeCompare(a[sortKey] || ""),
       );
-  }, [deals, searchQuery, doneSort, doneYear, doneMonth, hideCombinedDone]);
+  }, [deals, debouncedSearch, doneSort, doneYear, doneMonth, hideCombinedDone]);
 
   const doneYearOptions = useMemo(() => {
     const years = new Set<string>();
@@ -1333,7 +1389,7 @@ export default function HomePage() {
                 />
               ) : viewMode === "grid" ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {activeDeals.map((deal) => {
+                  {visibleActiveDeals.map((deal) => {
                     const gridAvatar = deal.customerAvatar ?? {
                       name: deal.customerName,
                       avatar_initials: null,
@@ -1344,6 +1400,7 @@ export default function HomePage() {
                         key={deal.dealId}
                         className={`rounded-xl border-[0.5px] p-3.5 shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-2.5 min-h-[130px] ${deal.isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
                         onClick={() => navigate(`/deals/${deal.dealId}`)}
+                        onMouseEnter={() => preloadDealDetail(supabase, deal.dealId)}
                       >
                         <div className="flex items-start justify-between gap-2.5">
                           <div className="flex items-start gap-2.5 min-w-0">
@@ -1357,7 +1414,7 @@ export default function HomePage() {
                                 {deal.customerName}
                               </div>
                               <div className="mt-0.5 text-[10px] text-[#888780] tabular-nums">
-                                สร้าง {formatBuddhistDateTime(deal.createdAt)}
+                                แก้ไข {formatBuddhistDateTime(deal.updatedAt)}
                               </div>
                             </div>
                           </div>
@@ -1408,14 +1465,14 @@ export default function HomePage() {
                             active={dealSort.sort.key === "stageLabel"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("stageLabel")}
-                            className={TABLE.thSortable}
+                            className={`${TABLE.thSortable} min-w-[140px]`}
                           />
                           <SortableTh
-                            label="สร้างเมื่อ"
+                            label="แก้ไขล่าสุด"
                             align="left"
-                            active={dealSort.sort.key === "createdAt"}
+                            active={dealSort.sort.key === "updatedAt"}
                             dir={dealSort.sort.dir}
-                            onClick={() => dealSort.handleSort("createdAt")}
+                            onClick={() => dealSort.handleSort("updatedAt")}
                             className={TABLE.thSortable}
                           />
                           <th
@@ -1450,17 +1507,18 @@ export default function HomePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {dealSort.sorted.map((deal) => {
+                        {visibleSortedActiveDeals.map((deal) => {
                           const rowAvatar = deal.customerAvatar ?? {
                             name: deal.customerName,
                             avatar_initials: null,
                             avatar_color: null,
                           };
-                          const createdAtParts = formatBuddhistDateTimeParts(deal.createdAt);
+                          const updatedAtParts = formatBuddhistDateTimeParts(deal.updatedAt);
                           return (
                             <tr
                               key={deal.dealId}
                               onClick={() => navigate(`/deals/${deal.dealId}`)}
+                              onMouseEnter={() => preloadDealDetail(supabase, deal.dealId)}
                               className={TABLE.tbodyTr}
                             >
                                <td className="px-3 py-2">
@@ -1491,8 +1549,8 @@ export default function HomePage() {
                                <td className="px-3 py-2 text-[#475467] max-w-[130px] truncate">
                                  {deal.latestDocument?.doc_number || <span className="text-[#AAAAAA] italic">—</span>}
                                </td>
-                               <td className="px-3 py-2">
-                                <div className="flex items-center gap-1.5">
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                 <div className="flex items-center gap-1.5">
                                   <span
                                     className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`}
                                   />
@@ -1508,8 +1566,8 @@ export default function HomePage() {
                               </td>
                               <td className={TABLE.tdDimmed}>
                                 <div className="tabular-nums leading-tight">
-                                  <div>{createdAtParts.date}</div>
-                                  <div className="text-[10px]">เวลา {createdAtParts.time}</div>
+                                  <div>{updatedAtParts.date}</div>
+                                  <div className="text-[10px]">เวลา {updatedAtParts.time}</div>
                                 </div>
                               </td>
                               <td
@@ -1557,7 +1615,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {activeDeals.map((deal) => (
+                  {visibleActiveDeals.map((deal) => (
                     <DealCard
                       key={deal.dealId}
                       customerName={deal.customerName}
@@ -1580,10 +1638,24 @@ export default function HomePage() {
                       noteAuthorRole={deal.noteAuthorRole}
                       isOverdue={deal.isOverdue}
                       createdAt={deal.createdAt}
+                      updatedAt={deal.updatedAt}
                       queue={deal.queue}
                       onTap={() => navigate(`/deals/${deal.dealId}`)}
                     />
                   ))}
+                </div>
+              )}
+              {activeVisibleCount < activeDeals.length && (
+                <div className="mt-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveVisibleCount((c) => c + ACTIVE_PAGE_SIZE)
+                    }
+                    className="rounded-lg border border-[#E8E6DF] bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    แสดงเพิ่มเติม ({activeDeals.length - activeVisibleCount} รายการ)
+                  </button>
                 </div>
               )}
             </section>

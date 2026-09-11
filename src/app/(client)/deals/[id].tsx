@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronUp, AlertTriangle, Phone, Copy, CheckCircle2, FileStack, FileText, PackageCheck, ExternalLink, Clock, Pencil, ScrollText, Printer } from "lucide-react";
 import {
@@ -11,8 +11,6 @@ import {
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
-import { useBankAccounts } from "../../../hooks/useBankAccounts";
-import { useCustomers } from "../../../hooks/useCustomers";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -21,6 +19,11 @@ import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { supabase } from "../../../lib/supabase";
+import {
+  getCachedDealDetail,
+  setCachedDealDetail,
+  invalidateDealDetail,
+} from "../../../lib/dealDetailCache";
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
@@ -139,6 +142,87 @@ function formatQty(value: number) {
   });
 }
 
+// Payload of the get_deal_detail RPC (sql/20260911_get_deal_detail.sql) —
+// one round-trip replacing ~10 sequential REST queries.
+interface DealDetailRpcPayload {
+  deal: Deal | null;
+  customer: Customer | null;
+  client: ClientProfile | null;
+  documents: Document[];
+  line_items: DocumentLineItem[];
+  billing_invoices: BillingNoteInvoice[];
+  activities: DealActivity[];
+  borrowed_documents: Document[];
+  borrowed_line_items: DocumentLineItem[];
+  borrowed_deal_numbers: Record<string, string | null>;
+}
+
+// Shared derivation used by both the RPC path and the legacy multi-query
+// path: raw rows → timeline cards with resolved quotation stages.
+function assembleDocsWithMeta(
+  docs: Document[],
+  lineItems: DocumentLineItem[],
+  billingLinks: BillingNoteInvoice[],
+): DocWithMeta[] {
+  const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
+  for (const item of lineItems) {
+    const current = lineItemsByDoc.get(item.document_id) || [];
+    current.push(item);
+    lineItemsByDoc.set(item.document_id, current);
+  }
+  const billingByDoc = new Map<string, BillingNoteInvoice[]>();
+  for (const item of billingLinks) {
+    const current = billingByDoc.get(item.billing_note_id) || [];
+    current.push(item);
+    billingByDoc.set(item.billing_note_id, current);
+  }
+  const quotationsWithDownstream = new Set<string>();
+  for (const doc of docs) {
+    if (doc.status === "voided") continue;
+    if (doc.converted_from_id && doc.doc_type !== "quotation") {
+      quotationsWithDownstream.add(doc.converted_from_id);
+    }
+  }
+  for (const line of lineItems) {
+    if (!line.source_document_id) continue;
+    const parent = docs.find((d) => d.id === line.document_id);
+    if (parent && parent.status !== "voided" && parent.doc_type !== "quotation") {
+      quotationsWithDownstream.add(line.source_document_id);
+    }
+  }
+  return docs.map((doc) => ({
+    document: doc,
+    stage:
+      doc.doc_type === "quotation" && quotationsWithDownstream.has(doc.id)
+        ? ("done" as const)
+        : getDocStage(doc),
+    line_items: lineItemsByDoc.get(doc.id) || [],
+    billing_invoices: billingByDoc.get(doc.id) || [],
+  }));
+}
+
+function assembleBorrowedDocs(payload: DealDetailRpcPayload): BorrowedDoc[] {
+  const linesByDoc = new Map<string, DocumentLineItem[]>();
+  for (const line of payload.borrowed_line_items || []) {
+    const list = linesByDoc.get(line.document_id) || [];
+    list.push(line);
+    linesByDoc.set(line.document_id, list);
+  }
+  const numbers = payload.borrowed_deal_numbers || {};
+  return ((payload.borrowed_documents || []) as Document[])
+    .map((doc) => ({
+      document: doc,
+      stage: getDocStage(doc),
+      line_items: linesByDoc.get(doc.id) || [],
+      billing_invoices: [],
+      sourceDealId: doc.deal_id as string,
+      sourceDealNumber: numbers[doc.deal_id as string] ?? null,
+    }))
+    .sort((a, b) =>
+      (a.document.created_at || "").localeCompare(b.document.created_at || ""),
+    );
+}
+
 export default function DealDetailPage() {
   const { id: dealId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -147,7 +231,9 @@ export default function DealDetailPage() {
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
   const [userEmail, setUserEmail] = useState("");
-  const { active: bankAccounts, primary: primaryBank, loading: bankLoading } = useBankAccounts(userId);
+  // NOTE: bank accounts are loaded lazily inside PaymentModal, and the
+  // customer list is fetched only when the change-customer picker opens —
+  // neither blocks (nor rides along with) the initial deal load.
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -196,8 +282,45 @@ export default function DealDetailPage() {
   } | null>(null);
   const [unlinkingDn, setUnlinkingDn] = useState(false);
 
-  const { customers, addCustomer } = useCustomers(userId);
+  // Customer picker list is fetched lazily on first open (not on page
+  // load) — a full customers-table fetch used to ride along with every
+  // deal open. Cached for subsequent opens within this page visit.
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [pickerCustomers, setPickerCustomers] = useState<Customer[] | null>(null);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const openCustomerPicker = useCallback(async () => {
+    if (pickerCustomers !== null || !userId) {
+      setCustomerPickerOpen(true);
+      return;
+    }
+    setPickerLoading(true);
+    try {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, user_id, name, code, phone, tax_id, address, is_favorite, is_active, created_at, updated_at")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .order("name");
+      setPickerCustomers((data || []) as Customer[]);
+    } finally {
+      setPickerLoading(false);
+    }
+    setCustomerPickerOpen(true);
+  }, [pickerCustomers, userId]);
+  const addPickerCustomer = useCallback(
+    async (customer: Pick<Customer, "name" | "code" | "tax_id" | "address">): Promise<Customer> => {
+      const { data, error } = await supabase
+        .from("customers")
+        .insert({ ...customer, user_id: userId })
+        .select("id, user_id, name, code, phone, tax_id, address, is_favorite, is_active, created_at, updated_at")
+        .single();
+      if (error) throw error;
+      const created = data as Customer;
+      setPickerCustomers((prev) => (prev ? [...prev, created] : [created]));
+      return created;
+    },
+    [userId],
+  );
   const [pendingCustomer, setPendingCustomer] = useState<Customer | null>(null);
   const [changingCustomer, setChangingCustomer] = useState(false);
   const [stageOverrideBusy, setStageOverrideBusy] = useState(false);
@@ -207,7 +330,30 @@ export default function DealDetailPage() {
   const [showDocList, setShowDocList] = useState(false);
 
 
-  const fetchDealData = useCallback(async () => {
+  // Guards against stale loads overwriting fresh state when the user
+  // navigates quickly between deals or hits refresh mid-flight.
+  const dealRequestId = useRef(0);
+
+  // Applies an RPC payload (fresh or cached) to state. Shared by the
+  // instant-cache paint and the network RPC path.
+  const applyRpcPayload = useCallback((payload: DealDetailRpcPayload): boolean => {
+    if (!payload.deal) return false;
+    setDeal(payload.deal as Deal);
+    if (payload.client) setClientProfile(payload.client as ClientProfile);
+    if (payload.customer) setCustomer(payload.customer as Customer);
+    setActivities(((payload.activities || []) as DealActivity[]));
+    setDocsWithMeta(
+      assembleDocsWithMeta(
+        (payload.documents || []) as Document[],
+        (payload.line_items || []) as DocumentLineItem[],
+        (payload.billing_invoices || []) as BillingNoteInvoice[],
+      ),
+    );
+    setBorrowedDocs(assembleBorrowedDocs(payload));
+    return true;
+  }, []);
+
+  const fetchDealData = useCallback(async (silent = false) => {
     if (!dealId || !userId) {
       if (userId === undefined && !deal) {
         return;
@@ -215,15 +361,50 @@ export default function DealDetailPage() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const requestId = ++dealRequestId.current;
+    const dashboardStale = () => dealRequestId.current !== requestId;
+    if (!silent) setLoading(true);
     setLoadError(null);
     try {
+      // Preferred path — single round-trip RPC (sql/20260911_get_deal_detail.sql).
+      // Falls back to the legacy multi-query path below when the migration
+      // hasn't been applied yet or the call fails for any reason.
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc(
+          "get_deal_detail",
+          { p_deal_id: dealId },
+        );
+        if (!dashboardStale() && !rpcError && rpcData) {
+          const payload = rpcData as unknown as DealDetailRpcPayload;
+          if (!payload.deal) {
+            setLoading(false);
+            return;
+          }
+          applyRpcPayload(payload);
+          if (dealId) setCachedDealDetail(dealId, rpcData);
+          setLoading(false);
+          return;
+        }
+        if (rpcError) {
+          // eslint-disable-next-line no-console
+          console.info("[get_deal_detail RPC fallback]", rpcError.message);
+        }
+      } catch (rpcErr) {
+        // eslint-disable-next-line no-console
+        console.info("[get_deal_detail RPC fallback]", rpcErr);
+      }
+      if (dashboardStale()) return;
+      // Fast path (waves 1-3): deal + profile/customer/docs/activities +
+      // line-items + billing links. The page paints as soon as these land.
+      // The billing-run cross-reference history (waves 4-6) is display-only
+      // and enriches in the background — see below.
       const { data: dealData } = await supabase
         .from("deals")
-        .select("*")
+        .select("id, user_id, customer_id, title, deal_number, manual_stage, is_active, created_at, updated_at")
         .eq("id", dealId)
         .single();
 
+      if (dashboardStale()) return;
       if (!dealData) {
         setLoading(false);
         return;
@@ -238,11 +419,12 @@ export default function DealDetailPage() {
         { data: docsData },
         { data: activitiesData },
       ] = await Promise.all([
-        supabase.from("client_profiles").select("*").eq("user_id", userId).single(),
-        supabase.from("customers").select("*").eq("id", currentDeal.customer_id).single(),
+        supabase.from("client_profiles").select("user_id, dev_mode_enabled, dev_effective_date").eq("user_id", userId).single(),
+        supabase.from("customers").select("id, name, phone, tax_id, address").eq("id", currentDeal.customer_id).single(),
         supabase.from("documents").select("*").eq("deal_id", dealId).order("created_at", { ascending: true }),
-        supabase.from("deal_activities").select("*").eq("deal_id", dealId).order("created_at", { ascending: false }),
+        supabase.from("deal_activities").select("id, document_id, actor_name, actor_role, event_type, description, metadata, created_at").eq("deal_id", dealId).order("created_at", { ascending: false }),
       ]);
+      if (dashboardStale()) return;
 
       if (clientData) setClientProfile(clientData as ClientProfile);
       if (customerData) setCustomer(customerData as Customer);
@@ -296,6 +478,7 @@ export default function DealDetailPage() {
         }
       }
 
+      if (dashboardStale()) return;
       setDocsWithMeta(
         docs.map((doc) => ({
           document: doc,
@@ -308,10 +491,17 @@ export default function DealDetailPage() {
         }))
       );
 
-      // Billing-run cross-references: documents from OTHER deals that this
-      // deal's invoices billed (junction links + invoice line sources).
-      // Display-only — they appear as history cards but stay in their
-      // original deals.
+      // Paint the page now — header, pipeline, timeline are complete.
+      // Borrowed history enriches below without blocking.
+      // The legacy path can't refresh the RPC cache entry, so drop it —
+      // the next visit refetches instead of showing pre-mutation data.
+      if (dealId) invalidateDealDetail(dealId);
+      setBorrowedDocs([]);
+      setLoading(false);
+
+      // Deferred pass — billing-run cross-references: documents from OTHER
+      // deals that this deal's invoices billed (junction links + invoice line
+      // sources). Display-only history cards; never fail the page over them.
       try {
         const ownInvoiceIds = docs.filter((doc) => doc.doc_type === "invoice").map((doc) => doc.id);
         if (ownInvoiceIds.length > 0) {
@@ -326,6 +516,7 @@ export default function DealDetailPage() {
             .select("delivery_note_id, invoice_id")
             .in("invoice_id", ownInvoiceIds)
             .is("released_at", null);
+          if (dashboardStale()) return;
           for (const link of (dnLinks || []) as Array<{ delivery_note_id: string }>) {
             if (link.delivery_note_id) sourceIds.add(link.delivery_note_id);
           }
@@ -333,8 +524,9 @@ export default function DealDetailPage() {
           if (borrowedCandidates.length > 0) {
             const { data: sourceDocsData } = await supabase
               .from("documents")
-              .select("*")
+              .select("id, user_id, deal_id, doc_type, doc_number, status, vat_registered, total_amount, net_payable, issue_date, due_date, created_at, updated_at")
               .in("id", borrowedCandidates);
+            if (dashboardStale()) return;
             const sourceDocs = ((sourceDocsData || []) as Document[]).filter(
               (doc) =>
                 doc.user_id === userId &&
@@ -350,11 +542,12 @@ export default function DealDetailPage() {
               const [{ data: sourceLines }, { data: sourceDeals }] = await Promise.all([
                 supabase
                   .from("document_line_items")
-                  .select("*")
+                  .select("id, document_id, item_name, quantity, unit, unit_price, line_total, source_document_id, source_line_item_id, sort_order")
                   .in("document_id", sourceDocIds)
                   .order("sort_order", { ascending: true }),
                 supabase.from("deals").select("id, deal_number").in("id", sourceDealIds),
               ]);
+              if (dashboardStale()) return;
               const dealNumberById = new Map(
                 ((sourceDeals || []) as Array<{ id: string; deal_number: string | null }>).map(
                   (d) => [d.id, d.deal_number],
@@ -380,32 +573,46 @@ export default function DealDetailPage() {
                     (a.document.created_at || "").localeCompare(b.document.created_at || ""),
                   ),
               );
-            } else {
-              setBorrowedDocs([]);
             }
-          } else {
-            setBorrowedDocs([]);
           }
-        } else {
-          setBorrowedDocs([]);
         }
       } catch (crossRefError) {
         // Borrowed cards are informational; never fail the page over them.
         console.warn("[deal billing cross-refs]", crossRefError);
-        setBorrowedDocs([]);
+        if (!dashboardStale()) setBorrowedDocs([]);
       }
     } catch (err: any) {
       // eslint-disable-next-line no-console
       console.error(err);
+      if (dealRequestId.current !== requestId) return;
       setLoadError(err?.message || "ไม่สามารถโหลดข้อมูลงานขายได้");
     } finally {
-      setLoading(false);
+      if (dealRequestId.current === requestId) setLoading(false);
     }
   }, [dealId, userId]);
 
   useEffect(() => {
+    if (!dealId) {
+      fetchDealData();
+      return;
+    }
+    // Stale-while-revalidate: a fresh-enough entry (hover preload or a
+    // recent visit) paints instantly, then revalidates silently.
+    const cached = getCachedDealDetail(dealId);
+    if (cached) {
+      try {
+        if (applyRpcPayload(cached as unknown as DealDetailRpcPayload)) {
+          setLoadError(null);
+          setLoading(false);
+          void fetchDealData(true);
+          return;
+        }
+      } catch {
+        // Corrupt entry — fall through to a full load.
+      }
+    }
     fetchDealData();
-  }, [fetchDealData]);
+  }, [fetchDealData, applyRpcPayload, dealId]);
 
   const handleOpenPreview = (doc: Document) => {
     window.open(`/documents/${doc.id}/print`, "_blank", "noopener,noreferrer");
@@ -913,6 +1120,21 @@ export default function DealDetailPage() {
     [nonVoidedDocs, borrowedDocs]
   );
 
+  // Lookup for invoice variance badges — hoisted so it isn't rebuilt for
+  // every invoice row during render.
+  const sourceDocById = useMemo(
+    () =>
+      new Map(
+        historyDocs
+          .filter((d) => d.document.doc_type === "delivery_note" || d.document.doc_type === "quotation")
+          .map((d) => [d.document.id, {
+            number: d.document.doc_number || d.document.id.slice(0, 8),
+            kind: (d.document.doc_type === "quotation" ? "quotation" : "delivery_note") as "quotation" | "delivery_note",
+          }] as const),
+      ),
+    [historyDocs]
+  );
+
   const replacementBySourceId = useMemo(() => {
     const map = new Map<string, Document>();
     for (const item of docsWithMeta) {
@@ -938,7 +1160,7 @@ export default function DealDetailPage() {
     const checkDnLinks = async () => {
       const { count } = await supabase
         .from("invoice_delivery_notes")
-        .select("*", { count: "exact", head: true })
+        .select("invoice_id", { count: "exact", head: true })
         .eq("invoice_id", activeDoc.document.id)
         .is("released_at", null);
       setHasActiveDnLinks((count ?? 0) > 0);
@@ -1424,11 +1646,12 @@ export default function DealDetailPage() {
                   {customer && (
                     <button
                       type="button"
+                      disabled={pickerLoading}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setCustomerPickerOpen(true);
+                        void openCustomerPicker();
                       }}
-                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-primary hover:bg-primary-soft transition-colors"
+                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-primary hover:bg-primary-soft transition-colors disabled:opacity-40"
                       title="เปลี่ยนลูกค้าของงานนี้"
                       aria-label="เปลี่ยนลูกค้าของงานนี้"
                     >
@@ -2148,14 +2371,6 @@ export default function DealDetailPage() {
                             </div>
                           ) : null}
                           {isFinancialDocument ? (() => {
-                            const sourceDocById = new Map(
-                              historyDocs
-                                .filter((d) => d.document.doc_type === "delivery_note" || d.document.doc_type === "quotation")
-                                .map((d) => [d.document.id, {
-                                  number: d.document.doc_number || d.document.id.slice(0, 8),
-                                  kind: (d.document.doc_type === "quotation" ? "quotation" : "delivery_note") as "quotation" | "delivery_note",
-                                }]),
-                            );
                             const varianceLines = (item.line_items || [])
                               .filter((li) =>
                                 li.source_document_id &&
@@ -2666,11 +2881,11 @@ export default function DealDetailPage() {
       </Modal>
       <CustomerPickerModal
         open={customerPickerOpen}
-        customers={customers}
+        customers={pickerCustomers ?? []}
         selectedCustomerId={deal?.customer_id ?? null}
         onSelect={(selected) => setPendingCustomer(selected)}
         onClose={() => setCustomerPickerOpen(false)}
-        onCreate={addCustomer}
+        onCreate={addPickerCustomer}
       />
 
       <Modal open={pendingCustomer !== null} onClose={() => setPendingCustomer(null)} title="ยืนยันการเปลี่ยนลูกค้า">

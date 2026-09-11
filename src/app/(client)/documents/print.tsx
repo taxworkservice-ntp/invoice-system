@@ -19,7 +19,7 @@ import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
 import { buildDnBlocks, DN_GROUP_SPACER_MM, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
-import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -30,6 +30,7 @@ import {
 import type {
   BillingNoteInvoice,
   DocumentLineItem,
+  InvoiceDeliveryNote,
   ReceiptInvoice,
 } from "../../../types";
 
@@ -40,9 +41,10 @@ type CopyOrder = "original-first" | "copy-first";
 type PrintBatch =
   | { kind: "line_items"; batch: GenericPageBatch<DocumentLineItem> }
   | { kind: "billing_invoices"; batch: GenericPageBatch<BillingNoteInvoice> }
-  | { kind: "receipt_invoices"; batch: GenericPageBatch<ReceiptInvoice> };
+  | { kind: "receipt_invoices"; batch: GenericPageBatch<ReceiptInvoice> }
+  | { kind: "dn_summary"; batch: GenericPageBatch<InvoiceDeliveryNote> };
 
-function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix = data.document.dn_appendix): PrintBatch[] {
+function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix = data.document.dn_appendix, refMode = false): PrintBatch[] {
   const { filteredLineItems } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
   const isClassicV2 = data.template === "classic_v2";
   const sectionScales = data.clientProfile.classic_v2_section_font_scales;
@@ -127,12 +129,28 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       }
     : undefined;
   const continuationFullHeader = isClassicV2 && data.clientProfile.classic_v2_full_page_header === true;
+  // Reference mode (classic V2): the DN summary table paginates with the
+  // same summary machinery as the billing-note table — identical fill-first
+  // behavior, continuous numbering, last-only padding and footer.
+  if (
+    isClassicV2 &&
+    refMode &&
+    data.document.doc_type === "invoice" &&
+    data.invoiceDeliveryNotes.length > 0
+  ) {
+    return paginateRows(
+      data.invoiceDeliveryNotes,
+      data.template,
+      "summary_rows",
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm },
+    ).map((batch) => ({ kind: "dn_summary", batch }));
+  }
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
     return paginateRows(
       data.billingNoteInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm },
     ).map((batch) => ({ kind: "billing_invoices", batch }));
   }
 
@@ -145,7 +163,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.receiptInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale), fontScale: budgetScales },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales },
     ).map((batch) => ({ kind: "receipt_invoices", batch }));
   }
 
@@ -273,14 +291,6 @@ export default function DocumentPrintPreviewPage() {
     (l) => l.quantity === 0 && l.source_document_id && !l.source_line_item_id,
   );
   const isClassicV2 = data?.template === "classic_v2";
-  // Reference mode prints the DN reference table only when the invoice has
-  // invoice_delivery_notes links to render it from; otherwise fall back to
-  // the full detail lines (docs with bare DN markers).
-  const showDnReferenceTable =
-    isClassicV2 &&
-    refCollapse &&
-    data?.document.doc_type === "invoice" &&
-    (data.invoiceDeliveryNotes.length ?? 0) > 0;
   const showRefModeToggle =
     isClassicV2 &&
     (hasDnMarkers ||
@@ -519,6 +529,30 @@ export default function DocumentPrintPreviewPage() {
     }
   }
 
+  // Per-document font scale (classic V2 only — other templates ignore the
+  // field). Saved on the document so preview, export PDF, and reprints agree.
+  const [savingFontScale, setSavingFontScale] = useState(false);
+  async function handleDocFontScaleChange(value: string) {
+    if (!data || savingFontScale) return;
+    const prev = data.document.print_font_scale || DOCUMENT_FONT_SCALE_DEFAULT;
+    if (value === prev) return;
+    setSavingFontScale(true);
+    setPdfError("");
+    try {
+      const { error } = await supabase
+        .from("documents")
+        .update({ print_font_scale: value })
+        .eq("id", data.document.id);
+      if (error) throw error;
+      setData({ ...data, document: { ...data.document, print_font_scale: value } });
+    } catch (err) {
+      console.error("Failed to save document font scale:", err);
+      setPdfError("บันทึกขนาดตัวอักษรไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setSavingFontScale(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#EEF2F6] flex items-center justify-center">
@@ -544,21 +578,7 @@ export default function DocumentPrintPreviewPage() {
   }
 
   if (exportMode) {
-    // โหมดอ้างอิง (classic V2): the DN reference table renders from links — single page
-    if (showDnReferenceTable) {
-      return (
-        <div className="print-export-stack">
-          <PrintErrorBoundary onError={() => {}}>
-            {exportCopyTypes.map((type) => (
-              <div className="print-export-page" key={type}>
-                <PrintDocumentClassicV2 data={data} copyType={type} pageMode="single" refCollapse />
-              </div>
-            ))}
-          </PrintErrorBoundary>
-        </div>
-      );
-    }
-    const batches = getPrintBatches(data, blankForm);
+    const batches = getPrintBatches(data, blankForm, undefined, refCollapse);
     const { appendix } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
     // Two-copy page order (?interleave=0 restores the legacy layout where
     // each copy prints complete first). Default interleaves page-by-page
@@ -599,6 +619,8 @@ export default function DocumentPrintPreviewPage() {
                     batchLineItems={kind === "line_items" ? batch.items : undefined}
                     batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
                     batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
+                    batchDeliveryNotes={kind === "dn_summary" ? batch.items : undefined}
+                    batchDeliveryNoteStartIndex={kind === "dn_summary" ? batch.startIndex : undefined}
                     batchStartIndex={kind === "line_items" ? batch.startIndex : undefined}
                     summaryStartIndex={batch.startIndex}
                     blankForm={blankForm}
@@ -703,6 +725,31 @@ return (
                 </button>
               </div>
             </div>
+            {data?.template === "classic_v2" ? (
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
+                <span>ขนาดตัวอักษรเอกสารนี้:</span>
+                <select
+                  value={data.document.print_font_scale || DOCUMENT_FONT_SCALE_DEFAULT}
+                  onChange={(event) => void handleDocFontScaleChange(event.target.value)}
+                  disabled={savingFontScale}
+                  className="rounded-md border border-cool-200 bg-white px-2 py-1 text-[10px] font-medium text-cool-500 focus:outline-none disabled:opacity-60"
+                >
+                  <option value={DOCUMENT_FONT_SCALE_DEFAULT}>ตามค่าหลัก</option>
+                  {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                  {!(
+                    !data.document.print_font_scale ||
+                    data.document.print_font_scale === DOCUMENT_FONT_SCALE_DEFAULT ||
+                    CLASSIC_V2_FONT_SCALE_OPTIONS.some((opt) => opt.value === data.document.print_font_scale)
+                  ) ? (
+                    <option value={data.document.print_font_scale}>{data.document.print_font_scale}</option>
+                  ) : null}
+                </select>
+              </div>
+            ) : null}
            {data?.document.doc_type === "delivery_note" && data.document.is_blank_form ? (
              <div className="flex items-center gap-1.5 text-[11px] text-cool-400">
                <span className="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">ฟอร์มเปล่า</span>
@@ -785,18 +832,8 @@ return (
             }}
           >
             <PrintErrorBoundary onError={() => {}}>
-              {showDnReferenceTable ? (
-                // โหมดอ้างอิง (classic V2): DN reference table from links —
-                // identical to what the exported PDF prints.
-                <PrintDocumentClassicV2
-                  data={data}
-                  copyType={copyType}
-                  pageMode="single"
-                  refCollapse
-                />
-              ) : (
-                (() => {
-                  const batches = getPrintBatches(data, blankForm);
+              {(() => {
+                  const batches = getPrintBatches(data, blankForm, undefined, refCollapse);
                   return batches.map(({ kind, batch }, i) => {
                     const props = {
                       data,
@@ -814,13 +851,18 @@ return (
                     return data.template === "classic" ? (
                       <PrintDocumentClassic key={`p${i}`} {...props} />
                     ) : data.template === "classic_v2" ? (
-                      <PrintDocumentClassicV2 key={`p${i}`} {...props} />
+                      <PrintDocumentClassicV2
+                        key={`p${i}`}
+                        {...props}
+                        batchDeliveryNotes={kind === "dn_summary" ? batch.items : undefined}
+                        batchDeliveryNoteStartIndex={kind === "dn_summary" ? batch.startIndex : undefined}
+                      />
                     ) : (
                       <PrintDocument key={`p${i}`} {...props} />
                     );
                   });
                 })()
-              )}
+              }
             </PrintErrorBoundary>
           </div>
         </div>

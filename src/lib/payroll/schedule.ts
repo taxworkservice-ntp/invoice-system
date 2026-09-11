@@ -100,6 +100,32 @@ export function formatPayRangeLabel(win: PayWindow): string {
   return `${s.getUTCDate()} ${THAI_MONTHS[s.getUTCMonth()]}–${e.getUTCDate()} ${THAI_MONTHS[e.getUTCMonth()]}`;
 }
 
+// ---------- Batch types ----------
+
+export type BatchType = "salary" | "ot" | "adjustment";
+
+export const BATCH_TYPE_LABELS: Record<BatchType, string> = {
+  salary: "เงินเดือน",
+  ot: "OT",
+  adjustment: "ปรับปรุง",
+};
+
+/**
+ * Deterministic salary batches expected per statutory month.
+ * Returns null when the cadence has no fixed monthly count
+ * (weekly varies 4–5, custom is ad-hoc) — callers then show actuals only.
+ */
+export function expectedSalaryBatches(frequency: PayFrequency): number | null {
+  switch (frequency) {
+    case "monthly":
+      return 1;
+    case "semimonthly":
+      return 2;
+    default:
+      return null;
+  }
+}
+
 // ---------- helpers ----------
 
 function nextMonthFirst(iso: string): string {

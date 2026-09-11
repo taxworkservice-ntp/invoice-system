@@ -195,7 +195,9 @@ export async function syncRunToWht(userId: string, run: PayrollRun, opts?: WhtSy
 
       const isContract = employee.sso_registered === false;
       const formType = isContract ? "pnd3" : "pnd1";
-      const description = isContract ? (opts?.descriptions?.[employeeId] ?? "ค่าจ้างทำของ") : `เงินเดือน ${periodLabel}`;
+      const batchType = run.batch_type ?? "salary";
+      const batchPrefix = batchType === "ot" ? "OT" : batchType === "adjustment" ? "ปรับปรุงเงินเดือน" : "เงินเดือน";
+      const description = isContract ? (opts?.descriptions?.[employeeId] ?? "ค่าจ้างทำของ") : `${batchPrefix} ${periodLabel}`;
       const rate = isContract ? PND3_HIRE_RATE * 100 : backComputedRate(item.gross_pay, item.withholding_tax);
 
       const fields = {

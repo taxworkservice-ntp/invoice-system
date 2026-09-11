@@ -11,6 +11,7 @@ export interface PayrollSettings {
   pay_frequency?: PayFrequency;
   pay_anchor_day?: number;
   pay_cycle_len_days?: number;
+  ot_batches_per_month?: number;
 }
 
 export interface PayrollLineInput {

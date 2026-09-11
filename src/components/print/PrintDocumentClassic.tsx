@@ -1104,6 +1104,12 @@ export function PrintDocumentClassic({
       {isCopy && (
         <div className="print-copy-watermark">ฉบับสำเนา</div>
       )}
+
+      {totalPages > 1 && (
+        <div className="print-sheet-page-no">
+          หน้า {pageIndex}/{totalPages}
+        </div>
+      )}
     </article>
   );
 }

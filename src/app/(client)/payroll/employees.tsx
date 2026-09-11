@@ -142,7 +142,13 @@ export default function EmployeesPage() {
 
   function openCreate() {
     const form = emptyForm();
-    form.employee_code = `EMP${String(employees.length + 1).padStart(3, "0")}`;
+    // Next code after the highest existing EMPnnn — never reuse a deleted code.
+    let next = 1;
+    for (const e of employees) {
+      const m = /^EMP(\d+)$/.exec(e.employee_code.trim());
+      if (m) next = Math.max(next, parseInt(m[1], 10) + 1);
+    }
+    form.employee_code = `EMP${String(next).padStart(3, "0")}`;
     setModalTab("info");
     setModal({ mode: "create", form });
   }
@@ -359,16 +365,16 @@ export default function EmployeesPage() {
   }
 
   async function handleDelete() {
-    if (!deletingEmployee) return;
+    if (!deletingEmployee || !userId) return;
     const emp = deletingEmployee;
-    const { error } = await supabase.from("employees").delete().eq("id", emp.id);
+    const { error } = await supabase.from("employees").delete().eq("id", emp.id).eq("user_id", userId);
     if (error) {
       toast.error("ไม่สามารถลบพนักงานได้");
     } else {
       setEmployees((prev) => prev.filter((e) => e.id !== emp.id));
       toast.success("ลบพนักงานแล้ว");
       await logAuditEvent({
-        action: AUDIT_ACTIONS.EMPLOYEE_TERMINATED,
+        action: AUDIT_ACTIONS.EMPLOYEE_DELETED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: emp.id,
         details: { employee_code: emp.employee_code, full_name: emp.full_name },
@@ -806,6 +812,7 @@ function formatAuditDetail(log: AuditLogEntry): string {
   if (log.action === "employee_activated") return "เปิดใช้งานใหม่";
   if (log.action === "employee_terminated") return "สิ้นสุดการจ้างงาน";
   if (log.action === "employee_created") return d.employee_code ? `รหัส ${d.employee_code}` : "";
+  if (log.action === "employee_deleted") return d.employee_code ? `รหัส ${d.employee_code}` : "";
   if (d.field) {
     const from = d.old_value ? String(d.old_value) : "";
     const to = d.new_value ? String(d.new_value) : "";

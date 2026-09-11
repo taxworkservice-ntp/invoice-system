@@ -548,6 +548,7 @@ export interface PayrollRun {
   label: string | null;
   pay_date: string;
   status: "draft" | "finalized";
+  batch_type: PayrollBatchType;
   revision: number;
   finalized_at: string | null;
   finalized_by: string | null;
@@ -602,6 +603,10 @@ export type PayrollRoundingRule = "round" | "floor" | "ceil";
 export type PayrollProrateMode = "fixed_30" | "actual_days";
 export type PayFrequency = "monthly" | "semimonthly" | "weekly" | "custom";
 
+/** Disbursement batch kind: salary and OT settle on independent cadences
+ *  sharing one statutory month; adjustments hold corrections. */
+export type PayrollBatchType = "salary" | "ot" | "adjustment";
+
 export interface ClientPayrollSettings {
   user_id: string;
   ot_divisor: number;
@@ -614,5 +619,7 @@ export interface ClientPayrollSettings {
   pay_frequency: PayFrequency;
   pay_anchor_day: number;
   pay_cycle_len_days: number | null;
+  /** Expected OT disbursements per month (0 = ad-hoc). Salary expectation derives from pay_frequency. */
+  ot_batches_per_month: number;
   updated_at: string;
 }

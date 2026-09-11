@@ -992,6 +992,20 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   border-right-color: #e5e7eb;
 }
 
+/* Shared per-sheet page number (modern + classic V1, multi-page docs only).
+   Classic V2 has its own scoped variant below. Absolutely positioned so it
+   never shifts pagination budgets. */
+.print-sheet-page-no {
+  position: absolute;
+  right: 4mm;
+  bottom: 2.5mm;
+  font-size: 7pt;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* classic V2: per-sheet page number (multi-page docs only, rendered when
    totalPages > 1). Absolutely positioned so it never shifts the pagination
    budgets — works in both header modes (incl. full-page-header). */

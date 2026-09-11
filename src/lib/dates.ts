@@ -1,31 +1,40 @@
 /** The app renders and interprets every date/time in Thai (Bangkok) time. */
 export const APP_TIMEZONE = "Asia/Bangkok";
 
+// Module-singleton Intl formatters — constructing Intl.DateTimeFormat per
+// table row is a measurable cost on the home dashboard (100-300 rows), so
+// these are created once and reused.
+const bangkokPartsFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: APP_TIMEZONE,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+const bangkokTodayFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: APP_TIMEZONE,
+});
+const bangkokTimeFormatter = new Intl.DateTimeFormat("th-TH", {
+  timeZone: APP_TIMEZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** Today's date (YYYY-MM-DD) in Bangkok time — uses a cached formatter. */
+export function bangkokTodayString(now: Date = new Date()): string {
+  return bangkokTodayFormatter.format(now);
+}
+
 /** Calendar parts of an instant, in Bangkok time. */
 function bangkokParts(iso: string | Date): { day: number; month: number; year: number } {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: APP_TIMEZONE,
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(iso));
+  const parts = bangkokPartsFormatter.format(new Date(iso));
   const [day, month, year] = parts.split("/").map(Number);
   return { day, month, year };
 }
 
-/** Today's date (YYYY-MM-DD) in Bangkok time. */
-export function bangkokTodayString(now: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: APP_TIMEZONE }).format(now);
-}
-
 /** HH:MM of an instant, in Bangkok time. */
 export function formatBangkokTime(iso: string): string {
-  return new Intl.DateTimeFormat("th-TH", {
-    timeZone: APP_TIMEZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(iso));
+  return bangkokTimeFormatter.format(new Date(iso));
 }
 
 const THAI_MONTHS_ABBR = [

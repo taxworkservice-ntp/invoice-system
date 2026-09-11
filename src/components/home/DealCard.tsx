@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Card } from "../ui/Card";
 import { formatBuddhistDateTime } from "../../lib/dates";
 import { CustomerAvatar } from "../customer/CustomerAvatar";
@@ -18,6 +19,7 @@ interface DealCardProps {
   noteAuthorRole: string;
   isOverdue?: boolean;
   createdAt: string;
+  updatedAt?: string | null;
   queue: string;
   onTap: () => void;
 }
@@ -39,7 +41,7 @@ const ROLE_BADGE: Record<string, { label: string; color: string }> = {
 
 const ITEM_CHIP_CLASS = "bg-[#F7F6F3] text-[#62605A]";
 
-export function DealCard({
+export const DealCard = memo(function DealCard({
   customerName,
   customerCode,
   customerAvatar,
@@ -54,6 +56,7 @@ export function DealCard({
   noteAuthorRole,
   isOverdue,
   createdAt,
+  updatedAt,
   queue,
   onTap,
 }: DealCardProps) {
@@ -84,7 +87,11 @@ export function DealCard({
           </div>
           <div className="mt-0.5 flex items-end justify-between gap-3">
             <div className="text-[10px] text-[#888780] tabular-nums">
-              สร้าง {formatBuddhistDateTime(createdAt)}
+              {updatedAt && updatedAt !== createdAt ? (
+                <>แก้ไข {formatBuddhistDateTime(updatedAt)}</>
+              ) : (
+                <>สร้าง {formatBuddhistDateTime(createdAt)}</>
+              )}
             </div>
             <div className="text-right shrink-0">
               {stageHint && <div className="text-[10px] leading-4 text-gray-400">{stageHint}</div>}
@@ -136,4 +143,4 @@ export function DealCard({
       ) : null}
     </Card>
   );
-}
+});
