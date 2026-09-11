@@ -257,6 +257,7 @@ export default function SettingsDocumentsPage() {
   const [showSignatureOnDocs, setShowSignatureOnDocs] = useState<Record<string, boolean>>({});
   const [showStampOnDocs, setShowStampOnDocs] = useState<Record<string, boolean>>({});
   const [dnShowFullTotals, setDnShowFullTotals] = useState(false);
+  const [priceWarnPct, setPriceWarnPct] = useState("10");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -308,6 +309,11 @@ export default function SettingsDocumentsPage() {
       return acc;
     }, {} as Record<string, boolean>));
     setDnShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
+    setPriceWarnPct(
+      clientProfile.price_deviation_warn_pct != null
+        ? String(clientProfile.price_deviation_warn_pct)
+        : "10",
+    );
   }, [clientProfile]);
 
   useEffect(() => {
@@ -320,7 +326,16 @@ export default function SettingsDocumentsPage() {
     setError("");
     setSaved(false);
 
+    const trimmedWarnPct = priceWarnPct.trim();
+    const parsedWarnPct = trimmedWarnPct === "" ? 10 : parseFloat(trimmedWarnPct);
+    if (!Number.isFinite(parsedWarnPct) || parsedWarnPct < 0 || parsedWarnPct > 100) {
+      setError("กรุณากรอกเกณฑ์แจ้งเตือนราคาระหว่าง 0-100%");
+      setSaving(false);
+      return;
+    }
+
     const payload: Record<string, unknown> = {
+      price_deviation_warn_pct: parsedWarnPct,
       logo_url: logoKey,
       logo_size: logoSize,
       show_logo: showLogo,
@@ -354,10 +369,23 @@ export default function SettingsDocumentsPage() {
         : (DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").every(t => showStampOnDocs[t.key] !== false) ? null : DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: showStampOnDocs[t.key] !== false }), {} as Record<string, boolean>)),
     };
 
-    const { error: err } = await supabase
+    let { error: err } = await supabase
       .from("client_profiles")
       .update(payload)
       .eq("user_id", profile.id);
+
+    if (err && err.message.includes("price_deviation_warn_pct")) {
+      // Migration sql/add_price_deviation_warn_pct.sql not applied yet —
+      // save everything else so the page never breaks on schema lag.
+      const { price_deviation_warn_pct: _pending, ...fallbackPayload } = payload;
+      ({ error: err } = await supabase
+        .from("client_profiles")
+        .update(fallbackPayload)
+        .eq("user_id", profile.id));
+      if (!err) {
+        toast.error("บันทึกแล้ว แต่เกณฑ์แจ้งเตือนราคายังไม่มีผล — กรุณารัน migration add_price_deviation_warn_pct.sql");
+      }
+    }
 
     if (err) {
       setError(err.message);
@@ -368,6 +396,7 @@ export default function SettingsDocumentsPage() {
       setClientProfile({
         ...clientProfile,
         ...payload,
+        price_deviation_warn_pct: parsedWarnPct,
       } as ClientProfile);
     }
     setSaving(false);
@@ -424,7 +453,10 @@ export default function SettingsDocumentsPage() {
     stampKey !== (clientProfile?.stamp_url ?? null) ||
     signatureScale !== (clientProfile?.signature_scale || "medium") ||
     stampScale !== (clientProfile?.stamp_scale || "medium") ||
-    dnShowFullTotals !== (clientProfile?.delivery_note_show_full_totals === true);
+    dnShowFullTotals !== (clientProfile?.delivery_note_show_full_totals === true) ||
+    priceWarnPct !== (clientProfile?.price_deviation_warn_pct != null
+      ? String(clientProfile.price_deviation_warn_pct)
+      : "10");
 
   const typeScalesConfiguredCount = Object.values(classicV2TypeScales).filter((scales) =>
     Object.values(scales || {}).some((v) => v && v !== CLASSIC_V2_SECTION_INHERIT),
@@ -860,6 +892,28 @@ export default function SettingsDocumentsPage() {
             controlAlign="right"
           >
             <Switch checked={dnShowFullTotals} onChange={(checked) => { setDnShowFullTotals(checked); setSaved(false); }} />
+          </SettingRow>
+        </SectionCard>
+
+        <SectionCard title="การตรวจสอบราคา" description="เตือนเมื่อราคาต่อหน่วยที่กรอกในฟอร์มเอกสารต่างจากราคาแค็ตตาล็อก — เป็นเพียงคำเตือน ไม่ได้ห้ามบันทึก">
+          <SettingRow
+            label="แจ้งเตือนราคาต่างจากแค็ตตาล็อก"
+            description="กรอก 0 เพื่อปิดการแจ้งเตือน · เว้นว่างไว้ใช้ 10%"
+            controlWidthClass="sm:w-[140px]"
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={priceWarnPct}
+                onChange={(e) => { setPriceWarnPct(e.target.value); setSaved(false); }}
+                placeholder="10"
+                className="w-20 rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-right text-sm focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+              />
+              <span className="text-sm text-[#888780]">%</span>
+            </div>
           </SettingRow>
         </SectionCard>
 

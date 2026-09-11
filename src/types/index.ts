@@ -132,6 +132,8 @@ export interface ClientProfile {
   show_signature_on_docs?: Record<string, boolean> | null;
   show_stamp_on_docs?: Record<string, boolean> | null;
   delivery_note_show_full_totals?: boolean;
+  /** Catalog-price deviation warning threshold in % (0 = off, null = default 10). */
+  price_deviation_warn_pct?: number | null;
   show_logo: boolean;
   show_company_name: boolean;
   logo_layout?: "left" | "above" | null;

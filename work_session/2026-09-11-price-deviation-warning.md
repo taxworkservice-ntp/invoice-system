@@ -1,0 +1,34 @@
+# Catalog-price deviation warning — Session Record
+
+_Session date: 2026-09-11. Focus: wrong unit price on DN/deal lines
+(officer typos). Earlier: 10 after-print services seeded (AFT-*) with
+job details; job-detail preset dropdown reopen fix (`deals/new.tsx`)._
+
+## ✅ MIGRATION APPLIED (2026-09-11, via Management API)
+
+- **`sql/add_price_deviation_warn_pct.sql`** — applied to project
+  `fbhoqcpqqtbiorzbuqcl`: `client_profiles.price_deviation_warn_pct
+  numeric(5,2) NOT NULL DEFAULT 10.00`; 6 existing profiles backfilled
+  to 10. Verified via PostgREST select + update round-trip on
+  testcompany workspace.
+- Defensive fallbacks stay in the code (harmless): deal form
+  `?? 10`, settings save retries without the column on schema lag.
+
+## What shipped (frontend-only, live without migration)
+
+- `src/types/index.ts` — `ClientProfile.price_deviation_warn_pct?: number | null`.
+- `src/app/(client)/settings/documents.tsx` — new "การตรวจสอบราคา"
+  section: numeric % input (0 = off, blank = 10%), validated 0–100,
+  wired into hydrate/save/dirty + migration-missing fallback above.
+- `src/app/(client)/deals/new.tsx`:
+  - `getPriceDeviation(lineItem, warnPct)` — compares typed `unit_price`
+    vs catalog `base_unit_price` converted to the line's current unit
+    (carton sales don't false-trigger). Skips: warnings off (≤0),
+    free-text lines (`base_unit_price == null`), zero expected/typed
+    price, blank-form DNs.
+  - Amber non-blocking hint under ราคา/หน่วย on all line-item doc forms
+    (QT/INV/DN): `⚠ ต่างจากแค็ตตาล็อก ฿X/หน่วย`.
+- Verified: `tsc --noEmit` clean, `npm run build` passes, 11/11 logic
+  cases pass (typo/rounding/discount/free-text/carton/zero/off/custom
+  threshold). Live DB check: 10 AFT-* services all
+  `has_job_details=true`, 50 fields, 290 presets.

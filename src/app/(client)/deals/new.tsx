@@ -119,9 +119,19 @@ function JobDetailPresetInput({
 }: JobDetailPresetInputProps) {
   const [open, setOpen] = useState(false);
   const normalizedValue = value.trim().toLowerCase();
-  const filteredPresets = presets.filter((preset) =>
-    normalizedValue ? preset.toLowerCase().includes(normalizedValue) : true,
+  // When the input exactly matches a preset (i.e. a value was already
+  // selected), show the full list on reopen instead of filtering down
+  // to just the selected value — otherwise the dropdown looks empty /
+  // stuck until the user deletes the text.
+  const isExactMatch = presets.some(
+    (preset) => preset.toLowerCase() === normalizedValue,
   );
+  const filteredPresets =
+    normalizedValue && !isExactMatch
+      ? presets.filter((preset) =>
+          preset.toLowerCase().includes(normalizedValue),
+        )
+      : presets;
   const showPanel = open && filteredPresets.length > 0;
 
   return (
@@ -308,6 +318,29 @@ function getSuggestedUnitPrice(baseUnitPrice: number, unit: string, cartonUnit?:
   return baseUnitPrice;
 }
 
+/**
+ * Catalog-price deviation check for the non-blocking "wrong unit price" hint.
+ * Compares the typed unit price against the catalog price converted to the
+ * line's current unit (so selling by carton doesn't false-trigger).
+ * Returns the expected catalog price when the deviation exceeds warnPct,
+ * otherwise null. warnPct <= 0 disables the check.
+ */
+function getPriceDeviation(lineItem: LineItemForm, warnPct: number): number | null {
+  if (!(warnPct > 0)) return null;
+  const base = lineItem.base_unit_price;
+  if (base == null) return null; // free-text line — nothing to compare against
+  const expected = getSuggestedUnitPrice(
+    base,
+    lineItem.unit,
+    lineItem.carton_unit,
+    lineItem.qty_per_carton,
+  );
+  if (!(expected > 0)) return null;
+  if (!(lineItem.unit_price > 0)) return null; // empty/zero price — not a typo signal
+  const deviationPct = (Math.abs(lineItem.unit_price - expected) / expected) * 100;
+  return deviationPct > warnPct ? expected : null;
+}
+
 function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item, jobDetailsFeatureEnabled: boolean): LineItemForm {
   const unit = catalogItem.base_unit;
   const hasJobDetails = jobDetailsFeatureEnabled && catalogItem.item_type === "service" && catalogItem.has_job_details;
@@ -429,6 +462,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const { items, addItem, refetch: refetchItems } = useItems(userId);
   const jobDetailsFeatureEnabled = hasFeature("service_job_details");
+  // Owner-configurable threshold (ตั้งค่า › รูปแบบเอกสาร): warn when a typed
+  // unit price deviates from catalog by more than this %. 0 = off.
+  const priceWarnPct = clientProfile?.price_deviation_warn_pct ?? 10;
   const businessToday = businessTodayString(clientProfile);
   const todayString = () => businessToday;
 
@@ -1930,6 +1966,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   : DEFAULT_JOB_DETAIL_FIELDS;
                 const jobDetailsSummary = getJobDetailsSummary(item, jobDetailFields);
                 const enabledJobDetailFields = jobDetailFields.filter((field) => field.is_enabled);
+                // Non-blocking catalog-price check — blank-form DNs never print
+                // prices, so a deviation there is not a typo signal.
+                const priceDeviation = !isBlankForm ? getPriceDeviation(item, priceWarnPct) : null;
                 const filledJobDetailFields = enabledJobDetailFields.filter((field) => {
                   if (field.field_type === "dimension") {
                     const dimension = getJobDetailDimension(item, field.field_key);
@@ -2133,6 +2172,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         onChange={(v) => updateLineItem(item.id, "unit_price", v)}
                         placeholder="0"
                       />
+                      {priceDeviation != null && (
+                        <span className="mt-0.5 block text-[10px] font-medium leading-4 text-amber-600">
+                          ⚠ ต่างจากแค็ตตาล็อก ฿{priceDeviation.toLocaleString(undefined, { minimumFractionDigits: 2 })}/{item.unit}
+                        </span>
+                      )}
                     </label>
                     <label className="col-span-1 block sm:w-[68px]">
                       <span className="text-2xs text-gray-400 block mb-0.5">ส่วนลด %</span>
