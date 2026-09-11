@@ -32,3 +32,44 @@ job details; job-detail preset dropdown reopen fix (`deals/new.tsx`)._
   cases pass (typo/rounding/discount/free-text/carton/zero/off/custom
   threshold). Live DB check: 10 AFT-* services all
   `has_job_details=true`, 50 fields, 290 presets.
+
+## Mandatory DN price review (same day, later)
+
+- **Migration `sql/add_require_dn_price_review.sql` — APPLIED** via
+  Management API (`client_profiles.require_dn_price_review boolean NOT
+  NULL DEFAULT false`); 6 profiles backfilled false. Verified
+  false→true→false round-trip on testcompany, left OFF.
+- `ClientProfile.require_dn_price_review?: boolean`; settings toggle in
+  the ใบส่งของ card (default off — blocking save is opt-in only).
+- `deals/new.tsx`: `LineItemForm.price_confirmed` (form-local, never
+  saved). False on new/catalog-change/unlink/draft-load; true on price
+  edit or per-line checkbox. DN-only UI: รอตรวจ badge + checkbox.
+  `handleSave` blocks DN save with remaining count; blank-form DNs exempt.
+- `DeliveryNoteFromQuotationForm.tsx`: same `price_confirmed` lifecycle
+  on `DeliveryLine`, same gate in its `handleSave` (no blank-form
+  concept there — gate always applies when enabled).
+- Verified: `tsc` clean, `npm run build` passes.
+
+## Price history "ราคาที่เคยขาย" (same day, later — calculator dropped)
+
+- **Migration `sql/add_line_items_user_item_index.sql` — APPLIED** via
+  Management API (`ON document_line_items (user_id, item_id, created_at DESC)`).
+- `src/lib/priceHistory.ts` (new) — `fetchPriceHistory()` over
+  line-item snapshots joined to documents→customers; skips voided +
+  credit/billing notes; customer-scoped or global. Gotcha fixed:
+  `document_line_items` has TWO FKs to `documents`, so the embed must
+  hint `documents:document_line_items_document_id_fkey!inner(...)`
+  (filters use the `documents` alias). Verified live on WH-STORAGE
+  (3 rows, incl. customer-scoped).
+- `src/components/documents/PriceHistorySheet.tsx` (new) — bottom
+  sheet (Modal): ลูกค้านี้/ทั้งหมด toggle, rows with doc badge +
+  customer + qty + discount, tap-to-apply; empty states per filter.
+- `deals/new.tsx` — History icon per catalog line, cached last-price
+  inline hint on catalog pick (customer-first, else global last;
+  `itemId|customerId` key, silent fail), sheet mount; apply flows
+  through `updateLineItem(unit_price)` so DN review-confirm +
+  deviation hint compose. Price wrapper changed `<label>`→`<div>`
+  (now hosts nested buttons).
+- Verified: `tsc` clean, `npm run build` passes.
+- Queued (not built): same sheet in invoice/DN-from-source forms via
+  `source.item_id` adapters; calculator FAB dropped per owner.

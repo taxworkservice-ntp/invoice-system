@@ -257,6 +257,7 @@ export default function SettingsDocumentsPage() {
   const [showSignatureOnDocs, setShowSignatureOnDocs] = useState<Record<string, boolean>>({});
   const [showStampOnDocs, setShowStampOnDocs] = useState<Record<string, boolean>>({});
   const [dnShowFullTotals, setDnShowFullTotals] = useState(false);
+  const [requireDnPriceReview, setRequireDnPriceReview] = useState(false);
   const [priceWarnPct, setPriceWarnPct] = useState("10");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -309,6 +310,7 @@ export default function SettingsDocumentsPage() {
       return acc;
     }, {} as Record<string, boolean>));
     setDnShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
+    setRequireDnPriceReview(clientProfile.require_dn_price_review === true);
     setPriceWarnPct(
       clientProfile.price_deviation_warn_pct != null
         ? String(clientProfile.price_deviation_warn_pct)
@@ -336,6 +338,7 @@ export default function SettingsDocumentsPage() {
 
     const payload: Record<string, unknown> = {
       price_deviation_warn_pct: parsedWarnPct,
+      require_dn_price_review: requireDnPriceReview,
       logo_url: logoKey,
       logo_size: logoSize,
       show_logo: showLogo,
@@ -397,6 +400,7 @@ export default function SettingsDocumentsPage() {
         ...clientProfile,
         ...payload,
         price_deviation_warn_pct: parsedWarnPct,
+        require_dn_price_review: requireDnPriceReview,
       } as ClientProfile);
     }
     setSaving(false);
@@ -454,6 +458,7 @@ export default function SettingsDocumentsPage() {
     signatureScale !== (clientProfile?.signature_scale || "medium") ||
     stampScale !== (clientProfile?.stamp_scale || "medium") ||
     dnShowFullTotals !== (clientProfile?.delivery_note_show_full_totals === true) ||
+    requireDnPriceReview !== (clientProfile?.require_dn_price_review === true) ||
     priceWarnPct !== (clientProfile?.price_deviation_warn_pct != null
       ? String(clientProfile.price_deviation_warn_pct)
       : "10");
@@ -892,6 +897,13 @@ export default function SettingsDocumentsPage() {
             controlAlign="right"
           >
             <Switch checked={dnShowFullTotals} onChange={(checked) => { setDnShowFullTotals(checked); setSaved(false); }} />
+          </SettingRow>
+          <SettingRow
+            label="บังคับยืนยันราคาทุกครั้งที่ออกใบส่งของ"
+            description="เปิดแล้วจะบันทึกใบส่งของไม่ได้จนกว่าทุกรายการจะยืนยันราคา (ใบส่งของแบบฟอร์มเปล่าไม่ต้องยืนยัน)"
+            controlAlign="right"
+          >
+            <Switch checked={requireDnPriceReview} onChange={(checked) => { setRequireDnPriceReview(checked); setSaved(false); }} />
           </SettingRow>
         </SectionCard>
 

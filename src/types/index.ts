@@ -134,6 +134,8 @@ export interface ClientProfile {
   delivery_note_show_full_totals?: boolean;
   /** Catalog-price deviation warning threshold in % (0 = off, null = default 10). */
   price_deviation_warn_pct?: number | null;
+  /** Mandatory per-line price review before a DN can be saved (opt-in, default off). */
+  require_dn_price_review?: boolean;
   show_logo: boolean;
   show_company_name: boolean;
   logo_layout?: "left" | "above" | null;

@@ -28,7 +28,9 @@ import { LineImageUpload } from "../../../components/documents/LineImageUpload";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 import { useCustomerReferenceHistory } from "../../../hooks/useCustomerReferenceHistory";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../../constants";
-import { AlertTriangle, ChevronDown, Plus, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, History, Plus, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
+import { fetchPriceHistory } from "../../../lib/priceHistory";
+import { PriceHistorySheet } from "../../../components/documents/PriceHistorySheet";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { Document, DocumentLineItem, DocumentType, DocumentStatus, Customer, WhtRate, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
@@ -48,6 +50,9 @@ interface LineItemForm {
   carton_unit: string | null;
   qty_per_carton: number | null;
   base_unit_price: number | null;
+  // Mandatory DN price review (opt-in per client): false until the officer
+  // edits the price input or ticks the per-line confirm checkbox.
+  price_confirmed: boolean;
   job_details_open: boolean;
   job_color: string;
   job_width: string;
@@ -60,6 +65,13 @@ interface LineItemForm {
 }
 
 type JobDetailSuggestions = Record<string, string[]>;
+
+interface PriceHint {
+  price: number;
+  date: string;
+  customerName: string | null;
+  scope: "customer" | "all";
+}
 
 interface JobDetailPresetInputProps {
   label: string;
@@ -224,6 +236,7 @@ function createEmptyLine(): LineItemForm {
     carton_unit: null,
     qty_per_carton: null,
     base_unit_price: null,
+    price_confirmed: false,
     job_details_open: false,
     job_color: "",
     job_width: "",
@@ -355,6 +368,8 @@ function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item, jobDe
     carton_unit: catalogItem.carton_unit,
     qty_per_carton: catalogItem.qty_per_carton,
     base_unit_price: catalogItem.unit_price,
+    // Newly inherited catalog price — officer must review it again.
+    price_confirmed: false,
     job_details_open: hasJobDetails ? true : false,
     job_color: hasJobDetails ? lineItem.job_color : "",
     job_width: hasJobDetails ? lineItem.job_width : "",
@@ -465,6 +480,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   // Owner-configurable threshold (ตั้งค่า › รูปแบบเอกสาร): warn when a typed
   // unit price deviates from catalog by more than this %. 0 = off.
   const priceWarnPct = clientProfile?.price_deviation_warn_pct ?? 10;
+  // Mandatory DN price review (opt-in per client, default off).
+  const requireDnPriceReview = clientProfile?.require_dn_price_review === true;
   const businessToday = businessTodayString(clientProfile);
   const todayString = () => businessToday;
 
@@ -479,6 +496,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   });
 
   const [lineItems, setLineItems] = useState<LineItemForm[]>([]);
+  // Price-history ("ราคาที่เคยขาย"): which line's sheet is open, plus a
+  // cache of last-price hints keyed `${itemId}|${customerId ?? "-"}`.
+  const [priceHistoryLineId, setPriceHistoryLineId] = useState<string | null>(null);
+  const [priceHints, setPriceHints] = useState<Record<string, PriceHint | null>>({});
+  const hintRequested = useRef<Set<string>>(new Set());
   const [serviceJobDetailFields, setServiceJobDetailFields] = useState<Record<string, JobDetailFieldConfig[]>>({});
   // Known job-detail labels (defaults + every loaded custom config) — used to
   // self-heal legacy blob notes back into one-field-per-line on restore.
@@ -618,6 +640,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         carton_unit: line.carton_unit,
         qty_per_carton: line.qty_carton && line.quantity ? line.base_quantity ? line.base_quantity / line.quantity : null : null,
         base_unit_price: null,
+        price_confirmed: false,
         job_details_open: false,
         job_color: "",
         job_width: "",
@@ -719,6 +742,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           carton_unit: line.carton_unit,
           qty_per_carton: line.qty_carton && line.quantity ? line.base_quantity ? line.base_quantity / line.quantity : null : null,
           base_unit_price: null,
+          price_confirmed: false,
           job_details_open: false,
           job_color: "",
           job_width: "",
@@ -834,6 +858,58 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       cancelled = true;
     };
   }, [jobDetailServiceItems, userId]);
+
+  // Last-price hints: for every catalog line, fetch the newest history row
+  // (this customer first, else anyone). One fetch per item+customer key —
+  // the requested-set survives re-renders so picks/draft-loads don't spam.
+  useEffect(() => {
+    if (!userId || !isLineItemDocument) return;
+    const custId = selectedCustomer?.id ?? null;
+    const ids = [...new Set(lineItems.map((l) => l.item_id).filter((x): x is string => !!x))];
+    const missing = ids.filter((id) => !hintRequested.current.has(`${id}|${custId ?? "-"}`));
+    if (missing.length === 0) return;
+    missing.forEach((id) => hintRequested.current.add(`${id}|${custId ?? "-"}`));
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        missing.map(async (id) => {
+          const key = `${id}|${custId ?? "-"}`;
+          try {
+            if (custId) {
+              const custRows = await fetchPriceHistory(userId, id, {
+                customerId: custId,
+                limit: 1,
+                excludeDocumentId: documentId || null,
+              });
+              if (custRows.length > 0) {
+                const r = custRows[0];
+                return [key, { price: r.unitPrice, date: r.issueDate || r.createdAt, customerName: r.customerName, scope: "customer" }] as const;
+              }
+            }
+            const allRows = await fetchPriceHistory(userId, id, {
+              limit: 1,
+              excludeDocumentId: documentId || null,
+            });
+            if (allRows.length === 0) return [key, null] as const;
+            const r = allRows[0];
+            return [key, { price: r.unitPrice, date: r.issueDate || r.createdAt, customerName: r.customerName, scope: "all" }] as const;
+          } catch {
+            // Silent fail = no hint; the history sheet still retries on open.
+            return [key, null] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setPriceHints((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of entries) next[k] = v;
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lineItems, userId, selectedCustomer?.id, documentId, isLineItemDocument]);
 
   async function removeServiceJobDetailPreset(itemId: string, fieldKey: JobDetailPresetField, value: string) {
     if (!userId) return;
@@ -1120,6 +1196,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         if (lineItem.id !== id) return lineItem;
         const updated = { ...lineItem, [field]: value } as LineItemForm;
 
+        // Typing a price counts as reviewing it.
+        if (field === "unit_price") {
+          updated.price_confirmed = true;
+        }
+
         if (field === "item_name") {
           const name = (value as string).trim();
           const catalogItem = items.find(
@@ -1135,6 +1216,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             updated.carton_unit = null;
             updated.qty_per_carton = null;
             updated.base_unit_price = null;
+            updated.price_confirmed = false;
             updated.job_details_open = false;
             updated.job_color = "";
             updated.job_width = "";
@@ -1316,6 +1398,15 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       if (validItems.length === 0) {
         setError("กรุณาเพิ่มอย่างน้อย 1 รายการ");
         return;
+      }
+      // Mandatory DN price review (opt-in): block save until every line
+      // price is confirmed. Blank-form DNs carry no prices — exempt.
+      if (isDeliveryNote && requireDnPriceReview && !isBlankForm) {
+        const pending = validItems.filter((lineItem) => !lineItem.price_confirmed).length;
+        if (pending > 0) {
+          setError(`กรุณายืนยันราคาทุกรายการก่อนบันทึกใบส่งของ (เหลือ ${pending} รายการ)`);
+          return;
+        }
       }
     }
 
@@ -1969,6 +2060,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 // Non-blocking catalog-price check — blank-form DNs never print
                 // prices, so a deviation there is not a typo signal.
                 const priceDeviation = !isBlankForm ? getPriceDeviation(item, priceWarnPct) : null;
+                // Mandatory price review applies to DN lines only, and never
+                // to blank-form DNs (no prices on the document at all).
+                const needsPriceReview = isDeliveryNote && requireDnPriceReview && !isBlankForm;
+                // Last-price hint ("ราคาที่เคยขาย") for catalog lines.
+                const hintKey = item.item_id ? `${item.item_id}|${selectedCustomer?.id ?? "-"}` : null;
+                const priceHint = hintKey ? (priceHints[hintKey] ?? null) : null;
                 const filledJobDetailFields = enabledJobDetailFields.filter((field) => {
                   if (field.field_type === "dimension") {
                     const dimension = getJobDetailDimension(item, field.field_key);
@@ -2165,8 +2262,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         className="w-full"
                       />
                     </label>
-                    <label className="col-span-1 block sm:w-[160px]">
-                      <span className="text-2xs text-gray-400 block mb-0.5">ราคา/หน่วย</span>
+                    <div className="col-span-1 block sm:w-[160px]">
+                      <span className="text-2xs text-gray-400 block mb-0.5">
+                        ราคา/หน่วย
+                        {needsPriceReview && !item.price_confirmed && (
+                          <span className="ml-1 rounded bg-amber-100 px-1 py-px text-[9px] font-semibold text-amber-700">รอตรวจ</span>
+                        )}
+                      </span>
                       <CommaInput
                         value={item.unit_price}
                         onChange={(v) => updateLineItem(item.id, "unit_price", v)}
@@ -2177,7 +2279,44 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                           ⚠ ต่างจากแค็ตตาล็อก ฿{priceDeviation.toLocaleString(undefined, { minimumFractionDigits: 2 })}/{item.unit}
                         </span>
                       )}
-                    </label>
+                      {priceHint && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            updateLineItem(item.id, "unit_price", priceHint.price);
+                          }}
+                          className="mt-0.5 block text-left text-[10px] leading-4 text-[#378ADD] hover:underline"
+                        >
+                          {priceHint.scope === "customer"
+                            ? `เคยขายลูกค้านี้ ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })} — แตะเพื่อใช้`
+                            : `เคยขายล่าสุด ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}${priceHint.customerName ? ` · ${priceHint.customerName}` : ""} — แตะเพื่อใช้`}
+                        </button>
+                      )}
+                      {item.item_id && (
+                        <button
+                          type="button"
+                          onClick={() => setPriceHistoryLineId(item.id)}
+                          className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#D7DEE7] bg-white px-2.5 py-1 text-[11px] font-medium text-[#378ADD] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
+                        >
+                          <History className="h-3 w-3" />
+                          ราคาที่เคยขาย
+                        </button>
+                      )}
+                      {needsPriceReview && (
+                        <label className="mt-1 flex cursor-pointer items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={item.price_confirmed}
+                            onChange={(e) => updateLineItem(item.id, "price_confirmed", e.target.checked)}
+                            className="h-3.5 w-3.5 rounded border-[#D7DEE7] text-primary focus:ring-primary"
+                          />
+                          <span className={`text-[11px] font-medium ${item.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
+                            {item.price_confirmed ? "ยืนยันราคาแล้ว" : "แตะเพื่อยืนยันราคา"}
+                          </span>
+                        </label>
+                      )}
+                    </div>
                     <label className="col-span-1 block sm:w-[68px]">
                       <span className="text-2xs text-gray-400 block mb-0.5">ส่วนลด %</span>
                       <CommaInput
@@ -2550,6 +2689,27 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           onClose={() => setItemCreateModal({ open: false, targetLineId: null })}
           onCreated={handleFullCreateItem}
         />
+        {(() => {
+          const target = lineItems.find((l) => l.id === priceHistoryLineId) || null;
+          const targetItem = target?.item_id ? items.find((c) => c.id === target.item_id) : null;
+          if (!target || !targetItem || !userId) return null;
+          return (
+            <PriceHistorySheet
+              open
+              onClose={() => setPriceHistoryLineId(null)}
+              userId={userId}
+              itemId={targetItem.id}
+              itemName={targetItem.name}
+              customerId={selectedCustomer?.id ?? null}
+              customerName={selectedCustomer?.name ?? null}
+              excludeDocumentId={documentId || null}
+              onApply={(price) => {
+                updateLineItem(target.id, "unit_price", price);
+                setPriceHistoryLineId(null);
+              }}
+            />
+          );
+        })()}
       </div>
     </AppShell>
   );

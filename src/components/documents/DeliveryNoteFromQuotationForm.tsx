@@ -42,6 +42,9 @@ type DeliveryLine = {
   item_type: string;
   unit: string;
   unit_price: number;
+  // Mandatory DN price review (opt-in per client): false until the officer
+  // edits the price input or ticks the per-line confirm checkbox.
+  price_confirmed: boolean;
   discount_percent: number;
   line_note: string;
   base_quantity: number | null;
@@ -109,6 +112,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   }, [hideAmountsOnPrint]);
 
   const isEditing = Boolean(documentId);
+  // Mandatory per-line price review before a DN can be saved (opt-in).
+  const requirePriceReview = clientProfile?.require_dn_price_review === true;
 
   useEffect(() => {
     if (documentId) return;
@@ -250,6 +255,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               item_type: line.item_type || source?.item_type || "product",
               unit: line.unit || source?.unit || "ชิ้น",
               unit_price: Number(line.unit_price) || 0,
+              price_confirmed: false,
               discount_percent: Number(line.discount_percent) || 0,
               line_note: line.line_note ?? "",
               base_quantity: line.base_quantity ?? null,
@@ -275,6 +281,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               item_type: line.item_type,
               unit: line.unit || "ชิ้น",
               unit_price: Number(line.unit_price) || 0,
+              price_confirmed: false,
               discount_percent: Number(line.discount_percent) || 0,
               line_note: line.line_note ?? "",
               base_quantity: null,
@@ -298,6 +305,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               item_type: line.item_type,
               unit: line.unit || "ชิ้น",
               unit_price: Number(line.unit_price) || 0,
+              price_confirmed: false,
               discount_percent: Number(line.discount_percent) || 0,
               line_note: line.line_note ?? "",
               base_quantity: null,
@@ -395,6 +403,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
         item_type: "product",
         unit: "ชิ้น",
         unit_price: 0,
+        price_confirmed: false,
         discount_percent: 0,
         line_note: "",
         base_quantity: null,
@@ -411,6 +420,16 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
 
   const handleSave = async () => {
     if (!quotation || !userId || selectedLines.length === 0) return;
+    // Mandatory price review (opt-in): block save until every line price
+    // is confirmed. Prices saved here flow to the invoice — no blank-form
+    // concept on this path, so the gate always applies when enabled.
+    if (requirePriceReview) {
+      const pending = selectedLines.filter((line) => !line.price_confirmed).length;
+      if (pending > 0) {
+        setError(`กรุณายืนยันราคาทุกรายการก่อนบันทึกใบส่งของ (เหลือ ${pending} รายการ)`);
+        return;
+      }
+    }
     setSaving(true);
     setError("");
 
@@ -700,7 +719,10 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                       value={line.unit_price}
                       onChange={(event) => {
                         const next = Number(event.target.value);
-                        updateLine(line.id, { unit_price: Number.isFinite(next) ? Math.max(0, next) : 0 });
+                        updateLine(line.id, {
+                          unit_price: Number.isFinite(next) ? Math.max(0, next) : 0,
+                          price_confirmed: true,
+                        });
                       }}
                     />
                     <Input
@@ -715,6 +737,23 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                       }}
                     />
                   </div>
+
+                  {requirePriceReview && (
+                    <label className="mt-2 flex cursor-pointer items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={line.price_confirmed}
+                        onChange={(event) => updateLine(line.id, { price_confirmed: event.target.checked })}
+                        className="h-3.5 w-3.5 rounded border-[#D7DEE7] text-primary focus:ring-primary"
+                      />
+                      <span className={`text-xs font-medium ${line.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
+                        {line.price_confirmed ? "ยืนยันราคาแล้ว" : "แตะเพื่อยืนยันราคาของรายการนี้"}
+                      </span>
+                      {!line.price_confirmed && (
+                        <span className="rounded bg-amber-100 px-1 py-px text-[10px] font-semibold text-amber-700">รอตรวจ</span>
+                      )}
+                    </label>
+                  )}
 
                   <div className="mt-2 flex items-end justify-between gap-2">
                     <Input
