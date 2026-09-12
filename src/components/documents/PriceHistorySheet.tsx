@@ -73,7 +73,7 @@ export function PriceHistorySheet({
   }, [open, userId, itemId, filter, customerId, excludeDocumentId]);
 
   return (
-    <Modal open={open} onClose={onClose} title={`ราคาที่เคยขาย · ${itemName}`}>
+    <Modal open={open} onClose={onClose} title={`ประวัติราคาขาย · ${itemName}`}>
       {customerId && (
         <div className="mb-3 flex gap-2">
           <button
@@ -127,18 +127,30 @@ export function PriceHistorySheet({
       ) : (
         <div className="divide-y divide-[#F0EEE8]">
           {rows.map((row, idx) => (
-            <button
+            <div
               key={`${row.createdAt}-${idx}`}
-              type="button"
-              onClick={() => onApply(row.unitPrice)}
-              className="flex w-full items-center justify-between gap-3 py-2.5 text-left transition-colors hover:bg-[#F8FAFC]"
+              className="flex items-center justify-between gap-3 py-2.5"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <span className="rounded bg-[#F1EFE8] px-1.5 py-0.5 text-[10px] font-medium text-[#5F5B54]">
                     {priceHistoryDocTypeLabel(row.docType)}
                   </span>
-                  {row.docNumber && <span className="truncate text-[11px] text-gray-500">{row.docNumber}</span>}
+                  {row.docNumber &&
+                    (row.dealId ? (
+                      <a
+                        href={`/deals/${row.dealId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`เปิดงานขายของ ${row.docNumber} ในแท็บใหม่`}
+                        title="เปิดงานขายในแท็บใหม่"
+                        className="truncate text-[11px] font-medium text-[#378ADD] hover:underline"
+                      >
+                        {row.docNumber} ↗
+                      </a>
+                    ) : (
+                      <span className="truncate text-[11px] text-gray-500">{row.docNumber}</span>
+                    ))}
                 </div>
                 <div className="mt-0.5 truncate text-[11px] text-gray-500">
                   {formatDate(row)}
@@ -147,14 +159,23 @@ export function PriceHistorySheet({
                   {row.discountPercent > 0 ? ` · ลด ${row.discountPercent}%` : ""}
                 </div>
               </div>
-              <div className="shrink-0 text-sm font-semibold tabular-nums text-ink-900">
-                ฿{formatPrice(row.unitPrice)}
+              <div className="shrink-0 text-right">
+                <div className="text-sm font-semibold tabular-nums text-ink-900">
+                  ฿{formatPrice(row.unitPrice)}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onApply(row.unitPrice)}
+                  className="mt-1 rounded-lg bg-[#378ADD] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[#2B70B8]"
+                >
+                  ใช้ราคานี้
+                </button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
-      <p className="mt-3 text-center text-[11px] text-gray-400">แตะรายการเพื่อใช้ราคานั้นในบรรทัดนี้</p>
+      <p className="mt-3 text-center text-[11px] text-gray-400">แตะ “ใช้ราคานี้” เพื่อใส่ราคาในบรรทัดนี้ · แตะเลขที่เอกสารเพื่อเปิดงานขายในแท็บใหม่</p>
     </Modal>
   );
 }

@@ -216,6 +216,14 @@ export default async function handler(req, res) {
           console.warn("[members reset-password] failed to set password_changed:", e);
         }
 
+        await writePermissionAudit(supabaseAdmin, {
+          workspaceUserId: id,
+          actorUserId: admin.id,
+          targetMemberId: memberId,
+          action: "member.password-reset",
+          after: {},
+        });
+
         return sendJson(res, 200, { success: true });
       }
 

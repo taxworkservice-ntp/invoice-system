@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Home, FileText, BarChart3, Package, Users, Settings, Download, Percent, MoreHorizontal, LogOut } from "lucide-react";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
-import { useWorkspaceRole } from "../../hooks/useAuth";
+import { useWorkspaceRole, useWorkspaceFeatures } from "../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../lib/permissions";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
@@ -29,10 +29,12 @@ export function BottomNav() {
   const navigate = useNavigate();
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const { workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const workspaceFeatures = useWorkspaceFeatures(profile?.workspace_user_id ?? profile?.id);
 
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
+    if (item.path === "/payroll") return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canManageWht;
     if (item.path === "/download-center") return permissions.canExportReports;

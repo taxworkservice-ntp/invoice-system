@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
 import { SETTINGS_TABS } from "../../../../constants";
+import { useWorkspaceRole } from "../../../../hooks/useAuth";
 
 export function SettingsTabs({ activePath }: { activePath: string }) {
+  // ทีมงาน (team management) is owner-only — don't even link it otherwise.
+  const { workspaceRole } = useWorkspaceRole();
+  const visibleTabs = SETTINGS_TABS.filter(
+    (tab) => tab.path !== "/settings/team" || workspaceRole === "owner",
+  );
   return (
     <div className="flex gap-1 border-b border-card-border pb-0">
-      {SETTINGS_TABS.map((tab) => (
+      {visibleTabs.map((tab) => (
         <Link
           key={tab.path}
           to={tab.path}

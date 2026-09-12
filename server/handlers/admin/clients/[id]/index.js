@@ -32,21 +32,35 @@ async function handleGetClient(id) {
   };
 }
 
-async function handleUpdatePassword(id, body) {
+/**
+ * Destructive/admin actions must target a client workspace — never another
+ * admin (or a missing) account. requireAdmin alone doesn't check the target.
+ */
+async function requireClientTarget(id) {
+  const { data, error } = await supabaseAdmin.from("profiles").select("role").eq("id", id).single();
+  if (error || !data) throw new ApiError(404, "Client not found");
+  if (data.role !== "client") throw new ApiError(400, "Action applies to client workspaces only");
+}
+
+async function handleUpdatePassword(id, body, actorId) {
   const { password } = body;
   if (!password || password.length < 6) throw new ApiError(400, "Password must be at least 6 characters");
+  await requireClientTarget(id);
   const { error } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
   if (error) throw error;
+  await insertResetAudit("password.change", id, actorId, {});
   return { success: true };
 }
 
-async function handleUpdateStatus(id, body) {
+async function handleUpdateStatus(id, body, actorId) {
   const { active } = body;
   if (typeof active !== "boolean") throw new ApiError(400, "Active flag is required");
+  await requireClientTarget(id);
   const { error } = await supabaseAdmin.auth.admin.updateUserById(id, {
     ban_duration: active ? "none" : "876000h",
   });
   if (error) throw error;
+  await insertResetAudit("login-status.change", id, actorId, { active });
   return { success: true, isActive: active };
 }
 
@@ -63,6 +77,7 @@ async function insertResetAudit(action, clientId, actorId, after = {}) {
 }
 
 async function handleResetWorkspace(id, actorId) {
+  await requireClientTarget(id);
   const [dealUpdate, customerUpdate, itemUpdate, sequenceUpdate, dealSequenceUpdate] = await Promise.all([
     supabaseAdmin.from("deals").update({ is_active: false }).eq("user_id", id).eq("is_active", true),
     supabaseAdmin.from("customers").update({ is_active: false }).eq("user_id", id).eq("is_active", true),
@@ -93,6 +108,7 @@ async function deleteR2ObjectsBestEffort(keys) {
 }
 
 async function handleResetDocuments(id, actorId) {
+  await requireClientTarget(id);
   const { data, error } = await supabaseAdmin.rpc("admin_reset_client_documents", {
     p_target_user_id: id,
     p_actor_user_id: actorId,
@@ -105,6 +121,7 @@ async function handleResetDocuments(id, actorId) {
 }
 
 async function handleResetAll(id, actorId) {
+  await requireClientTarget(id);
   await supabaseAdmin.from("receipt_invoices").delete().eq("user_id", id);
   await supabaseAdmin.from("invoice_delivery_notes").delete().eq("user_id", id);
   await supabaseAdmin.from("billing_note_invoices").delete().eq("user_id", id);
@@ -138,7 +155,12 @@ async function handleResetAll(id, actorId) {
   return { success: true };
 }
 
-async function handleDeleteClient(id) {
+async function handleDeleteClient(id, actorId) {
+  await requireClientTarget(id);
+  // Audit first: the workspace rows (and any FK-tied trail) disappear below.
+  await insertResetAudit("client.deleted", id, actorId, {}).catch((e) =>
+    console.warn("[admin delete-client] audit insert failed:", e?.message || e),
+  );
   await supabaseAdmin.from("receipt_invoices").delete().eq("user_id", id);
   await supabaseAdmin.from("invoice_delivery_notes").delete().eq("user_id", id);
   await supabaseAdmin.from("billing_note_invoices").delete().eq("user_id", id);
@@ -175,9 +197,9 @@ export default async function handler(req, res) {
 
       switch (action) {
         case "password":
-          return sendJson(res, 200, await handleUpdatePassword(id, body));
+          return sendJson(res, 200, await handleUpdatePassword(id, body, actorId));
         case "status":
-          return sendJson(res, 200, await handleUpdateStatus(id, body));
+          return sendJson(res, 200, await handleUpdateStatus(id, body, actorId));
         case "reset-workspace":
           return sendJson(res, 200, await handleResetWorkspace(id, actorId));
         case "reset-documents":
@@ -190,7 +212,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "DELETE") {
-      return sendJson(res, 200, await handleDeleteClient(id));
+      return sendJson(res, 200, await handleDeleteClient(id, actorId));
     }
 
     res.setHeader("Allow", "GET, POST, DELETE");

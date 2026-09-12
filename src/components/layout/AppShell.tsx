@@ -77,7 +77,7 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
     return window.localStorage.getItem("invoice-system.sidebar-expanded") !== "false";
   });
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
-    if (item.path === "/payroll") return workspaceFeatures.hasFeature("payroll");
+    if (item.path === "/payroll") return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canManageWht;
     if (item.path === "/download-center") return permissions.canExportReports;

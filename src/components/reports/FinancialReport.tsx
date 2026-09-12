@@ -6,6 +6,8 @@ import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
 import { EmptyState } from "../ui/EmptyState";
 import { getMonthRange, deltaCaptionForRange, useFinancialReport } from "../../hooks/useReports";
+import { useWorkspaceRole } from "../../hooks/useAuth";
+import { getWorkspacePermissions } from "../../lib/permissions";
 import { formatCurrency } from "../../lib/format";
 import { TransactionTable } from "./TransactionTable";
 
@@ -106,6 +108,10 @@ interface FinancialReportProps {
 
 export function FinancialReport({ userId }: FinancialReportProps) {
   const navigate = useNavigate();
+  const { workspaceRole, workspacePermissions } = useWorkspaceRole();
+  // Viewers (canViewReports without canExportReports) can read the report
+  // on screen but must not exfiltrate the full financial XLSX.
+  const canExportReports = getWorkspacePermissions(workspaceRole, workspacePermissions).canExportReports;
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
@@ -220,10 +226,12 @@ export function FinancialReport({ userId }: FinancialReportProps) {
             </select>
           </div>
         </div>
-        <Button variant="secondary" size="sm" onClick={handleExportExcel} className="w-full sm:w-auto">
-          <Download className="mr-1.5 h-4 w-4" />
-          ส่งออก Excel
-        </Button>
+        {canExportReports && (
+          <Button variant="secondary" size="sm" onClick={handleExportExcel} className="w-full sm:w-auto">
+            <Download className="mr-1.5 h-4 w-4" />
+            ส่งออก Excel
+          </Button>
+        )}
       </div>
 
       {summary && (

@@ -56,7 +56,7 @@ export default function App() {
   const role = profile?.role ?? null;
   const isAdmin = role === "admin";
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
-  const canManagePayroll = workspaceFeatures.hasFeature("payroll");
+  const canManagePayroll = workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
 
   if (recovery) {
     return <Navigate to="/reset-password" replace />;

@@ -12,6 +12,7 @@ import { TABLE } from "../../../lib/tableStyles";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
+import { getWorkspacePermissions } from "../../../lib/permissions";
 import { useToast } from "../../../hooks/useToast";
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES, getAuditLogForEntity, getActionLabel, getActionIcon, type AuditLogEntry } from "../../../lib/payroll/audit";
 import type { Employee } from "../../../types";
@@ -83,7 +84,8 @@ function employeeToForm(emp: Employee): EmployeeForm {
 
 export default function EmployeesPage() {
   const toast = useToast();
-  const { workspaceUserId } = useWorkspaceRole();
+  const { workspaceUserId, workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const canManagePayroll = getWorkspacePermissions(workspaceRole, workspacePermissions).canManagePayroll;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -386,6 +388,19 @@ export default function EmployeesPage() {
   function maskAccount(account: string): string {
     if (account.length <= 4) return account ? "•••" : "";
     return `•••-${account.slice(-4)}`;
+  }
+
+  // Defense-in-depth: route guard in App.tsx is the first gate; this blocks
+  // salary data even if the route check is ever bypassed.
+  if (!canManagePayroll) {
+    return (
+      <AppShell title="เงินเดือน > พนักงาน">
+        <EmptyState
+          title="ไม่มีสิทธิ์เข้าถึง"
+          description="หน้านี้สำหรับผู้ที่มีสิทธิ์จัดการเงินเดือนเท่านั้น กรุณาติดต่อเจ้าของกิจการ"
+        />
+      </AppShell>
+    );
   }
 
   return (

@@ -92,9 +92,12 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
     if (productItems.length === 0) return;
 
     const hasCartonItems = productItems.some((i) => i.carton_unit && i.qty_per_carton);
+    // Cost columns are manager-only: viewers get quantities without margins.
+    const showCosts = canManage;
     const headers = ["ชื่อสินค้า", "SKU", "สต็อกรวม", "หน่วยนับ"];
     if (hasCartonItems) headers.push("จำนวนลัง", "หน่วยลัง");
-    headers.push("จุดแจ้งเตือน", "สถานะ", "ต้นทุนเฉลี่ยต่อหน่วย", "มูลค่าสต็อกตามทุน");
+    headers.push("จุดแจ้งเตือน", "สถานะ");
+    if (showCosts) headers.push("ต้นทุนเฉลี่ยต่อหน่วย", "มูลค่าสต็อกตามทุน");
 
     const rows = productItems.map((item) => {
       let status = "ปกติ";
@@ -118,9 +121,13 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
         row.push(
         item.low_stock_threshold.toString(),
         status,
-        item.avg_cost.toFixed(2),
-        item.stock_value.toFixed(2),
       );
+      if (showCosts) {
+        row.push(
+          item.avg_cost.toFixed(2),
+          item.stock_value.toFixed(2),
+        );
+      }
       return row;
     });
 
@@ -171,25 +178,39 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
 
       const itemMap = new Map(items.map((i) => [i.id, i]));
 
-      const headers = ["วันที่", "รายการ", "ประเภท", "ปริมาณ", "หน่วย", "ต้นทุน/หน่วย", "มูลค่ารายการ", "คงเหลือ", "มูลค่าคงเหลือ", "หมายเหตุ", "เอกสาร"];
+      const showCosts = canManage;
+      const headers = showCosts
+        ? ["วันที่", "รายการ", "ประเภท", "ปริมาณ", "หน่วย", "ต้นทุน/หน่วย", "มูลค่ารายการ", "คงเหลือ", "มูลค่าคงเหลือ", "หมายเหตุ", "เอกสาร"]
+        : ["วันที่", "รายการ", "ประเภท", "ปริมาณ", "หน่วย", "คงเหลือ", "หมายเหตุ", "เอกสาร"];
       const rows = movements.map((m: any) => {
         const item = itemMap.get(m.item_id);
         const itemName = item?.name || m.item_id;
         const unit = item?.base_unit || "ชิ้น";
 
-        return [
+        const row = [
           new Date(m.created_at).toLocaleDateString("th-TH"),
           itemName,
           MOVEMENT_TYPE_LABELS[m.movement_type] || m.movement_type,
           m.qty_base.toString(),
           unit,
-          (m.unit_cost ?? "").toString(),
-          (m.movement_value ?? "").toString(),
+        ];
+        if (showCosts) {
+          row.push(
+            (m.unit_cost ?? "").toString(),
+            (m.movement_value ?? "").toString(),
+          );
+        }
+        row.push(
           m.balance_after.toString(),
-          (m.balance_value_after ?? "").toString(),
+        );
+        if (showCosts) {
+          row.push((m.balance_value_after ?? "").toString());
+        }
+        row.push(
           m.reason || "",
           docMap.get(m.document_id) || "",
-        ];
+        );
+        return row;
       });
 
       const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");

@@ -2300,7 +2300,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                           className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#D7DEE7] bg-white px-2.5 py-1 text-[11px] font-medium text-[#378ADD] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
                         >
                           <History className="h-3 w-3" />
-                          ราคาที่เคยขาย
+                          ประวัติราคาขาย
                         </button>
                       )}
                       {needsPriceReview && (

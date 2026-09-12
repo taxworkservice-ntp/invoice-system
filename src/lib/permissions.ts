@@ -10,6 +10,7 @@ export type WorkspacePermissionKey =
   | "canViewCatalog"
   | "canManageCatalog"
   | "canCreateEditDocuments"
+  | "canManagePayroll"
   | "canManageWht"
   | "canSendDocuments"
   | "canSendQuotations"
@@ -28,6 +29,7 @@ export interface WorkspacePermissions {
   canViewCatalog: boolean;
   canManageCatalog: boolean;
   canCreateEditDocuments: boolean;
+  canManagePayroll: boolean;
   canManageWht: boolean;
   canSendDocuments: boolean;
   canSendQuotations: boolean;
@@ -47,6 +49,7 @@ export const ALL_PERMISSION_KEYS: WorkspacePermissionKey[] = [
   "canViewCatalog",
   "canManageCatalog",
   "canCreateEditDocuments",
+  "canManagePayroll",
   "canManageWht",
   "canSendDocuments",
   "canSendQuotations",
@@ -112,6 +115,11 @@ export const PERMISSION_GROUPS: { key: WorkspacePermissionKey; label: string; de
     description: "บันทึกรับชำระและออกใบเสร็จ",
   },
   {
+    key: "canManagePayroll",
+    label: "จัดการเงินเดือน",
+    description: "เปิดหน้าบุคลากรและเงินเดือน ดูและแก้ไขค่าจ้าง ออกรอบจ่าย และรายงาน",
+  },
+  {
     key: "canManageWht",
     label: "ออกหนังสือหัก ณ ที่จ่าย",
     description: "จัดทำ แก้ไข และออกเอกสารหัก ณ ที่จ่าย",
@@ -150,7 +158,7 @@ export const PERMISSION_SECTIONS: { title: string; keys: WorkspacePermissionKey[
   },
   {
     title: "การเงิน",
-    keys: ["canRecordPayments", "canManageWht", "canVoidDocuments", "canDeleteDocuments"],
+    keys: ["canRecordPayments", "canManagePayroll", "canManageWht", "canVoidDocuments", "canDeleteDocuments"],
   },
   {
     title: "ข้อมูลพื้นฐาน",
@@ -183,6 +191,7 @@ export function getDefaultWorkspacePermissions(role: ClientMemberRole | null | u
     canViewCatalog: isOwner,
     canManageCatalog: isOwner,
     canCreateEditDocuments: isOwner,
+    canManagePayroll: isOwner,
     canManageWht: isOwner,
     canSendDocuments: isOwner,
     canSendQuotations: isOwner,

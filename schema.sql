@@ -180,6 +180,16 @@ as $$
   end;
 $$;
 
+create or replace function public.is_workspace_owner(p_workspace_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select public.client_workspace_role(p_workspace_user_id) = 'owner'
+$$;
+
 create policy "Client members read workspace membership"
   on client_members for select
   using (public.is_admin() or workspace_user_id = auth.uid() or member_user_id = auth.uid());
@@ -1363,11 +1373,19 @@ create trigger trg_create_default_sequences
 create or replace function toggle_dev_mode(p_user_id uuid, p_enabled boolean)
 returns void
 language plpgsql security definer
+set search_path = ''
 as $$
 begin
-  update client_profiles set dev_mode_enabled = p_enabled where user_id = p_user_id;
+  if not public.is_admin() then
+    raise exception 'toggle_dev_mode: admin only' using errcode = '42501';
+  end if;
+  update public.client_profiles set dev_mode_enabled = p_enabled where user_id = p_user_id;
 end;
 $$;
+
+revoke execute on function toggle_dev_mode(uuid, boolean) from public;
+revoke execute on function toggle_dev_mode(uuid, boolean) from anon;
+grant execute on function toggle_dev_mode(uuid, boolean) to authenticated;
 
 create policy "Admin toggles client dev mode"
   on client_profiles for update
@@ -1453,10 +1471,9 @@ create policy "Client manages workspace employees"
   with check (public.is_client_workspace_member(user_id));
 
 drop policy if exists "Admin manages all employees" on employees;
-create policy "Admin manages all employees"
-  on employees for all
-  using (public.is_admin())
-  with check (public.is_admin());
+create policy "Admin reads all employees"
+  on employees for select
+  using (public.is_admin());
 
 drop index if exists idx_employees_user;
 create index idx_employees_user on employees (user_id);
@@ -1494,10 +1511,9 @@ create policy "Client manages workspace payroll runs"
   with check (public.is_client_workspace_member(user_id));
 
 drop policy if exists "Admin manages all payroll runs" on payroll_runs;
-create policy "Admin manages all payroll runs"
-  on payroll_runs for all
-  using (public.is_admin())
-  with check (public.is_admin());
+create policy "Admin reads all payroll runs"
+  on payroll_runs for select
+  using (public.is_admin());
 
 drop index if exists idx_payroll_runs_user;
 create index idx_payroll_runs_user on payroll_runs (user_id);
@@ -1547,13 +1563,17 @@ create policy "Client manages workspace line items"
     public.is_client_workspace_member(
       (select user_id from payroll_runs where id = payroll_line_items.payroll_run_id)
     )
+  )
+  with check (
+    public.is_client_workspace_member(
+      (select user_id from payroll_runs where id = payroll_line_items.payroll_run_id)
+    )
   );
 
 drop policy if exists "Admin manages all line items" on payroll_line_items;
-create policy "Admin manages all line items"
-  on payroll_line_items for all
-  using (public.is_admin())
-  with check (public.is_admin());
+create policy "Admin reads all line items"
+  on payroll_line_items for select
+  using (public.is_admin());
 
 drop index if exists idx_line_items_run;
 create index idx_line_items_run on payroll_line_items (payroll_run_id);
@@ -1585,10 +1605,9 @@ create policy "Client manages own payroll settings"
   with check (public.is_client_workspace_member(user_id));
 
 drop policy if exists "Admin manages all payroll settings" on client_payroll_settings;
-create policy "Admin manages all payroll settings"
-  on client_payroll_settings for all
-  using (public.is_admin())
-  with check (public.is_admin());
+create policy "Admin reads all payroll settings"
+  on client_payroll_settings for select
+  using (public.is_admin());
 
 -- ============================================================
 -- PAYROLL — Audit Log
@@ -1618,10 +1637,9 @@ create policy "Client manages workspace audit log"
   with check (public.is_workspace_owner(user_id));
 
 drop policy if exists "Admin manages all audit log" on payroll_audit_log;
-create policy "Admin manages all audit log"
-  on payroll_audit_log for all
-  using (public.is_admin())
-  with check (public.is_admin());
+create policy "Admin reads all audit log"
+  on payroll_audit_log for select
+  using (public.is_admin());
 
 drop index if exists idx_audit_log_user;
 create index idx_audit_log_user on payroll_audit_log (user_id);

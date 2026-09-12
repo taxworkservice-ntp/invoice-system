@@ -1,10 +1,11 @@
 import { requireAdmin } from "../../_lib/auth.js";
 import { ApiError, readJsonBody, sendError, sendJson } from "../../_lib/http.js";
 import { supabaseAdmin } from "../../_lib/supabase.js";
+import { writePermissionAudit } from "../../_lib/permissions.js";
 
 export default async function handler(req, res) {
   try {
-    await requireAdmin(req);
+    const admin = await requireAdmin(req);
 
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -69,6 +70,14 @@ export default async function handler(req, res) {
         console.warn("Invite link generation failed", error);
       }
     }
+
+    await writePermissionAudit(supabaseAdmin, {
+      workspaceUserId: newUserId,
+      actorUserId: admin.id,
+      targetMemberId: null,
+      action: "client.created",
+      after: { email, company_name: companyName || null },
+    });
 
     return sendJson(res, 200, { userId: newUserId, email, ...(tempPassword ? { tempPassword } : {}) });
   } catch (error) {

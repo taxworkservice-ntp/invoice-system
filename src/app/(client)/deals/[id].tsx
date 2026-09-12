@@ -852,6 +852,10 @@ export default function DealDetailPage() {
 
   const handleUnlinkAllInvoices = async () => {
     if (!activeDoc || !userId) return;
+    if (!permissions.canVoidDocuments) {
+      toast.error("คุณไม่มีสิทธิ์แยกเอกสาร (ต้องมีสิทธิ์ยกเลิกเอกสาร)");
+      return;
+    }
     const billingInvoices = activeDoc.billing_invoices || [];
     const invoiceIds = billingInvoices.map((bi) => bi.invoice_id).filter(Boolean);
     if (invoiceIds.length === 0) return;
@@ -887,6 +891,10 @@ export default function DealDetailPage() {
 
   const handleUnlinkAllDeliveryNotes = async () => {
     if (!activeDoc || !userId) return;
+    if (!permissions.canVoidDocuments) {
+      toast.error("คุณไม่มีสิทธิ์แยกใบส่งของ (ต้องมีสิทธิ์ยกเลิกเอกสาร)");
+      return;
+    }
     const invoiceId = activeDoc.document.id;
 
     const { data: links, error: linkError } = await supabase
@@ -918,6 +926,10 @@ export default function DealDetailPage() {
   const handleConfirmUnlinkDeliveryNotes = async () => {
     const target = unlinkDnConfirm;
     if (!activeDoc || !userId || !target) return;
+    if (!permissions.canVoidDocuments) {
+      toast.error("คุณไม่มีสิทธิ์แยกใบส่งของ (ต้องมีสิทธิ์ยกเลิกเอกสาร)");
+      return;
+    }
     const invoiceId = activeDoc.document.id;
 
     setUnlinkingDn(true);
@@ -971,6 +983,10 @@ export default function DealDetailPage() {
 
   const handleCopyDeal = async (sourceType: DocumentType) => {
     if (!userId || !customer) return;
+    if (!permissions.canCreateEditDocuments) {
+      toast.error("คุณไม่มีสิทธิ์สร้างงานขาย");
+      return;
+    }
     const candidates = docsWithMeta
       .filter((item) => item.document.doc_type === sourceType && item.document.status !== "voided")
       .sort((a, b) => (b.document.updated_at || "").localeCompare(a.document.updated_at || ""));
@@ -1011,6 +1027,10 @@ export default function DealDetailPage() {
 
   const handleRevertDeal = async () => {
     if (!dealId || !userId) return;
+    if (!permissions.canVoidDocuments) {
+      toast.error("คุณไม่มีสิทธิ์ลบงานขาย (ต้องมีสิทธิ์ยกเลิกเอกสาร)");
+      return;
+    }
     setReverting(true);
     try {
       await revertDeal(dealId, userId);
@@ -1040,6 +1060,10 @@ export default function DealDetailPage() {
 
   const handleChangeCustomer = async (target: Customer) => {
     if (!dealId || !deal || changingCustomer) return;
+    if (!permissions.canCreateEditDocuments) {
+      toast.error("คุณไม่มีสิทธิ์เปลี่ยนลูกค้า");
+      return;
+    }
     if (target.id === deal.customer_id) {
       setCustomerPickerOpen(false);
       setPendingCustomer(null);
@@ -1080,6 +1104,10 @@ export default function DealDetailPage() {
 
   const handleSetManualStage = async (value: string) => {
     if (!dealId || stageOverrideBusy) return;
+    if (!permissions.canCreateEditDocuments) {
+      toast.error("คุณไม่มีสิทธิ์เปลี่ยนสถานะงานขาย");
+      return;
+    }
     const next = value || null;
     if ((deal?.manual_stage ?? null) === next) return;
     setStageOverrideBusy(true);

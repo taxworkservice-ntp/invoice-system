@@ -9,6 +9,7 @@ const ALL_PERMISSION_KEYS = new Set([
   "canViewCatalog",
   "canManageCatalog",
   "canCreateEditDocuments",
+  "canManagePayroll",
   "canManageWht",
   "canSendDocuments",
   "canSendQuotations",

@@ -73,3 +73,24 @@ job details; job-detail preset dropdown reopen fix (`deals/new.tsx`)._
 - Verified: `tsc` clean, `npm run build` passes.
 - Queued (not built): same sheet in invoice/DN-from-source forms via
   `source.item_id` adapters; calculator FAB dropped per owner.
+
+## History polish (same day, later)
+
+- Professional wording: chip + sheet title now `ประวัติราคาขาย`
+  (inline blue hint `เคยขายลูกค้านี้ ฿X — แตะเพื่อใช้` kept as-is).
+- Per-row deal link: `PriceHistoryRow` += `documentId` + `dealId`
+  (embed extended, verified live on WH-STORAGE rows); rows
+  restructured to sibling layout (apply button + `↗ งานขาย` anchor,
+  `target=_blank` so the unsaved DN form is never lost; no deal =
+  no link). Footer note updated.
+- Verified: `tsc` clean, `npm run build` passes.
+
+## History row final form (same day, later)
+
+- Frequency-weighted hierarchy (two-button stack rejected as heavy):
+  single filled `ใช้ราคานี้` button per row (right column, under
+  price); deal access via the doc number itself as a blue new-tab
+  link (`DN-… ↗`, plain gray text when deal-less). Row body is a
+  non-interactive div — curiosity taps harmless; dangerous direction
+  (silent apply) impossible, safe direction (stray tab) trivial.
+- Verified: `tsc` clean, `npm run build` passes.

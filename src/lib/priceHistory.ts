@@ -5,8 +5,11 @@ export interface PriceHistoryRow {
   quantity: number;
   unit: string;
   discountPercent: number;
+  documentId: string;
   docNumber: string | null;
   docType: string;
+  /** Null for documents not attached to any deal (rare). */
+  dealId: string | null;
   issueDate: string | null;
   createdAt: string;
   customerId: string | null;
@@ -35,28 +38,23 @@ export function priceHistoryDocTypeLabel(docType: string): string {
   }
 }
 
+interface RawHistoryDoc {
+  doc_number: string | null;
+  doc_type: string;
+  deal_id: string | null;
+  issue_date: string | null;
+  customer_id: string | null;
+  customers: { name: string | null } | { name: string | null }[] | null;
+}
+
 interface RawHistoryRow {
+  document_id: string;
   unit_price: number | string | null;
   quantity: number | string | null;
   unit: string | null;
   discount_percent: number | string | null;
   created_at: string;
-  documents:
-    | {
-        doc_number: string | null;
-        doc_type: string;
-        issue_date: string | null;
-        customer_id: string | null;
-        customers: { name: string | null } | { name: string | null }[] | null;
-      }
-    | Array<{
-        doc_number: string | null;
-        doc_type: string;
-        issue_date: string | null;
-        customer_id: string | null;
-        customers: { name: string | null } | { name: string | null }[] | null;
-      }>
-    | null;
+  documents: RawHistoryDoc | RawHistoryDoc[] | null;
 }
 
 /**
@@ -81,7 +79,7 @@ export async function fetchPriceHistory(
   let query = supabase
     .from("document_line_items")
     .select(
-      `unit_price, quantity, unit, discount_percent, created_at, ${DOC_HINT}!inner(doc_number, doc_type, issue_date, status, customer_id, customers(name))`,
+      `document_id, unit_price, quantity, unit, discount_percent, created_at, ${DOC_HINT}!inner(doc_number, doc_type, deal_id, issue_date, status, customer_id, customers(name))`,
     )
     .eq("user_id", userId)
     .eq("item_id", itemId)
@@ -110,8 +108,10 @@ export async function fetchPriceHistory(
         quantity: Number(row.quantity) || 0,
         unit: row.unit || "ชิ้น",
         discountPercent: Number(row.discount_percent) || 0,
+        documentId: row.document_id,
         docNumber: doc.doc_number,
         docType: doc.doc_type,
+        dealId: doc.deal_id,
         issueDate: doc.issue_date,
         createdAt: row.created_at,
         customerId: doc.customer_id,

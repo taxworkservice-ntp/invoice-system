@@ -49,9 +49,17 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "status.update": "เปลี่ยนสถานะสมาชิก",
   "member.added": "เพิ่มสมาชิกใหม่",
   "member.removed": "ลบสมาชิก",
+  "member.password-reset": "รีเซ็ตรหัสผ่านสมาชิก",
   "custom_role.created": "สร้างบทบาทกำหนดเอง",
   "custom_role.updated": "แก้ไขบทบาทกำหนดเอง",
   "custom_role.deleted": "ลบบทบาทกำหนดเอง",
+  "client.created": "สร้างลูกค้าใหม่",
+  "client.deleted": "ลบลูกค้าถาวร",
+  "password.change": "เปลี่ยนรหัสผ่านลูกค้า",
+  "login-status.change": "เปิด/ปิดการเข้าสู่ระบบ",
+  "reset-workspace": "เริ่ม workspace ใหม่",
+  "reset-documents": "ล้างเอกสารและเลขที่",
+  "reset-all": "ล้างข้อมูลทั้งหมด",
 };
 
 const PERMISSION_META = new Map(PERMISSION_GROUPS.map((group) => [group.key, group]));

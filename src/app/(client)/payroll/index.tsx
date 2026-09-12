@@ -13,6 +13,8 @@ import { TABLE } from "../../../lib/tableStyles";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
 import { useWorkspaceRole, useClientProfile } from "../../../hooks/useAuth";
+import { getWorkspacePermissions } from "../../../lib/permissions";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { getProxiedImageUrl } from "../../../lib/r2";
 import { thaiNumberToWords } from "../../../lib/thaiNumberToWords";
 import { useToast } from "../../../hooks/useToast";
@@ -159,8 +161,9 @@ export default function PayrollPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const toast = useToast();
-  const { workspaceUserId, profile } = useWorkspaceRole();
+  const { workspaceUserId, workspaceRole, workspacePermissions, profile } = useWorkspaceRole();
   const userId = workspaceUserId;
+  const canManagePayroll = getWorkspacePermissions(workspaceRole, workspacePermissions).canManagePayroll;
   const { clientProfile } = useClientProfile(profile?.id);
   const companyInfo: PayslipCompany | null = useMemo(() => {
     if (!clientProfile) return null;
@@ -1299,6 +1302,19 @@ export default function PayrollPage() {
     added: currentEmployeeIds.filter((id) => !prevEmployeeIds.includes(id)).length,
     left: prevEmployeeIds.filter((id) => !currentEmployeeIds.includes(id)).length,
   } : null;
+
+  // Defense-in-depth: route guard in App.tsx is the first gate; this blocks
+  // salary data even if the route check is ever bypassed.
+  if (!canManagePayroll) {
+    return (
+      <AppShell title="เงินเดือน">
+        <EmptyState
+          title="ไม่มีสิทธิ์เข้าถึง"
+          description="หน้านี้สำหรับผู้ที่มีสิทธิ์จัดการเงินเดือนเท่านั้น กรุณาติดต่อเจ้าของกิจการ"
+        />
+      </AppShell>
+    );
+  }
 
   if (printEmployee) {
     return <PayslipView employee={printEmployee} run={run} lineItem={getEffectiveItem(printEmployee.id)} settings={settings} company={companyInfo} onBack={() => setPrintEmployee(null)} onPrint={() => {
