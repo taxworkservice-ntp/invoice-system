@@ -332,7 +332,7 @@ export function PrintDocumentClassic({
                 <tbody>
                   <tr>
                     <th>
-                      <span className="print-classic-meta-th-th">วันที่</span>
+                      <span className="print-classic-meta-th-th">วันที่ :</span>
                       <span className="print-classic-meta-th-en">DATE</span>
                     </th>
                     <td className="print-classic-meta-val">
@@ -341,7 +341,7 @@ export function PrintDocumentClassic({
                   </tr>
                   <tr>
                     <th>
-                      <span className="print-classic-meta-th-th">เลขที่</span>
+                      <span className="print-classic-meta-th-th">เลขที่ :</span>
                       <span className="print-classic-meta-th-en">NO.</span>
                     </th>
                     <td className="print-classic-meta-val">
@@ -352,7 +352,7 @@ export function PrintDocumentClassic({
                     <tr>
                       <th>
                         <span className="print-classic-meta-th-th">
-                          ชำระครั้งที่
+                          ชำระครั้งที่ :
                         </span>
                         <span className="print-classic-meta-th-en">
                           PAYMENT NO.
@@ -367,7 +367,7 @@ export function PrintDocumentClassic({
                     <tr>
                       <th>
                         <span className="print-classic-meta-th-th">
-                          {refLabel}
+                          {refLabel} :
                         </span>
                         <span className="print-classic-meta-th-en">
                           REF. NO.
@@ -382,7 +382,7 @@ export function PrintDocumentClassic({
                     <tr>
                       <th>
                         <span className="print-classic-meta-th-th">
-                          วันครบกำหนด
+                          วันครบกำหนด :
                         </span>
                         <span className="print-classic-meta-th-en">
                           DUE DATE

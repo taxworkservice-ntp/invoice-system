@@ -3,14 +3,20 @@ import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getProxiedImageUrl } from "../../lib/storageApi";
 import {
   buildDnBlocks,
+  DN_GROUP_SPACER_MM,
   dnHeaderLabel,
   filterDnRenderLines,
   planDnRows,
 } from "../../lib/dnGroups";
+import { getRowBudgets } from "../../lib/pagination";
+import {
+  estimateLineItemHeight,
+  getBaseRowMm,
+} from "../../lib/printRowHeight";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
-import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../constants";
+import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
   BillingNoteInvoice,
@@ -316,9 +322,87 @@ export function PrintDocumentClassicV2({
     (count, line) => count + (dnRowPlanById.get(line.id)?.spacerAfter ? 1 : 0),
     0,
   );
-  const blankLineCount = isLastOrSingle
+  // Elastic filler rows: blank rows are decoration, never content. Shrink
+  // them (down to 0) to fit tall multi-line notes on one page before the
+  // paginator splits to a new page. Mirrors getPrintBatches() budgets so
+  // preview and PDF agree; falls back to the old fixed count on any error.
+  const maxBlankLines = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - (tableLines.length + groupHeaderCount + groupFooterCount + groupSpacerCount))
     : 0;
+  const blankLineCount = (() => {
+    if (!isLastOrSingle || maxBlankLines <= 0) return 0;
+    try {
+      const hideEn = clientProfile.classic_v2_hide_english_labels === true;
+      const compactSig = clientProfile.classic_v2_compact_signature === true;
+      const metaRowReserveMm = hideEn
+        ? CLASSIC_V2_META_ROW_RESERVE_MM - CLASSIC_V2_HIDE_EN_META_ROW_MM
+        : CLASSIC_V2_META_ROW_RESERVE_MM;
+      const extraReserveMm =
+        (document.doc_type === "billing_note" && document.status !== "paid"
+          ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
+          : 0) +
+        ((document.task_name ? metaRowReserveMm : 0) +
+          (document.customer_po_number ? metaRowReserveMm : 0)) *
+          headerScaleMult;
+      const metaRowCount =
+        2 +
+        (document.due_date ? 1 : 0) +
+        (document.task_name ? 1 : 0) +
+        (document.customer_po_number ? 1 : 0);
+      const hideEnBandMm = hideEn ? metaRowCount * CLASSIC_V2_HIDE_EN_META_ROW_MM : 0;
+      const hideEnTheadMm = hideEn ? CLASSIC_V2_HIDE_EN_THEAD_MM : 0;
+      const spaceBonusMm = hideEn || compactSig
+        ? {
+            first: hideEnBandMm + hideEnTheadMm + (hideEn ? CLASSIC_V2_HIDE_EN_SIG_MM : 0) + (compactSig ? CLASSIC_V2_COMPACT_SIG_MM : 0),
+            firstMulti: hideEnBandMm + hideEnTheadMm,
+            continuation: hideEnTheadMm,
+            last: hideEnBandMm + hideEnTheadMm + (hideEn ? CLASSIC_V2_HIDE_EN_SIG_MM : 0) + (compactSig ? CLASSIC_V2_COMPACT_SIG_MM : 0),
+          }
+        : undefined;
+      const budgetScales = docOverrideMult ?? {
+        header: headerScaleMult,
+        header_company: companyScaleMult,
+        header_title: titleScaleMult,
+        header_info: infoScaleMult,
+        items: itemsScaleMult,
+        num: numScaleMult,
+        thead: theadScaleMult,
+        totals: totalsScaleMult,
+        totals_net: netScaleMult,
+        payment: paymentScaleMult,
+        footer: footerScaleMult,
+      };
+      const budgets = getRowBudgets("classic_v2", budgetScales, "line_items", extraReserveMm, {
+        continuationFullHeader: fullHeaderPerPage,
+        spaceBonusMm,
+      });
+      const budget = pageMode === "last" ? budgets.last : budgets.first;
+      const hasMultiInvoiceRefs =
+        !document.vat_registered &&
+        ((receiptInvoices?.length ?? 0) > 1 || (billingNoteInvoices?.length ?? 0) > 1);
+      let usedMm = 0;
+      for (const line of tableLines) {
+        const entry = dnRowPlanById.get(line.id);
+        usedMm +=
+          estimateLineItemHeight(line, "classic_v2", {
+            fontScale: itemsScaleMult,
+            numScale: numScaleMult,
+            hideDeliveryAmounts,
+            hasLineDiscount:
+              (line.discount_amount ?? 0) > 0 || (line.discount_percent ?? 0) > 0,
+            hasInlineDnRef: false,
+            hasDnGroupBand: !!entry && (entry.header !== null || entry.footerAfter !== null),
+            hasLineImage: document.doc_type === "quotation" && !!line.image_url,
+            hasInvoiceRef: hasMultiInvoiceRefs && !!invoiceNumberMap[line.document_id],
+          }) + (entry?.spacerAfter ? DN_GROUP_SPACER_MM : 0);
+      }
+      const blankRowMm = Math.max(1, getBaseRowMm("classic_v2", itemsScaleMult));
+      const fit = Math.floor((budget - usedMm) / blankRowMm + 1e-6);
+      return Math.max(0, Math.min(maxBlankLines, fit));
+    } catch {
+      return maxBlankLines;
+    }
+  })();
   const billingBlankCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - billingRows.length)
     : 0;
@@ -508,7 +592,7 @@ export function PrintDocumentClassicV2({
                 <tbody>
                   <tr>
                     <th>
-                      <span className="print-classic-meta-th-th">วันที่</span>
+                      <span className="print-classic-meta-th-th">วันที่ :</span>
                       <span className="print-classic-meta-th-en">DATE</span>
                     </th>
                     <td className="print-classic-meta-val">
@@ -517,7 +601,7 @@ export function PrintDocumentClassicV2({
                   </tr>
                   <tr>
                     <th>
-                      <span className="print-classic-meta-th-th">เลขที่</span>
+                      <span className="print-classic-meta-th-th">เลขที่ :</span>
                       <span className="print-classic-meta-th-en">NO.</span>
                     </th>
                     <td className="print-classic-meta-val">
@@ -527,7 +611,7 @@ export function PrintDocumentClassicV2({
                   {document.customer_po_number ? (
                     <tr>
                       <th>
-                        <span className="print-classic-meta-th-th">เลขที่ใบสั่งซื้อ</span>
+                        <span className="print-classic-meta-th-th">เลขที่ใบสั่งซื้อ :</span>
                         <span className="print-classic-meta-th-en">PO NO.</span>
                       </th>
                       <td className="print-classic-meta-val">{document.customer_po_number}</td>
@@ -537,7 +621,7 @@ export function PrintDocumentClassicV2({
                     <tr>
                       <th>
                         <span className="print-classic-meta-th-th">
-                          ชำระครั้งที่
+                          ชำระครั้งที่ :
                         </span>
                         <span className="print-classic-meta-th-en">
                           PAYMENT NO.
@@ -552,7 +636,7 @@ export function PrintDocumentClassicV2({
                     <tr>
                       <th>
                         <span className="print-classic-meta-th-th">
-                          {refLabel}
+                          {refLabel} :
                         </span>
                         <span className="print-classic-meta-th-en">
                           REF. NO.
@@ -567,7 +651,7 @@ export function PrintDocumentClassicV2({
                     <tr>
                       <th>
                         <span className="print-classic-meta-th-th">
-                          วันครบกำหนด
+                          วันครบกำหนด :
                         </span>
                         <span className="print-classic-meta-th-en">
                           DUE DATE
@@ -581,7 +665,7 @@ export function PrintDocumentClassicV2({
                   {document.task_name ? (
                     <tr>
                       <th>
-                        <span className="print-classic-meta-th-th">ชื่อโครงการ</span>
+                        <span className="print-classic-meta-th-th">ชื่อโครงการ :</span>
                         <span className="print-classic-meta-th-en">PROJECT</span>
                       </th>
                       <td className="print-classic-meta-val">{document.task_name}</td>

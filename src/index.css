@@ -1167,6 +1167,21 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-dn-note { font-weight: 400; }
 /* meta values regular like the customer panel — Thai labels stay semibold */
 .print-theme-classic-v2 .print-classic-meta-val { font-weight: 400; }
+/* V2 info band: customer 60 : document 40 — the text-heavy customer side
+   gets room for long addresses; the meta label column narrows slightly so
+   Thai labels (e.g. เลขที่ใบสั่งซื้อ :) keep single-line room. V2-only;
+   Classic V1 keeps the 50:50 default. */
+.print-theme-classic-v2 .print-classic-info-band {
+  grid-template-columns: 3fr 2fr;
+}
+/* V2 customer labels: 22mm wraps เลขที่ผู้เสียภาษี : to 2 lines; 25mm
+   holds it on one line (funded by the wider 60% panel). V2-only. */
+.print-theme-classic-v2 .print-classic-customer-row {
+  grid-template-columns: 25mm 1fr;
+}
+.print-theme-classic-v2 .print-classic-meta-table th {
+  width: 40%;
+}
 /* colored accents stay colored, just darker */
 .print-theme-classic-v2 .print-classic-discount-note { color: #92400e; }
 .print-theme-classic-v2 .print-classic-payment-status,
