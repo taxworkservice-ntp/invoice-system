@@ -747,7 +747,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                         className="h-3.5 w-3.5 rounded border-[#D7DEE7] text-primary focus:ring-primary"
                       />
                       <span className={`text-xs font-medium ${line.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
-                        {line.price_confirmed ? "ยืนยันราคาแล้ว" : "แตะเพื่อยืนยันราคาของรายการนี้"}
+                        {line.price_confirmed ? "ยืนยันราคาแล้ว" : "กรุณายืนยันราคา"}
                       </span>
                       {!line.price_confirmed && (
                         <span className="rounded bg-amber-100 px-1 py-px text-[10px] font-semibold text-amber-700">รอตรวจ</span>

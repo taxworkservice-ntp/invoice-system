@@ -2312,7 +2312,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                             className="h-3.5 w-3.5 rounded border-[#D7DEE7] text-primary focus:ring-primary"
                           />
                           <span className={`text-[11px] font-medium ${item.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
-                            {item.price_confirmed ? "ยืนยันราคาแล้ว" : "แตะเพื่อยืนยันราคา"}
+                            {item.price_confirmed ? "ยืนยันราคาแล้ว" : "กรุณายืนยันราคา"}
                           </span>
                         </label>
                       )}
