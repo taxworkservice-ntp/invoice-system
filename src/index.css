@@ -1165,6 +1165,8 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-item-note,
 .print-theme-classic-v2 .print-classic-discount-note,
 .print-theme-classic-v2 .print-classic-dn-note { font-weight: 400; }
+/* meta values regular like the customer panel — Thai labels stay semibold */
+.print-theme-classic-v2 .print-classic-meta-val { font-weight: 400; }
 /* colored accents stay colored, just darker */
 .print-theme-classic-v2 .print-classic-discount-note { color: #92400e; }
 .print-theme-classic-v2 .print-classic-payment-status,
