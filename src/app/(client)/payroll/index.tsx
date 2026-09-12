@@ -24,6 +24,9 @@ import { buildRunSummaryWorkbook, buildBankPaymentWorkbook, buildWhtWorkbook, wo
 import { buildPayslipSlipNode, type PayslipCompany } from "../../../lib/payroll/payslipPdf";
 import { slipNodeToPdfBlob, sanitizePdfFilename } from "../../../lib/payroll/payslipPdfRender";
 import { formatPayRangeLabel, suggestNextWindow, BATCH_TYPE_LABELS, expectedSalaryBatches, type BatchType } from "../../../lib/payroll/schedule";
+import { AttendancePanel } from "../../../components/payroll/AttendancePanel";
+import { suggestOtWindow } from "../../../lib/payroll/attendance";
+import { PAY_ITEM_KINDS } from "../../../lib/payroll/payItems";
 import { applyRecurringTemplates, type RecurringTemplate } from "../../../lib/payroll/recurring";
 import { syncRunToWht, cleanupRunWht, type WhtSyncResult } from "../../../lib/payroll/whtSync";
 import type { Employee, PayrollRun, PayrollLineItem, OtEntry } from "../../../types";
@@ -256,17 +259,20 @@ export default function PayrollPage() {
   const [recurringByEmployee, setRecurringByEmployee] = useState<Map<string, RecurringTemplate[]>>(new Map());
   const [historyRuns, setHistoryRuns] = useState<PayrollRun[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState({ start: "", end: "", label: "", pay_date: "", batch_type: "salary" as BatchType });
+  const [createForm, setCreateForm] = useState({ start: "", end: "", label: "", pay_date: "", batch_type: "salary" as BatchType, ot_start: "", ot_end: "" });
   const [creating, setCreating] = useState(false);
   const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
   const [deletingRun, setDeletingRun] = useState(false);
   const [showEditRunModal, setShowEditRunModal] = useState(false);
-  const [editForm, setEditForm] = useState({ start: "", end: "", label: "", pay_date: "", batch_type: "salary" as BatchType });
+  const [editForm, setEditForm] = useState({ start: "", end: "", label: "", pay_date: "", batch_type: "salary" as BatchType, ot_start: "", ot_end: "" });
   const [editingRun, setEditingRun] = useState(false);
   const [schemaOutdated, setSchemaOutdated] = useState(false);
   // Pre-migration fallback: batch_type / ot_batches_per_month columns missing —
   // page works in legacy single-batch mode until the migration is applied.
   const [supportsBatchType, setSupportsBatchType] = useState(true);
+  // Professional defaults (HumanSoft-inspired, optional columns — fallback to 0 pre-migration).
+  const [otCutoffDays, setOtCutoffDays] = useState(0);
+  const [paidLeaveDaysPerYear, setPaidLeaveDaysPerYear] = useState(0);
   const [whtSync, setWhtSync] = useState<WhtSyncResult | null>(null);
   const [syncingWht, setSyncingWht] = useState(false);
   // Selective WHT sync: manual by default, user picks who gets synced (tax > 0 pre-checked).
@@ -356,6 +362,7 @@ export default function PayrollPage() {
     ]);
 
     if (settingsData) {
+      const sd = settingsData as Record<string, unknown>;
       setSettings({
         ot_divisor: settingsData.ot_divisor,
         normal_ot_multiplier: settingsData.normal_ot_multiplier,
@@ -369,6 +376,8 @@ export default function PayrollPage() {
         pay_cycle_len_days: settingsData.pay_cycle_len_days,
         ot_batches_per_month: settingsData.ot_batches_per_month ?? 0,
       });
+      setOtCutoffDays(Number(sd.ot_cutoff_days) || 0);
+      setPaidLeaveDaysPerYear(Number(sd.paid_leave_days_per_year) || 0);
     }
 
     const list = (runsData ?? []) as PayrollRun[];
@@ -591,12 +600,15 @@ export default function PayrollPage() {
     // With runs in the viewed month: chain after the latest one; fresh month: first window of that month
     const latestEnd = runs.length > 0 ? runs.reduce<string | null>((acc, r) => (!acc || r.period_end > acc ? r.period_end : acc), null) : null;
     const win = suggestNextWindow(freq, cycleOpts, latestEnd, latestEnd ? null : { year, month });
+    const otWin = otCutoffDays > 0 ? suggestOtWindow(win.start, win.end, otCutoffDays) : null;
     setCreateForm({
       start: win.start,
       end: win.end,
       label: formatPayRangeLabel(win),
       pay_date: win.end,
       batch_type: "salary",
+      ot_start: otWin?.ot_start ?? "",
+      ot_end: otWin?.ot_end ?? "",
     });
     setShowCreateModal(true);
   }
@@ -621,21 +633,39 @@ export default function PayrollPage() {
     const endYear = Number(end.slice(0, 4));
 
     setCreating(true);
-    const { data, error } = await supabase
+    const otStart = createForm.ot_start.trim() || null;
+    const otEnd = createForm.ot_end.trim() || null;
+    if ((otStart && !otEnd) || (!otStart && otEnd)) {
+      toast.error("กรุณากรอกช่วง OT ให้ครบทั้งเริ่มและสิ้นสุด หรือเว้นว่างทั้งคู่");
+      setCreating(false);
+      return;
+    }
+    if (otStart && otEnd && otStart > otEnd) {
+      toast.error("วันเริ่ม OT ต้องไม่หลังวันสิ้นสุด OT");
+      setCreating(false);
+      return;
+    }
+    const basePayload: Record<string, unknown> = {
+      user_id: userId,
+      period_month: endMonth,
+      period_year: endYear,
+      period_start: start,
+      period_end: end,
+      label: createForm.label.trim() || formatPayRangeLabel({ start, end }),
+      pay_date: createForm.pay_date,
+      status: "draft",
+      ...(supportsBatchType ? { batch_type: createForm.batch_type } : {}),
+    };
+    // ot_start/ot_end requires the attendance-pro migration — retry without on 42703.
+    const withOt = { ...basePayload, ...(otStart && otEnd ? { ot_start: otStart, ot_end: otEnd } : {}) };
+    let { data, error } = await supabase
       .from("payroll_runs")
-      .insert({
-        user_id: userId,
-        period_month: endMonth,
-        period_year: endYear,
-        period_start: start,
-        period_end: end,
-        label: createForm.label.trim() || formatPayRangeLabel({ start, end }),
-        pay_date: createForm.pay_date,
-        status: "draft",
-        ...(supportsBatchType ? { batch_type: createForm.batch_type } : {}),
-      })
+      .insert(withOt)
       .select("*")
       .single();
+    if (error?.code === "42703" && (otStart || otEnd)) {
+      ({ data, error } = await supabase.from("payroll_runs").insert(basePayload).select("*").single());
+    }
 
     if (error) {
       // 23P01 = exclusion_violation from payroll_runs_no_overlap
@@ -657,12 +687,15 @@ export default function PayrollPage() {
 
   function openEditRunModal() {
     if (!run || run.status !== "draft") return;
+    const rr = run as PayrollRun & { ot_start?: string | null; ot_end?: string | null };
     setEditForm({
       start: run.period_start,
       end: run.period_end,
       label: run.label ?? formatPayRangeLabel({ start: run.period_start, end: run.period_end }),
       pay_date: run.pay_date,
       batch_type: run.batch_type ?? "salary",
+      ot_start: rr.ot_start ?? "",
+      ot_end: rr.ot_end ?? "",
     });
     setShowEditRunModal(true);
   }
@@ -684,13 +717,26 @@ export default function PayrollPage() {
 
     setEditingRun(true);
     const canChangeRange = lineItems.size === 0;
+    const otStart = editForm.ot_start.trim() || null;
+    const otEnd = editForm.ot_end.trim() || null;
+    if ((otStart && !otEnd) || (!otStart && otEnd)) {
+      toast.error("กรุณากรอกช่วง OT ให้ครบทั้งเริ่มและสิ้นสุด หรือเว้นว่างทั้งคู่");
+      setEditingRun(false);
+      return;
+    }
     const payload: Record<string, unknown> = {
       label: editForm.label.trim() || formatPayRangeLabel({ start, end }),
       pay_date: editForm.pay_date,
       ...(supportsBatchType ? { batch_type: editForm.batch_type } : {}),
+      ...(otStart && otEnd ? { ot_start: otStart, ot_end: otEnd } : { ot_start: null, ot_end: null }),
       ...(canChangeRange ? { period_start: start, period_end: end } : {}),
     };
-    const { error } = await supabase.from("payroll_runs").update(payload).eq("id", run.id).eq("user_id", userId);
+    let { error } = await supabase.from("payroll_runs").update(payload).eq("id", run.id).eq("user_id", userId);
+    // Pre-migration fallback: ot_start/ot_end columns missing.
+    if (error?.code === "42703") {
+      const { ot_start: _o1, ot_end: _o2, ...legacy } = payload;
+      ({ error } = await supabase.from("payroll_runs").update(legacy).eq("id", run.id).eq("user_id", userId));
+    }
 
     if (error) {
       toast.error(error.code === "23P01" ? "ช่วงรอบนี้ทับซ้อนกับรอบอื่นแล้ว" : "บันทึกไม่สำเร็จ");
@@ -1195,6 +1241,27 @@ export default function PayrollPage() {
     toast.success(`คัดลอกข้อมูล ${copied} คนจากรอบก่อนหน้า`);
     setCopyPreview(null);
     setCopyingPrevious(false);
+    await fetchRunDetails();
+  }
+
+  /** Attendance import apply: merge summarized days into stored line items. */
+  async function handleApplyAttendance(updates: { employee_id: string; days_worked: number | null; absent_days: number }[]) {
+    if (!run || updates.length === 0) return;
+    let okCount = 0;
+    for (const u of updates) {
+      const base = getLineItem(u.employee_id);
+      const merged: PayrollLineItem = { ...base };
+      // Daily staff: present days drive base pay. Monthly: absent days drive deduction.
+      const emp = employees.find((e) => e.id === u.employee_id);
+      if (emp?.salary_type === "daily") {
+        if (u.days_worked !== null) merged.days_worked = u.days_worked;
+      } else {
+        merged.absent_days = u.absent_days > 0 ? u.absent_days : null;
+      }
+      const ok = await handleSaveLineItem(u.employee_id, merged);
+      if (ok) okCount++;
+    }
+    toast.success(okCount > 0 ? `กรอกเวลาให้ ${okCount} คนแล้ว — ตรวจสอบแล้วยืนยันแต่ละแถว` : "กรอกเวลาไม่สำเร็จ");
     await fetchRunDetails();
   }
 
@@ -1709,6 +1776,26 @@ export default function PayrollPage() {
               </div>
             )}
 
+            {run.status === "draft" && employees.length > 0 && (() => {
+              const rr = run as PayrollRun & { ot_start?: string | null; ot_end?: string | null };
+              const derivedOt = (rr.ot_start && rr.ot_end)
+                ? { ot_start: rr.ot_start, ot_end: rr.ot_end }
+                : otCutoffDays > 0 ? suggestOtWindow(run.period_start, run.period_end, otCutoffDays) : null;
+              return (
+                <AttendancePanel
+                  employees={employees}
+                  run={{
+                    period_start: run.period_start,
+                    period_end: run.period_end,
+                    ot_start: derivedOt?.ot_start ?? rr.ot_start ?? null,
+                    ot_end: derivedOt?.ot_end ?? rr.ot_end ?? null,
+                  }}
+                  paidLeaveDaysPerYear={paidLeaveDaysPerYear}
+                  onApply={handleApplyAttendance}
+                />
+              );
+            })()}
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <SummaryCard icon={<Users className="w-4 h-4" />} label="พนักงาน" value={`${employees.length} คน`} />
               <SummaryCard icon={<Wallet className="w-4 h-4" />} label="ค่าแรงรวม" value={`฿${formatCurrency(totals.gross)}`} />
@@ -1960,6 +2047,21 @@ export default function PayrollPage() {
             value={createForm.pay_date}
             onChange={(e) => setCreateForm((f) => ({ ...f, pay_date: e.target.value }))}
           />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="OT เริ่ม (ถ้าแยกตัดรอบ)"
+              type="date"
+              value={createForm.ot_start}
+              onChange={(e) => setCreateForm((f) => ({ ...f, ot_start: e.target.value }))}
+            />
+            <Input
+              label="OT สิ้นสุด (ถ้าแยกตัดรอบ)"
+              type="date"
+              value={createForm.ot_end}
+              onChange={(e) => setCreateForm((f) => ({ ...f, ot_end: e.target.value }))}
+            />
+          </div>
+          <p className="-mt-2 text-[11px] text-cool-400">เว้นว่าง = OT ตามรอบเงินเดือน · ตั้งค่าเริ่มต้นที่ ตั้งค่า &gt; เงินเดือน &gt; OT ตัดรอบก่อนเงินเดือน</p>
           {supportsBatchType && (
             <Select
               label="ประเภทการจ่าย"
@@ -2044,6 +2146,20 @@ export default function PayrollPage() {
             value={editForm.pay_date}
             onChange={(e) => setEditForm((f) => ({ ...f, pay_date: e.target.value }))}
           />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="OT เริ่ม (ถ้าแยกตัดรอบ)"
+              type="date"
+              value={editForm.ot_start}
+              onChange={(e) => setEditForm((f) => ({ ...f, ot_start: e.target.value }))}
+            />
+            <Input
+              label="OT สิ้นสุด (ถ้าแยกตัดรอบ)"
+              type="date"
+              value={editForm.ot_end}
+              onChange={(e) => setEditForm((f) => ({ ...f, ot_end: e.target.value }))}
+            />
+          </div>
           {supportsBatchType && (
             <Select
               label="ประเภทการจ่าย"
@@ -2781,7 +2897,7 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
   }
 
   function addAddition() {
-    updateLocal({ additions: [...localItem.additions, { label: "", amount: 0 }] });
+    updateLocal({ additions: [...localItem.additions, { label: "", amount: 0, kind: "allowance" }] });
   }
 
   function removeAddition(index: number) {
@@ -2790,14 +2906,14 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
     updateLocal({ additions: add });
   }
 
-  function updateAddition(index: number, field: "label" | "amount", value: string | number) {
+  function updateAddition(index: number, field: "label" | "amount" | "kind", value: string | number) {
     const add = [...localItem.additions];
     add[index] = { ...add[index], [field]: value };
     updateLocal({ additions: add });
   }
 
   function addDeduction() {
-    updateLocal({ deductions: [...localItem.deductions, { label: "", amount: 0 }] });
+    updateLocal({ deductions: [...localItem.deductions, { label: "", amount: 0, kind: "advance" }] });
   }
 
   function removeDeduction(index: number) {
@@ -2806,7 +2922,7 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
     updateLocal({ deductions: ded });
   }
 
-  function updateDeduction(index: number, field: "label" | "amount", value: string | number) {
+  function updateDeduction(index: number, field: "label" | "amount" | "kind", value: string | number) {
     const ded = [...localItem.deductions];
     ded[index] = { ...ded[index], [field]: value };
     updateLocal({ deductions: ded });
@@ -3022,10 +3138,10 @@ interface EditableSectionsProps {
   updateOT: (index: number, field: keyof OtEntry, value: string | number) => void;
   addAddition: () => void;
   removeAddition: (index: number) => void;
-  updateAddition: (index: number, field: "label" | "amount", value: string | number) => void;
+  updateAddition: (index: number, field: "label" | "amount" | "kind", value: string | number) => void;
   addDeduction: () => void;
   removeDeduction: (index: number) => void;
-  updateDeduction: (index: number, field: "label" | "amount", value: string | number) => void;
+  updateDeduction: (index: number, field: "label" | "amount" | "kind", value: string | number) => void;
 }
 
 function PayrollEditableSections({
@@ -3137,6 +3253,17 @@ function PayrollEditableSections({
             <div className="space-y-2">
               {localItem.additions.map((add, i) => (
                 <div key={i} className="flex items-center gap-2">
+                  <Select
+                    value={(add as { kind?: string | null }).kind ?? "allowance"}
+                    onChange={(e) => updateAddition(i, "kind", e.target.value)}
+                    className="w-[118px] shrink-0 !h-8 !text-[11px]"
+                    disabled={readOnly}
+                    aria-label="ประเภทเงินเพิ่ม"
+                  >
+                    {PAY_ITEM_KINDS.filter((k) => k.direction === "addition").map((k) => (
+                      <option key={k.kind} value={k.kind}>{k.label}</option>
+                    ))}
+                  </Select>
                   <Input
                     value={add.label}
                     onChange={(e) => updateAddition(i, "label", e.target.value)}
@@ -3150,7 +3277,7 @@ function PayrollEditableSections({
                     value={add.amount ?? ""}
                     onChange={(e) => updateAddition(i, "amount", parseFloat(e.target.value) || 0)}
                     placeholder="฿"
-                    className="w-[100px] !h-8 !text-[11px]"
+                    className="w-[88px] !h-8 !text-[11px]"
                     disabled={readOnly}
                   />
                   {!readOnly && (
@@ -3185,6 +3312,17 @@ function PayrollEditableSections({
             <div className="space-y-2">
               {localItem.deductions.map((ded, i) => (
                 <div key={i} className="flex items-center gap-2">
+                  <Select
+                    value={(ded as { kind?: string | null }).kind ?? "advance"}
+                    onChange={(e) => updateDeduction(i, "kind", e.target.value)}
+                    className="w-[118px] shrink-0 !h-8 !text-[11px]"
+                    disabled={readOnly}
+                    aria-label="ประเภทเงินหัก"
+                  >
+                    {PAY_ITEM_KINDS.filter((k) => k.direction === "deduction").map((k) => (
+                      <option key={k.kind} value={k.kind}>{k.label}</option>
+                    ))}
+                  </Select>
                   <Input
                     value={ded.label}
                     onChange={(e) => updateDeduction(i, "label", e.target.value)}
@@ -3198,7 +3336,7 @@ function PayrollEditableSections({
                     value={ded.amount ?? ""}
                     onChange={(e) => updateDeduction(i, "amount", parseFloat(e.target.value) || 0)}
                     placeholder="฿"
-                    className="w-[100px] !h-8 !text-[11px]"
+                    className="w-[88px] !h-8 !text-[11px]"
                     disabled={readOnly}
                   />
                   {!readOnly && (

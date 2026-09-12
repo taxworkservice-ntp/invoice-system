@@ -553,6 +553,9 @@ export interface PayrollRun {
   pay_date: string;
   status: "draft" | "finalized";
   batch_type: PayrollBatchType;
+  /** Independent OT cut-off window (HumanSoft "งวดโอที"). Null = follows salary period. */
+  ot_start: string | null;
+  ot_end: string | null;
   revision: number;
   finalized_at: string | null;
   finalized_by: string | null;
@@ -574,11 +577,15 @@ export interface OtEntry {
 export interface PayrollAddition {
   label: string;
   amount: number;
+  /** Typed category (HumanSoft-style income taxonomy). Null = legacy free-text row. */
+  kind?: string | null;
 }
 
 export interface PayrollDeduction {
   label: string;
   amount: number;
+  /** Typed category (advance / loan / fund / welfare …). Null = legacy free-text row. */
+  kind?: string | null;
 }
 
 export interface PayrollLineItem {
@@ -625,5 +632,9 @@ export interface ClientPayrollSettings {
   pay_cycle_len_days: number | null;
   /** Expected OT disbursements per month (0 = ad-hoc). Salary expectation derives from pay_frequency. */
   ot_batches_per_month: number;
+  /** OT cut-off: days before salary period end that OT earning stops (0 = same as salary). */
+  ot_cutoff_days: number | null;
+  /** Default paid leave days per year applied when attendance import marks leave. */
+  paid_leave_days_per_year: number | null;
   updated_at: string;
 }

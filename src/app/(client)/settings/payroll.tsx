@@ -44,6 +44,8 @@ export default function SettingsPayrollPage() {
   const [payAnchorDay, setPayAnchorDay] = useState("1");
   const [payCycleLenDays, setPayCycleLenDays] = useState("");
   const [otBatchesPerMonth, setOtBatchesPerMonth] = useState("0");
+  const [otCutoffDays, setOtCutoffDays] = useState("0");
+  const [paidLeavePerYear, setPaidLeavePerYear] = useState("0");
 
   // Mini-calculator state (unsaved values preview)
   const [calcBase, setCalcBase] = useState("15000");
@@ -71,6 +73,8 @@ export default function SettingsPayrollPage() {
           setPayAnchorDay(String(s.pay_anchor_day ?? 1));
           setPayCycleLenDays(s.pay_cycle_len_days != null ? String(s.pay_cycle_len_days) : "");
           setOtBatchesPerMonth(String(s.ot_batches_per_month ?? 0));
+          setOtCutoffDays(String((s as { ot_cutoff_days?: number | null }).ot_cutoff_days ?? 0));
+          setPaidLeavePerYear(String((s as { paid_leave_days_per_year?: number | null }).paid_leave_days_per_year ?? 0));
         }
         setLoading(false);
       });
@@ -125,13 +129,15 @@ export default function SettingsPayrollPage() {
       pay_anchor_day: parseInt(payAnchorDay) || 1,
       pay_cycle_len_days: payCycleLenDays.trim() === "" ? null : parseInt(payCycleLenDays) || null,
       ot_batches_per_month: Math.max(0, parseInt(otBatchesPerMonth) || 0),
+      ot_cutoff_days: Math.max(0, Math.min(28, parseInt(otCutoffDays) || 0)),
+      paid_leave_days_per_year: Math.max(0, parseInt(paidLeavePerYear) || 0),
     };
-    // Pre-migration fallback: ot_batches_per_month column may not exist yet.
+    // Pre-migration fallback: new columns may not exist yet — retry without them.
     let { error } = await supabase
       .from("client_payroll_settings")
       .upsert(payload, { onConflict: "user_id" });
     if (error?.code === "42703") {
-      const { ot_batches_per_month: _omit, ...legacy } = payload;
+      const { ot_batches_per_month: _omit, ot_cutoff_days: _omit2, paid_leave_days_per_year: _omit3, ...legacy } = payload;
       ({ error } = await supabase.from("client_payroll_settings").upsert(legacy, { onConflict: "user_id" }));
     }
 
@@ -265,6 +271,24 @@ export default function SettingsPayrollPage() {
                 max="31"
                 value={otBatchesPerMonth}
                 onChange={(e) => setOtBatchesPerMonth(e.target.value)}
+                placeholder="0"
+              />
+              <Input
+                label="OT ตัดรอบก่อนเงินเดือน (วัน)"
+                type="number"
+                min="0"
+                max="28"
+                value={otCutoffDays}
+                onChange={(e) => setOtCutoffDays(e.target.value)}
+                placeholder="0"
+              />
+              <Input
+                label="ลามีจ่ายต่อปี (วัน)"
+                type="number"
+                min="0"
+                max="365"
+                value={paidLeavePerYear}
+                onChange={(e) => setPaidLeavePerYear(e.target.value)}
                 placeholder="0"
               />
             </div>
