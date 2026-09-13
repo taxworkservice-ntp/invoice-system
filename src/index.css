@@ -257,28 +257,31 @@ body.print-export-document #root {
   min-width: 28mm;
   border-bottom: 0.5pt dotted #9ca3af;
 }
-/* Signature/stamp chop: the last-page signature line (print-classic-sig-line
-   with sig-img + sig-stamp) rendered at 85% — identical overlap geometry and
-   scale-setting behavior, simply smaller. The scaler uses transform (no
-   layout effect) inside an out-of-flow, bottom-anchored box, so the strip's
-   layout footprint stays within CLASSIC_V2_SIG_STRIP_MM while the art floats
-   into the CONTINUED divider's former blank zone (suppressed with the strip).
-   Dotted fallback and toggle behavior unchanged. */
+/* Per-page signature chop: the images float above the strip, centered like
+   the last page and out of flow — zero layout footprint, so the strip row
+   stays within CLASSIC_V2_SIG_STRIP_MM with no pagination impact. */
 .print-classic-initials-chop {
   position: absolute;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 64mm;
+  display: flex;
+  align-items: flex-end;
   pointer-events: none;
 }
-.print-classic-initials-scale {
-  display: block;
-  transform: scale(0.85);
-  transform-origin: bottom center;
+.print-classic-initials-sig {
+  height: 10mm;
+  width: auto;
+  max-width: 56mm;
+  object-fit: contain;
 }
-.print-classic-initials-scale .print-classic-sig-line {
-  width: 100%;
+.print-classic-initials-stamp {
+  height: 12mm;
+  width: auto;
+  max-width: 28mm;
+  object-fit: contain;
+  margin-left: -6mm;
+  margin-bottom: -0.5mm;
 }
 
 .print-theme-modern {

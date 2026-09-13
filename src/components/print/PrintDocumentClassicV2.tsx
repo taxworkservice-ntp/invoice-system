@@ -1357,10 +1357,7 @@ export function PrintDocumentClassicV2({
         </div>
       </section>
 
-      {/* The initials strip carries หน้า x/y + company, subsuming this
-          divider's continuity job — so the strip's overflow art lands on
-          guaranteed-blank space, never on table rows. */}
-      {!showInitialsStrip && lineItems.length > 0 && pageMode !== "single" && pageMode !== "last" && (
+      {lineItems.length > 0 && pageMode !== "single" && pageMode !== "last" && (
         <div
           className="mt-1.5 text-center text-[#94a3b8] tracking-[0.08em] border-b-[0.5px] border-[#D3DAE6] pb-1"
           style={{ fontSize: "calc(8.5px * var(--classic-fs-items, 1))" }}
@@ -1479,35 +1476,29 @@ export function PrintDocumentClassicV2({
           <span className="print-classic-initials-sign">
             {signatureUrl || stampUrl ? (
               <span className="print-classic-initials-chop">
-                <span className="print-classic-initials-scale">
-                  <span className="print-classic-sig-line">
-                    {signatureUrl ? (
-                      <img
-                        src={signatureUrl}
-                        alt=""
-                        className="print-classic-sig-img"
-                        style={{ height: `${(12 * signatureScaleMult).toFixed(1)}mm` }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : null}
-                    {stampUrl ? (
-                      <img
-                        src={stampUrl}
-                        alt=""
-                        className="print-classic-sig-stamp"
-                        style={{ height: `${(18 * stampScaleMult).toFixed(1)}mm` }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : null}
-                  </span>
-                </span>
+                {signatureUrl ? (
+                  <img
+                    src={signatureUrl}
+                    alt=""
+                    className="print-classic-initials-sig"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : null}
+                {stampUrl ? (
+                  <img
+                    src={stampUrl}
+                    alt=""
+                    className="print-classic-initials-stamp"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : null}
               </span>
             ) : (
               <>
                 ลงชื่อ&nbsp;<span className="print-classic-initials-fill" />
+                &nbsp;ผู้มีอำนาจลงนาม
               </>
             )}
-            &nbsp;ผู้มีอำนาจลงนาม
           </span>
           <span className="print-classic-initials-page">หน้า&nbsp;{pageIndex}/{totalPages}</span>
         </div>
