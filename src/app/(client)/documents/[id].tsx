@@ -283,6 +283,7 @@ export default function DocumentDetailPage() {
                 carton_unit: lineItem.carton_unit,
                 source_document_id: lineItem.source_document_id,
                 source_line_item_id: lineItem.source_line_item_id,
+                source_section: (lineItem as { source_section?: number | null }).source_section ?? null,
                 line_total: lineItem.line_total,
                 image_url: lineItem.image_url || null,
                 sort_order: index,

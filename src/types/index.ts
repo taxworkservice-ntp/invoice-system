@@ -129,6 +129,8 @@ export interface ClientProfile {
   classic_v2_compact_signature?: boolean;
   /** Classic V2: print a signature-initials strip at the bottom of every non-final page (default off). */
   classic_v2_sign_every_page?: boolean;
+  /** Classic V2: render item-table text (headers, amounts, group labels) in regular weight (default off). */
+  classic_v2_regular_item_font?: boolean;
   show_signature_on_wht: boolean;
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;
@@ -431,6 +433,10 @@ export interface DocumentLineItem {
   carton_unit: string | null;
   source_document_id: string | null;
   source_line_item_id: string | null;
+  /** Frozen DN section index (0-based among marker-led runs, null = ungrouped).
+   * Set on invoice lines at billing time; the invoice prints one group per
+   * section. Null keeps the legacy single-group path. */
+  source_section?: number | null;
   source_delivered_qty: number | null;
   source_unit_price: number | null;
   /** Optional per-line example photo (R2 proxied URL) — printed on classic V2 quotations. */

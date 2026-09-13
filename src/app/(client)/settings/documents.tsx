@@ -241,6 +241,7 @@ export default function SettingsDocumentsPage() {
   const [classicV2HideEnglishLabels, setClassicV2HideEnglishLabels] = useState(false);
   const [classicV2CompactSignature, setClassicV2CompactSignature] = useState(false);
   const [classicV2SignEveryPage, setClassicV2SignEveryPage] = useState(false);
+  const [classicV2RegularItemFont, setClassicV2RegularItemFont] = useState(false);
   const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>(
     CLASSIC_V2_DEFAULT_SECTION_SCALES,
   );
@@ -283,6 +284,7 @@ export default function SettingsDocumentsPage() {
     setClassicV2HideEnglishLabels(clientProfile.classic_v2_hide_english_labels === true);
     setClassicV2CompactSignature(clientProfile.classic_v2_compact_signature === true);
     setClassicV2SignEveryPage(clientProfile.classic_v2_sign_every_page === true);
+    setClassicV2RegularItemFont(clientProfile.classic_v2_regular_item_font === true);
     setSignatureKey(clientProfile.signature_url || null);
     setStampKey(clientProfile.stamp_url || null);
     setSignatureScale(clientProfile.signature_scale || "medium");
@@ -351,6 +353,7 @@ export default function SettingsDocumentsPage() {
       classic_v2_hide_english_labels: classicV2HideEnglishLabels,
       classic_v2_compact_signature: classicV2CompactSignature,
       classic_v2_sign_every_page: classicV2SignEveryPage,
+      classic_v2_regular_item_font: classicV2RegularItemFont,
       classic_v2_font_scale: classicV2FontScale,
       classic_v2_section_font_scales: classicV2SectionScales,
       classic_v2_type_font_scales: Object.fromEntries(
@@ -380,16 +383,17 @@ export default function SettingsDocumentsPage() {
       .update(payload)
       .eq("user_id", profile.id);
 
-    if (err && err.message.includes("price_deviation_warn_pct")) {
-      // Migration sql/add_price_deviation_warn_pct.sql not applied yet —
-      // save everything else so the page never breaks on schema lag.
-      const { price_deviation_warn_pct: _pending, ...fallbackPayload } = payload;
+    if (err && (err.message.includes("price_deviation_warn_pct") || err.message.includes("classic_v2_regular_item_font"))) {
+      // Migration sql/add_price_deviation_warn_pct.sql or
+      // sql/add_classic_v2_regular_item_font.sql not applied yet — save
+      // everything else so the page never breaks on schema lag.
+      const { price_deviation_warn_pct: _pending, classic_v2_regular_item_font: _pendingFont, ...fallbackPayload } = payload;
       ({ error: err } = await supabase
         .from("client_profiles")
         .update(fallbackPayload)
         .eq("user_id", profile.id));
       if (!err) {
-        toast.error("บันทึกแล้ว แต่เกณฑ์แจ้งเตือนราคายังไม่มีผล — กรุณารัน migration add_price_deviation_warn_pct.sql");
+        toast.error("บันทึกแล้ว แต่บางค่าตั้งค่ายังไม่มีผล — กรุณารัน migration ที่ค้างอยู่ใน sql/");
       }
     }
 
@@ -446,6 +450,7 @@ export default function SettingsDocumentsPage() {
     classicV2HideEnglishLabels !== (clientProfile?.classic_v2_hide_english_labels === true) ||
     classicV2CompactSignature !== (clientProfile?.classic_v2_compact_signature === true) ||
     classicV2SignEveryPage !== (clientProfile?.classic_v2_sign_every_page === true) ||
+    classicV2RegularItemFont !== (clientProfile?.classic_v2_regular_item_font === true) ||
     classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
     JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.classic_v2_type_font_scales || {}) ||
     CLASSIC_V2_SECTION_FONT_KEYS.some(
@@ -654,6 +659,15 @@ export default function SettingsDocumentsPage() {
                 controlAlign="right"
               >
                 <Switch checked={classicV2SignEveryPage} onChange={(checked) => { setClassicV2SignEveryPage(checked); setSaved(false); }} />
+              </SettingRow>
+            )}
+            {pdfTemplate === "classic_v2" && hasClassicV2 && (
+              <SettingRow
+                label="ตัวหนังสือปกติในตารางรายการ (คลาสสิก V2)"
+                description="แสดงข้อความในตารางรายการทุกประเภทเอกสารด้วยน้ำหนักปกติทั้งหมด — ไม่มีหัวตารางหรือยอดเงินตัวหนา"
+                controlAlign="right"
+              >
+                <Switch checked={classicV2RegularItemFont} onChange={(checked) => { setClassicV2RegularItemFont(checked); setSaved(false); }} />
               </SettingRow>
             )}
             <div className="pt-3">

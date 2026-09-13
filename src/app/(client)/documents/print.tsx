@@ -17,7 +17,7 @@ import {
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
-import { buildDnBlocks, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
+import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
 import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
@@ -184,8 +184,8 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     (data.receiptInvoices.length > 1 || data.billingNoteInvoices.length > 1);
 
   // Classic V2 detail mode renders hierarchical DN group headers derived at
-  // print time — the qty-0 marker rows never render, so pagination must
-  // exclude them. Each group header paginates as one atomic unit with its
+  // print time — the qty-0 marker rows and DN section-header lines never
+  // render, so pagination must exclude them. Each group header paginates as one atomic unit with its
   // first child (strict keep-with-next: a header can never strand at a page
   // bottom), so pagination runs on { item, hasHeader } units and unwraps back
   // to plain line batches. Classic V1 still renders marker rows; modern
@@ -196,12 +196,17 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
 
   if (isClassicV2) {
     // Same SO-group precedence as the renderer: an explicitly typed header
-    // on a delivery note wraps every line in one group. Pagination and
+    // on a delivery note wraps every line in one group, otherwise DN
+    // section markers split it into named groups. The plan input keeps
+    // section markers (they become headers); batches unwrap back to real
+    // lines only, so markers never paginate as rows. Pagination and
     // render share the predicates, so they can never disagree.
     const soGroupHeader = getDnSoHeaderText(data.document.doc_type, data.document.dn_so_header);
     const rowPlan = soGroupHeader
       ? buildDnSoHeaderPlan(itemsForPagination, soGroupHeader)
-      : planDnRows(buildDnBlocks(itemsForPagination, data.lineDeliveryNoteMap));
+      : data.document.doc_type === "delivery_note"
+        ? buildDnSectionPlan(itemsForPagination, data.lineDeliveryNoteMap)
+        : planDnRows(buildDnBlocks(itemsForPagination, data.lineDeliveryNoteMap));
     const units = rowPlan.map((p) => ({
       item: p.item,
       hasHeader: p.header !== null,
@@ -214,7 +219,10 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
         estimateLineItemHeight(unit.item, data.template, {
           fontScale: itemsScale,
           numScale,
-          hideDeliveryAmounts: effectiveHideAmounts,
+          // Classic V2 always renders the amount-column grid (values hide,
+          // geometry doesn't), so the description column is always the
+          // narrow variant — estimate wrapping against it unconditionally.
+          hideDeliveryAmounts: false,
           hasLineDiscount:
             (unit.item.discount_amount ?? 0) > 0 || (unit.item.discount_percent ?? 0) > 0,
           hasInlineDnRef: false,

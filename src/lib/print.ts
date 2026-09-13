@@ -110,6 +110,7 @@ export function shouldSuppressVarianceForAppendix(data: PrintableDocumentDataBas
   return data.document.dn_appendix === true && data.invoiceDeliveryNotes.length > 0;
 }
 import { isRefSummaryLine } from "./refSummary";
+import { resolveSectionSoHeader } from "./dnGroups";
 import { getProxiedImageUrl } from "./r2";
 import { paginateLineItems } from "./pagination";
 import { estimateLineItemHeight } from "./printRowHeight";
@@ -196,7 +197,7 @@ export interface PrintDocumentData {
   grossSubtotal: number;
   lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null; section?: number | null }
   >;
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
@@ -222,7 +223,7 @@ export interface PrintableDocumentDataBase {
   grossSubtotal: number;
   lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null; section?: number | null }
   >;
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
@@ -518,19 +519,22 @@ export async function getPrintableDocumentDataBase(
 
   const lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null; section?: number | null }
   > = {};
   for (const item of lineItems) {
     const dn = item.source_document_id
       ? dnBySourceId.get(item.source_document_id)
       : undefined;
     if (dn) {
+      const section = item.source_section ?? null;
       lineDeliveryNoteMap[item.id] = {
         number: dn.delivery_note_number,
         issue_date: dn.issue_date,
         kind: "delivery_note",
         // Frozen snapshot from billing time — later DN edits never leak in.
-        soHeader: normalizeSoHeader(dn.so_header),
+        // Section lines resolve their own entry; the rest keep the whole.
+        soHeader: resolveSectionSoHeader(dn.so_header, section),
+        section,
       };
     } else {
       const info = item.source_document_id

@@ -23,6 +23,7 @@ import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
+import { getDnLineSectionMap, getDnSectionHeaders, joinDnSectionHeaders } from "../../lib/dnGroups";
 import { formatBuddhistDate } from "../../lib/dates";
 import { formatCurrency } from "../../lib/format";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../lib/stock";
@@ -647,6 +648,12 @@ export function InvoiceFromDeliveryNotesForm() {
     try {
       const lineRecords: any[] = [];
       let sortIndex = 0;
+      // Frozen section membership per DN (billing-time snapshot): the invoice
+      // prints one group per marker-led section. Computed from the DN's own
+      // lines here; persisted onto the invoice lines after creation.
+      const sectionByDn = new Map(
+        selectedDeliveryNotes.map((dn) => [dn.id, getDnLineSectionMap(dn.line_items || [])]),
+      );
       for (const dn of selectedDeliveryNotes) {
         const groupLines = invoiceLines.filter((il) => il.source_document_id === dn.id && il.quantity > EPS);
 
@@ -782,6 +789,62 @@ export function InvoiceFromDeliveryNotesForm() {
       (warnings || []).forEach((w) =>
         toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
       );
+
+      // Freeze multi-section headers: the RPC snapshots the legacy single
+      // dn_so_header onto the fresh link; DNs grouped with section-marker
+      // lines carry their headers on markers instead — persist the
+      // newline-joined value so the invoice prints one line per section.
+      // Later DN edits still can't change the frozen value.
+      for (const dn of selectedDeliveryNotes) {
+        if (((dn as { dn_so_header?: string | null }).dn_so_header || "").trim()) continue;
+        const sections = getDnSectionHeaders(dn.line_items || []);
+        if (sections.length === 0) continue;
+        const { data: link } = await supabase
+          .from("invoice_delivery_notes")
+          .select("id, so_header")
+          .eq("invoice_id", record.document_id)
+          .eq("delivery_note_id", dn.id)
+          .maybeSingle();
+        if (!link || ((link as { so_header?: string | null }).so_header || "").trim()) continue;
+        const { error: freezeError } = await supabase
+          .from("invoice_delivery_notes")
+          .update({ so_header: joinDnSectionHeaders(sections) })
+          .eq("id", (link as { id: string }).id);
+        if (freezeError) {
+          toast.error(`บันทึกหัวข้อกลุ่มของ ${dn.doc_number || ""} ไม่สำเร็จ: ${freezeError.message}`);
+        }
+      }
+
+      // Freeze section membership: one printed group per DN section.
+      // Post-create updates (RLS allows; the RPC stays untouched). Any
+      // failure degrades to the legacy single group — never blocks billing.
+      for (const dn of selectedDeliveryNotes) {
+        const secMap = sectionByDn.get(dn.id);
+        if (!secMap) continue;
+        const bySection = new Map<number, string[]>();
+        for (const l of billableLines) {
+          if (l.source_document_id !== dn.id || !l.source_line_item_id) continue;
+          const s = secMap.get(l.source_line_item_id);
+          if (s == null) continue;
+          const ids = bySection.get(s) || [];
+          ids.push(l.source_line_item_id);
+          bySection.set(s, ids);
+        }
+        for (const [s, ids] of bySection) {
+          const { error: sectionError } = await supabase
+            .from("document_line_items")
+            .update({ source_section: s })
+            .eq("document_id", record.document_id)
+            .in("source_line_item_id", ids);
+          if (sectionError) {
+            toast.error(
+              sectionError.message.includes("source_section")
+                ? "บันทึกกลุ่มหัวข้อของใบแจ้งหนี้ยังไม่มีผล — กรุณารัน migration add_line_items_source_section.sql"
+                : `บันทึกกลุ่มหัวข้อของ ${dn.doc_number || ""} ไม่สำเร็จ: ${sectionError.message}`,
+            );
+          }
+        }
+      }
 
       toast.success("สร้างใบแจ้งหนี้จากใบส่งของแล้ว");
       warmPdfCache(record.document_id);

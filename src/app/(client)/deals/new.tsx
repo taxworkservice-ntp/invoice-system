@@ -15,13 +15,15 @@ import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { ItemCreateModal } from "../../../components/catalog/ItemCreateModal";
 import { PoTaskFields } from "../../../components/documents/PoTaskFields";
-import { DnSoHeaderField } from "../../../components/documents/DnSoHeaderField";
+import { Switch } from "../../../components/ui/Switch";
+import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
+import { DN_SECTION_TAG, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../../lib/dnGroups";
+import { DnSectionMarkerRow } from "../../../components/documents/DnSectionMarkerRow";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
 import { getDocNumberErrorMessage, resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString, localTodayString, monthStartString as getMonthStartString } from "../../../lib/devDate";
-import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { cartonsToBase, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
 import { DEFAULT_JOB_DETAIL_FIELDS, getJobDetailFieldLabel, normalizeJobDetailFields, normalizeJobDetailsNote, type JobDetailFieldConfig } from "../../../lib/jobDetails";
@@ -63,6 +65,8 @@ interface LineItemForm {
   job_remark: string;
   job_detail_values: Record<string, string>;
   hide_amounts_on_print: boolean;
+  /** DN section-header (grouping) line: no qty/price, prints as a group header. */
+  isSectionMarker: boolean;
 }
 
 type JobDetailSuggestions = Record<string, string[]>;
@@ -248,6 +252,23 @@ function createEmptyLine(): LineItemForm {
     job_detail_values: {},
     image_url: null,
     hide_amounts_on_print: false,
+    isSectionMarker: false,
+  };
+}
+
+function createSectionMarker(header: string): LineItemForm {
+  return {
+    ...createEmptyLine(),
+    item_name: header,
+    line_note: DN_SECTION_TAG,
+    unit: "",
+    base_unit: "",
+    unit_price: 0,
+    quantity: 0,
+    discount_percent: 0,
+    price_confirmed: true,
+    hide_amounts_on_print: false,
+    isSectionMarker: true,
   };
 }
 
@@ -496,8 +517,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     targetLineId: null,
   });
 
-  const [lineItems, setLineItems] = useState<LineItemForm[]>([]);
-  // Price-history ("ราคาที่เคยขาย"): which line's sheet is open, plus a
+  const [lineItems, setLineItems] = useState<LineItemForm[]>([]);  // Price-history ("ราคาที่เคยขาย"): which line's sheet is open, plus a
   // cache of last-price hints keyed `${itemId}|${customerId ?? "-"}`.
   const [priceHistoryLineId, setPriceHistoryLineId] = useState<string | null>(null);
   const [priceHints, setPriceHints] = useState<Record<string, PriceHint | null>>({});
@@ -526,8 +546,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   // Optional PO reference + task name, printed on the document (classic V2).
   const [customerPo, setCustomerPo] = useState("");
   const [taskName, setTaskName] = useState("");
-  // Optional free-text SO group header (delivery notes, classic V2 only).
-  const [dnSoHeader, setDnSoHeader] = useState("");
+  // Caption shown when an old draft's single SO header was converted into a
+  // section-marker line on load (forms no longer write dn_so_header).
+  const [legacyHeaderConverted, setLegacyHeaderConverted] = useState(false);
+  // Section grouping is opt-in per DN (default off = today's flat flow).
+  // UI-only state, initialized from data — never persisted on its own.
+  const [groupingEnabled, setGroupingEnabled] = useState(false);
   // Distinct past values for this customer — recurring jobs become pick-not-type.
   const referenceHistory = useCustomerReferenceHistory(selectedCustomer?.id || null);
   const [utilityServiceItemId, setUtilityServiceItemId] = useState<string | null>(null);
@@ -653,6 +677,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         job_remark: "",
         job_detail_values: {},
         hide_amounts_on_print: line.hide_amounts_on_print,
+        isSectionMarker: false,
       }));
       if (mapped.length === 0) {
         toast.error("ใบแจ้งหนี้ล่าสุดไม่มีรายการ");
@@ -720,7 +745,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         setNote(draftDoc.note || "");
         setCustomerPo(draftDoc.customer_po_number || "");
         setTaskName(draftDoc.task_name || "");
-        setDnSoHeader(draftDoc.dn_so_header || "");
         setDocNumberOverride(draftDoc.doc_number || "");
         if (draftDoc.doc_type === "delivery_note" && draftDoc.hide_amounts_on_print != null) {
           setHideAmountsOnPrint(draftDoc.hide_amounts_on_print);
@@ -731,32 +755,76 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         if (draftDoc.doc_type === "delivery_note" && draftDoc.show_full_totals != null) {
           frozenShowFullTotals.current = draftDoc.show_full_totals;
         }
-        setLineItems(((lineData || []) as DocumentLineItem[]).map((line) => ({
-          id: line.id || crypto.randomUUID(),
-          item_id: line.item_id,
-          item_sku: line.item_sku,
-          item_name: line.item_name,
-          line_note: normalizeJobDetailsNote(line.line_note || "", knownJobDetailLabels),
-          item_type: line.item_type,
-          unit_price: line.unit_price,
-          quantity: line.quantity,
-          discount_percent: line.discount_percent || 0,
-          unit: line.unit,
-          base_unit: line.unit,
-          carton_unit: line.carton_unit,
-          qty_per_carton: line.qty_carton && line.quantity ? line.base_quantity ? line.base_quantity / line.quantity : null : null,
-          base_unit_price: null,
-          price_confirmed: false,
-          job_details_open: false,
-          job_color: "",
-          job_width: "",
-          job_height: "",
-          job_position: "",
-          job_material: "",
-          job_remark: "",
-          job_detail_values: {},
-          hide_amounts_on_print: line.hide_amounts_on_print,
-        })));
+        const hydrated: LineItemForm[] = ((lineData || []) as DocumentLineItem[]).map((line) => {
+          if (draftDoc.doc_type === "delivery_note" && isDnSectionMarker(line)) {            return {
+              id: line.id || crypto.randomUUID(),
+              item_id: null,
+              item_sku: null,
+              item_name: line.item_name,
+              line_note: DN_SECTION_TAG,
+              item_type: "product",
+              unit_price: 0,
+              quantity: 0,
+              discount_percent: 0,
+              unit: "",
+              base_unit: "",
+              carton_unit: null,
+              qty_per_carton: null,
+              base_unit_price: null,
+              price_confirmed: true,
+              job_details_open: false,
+              job_color: "",
+              job_width: "",
+              job_height: "",
+              job_position: "",
+              job_material: "",
+              job_remark: "",
+              job_detail_values: {},
+              hide_amounts_on_print: false,
+              isSectionMarker: true,
+            };
+          }
+          return {
+            id: line.id || crypto.randomUUID(),
+            item_id: line.item_id,
+            item_sku: line.item_sku,
+            item_name: line.item_name,
+            line_note: normalizeJobDetailsNote(line.line_note || "", knownJobDetailLabels),
+            item_type: line.item_type,
+            unit_price: line.unit_price,
+            quantity: line.quantity,
+            discount_percent: line.discount_percent || 0,
+            unit: line.unit,
+            base_unit: line.unit,
+            carton_unit: line.carton_unit,
+            qty_per_carton: line.qty_carton && line.quantity ? line.base_quantity ? line.base_quantity / line.quantity : null : null,
+            base_unit_price: null,
+            price_confirmed: false,
+            job_details_open: false,
+            job_color: "",
+            job_width: "",
+            job_height: "",
+            job_position: "",
+            job_material: "",
+            job_remark: "",
+            job_detail_values: {},
+            hide_amounts_on_print: line.hide_amounts_on_print,
+            isSectionMarker: false,
+          };
+        });
+        // Legacy single SO header becomes one marker line (forms no longer
+        // write dn_so_header — the printed single group is identical).
+        const legacyHeader = draftDoc.doc_type === "delivery_note"
+          ? getLegacyDnHeaderForConversion((lineData || []) as DocumentLineItem[], draftDoc.dn_so_header)
+          : null;
+        if (legacyHeader) {
+          hydrated.unshift(createSectionMarker(legacyHeader));
+          setLegacyHeaderConverted(true);
+        }
+        if (legacyHeader || hydrated.some((lineItem) => lineItem.isSectionMarker)) {
+          setGroupingEnabled(true);
+        }
+        setLineItems(hydrated);
       } catch (err: any) {
         if (!cancelled) setError(err.message || "โหลดร่างใบแจ้งหนี้ไม่สำเร็จ");
       } finally {
@@ -1198,6 +1266,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     setLineItems((prev) =>
       prev.map((lineItem) => {
         if (lineItem.id !== id) return lineItem;
+        // Section markers are free text — never catalog-match their header.
+        if (lineItem.isSectionMarker) return { ...lineItem, [field]: value } as LineItemForm;
         const updated = { ...lineItem, [field]: value } as LineItemForm;
 
         // Typing a price counts as reviewing it.
@@ -1243,6 +1313,26 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
   const removeLineItem = (id: string) => {
     setLineItems((prev) => prev.filter((lineItem) => lineItem.id !== id));
+  };
+
+  const toggleGrouping = (on: boolean) => {
+    // Turning off deletes the headers (with confirmation) — hidden markers
+    // that still affect the printout would be worse than asking once.
+    if (!on && lineItems.some((lineItem) => lineItem.isSectionMarker)) {
+      const ok = window.confirm("ปิดการจัดกลุ่มจะลบหัวข้อกลุ่มทั้งหมด รายการจะเรียงต่อเนื่องแบบปกติ ยืนยันหรือไม่?");
+      if (!ok) return;
+      setLineItems((prev) => prev.filter((lineItem) => !lineItem.isSectionMarker));
+    }
+    setGroupingEnabled(on);
+  };
+
+  const addSectionMarker = () => {
+    setLineItems((prev) => {
+      // Don't stack empty headers — finish the current one first.
+      const last = prev[prev.length - 1];
+      if (last && last.isSectionMarker && !last.item_name.trim()) return prev;
+      return [...prev, createSectionMarker("")];
+    });
   };
 
   const updateJobDetail = (
@@ -1403,10 +1493,23 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         setError("กรุณาเพิ่มอย่างน้อย 1 รายการ");
         return;
       }
+      if (isDeliveryNote) {
+        // Section markers carry no goods — every header needs its text,
+        // and markers alone are not a delivery.
+        if (lineItems.some((lineItem) => lineItem.isSectionMarker && !lineItem.item_name.trim())) {
+          setError("กรุณากรอกข้อความหัวข้อกลุ่มให้ครบทุกหัวข้อ");
+          return;
+        }
+        if (!validItems.some((lineItem) => !lineItem.isSectionMarker)) {
+          setError("กรุณาเพิ่มอย่างน้อย 1 รายการสินค้า");
+          return;
+        }
+      }
       // Mandatory DN price review (opt-in): block save until every line
       // price is confirmed. Blank-form DNs carry no prices — exempt.
+      // Section markers carry no price — exempt.
       if (isDeliveryNote && requireDnPriceReview && !isBlankForm) {
-        const pending = validItems.filter((lineItem) => !lineItem.price_confirmed).length;
+        const pending = validItems.filter((lineItem) => !lineItem.isSectionMarker && !lineItem.price_confirmed).length;
         if (pending > 0) {
           setError(`กรุณายืนยันราคาทุกรายการก่อนบันทึกใบส่งของ (เหลือ ${pending} รายการ)`);
           return;
@@ -1507,7 +1610,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         note: note.trim() ? note : null,
         customer_po_number: customerPo.trim() || null,
         task_name: taskName.trim() || null,
-        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true, dn_so_header: dnSoHeader.trim() || null } : {}),
+        // Grouping lives on section-marker lines now — always clear the legacy
+        // single header (kept in the column for old reprints only).
+        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true, dn_so_header: null } : {}),
       };
 
       let savedDocumentId = documentId || "";
@@ -1535,6 +1640,27 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       } else if (useAtomicCreate) {
         const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
         const lineItemRecords = validItems.map((lineItem, idx) => {
+          if (lineItem.isSectionMarker) {
+            return {
+              item_id: null,
+              item_name: lineItem.item_name.trim(),
+              line_note: DN_SECTION_TAG,
+              item_sku: null,
+              item_type: "product",
+              unit: "",
+              unit_price: 0,
+              quantity: 0,
+              base_quantity: null,
+              discount_percent: 0,
+              discount_amount: 0,
+              qty_carton: null,
+              carton_unit: null,
+              line_total: 0,
+              image_url: null,
+              hide_amounts_on_print: false,
+              sort_order: idx,
+            };
+          }
           const lineCalc = calculateLineAmounts(lineItem);
           const baseQuantity = getLineBaseQuantity(lineItem);
           const soldByCarton = isCartonUnitSelected(lineItem);
@@ -1598,6 +1724,29 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
         if (validItems.length > 0) {
           const lineItemRecords = validItems.map((lineItem, idx) => {
+            if (lineItem.isSectionMarker) {
+              return {
+                document_id: savedDocumentId,
+                user_id: userId,
+                item_id: null,
+                item_name: lineItem.item_name.trim(),
+                line_note: DN_SECTION_TAG,
+                item_sku: null,
+                item_type: "product",
+                unit: "",
+                unit_price: 0,
+                quantity: 0,
+                base_quantity: null,
+                discount_percent: 0,
+                discount_amount: 0,
+                qty_carton: null,
+                carton_unit: null,
+                line_total: 0,
+                image_url: null,
+                hide_amounts_on_print: false,
+                sort_order: idx,
+              };
+            }
             const lineCalc = calculateLineAmounts(lineItem);
             const baseQuantity = getLineBaseQuantity(lineItem);
             const soldByCarton = isCartonUnitSelected(lineItem);
@@ -2036,8 +2185,25 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </div>
             </div>
             {isDeliveryNote && (
-              <div className="mb-3">
-                <DnSoHeaderField value={dnSoHeader} onChange={setDnSoHeader} />
+              <div className="mb-3 rounded-lg border border-dashed border-card-border bg-paper-soft/60 px-3 py-2">
+                <Switch
+                  checked={groupingEnabled}
+                  onChange={toggleGrouping}
+                  label={
+                    <>
+                      จัดกลุ่มด้วยหัวข้ออ้างอิง{" "}
+                      <span className="font-normal text-gray-400">(เช่น แยกตาม SO ของลูกค้า)</span>
+                    </>
+                  }
+                />
+                <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                  เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ (Classic V2)
+                </p>
+                {legacyHeaderConverted && groupingEnabled && (
+                  <p className="mt-1 text-[11px] leading-4 text-gray-500">
+                    แปลงหัวข้อ SO เดี่ยวเดิมเป็นบรรทัดหัวข้อนี้แล้ว — ตรวจสอบและบันทึกเพื่อยืนยัน
+                  </p>
+                )}
               </div>
             )}
             <div className="space-y-2">
@@ -2057,6 +2223,24 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 </div>
               )}
               {lineItems.map((item, idx) => {
+                if (item.isSectionMarker && isDeliveryNote && groupingEnabled) {
+                  return (
+                    <div key={item.id} className="pb-3 border-b border-gray-100 last:border-0">
+                      <div className="flex gap-2">
+                        <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <DnSectionMarkerRow
+                            value={item.item_name}
+                            onChange={(val) => updateLineItem(item.id, "item_name", val)}
+                            onRemove={() => removeLineItem(item.id)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
                 const soldByCarton = isCartonUnitSelected(item);
                 const baseQuantity = getLineBaseQuantity(item);
@@ -2399,6 +2583,16 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 <PlusCircle className="h-4 w-4" />
                 เพิ่มสินค้าหรือบริการ
               </button>
+              {isDeliveryNote && groupingEnabled && (
+                <button
+                  type="button"
+                  onClick={addSectionMarker}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-card-border bg-paper-soft/60 px-3 py-1.5 text-xs font-medium text-[#5F5B54] transition-colors hover:border-[#378ADD] hover:text-[#1A56DB] active:translate-y-[1px]"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  เพิ่มหัวข้อกลุ่ม (SO ของลูกค้า)
+                </button>
+              )}
             </div>
             <div className="mt-4 pt-3 border-t border-gray-200 text-right text-sm space-y-0.5">
               {tax.lineDiscountAmount > 0 && (

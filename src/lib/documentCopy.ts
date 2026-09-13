@@ -7,6 +7,7 @@
 import { supabase } from "./supabase";
 import { resolveDocNumber } from "./docNumber";
 import { localTodayString } from "./devDate";
+import { DN_SECTION_TAG, getLegacyDnHeaderForConversion } from "./dnGroups";
 import type { Document, DocumentLineItem, DocumentStatus } from "../types";
 
 export type CopyDocumentOptions = {
@@ -76,8 +77,9 @@ export async function copyDocumentAsDraft(
     if (isDn) {
       payload.hide_amounts_on_print = doc.hide_amounts_on_print;
       payload.is_blank_form = doc.is_blank_form;
-      // Free-text SO group header follows the DN — user can clear it.
-      payload.dn_so_header = doc.dn_so_header ?? null;
+      // Grouping lives on section-marker lines now — never copy the legacy
+      // single header (the new form couldn't show it); it converts below.
+      payload.dn_so_header = null;
       // Settings-only: a copy is a new doc, so it follows the workspace
       // setting — falling back to the source value when unreadable.
       const { data: profile } = await supabase
@@ -120,6 +122,44 @@ export async function copyDocumentAsDraft(
           (Number(li.unit_price) || 0) === 0
         ),
     );
+
+    // Legacy single SO header becomes one marker line so the copy prints the
+    // same single group through the marker UI (never an invisible header).
+    if (isDn) {
+      const legacyHeader = getLegacyDnHeaderForConversion(lineItems, doc.dn_so_header);
+      if (legacyHeader) {
+        lineItems = [
+          {
+            id: crypto.randomUUID(),
+            document_id: copy.id,
+            user_id: userId,
+            item_id: null,
+            item_name: legacyHeader,
+            line_note: DN_SECTION_TAG,
+            item_sku: null,
+            item_type: "product",
+            unit: "",
+            unit_price: 0,
+            quantity: 0,
+            base_quantity: null,
+            discount_percent: 0,
+            discount_amount: 0,
+            qty_carton: null,
+            carton_unit: null,
+            source_document_id: null,
+            source_line_item_id: null,
+            source_delivered_qty: null,
+            source_unit_price: null,
+            image_url: null,
+            line_total: 0,
+            hide_amounts_on_print: false,
+            sort_order: -1,
+            created_at: new Date().toISOString(),
+          } as DocumentLineItem,
+          ...lineItems,
+        ];
+      }
+    }
 
     if (lineItems.length > 0) {
       const { error: lineError } = await supabase.from("document_line_items").insert(

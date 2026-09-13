@@ -32,6 +32,9 @@ export interface DnRefInfo {
   kind?: DnRefKind;
   /** Frozen SO header snapshot (invoice link) — second line under the group header. */
   soHeader?: string | null;
+  /** Frozen DN section index (0-based among marker-led runs, null = ungrouped).
+   * Invoice lines billed from multi-section DNs carry one group per section. */
+  section?: number | null;
 }
 
 export type DnRefMap = Record<string, DnRefInfo>;
@@ -128,18 +131,32 @@ export function buildDnSoHeaderPlan(
   }));
 }
 
-/** Marker rows (qty-0 DN headers) never render — strip them first. */
+/** Qty-0 DN reference rows (invoice detail mode) — stripped before render. */
+export function isDnRefMarker(item: Pick<DocumentLineItem, "quantity" | "source_document_id" | "source_line_item_id">): boolean {
+  return (
+    item.quantity === 0 &&
+    !!item.source_document_id &&
+    !item.source_line_item_id
+  );
+}
+
+/** Marker rows (qty-0 DN headers) and section-header lines never render —
+ * strip them first. NOTE: the row PLAN needs section markers (they become
+ * headers), so plan inputs must only strip ref markers — see
+ * filterDnRefMarkers. */
 export function filterDnRenderLines(
   lines: DocumentLineItem[],
 ): DocumentLineItem[] {
   return lines.filter(
-    (item) =>
-      !(
-        item.quantity === 0 &&
-        !!item.source_document_id &&
-        !item.source_line_item_id
-      ),
+    (item) => !isDnRefMarker(item) && !isDnSectionMarker(item),
   );
+}
+
+/** Ref markers stripped, section markers KEPT — the row-plan input. */
+export function filterDnRefMarkers(
+  lines: DocumentLineItem[],
+): DocumentLineItem[] {
+  return lines.filter((item) => !isDnRefMarker(item));
 }
 
 function groupable(
@@ -156,11 +173,22 @@ function groupable(
 export function buildDnBlocks(
   renderableLines: DocumentLineItem[],
   refMap: DnRefMap,
+  startTop = 0,
 ): DnBlock[] {
   const blocks: DnBlock[] = [];
-  let top = 0;
+  let top = startTop;
   let open: { key: string; items: DocumentLineItem[] } | null = null;
-  let prevSource: string | null = null;
+  let prevKey: string | null = null;
+
+  // Group key: source document alone for section-less lines (legacy path,
+  // byte-identical comparisons), source + frozen section for invoice lines
+  // billed from multi-section DNs — one group per section.
+  const groupKeyOf = (item: DocumentLineItem): string => {
+    const section = refMap[item.id]?.section;
+    return section == null
+      ? (item.source_document_id as string)
+      : `${item.source_document_id}::${section}`;
+  };
 
   const flush = () => {
     if (!open) return;
@@ -187,9 +215,9 @@ export function buildDnBlocks(
   };
 
   for (const item of renderableLines) {
-    if (groupable(item, refMap) && item.source_document_id !== prevSource) {
+    if (groupable(item, refMap) && groupKeyOf(item) !== prevKey) {
       flush();
-      open = { key: item.source_document_id as string, items: [] };
+      open = { key: groupKeyOf(item), items: [] };
     } else if (!groupable(item, refMap)) {
       flush();
     }
@@ -199,13 +227,30 @@ export function buildDnBlocks(
       top += 1;
       blocks.push({ type: "single", s: top, item });
     }
-    prevSource = item.source_document_id ?? null;
+    prevKey = groupable(item, refMap) ? groupKeyOf(item) : (item.source_document_id ?? null);
   }
   flush();
   return blocks;
 }
 
 /** Canonical band label shape (kept so RefItemName date styling holds). */
+
+/**
+ * Printable line note — single shared implementation (every template's
+ * local copy was folded in here). Internal control lines never print: the
+ * [USAGE_BILL] utility-bill flag and the [DN_SECTION] section-marker tag.
+ */
+export function getPrintableLineNote(note: string | null | undefined): string {
+  return String(note || "")
+    .split(/\r?\n/)
+    .filter((line) => {
+      const text = line.trim();
+      return text !== "[USAGE_BILL]" && text !== DN_SECTION_TAG;
+    })
+    .join("\n")
+    .trim();
+}
+
 export function dnHeaderLabel(payload: {
   number: string;
   issueDate: string | null;
@@ -262,6 +307,16 @@ export function planDnRows(blocks: DnBlock[]): DnRowPlanEntry[] {
   // Mark each group's last child (except the document's final line): a
   // spacer renders below it so groups read as separated blocks. Standalone
   // lines never get spacers — flat invoices render exactly as before.
+  return markGroupSpacers(plan);
+}
+
+/**
+ * Spacer post-pass shared by every row plan: a dotted (hierarchical) number
+ * followed by a different top-level number means a group/section boundary,
+ * so the boundary line gets breathing room below it — except on the
+ * document's final line (no trailing gap before the totals).
+ */
+function markGroupSpacers(plan: DnRowPlanEntry[]): DnRowPlanEntry[] {
   const topOf = (n: string) => n.split(".")[0];
   for (let i = 0; i < plan.length - 1; i++) {
     if (
@@ -272,4 +327,203 @@ export function planDnRows(blocks: DnBlock[]): DnRowPlanEntry[] {
     }
   }
   return plan;
+}
+
+/* ============ DN section markers (multiple SO groups, opt-in) ============ */
+/**
+ * Section-header lines let one delivery note carry MORE THAN ONE reference
+ * group (e.g. two customer SOs on the same trip). A marker is a plain line
+ * item — qty 0, price 0, no source refs — whose line_note carries
+ * DN_SECTION_TAG and whose item_name is the printed header text. Markers
+ * never render as rows (see filterDnRenderLines); they split the lines
+ * below them into a named "G / G.j" section.
+ *
+ * Markers are DN-only by construction (only the DN forms can create them),
+ * so no schema change was needed: detection is purely conventional.
+ */
+export const DN_SECTION_TAG = "[DN_SECTION]";
+
+type SectionMarkerLike = Pick<
+  DocumentLineItem,
+  "quantity" | "unit_price" | "source_document_id" | "source_line_item_id" | "line_note"
+>;
+
+export function isDnSectionMarker(item: SectionMarkerLike): boolean {
+  if (item.quantity !== 0) return false;
+  if ((Number(item.unit_price) || 0) !== 0) return false;
+  if (item.source_document_id || item.source_line_item_id) return false;
+  return String(item.line_note || "")
+    .split(/\r?\n/)
+    .some((noteLine) => noteLine.trim() === DN_SECTION_TAG);
+}
+
+/** Printed header text of a marker (null when blank — blank markers are ignored). */
+export function getDnSectionHeaderText(
+  item: Pick<DocumentLineItem, "item_name">,
+): string | null {
+  const text = String(item.item_name || "").trim();
+  return text ? text : null;
+}
+
+/** Ordered section header texts in a line list — the invoice-freeze source. */
+export function getDnSectionHeaders(
+  lines: (SectionMarkerLike & Pick<DocumentLineItem, "item_name">)[],
+): string[] {
+  const headers: string[] = [];
+  for (const item of lines) {
+    if (!isDnSectionMarker(item)) continue;
+    const text = getDnSectionHeaderText(item);
+    if (text) headers.push(text);
+  }
+  return headers;
+}
+
+/**
+ * Freeze encoding for multi-section headers: blank-filtered, newline-joined
+ * into the single-text `invoice_delivery_notes.so_header` column. One header
+ * per visual line — never `" / "`-joined soup. Inverse of
+ * splitDnSectionHeaders.
+ */
+export function joinDnSectionHeaders(headers: (string | null | undefined)[]): string {
+  return headers
+    .map((h) => String(h || "").trim())
+    .filter((h) => h !== "")
+    .join("\n");
+}
+
+/** Split a frozen section-header value back into printable lines. */
+export function splitDnSectionHeaders(value: string | null | undefined): string[] {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+}
+
+/**
+ * Which SO text an invoice line's group header shows. Section lines take
+ * their own entry from the frozen newline-joined link header (falling back
+ * to the whole value when the index is out of range); ungrouped lines keep
+ * the whole value verbatim — the legacy path, so issued invoices never
+ * change.
+ */
+export function resolveSectionSoHeader(
+  linkSoHeader: string | null | undefined,
+  section: number | null | undefined,
+): string | null {
+  const text = String(linkSoHeader || "").trim();
+  if (!text) return null;
+  if (section == null) return text;
+  const parts = splitDnSectionHeaders(text);
+  return parts[section] ?? text;
+}
+
+/**
+ * Section membership of a DN's lines in document order (billing-time
+ * snapshot): 0-based index among marker-led runs, null outside any section.
+ * Mirrors buildDnSectionPlan's run-splitting exactly (blank markers end the
+ * run without starting one), so the invoice groups what the DN shows.
+ */
+export function getDnLineSectionMap(
+  lines: (SectionMarkerLike & Pick<DocumentLineItem, "item_name"> & { id: string })[],
+): Map<string, number | null> {
+  const map = new Map<string, number | null>();
+  let section = -1;
+  let inSection = false;
+  for (const line of lines) {
+    if (isDnSectionMarker(line)) {
+      if (getDnSectionHeaderText(line)) {
+        section += 1;
+        inSection = true;
+      } else {
+        inSection = false;
+      }
+      continue;
+    }
+    map.set(line.id, inSection ? section : null);
+  }
+  return map;
+}
+
+/**
+ * Legacy single-header conversion (form unification): the old whole-doc
+ * `dn_so_header` field and marker lines are the same concept, so forms
+ * offer only markers. When an old draft carries header text but no markers,
+ * the form prepends one marker with this text and saves `dn_so_header:
+ * null` — the printed single group is output-identical either way (see
+ * equivalence test). Returns null when there is nothing to convert.
+ */
+export function getLegacyDnHeaderForConversion(
+  lines: SectionMarkerLike[],
+  dnSoHeader: string | null | undefined,
+): string | null {
+  const text = String(dnSoHeader || "").trim();
+  if (!text) return null;
+  if (lines.some((item) => isDnSectionMarker(item))) return null;
+  return text;
+}
+
+/**
+ * Multi-section row plan for a DN carrying section markers. Marker-led
+ * runs become flat "G / G.j" sections headed by the marker text (no sum
+ * footer — DN amounts are usually hidden, same as buildDnSoHeaderPlan);
+ * unmarked runs behave exactly like today (auto source groups or flat
+ * singles, sharing one continuous top-level sequence with the sections).
+ * With no markers this is byte-identical to planDnRows(buildDnBlocks()).
+ */
+export function buildDnSectionPlan(
+  renderableLines: DocumentLineItem[],
+  refMap: DnRefMap,
+): DnRowPlanEntry[] {
+  if (!renderableLines.some((item) => isDnSectionMarker(item))) {
+    return planDnRows(buildDnBlocks(renderableLines, refMap));
+  }
+  const plan: DnRowPlanEntry[] = [];
+  let top = 0;
+  let segment: DocumentLineItem[] = [];
+  let sectionHeader: string | null = null;
+  const flush = () => {
+    if (segment.length === 0) {
+      sectionHeader = null;
+      return;
+    }
+    if (sectionHeader != null) {
+      top += 1;
+      const g = top;
+      const header: DnHeaderPayload = {
+        g,
+        number: "",
+        issueDate: null,
+        kind: undefined,
+        soHeader: sectionHeader,
+        subtotal: 0,
+      };
+      segment.forEach((item, j) => {
+        plan.push({
+          item,
+          number: `${g}.${j + 1}`,
+          header: j === 0 ? header : null,
+          spacerAfter: false,
+          footerAfter: null,
+        });
+      });
+    } else {
+      const blocks = buildDnBlocks(segment, refMap, top);
+      plan.push(...planDnRows(blocks));
+      for (const block of blocks) {
+        top = Math.max(top, block.type === "group" ? block.g : block.s);
+      }
+    }
+    segment = [];
+    sectionHeader = null;
+  };
+  for (const item of renderableLines) {
+    if (isDnSectionMarker(item)) {
+      flush();
+      sectionHeader = getDnSectionHeaderText(item);
+      continue;
+    }
+    segment.push(item);
+  }
+  flush();
+  return markGroupSpacers(plan);
 }

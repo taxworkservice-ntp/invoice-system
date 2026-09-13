@@ -3,12 +3,16 @@ import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getProxiedImageUrl } from "../../lib/storageApi";
 import {
   buildDnBlocks,
+  buildDnSectionPlan,
   buildDnSoHeaderPlan,
   DN_GROUP_SPACER_MM,
   dnHeaderLabel,
+  filterDnRefMarkers,
   filterDnRenderLines,
   getDnSoHeaderText,
+  getPrintableLineNote,
   planDnRows,
+  splitDnSectionHeaders,
 } from "../../lib/dnGroups";
 import { getRowBudgets } from "../../lib/pagination";
 import {
@@ -45,15 +49,17 @@ function SigDateFill() {
   );
 }
 
-/** Per-document-type wording for the signature boxes (Box 1 + Box 2; Box 3 is always the company signer). */
+/** Per-document-type wording for the signature boxes (Box 1 + Box 2; Box 3
+ * is the company signer — except invoices, which use four boxes:
+ * received / delivered / issued / authorized). */
 const SIG_LABELS: Record<string, { box1Title: string; box1TitleEn: string; box1RoleTh: string; box1RoleEn: string; box2RoleTh: string; box2RoleEn: string }> = {
   invoice: {
     box1Title: "ได้รับสินค้า/บริการถูกต้องแล้ว",
     box1TitleEn: "GOODS & SERVICES RECEIVED",
     box1RoleTh: "ผู้รับสินค้า/บริการ",
     box1RoleEn: "RECEIVED BY",
-    box2RoleTh: "ผู้จ่ายเงิน",
-    box2RoleEn: "PAYER",
+    box2RoleTh: "ผู้ส่งของ",
+    box2RoleEn: "DELIVERED BY",
   },
   receipt: {
     box1Title: "ได้รับชำระเงินถูกต้องแล้ว",
@@ -159,14 +165,6 @@ interface PrintDocumentClassicProps {
   copyType?: CopyType;
 }
 
-function getPrintableLineNote(note: string | null | undefined) {
-  return String(note || "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim() !== "[USAGE_BILL]")
-    .join("\n")
-    .trim();
-}
-
 interface PrintDocumentClassicProps {
   data: PrintDocumentData;
   copyType?: CopyType;
@@ -216,19 +214,26 @@ export function PrintDocumentClassicV2({
     bankAccount,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
-  // Classic V2 detail mode: qty-0 DN marker rows never render. Numbering is
-  // hierarchical (BOQ-style: groups 1..n, children 1.1..) derived from the
-  // FULL line list, so numbers stay continuous across page batches.
+  // Classic V2 detail mode: qty-0 DN marker rows and DN section-header
+  // lines never render. Numbering is hierarchical (BOQ-style: groups 1..n,
+  // children 1.1..) derived from the FULL line list, so numbers stay
+  // continuous across page batches.
   const tableLines = filterDnRenderLines(lineItems);
-  // Opt-in SO group mode (delivery notes, classic V2): an explicitly typed
-  // header wraps every line in one "1." group and takes precedence over the
-  // incidental quotation back-reference grouping. Empty = existing path.
+  // Opt-in SO group modes (delivery notes, classic V2): an explicitly typed
+  // single header wraps every line in one "1." group and takes precedence;
+  // otherwise section-marker lines split the DN into multiple named groups.
+  // Empty/neither = existing path. Markers are DN-only — other doc types
+  // always take the legacy plan.
   const soGroupHeader = getDnSoHeaderText(document.doc_type, document.dn_so_header);
-  const fullRenderLines = filterDnRenderLines(data.lineItems);
+  // Plan input keeps section markers (they become headers); the rendered
+  // tableLines above drop them (they never render as rows).
+  const fullRenderLines = filterDnRefMarkers(data.lineItems);
   const dnRowPlanById = new Map(
     (soGroupHeader
       ? buildDnSoHeaderPlan(fullRenderLines, soGroupHeader)
-      : planDnRows(buildDnBlocks(fullRenderLines, lineDeliveryNoteMap))
+      : document.doc_type === "delivery_note"
+        ? buildDnSectionPlan(fullRenderLines, lineDeliveryNoteMap)
+        : planDnRows(buildDnBlocks(fullRenderLines, lineDeliveryNoteMap))
     ).map((p) => [p.item.id, p]),
   );
   const billingRows = batchBillingNoteInvoices ?? billingNoteInvoices;
@@ -242,7 +247,11 @@ export function PrintDocumentClassicV2({
   const isDeliveryNote = document.doc_type === "delivery_note";
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
-  const showAmountColumns = blankForm || !hideDeliveryAmounts;
+  // Amount columns always render their grid (headers, cells, vertical
+  // rules) so the table geometry is identical whether amounts print or
+  // not — only the VALUES hide. Previously the columns collapsed entirely
+  // and the description column stretched to fill the gap.
+  const showAmountValues = blankForm || !hideDeliveryAmounts;
   const showFullTotals = isDeliveryNote && document.show_full_totals === true;
   const isBillingNote = document.doc_type === "billing_note";
   const isReceiptOrBillingNoteTable =
@@ -400,7 +409,10 @@ export function PrintDocumentClassicV2({
           estimateLineItemHeight(line, "classic_v2", {
             fontScale: itemsScaleMult,
             numScale: numScaleMult,
-            hideDeliveryAmounts,
+            // The description column is always the narrow (87mm) variant in
+            // V2 — amount columns keep their grid even when values hide — so
+            // wrapping must always estimate against the narrow width.
+            hideDeliveryAmounts: false,
             hasLineDiscount:
               (line.discount_amount ?? 0) > 0 || (line.discount_percent ?? 0) > 0,
             hasInlineDnRef: false,
@@ -475,6 +487,7 @@ export function PrintDocumentClassicV2({
         `print-sheet print-theme-classic print-theme-classic-v2${isCopy ? " print-copy" : ""}${documentClass}`
         + `${clientProfile.classic_v2_hide_english_labels ? " print-hide-en" : ""}`
         + `${clientProfile.classic_v2_compact_signature ? " print-sig-compact" : ""}`
+        + `${clientProfile.classic_v2_regular_item_font ? " print-regular-items" : ""}`
       }
       style={{
         "--classic-font-scale": fontScaleMult,
@@ -904,17 +917,11 @@ export function PrintDocumentClassicV2({
             <table className="print-classic-items-table">
               <colgroup>
                 <col style={{ width: "12mm" }} />
-                <col
-                  style={{ width: showAmountColumns ? "87mm" : "139mm" }}
-                />
+                <col style={{ width: "87mm" }} />
                 <col style={{ width: "23mm" }} />
                 <col style={{ width: "14mm" }} />
-                {showAmountColumns && (
-                  <>
-                    <col style={{ width: "21mm" }} />
-                    <col style={{ width: "25mm" }} />
-                  </>
-                )}
+                <col style={{ width: "21mm" }} />
+                <col style={{ width: "25mm" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -930,16 +937,12 @@ export function PrintDocumentClassicV2({
                   <th style={{ textAlign: "center" }}>
                     หน่วย<span className="en">UNIT</span>
                   </th>
-                  {showAmountColumns && (
-                    <>
-                      <th style={{ textAlign: "right" }}>
-                        ราคา/หน่วย<span className="en">UNIT PRICE</span>
-                      </th>
-                      <th style={{ textAlign: "right" }}>
-                        จำนวนเงิน<span className="en">AMOUNT</span>
-                      </th>
-                    </>
-                  )}
+                  <th style={{ textAlign: "right" }}>
+                    ราคา/หน่วย<span className="en">UNIT PRICE</span>
+                  </th>
+                  <th style={{ textAlign: "right" }}>
+                    จำนวนเงิน<span className="en">AMOUNT</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -965,19 +968,24 @@ export function PrintDocumentClassicV2({
                             <td className="center">{header.g}</td>
                             <td
                               className="print-classic-dn-group-label"
-                              colSpan={showAmountColumns ? 5 : 3}
+                              colSpan={5}
                             >
                               {/* SO-only header (DN opt-in): the free text IS
                                   the header. Standard groups keep the DN ref
-                                  line and append the frozen SO as line two. */}
+                                  line and append each frozen SO section as its
+                                  own line below it. */}
                               {header.number ? (
                                 <RefItemName name={dnHeaderLabel(header)} />
                               ) : null}
                               {header.soHeader ? (
                                 header.number ? (
-                                  <div className="print-classic-dn-group-so">
-                                    <RefItemName name={header.soHeader} />
-                                  </div>
+                                  <>
+                                    {splitDnSectionHeaders(header.soHeader).map((soLine, soIndex) => (
+                                      <div key={soIndex} className="print-classic-dn-group-so">
+                                        <RefItemName name={soLine} />
+                                      </div>
+                                    ))}
+                                  </>
                                 ) : (
                                   <RefItemName name={header.soHeader} />
                                 )
@@ -1037,36 +1045,30 @@ export function PrintDocumentClassicV2({
                           </td>
                           <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
                           <td className="center">{item.unit}</td>
-                          {showAmountColumns && (
-                            <>
-                              <td className="right">
-                                {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
-                              </td>
-                              <td className="right bold">
-                                {blankForm ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
-                              </td>
-                            </>
-                          )}
+                          <td className="right">
+                            {blankForm || !showAmountValues ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
+                          </td>
+                          <td className="right bold">
+                            {blankForm || !showAmountValues ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
+                          </td>
                         </tr>
                         {entry?.footerAfter ? (
                           <tr className="print-classic-dn-group-sum">
                             <td className="center" />
                             <td
                               className="print-classic-dn-group-sum-label"
-                              colSpan={showAmountColumns ? 4 : 3}
+                              colSpan={4}
                             >
                               รวม
                             </td>
-                            {showAmountColumns && (
-                              <td className="right bold">
-                                {blankForm ? "" : formatCurrency(entry.footerAfter.subtotal)}
-                              </td>
-                            )}
+                            <td className="right bold">
+                              {blankForm || !showAmountValues ? "" : formatCurrency(entry.footerAfter.subtotal)}
+                            </td>
                           </tr>
                         ) : null}
                         {entry?.spacerAfter ? (
                           <tr className="print-classic-dn-spacer">
-                            <td colSpan={showAmountColumns ? 6 : 4} />
+                            <td colSpan={6} />
                           </tr>
                         ) : null}
                       </Fragment>
@@ -1081,12 +1083,8 @@ export function PrintDocumentClassicV2({
                     <td className="print-classic-item-name">&nbsp;</td>
                     <td className="center">&nbsp;</td>
                     <td className="center">&nbsp;</td>
-                    {showAmountColumns && (
-                      <>
-                        <td className="right">&nbsp;</td>
-                        <td className="right">&nbsp;</td>
-                      </>
-                    )}
+                    <td className="right">&nbsp;</td>
+                    <td className="right">&nbsp;</td>
                   </tr>
                 ))}
               </tbody>
@@ -1414,9 +1412,76 @@ export function PrintDocumentClassicV2({
           {/* The pin spacer absorbs rounding slack so the band always sits
               at the sheet bottom (see .print-classic-bottom-pin). */}
           <div className="print-classic-bottom-pin" aria-hidden="true" />
-          <div className="print-classic-bottom-band">
+          <div className={`print-classic-bottom-band${document.doc_type === "invoice" ? " print-sig-4col" : ""}`}>
             {(() => {
               const sig = SIG_LABELS[document.doc_type] ?? SIG_LABELS_DEFAULT;
+              // Tax invoice: four boxes (received / delivered / issued /
+              // authorized) with no per-box dates. The company signature and
+              // stamp stay on the authorized box; the issuing officer signs
+              // the issued box by hand.
+              if (document.doc_type === "invoice") {
+                return (
+                  <>
+                    <div className="print-classic-sig-cell">
+                      <div className="print-classic-sig-th">{sig.box1Title}</div>
+                      <div className="print-classic-sig-th-en">{sig.box1TitleEn}</div>
+                      <div className="print-classic-sig-line"></div>
+                      <div className="print-classic-sig-role">
+                        <span className="print-classic-sig-role-th">{sig.box1RoleTh}</span>
+                        <span className="print-classic-sig-role-en"> / {sig.box1RoleEn}</span>
+                      </div>
+                    </div>
+                    <div className="print-classic-sig-cell print-classic-sig-cell-mid">
+                      <div className="print-classic-sig-line"></div>
+                      <div className="print-classic-sig-role">
+                        <span className="print-classic-sig-role-th">{sig.box2RoleTh}</span>
+                        <span className="print-classic-sig-role-en"> / {sig.box2RoleEn}</span>
+                      </div>
+                    </div>
+                    <div className="print-classic-sig-cell print-classic-sig-cell-mid">
+                      <div className="print-classic-sig-line"></div>
+                      <div className="print-classic-sig-role">
+                        <span className="print-classic-sig-role-th">ผู้ออกเอกสาร</span>
+                        <span className="print-classic-sig-role-en"> / ISSUED BY</span>
+                      </div>
+                    </div>
+                    <div className="print-classic-sig-cell">
+                      <div className="print-classic-sig-th">
+                        ในนาม&nbsp;{clientProfile.company_name_th}
+                      </div>
+                      <div className="print-classic-sig-th-en">
+                        FOR{" "}
+                        {clientProfile.company_name_en?.toUpperCase() ||
+                          clientProfile.company_name_th.toUpperCase()}
+                      </div>
+                      <div className="print-classic-sig-line">
+                        {signatureUrl ? (
+                          <img
+                            src={signatureUrl}
+                            alt="ลายเซ็น"
+                            className="print-classic-sig-img"
+                            style={{ height: `${(12 * signatureScaleMult).toFixed(1)}mm` }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : null}
+                        {stampUrl ? (
+                          <img
+                            src={stampUrl}
+                            alt="ตราประทับ"
+                            className="print-classic-sig-stamp"
+                            style={{ height: `${(18 * stampScaleMult).toFixed(1)}mm` }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : null}
+                      </div>
+                      <div className="print-classic-sig-role">
+                        <span className="print-classic-sig-role-th">ผู้มีอำนาจลงนาม</span>
+                        <span className="print-classic-sig-role-en"> / AUTHORIZED BY</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              }
               return (
                 <>
                   <div className="print-classic-sig-cell">
@@ -1443,15 +1508,25 @@ export function PrintDocumentClassicV2({
                       <span className="print-classic-sig-role-en"> / {sig.box2RoleEn}</span>
                     </div>
                   </div>
-                  <div className="print-classic-sig-cell">
-                    <div className="print-classic-sig-th">
-                      ในนาม&nbsp;{clientProfile.company_name_th}
-                    </div>
-                    <div className="print-classic-sig-th-en">
-                      FOR{" "}
-                      {clientProfile.company_name_en?.toUpperCase() ||
-                        clientProfile.company_name_th.toUpperCase()}
-                    </div>
+                  <div className={
+                    document.doc_type === "delivery_note"
+                      // Title-less like the middle box: bottom-pin the content
+                      // so the signature lines align across all three boxes.
+                      ? "print-classic-sig-cell print-classic-sig-cell-mid"
+                      : "print-classic-sig-cell"
+                  }>
+                    {document.doc_type === "delivery_note" ? null : (
+                      <>
+                        <div className="print-classic-sig-th">
+                          ในนาม&nbsp;{clientProfile.company_name_th}
+                        </div>
+                        <div className="print-classic-sig-th-en">
+                          FOR{" "}
+                          {clientProfile.company_name_en?.toUpperCase() ||
+                            clientProfile.company_name_th.toUpperCase()}
+                        </div>
+                      </>
+                    )}
                     <div className="print-classic-sig-line">
                       {signatureUrl ? (
                         <img
@@ -1477,8 +1552,17 @@ export function PrintDocumentClassicV2({
                     </div>
                     <SigDateFill />
                     <div className="print-classic-sig-role">
-                      <span className="print-classic-sig-role-th">ผู้มีอำนาจลงนาม</span>
-                      <span className="print-classic-sig-role-en"> / AUTHORIZED BY</span>
+                      {document.doc_type === "delivery_note" ? (
+                        <>
+                          <span className="print-classic-sig-role-th">ผู้ออกเอกสาร</span>
+                          <span className="print-classic-sig-role-en"> / ISSUED BY</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="print-classic-sig-role-th">ผู้มีอำนาจลงนาม</span>
+                          <span className="print-classic-sig-role-en"> / AUTHORIZED BY</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </>
@@ -1492,7 +1576,9 @@ export function PrintDocumentClassicV2({
 
       {showInitialsStrip && (
         <div className="print-classic-initials-strip" aria-hidden="true">
-          <span className="print-classic-initials-co">ในนาม&nbsp;{clientProfile.company_name_th}</span>
+          <span className="print-classic-initials-co">
+            {document.doc_type === "delivery_note" ? "ผู้ออกเอกสาร" : <>ในนาม&nbsp;{clientProfile.company_name_th}</>}
+          </span>
           <span className="print-classic-initials-sign">
             {signatureUrl || stampUrl ? (
               <span className="print-classic-initials-chop">
@@ -1516,7 +1602,7 @@ export function PrintDocumentClassicV2({
             ) : (
               <>
                 ลงชื่อ&nbsp;<span className="print-classic-initials-fill" />
-                &nbsp;ผู้มีอำนาจลงนาม
+                &nbsp;{document.doc_type === "delivery_note" ? "ผู้ออกเอกสาร" : "ผู้มีอำนาจลงนาม"}
               </>
             )}
           </span>

@@ -1,4 +1,5 @@
 import type { DocumentLineItem } from "../types";
+import { getPrintableLineNote } from "./dnGroups";
 
 export type PrintTemplate = "modern" | "classic" | "classic_v2";
 
@@ -56,14 +57,6 @@ export function getBaseRowMm(template: PrintTemplate, fontScale = 1): number {
     return CLASSIC_ROW_FIXED_MM + TEXT_LINE_MM.classic * fontScale;
   }
   return template === "modern" ? BASE_ROW_MM.modern : BASE_ROW_MM.classic;
-}
-
-function getPrintableLineNote(note: string | null | undefined): string {
-  return String(note || "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim() !== "[USAGE_BILL]")
-    .join("\n")
-    .trim();
 }
 
 function countLines(text: string, charsPerLine: number): number {

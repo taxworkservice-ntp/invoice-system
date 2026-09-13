@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
+import { getPrintableLineNote } from "../../lib/dnGroups";
 import { RefItemName } from "./RefItemName";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
@@ -25,14 +26,6 @@ function formatDate(date: string | null | undefined) {
 
 function getRowClass() {
   return "break-inside-avoid align-top bg-white";
-}
-
-function getPrintableLineNote(note: string | null | undefined) {
-  return String(note || "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim() !== "[USAGE_BILL]")
-    .join("\n")
-    .trim();
 }
 
 export function PrintLineItemsTable({

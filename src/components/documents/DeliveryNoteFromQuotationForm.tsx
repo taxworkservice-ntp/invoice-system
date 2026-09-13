@@ -4,6 +4,7 @@ import { AlertTriangle, PackageCheck, Plus, Trash2, Eye, EyeOff } from "lucide-r
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
+import { Switch } from "../ui/Switch";
 import { Input } from "../ui/Input";
 import { DateInput } from "../ui/DateInput";
 import { Spinner } from "../ui/Spinner";
@@ -14,6 +15,7 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
+import { DN_SECTION_TAG, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../lib/dnGroups";
 import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
@@ -23,7 +25,7 @@ import { EditableDocNumber } from "./EditableDocNumber";
 import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
 import { FormStep } from "./FormStep";
 import { PoTaskFields } from "./PoTaskFields";
-import { DnSoHeaderField } from "./DnSoHeaderField";
+import { DnSectionMarkerRow } from "./DnSectionMarkerRow";
 import { FormActionBar } from "./FormActionBar";
 
 type QuotationWithCustomer = Document & { customer?: Customer };
@@ -53,6 +55,8 @@ type DeliveryLine = {
   qty_carton: number | null;
   carton_unit: string | null;
   hide_amounts_on_print: boolean;
+  /** Section-header (grouping) line: no qty/price, prints as a group header. */
+  isSectionMarker: boolean;
 };
 
 function round3(value: number) {
@@ -95,8 +99,12 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   // Optional PO reference + task name, printed on the delivery note.
   const [customerPo, setCustomerPo] = useState("");
   const [taskName, setTaskName] = useState("");
-  // Optional free-text SO group header (classic V2 only).
-  const [dnSoHeader, setDnSoHeader] = useState("");
+  // Caption shown when an old draft's single SO header was converted into a
+  // section-marker line on load (forms no longer write dn_so_header).
+  const [legacyHeaderConverted, setLegacyHeaderConverted] = useState(false);
+  // Section grouping is opt-in per DN (default off = today's flat flow).
+  // UI-only state, initialized from data — never persisted on its own.
+  const [groupingEnabled, setGroupingEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
@@ -209,7 +217,6 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           setNote((existingDoc as Document).note || "");
           setCustomerPo((existingDoc as Document).customer_po_number || "");
           setTaskName((existingDoc as Document).task_name || "");
-          setDnSoHeader((existingDoc as Document).dn_so_header || "");
           setDocNumberOverride((existingDoc as Document).doc_number || "");
           setHideAmountsOnPrint((existingDoc as Document).hide_amounts_on_print ?? true);
           frozenShowFullTotals.current = (existingDoc as Document).show_full_totals ?? null;
@@ -244,6 +251,29 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
 
         if (documentId && existingDnLines.length > 0) {
           existingDnLines.forEach((line) => {
+            if (isDnSectionMarker(line)) {
+              initialLines.push({
+                id: line.id,
+                source: null,
+                quantity: 0,
+                delivered: 0,
+                pending: 0,
+                item_name: line.item_name,
+                item_sku: null,
+                item_type: "product",
+                unit: "",
+                unit_price: 0,
+                price_confirmed: true,
+                discount_percent: 0,
+                line_note: DN_SECTION_TAG,
+                base_quantity: null,
+                qty_carton: null,
+                carton_unit: null,
+                hide_amounts_on_print: false,
+                isSectionMarker: true,
+              });
+              return;
+            }
             if (line.source_line_item_id) coveredSourceIds.add(line.source_line_item_id);
             const source = line.source_line_item_id
               ? sourceLineById.get(line.source_line_item_id) || null
@@ -267,6 +297,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               qty_carton: line.qty_carton ?? null,
               carton_unit: line.carton_unit ?? null,
               hide_amounts_on_print: line.hide_amounts_on_print ?? false,
+              isSectionMarker: false,
             });
           });
 
@@ -293,8 +324,41 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               qty_carton: line.qty_carton ?? null,
               carton_unit: line.carton_unit ?? null,
               hide_amounts_on_print: false,
+              isSectionMarker: false,
             });
           });
+          // Legacy single SO header becomes one marker line (forms no longer
+          // write dn_so_header — the printed single group is identical).
+          const legacyHeader = getLegacyDnHeaderForConversion(
+            existingDnLines,
+            (existingDoc as Document)?.dn_so_header,
+          );
+          if (legacyHeader) {
+            initialLines.unshift({
+              id: crypto.randomUUID(),
+              source: null,
+              quantity: 0,
+              delivered: 0,
+              pending: 0,
+              item_name: legacyHeader,
+              item_sku: null,
+              item_type: "product",
+              unit: "",
+              unit_price: 0,
+              price_confirmed: true,
+              discount_percent: 0,
+              line_note: DN_SECTION_TAG,
+              base_quantity: null,
+              qty_carton: null,
+              carton_unit: null,
+              hide_amounts_on_print: false,
+              isSectionMarker: true,
+            });
+            setLegacyHeaderConverted(true);
+          }
+          if (legacyHeader || initialLines.some((line) => line.isSectionMarker)) {
+            setGroupingEnabled(true);
+          }
         } else {
           qLines.forEach((line) => {
             const total = totals.get(line.id) || { delivered: 0, pending: 0 };
@@ -317,6 +381,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               qty_carton: line.qty_carton ?? null,
               carton_unit: line.carton_unit ?? null,
               hide_amounts_on_print: false,
+              isSectionMarker: false,
             });
           });
         }
@@ -356,7 +421,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   }, [documentId, quotationId, userId]);
 
   const selectedLines = useMemo(
-    () => lines.filter((line) => line.quantity > 0),
+    () => lines.filter((line) => line.quantity > 0 || line.isSectionMarker),
     [lines],
   );
 
@@ -367,7 +432,9 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
 
   const tax = useMemo(() => {
     return calculateTax(
-      selectedLines.map((line) => ({
+      selectedLines
+        .filter((line) => !line.isSectionMarker)
+        .map((line) => ({
         unit_price: line.unit_price,
         quantity: line.quantity,
         discount_percent: line.discount_percent || 0,
@@ -415,21 +482,74 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
         qty_carton: null,
         carton_unit: null,
         hide_amounts_on_print: false,
+        isSectionMarker: false,
       },
     ]);
+  };
+
+  const addSectionMarker = () => {
+    setLines((current) => {
+      // Don't stack empty headers — finish the current one first.
+      const last = current[current.length - 1];
+      if (last && last.isSectionMarker && !last.item_name.trim()) return current;
+      return [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          source: null,
+          quantity: 0,
+          delivered: 0,
+          pending: 0,
+          item_name: "",
+          item_sku: null,
+          item_type: "product",
+          unit: "",
+          unit_price: 0,
+          price_confirmed: true,
+          discount_percent: 0,
+          line_note: DN_SECTION_TAG,
+          base_quantity: null,
+          qty_carton: null,
+          carton_unit: null,
+          hide_amounts_on_print: false,
+          isSectionMarker: true,
+        },
+      ];
+    });
   };
 
   const removeLine = (lineId: string) => {
     setLines((current) => current.filter((line) => line.id !== lineId));
   };
 
+  const toggleGrouping = (on: boolean) => {
+    // Turning off deletes the headers (with confirmation) — hidden markers
+    // that still affect the printout would be worse than asking once.
+    if (!on && lines.some((line) => line.isSectionMarker)) {
+      const ok = window.confirm("ปิดการจัดกลุ่มจะลบหัวข้อกลุ่มทั้งหมด รายการจะเรียงต่อเนื่องแบบปกติ ยืนยันหรือไม่?");
+      if (!ok) return;
+      setLines((current) => current.filter((line) => !line.isSectionMarker));
+    }
+    setGroupingEnabled(on);
+  };
+
   const handleSave = async () => {
     if (!quotation || !userId || selectedLines.length === 0) return;
+    // Section markers carry no goods — they still need their header text,
+    // and a DN of markers alone is not a delivery.
+    if (selectedLines.some((line) => line.isSectionMarker && !line.item_name.trim())) {
+      setError("กรุณากรอกข้อความหัวข้อกลุ่มให้ครบทุกหัวข้อ");
+      return;
+    }
+    if (!selectedLines.some((line) => !line.isSectionMarker)) {
+      setError("กรุณาเพิ่มอย่างน้อย 1 รายการสินค้า");
+      return;
+    }
     // Mandatory price review (opt-in): block save until every line price
     // is confirmed. Prices saved here flow to the invoice — no blank-form
     // concept on this path, so the gate always applies when enabled.
     if (requirePriceReview) {
-      const pending = selectedLines.filter((line) => !line.price_confirmed).length;
+      const pending = selectedLines.filter((line) => !line.isSectionMarker && !line.price_confirmed).length;
       if (pending > 0) {
         setError(`กรุณายืนยันราคาทุกรายการก่อนบันทึกใบส่งของ (เหลือ ${pending} รายการ)`);
         return;
@@ -463,7 +583,9 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           note: note || null,
           customer_po_number: customerPo.trim() || null,
           task_name: taskName.trim() || null,
-          dn_so_header: dnSoHeader.trim() || null,
+          // Grouping lives on section-marker lines now — always clear the
+          // legacy single header (kept in the column for old reprints only).
+          dn_so_header: null,
           hide_amounts_on_print: hideAmountsOnPrint,
           show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true,
           converted_from_id: quotation.id,
@@ -494,6 +616,32 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
       }
 
       const lineRecords = selectedLines.map((line, index) => {
+        if (line.isSectionMarker) {
+          return {
+            document_id: deliveryNoteId,
+            user_id: userId,
+            item_id: null,
+            item_name: line.item_name.trim(),
+            line_note: DN_SECTION_TAG,
+            item_sku: null,
+            item_type: "product",
+            unit: "",
+            unit_price: 0,
+            quantity: 0,
+            base_quantity: null,
+            discount_percent: 0,
+            discount_amount: 0,
+            qty_carton: null,
+            carton_unit: null,
+            line_total: 0,
+            source_document_id: null,
+            source_line_item_id: null,
+            source_delivered_qty: null,
+            source_unit_price: null,
+            hide_amounts_on_print: false,
+            sort_order: index,
+          };
+        }
         const calc = calculateLineAmounts({
           unit_price: line.unit_price,
           quantity: line.quantity,
@@ -643,9 +791,38 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
             </div>
           }
         >
-          <DnSoHeaderField value={dnSoHeader} onChange={setDnSoHeader} />
+          <div className="rounded-lg border border-dashed border-card-border bg-paper-soft/60 px-3 py-2">
+            <Switch
+              checked={groupingEnabled}
+              onChange={toggleGrouping}
+              label={
+                <>
+                  จัดกลุ่มด้วยหัวข้ออ้างอิง{" "}
+                  <span className="font-normal text-gray-400">(เช่น แยกตาม SO ของลูกค้า)</span>
+                </>
+              }
+            />
+            <p className="mt-1 text-[11px] leading-4 text-gray-400">
+              เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ (Classic V2)
+            </p>
+            {legacyHeaderConverted && groupingEnabled && (
+              <p className="mt-1 text-[11px] leading-4 text-gray-500">
+                แปลงหัวข้อ SO เดี่ยวเดิมเป็นบรรทัดหัวข้อนี้แล้ว — ตรวจสอบและบันทึกเพื่อยืนยัน
+              </p>
+            )}
+          </div>
           <div className="space-y-2">
             {lines.map((line) => {
+              if (line.isSectionMarker && groupingEnabled) {
+                return (
+                  <DnSectionMarkerRow
+                    key={line.id}
+                    value={line.item_name}
+                    onChange={(value) => updateLine(line.id, { item_name: value })}
+                    onRemove={() => removeLine(line.id)}
+                  />
+                );
+              }
               const remaining = line.source
                 ? round3(line.source.quantity - line.delivered - line.pending)
                 : null;
@@ -817,6 +994,12 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               <Plus className="h-4 w-4 mr-1.5" />
               เพิ่มรายการ
             </Button>
+            {groupingEnabled && (
+              <Button variant="secondary" size="sm" className="w-full justify-center" onClick={addSectionMarker}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                เพิ่มหัวข้อกลุ่ม
+              </Button>
+            )}
           </div>
         </FormStep>
 

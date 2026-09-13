@@ -925,6 +925,20 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-items-table td.center { text-align: center; }
 .print-classic-items-table td.right  { text-align: right; }
 .print-classic-items-table td.bold   { font-weight: 600; }
+
+/* Opt-in (ตั้งค่า › เทมเพลตเอกสาร › ตัวหนังสือปกติในตารางรายการ):
+   every item-table text renders at regular weight — headers, amount and
+   group-sum cells, DN group labels and child numbers. Totals, signature
+   and header bands are unaffected. V2-scoped. */
+.print-theme-classic-v2.print-regular-items .print-classic-items-table thead th,
+.print-theme-classic-v2.print-regular-items .print-classic-items-table td.bold,
+.print-theme-classic-v2.print-regular-items .print-classic-dn-group-label,
+.print-theme-classic-v2.print-regular-items .print-classic-dn-group-sum-label,
+.print-theme-classic-v2.print-regular-items .print-classic-dn-child-no,
+.print-theme-classic-v2.print-regular-items .print-classic-frame-section-title,
+.print-theme-classic-v2.print-regular-items .print-classic-items-title {
+  font-weight: 400;
+}
 .print-classic-items-table td.center,
 .print-classic-items-table td.right {
   white-space: nowrap;
@@ -1491,6 +1505,12 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   overflow: hidden;
   margin-top: 2.5mm;
   background: #ffffff;
+}
+/* Tax invoice: four signature boxes (received / delivered / issued /
+   authorized) with no per-box dates — narrower cells, same band. The
+   title/role height symmetry keeps all four dotted lines level. */
+.print-theme-classic-v2 .print-sig-4col {
+  grid-template-columns: repeat(4, 1fr);
 }
 .print-classic-sig-cell {
   border-right: 0.5pt solid #9ca3af;

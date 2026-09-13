@@ -1,5 +1,6 @@
 import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
+import { getPrintableLineNote } from "../../lib/dnGroups";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { splitTerms } from "../../lib/terms";
 import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
@@ -65,14 +66,6 @@ const MIN_CLASSIC_RECEIPT_ROWS = 8;
 interface PrintDocumentClassicProps {
   data: PrintDocumentData;
   copyType?: CopyType;
-}
-
-function getPrintableLineNote(note: string | null | undefined) {
-  return String(note || "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim() !== "[USAGE_BILL]")
-    .join("\n")
-    .trim();
 }
 
 interface PrintDocumentClassicProps {

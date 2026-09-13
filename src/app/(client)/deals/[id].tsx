@@ -775,6 +775,7 @@ export default function DealDetailPage() {
                 carton_unit: li.carton_unit,
                 source_document_id: li.source_document_id,
                 source_line_item_id: li.source_line_item_id,
+                source_section: (li as { source_section?: number | null }).source_section ?? null,
                 line_total: li.line_total,
                 image_url: li.image_url || null,
                 sort_order: idx,
