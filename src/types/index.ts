@@ -127,6 +127,8 @@ export interface ClientProfile {
   classic_v2_hide_english_labels?: boolean;
   /** Classic V2: compact signature band (single-line titles, reduced fill heights). */
   classic_v2_compact_signature?: boolean;
+  /** Classic V2: print a signature-initials strip at the bottom of every non-final page (default off). */
+  classic_v2_sign_every_page?: boolean;
   show_signature_on_wht: boolean;
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;

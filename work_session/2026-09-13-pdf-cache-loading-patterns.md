@@ -45,3 +45,21 @@
   500 on Clear-documents. Fixed with `auth.uid() IS NULL` bypass
   (`supabase/migrations/20260913000000_*`, applied live) + handler maps
   42501 → 403. Verified: negative-case RPC returns `Client not found`.
+
+## Classic V2 signatures (same session)
+- Bottom band pinned via flex column + zero-height pin spacer (filler rows
+  untouched; full pages pixel-identical). Verified safe: top-level V2 blocks
+  use one-sided margin-top only; watermark/page-no are absolute; export
+  forces screen media so pin holds in preview and PDF, inert under
+  window.print.
+- `classic_v2_sign_every_page` (default off): compact initials strip on
+  first/continuation pages, full band still last-only. Reserve
+  CLASSIC_V2_SIG_STRIP_MM=8 threaded through getRowBudgets/paginateRows
+  (height path; mirrored render condition in PrintDocumentClassicV2).
+- Migration 20260913000002 applied live. Settings toggle in documents
+  template section.
+- Verify: tsc clean, pagination.many.check green, unit 9/9 green.
+  tests/print-layout pixel suite cannot run green here (system-Chrome fonts
+  vs lambda chromium; V2 baselines never committed) — pixel baselines must
+  be reviewed/regenerated in the CI/lambda environment. pagination.many.test
+  has 1 PRE-EXISTING failure (variance height assert, fails on clean tree).

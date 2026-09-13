@@ -154,7 +154,7 @@ export function getRowBudgets(
   fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
   extraReserveMm = 0,
-  opts: { multiFirst?: boolean; continuationFullHeader?: boolean; spaceBonusMm?: { first?: number; continuation?: number; last?: number } } = {},
+  opts: { multiFirst?: boolean; continuationFullHeader?: boolean; spaceBonusMm?: { first?: number; continuation?: number; last?: number }; stripReserveMm?: number } = {},
 ): { first: number; continuation: number; last: number } {
   const baseMm = getBaseRowMm(template);
   const cap = kind === "summary_rows"
@@ -179,11 +179,17 @@ export function getRowBudgets(
   const firstReserve = opts.multiFirst ? reserve("first_multi") : reserve("first");
   const firstExtra = opts.multiFirst ? 0 : extraReserveMm;
   const firstCap = opts.multiFirst ? (cap.firstMulti ?? cap.first) : cap.first;
+  // Signature-initials strip (classic V2 เซ็นกำกับทุกหน้า): pinned to the
+  // bottom of the multi-page first page and continuation pages only. Single
+  // pages show the full signature band instead (no strip); the last page
+  // keeps its existing signature-block reserves.
+  const stripFirst = opts.multiFirst ? (opts.stripReserveMm ?? 0) : 0;
+  const stripContinuation = opts.stripReserveMm ?? 0;
   const contMode = opts.continuationFullHeader ? "continuation_full_header" : "continuation";
   const contCap = opts.continuationFullHeader ? (cap.continuationFullHeader ?? cap.continuation) : cap.continuation;
   return {
-    first: Math.max(minRowMm, firstCap * baseMm - firstReserve - firstExtra + (opts.spaceBonusMm?.first ?? 0)),
-    continuation: Math.max(minRowMm, contCap * baseMm - reserve(contMode) + (opts.spaceBonusMm?.continuation ?? 0)),
+    first: Math.max(minRowMm, firstCap * baseMm - firstReserve - firstExtra - stripFirst + (opts.spaceBonusMm?.first ?? 0)),
+    continuation: Math.max(minRowMm, contCap * baseMm - reserve(contMode) - stripContinuation + (opts.spaceBonusMm?.continuation ?? 0)),
     last: Math.max(minRowMm, cap.last * baseMm - reserve("last") - extraReserveMm + (opts.spaceBonusMm?.last ?? 0)),
   };
 }
@@ -223,6 +229,13 @@ export interface PaginateOptions<T> {
    * does not render on continuation pages.
    */
   extraReserveMm?: number;
+  /**
+   * Classic V2 signature-initials strip reserve (mm) for the multi-page
+   * first page and continuation pages. Height-path only — every production
+   * classic V2 pagination call provides estimateHeight; the legacy
+   * count-based fallback has no strip concept.
+   */
+  stripReserveMm?: number;
   /**
    * Classic V2: repeat the full header + customer info on continuation pages
    * (workspace setting) — continuation budgets/caps shrink accordingly.
@@ -267,6 +280,7 @@ export function paginateRows<T>(
       options.extraReserveMm ?? 0,
       fullHeader,
       options.spaceBonusMm,
+      options.stripReserveMm ?? 0,
     );
   }
 
@@ -335,8 +349,9 @@ function paginateRowsByHeight<T>(
   extraReserveMm = 0,
   continuationFullHeader = false,
   spaceBonusMm?: { first?: number; firstMulti?: number; continuation?: number; last?: number },
+  stripReserveMm = 0,
 ): GenericPageBatch<T>[] {
-  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader, spaceBonusMm });
+  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader, spaceBonusMm, stripReserveMm });
   const heights = rows.map((row, i) => estimateHeight(row, i));
   const totalHeight = heights.reduce((sum, h) => sum + h, 0);
 
@@ -379,7 +394,7 @@ function paginateRowsByHeight<T>(
   // Multi-page: the FIRST page carries only header + info band (totals and
   // signatures are on the last page), so it packs to the larger multi-first
   // budget — but always leaves at least one row for the finalized page.
-  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true, spaceBonusMm: { first: spaceBonusMm?.firstMulti ?? spaceBonusMm?.first } });
+  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true, spaceBonusMm: { first: spaceBonusMm?.firstMulti ?? spaceBonusMm?.first }, stripReserveMm });
   const multiFirstCap = (kind === "summary_rows"
     ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
     : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
@@ -455,13 +470,14 @@ function paginateRowsByHeight<T>(
 export function paginateLineItems(
   lineItems: DocumentLineItem[],
   template: "modern" | "classic" | "classic_v2",
-  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number | ClassicV2FontScales; extraReserveMm?: number; continuationFullHeader?: boolean } = {},
+  opts: { estimateHeight?: (item: DocumentLineItem) => number; fontScale?: number | ClassicV2FontScales; extraReserveMm?: number; continuationFullHeader?: boolean; stripReserveMm?: number } = {},
 ): PageBatch[] {
   return paginateRows(lineItems, template, "line_items", {
     estimateHeight: opts.estimateHeight,
     fontScale: opts.fontScale,
     extraReserveMm: opts.extraReserveMm,
     continuationFullHeader: opts.continuationFullHeader,
+    stripReserveMm: opts.stripReserveMm,
   }) as PageBatch[];
 }
 

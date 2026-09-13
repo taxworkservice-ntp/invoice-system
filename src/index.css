@@ -211,6 +211,47 @@ body.print-export-document #root {
   margin-top: auto;
 }
 
+/* Classic V2: pin bottom-anchored blocks to the sheet bottom. The sheet is a
+   flex column; the (empty) pin spacer before the signature band absorbs
+   rounding slack via margin-top: auto, so the band sits at the bottom even
+   when filler rows fall short — and full pages are pixel-identical to before
+   (the band keeps its own margin-top; the spacer collapses to zero).
+   Top-level V2 blocks use one-sided margin-top exclusively, so the flex
+   conversion changes no existing gaps. Filler rows are untouched: they
+   preserve the classic full-table look, flex only guarantees the bottom. */
+.print-theme-classic-v2.print-sheet {
+  display: flex;
+  flex-direction: column;
+}
+.print-theme-classic-v2.print-sheet > * {
+  min-width: 0;
+}
+.print-classic-bottom-pin {
+  margin-top: auto;
+}
+
+/* Per-page signature-initials strip (เซ็นกำกับทุกหน้า, opt-in): compact
+   single row pinned to the bottom of non-final pages. Total height stays
+   under CLASSIC_V2_SIG_STRIP_MM (see constants) — the paginator reserves
+   that budget on exactly these pages. */
+.print-classic-initials-strip {
+  margin-top: auto;
+  border-top: 0.5pt solid #9ca3af;
+  padding-top: 1.5mm;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4mm;
+  font-size: calc(7pt * var(--classic-fs-footer, 1));
+  color: #4b5563;
+  white-space: nowrap;
+}
+.print-classic-initials-fill {
+  display: inline-block;
+  min-width: 28mm;
+  border-bottom: 0.5pt dotted #9ca3af;
+}
+
 .print-theme-modern {
   font-size: 10px;
   line-height: 1.4;

@@ -265,6 +265,14 @@ export function PrintDocumentClassicV2({
   const receiptPaidInFull = isReceipt && receiptOutstanding !== undefined && receiptOutstanding <= 0.01;
   const showFooter = pageMode === "single" || pageMode === "last";
   const fullHeaderPerPage = clientProfile.classic_v2_full_page_header === true;
+  // Per-page signature initials (เซ็นกำกับทุกหน้า, opt-in): a compact strip
+  // pinned to the bottom of every NON-final page. Mirrors the
+  // stripReserveMm budget in getPrintBatches — render condition and budget
+  // must agree or preview/PDF diverge. Single/last pages show the full
+  // signature band instead (never both).
+  const showInitialsStrip =
+    (pageMode === "first" || pageMode === "continuation") &&
+    clientProfile.classic_v2_sign_every_page === true;
   const isContinuationPage = pageMode === "continuation" || pageMode === "last";
   const showHeader =
     pageMode === "single" || pageMode === "first" || (fullHeaderPerPage && isContinuationPage);
@@ -1383,6 +1391,9 @@ export function PrintDocumentClassicV2({
           )}
 
           {/* ============== BOTTOM BAND (signatures) ============== */}
+          {/* The pin spacer absorbs rounding slack so the band always sits
+              at the sheet bottom (see .print-classic-bottom-pin). */}
+          <div className="print-classic-bottom-pin" aria-hidden="true" />
           <div className="print-classic-bottom-band">
             {(() => {
               const sig = SIG_LABELS[document.doc_type] ?? SIG_LABELS_DEFAULT;
@@ -1457,6 +1468,16 @@ export function PrintDocumentClassicV2({
 
           {/* ============== FOOTER ============== */}
         </>
+      )}
+
+      {showInitialsStrip && (
+        <div className="print-classic-initials-strip" aria-hidden="true">
+          <span className="print-classic-initials-co">ในนาม&nbsp;{clientProfile.company_name_th}</span>
+          <span className="print-classic-initials-sign">
+            ลงชื่อ&nbsp;<span className="print-classic-initials-fill" />&nbsp;ผู้มีอำนาจลงนาม
+          </span>
+          <span className="print-classic-initials-page">หน้า&nbsp;{pageIndex}/{totalPages}</span>
+        </div>
       )}
 
       {isCopy && (

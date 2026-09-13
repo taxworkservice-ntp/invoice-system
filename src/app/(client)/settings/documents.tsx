@@ -240,6 +240,7 @@ export default function SettingsDocumentsPage() {
   const [classicV2FullPageHeader, setClassicV2FullPageHeader] = useState(false);
   const [classicV2HideEnglishLabels, setClassicV2HideEnglishLabels] = useState(false);
   const [classicV2CompactSignature, setClassicV2CompactSignature] = useState(false);
+  const [classicV2SignEveryPage, setClassicV2SignEveryPage] = useState(false);
   const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>(
     CLASSIC_V2_DEFAULT_SECTION_SCALES,
   );
@@ -281,6 +282,7 @@ export default function SettingsDocumentsPage() {
     setClassicV2FullPageHeader(clientProfile.classic_v2_full_page_header === true);
     setClassicV2HideEnglishLabels(clientProfile.classic_v2_hide_english_labels === true);
     setClassicV2CompactSignature(clientProfile.classic_v2_compact_signature === true);
+    setClassicV2SignEveryPage(clientProfile.classic_v2_sign_every_page === true);
     setSignatureKey(clientProfile.signature_url || null);
     setStampKey(clientProfile.stamp_url || null);
     setSignatureScale(clientProfile.signature_scale || "medium");
@@ -348,6 +350,7 @@ export default function SettingsDocumentsPage() {
       classic_v2_full_page_header: classicV2FullPageHeader,
       classic_v2_hide_english_labels: classicV2HideEnglishLabels,
       classic_v2_compact_signature: classicV2CompactSignature,
+      classic_v2_sign_every_page: classicV2SignEveryPage,
       classic_v2_font_scale: classicV2FontScale,
       classic_v2_section_font_scales: classicV2SectionScales,
       classic_v2_type_font_scales: Object.fromEntries(
@@ -442,6 +445,7 @@ export default function SettingsDocumentsPage() {
     classicV2FullPageHeader !== (clientProfile?.classic_v2_full_page_header === true) ||
     classicV2HideEnglishLabels !== (clientProfile?.classic_v2_hide_english_labels === true) ||
     classicV2CompactSignature !== (clientProfile?.classic_v2_compact_signature === true) ||
+    classicV2SignEveryPage !== (clientProfile?.classic_v2_sign_every_page === true) ||
     classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
     JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.classic_v2_type_font_scales || {}) ||
     CLASSIC_V2_SECTION_FONT_KEYS.some(
@@ -641,6 +645,15 @@ export default function SettingsDocumentsPage() {
                 controlAlign="right"
               >
                 <Switch checked={classicV2CompactSignature} onChange={(checked) => { setClassicV2CompactSignature(checked); setSaved(false); }} />
+              </SettingRow>
+            )}
+            {pdfTemplate === "classic_v2" && hasClassicV2 && (
+              <SettingRow
+                label="เซ็นกำกับทุกหน้า (คลาสสิก V2)"
+                description="พิมพ์แถบลงชื่อแบบกระชับท้ายทุกหน้าที่ยังไม่ใช่หน้าสุดท้าย (หน้าสุดท้ายมีช่องลายเซ็นเต็มรูปแบบตามเดิม) — ใช้กระดาษมากขึ้นเล็กน้อย"
+                controlAlign="right"
+              >
+                <Switch checked={classicV2SignEveryPage} onChange={(checked) => { setClassicV2SignEveryPage(checked); setSaved(false); }} />
               </SettingRow>
             )}
             <div className="pt-3">

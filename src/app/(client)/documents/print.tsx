@@ -19,7 +19,7 @@ import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
 import { buildDnBlocks, DN_GROUP_SPACER_MM, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
-import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -129,6 +129,13 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       }
     : undefined;
   const continuationFullHeader = isClassicV2 && data.clientProfile.classic_v2_full_page_header === true;
+  // Per-page signature-initials strip (เซ็นกำกับทุกหน้า): pinned to the
+  // bottom of multi-page first + continuation pages. Reserve its height in
+  // those pages' row budgets (mirrors the render condition in
+  // PrintDocumentClassicV2); single/last pages show the full band instead.
+  const stripReserveMm = isClassicV2 && data.clientProfile.classic_v2_sign_every_page === true
+    ? CLASSIC_V2_SIG_STRIP_MM
+    : 0;
   // Reference mode (classic V2): the DN summary table paginates with the
   // same summary machinery as the billing-note table — identical fill-first
   // behavior, continuous numbering, last-only padding and footer.
@@ -142,7 +149,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.invoiceDeliveryNotes,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm, stripReserveMm },
     ).map((batch) => ({ kind: "dn_summary", batch }));
   }
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
@@ -150,7 +157,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.billingNoteInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm, stripReserveMm },
     ).map((batch) => ({ kind: "billing_invoices", batch }));
   }
 
@@ -163,7 +170,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       data.receiptInvoices,
       data.template,
       "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales },
+      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales, stripReserveMm },
     ).map((batch) => ({ kind: "receipt_invoices", batch }));
   }
 
@@ -217,6 +224,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       extraReserveMm,
       continuationFullHeader,
       spaceBonusMm,
+      stripReserveMm,
     }).map((batch) => ({
       kind: "line_items" as const,
       batch: { ...batch, items: batch.items.map((u) => u.item) },
