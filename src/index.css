@@ -994,7 +994,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 
 .print-theme-classic-v2 .print-classic-dn-group-label {
   font-size: calc(6.5pt * var(--classic-fs-items));
-  color: #334155;
+  color: #64748b;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-align: left;
@@ -1005,7 +1005,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
    pagination charges one extra text line per header carrying it. */
 .print-theme-classic-v2 .print-classic-dn-group-so {
   font-weight: 400;
-  color: #475569;
+  color: #0f172a;
   overflow-wrap: anywhere;
 }
 
