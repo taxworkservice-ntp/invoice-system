@@ -304,10 +304,10 @@ export const CLASSIC_V2_COMPACT_SIG_MM = 5.5;
 
 /**
  * Reserved height (mm) of the per-page signature-initials strip
- * (เซ็นกำกับทุกหน้า): a single compact row pinned to the bottom of
- * first/continuation pages. Subtracted from those pages' row budgets when
- * the workspace enables classic_v2_sign_every_page — rounded up so budgets
- * stay conservative.
+ * (เซ็นกำกับทุกหน้า): signature/stamp chop plus row furniture, pinned to
+ * the bottom of first/continuation pages. Subtracted from those pages' row
+ * budgets when the workspace enables classic_v2_sign_every_page — rounded
+ * up so budgets stay conservative.
  */
 export const CLASSIC_V2_SIG_STRIP_MM = 8;
 
