@@ -1474,7 +1474,31 @@ export function PrintDocumentClassicV2({
         <div className="print-classic-initials-strip" aria-hidden="true">
           <span className="print-classic-initials-co">ในนาม&nbsp;{clientProfile.company_name_th}</span>
           <span className="print-classic-initials-sign">
-            ลงชื่อ&nbsp;<span className="print-classic-initials-fill" />&nbsp;ผู้มีอำนาจลงนาม
+            {signatureUrl || stampUrl ? (
+              <span className="print-classic-initials-chop">
+                {signatureUrl ? (
+                  <img
+                    src={signatureUrl}
+                    alt=""
+                    className="print-classic-initials-sig"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : null}
+                {stampUrl ? (
+                  <img
+                    src={stampUrl}
+                    alt=""
+                    className="print-classic-initials-stamp"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : null}
+              </span>
+            ) : (
+              <>
+                ลงชื่อ&nbsp;<span className="print-classic-initials-fill" />
+              </>
+            )}
+            &nbsp;ผู้มีอำนาจลงนาม
           </span>
           <span className="print-classic-initials-page">หน้า&nbsp;{pageIndex}/{totalPages}</span>
         </div>

@@ -246,10 +246,37 @@ body.print-export-document #root {
   color: #4b5563;
   white-space: nowrap;
 }
+.print-classic-initials-sign {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5mm;
+}
 .print-classic-initials-fill {
   display: inline-block;
   min-width: 28mm;
   border-bottom: 0.5pt dotted #9ca3af;
+}
+/* Signature/stamp chop: fixed compact size, deliberately independent of the
+   signature-scale setting (that governs the formal band). Total strip height
+   stays within CLASSIC_V2_SIG_STRIP_MM: 6mm art + 1.5mm padding + hairline.
+   Stamp overlaps the signature exactly like the full band. */
+.print-classic-initials-chop {
+  display: inline-flex;
+  align-items: flex-end;
+}
+.print-classic-initials-sig {
+  height: 5mm;
+  width: auto;
+  max-width: 30mm;
+  object-fit: contain;
+}
+.print-classic-initials-stamp {
+  height: 6mm;
+  width: auto;
+  max-width: 22mm;
+  object-fit: contain;
+  margin-left: -4mm;
+  margin-bottom: -0.5mm;
 }
 
 .print-theme-modern {
