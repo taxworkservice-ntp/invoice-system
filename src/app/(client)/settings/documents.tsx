@@ -10,7 +10,7 @@ import { Button } from "../../../components/ui/Button";
 import { Select } from "../../../components/ui/Input";
 import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
-import { Spinner } from "../../../components/ui/Spinner";
+import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { LOGO_SIZE_OPTIONS, LOGO_DEFAULT_SIZE, ASSET_SCALE_OPTIONS, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_SECTION_FONT_KEYS, CLASSIC_V2_SECTION_INHERIT, CLASSIC_V2_TYPE_FONT_KEYS, CLASSIC_V2_TYPE_GLOBAL_KEY, CLASSIC_V2_ITEMS_TABLE_ROWS, CLASSIC_V2_SECTION_SUB_ROWS, CLASSIC_V2_SECTION_PARENT_LABELS, CLASSIC_V2_DEFAULT_SECTION_SCALES, CLASSIC_V2_BASE_FONT_PT, CLASSIC_V2_MIN_FONT_PT, CLASSIC_V2_MAX_FONT_PT, CLASSIC_V2_CUSTOM_PT_PREFIX, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2SectionScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import type { ClassicV2SectionFontKey } from "../../../constants";
@@ -435,7 +435,7 @@ export default function SettingsDocumentsPage() {
     } as ClientProfile);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > รูปแบบเอกสาร"><Spinner /></AppShell>;
+  if (loading) return <AppShell title="ตั้งค่า > รูปแบบเอกสาร"><SettingsPageSkeleton /></AppShell>;
 
   const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template || "modern") ||

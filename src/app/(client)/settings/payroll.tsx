@@ -5,7 +5,7 @@ import { SettingRow } from "../../../components/ui/SettingRow";
 import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
-import { Spinner } from "../../../components/ui/Spinner";
+import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { SettingsTabs } from "./_components/SettingsTabs";
@@ -150,7 +150,7 @@ export default function SettingsPayrollPage() {
     setSaving(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > เงินเดือน"><Spinner /></AppShell>;
+  if (loading) return <AppShell title="ตั้งค่า > เงินเดือน"><SettingsPageSkeleton /></AppShell>;
 
   return (
     <AppShell title="ตั้งค่า > เงินเดือน">

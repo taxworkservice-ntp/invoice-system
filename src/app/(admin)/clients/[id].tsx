@@ -72,6 +72,7 @@ export default function AdminClientDetailPage() {
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const [email, setEmail] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [accountError, setAccountError] = useState("");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [features, setFeatures] = useState<ClientFeature[]>([]);
   const [members, setMembers] = useState<AdminClientMember[]>([]);
@@ -128,7 +129,13 @@ export default function AdminClientDetailPage() {
     if (!id) return;
 
     setLoading(true);
+    setAccountError("");
 
+    // The auth-user lookup is the only request here that rejects (apiFetch
+    // throws on non-2xx). Guard it like members/roles/audit below so one
+    // failing call can never blank the whole page — the rest renders
+    // partially with an inline notice instead.
+    let accountFailure = "";
     const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes, memberRes, roleRes, auditRes] = await Promise.all([
       supabase.from("client_profiles").select("*").eq("user_id", id).single(),
       supabase
@@ -138,7 +145,10 @@ export default function AdminClientDetailPage() {
         .order("created_at", { ascending: false })
         .limit(10),
       supabase.from("deals").select("*", { count: "exact", head: true }).eq("user_id", id),
-      getAdminClientUser(id),
+      getAdminClientUser(id).catch((error: unknown) => {
+        accountFailure = error instanceof Error && error.message ? error.message : "โหลดข้อมูลบัญชีไม่สำเร็จ";
+        return null;
+      }),
       supabase.from("customers").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
       supabase.from("items").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
       supabase.from("deals").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
@@ -173,8 +183,13 @@ export default function AdminClientDetailPage() {
     setCustomRoles(roleRes);
     setAuditEntries(auditRes);
 
-    setEmail(userRes.email || "");
-    setIsActive(userRes.isActive);
+    if (userRes) {
+      setEmail(userRes.email || "");
+      setIsActive(userRes.isActive);
+    } else {
+      setAccountError(accountFailure || "โหลดข้อมูลบัญชีไม่สำเร็จ");
+      toast.error(accountFailure || "โหลดข้อมูลบัญชีไม่สำเร็จ");
+    }
     setLoading(false);
   }
 
@@ -629,6 +644,20 @@ export default function AdminClientDetailPage() {
       <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
         <div className={CARD_LABEL}>ข้อมูลลูกค้า</div>
 
+        {accountError && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
+            <span className="font-medium">โหลดข้อมูลบัญชีไม่สำเร็จ:</span> {accountError}
+            <span className="text-amber-800/80"> ข้อมูลอื่นด้านล่างแสดงตามปกติ</span>
+            <button
+              type="button"
+              onClick={() => void fetchData()}
+              className="ml-2 font-medium text-[#0C447C] hover:underline"
+            >
+              ลองใหม่
+            </button>
+          </div>
+        )}
+
         <Card>
           <div className="space-y-2">
             <div>
@@ -681,10 +710,14 @@ export default function AdminClientDetailPage() {
                 <p className="text-[13px]">
                   <span
                     className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${
-                      isActive ? "bg-[#EAF3DE] text-[#27500A]" : "bg-[#F1EFE8] text-[#888780]"
+                      accountError
+                        ? "bg-[#F1EFE8] text-[#888780]"
+                        : isActive
+                          ? "bg-[#EAF3DE] text-[#27500A]"
+                          : "bg-[#F1EFE8] text-[#888780]"
                     }`}
                   >
-                    {isActive ? "ใช้งานอยู่" : "ปิดการใช้งาน"}
+                    {accountError ? "ไม่ทราบสถานะ" : isActive ? "ใช้งานอยู่" : "ปิดการใช้งาน"}
                   </span>
                 </p>
               </div>

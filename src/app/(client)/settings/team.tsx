@@ -5,7 +5,7 @@ import { Card } from "../../../components/ui/Card";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
-import { Spinner } from "../../../components/ui/Spinner";
+import { SettingsRowsSkeleton } from "./_components/SettingsSkeleton";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import { useToast } from "../../../hooks/useToast";
 import { apiFetch } from "../../../lib/api";
@@ -418,7 +418,7 @@ export default function SettingsTeamPage() {
           }
         />
 
-        {loading ? <Spinner /> : tab === "members" ? (
+        {loading ? <SettingsRowsSkeleton /> : tab === "members" ? (
           members.length === 0 ? (
             <Card><p className="text-sm text-gray-500">ยังไม่มีสมาชิกในทีม — เพิ่มสมาชิกได้จากผู้ดูแลระบบ</p></Card>
           ) : (

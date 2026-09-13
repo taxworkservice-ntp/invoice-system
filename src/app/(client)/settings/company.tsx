@@ -7,7 +7,7 @@ import { SectionCard } from "../../../components/ui/SectionCard";
 import { SettingRow } from "../../../components/ui/SettingRow";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
-import { Spinner } from "../../../components/ui/Spinner";
+import { SettingsPageSkeleton, SettingsRowsSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { ClientProfile, BankAccount } from "../../../types";
@@ -225,7 +225,7 @@ export default function SettingsCompanyPage() {
     setSaving(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > ข้อมูลบริษัท"><Spinner /></AppShell>;
+  if (loading) return <AppShell title="ตั้งค่า > ข้อมูลบริษัท"><SettingsPageSkeleton /></AppShell>;
 
   const isDirty =
     companyNameTh !== (clientProfile?.company_name_th || "") ||
@@ -302,7 +302,7 @@ export default function SettingsCompanyPage() {
 
         <SectionCard title="บัญชีธนาคาร" description="เพิ่มได้หลายบัญชี เลือกตอนรับชำระเงินแบบโอนและแสดงบนเอกสาร">
           {bankLoading ? (
-            <Spinner />
+            <SettingsRowsSkeleton rows={2} />
           ) : (
             <>
               {bankAccounts.length === 0 ? (

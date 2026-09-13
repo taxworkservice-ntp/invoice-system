@@ -7,7 +7,7 @@ import { SettingRow } from "../../../components/ui/SettingRow";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
-import { Spinner } from "../../../components/ui/Spinner";
+import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { WHT_RATE_OPTIONS } from "../../../constants";
 import { SettingsTabs } from "./_components/SettingsTabs";
@@ -103,7 +103,7 @@ export default function SettingsTaxPage() {
     setVatChangeConfirmed(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > ภาษี"><Spinner /></AppShell>;
+  if (loading) return <AppShell title="ตั้งค่า > ภาษี"><SettingsPageSkeleton /></AppShell>;
 
   const isDirty =
     vatRegistered !== clientProfile?.vat_registered ||

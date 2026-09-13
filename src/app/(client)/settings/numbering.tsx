@@ -7,7 +7,7 @@ import { SectionCard } from "../../../components/ui/SectionCard";
 import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
-import { Spinner } from "../../../components/ui/Spinner";
+import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { DOC_TYPE_LABELS, DOC_TYPE_NOTES } from "../../../constants";
 import { SettingsTabs } from "./_components/SettingsTabs";
@@ -182,7 +182,7 @@ export default function SettingsNumberingPage() {
     }
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > เลขที่เอกสาร"><Spinner /></AppShell>;
+  if (loading) return <AppShell title="ตั้งค่า > เลขที่เอกสาร"><SettingsPageSkeleton /></AppShell>;
 
   return (
     <AppShell title="ตั้งค่า > เลขที่เอกสาร">

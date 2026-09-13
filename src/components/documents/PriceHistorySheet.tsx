@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal } from "../ui/Modal";
-import { Spinner } from "../ui/Spinner";
+import { Skeleton } from "../ui/Skeleton";
 import { fetchPriceHistory, priceHistoryDocTypeLabel, type PriceHistoryRow } from "../../lib/priceHistory";
 import { formatBuddhistDate } from "../../lib/dates";
 
@@ -102,8 +102,16 @@ export function PriceHistorySheet({
       )}
 
       {loading ? (
-        <div className="flex justify-center py-8">
-          <Spinner />
+        <div className="divide-y divide-[#F0EEE8]" role="status" aria-label="กำลังโหลดประวัติราคา">
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="flex items-center justify-between gap-3 py-3" aria-hidden="true">
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-2/5" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+              <Skeleton className="h-4 w-20" />
+            </div>
+          ))}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</div>

@@ -4,7 +4,7 @@ import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { Button } from "../../../components/ui/Button";
-import { Spinner } from "../../../components/ui/Spinner";
+import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { SettingsTabs } from "./_components/SettingsTabs";
 
@@ -46,7 +46,7 @@ export default function SettingsStockPage() {
     setSaving(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > สต็อก"><Spinner /></AppShell>;
+  if (loading) return <AppShell title="ตั้งค่า > สต็อก"><SettingsPageSkeleton /></AppShell>;
 
   return (
     <AppShell title="ตั้งค่า > สต็อก">
