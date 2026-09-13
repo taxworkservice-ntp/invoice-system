@@ -19,6 +19,7 @@ import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { supabase } from "../../../lib/supabase";
+import { warmPdfCache } from "../../../lib/pdfWarm";
 import {
   getCachedDealDetail,
   setCachedDealDetail,
@@ -628,6 +629,7 @@ export default function DealDetailPage() {
       );
 
       toast.success("อัปเดตสถานะเอกสารแล้ว");
+      warmPdfCache(doc.id);
       fetchDealData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -670,6 +672,7 @@ export default function DealDetailPage() {
     try {
       await confirmDraftReceipt(confirmingReceiptDoc.id, userId);
       toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
+      warmPdfCache(confirmingReceiptDoc.id);
       setConfirmingReceiptDoc(null);
       fetchDealData();
     } catch (err: unknown) {
@@ -797,6 +800,7 @@ export default function DealDetailPage() {
       }
 
       toast.success(voidAndRecreate ? "ยกเลิกและสร้างสำเนาใหม่สำเร็จ" : "ยกเลิกเอกสารสำเร็จ");
+      warmPdfCache(voidDocument.id);
       setVoidModalOpen(false);
       setVoidDocument(null);
 

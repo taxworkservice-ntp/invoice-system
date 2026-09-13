@@ -36,6 +36,7 @@ import { getDocumentDetail, useDocuments } from "../../../hooks/useDocuments";
 import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { warmPdfCache } from "../../../lib/pdfWarm";
 import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
 import { sendDocumentWithSideEffects } from "../../../lib/documentSend";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
@@ -1318,6 +1319,7 @@ export default function DocumentsPage() {
           ? "บันทึกว่าส่งของแล้ว"
           : "ทำเครื่องหมายว่าส่งแล้ว",
       );
+      warmPdfCache(doc.id);
     } catch (err: any) {
       toast.error(err.message || "เกิดข้อผิดพลาด");
     } finally {
@@ -1357,12 +1359,14 @@ export default function DocumentsPage() {
       } else if (action === "void") {
         await voidDocumentWithSideEffects(doc, profile.id);
         toast.success("ยกเลิกเอกสารแล้ว");
+        warmPdfCache(doc.id);
       } else if (action === "delete") {
         await deleteDraftDocument(doc);
         toast.success("ลบเอกสารแล้ว");
       } else if (action === "confirm_receipt") {
         await confirmDraftReceipt(doc.id, profile!.id);
         toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
+        warmPdfCache(doc.id);
       } else if (action === "issue_cn") {
         await supabase
           .from("documents")
@@ -1372,6 +1376,7 @@ export default function DocumentsPage() {
           })
           .eq("id", doc.id);
         toast.success("ออกใบลดหนี้แล้ว");
+        warmPdfCache(doc.id);
       }
       setOpenMenuId(null);
       setPendingConfirm(null);

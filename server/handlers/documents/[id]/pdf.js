@@ -1,7 +1,7 @@
 import playwright from "playwright-core";
 import { requireUser } from "../../_lib/auth.js";
 import { getChromiumLaunchOptions } from "../../_lib/chromium.js";
-import { ApiError, readJsonBody, sendError } from "../../_lib/http.js";
+import { ApiError, readJsonBody, sendError, sendJson } from "../../_lib/http.js";
 import { getR2ObjectBytes, putR2Object } from "../../_lib/r2.js";
 import { supabaseAdmin } from "../../_lib/supabase.js";
 import { getEnv } from "../../_lib/env.js";
@@ -110,8 +110,21 @@ async function lookupFreshCache(document, variant) {
   return file;
 }
 
-async function backfillPdfCache({ key, documentId, userId, filename, buffer }) {
+async function backfillPdfCache({ key, documentId, userId, filename, buffer, expectedUpdatedAt }) {
   try {
+    // Race guard: a render takes seconds, and the document may have been
+    // edited (or a newer render may have already backfilled) while it ran.
+    // Backfilling older bytes under a fresh timestamp would freeze stale
+    // content in the cache permanently — so verify before writing. A skipped
+    // backfill only costs one more render on the next download.
+    const { data: current, error: currentError } = await supabaseAdmin
+      .from("documents")
+      .select("updated_at")
+      .eq("id", documentId)
+      .single();
+    if (currentError || !current) return "skipped";
+    if (new Date(current.updated_at).getTime() !== new Date(expectedUpdatedAt).getTime()) return "skipped";
+
     await putR2Object(key, buffer, "application/pdf");
     const { error } = await supabaseAdmin.from("files").upsert(
       {
@@ -126,9 +139,11 @@ async function backfillPdfCache({ key, documentId, userId, filename, buffer }) {
       { onConflict: "r2_key" }
     );
     if (error) throw error;
+    return "stored";
   } catch (error) {
     // Cache is best-effort: the freshly rendered bytes are still served.
     console.warn("[pdf-cache] backfill failed", key, error?.message || error);
+    return "failed";
   }
 }
 
@@ -229,6 +244,10 @@ export default async function handler(req, res) {
     // complete first (?interleave=0). Always forwarded explicitly.
     const interleave = body.interleave === 0 ? "0" : "1";
     const refCollapse = body.refCollapse ? 1 : 0;
+    // Warm mode (background pre-render after finalize): render + backfill
+    // the cache, then reply with JSON instead of shipping PDF bytes to a
+    // caller that would discard them.
+    const warm = body.warm === true;
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
@@ -264,6 +283,7 @@ export default async function handler(req, res) {
     if (cached) {
       try {
         const { bytes } = await getR2ObjectBytes(cached.r2_key);
+        if (warm) return sendJson(res, 200, { success: true, cached: true });
         return sendPdf(res, Buffer.from(bytes), filename);
       } catch (error) {
         // Orphan row (object gone) or transient storage error: fall through
@@ -290,8 +310,10 @@ export default async function handler(req, res) {
       userId: document.user_id,
       filename,
       buffer: pdfBuffer,
+      expectedUpdatedAt: document.updated_at,
     });
 
+    if (warm) return sendJson(res, 200, { success: true, cached: false });
     return sendPdf(res, pdfBuffer, filename);
   } catch (error) {
     return sendError(res, error);

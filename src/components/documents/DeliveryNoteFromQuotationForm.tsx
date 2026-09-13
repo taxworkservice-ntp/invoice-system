@@ -12,6 +12,7 @@ import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomerReferenceHistory } from "../../hooks/useCustomerReferenceHistory";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
+import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
 import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
@@ -524,6 +525,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
       if (lineError) throw lineError;
 
       toast.success(documentId ? "บันทึกร่างใบส่งของแล้ว" : "สร้างใบส่งของจากใบเสนอราคาแล้ว");
+      // New delivery notes ship finalized — pre-warm. Draft edits stay lazy.
+      if (!documentId) warmPdfCache(deliveryNoteId);
       if (quotation.deal_id) navigate(`/deals/${quotation.deal_id}`);
       else navigate(`/documents/${deliveryNoteId}`);
     } catch (err: any) {

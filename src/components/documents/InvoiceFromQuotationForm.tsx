@@ -18,6 +18,7 @@ import { useCustomers } from "../../hooks/useCustomers";
 import { useCustomerReferenceHistory } from "../../hooks/useCustomerReferenceHistory";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
+import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
@@ -701,6 +702,7 @@ export function InvoiceFromQuotationForm() {
       );
 
       toast.success("สร้างใบแจ้งหนี้จากใบเสนอราคาแล้ว");
+      warmPdfCache(record.document_id);
       navigate(`/deals/${record.deal_id}`);
     } catch (err: any) {
       setError(err.message || "เกิดข้อผิดพลาดในการสร้างใบแจ้งหนี้");

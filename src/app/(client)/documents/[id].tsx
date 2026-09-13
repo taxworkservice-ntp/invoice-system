@@ -15,6 +15,7 @@ import { getDocumentDetail, saveLineItems } from "../../../hooks/useDocuments";
 import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { warmPdfCache } from "../../../lib/pdfWarm";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { deleteDraftDocument } from "../../../lib/documentDelete";
@@ -1101,6 +1102,7 @@ export default function DocumentDetailPage() {
                     .eq("id", doc.id);
                   await fetchDoc();
                   toast.success("ออกใบลดหนี้แล้ว");
+                  warmPdfCache(doc.id);
                 } catch (err: any) {
                   setError(err.message);
                 } finally {
@@ -1230,6 +1232,7 @@ export default function DocumentDetailPage() {
                   }
                   await confirmDraftReceipt(doc.id, userId);
                   toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
+                  warmPdfCache(doc.id);
                   await fetchDoc();
                 } catch (err: any) {
                   setError(err.message || "เกิดข้อผิดพลาด");

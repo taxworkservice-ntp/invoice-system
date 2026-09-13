@@ -17,6 +17,7 @@ import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
 import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
+import { warmPdfCache } from "../../lib/pdfWarm";
 import { formatBuddhistDate } from "../../lib/dates";
 import { assertDocNumberAvailable, resolveDocNumber } from "../../lib/docNumber";
 import { addDaysString, businessTodayString } from "../../lib/devDate";
@@ -762,6 +763,9 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         setSavedInvoiceIds(new Set(currentlySelectedIds));
         setErrors({});
         setIsDirty(false);
+        // Finalized billing notes are download-likely — pre-warm the cache.
+        // Drafts stay lazy (they churn and are rarely downloaded).
+        if ((savedDoc as Document).status !== "draft") warmPdfCache(savedDoc.id);
 
         if (options?.showToast) {
           toast.success(

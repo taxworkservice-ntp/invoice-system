@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { warmPdfCache } from "../../lib/pdfWarm";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useItems } from "../../hooks/useItems";
 import { useToast } from "../../hooks/useToast";
@@ -450,6 +451,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
       if (!targetDocId) throw new Error("เกิดข้อผิดพลาดในการบันทึก");
 
       toast.success(status === "issued" ? `${issueVerbTh}แล้ว` : "บันทึกฉบับร่างแล้ว");
+      if (status === "issued") warmPdfCache(targetDocId);
       navigate(`/documents/${targetDocId}`, { replace: true });
     } catch (err: any) {
       setError(err.message || "เกิดข้อผิดพลาด");
