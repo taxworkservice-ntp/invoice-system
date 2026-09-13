@@ -113,7 +113,10 @@ async function handleResetDocuments(id, actorId) {
     p_target_user_id: id,
     p_actor_user_id: actorId,
   });
-  if (error) throw error;
+  if (error) {
+    if (error.code === "42501") throw new ApiError(403, "Admin access required");
+    throw error;
+  }
 
   await deleteR2ObjectsBestEffort(data?.r2_keys);
 

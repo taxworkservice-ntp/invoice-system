@@ -193,7 +193,13 @@ declare
   v_deal_seq_reset bigint := 0;
   v_summary        jsonb;
 begin
-  if not public.is_admin() then
+  -- Service-role (server-side admin API, no user JWT context) bypasses the
+  -- in-function admin check; authorization is enforced by requireAdmin() in
+  -- the caller. Mirrors client_workspace_can(). Direct anon/public calls
+  -- stay blocked by the REVOKE below.
+  if auth.uid() is null then
+    null;
+  elsif not public.is_admin() then
     raise exception 'admin_reset_client_documents: admin only' using errcode = '42501';
   end if;
 
