@@ -23,6 +23,7 @@ import { EditableDocNumber } from "./EditableDocNumber";
 import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
 import { FormStep } from "./FormStep";
 import { PoTaskFields } from "./PoTaskFields";
+import { DnSoHeaderField } from "./DnSoHeaderField";
 import { FormActionBar } from "./FormActionBar";
 
 type QuotationWithCustomer = Document & { customer?: Customer };
@@ -94,6 +95,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   // Optional PO reference + task name, printed on the delivery note.
   const [customerPo, setCustomerPo] = useState("");
   const [taskName, setTaskName] = useState("");
+  // Optional free-text SO group header (classic V2 only).
+  const [dnSoHeader, setDnSoHeader] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
@@ -206,6 +209,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           setNote((existingDoc as Document).note || "");
           setCustomerPo((existingDoc as Document).customer_po_number || "");
           setTaskName((existingDoc as Document).task_name || "");
+          setDnSoHeader((existingDoc as Document).dn_so_header || "");
           setDocNumberOverride((existingDoc as Document).doc_number || "");
           setHideAmountsOnPrint((existingDoc as Document).hide_amounts_on_print ?? true);
           frozenShowFullTotals.current = (existingDoc as Document).show_full_totals ?? null;
@@ -459,6 +463,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           note: note || null,
           customer_po_number: customerPo.trim() || null,
           task_name: taskName.trim() || null,
+          dn_so_header: dnSoHeader.trim() || null,
           hide_amounts_on_print: hideAmountsOnPrint,
           show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true,
           converted_from_id: quotation.id,
@@ -638,6 +643,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
             </div>
           }
         >
+          <DnSoHeaderField value={dnSoHeader} onChange={setDnSoHeader} />
           <div className="space-y-2">
             {lines.map((line) => {
               const remaining = line.source

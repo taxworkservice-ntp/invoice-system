@@ -15,6 +15,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { ItemCreateModal } from "../../../components/catalog/ItemCreateModal";
 import { PoTaskFields } from "../../../components/documents/PoTaskFields";
+import { DnSoHeaderField } from "../../../components/documents/DnSoHeaderField";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
@@ -525,6 +526,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   // Optional PO reference + task name, printed on the document (classic V2).
   const [customerPo, setCustomerPo] = useState("");
   const [taskName, setTaskName] = useState("");
+  // Optional free-text SO group header (delivery notes, classic V2 only).
+  const [dnSoHeader, setDnSoHeader] = useState("");
   // Distinct past values for this customer — recurring jobs become pick-not-type.
   const referenceHistory = useCustomerReferenceHistory(selectedCustomer?.id || null);
   const [utilityServiceItemId, setUtilityServiceItemId] = useState<string | null>(null);
@@ -717,6 +720,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         setNote(draftDoc.note || "");
         setCustomerPo(draftDoc.customer_po_number || "");
         setTaskName(draftDoc.task_name || "");
+        setDnSoHeader(draftDoc.dn_so_header || "");
         setDocNumberOverride(draftDoc.doc_number || "");
         if (draftDoc.doc_type === "delivery_note" && draftDoc.hide_amounts_on_print != null) {
           setHideAmountsOnPrint(draftDoc.hide_amounts_on_print);
@@ -1503,7 +1507,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         note: note.trim() ? note : null,
         customer_po_number: customerPo.trim() || null,
         task_name: taskName.trim() || null,
-        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true } : {}),
+        ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true, dn_so_header: dnSoHeader.trim() || null } : {}),
       };
 
       let savedDocumentId = documentId || "";
@@ -2031,6 +2035,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 )}
               </div>
             </div>
+            {isDeliveryNote && (
+              <div className="mb-3">
+                <DnSoHeaderField value={dnSoHeader} onChange={setDnSoHeader} />
+              </div>
+            )}
             <div className="space-y-2">
               {!isUtilityBill && lineItems.length === 0 && (
                 <div className="rounded-lg border border-dashed border-cool-200 bg-paper-field px-4 py-4 text-center text-xs text-gray-400 space-y-2">

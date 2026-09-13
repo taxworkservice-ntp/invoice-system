@@ -3,9 +3,11 @@ import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getProxiedImageUrl } from "../../lib/storageApi";
 import {
   buildDnBlocks,
+  buildDnSoHeaderPlan,
   DN_GROUP_SPACER_MM,
   dnHeaderLabel,
   filterDnRenderLines,
+  getDnSoHeaderText,
   planDnRows,
 } from "../../lib/dnGroups";
 import { getRowBudgets } from "../../lib/pagination";
@@ -218,12 +220,15 @@ export function PrintDocumentClassicV2({
   // hierarchical (BOQ-style: groups 1..n, children 1.1..) derived from the
   // FULL line list, so numbers stay continuous across page batches.
   const tableLines = filterDnRenderLines(lineItems);
+  // Opt-in SO group mode (delivery notes, classic V2): an explicitly typed
+  // header wraps every line in one "1." group and takes precedence over the
+  // incidental quotation back-reference grouping. Empty = existing path.
+  const soGroupHeader = getDnSoHeaderText(document.doc_type, document.dn_so_header);
+  const fullRenderLines = filterDnRenderLines(data.lineItems);
   const dnRowPlanById = new Map(
-    planDnRows(
-      buildDnBlocks(
-        filterDnRenderLines(data.lineItems),
-        lineDeliveryNoteMap,
-      ),
+    (soGroupHeader
+      ? buildDnSoHeaderPlan(fullRenderLines, soGroupHeader)
+      : planDnRows(buildDnBlocks(fullRenderLines, lineDeliveryNoteMap))
     ).map((p) => [p.item.id, p]),
   );
   const billingRows = batchBillingNoteInvoices ?? billingNoteInvoices;
@@ -400,6 +405,7 @@ export function PrintDocumentClassicV2({
               (line.discount_amount ?? 0) > 0 || (line.discount_percent ?? 0) > 0,
             hasInlineDnRef: false,
             hasDnGroupBand: !!entry && (entry.header !== null || entry.footerAfter !== null),
+            dnGroupSoHeader: entry?.header?.soHeader ?? null,
             hasLineImage: document.doc_type === "quotation" && !!line.image_url,
             hasInvoiceRef: hasMultiInvoiceRefs && !!invoiceNumberMap[line.document_id],
           }) + (entry?.spacerAfter ? DN_GROUP_SPACER_MM : 0);
@@ -961,7 +967,21 @@ export function PrintDocumentClassicV2({
                               className="print-classic-dn-group-label"
                               colSpan={showAmountColumns ? 5 : 3}
                             >
-                              <RefItemName name={dnHeaderLabel(header)} />
+                              {/* SO-only header (DN opt-in): the free text IS
+                                  the header. Standard groups keep the DN ref
+                                  line and append the frozen SO as line two. */}
+                              {header.number ? (
+                                <RefItemName name={dnHeaderLabel(header)} />
+                              ) : null}
+                              {header.soHeader ? (
+                                header.number ? (
+                                  <div className="print-classic-dn-group-so">
+                                    <RefItemName name={header.soHeader} />
+                                  </div>
+                                ) : (
+                                  <RefItemName name={header.soHeader} />
+                                )
+                              ) : null}
                             </td>
                           </tr>
                         ) : null}

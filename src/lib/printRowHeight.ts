@@ -89,6 +89,9 @@ export function estimateLineItemHeight(
     hasDnVariance?: boolean;
     /** classic_v2: this line starts a DN group → a band row renders above it. */
     hasDnGroupBand?: boolean;
+    /** classic_v2: the group header above this line carries a second SO
+     * line (full-band width, wraps). Null/empty = single-line header. */
+    dnGroupSoHeader?: string | null;
     /** Quotation line with an example photo (≈26mm image under the name). */
     hasLineImage?: boolean;
     /** --classic-font-scale multiplier for the description column (classic templates only, 1 = default). */
@@ -149,9 +152,16 @@ export function estimateLineItemHeight(
   const noteMm = noteLines * textScale(NOTE_LINE_MM[key]);
   const subMm = subLines * textScale(SUBLINE_MM[key]);
   const bandMm = isClassic && opts.hasDnGroupBand ? textScale(DN_BAND_MM.classic) : 0;
+  // SO second line spans the full band (roughly 2x the description column,
+  // slightly smaller type) — charged conservatively at the sub-line rate so
+  // a wrapped SO can never pack a page tighter than it renders.
+  const soText = String(opts.dnGroupSoHeader || "").trim();
+  const soBandChars = Math.max(1, Math.floor(110 / Math.max(fontScale, 1)));
+  const soLines = isClassic && soText ? countLines(soText, soBandChars) : 0;
+  const soMm = soLines * textScale(SUBLINE_MM[key]);
   // Example photo: fixed 26mm print height (font-scale independent) + gap.
   const imageMm = isClassic && opts.hasLineImage ? 26.8 : 0;
-  return nameMm + noteMm + subMm + bandMm + imageMm + ROW_SAFETY_MM;
+  return nameMm + noteMm + subMm + bandMm + soMm + imageMm + ROW_SAFETY_MM;
 }
 
 export function estimateSummaryRowHeight(

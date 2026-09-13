@@ -32,6 +32,16 @@ export interface PrintAppendixData {
 }
 
 /**
+ * Normalize a free-text SO header: blank/whitespace-only collapses to null
+ * so every render and pagination predicate agrees on "no header" (empty =
+ * today's flat layout, byte-identical).
+ */
+export function normalizeSoHeader(value: string | null | undefined): string | null {
+  const trimmed = String(value || "").trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
  * A delivery-note "header" row (one per DN, qty 0 / price 0) is a grouping
  * marker — it carries no amount, so when the appendix is enabled it is hidden
  * from the invoice pages (the per-DN breakdown moves to the appendix).
@@ -186,7 +196,7 @@ export interface PrintDocumentData {
   grossSubtotal: number;
   lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation" }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null }
   >;
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
@@ -212,7 +222,7 @@ export interface PrintableDocumentDataBase {
   grossSubtotal: number;
   lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation" }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null }
   >;
   showInlineDeliveryNotes: boolean;
   isDeliveryNoteSummaryInvoice: boolean;
@@ -489,25 +499,26 @@ export async function getPrintableDocumentDataBase(
   ];
   const sourceDocInfo = new Map<
     string,
-    { number: string; issue_date: string | null; kind: "delivery_note" | "quotation" }
+    { number: string; issue_date: string | null; kind: "delivery_note" | "quotation"; soHeader?: string | null }
   >();
   if (otherSourceIds.length > 0) {
     const { data: sourceDocs } = await supabase
       .from("documents")
-      .select("id, doc_number, issue_date, doc_type")
+      .select("id, doc_number, issue_date, doc_type, dn_so_header")
       .in("id", otherSourceIds);
     for (const sd of sourceDocs || []) {
       sourceDocInfo.set(sd.id, {
         number: sd.doc_number || sd.id.slice(0, 8),
         issue_date: sd.issue_date,
         kind: sd.doc_type === "quotation" ? "quotation" : "delivery_note",
+        soHeader: normalizeSoHeader(sd.dn_so_header),
       });
     }
   }
 
   const lineDeliveryNoteMap: Record<
     string,
-    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation" }
+    { number: string; issue_date: string | null; kind?: "delivery_note" | "quotation"; soHeader?: string | null }
   > = {};
   for (const item of lineItems) {
     const dn = item.source_document_id
@@ -518,6 +529,8 @@ export async function getPrintableDocumentDataBase(
         number: dn.delivery_note_number,
         issue_date: dn.issue_date,
         kind: "delivery_note",
+        // Frozen snapshot from billing time — later DN edits never leak in.
+        soHeader: normalizeSoHeader(dn.so_header),
       };
     } else {
       const info = item.source_document_id

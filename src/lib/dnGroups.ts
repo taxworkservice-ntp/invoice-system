@@ -30,6 +30,8 @@ export interface DnRefInfo {
   number: string;
   issue_date: string | null;
   kind?: DnRefKind;
+  /** Frozen SO header snapshot (invoice link) — second line under the group header. */
+  soHeader?: string | null;
 }
 
 export type DnRefMap = Record<string, DnRefInfo>;
@@ -43,6 +45,7 @@ export interface DnGroupBlock {
   number: string;
   issueDate: string | null;
   kind: DnRefKind | undefined;
+  soHeader: string | null;
   items: DocumentLineItem[];
   /** Σ line_total of the group, rounded to 2dp. */
   subtotal: number;
@@ -62,6 +65,7 @@ export interface DnHeaderPayload {
   number: string;
   issueDate: string | null;
   kind: DnRefKind | undefined;
+  soHeader: string | null;
   subtotal: number;
 }
 
@@ -79,6 +83,49 @@ export interface DnRowPlanEntry {
    * the child, above any spacer). Single-line groups need no sum — it would
    * duplicate the line amount. Shown even on the document's final line. */
   footerAfter: DnHeaderPayload | null;
+}
+
+/**
+ * Free-text SO group header for a delivery note (Classic V2 opt-in).
+ * Non-DN doc types and blank text collapse to null — every render and
+ * pagination predicate shares this, so empty always means today's flat
+ * layout with byte-identical output.
+ */
+export function getDnSoHeaderText(
+  docType: string,
+  value: string | null | undefined,
+): string | null {
+  if (docType !== "delivery_note") return null;
+  const trimmed = String(value || "").trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * Single-group row plan for a DN carrying an SO header: one "1." header
+ * holding only the SO text, every line numbered 1.1…. Takes precedence over
+ * source grouping on the DN itself — an explicitly typed header wins over
+ * the incidental quotation back-reference. No sum footer (DN amounts are
+ * usually hidden) and no spacers (one group has no boundaries).
+ */
+export function buildDnSoHeaderPlan(
+  renderableLines: DocumentLineItem[],
+  soHeader: string,
+): DnRowPlanEntry[] {
+  const header: DnHeaderPayload = {
+    g: 1,
+    number: "",
+    issueDate: null,
+    kind: undefined,
+    soHeader,
+    subtotal: 0,
+  };
+  return renderableLines.map((item, j) => ({
+    item,
+    number: `1.${j + 1}`,
+    header: j === 0 ? header : null,
+    spacerAfter: false,
+    footerAfter: null,
+  }));
 }
 
 /** Marker rows (qty-0 DN headers) never render — strip them first. */
@@ -128,6 +175,7 @@ export function buildDnBlocks(
       number: ref.number,
       issueDate: ref.issue_date,
       kind: ref.kind,
+      soHeader: ref.soHeader?.trim() ? ref.soHeader.trim() : null,
       items: open.items,
       subtotal:
         Math.round(
@@ -191,6 +239,7 @@ export function planDnRows(blocks: DnBlock[]): DnRowPlanEntry[] {
         number: block.number,
         issueDate: block.issueDate,
         kind: block.kind,
+        soHeader: block.soHeader,
         subtotal: block.subtotal,
       };
       block.items.forEach((item, j) => {

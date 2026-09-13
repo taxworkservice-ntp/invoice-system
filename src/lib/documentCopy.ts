@@ -76,6 +76,8 @@ export async function copyDocumentAsDraft(
     if (isDn) {
       payload.hide_amounts_on_print = doc.hide_amounts_on_print;
       payload.is_blank_form = doc.is_blank_form;
+      // Free-text SO group header follows the DN — user can clear it.
+      payload.dn_so_header = doc.dn_so_header ?? null;
       // Settings-only: a copy is a new doc, so it follows the workspace
       // setting — falling back to the source value when unreadable.
       const { data: profile } = await supabase

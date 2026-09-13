@@ -360,6 +360,9 @@ export interface Document {
   note: string | null;
   /** Optional customer PO reference — prints as เลขที่ใบสั่งซื้อ / PO NO. (classic V2). */
   customer_po_number: string | null;
+  /** Optional free-text SO group header (delivery notes, classic V2 only).
+   * Printed verbatim as group "1." above the lines; empty = flat numbering. */
+  dn_so_header: string | null;
   /** Optional project name — prints as ชื่อโครงการ / PROJECT (classic V2). */
   task_name: string | null;
   payment_method: PaymentMethod | null;
@@ -475,6 +478,8 @@ export interface InvoiceDeliveryNote {
   user_id: string;
   delivery_note_number: string;
   issue_date: string | null;
+  /** Frozen snapshot of the DN's dn_so_header at billing time (nullable). */
+  so_header: string | null;
   subtotal: number;
   vat_amount: number;
   total_amount: number;

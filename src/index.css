@@ -1000,6 +1000,15 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   text-align: left;
 }
 
+/* frozen SO header: second line under the DN ref (or the whole header on
+   an SO-grouped delivery note). Same size, regular weight, wraps freely —
+   pagination charges one extra text line per header carrying it. */
+.print-theme-classic-v2 .print-classic-dn-group-so {
+  font-weight: 400;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+
 /* hierarchy: child lines indent under their group header; the child number
    prints inline in front of the description (the NO. column stays empty). */
 .print-theme-classic-v2 .print-classic-dn-child td.print-classic-item-name {

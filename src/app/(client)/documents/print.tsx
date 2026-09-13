@@ -17,7 +17,7 @@ import {
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
-import { buildDnBlocks, DN_GROUP_SPACER_MM, planDnRows } from "../../../lib/dnGroups";
+import { buildDnBlocks, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
 import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
@@ -195,13 +195,19 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     : filteredLineItems;
 
   if (isClassicV2) {
-    const units = planDnRows(
-      buildDnBlocks(itemsForPagination, data.lineDeliveryNoteMap),
-    ).map((p) => ({
+    // Same SO-group precedence as the renderer: an explicitly typed header
+    // on a delivery note wraps every line in one group. Pagination and
+    // render share the predicates, so they can never disagree.
+    const soGroupHeader = getDnSoHeaderText(data.document.doc_type, data.document.dn_so_header);
+    const rowPlan = soGroupHeader
+      ? buildDnSoHeaderPlan(itemsForPagination, soGroupHeader)
+      : planDnRows(buildDnBlocks(itemsForPagination, data.lineDeliveryNoteMap));
+    const units = rowPlan.map((p) => ({
       item: p.item,
       hasHeader: p.header !== null,
       hasFooterAfter: p.footerAfter !== null,
       hasSpacerAfter: p.spacerAfter,
+      soHeader: p.header?.soHeader ?? null,
     }));
     return paginateRows(units, data.template, "line_items", {
       estimateHeight: (unit) =>
@@ -216,6 +222,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
           // padding), so both charge the same reserve. They never coincide on
           // one unit: single-line groups get no sum row.
           hasDnGroupBand: unit.hasHeader || unit.hasFooterAfter,
+          dnGroupSoHeader: unit.soHeader,
           hasLineImage:
             data.document.doc_type === "quotation" && !!unit.item.image_url,
           hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[unit.item.document_id],
