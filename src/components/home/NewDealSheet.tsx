@@ -65,7 +65,9 @@ const TAG_STYLES: Record<NewDealType, string> = {
 
 export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, workspaceRole, workspacePermissions }: NewDealSheetProps) {
   const [showAllOptions, setShowAllOptions] = useState(false);
-  const [favoriteTypes, setFavoriteTypes] = useState<NewDealType[]>(DEFAULT_FAVORITES);
+  // null = unknown (never paint DEFAULT_FAVORITES as a placeholder — render
+  // a skeleton instead so the quick list never flickers defaults → custom).
+  const [favoriteTypes, setFavoriteTypes] = useState<NewDealType[] | null>(null);
   const [hasCustomizedFavorites, setHasCustomizedFavorites] = useState(false);
   const [preferencesUserId, setPreferencesUserId] = useState<string | null>(null);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
@@ -84,42 +86,92 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
     [allOptions, experience.canShowAdvancedDealOptions, experience.isSimpleMode],
   );
   const quickOptions = useMemo(() => {
+    if (favoriteTypes === null) return [];
     const favorites = favoriteTypes
       .map((type) => visibleOptions.find((option) => option.type === type))
       .filter((option): option is (typeof allOptions)[number] => Boolean(option));
     return favorites.slice(0, 3);
   }, [allOptions, favoriteTypes, visibleOptions]);
+  const favoritesUnknown = favoriteTypes === null;
 
   function handleSelect(type: NewDealType) {
     onSelect(type);
   }
 
+  function cacheKey(userId: string) {
+    return `newDealFavorites:${userId}`;
+  }
+
+  function readCachedFavorites(userId: string): NewDealType[] | null {
+    try {
+      const raw = localStorage.getItem(cacheKey(userId));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return null;
+      const valid = (parsed as unknown[]).filter(
+        (type): type is NewDealType => typeof type === "string" && allOptions.some((option) => option.type === type),
+      );
+      return valid.slice(0, 3);
+    } catch {
+      return null;
+    }
+  }
+
+  function writeCachedFavorites(userId: string, next: NewDealType[]) {
+    try {
+      localStorage.setItem(cacheKey(userId), JSON.stringify(next));
+    } catch {
+      // Quota / private mode — server state remains the source of truth.
+    }
+  }
+
+  // Prefetch on mount (not on open) + per-user localStorage cache: by the
+  // time the user taps "create new deal", favorites are already in memory.
+  // Reopens never refetch — the sheet opens instantly with correct data.
   useEffect(() => {
-    if (!open) return;
     let active = true;
-    setPreferencesLoading(true);
-    setPreferencesError("");
     supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!active) return;
       if (!user) {
-        if (active) setPreferencesLoading(false);
+        setFavoriteTypes(DEFAULT_FAVORITES);
+        setHasCustomizedFavorites(false);
+        setPreferencesLoading(false);
         return;
       }
+      setPreferencesUserId(user.id);
+      const cached = readCachedFavorites(user.id);
+      if (cached !== null) {
+        // Instant correct paint; revalidate silently in the background.
+        setFavoriteTypes(cached);
+        setHasCustomizedFavorites(true);
+        setPreferencesLoading(false);
+      } else {
+        setPreferencesLoading(true);
+      }
+      setPreferencesError("");
       const { data, error } = await supabase
         .from("user_preferences")
         .select("new_deal_favorites")
         .eq("user_id", user.id)
         .maybeSingle();
       if (!active) return;
-      setPreferencesUserId(user.id);
       if (error) {
+        // Keep cache (or defaults) — never blank the UI on a bg failure.
+        if (cached === null) {
+          setFavoriteTypes(DEFAULT_FAVORITES);
+          setHasCustomizedFavorites(false);
+        }
         setPreferencesError("โหลดรายการโปรดไม่สำเร็จ ใช้ค่าเริ่มต้นชั่วคราว");
       } else if (data?.new_deal_favorites?.length) {
-        const valid = data.new_deal_favorites.filter((type: string): type is NewDealType => allOptions.some((option) => option.type === type));
-        setFavoriteTypes(valid.slice(0, 3));
+        const valid = (data.new_deal_favorites as string[]).filter((type: string): type is NewDealType => allOptions.some((option) => option.type === type));
+        const next = valid.slice(0, 3);
+        setFavoriteTypes(next);
         setHasCustomizedFavorites(true);
+        writeCachedFavorites(user.id, next);
       } else if (data) {
         setFavoriteTypes([]);
         setHasCustomizedFavorites(true);
+        writeCachedFavorites(user.id, []);
       } else {
         setFavoriteTypes(DEFAULT_FAVORITES);
         setHasCustomizedFavorites(false);
@@ -129,24 +181,35 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
     return () => {
       active = false;
     };
-  }, [allOptions, open]);
+    // allOptions is static; run once per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Each open starts collapsed so the sheet always looks the same.
+  useEffect(() => {
+    if (open) setShowAllOptions(false);
+  }, [open]);
 
   async function saveFavorites(next: NewDealType[]) {
     if (!preferencesUserId) return;
+    const previous = favoriteTypes ?? [];
     setFavoriteTypes(next);
     setHasCustomizedFavorites(true);
     setPreferencesError("");
+    writeCachedFavorites(preferencesUserId, next);
     const { error } = await supabase.from("user_preferences").upsert({
       user_id: preferencesUserId,
       new_deal_favorites: next,
     });
     if (error) {
-      setFavoriteTypes(favoriteTypes);
+      setFavoriteTypes(previous);
+      writeCachedFavorites(preferencesUserId, previous);
       setPreferencesError("บันทึกรายการโปรดไม่สำเร็จ");
     }
   }
 
   function toggleFavorite(type: NewDealType) {
+    if (favoriteTypes === null) return;
     const isFavorite = favoriteTypes.includes(type);
     const next = isFavorite
       ? favoriteTypes.filter((item) => item !== type)
@@ -155,6 +218,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
   }
 
   function moveFavorite(type: NewDealType, direction: -1 | 1) {
+    if (favoriteTypes === null) return;
     const index = favoriteTypes.indexOf(type);
     const nextIndex = index + direction;
     if (index < 0 || nextIndex < 0 || nextIndex >= favoriteTypes.length) return;
@@ -173,8 +237,9 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
 
   function renderOption(option: (typeof allOptions)[number]) {
     const Icon = option.icon;
-    const isFavorite = favoriteTypes.includes(option.type);
-    const favoriteIndex = favoriteTypes.indexOf(option.type);
+    const isFavorite = favoriteTypes?.includes(option.type) ?? false;
+    const favoriteIndex = favoriteTypes?.indexOf(option.type) ?? -1;
+    const starDisabled = favoritesUnknown || preferencesLoading || (!isFavorite && (favoriteTypes?.length ?? 0) >= 3);
     return (
       <div
         key={option.type}
@@ -203,10 +268,10 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
         <button
           type="button"
           onClick={() => toggleFavorite(option.type)}
-          disabled={preferencesLoading || (!isFavorite && favoriteTypes.length >= 3)}
+          disabled={starDisabled}
           aria-label={isFavorite ? `ยกเลิกโปรด ${optionTitle(option)}` : `เพิ่มรายการโปรด ${optionTitle(option)}`}
           aria-pressed={isFavorite}
-          title={isFavorite ? "ยกเลิกรายการโปรด" : favoriteTypes.length >= 3 ? "เลือกได้สูงสุด 3 รายการ" : "เพิ่มรายการโปรด"}
+          title={isFavorite ? "ยกเลิกรายการโปรด" : (favoriteTypes?.length ?? 0) >= 3 ? "เลือกได้สูงสุด 3 รายการ" : "เพิ่มรายการโปรด"}
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-amber-500 hover:bg-amber-50" : "text-gray-300 hover:bg-amber-50 hover:text-amber-500"}`}
         >
           <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
@@ -216,7 +281,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
             <button
               type="button"
               onClick={() => moveFavorite(option.type, -1)}
-              disabled={favoriteIndex === 0 || preferencesLoading}
+              disabled={favoriteIndex === 0 || favoritesUnknown || preferencesLoading}
               aria-label={`เลื่อน ${optionTitle(option)} ขึ้น`}
               className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-25"
             >
@@ -225,7 +290,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
             <button
               type="button"
               onClick={() => moveFavorite(option.type, 1)}
-              disabled={favoriteIndex === favoriteTypes.length - 1 || preferencesLoading}
+              disabled={favoriteIndex === (favoriteTypes?.length ?? 1) - 1 || favoritesUnknown || preferencesLoading}
               aria-label={`เลื่อน ${optionTitle(option)} ลง`}
               className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-25"
             >
@@ -248,11 +313,29 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
         <div className="mt-4">
           <div className="flex items-center justify-between px-1 pb-1">
             <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">
-              {hasCustomizedFavorites ? "เริ่มงานด่วน" : "แนะนำสำหรับคุณ"}
+              {favoritesUnknown ? (
+                <span className="inline-block h-3 w-24 animate-pulse rounded bg-gray-200" aria-hidden="true" />
+              ) : hasCustomizedFavorites ? (
+                "เริ่มงานด่วน"
+              ) : (
+                "แนะนำสำหรับคุณ"
+              )}
             </div>
             <span className="text-[10px] text-gray-400">ปักหมุดได้สูงสุด 3 รายการ</span>
           </div>
-          {quickOptions.length > 0 ? (
+          {favoritesUnknown ? (
+            <div className="space-y-2" aria-label="กำลังโหลดรายการโปรด">
+              {[0, 1].map((key) => (
+                <div key={key} className="flex items-center gap-3 rounded-xl border border-card-border bg-white px-3 py-3">
+                  <div className="h-9 w-9 shrink-0 animate-pulse rounded-lg bg-gray-100" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="h-3.5 w-2/3 animate-pulse rounded bg-gray-100" />
+                    <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : quickOptions.length > 0 ? (
             <div className="divide-y divide-card-border rounded-xl border border-card-border bg-white">
               {quickOptions.map(renderOption)}
             </div>
