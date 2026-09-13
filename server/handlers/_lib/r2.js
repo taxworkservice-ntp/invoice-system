@@ -52,6 +52,23 @@ export function getDownloadSignedUrl(key, expiresIn = 3600) {
   );
 }
 
+export async function getR2ObjectBytes(key) {
+  const response = await r2.send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    })
+  );
+  const chunks = [];
+  for await (const chunk of response.Body) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  return {
+    bytes: Buffer.concat(chunks),
+    contentType: response.ContentType || "application/octet-stream",
+  };
+}
+
 export function deleteR2Object(key) {
   return r2.send(
     new DeleteObjectCommand({

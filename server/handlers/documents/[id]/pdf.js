@@ -2,6 +2,7 @@ import playwright from "playwright-core";
 import { requireUser } from "../../_lib/auth.js";
 import { getChromiumLaunchOptions } from "../../_lib/chromium.js";
 import { ApiError, readJsonBody, sendError } from "../../_lib/http.js";
+import { getR2ObjectBytes, putR2Object } from "../../_lib/r2.js";
 import { supabaseAdmin } from "../../_lib/supabase.js";
 import { getEnv } from "../../_lib/env.js";
 
@@ -15,6 +16,18 @@ function normalizeCopyTypes(value) {
   const copyTypes = value.filter((item) => item === "original" || item === "copy");
   if (copyTypes.length === 0) return ["original"];
   return copyTypes.slice(0, 2);
+}
+
+// Cache variant per render configuration. Single-copy downloads share one
+// key; two-copy downloads vary by order/interleave/reference mode, so each
+// used combination gets its own bounded key (≤4 per document).
+function pdfVariant(copyTypes, interleave, refCollapse) {
+  if (copyTypes.length === 1) return copyTypes[0];
+  return `both-${copyTypes.join("-")}-il${interleave}-ref${refCollapse ? 1 : 0}`;
+}
+
+function pdfCacheKey(userId, documentId, variant) {
+  return `pdfs/${userId}/${documentId}/${variant}.pdf`;
 }
 
 function originFromRequest(req) {
@@ -70,9 +83,133 @@ function filenameFor(document, companyName) {
   return `${parts.join("_")}.pdf`;
 }
 
-export default async function handler(req, res) {
+function sendPdf(res, buffer, filename) {
+  const asciiFallback = filename.replace(/[^\x20-\x7E]/g, "_");
+  const encodedFilename = encodeURIComponent(filename);
+  res.status(200);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedFilename}`);
+  res.setHeader("Cache-Control", "no-store");
+  res.send(buffer);
+}
+
+// Freshness mirrors src/lib/storageApi.ts getCachedPdfFile: the cached bytes
+// are valid while the files row is at least as new as the document row.
+// Every render input bumps documents.updated_at via touch-triggers
+// (supabase/migrations/20260913000001_pdf_cache_invalidation.sql), so a hit
+// can never serve bytes rendered from older content.
+async function lookupFreshCache(document, variant) {
+  const key = pdfCacheKey(document.user_id, document.id, variant);
+  const { data: file, error } = await supabaseAdmin
+    .from("files")
+    .select("r2_key, updated_at")
+    .eq("r2_key", key)
+    .maybeSingle();
+  if (error || !file) return null;
+  if (new Date(file.updated_at).getTime() < new Date(document.updated_at).getTime()) return null;
+  return file;
+}
+
+async function backfillPdfCache({ key, documentId, userId, filename, buffer }) {
+  try {
+    await putR2Object(key, buffer, "application/pdf");
+    const { error } = await supabaseAdmin.from("files").upsert(
+      {
+        user_id: userId,
+        document_id: documentId,
+        r2_key: key,
+        purpose: "pdfs",
+        filename,
+        content_type: "application/pdf",
+        size_bytes: buffer.length,
+      },
+      { onConflict: "r2_key" }
+    );
+    if (error) throw error;
+  } catch (error) {
+    // Cache is best-effort: the freshly rendered bytes are still served.
+    console.warn("[pdf-cache] backfill failed", key, error?.message || error);
+  }
+}
+
+async function renderPdfBuffer({ origin, storageKey, session, id, normalizedCopyTypes, interleave, refCollapse }) {
   let browser;
 
+  try {
+    const exportUrl = new URL(`/documents/${encodeURIComponent(id)}/print`, origin);
+    exportUrl.searchParams.set("export", "pdf");
+    exportUrl.searchParams.set("copyTypes", normalizedCopyTypes.join(","));
+    // Print-time reference collapse (classic V2): one line per DN group
+    if (refCollapse) exportUrl.searchParams.set("refCollapse", "1");
+    exportUrl.searchParams.set("interleave", interleave);
+
+    browser = await playwright.chromium.launch(await getChromiumLaunchOptions());
+
+    const page = await browser.newPage({
+      viewport: { width: 794, height: 1123 },
+      deviceScaleFactor: 1,
+    });
+    await page.emulateMedia({ media: "screen" });
+
+    await page.addInitScript(
+      ({ key, sess }) => {
+        window.localStorage.setItem(key, JSON.stringify(sess));
+      },
+      {
+        key: storageKey,
+        sess: session,
+      }
+    );
+
+    // domcontentloaded + explicit readiness beats networkidle: idle never
+    // fires while any connection lingers and always costs the full tail.
+    await page.goto(exportUrl.toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForSelector(".print-sheet", { timeout: 15000 });
+    await page.evaluate(async () => {
+      if (document.fonts?.ready) await document.fonts.ready;
+      // Logos load via the image proxy — never freeze them out of a cached
+      // PDF, but cap the wait so one slow asset can't stall the render.
+      const pending = Array.from(document.images).filter((img) => !img.complete);
+      if (pending.length > 0) {
+        await Promise.race([
+          Promise.all(
+            pending.map(
+              (img) =>
+                new Promise((resolve) => {
+                  img.addEventListener("load", resolve, { once: true });
+                  img.addEventListener("error", resolve, { once: true });
+                })
+            )
+          ),
+          new Promise((resolve) => setTimeout(resolve, 6000)),
+        ]);
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+
+    await page.addStyleTag({ content: "@page { margin: 0 !important; }" });
+
+    const useExplicitPageSize = process.env.PDF_USE_EXPLICIT_PAGE_SIZE !== "false";
+    const pdfOptions = {
+      printBackground: true,
+      preferCSSPageSize: false,
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+    };
+    if (useExplicitPageSize) {
+      pdfOptions.width = "210mm";
+      pdfOptions.height = "297mm";
+    } else {
+      pdfOptions.format = "A4";
+    }
+    return await page.pdf(pdfOptions);
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => undefined);
+    }
+  }
+}
+
+export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -91,6 +228,7 @@ export default async function handler(req, res) {
     // Two-copy page order: interleave pages (default) or print each copy
     // complete first (?interleave=0). Always forwarded explicitly.
     const interleave = body.interleave === 0 ? "0" : "1";
+    const refCollapse = body.refCollapse ? 1 : 0;
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
@@ -102,7 +240,7 @@ export default async function handler(req, res) {
 
     const { data: document, error: documentError } = await supabaseAdmin
       .from("documents")
-      .select("id, user_id, doc_type, doc_number, issue_date")
+      .select("id, user_id, doc_type, doc_number, issue_date, updated_at")
       .eq("id", id)
       .single();
 
@@ -111,74 +249,51 @@ export default async function handler(req, res) {
       throw new ApiError(403, "Forbidden");
     }
 
-    const { data: docOwner, error: docOwnerError } = await supabaseAdmin
+    const { data: docOwner } = await supabaseAdmin
       .from("client_profiles")
       .select("company_name_th")
       .eq("user_id", document.user_id)
       .single();
 
-    const origin = originFromRequest(req);
-    const exportUrl = new URL(`/documents/${encodeURIComponent(id)}/print`, origin);
-    exportUrl.searchParams.set("export", "pdf");
-    exportUrl.searchParams.set("copyTypes", normalizedCopyTypes.join(","));
-    // Print-time reference collapse (classic V2): one line per DN group
-    if (body.refCollapse) exportUrl.searchParams.set("refCollapse", "1");
-    exportUrl.searchParams.set("interleave", interleave);
-
-    browser = await playwright.chromium.launch(await getChromiumLaunchOptions());
-
-    const page = await browser.newPage({
-      viewport: { width: 794, height: 1123 },
-      deviceScaleFactor: 1,
-    });
-    await page.emulateMedia({ media: "screen" });
-
-    await page.addInitScript(
-      ({ storageKey, session }) => {
-        window.localStorage.setItem(storageKey, JSON.stringify(session));
-      },
-      {
-        storageKey: supabaseStorageKey(),
-        session: renderSession(token, user),
-      },
-    );
-
-    await page.goto(exportUrl.toString(), { waitUntil: "networkidle", timeout: 30000 });
-    await page.waitForSelector(".print-sheet", { timeout: 15000 });
-    await page.evaluate(async () => {
-      if (document.fonts?.ready) await document.fonts.ready;
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    });
-
-    await page.addStyleTag({ content: "@page { margin: 0 !important; }" });
-
-    const useExplicitPageSize = process.env.PDF_USE_EXPLICIT_PAGE_SIZE !== "false";
-    const pdfOptions = {
-      printBackground: true,
-      preferCSSPageSize: false,
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
-    };
-    if (useExplicitPageSize) {
-      pdfOptions.width = "210mm";
-      pdfOptions.height = "297mm";
-    } else {
-      pdfOptions.format = "A4";
-    }
-    const pdfBuffer = await page.pdf(pdfOptions);
-
     const filename = filenameFor(document, docOwner?.company_name_th);
-    const asciiFallback = filename.replace(/[^\x20-\x7E]/g, "_");
-    const encodedFilename = encodeURIComponent(filename);
-    res.status(200);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedFilename}`);
-    res.setHeader("Cache-Control", "no-store");
-    res.send(pdfBuffer);
+    const variant = pdfVariant(normalizedCopyTypes, interleave, refCollapse);
+    const cacheKey = pdfCacheKey(document.user_id, document.id, variant);
+
+    // Fast path: serve cached bytes rendered from identical content.
+    const cached = await lookupFreshCache(document, variant);
+    if (cached) {
+      try {
+        const { bytes } = await getR2ObjectBytes(cached.r2_key);
+        return sendPdf(res, Buffer.from(bytes), filename);
+      } catch (error) {
+        // Orphan row (object gone) or transient storage error: fall through
+        // to a fresh render, which also repairs the cache.
+        console.warn("[pdf-cache] serve failed, re-rendering", cacheKey, error?.message || error);
+      }
+    }
+
+    // Slow path (first download, or content changed since last render).
+    const origin = originFromRequest(req);
+    const pdfBuffer = await renderPdfBuffer({
+      origin,
+      storageKey: supabaseStorageKey(),
+      session: renderSession(token, user),
+      id,
+      normalizedCopyTypes,
+      interleave,
+      refCollapse,
+    });
+
+    await backfillPdfCache({
+      key: cacheKey,
+      documentId: document.id,
+      userId: document.user_id,
+      filename,
+      buffer: pdfBuffer,
+    });
+
+    return sendPdf(res, pdfBuffer, filename);
   } catch (error) {
     return sendError(res, error);
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => undefined);
-    }
   }
 }

@@ -11,6 +11,11 @@
     { "source": "/api/:path*", "destination": "/api/index?path=$1" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/overdue",
