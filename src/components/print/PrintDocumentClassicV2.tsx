@@ -1479,22 +1479,28 @@ export function PrintDocumentClassicV2({
           <span className="print-classic-initials-sign">
             {signatureUrl || stampUrl ? (
               <span className="print-classic-initials-chop">
-                {signatureUrl ? (
-                  <img
-                    src={signatureUrl}
-                    alt=""
-                    className="print-classic-initials-sig"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                ) : null}
-                {stampUrl ? (
-                  <img
-                    src={stampUrl}
-                    alt=""
-                    className="print-classic-initials-stamp"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                ) : null}
+                <span className="print-classic-initials-scale">
+                  <span className="print-classic-sig-line">
+                    {signatureUrl ? (
+                      <img
+                        src={signatureUrl}
+                        alt=""
+                        className="print-classic-sig-img"
+                        style={{ height: `${(12 * signatureScaleMult).toFixed(1)}mm` }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : null}
+                    {stampUrl ? (
+                      <img
+                        src={stampUrl}
+                        alt=""
+                        className="print-classic-sig-stamp"
+                        style={{ height: `${(18 * stampScaleMult).toFixed(1)}mm` }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : null}
+                  </span>
+                </span>
               </span>
             ) : (
               <>

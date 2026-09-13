@@ -257,42 +257,28 @@ body.print-export-document #root {
   min-width: 28mm;
   border-bottom: 0.5pt dotted #9ca3af;
 }
-/* Signature/stamp chop: floats ABOVE the strip, bottom-anchored and out of
-   flow — its layout footprint is zero, so the strip row stays within
-   CLASSIC_V2_SIG_STRIP_MM while the art extends into the CONTINUED
-   divider's former blank zone (the divider is suppressed whenever the strip
-   shows, so the overflow lands on guaranteed-blank space, never table
-   rows). Fixed size, independent of the signature-scale setting. Stamp
-   overlaps the signature exactly like the full band. max-widths stay roomy:
-   wide signature scans must not be squeezed shorter than the height cap. */
+/* Signature/stamp chop: the last-page signature line (print-classic-sig-line
+   with sig-img + sig-stamp) rendered at 85% — identical overlap geometry and
+   scale-setting behavior, simply smaller. The scaler uses transform (no
+   layout effect) inside an out-of-flow, bottom-anchored box, so the strip's
+   layout footprint stays within CLASSIC_V2_SIG_STRIP_MM while the art floats
+   into the CONTINUED divider's former blank zone (suppressed with the strip).
+   Dotted fallback and toggle behavior unchanged. */
 .print-classic-initials-chop {
   position: absolute;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  height: 9mm;
-  width: 60mm;
+  width: 64mm;
   pointer-events: none;
 }
-.print-classic-initials-sig {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 8mm;
-  max-width: 60mm;
-  object-fit: contain;
+.print-classic-initials-scale {
+  display: block;
+  transform: scale(0.85);
+  transform-origin: bottom center;
 }
-.print-classic-initials-stamp {
-  position: absolute;
-  left: 26mm;
-  bottom: 0;
-  height: 9mm;
-  max-width: 28mm;
-  object-fit: contain;
-}
-.print-classic-initials-chop > :only-child {
-  left: 50% !important;
-  transform: translateX(-50%);
+.print-classic-initials-scale .print-classic-sig-line {
+  width: 100%;
 }
 
 .print-theme-modern {
