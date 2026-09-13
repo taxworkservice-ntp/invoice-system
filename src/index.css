@@ -235,6 +235,7 @@ body.print-export-document #root {
    under CLASSIC_V2_SIG_STRIP_MM (see constants) — the paginator reserves
    that budget on exactly these pages. */
 .print-classic-initials-strip {
+  position: relative;
   margin-top: auto;
   border-top: 0.5pt solid #9ca3af;
   padding-top: 1.5mm;
@@ -256,27 +257,42 @@ body.print-export-document #root {
   min-width: 28mm;
   border-bottom: 0.5pt dotted #9ca3af;
 }
-/* Signature/stamp chop: fixed compact size, deliberately independent of the
-   signature-scale setting (that governs the formal band). Total strip height
-   stays within CLASSIC_V2_SIG_STRIP_MM: 6mm art + 1.5mm padding + hairline.
-   Stamp overlaps the signature exactly like the full band. */
+/* Signature/stamp chop: floats ABOVE the strip, bottom-anchored and out of
+   flow — its layout footprint is zero, so the strip row stays within
+   CLASSIC_V2_SIG_STRIP_MM while the art extends into the CONTINUED
+   divider's former blank zone (the divider is suppressed whenever the strip
+   shows, so the overflow lands on guaranteed-blank space, never table
+   rows). Fixed size, independent of the signature-scale setting. Stamp
+   overlaps the signature exactly like the full band. max-widths stay roomy:
+   wide signature scans must not be squeezed shorter than the height cap. */
 .print-classic-initials-chop {
-  display: inline-flex;
-  align-items: flex-end;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 9mm;
+  width: 60mm;
+  pointer-events: none;
 }
 .print-classic-initials-sig {
-  height: 5mm;
-  width: auto;
-  max-width: 30mm;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 8mm;
+  max-width: 60mm;
   object-fit: contain;
 }
 .print-classic-initials-stamp {
-  height: 6mm;
-  width: auto;
-  max-width: 22mm;
+  position: absolute;
+  left: 26mm;
+  bottom: 0;
+  height: 9mm;
+  max-width: 28mm;
   object-fit: contain;
-  margin-left: -4mm;
-  margin-bottom: -0.5mm;
+}
+.print-classic-initials-chop > :only-child {
+  left: 50% !important;
+  transform: translateX(-50%);
 }
 
 .print-theme-modern {

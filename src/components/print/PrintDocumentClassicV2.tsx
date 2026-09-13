@@ -1357,7 +1357,10 @@ export function PrintDocumentClassicV2({
         </div>
       </section>
 
-      {lineItems.length > 0 && pageMode !== "single" && pageMode !== "last" && (
+      {/* The initials strip carries หน้า x/y + company, subsuming this
+          divider's continuity job — so the strip's overflow art lands on
+          guaranteed-blank space, never on table rows. */}
+      {!showInitialsStrip && lineItems.length > 0 && pageMode !== "single" && pageMode !== "last" && (
         <div
           className="mt-1.5 text-center text-[#94a3b8] tracking-[0.08em] border-b-[0.5px] border-[#D3DAE6] pb-1"
           style={{ fontSize: "calc(8.5px * var(--classic-fs-items, 1))" }}
