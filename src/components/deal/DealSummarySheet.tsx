@@ -24,7 +24,7 @@ const STATUS_LABELS: Record<string, string> = {
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "เงินสด",
   bank_transfer: "โอนเงิน",
-  cheque: "เช็ค",
+  cheque: "เช็คธนาคาร",
 };
 
 const DOC_ORDER = [

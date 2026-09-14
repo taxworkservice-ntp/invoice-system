@@ -162,6 +162,7 @@ export type ClassicV2SectionFontKey =
   | "totals"
   | "totals_net"
   | "payment"
+  | "terms"
   | "footer";
 
 /** Preset value meaning "follow the workspace default". */
@@ -178,6 +179,7 @@ export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
   "totals",
   "totals_net",
   "payment",
+  "terms",
   "footer",
 ];
 
@@ -193,6 +195,9 @@ export const CLASSIC_V2_SUB_SLOT_PARENT: Partial<Record<ClassicV2SectionFontKey,
   header_info: "header",
   totals_net: "totals",
   payment: "totals",
+  // Closing-terms list follows the signature/footer block until set
+  // independently — previously it rode on --classic-fs-footer directly.
+  terms: "footer",
 };
 
 /** Default workspace section-scale state — every slot follows its parent. */
@@ -357,7 +362,7 @@ export function getClassicV2EffectiveSectionScaleMult(
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "เงินสด",
   bank_transfer: "โอนเงิน",
-  cheque: "เช็ค",
+  cheque: "เช็คธนาคาร",
 };
 
 export const NEW_DEAL_OPTIONS = [

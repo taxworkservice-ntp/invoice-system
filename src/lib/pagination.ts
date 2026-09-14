@@ -88,6 +88,8 @@ export type ClassicV2FontScales = {
   totals_net?: number;
   /** PAYMENT section in the terms column — falls back to `totals`. */
   payment?: number;
+  /** Closing-terms list scale — falls back to `footer`. */
+  terms?: number;
   footer: number;
 };
 
@@ -114,6 +116,7 @@ function normalizeFontScales(
       totals_net: fontScale,
       payment: fontScale,
       footer: fontScale,
+      terms: fontScale,
       headerBlock: fontScale,
       totalsBlock: fontScale,
     };
@@ -125,6 +128,8 @@ function normalizeFontScales(
   const totals = fontScale.totals;
   const totalsNet = fontScale.totals_net ?? totals;
   const payment = fontScale.payment ?? totals;
+  const footer = fontScale.footer;
+  const terms = fontScale.terms ?? footer;
   return {
     header,
     header_company: headerCompany,
@@ -136,7 +141,8 @@ function normalizeFontScales(
     totals,
     totals_net: totalsNet,
     payment,
-    footer: fontScale.footer,
+    footer,
+    terms,
     headerBlock: Math.max(header, headerCompany, headerTitle, headerInfo),
     totalsBlock: Math.max(totals, totalsNet, payment),
   };
@@ -166,7 +172,12 @@ export function getRowBudgets(
     return FONT_SCALE_PAGE_SECTIONS[kind][mode].reduce((sum, section) => {
       // Never grow budgets below scale 1: if a user's fixed content doesn't
       // actually shrink, under-filled pages are harmless but overflow is not.
-      return sum + FONT_SCALE_SECTION_RESERVE_MM[section] * Math.max(0, scales[section] - 1);
+      // The footer reserve covers the signature band AND the closing-terms
+      // list, which scales independently now — reserve against the taller of
+      // the two. Unset terms fall back to the footer scale, so existing
+      // budgets are byte-identical.
+      const scale = section === "footer" ? Math.max(scales.footer, scales.terms) : scales[section];
+      return sum + FONT_SCALE_SECTION_RESERVE_MM[section] * Math.max(0, scale - 1);
     }, 0);
   };
   // At extreme scales a single estimated row can exceed the reserve-shrunk

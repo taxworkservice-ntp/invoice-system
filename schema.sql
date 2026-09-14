@@ -264,6 +264,10 @@ create table client_profiles (
                          check (pdf_template in ('modern', 'classic')),
   classic_terms         text,
 
+  -- Per-document-type closing-terms text (jsonb: doc_type -> text).
+  -- Seeded from classic_terms; empty string for a type = no terms on it.
+  classic_terms_by_type jsonb default null,
+
   -- Delivery note print default: show full invoice-style totals (VAT/WHT/NET PAYABLE)
   -- instead of the simple goods-value total. Per-document override on documents.show_full_totals.
   delivery_note_show_full_totals boolean not null default false,

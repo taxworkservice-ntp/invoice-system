@@ -177,7 +177,7 @@ export function PaymentModal({
       return "กรุณาเลือกบัญชีที่รับโอนเงิน";
     }
     if (method === "cheque" && !chequeNo.trim()) {
-      return "กรุณากรอกเลขที่เช็ค";
+      return "กรุณากรอกเลขที่เช็คธนาคาร";
     }
     return null;
   }
@@ -411,10 +411,10 @@ export function PaymentModal({
             {method === "cheque" && (
               <div className="space-y-3 rounded-xl border border-card-border bg-paper-soft p-3">
                 <p className="text-[11px] leading-4 text-gray-500">
-                  รายละเอียดเช็คจะแสดงบนใบเสร็จและใช้ตรวจสอบยอดเข้าบัญชีก่อนยืนยัน
+                  รายละเอียดเช็คธนาคารจะแสดงบนใบเสร็จและใช้ตรวจสอบยอดเข้าบัญชีก่อนยืนยัน
                 </p>
                 <Input
-                  label="เลขที่เช็ค *"
+                  label="เลขที่เช็คธนาคาร *"
                   value={chequeNo}
                   onChange={(e) => setChequeNo(e.target.value)}
                   placeholder="เช่น 0098765"
@@ -426,7 +426,7 @@ export function PaymentModal({
                   placeholder="เช่น ธ.กสิไทย สาขา..."
                 />
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">วันที่ลงเช็ค</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">วันที่สั่งจ่าย</label>
                   <DateInput
                     value={chequeDate}
                     onChange={(e) => setChequeDate(e.target.value)}

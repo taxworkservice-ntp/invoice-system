@@ -2,7 +2,7 @@ import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { getPrintableLineNote } from "../../lib/dnGroups";
 import { documentTypeLabel } from "../../lib/docLabels";
-import { splitTerms } from "../../lib/terms";
+import { splitTerms, resolveTermsByType } from "../../lib/terms";
 import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
 import { DocLogo } from "./DocLogo";
 import { RefItemName } from "./RefItemName";
@@ -152,7 +152,7 @@ export function PrintDocumentClassic({
   const stampScaleMult = ASSET_SCALE_MULT[clientProfile.stamp_scale ?? "medium"] ?? 1;
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
-  const classicTerms = splitTerms(clientProfile.classic_terms);
+  const classicTerms = resolveTermsByType(clientProfile.classic_terms_by_type, clientProfile.classic_terms, document.doc_type);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
   const blankLineCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - lineItems.length)

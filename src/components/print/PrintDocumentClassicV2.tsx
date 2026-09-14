@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { formatCurrency, paymentMethodText } from "../../lib/format";
+import { formatCurrency, paymentMethodText, buildReceiptPaymentRows } from "../../lib/format";
 import { getProxiedImageUrl } from "../../lib/storageApi";
 import {
   buildDnBlocks,
@@ -21,7 +21,7 @@ import {
 } from "../../lib/printRowHeight";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { documentTypeLabel } from "../../lib/docLabels";
-import { splitTerms } from "../../lib/terms";
+import { splitTerms, resolveTermsByType } from "../../lib/terms";
 import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
@@ -325,10 +325,11 @@ export function PrintDocumentClassicV2({
   const totalsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, fontScaleMult);
   const netScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals_net", typeFontScales, sectionScales, fontScaleMult);
   const paymentScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("payment", typeFontScales, sectionScales, fontScaleMult);
+  const termsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("terms", typeFontScales, sectionScales, fontScaleMult);
   const footerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, fontScaleMult);
   const label = documentTypeLabel(document.doc_type, document.vat_registered);
   const copyLabel = COPY_LABELS[copyType];
-  const classicTerms = splitTerms(clientProfile.classic_terms);
+  const classicTerms = resolveTermsByType(clientProfile.classic_terms_by_type, clientProfile.classic_terms, document.doc_type);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
   // Group header rows, sum rows and inter-group spacers occupy physical rows
   // on the sheet — count them so the blank-row padding keeps the fixed height.
@@ -392,6 +393,7 @@ export function PrintDocumentClassicV2({
         totals: totalsScaleMult,
         totals_net: netScaleMult,
         payment: paymentScaleMult,
+        terms: termsScaleMult,
         footer: footerScaleMult,
       };
       const budgets = getRowBudgets("classic_v2", budgetScales, "line_items", extraReserveMm, {
@@ -501,6 +503,7 @@ export function PrintDocumentClassicV2({
         "--classic-fs-totals": totalsScaleMult,
         "--classic-fs-net": netScaleMult,
         "--classic-fs-payment": paymentScaleMult,
+        "--classic-fs-terms": termsScaleMult,
         "--classic-fs-footer": footerScaleMult,
       } as React.CSSProperties}
     >
@@ -1155,7 +1158,7 @@ export function PrintDocumentClassicV2({
                       <div className="print-classic-terms-body">{noteText}</div>
                     </section>
                   ) : null}
-                  {paymentLines.length > 0 ? (
+                  {paymentLines.length > 0 && !isReceipt ? (
                     <section className="print-classic-terms-section print-classic-terms-section--payment">
                       <div className="print-classic-terms-title">
                         รายละเอียดการชำระเงิน (PAYMENT)
@@ -1264,7 +1267,7 @@ export function PrintDocumentClassicV2({
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">หัก ณ ที่จ่าย {document.wht_rate}%</div>
-                          <div className="print-classic-totals-en">หัก ณ ที่จ่าย {document.wht_rate}%</div>
+                          <div className="print-classic-totals-en">WHT {document.wht_rate}%</div>
                         </div>
                         <div className="print-classic-totals-val">-{formatCurrency(document.wht_amount)}</div>
                       </div>
@@ -1347,7 +1350,7 @@ export function PrintDocumentClassicV2({
                             หัก ณ ที่จ่าย {document.wht_rate}%
                           </div>
                           <div className="print-classic-totals-en">
-                            หัก ณ ที่จ่าย {document.wht_rate}%
+                            WHT {document.wht_rate}%
                           </div>
                         </div>
                         <div className="print-classic-totals-val">
@@ -1399,20 +1402,11 @@ export function PrintDocumentClassicV2({
             </div>
           ) : null}
 
-          {showFooter && document.doc_type === "billing_note" && document.status !== "paid" && (
-            <div className="print-classic-cheque-strip">
-              <span className="print-classic-cheque-label">
-                วันที่รับเช็ค <span className="en">/ CHEQUE RECEIVED DATE</span>
-              </span>
-              <span className="print-classic-cheque-fill" />
-            </div>
-          )}
-
           {/* ============== BOTTOM BAND (signatures) ============== */}
           {/* The pin spacer absorbs rounding slack so the band always sits
               at the sheet bottom (see .print-classic-bottom-pin). */}
           <div className="print-classic-bottom-pin" aria-hidden="true" />
-          <div className={`print-classic-bottom-band${document.doc_type === "invoice" ? " print-sig-4col" : ""}`}>
+          <div className={`print-classic-bottom-band${document.doc_type === "invoice" ? " print-sig-4col" : ""}${document.doc_type === "receipt" ? " print-sig-receipt" : ""}${document.doc_type === "billing_note" ? " print-sig-2col" : ""}`}>
             {(() => {
               const sig = SIG_LABELS[document.doc_type] ?? SIG_LABELS_DEFAULT;
               // Tax invoice: four boxes (received / delivered / issued /
@@ -1447,10 +1441,9 @@ export function PrintDocumentClassicV2({
                     </div>
                     <div className="print-classic-sig-cell">
                       <div className="print-classic-sig-th">
-                        ในนาม&nbsp;{clientProfile.company_name_th}
+                        {clientProfile.company_name_th}
                       </div>
                       <div className="print-classic-sig-th-en">
-                        FOR{" "}
                         {clientProfile.company_name_en?.toUpperCase() ||
                           clientProfile.company_name_th.toUpperCase()}
                       </div>
@@ -1482,6 +1475,133 @@ export function PrintDocumentClassicV2({
                   </>
                 );
               }
+              // Receipt: the two signer boxes merge into one wide payment-info
+              // cell (moved up from the body — info only, no sign lines, no
+              // dates); the company authorized box stays as the sole signer.
+              if (document.doc_type === "receipt") {
+                return (
+                  <>
+                    <div className="print-classic-sig-cell print-classic-pay-cell">
+                      <div className="print-classic-pay-title">
+                        รายละเอียดการชำระเงิน (PAYMENT)
+                      </div>
+                      {(() => {
+                        const method = document.payment_method;
+                        const rows = buildReceiptPaymentRows({
+                          methodLabel:
+                            showPaymentMethod && method
+                              ? PAYMENT_METHOD_LABELS[method] || method
+                              : null,
+                          isCheque: method === "cheque",
+                          isTransfer: method === "bank_transfer",
+                          chequeNo: document.payment_detail?.cheque_no,
+                          chequeBank: document.payment_detail?.cheque_bank,
+                          chequeDate: document.payment_detail?.cheque_date,
+                          bankAccountLine: showBank
+                            ? [bankName, bankAccountNumber].filter(Boolean).join(" · ") || null
+                            : null,
+                          amountReceived: document.amount_received,
+                          whtCertificateNo: document.wht_certificate_no,
+                          issueDate: document.issue_date,
+                        });
+                        return rows.length > 0 ? (
+                          <>
+                            <div className="print-classic-pay-rows">
+                              {rows.map((row) => (
+                                <div key={row.label} className="print-classic-pay-row">
+                                  <span className="print-classic-pay-lab">{row.label}</span>
+                                  {row.emphasize ? (
+                                    <span className="print-classic-pay-val print-classic-pay-method">{row.value}</span>
+                                  ) : (
+                                    <span className="print-classic-pay-val">{row.value}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="print-classic-pay-note">
+                              การชำระเงินจะถือว่าเสร็จสมบูรณ์เมื่อได้รับชำระเงินครบถ้วนตามจำนวนที่ระบุในเอกสารฉบับนี้
+                            </div>
+                          </>
+                        ) : (
+                          <div className="print-classic-pay-list">-</div>
+                        );
+                      })()}
+                    </div>
+                    <div className="print-classic-sig-cell print-classic-sig-cell-fill">
+                      <div className="print-classic-sig-th">
+                        {clientProfile.company_name_th}
+                      </div>
+                      <div className="print-classic-sig-th-en">
+                        {clientProfile.company_name_en?.toUpperCase() ||
+                          clientProfile.company_name_th.toUpperCase()}
+                      </div>
+                      <div className="print-classic-sig-line">
+                        {signatureUrl ? (
+                          <img
+                            src={signatureUrl}
+                            alt="ลายเซ็น"
+                            className="print-classic-sig-img"
+                            style={{ height: `${(12 * signatureScaleMult).toFixed(1)}mm` }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : null}
+                        {stampUrl ? (
+                          <img
+                            src={stampUrl}
+                            alt="ตราประทับ"
+                            className="print-classic-sig-stamp"
+                            style={{ height: `${(18 * stampScaleMult).toFixed(1)}mm` }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : null}
+                      </div>
+                      <div className="print-classic-sig-role">
+                        <span className="print-classic-sig-role-th">ผู้มีอำนาจลงนาม</span>
+                        <span className="print-classic-sig-role-en"> / AUTHORIZED BY</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              }
+              // Billing note: acknowledged and issued boxes only — the cheque
+              // received date lives inside the acknowledged box (unpaid notes),
+              // and there is no company authorized box.
+              if (document.doc_type === "billing_note") {
+                return (
+                  <>
+                    <div className="print-classic-sig-cell print-classic-sig-cell-ack">
+                      <div className="print-classic-sig-title-row">
+                        <div className="print-classic-sig-th">{sig.box1Title}</div>
+                        <div className="print-classic-sig-th-en">{sig.box1TitleEn}</div>
+                      </div>
+                      <div className="print-classic-sig-line"></div>
+                      <div className="print-classic-sig-role">
+                        <span className="print-classic-sig-role-th">{sig.box1RoleTh}</span>
+                        <span className="print-classic-sig-role-en"> / {sig.box1RoleEn}</span>
+                      </div>
+                      <div className="print-classic-sig-dates">
+                        <div className="print-classic-sig-daterow">
+                          <span className="print-classic-sig-daterow-lab">วันที่ได้รับใบวางบิล</span>
+                          <SigDateFill />
+                        </div>
+                        {document.status !== "paid" && (
+                          <div className="print-classic-sig-daterow">
+                            <span className="print-classic-sig-daterow-lab">วันที่นัดรับเช็ค</span>
+                            <SigDateFill />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="print-classic-sig-cell print-classic-sig-cell-mid">
+                      <div className="print-classic-sig-line"></div>
+                      <div className="print-classic-sig-role">
+                        <span className="print-classic-sig-role-th">ผู้ออกเอกสาร</span>
+                        <span className="print-classic-sig-role-en"> / ISSUED BY</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              }
               return (
                 <>
                   <div className="print-classic-sig-cell">
@@ -1496,8 +1616,7 @@ export function PrintDocumentClassicV2({
                       <span className="print-classic-sig-role-th">{sig.box1RoleTh}</span>
                       <span className="print-classic-sig-role-en"> / {sig.box1RoleEn}</span>
                     </div>
-                  </div>
-                  <div className="print-classic-sig-cell print-classic-sig-cell-mid">
+                  </div>                  <div className="print-classic-sig-cell print-classic-sig-cell-mid">
                     <div className="print-classic-sig-line"></div>
                     <div className="print-classic-sig-dt">
                       วันที่ <span className="print-classic-sig-dt-en">/ DATE</span>
@@ -1518,10 +1637,9 @@ export function PrintDocumentClassicV2({
                     {document.doc_type === "delivery_note" ? null : (
                       <>
                         <div className="print-classic-sig-th">
-                          ในนาม&nbsp;{clientProfile.company_name_th}
+                          {clientProfile.company_name_th}
                         </div>
                         <div className="print-classic-sig-th-en">
-                          FOR{" "}
                           {clientProfile.company_name_en?.toUpperCase() ||
                             clientProfile.company_name_th.toUpperCase()}
                         </div>

@@ -549,6 +549,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   --classic-fs-totals: var(--classic-font-scale);
   --classic-fs-net: var(--classic-fs-totals);
   --classic-fs-payment: var(--classic-fs-totals);
+  --classic-fs-terms: var(--classic-fs-footer);
   --classic-fs-footer: var(--classic-font-scale);
   line-height: 1.4;
   background: #ffffff;
@@ -1281,9 +1282,9 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 /* colored accents stay colored, just darker */
 .print-theme-classic-v2 .print-classic-discount-note { color: #92400e; }
 .print-theme-classic-v2 .print-classic-payment-status,
-.print-theme-classic-v2 .print-classic-paid-badge { color: #14532d; }
+.print-theme-classic-v2 .print-classic-paid-badge { color: #000000; }
 .print-theme-classic-v2 .print-classic-payment-status-en,
-.print-theme-classic-v2 .print-classic-paid-badge-en { color: #166534; }
+.print-theme-classic-v2 .print-classic-paid-badge-en { color: #1f2937; }
 
 /* rules/borders: darken, keep widths */
 .print-theme-classic-v2 .print-classic-copy-badge,
@@ -1311,7 +1312,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-theme-classic-v2 .print-classic-payment-status,
 .print-theme-classic-v2 .print-classic-paid-badge {
-  border-color: #22c55e;
+  border-color: #9ca3af;
 }
 .print-theme-classic-v2 .print-classic-totals-block-sep {
   border-top-color: #475569;
@@ -1430,6 +1431,20 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   font-weight: 800;
   font-size: calc(9pt * var(--classic-fs-net));
 }
+/* classic V2 totals: keep the two-line TH/EN layout (original grid and
+   divider restored) but compact — smaller EN, tighter line-height and
+   padding, ~1.2mm saved per row. */
+.print-theme-classic-v2 .print-classic-totals-th {
+  line-height: 1.05;
+}
+.print-theme-classic-v2 .print-classic-totals-en {
+  font-size: calc(5.5pt * var(--classic-fs-totals));
+  line-height: 1;
+}
+.print-theme-classic-v2 .print-classic-totals-row {
+  min-height: 6.6mm;
+  padding: 0.8mm 2.5mm;
+}
 .print-classic-totals-block-sep {
   border-top: 1.4px solid #9aa4af;
 }
@@ -1464,17 +1479,17 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   align-items: center;
   gap: 1mm;
   padding: 0.4mm 1.5mm;
-  border: 0.4px solid #b7e3cb;
+  border: 0.4px solid #9ca3af;
   border-radius: 3mm;
-  background: #f0fbf4;
-  color: #176b3a;
+  background: #f1f3f5;
+  color: #1f2937;
   font-size: calc(7pt * var(--classic-fs-totals));
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
 }
 .print-classic-paid-badge-en {
-  color: #5b9b75;
+  color: #4b5563;
   font-size: calc(5.5pt * var(--classic-fs-totals));
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -1511,6 +1526,74 @@ html[data-accent-mode="gradient"] .print-theme-modern {
    title/role height symmetry keeps all four dotted lines level. */
 .print-theme-classic-v2 .print-sig-4col {
   grid-template-columns: repeat(4, 1fr);
+}
+/* Receipt: the signer boxes merge into one wide payment-info cell plus the
+   company authorized box — info only, no sign lines, no dates. */
+.print-theme-classic-v2 .print-sig-receipt {
+  grid-template-columns: 2fr 1fr;
+}
+/* Receipt authorized cell: the title stays top, the dotted line stretches
+   to absorb a tall payment box, and the role pins to the bottom — so
+   AUTHORIZED BY always sits at the band foot no matter how many payment
+   rows render. flex-grow composes with the fixed (and compact) line
+   heights; total band height never changes, so pagination is unaffected. */
+.print-theme-classic-v2 .print-classic-sig-cell-fill .print-classic-sig-line {
+  flex: 1 0 auto;
+  min-height: 10mm;
+}
+.print-theme-classic-v2 .print-classic-pay-cell {
+  align-items: flex-start;
+  text-align: left;
+}
+.print-theme-classic-v2 .print-classic-pay-title {
+  font-size: calc(7pt * var(--classic-fs-thead));
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: 0.02em;
+}
+.print-theme-classic-v2 .print-classic-pay-list {
+  margin: 1mm 0 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: calc(7pt * var(--classic-fs-totals));
+  color: #374151;
+  line-height: 1.5;
+}
+.print-theme-classic-v2 .print-classic-pay-rows {
+  margin-top: 1mm;
+  width: 100%;
+  font-size: calc(7pt * var(--classic-fs-totals));
+  line-height: 1.5;
+}
+.print-theme-classic-v2 .print-classic-pay-row {
+  display: flex;
+  gap: 3mm;
+}
+.print-theme-classic-v2 .print-classic-pay-lab {
+  color: #1f2937;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 28mm;
+}
+.print-theme-classic-v2 .print-classic-pay-val {
+  font-weight: 600;
+  color: #111827;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+/* Payment-completion disclaimer: full-size dark footnote under the rows. */
+.print-theme-classic-v2 .print-classic-pay-note {
+  margin-top: 1.5mm;
+  font-size: calc(7pt * var(--classic-fs-totals));
+  color: #1f2937;
+  line-height: 1.4;
+}
+/* Payment-method emphasis without color: larger and heavier than the
+   surrounding rows, so it reads at a glance in B&W prints too. */
+.print-theme-classic-v2 .print-classic-pay-method {
+  font-weight: 800;
+  font-size: calc(8.5pt * var(--classic-fs-totals));
+  letter-spacing: 0.02em;
 }
 .print-classic-sig-cell {
   border-right: 0.5pt solid #9ca3af;
@@ -1643,28 +1726,80 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-bottom-band {
   margin-top: 1.8mm;
 }
-/* V2 billing-note cheque received date (hand-fill blank) — slim unboxed row */
-.print-classic-cheque-strip {
+/* Billing-note band: acknowledged box spans old boxes 1+2, issued box keeps
+   the old box-3 width. */
+.print-theme-classic-v2 .print-sig-2col {
+  grid-template-columns: 2fr 1fr;
+}
+/* Billing-note dated rows: shared grid so both labels form one column and
+   every segmented fill starts at the same x (aligned vertically). */
+.print-theme-classic-v2 .print-classic-sig-dates {
   margin-top: 1.5mm;
-  display: flex;
+  display: grid;
+  grid-template-columns: max-content auto;
   align-items: flex-end;
-  gap: 3mm;
+  column-gap: 3mm;
+  row-gap: 1.5mm;
+  /* The signature cell centres its children; opt out to sit at the box's
+     left content edge. */
+  align-self: flex-start;
 }
-.print-classic-cheque-label {
-  font-size: calc(6.5pt * var(--classic-fs-totals));
-  font-weight: 600;
-  color: #374151;
+.print-theme-classic-v2 .print-classic-sig-daterow {
+  display: contents;
+}
+.print-theme-classic-v2 .print-classic-sig-daterow-lab {
+  font-size: calc(7pt * var(--classic-fs-footer));
+  color: #1f2937;
   white-space: nowrap;
-  line-height: 1.2;
+  /* The signature cell centres text; the label opts out so both labels
+     start at the same left edge (the shorter one used to centre in its
+     grid column and look indented). */
+  text-align: left;
 }
-.print-classic-cheque-label .en {
+.print-theme-classic-v2 .print-classic-sig-daterow .print-classic-sig-date-fill {
+  width: auto;
+  margin: 0;
+  justify-content: flex-start;
+}
+/* Billing-note acknowledged title: TH and EN on one line
+   ("ได้รับใบวางบิลถูกต้อง / BILLING ACKNOWLEDGED"). */
+.print-theme-classic-v2 .print-classic-sig-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6mm;
+}
+.print-theme-classic-v2 .print-classic-sig-title-row .print-classic-sig-th {
+  display: inline;
+}
+.print-theme-classic-v2 .print-classic-sig-title-row .print-classic-sig-th-en {
+  display: inline;
+  margin-top: 0;
+}
+.print-theme-classic-v2 .print-classic-sig-title-row .print-classic-sig-th-en::before {
+  content: "/ ";
+}
+/* Hide-English still wins (explicit, higher specificity than the inline
+   rule above). Compact mode's title drop also keeps working. */
+.print-theme-classic-v2.print-hide-en .print-classic-sig-title-row .print-classic-sig-th-en {
+  display: none;
+}
+.print-theme-classic-v2.print-hide-en .print-classic-sig-title-row .print-classic-sig-th-en::before {
+  content: "";
+}
+.print-theme-classic-v2 .print-classic-sig-cell-ack .print-classic-sig-line {
+  margin-top: 1.5mm;
+}
+/* Billing-note acknowledged role: regular weight and smaller (the only
+   label under a line here, so it reads as annotation rather than emphasis). */
+.print-theme-classic-v2 .print-classic-sig-cell-ack .print-classic-sig-role {
   font-weight: 400;
-  color: #9ca3af;
+  font-size: calc(6.5pt * var(--classic-fs-footer));
 }
-.print-classic-cheque-fill {
-  flex: 1;
-  border-bottom: 0.5px dotted #9ca3af;
-  height: 4mm;
+/* Compact mode goes further: the EN title drops (TH title carries it). */
+.print-theme-classic-v2.print-sig-compact .print-classic-sig-cell-ack .print-classic-sig-th-en {
+  display: none;
 }
 .print-classic-sig-role {
   text-align: center;
@@ -1678,13 +1813,13 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   padding: 1.5mm 2mm 0;
   border-top: 0.5px solid #e5e7eb;
   color: #4b5563;
-  font-size: calc(6.2pt * var(--classic-fs-footer));
+  font-size: calc(6.2pt * var(--classic-fs-terms));
   line-height: 1.25;
 }
 .print-classic-fine-terms-title {
   margin-bottom: 0.6mm;
   color: #374151;
-  font-size: calc(6.5pt * var(--classic-fs-footer));
+  font-size: calc(6.5pt * var(--classic-fs-terms));
   font-weight: 700;
 }
 .print-classic-fine-terms ol {

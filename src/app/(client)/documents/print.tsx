@@ -71,7 +71,9 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const headerScale = docOverrideMult ?? (isClassicV2
     ? getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale)
     : 1);
-  // Budgets account for every fixed page block; row-text estimates use the
+  const termsScale = docOverrideMult ?? (isClassicV2
+    ? getClassicV2EffectiveSectionScaleMult("terms", typeFontScales, sectionScales, globalScale)
+    : 1);  // Budgets account for every fixed page block; row-text estimates use the
   // description (items) + numeric column scales. Sub-slots (company/title/
   // info/net/payment) ride along so the paginator can reserve using the
   // tallest sub-scale of each fixed block.
@@ -87,6 +89,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
         totals: getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale),
         totals_net: getClassicV2EffectiveSectionScaleMult("totals_net", typeFontScales, sectionScales, globalScale),
         payment: getClassicV2EffectiveSectionScaleMult("payment", typeFontScales, sectionScales, globalScale),
+        terms: termsScale,
         footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
       }
     : 1);

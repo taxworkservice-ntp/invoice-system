@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../../lib/supabase";
+import { TERMS_DOC_TYPES } from "../../../lib/terms";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { useClientFeatures } from "../../../hooks/useClientFeatures";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -62,13 +63,14 @@ function SectionScaleEditor({
   setValue,
   inheritOptionLabel,
   subInheritLabels,
+  termsInheritLabel,
 }: {
   getValue: (key: ClassicV2SectionFontKey) => string;
-  setValue: (key: ClassicV2SectionFontKey, v: string) => void;
-  /** Shown in every "ตามขนาดหลัก" option — state what it resolves to. */
+  setValue: (key: string, v: string) => void;
   inheritOptionLabel?: string;
-  /** "ตามส่วนหัว (9pt)" labels for sub-rows — state the parent's effective size. */
   subInheritLabels?: { header?: string; totals?: string };
+  /** "ตามลายเซ็น/ท้ายเอกสาร (7.5pt)" — the terms slot inherits the footer. */
+  termsInheritLabel?: string;
 }) {
   const rowProps = { inheritOptionLabel };
   const subRow = (parent: "header" | "totals") => {
@@ -120,12 +122,20 @@ function SectionScaleEditor({
       </div>
       <div className="py-1.5">
         <ScaleRow
-          label="ยอดรวม/เงื่อนไข"
+          label="ยอดรวม"
           value={getValue("totals")}
           onSet={(v) => setValue("totals", v)}
           {...rowProps}
         />
         {subRow("totals")}
+      </div>
+      <div className="py-1.5">
+        <ScaleRow
+          label="เงื่อนไขท้ายเอกสาร"
+          value={getValue("terms")}
+          onSet={(v) => setValue("terms", v)}
+          inheritOptionLabel={termsInheritLabel || rowProps.inheritOptionLabel}
+        />
       </div>
       <ScaleRow
         label="ลายเซ็น/ท้ายเอกสาร"
@@ -247,7 +257,8 @@ export default function SettingsDocumentsPage() {
   );
   const [classicV2TypeScales, setClassicV2TypeScales] = useState<Record<string, Record<string, string>>>({});
   const [scaleTab, setScaleTab] = useState<string>("default");
-  const [classicTerms, setClassicTerms] = useState("");
+  const [termsTab, setTermsTab] = useState<string>("invoice");
+  const [termsByType, setTermsByType] = useState<Record<string, string>>({});
   const [signatureKey, setSignatureKey] = useState<string | null>(null);
   const [stampKey, setStampKey] = useState<string | null>(null);
   const [signatureScale, setSignatureScale] = useState("medium");
@@ -279,7 +290,7 @@ export default function SettingsDocumentsPage() {
       ...(clientProfile.classic_v2_section_font_scales || {}),
     });
     setClassicV2TypeScales(clientProfile.classic_v2_type_font_scales || {});
-    setClassicTerms(clientProfile.classic_terms || "");
+    setTermsByType({ ...(clientProfile.classic_terms_by_type || {}) });
     setClassicV2FullPageHeader(clientProfile.classic_v2_full_page_header === true);
     setClassicV2HideEnglishLabels(clientProfile.classic_v2_hide_english_labels === true);
     setClassicV2CompactSignature(clientProfile.classic_v2_compact_signature === true);
@@ -362,7 +373,7 @@ export default function SettingsDocumentsPage() {
           Object.fromEntries(Object.entries(scales).filter(([, v]) => v && v !== CLASSIC_V2_SECTION_INHERIT)),
         ]),
       ),
-      classic_terms: classicTerms.trim() || null,
+      classic_terms_by_type: termsByType,
       signature_url: signatureKey,
       stamp_url: stampKey,
       signature_scale: signatureScale,
@@ -383,11 +394,12 @@ export default function SettingsDocumentsPage() {
       .update(payload)
       .eq("user_id", profile.id);
 
-    if (err && (err.message.includes("price_deviation_warn_pct") || err.message.includes("classic_v2_regular_item_font"))) {
-      // Migration sql/add_price_deviation_warn_pct.sql or
-      // sql/add_classic_v2_regular_item_font.sql not applied yet — save
+    if (err && (err.message.includes("price_deviation_warn_pct") || err.message.includes("classic_v2_regular_item_font") || err.message.includes("classic_terms_by_type"))) {
+      // Migration sql/add_price_deviation_warn_pct.sql,
+      // sql/add_classic_v2_regular_item_font.sql or
+      // sql/add_classic_terms_by_type.sql not applied yet — save
       // everything else so the page never breaks on schema lag.
-      const { price_deviation_warn_pct: _pending, classic_v2_regular_item_font: _pendingFont, ...fallbackPayload } = payload;
+      const { price_deviation_warn_pct: _pending, classic_v2_regular_item_font: _pendingFont, classic_terms_by_type: _pendingTerms, ...fallbackPayload } = payload;
       ({ error: err } = await supabase
         .from("client_profiles")
         .update(fallbackPayload)
@@ -456,7 +468,7 @@ export default function SettingsDocumentsPage() {
     CLASSIC_V2_SECTION_FONT_KEYS.some(
       (key) => (classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT) !== (clientProfile?.classic_v2_section_font_scales?.[key] || CLASSIC_V2_SECTION_INHERIT),
     ) ||
-    classicTerms !== (clientProfile?.classic_terms || "") ||
+    JSON.stringify(termsByType) !== JSON.stringify(clientProfile?.classic_terms_by_type || {}) ||
     logoKey !== (clientProfile?.logo_url ?? null) ||
     logoSize !== (clientProfile?.logo_size || LOGO_DEFAULT_SIZE) ||
     showLogo !== (clientProfile?.show_logo !== false) ||
@@ -500,9 +512,10 @@ export default function SettingsDocumentsPage() {
     { label: "ชื่อสินค้า/คำอธิบาย", mult: specimenMult("items"), text: "ปูนซีเมนต์ออลพัรโพส บรรจุถุง ทดสอบการตัดคำชื่อสินค้ายาว" },
     { label: "ตัวเลข/จำนวน", mult: specimenMult("num"), text: "12 × 350.00 = 4,200.00" },
     { label: "หัวตาราง", mult: specimenMult("thead"), text: "รายการ จำนวน หน่วย ราคา จำนวนเงิน" },
-    { label: "ยอดรวม/เงื่อนไข", mult: specimenMult("totals"), text: "ยอดรวมทั้งสิ้น / NET PAYABLE" },
+    { label: "ยอดรวม", mult: specimenMult("totals"), text: "ยอดรวมทั้งสิ้น / NET PAYABLE" },
     { label: "ยอดรวมสุดท้าย", mult: specimenMult("totals_net"), text: "ยอดรวมทั้งสิ้น 12,500.00" },
     { label: "ข้อมูลการชำระเงิน", mult: specimenMult("payment"), text: "ธนาคาร: ธนาคารตัวอย่าง · เลขที่บัญชี 123-4-56789-0" },
+    { label: "เงื่อนไขท้ายเอกสาร", mult: specimenMult("terms"), text: "ชำระเงินภายใน 30 วันนับจากวันที่ออกเอกสาร" },
     { label: "ลายเซ็น/ท้ายเอกสาร", mult: specimenMult("footer"), text: "ผู้มีอำนาจลงนาม / วันที่" },
   ];
   // Sub-row inherit labels state the parent group's effective size, e.g.
@@ -513,6 +526,7 @@ export default function SettingsDocumentsPage() {
     header: `ตามส่วนหัว (${multToPtLabel(specimenMult("header"))})`,
     totals: `ตามยอดรวม (${multToPtLabel(specimenMult("totals"))})`,
   };
+  const termsInheritLabel = `ตามลายเซ็น/ท้ายเอกสาร (${multToPtLabel(specimenMult("footer"))})`;
 
   return (
     <AppShell title="ตั้งค่า > รูปแบบเอกสาร">
@@ -670,21 +684,6 @@ export default function SettingsDocumentsPage() {
                 <Switch checked={classicV2RegularItemFont} onChange={(checked) => { setClassicV2RegularItemFont(checked); setSaved(false); }} />
               </SettingRow>
             )}
-            <div className="pt-3">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                ข้อความเงื่อนไขท้ายเอกสาร
-              </label>
-              <textarea
-                value={classicTerms}
-                onChange={(e) => { setClassicTerms(e.target.value); setSaved(false); }}
-                rows={4}
-                placeholder="เว้นว่าง = ไม่แสดงเงื่อนไขท้ายเอกสาร"
-                className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 resize-none"
-              />
-              <p className="text-[11px] text-[#888780] mt-1">
-                ใช้ข้อความของคุณเองเท่านั้น (หนึ่งบรรทัดต่อหนึ่งข้อ) หากเว้นว่างจะไม่พิมพ์เงื่อนไขท้ายเอกสาร
-              </p>
-            </div>
           </div>
         </SectionCard>
 
@@ -736,6 +735,7 @@ export default function SettingsDocumentsPage() {
                       setValue={(key, v) => { setClassicV2SectionScales({ ...classicV2SectionScales, [key]: v }); setSaved(false); }}
                       inheritOptionLabel={`ตามขนาดหลัก (${fontScaleLabel(classicV2FontScale)})`}
                       subInheritLabels={subInheritLabels}
+                      termsInheritLabel={termsInheritLabel}
                     />
                   </div>
                 </div>
@@ -777,6 +777,7 @@ export default function SettingsDocumentsPage() {
                         (classicV2TypeScales[scaleTab] || {})[CLASSIC_V2_TYPE_GLOBAL_KEY] || classicV2FontScale,
                       )})`}
                       subInheritLabels={subInheritLabels}
+                      termsInheritLabel={termsInheritLabel}
                     />
                   </div>
                 </div>
@@ -795,8 +796,38 @@ export default function SettingsDocumentsPage() {
                 ))}
               </div>
             </div>
-          </SectionCard>
+        </SectionCard>
         )}
+
+        <SectionCard title="ข้อความเงื่อนไขท้ายเอกสาร (รายประเภทเอกสาร)" description="หนึ่งบรรทัดต่อหนึ่งข้อ — เว้นว่างไว้หากประเภทนั้นไม่ต้องการเงื่อนไข">
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {DOC_VISIBILITY_TYPES.filter((t) => (TERMS_DOC_TYPES as readonly string[]).includes(t.key)).map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTermsTab(t.key)}
+                className={pillClass(termsTab === t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={termsByType[termsTab] ?? ""}
+            onChange={(e) => { setTermsByType({ ...termsByType, [termsTab]: e.target.value }); setSaved(false); }}
+            rows={4}
+            placeholder="เว้นว่าง = ไม่แสดงเงื่อนไขท้ายเอกสารประเภทนี้"
+            className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 resize-none"
+          />
+          <p className="text-[11px] text-[#888780] mt-1">
+            {DOC_VISIBILITY_TYPES.find((t) => t.key === termsTab)?.label || termsTab}
+            {(() => {
+              const lines = termsByType[termsTab]?.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) ?? [];
+              return lines.length > 0 ? ` — ${lines.length} ข้อ` : " — ไม่พิมพ์เงื่อนไข";
+            })()}
+            {!(termsTab in termsByType) && (clientProfile?.classic_terms || "").trim() ? " (ยังไม่กำหนด — ใช้ข้อความกลางเดิมอยู่)" : ""}
+          </p>
+        </SectionCard>
 
         <SectionCard title="ลายเซ็นและตราประทับ" description="ปรากฏท้ายเอกสาร — การตั้งค่ามีผลกับเอกสารใหม่ที่สร้างหลังจากบันทึก">
           {profile && (

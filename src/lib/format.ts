@@ -1,3 +1,5 @@
+import { formatBuddhistDate } from "./dates";
+
 const currencyFormatter = new Intl.NumberFormat("th-TH", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -39,7 +41,7 @@ export interface PaymentDetailLike {
 
 /**
  * Payment-method text for printed documents, including cheque reference
- * details when present: "เช็ค · เลขที่ 0098765 · ธ.กรุงไทย · ลงวันที่ ..."
+ * details when present: "เช็คธนาคาร · เลขที่ 0098765 · ธ.กรุงไทย · ลงวันที่ ..."
  */
 export function paymentMethodText(
   methodLabel: string,
@@ -53,6 +55,75 @@ export function paymentMethodText(
     detail.cheque_date ? `ลงวันที่ ${detail.cheque_date}` : null,
   ].filter(Boolean);
   return parts.join(" · ");
+}
+
+export interface ReceiptPaymentRow {
+  label: string;
+  value: string;
+  /** Rendered as a highlighted badge (the payment method). */
+  emphasize?: boolean;
+}
+
+function isIsoDate(value: string | null | undefined): value is string {
+  if (!value) return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (!m) return false;
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+/**
+ * Labeled payment rows for the receipt signature-band box (Classic V2).
+ * Method-aware: cheque rows appear for cheques only, the receiving-account
+ * row for transfers only — every other document keeps the flat
+ * `paymentLines` list untouched. Pure + unit-tested.
+ */
+export function buildReceiptPaymentRows(input: {
+  methodLabel?: string | null;
+  isCheque?: boolean;
+  isTransfer?: boolean;
+  chequeNo?: string | null;
+  chequeBank?: string | null;
+  chequeDate?: string | null;
+  bankAccountLine?: string | null;
+  amountReceived?: number | null;
+  whtCertificateNo?: string | null;
+  issueDate?: string | null;
+}): ReceiptPaymentRow[] {
+  // Labels carry their trailing " :" (info-box convention) so renderers print
+  // them verbatim.
+  const rows: ReceiptPaymentRow[] = [];
+  if (input.methodLabel) {
+    rows.push({ label: "วิธีชำระเงิน :", value: input.methodLabel, emphasize: true });
+  }
+  if (input.isCheque) {
+    const no = (input.chequeNo || "").trim();
+    if (no) rows.push({ label: "เลขที่เช็ค :", value: no });
+    const bank = (input.chequeBank || "").trim();
+    if (bank) rows.push({ label: "ธนาคาร :", value: bank });
+    const rawDate = (input.chequeDate || "").trim();
+    if (rawDate) {
+      const shown = isIsoDate(rawDate) ? formatBuddhistDate(rawDate) : rawDate;
+      const postdated =
+        isIsoDate(rawDate) &&
+        isIsoDate(input.issueDate) &&
+        rawDate > (input.issueDate as string);
+      rows.push({
+        label: "ลงวันที่ :",
+        value: postdated ? `${shown} (เช็คธนาคารลงวันที่ล่วงหน้า)` : shown,
+      });
+    }
+  }
+  if (input.isTransfer && input.bankAccountLine) {
+    rows.push({ label: "เข้าบัญชี :", value: input.bankAccountLine });
+  }
+  if (input.amountReceived != null) {
+    rows.push({ label: "จำนวนเงินที่รับ :", value: formatCurrency(input.amountReceived) });
+  }
+  const wht = (input.whtCertificateNo || "").trim();
+  if (wht) rows.push({ label: "หัก ณ ที่จ่าย :", value: `เลขที่ ${wht}` });
+  return rows;
 }
 
 export function sanitizeFilename(name: string, fallback = "doc"): string {

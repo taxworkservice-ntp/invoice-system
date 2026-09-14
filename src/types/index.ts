@@ -112,6 +112,9 @@ export interface ClientProfile {
   stock_deduct_trigger: string;
   pdf_template: "modern" | "classic" | "classic_v2";
   classic_terms: string | null;
+  /** Per-document-type closing-terms text (null = fall back to classic_terms).
+   * Keys: quotation/invoice/billing_note/receipt/credit_note/debit_note. */
+  classic_terms_by_type?: Record<string, string> | null;
   bank_name: string | null;
   bank_account: string | null;
   signature_url: string | null;

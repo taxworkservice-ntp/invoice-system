@@ -1,5 +1,5 @@
 import { formatCurrency, paymentMethodText } from "../../lib/format";
-import { splitTerms } from "../../lib/terms";
+import { splitTerms, resolveTermsByType } from "../../lib/terms";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
   BillingNoteInvoice,
@@ -88,7 +88,7 @@ export function PrintDocument({
   const documentClass = isDeliveryNote ? " print-delivery-note" : "";
   const terms = isDeliveryNote
     ? []
-    : splitTerms(data.clientProfile.classic_terms);
+    : resolveTermsByType(data.clientProfile.classic_terms_by_type, data.clientProfile.classic_terms, data.document.doc_type);
   const lineItems = batchLineItems ?? data.lineItems;
   const billingNoteInvoices = batchBillingNoteInvoices ?? data.billingNoteInvoices;
   const receiptInvoices = batchReceiptInvoices ?? data.receiptInvoices;

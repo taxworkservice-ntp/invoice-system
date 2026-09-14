@@ -84,9 +84,9 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                 <div className="text-[6.5px] text-[#94a3b8]">SETTLEMENT</div>
               </div>
               {receiptPaidInFull ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#B7E3CB] bg-[#F0FBF4] px-2 py-0.5 text-[9px] font-semibold text-[#176B3A]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#9CA3AF] bg-[#F1F3F5] px-2 py-0.5 text-[9px] font-semibold text-[#1F2937]">
                   <span>ชำระครบถ้วน</span>
-                  <span className="text-[7px] font-medium tracking-[0.08em] text-[#5B9B75]">PAID IN FULL</span>
+                  <span className="text-[7px] font-medium tracking-[0.08em] text-[#4B5563]">PAID IN FULL</span>
                 </span>
               ) : null}
             </div>
