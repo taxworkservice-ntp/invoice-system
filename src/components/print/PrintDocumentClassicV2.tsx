@@ -321,6 +321,7 @@ export function PrintDocumentClassicV2({
   const infoScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header_info", typeFontScales, sectionScales, fontScaleMult);
   const itemsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, fontScaleMult);
   const numScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, fontScaleMult);
+  const numUnitScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("num_unit", typeFontScales, sectionScales, fontScaleMult);
   const theadScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, fontScaleMult);
   const totalsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, fontScaleMult);
   const netScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals_net", typeFontScales, sectionScales, fontScaleMult);
@@ -499,6 +500,7 @@ export function PrintDocumentClassicV2({
         "--classic-fs-info": infoScaleMult,
         "--classic-fs-items": itemsScaleMult,
         "--classic-fs-num": numScaleMult,
+        "--classic-fs-num-unit": numUnitScaleMult,
         "--classic-fs-thead": theadScaleMult,
         "--classic-fs-totals": totalsScaleMult,
         "--classic-fs-net": netScaleMult,
@@ -1047,7 +1049,7 @@ export function PrintDocumentClassicV2({
                             ) : null}
                           </td>
                           <td className="center">{blankForm ? "" : item.quantity.toLocaleString("th-TH")}</td>
-                          <td className="center">{item.unit}</td>
+                          <td className="center print-classic-item-unit">{item.unit}</td>
                           <td className="right">
                             {blankForm || !showAmountValues ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.unit_price)}
                           </td>

@@ -511,6 +511,7 @@ export default function SettingsDocumentsPage() {
     { label: "กล่องข้อมูล/ลูกค้า", mult: specimenMult("header_info"), text: "เลขที่: INV-2609-0001 · วันที่" },
     { label: "ชื่อสินค้า/คำอธิบาย", mult: specimenMult("items"), text: "ปูนซีเมนต์ออลพัรโพส บรรจุถุง ทดสอบการตัดคำชื่อสินค้ายาว" },
     { label: "ตัวเลข/จำนวน", mult: specimenMult("num"), text: "12 × 350.00 = 4,200.00" },
+    { label: "คอลัมน์หน่วย", mult: specimenMult("num_unit"), text: "ชิ้น / ถัง / กล่อง" },
     { label: "หัวตาราง", mult: specimenMult("thead"), text: "รายการ จำนวน หน่วย ราคา จำนวนเงิน" },
     { label: "ยอดรวม", mult: specimenMult("totals"), text: "ยอดรวมทั้งสิ้น / NET PAYABLE" },
     { label: "ยอดรวมสุดท้าย", mult: specimenMult("totals_net"), text: "ยอดรวมทั้งสิ้น 12,500.00" },

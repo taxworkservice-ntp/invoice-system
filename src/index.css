@@ -545,6 +545,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   --classic-fs-info: var(--classic-fs-header);
   --classic-fs-items: var(--classic-font-scale);
   --classic-fs-num: var(--classic-fs-items);
+  --classic-fs-num-unit: var(--classic-fs-num);
   --classic-fs-thead: var(--classic-fs-items);
   --classic-fs-totals: var(--classic-font-scale);
   --classic-fs-net: var(--classic-fs-totals);
@@ -922,6 +923,10 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 /* description column scales separately from the numeric columns */
 .print-classic-items-table tbody td.print-classic-item-name {
   font-size: calc(7.5pt * var(--classic-fs-items));
+}
+/* หน่วย (UNIT) column scales independently — inherits the numeric scale unless set */
+.print-classic-items-table tbody td.print-classic-item-unit {
+  font-size: calc(7.5pt * var(--classic-fs-num-unit));
 }
 .print-classic-items-table td.center { text-align: center; }
 .print-classic-items-table td.right  { text-align: right; }

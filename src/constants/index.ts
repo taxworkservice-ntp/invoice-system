@@ -158,6 +158,7 @@ export type ClassicV2SectionFontKey =
   | "header_info"
   | "items"
   | "num"
+  | "num_unit"
   | "thead"
   | "totals"
   | "totals_net"
@@ -175,6 +176,7 @@ export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
   "header_info",
   "items",
   "num",
+  "num_unit",
   "thead",
   "totals",
   "totals_net",
@@ -195,6 +197,8 @@ export const CLASSIC_V2_SUB_SLOT_PARENT: Partial<Record<ClassicV2SectionFontKey,
   header_info: "header",
   totals_net: "totals",
   payment: "totals",
+  // หน่วย (unit) column inherits the numeric-column scale until set.
+  num_unit: "num",
   // Closing-terms list follows the signature/footer block until set
   // independently — previously it rode on --classic-fs-footer directly.
   terms: "footer",
@@ -211,6 +215,7 @@ export const CLASSIC_V2_DEFAULT_SECTION_SCALES: Record<ClassicV2SectionFontKey, 
 export const CLASSIC_V2_ITEMS_TABLE_ROWS: { key: ClassicV2SectionFontKey; label: string }[] = [
   { key: "items", label: "ชื่อสินค้า/คำอธิบาย" },
   { key: "num", label: "ตัวเลข/จำนวน" },
+  { key: "num_unit", label: "คอลัมน์หน่วย" },
   { key: "thead", label: "หัวตาราง/คอลัมน์" },
 ];
 

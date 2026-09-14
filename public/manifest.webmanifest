@@ -1,0 +1,16 @@
+{
+  "name": "Taxwork",
+  "short_name": "Taxwork",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F6F3",
+  "theme_color": "#F7F6F3",
+  "icons": [
+    {
+      "src": "/icons/app-icon.png",
+      "sizes": "417x417",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
