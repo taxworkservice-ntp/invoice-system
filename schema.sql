@@ -1043,6 +1043,19 @@ begin
 end;
 $$ language plpgsql;
 
+-- documents.updated_at is user-facing "last edited"; it must ignore render-only
+-- touches used for PDF-cache invalidation (see render_updated_at migration).
+create or replace function handle_document_updated_at()
+returns trigger as $$
+begin
+  if (to_jsonb(new) - 'render_updated_at')
+     is distinct from (to_jsonb(old) - 'render_updated_at') then
+    new.updated_at = now();
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
 create trigger trg_client_profiles_updated_at
   before update on client_profiles
   for each row execute function handle_updated_at();
@@ -1069,7 +1082,7 @@ create trigger trg_deals_updated_at
 
 create trigger trg_documents_updated_at
   before update on documents
-  for each row execute function handle_updated_at();
+  for each row execute function handle_document_updated_at();
 
 create trigger trg_files_updated_at
   before update on files
