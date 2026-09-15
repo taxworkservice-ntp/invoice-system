@@ -117,7 +117,7 @@ export async function deleteDocumentFiles(documentId: string): Promise<void> {
   });
 }
 
-export async function getCachedPdfFile(document: Pick<Document, "id" | "user_id" | "updated_at">, variant: string): Promise<StorageFile | null> {
+export async function getCachedPdfFile(document: Pick<Document, "id" | "user_id" | "render_updated_at">, variant: string): Promise<StorageFile | null> {
   const key = pdfKey(document.user_id, document.id, variant);
   const { data, error } = await supabase
     .from("files")
@@ -130,7 +130,11 @@ export async function getCachedPdfFile(document: Pick<Document, "id" | "user_id"
   if (!data) return null;
 
   const file = data as StorageFile;
-  if (new Date(file.updated_at).getTime() < new Date(document.updated_at).getTime()) {
+  // Cache validity follows the render version, not the user-facing
+  // "last edited" updated_at (see the pdf_render_version migration). No
+  // version (older row / not selected) → treat as stale and re-render.
+  if (!document.render_updated_at) return null;
+  if (new Date(file.updated_at).getTime() < new Date(document.render_updated_at).getTime()) {
     return null;
   }
 

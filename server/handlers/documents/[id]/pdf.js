@@ -94,10 +94,12 @@ function sendPdf(res, buffer, filename) {
 }
 
 // Freshness mirrors src/lib/storageApi.ts getCachedPdfFile: the cached bytes
-// are valid while the files row is at least as new as the document row.
-// Every render input bumps documents.updated_at via touch-triggers
-// (supabase/migrations/20260913000001_pdf_cache_invalidation.sql), so a hit
-// can never serve bytes rendered from older content.
+// are valid while the files row is at least as new as the document's RENDER
+// version. Every render input bumps documents.render_updated_at via
+// touch-triggers (supabase/migrations/20260915120000_pdf_render_version.sql),
+// so a hit can never serve bytes rendered from older content. The user-facing
+// documents.updated_at is deliberately NOT used here — profile/customer edits
+// bump the render version in bulk but must not move "last edited".
 async function lookupFreshCache(document, variant) {
   const key = pdfCacheKey(document.user_id, document.id, variant);
   const { data: file, error } = await supabaseAdmin
@@ -106,11 +108,11 @@ async function lookupFreshCache(document, variant) {
     .eq("r2_key", key)
     .maybeSingle();
   if (error || !file) return null;
-  if (new Date(file.updated_at).getTime() < new Date(document.updated_at).getTime()) return null;
+  if (new Date(file.updated_at).getTime() < new Date(document.render_updated_at).getTime()) return null;
   return file;
 }
 
-async function backfillPdfCache({ key, documentId, userId, filename, buffer, expectedUpdatedAt }) {
+async function backfillPdfCache({ key, documentId, userId, filename, buffer, expectedRenderUpdatedAt }) {
   try {
     // Race guard: a render takes seconds, and the document may have been
     // edited (or a newer render may have already backfilled) while it ran.
@@ -119,11 +121,11 @@ async function backfillPdfCache({ key, documentId, userId, filename, buffer, exp
     // backfill only costs one more render on the next download.
     const { data: current, error: currentError } = await supabaseAdmin
       .from("documents")
-      .select("updated_at")
+      .select("render_updated_at")
       .eq("id", documentId)
       .single();
     if (currentError || !current) return "skipped";
-    if (new Date(current.updated_at).getTime() !== new Date(expectedUpdatedAt).getTime()) return "skipped";
+    if (new Date(current.render_updated_at).getTime() !== new Date(expectedRenderUpdatedAt).getTime()) return "skipped";
 
     await putR2Object(key, buffer, "application/pdf");
     const { error } = await supabaseAdmin.from("files").upsert(
@@ -259,7 +261,7 @@ export default async function handler(req, res) {
 
     const { data: document, error: documentError } = await supabaseAdmin
       .from("documents")
-      .select("id, user_id, doc_type, doc_number, issue_date, updated_at")
+      .select("id, user_id, doc_type, doc_number, issue_date, updated_at, render_updated_at")
       .eq("id", id)
       .single();
 
@@ -310,7 +312,7 @@ export default async function handler(req, res) {
       userId: document.user_id,
       filename,
       buffer: pdfBuffer,
-      expectedUpdatedAt: document.updated_at,
+      expectedRenderUpdatedAt: document.render_updated_at,
     });
 
     if (warm) return sendJson(res, 200, { success: true, cached: false });
