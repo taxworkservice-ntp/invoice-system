@@ -181,6 +181,14 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     data.document.doc_type === "delivery_note" &&
     data.document.hide_amounts_on_print !== false;
   const effectiveHideAmounts = blankForm ? false : hideDeliveryAmounts;
+  // Classic V2 delivery notes draw their totals column only when amounts are
+  // shown and the form isn't blank (see PrintDocumentClassicV2). Mirror that
+  // gate here so the paginator does not reserve the scaled totals block for a
+  // block the sheet never renders — that phantom reserve was splitting small
+  // DNs into an extra page at large font scales.
+  const reserveDnTotalsBlock =
+    data.document.doc_type !== "delivery_note" ||
+    (data.document.hide_amounts_on_print === false && !blankForm);
 
   const hasMultiInvoiceRefs =
     !data.document.vat_registered &&
@@ -243,6 +251,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       continuationFullHeader,
       spaceBonusMm,
       stripReserveMm,
+      reserveTotalsBlock: reserveDnTotalsBlock,
     }).map((batch) => ({
       kind: "line_items" as const,
       batch: { ...batch, items: batch.items.map((u) => u.item) },

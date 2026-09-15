@@ -29,6 +29,11 @@ const DN_HEADER_MM = { modern: 6.9, classic: 8.1 };
 // Classic V2 DN group bands (ใบส่งของ DN-… divider row) — slim full-width
 // row: ~2.4mm padding + a 7pt text line. classic_v2 only.
 const DN_BAND_MM = { classic: 6.5 };
+// Band portion that does NOT grow with --classic-font-scale: its fixed mm
+// padding + border (same as a normal row's). Only the text line scales, so at
+// large item scales the band is charged ~2mm less than scaling the whole
+// 6.5mm row — the old estimate tipped small DNs onto a second page.
+const CLASSIC_DN_BAND_FIXED_MM = DN_BAND_MM.classic - TEXT_LINE_MM.classic;
 // Conservative characters per line for the description column, used to
 // estimate name wrapping. Calibrated empirically in the 87mm description
 // column with the app font (Thai + Latin mix): ~75 chars/line at 7.5pt,
@@ -144,7 +149,12 @@ export function estimateLineItemHeight(
   const nameMm = baseRowMm + (nameLines - 1) * textScale(TEXT_LINE_MM[key]);
   const noteMm = noteLines * textScale(NOTE_LINE_MM[key]);
   const subMm = subLines * textScale(SUBLINE_MM[key]);
-  const bandMm = isClassic && opts.hasDnGroupBand ? textScale(DN_BAND_MM.classic) : 0;
+  // Scaled text line only; the band's mm padding/border is fixed (identical
+  // to the base-row treatment). At fontScale 1 this is exactly DN_BAND_MM.
+  const bandMm =
+    isClassic && opts.hasDnGroupBand
+      ? CLASSIC_DN_BAND_FIXED_MM + TEXT_LINE_MM.classic * fontScale
+      : 0;
   // SO second line spans the full band (roughly 2x the description column,
   // slightly smaller type) — charged conservatively at the sub-line rate so
   // a wrapped SO can never pack a page tighter than it renders.

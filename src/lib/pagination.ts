@@ -160,7 +160,20 @@ export function getRowBudgets(
   fontScale: number | ClassicV2FontScales = 1,
   kind: PaginationKind = "line_items",
   extraReserveMm = 0,
-  opts: { multiFirst?: boolean; continuationFullHeader?: boolean; spaceBonusMm?: { first?: number; continuation?: number; last?: number }; stripReserveMm?: number } = {},
+  opts: {
+    multiFirst?: boolean;
+    continuationFullHeader?: boolean;
+    spaceBonusMm?: { first?: number; continuation?: number; last?: number };
+    stripReserveMm?: number;
+    /**
+     * classic V2: whether the fixed totals block actually renders on this
+     * document. Delivery notes hide their amount/totals column
+     * (`hide_amounts_on_print`) and blank forms render none either, so
+     * reserving the scaled totals block would shrink the row budget for a
+     * block that isn't there. Defaults to true (all non-DN layouts).
+     */
+    reserveTotalsBlock?: boolean;
+  } = {},
 ): { first: number; continuation: number; last: number } {
   const baseMm = getBaseRowMm(template);
   const cap = kind === "summary_rows"
@@ -169,7 +182,13 @@ export function getRowBudgets(
   const scales = normalizeFontScales(fontScale);
   const reserve = (mode: "first" | "first_multi" | "continuation" | "continuation_full_header" | "last") => {
     if (template === "modern") return 0;
-    return FONT_SCALE_PAGE_SECTIONS[kind][mode].reduce((sum, section) => {
+    const sections =
+      opts.reserveTotalsBlock === false
+        ? FONT_SCALE_PAGE_SECTIONS[kind][mode].filter(
+            (section) => section !== "totalsBlock",
+          )
+        : FONT_SCALE_PAGE_SECTIONS[kind][mode];
+    return sections.reduce((sum, section) => {
       // Never grow budgets below scale 1: if a user's fixed content doesn't
       // actually shrink, under-filled pages are harmless but overflow is not.
       // The footer reserve covers the signature band AND the closing-terms
@@ -252,6 +271,13 @@ export interface PaginateOptions<T> {
    * (workspace setting) — continuation budgets/caps shrink accordingly.
    */
   continuationFullHeader?: boolean;
+  /**
+   * Classic V2: set false when the fixed totals block does not render on the
+   * document (delivery notes with hidden amounts, blank forms). Its scaled
+   * reserve is then returned to the row budget instead of being charged for a
+   * block that isn't there. Defaults to true.
+   */
+  reserveTotalsBlock?: boolean;
 }
 
 /**
@@ -292,6 +318,7 @@ export function paginateRows<T>(
       fullHeader,
       options.spaceBonusMm,
       options.stripReserveMm ?? 0,
+      options.reserveTotalsBlock ?? true,
     );
   }
 
@@ -361,8 +388,9 @@ function paginateRowsByHeight<T>(
   continuationFullHeader = false,
   spaceBonusMm?: { first?: number; firstMulti?: number; continuation?: number; last?: number },
   stripReserveMm = 0,
+  reserveTotalsBlock = true,
 ): GenericPageBatch<T>[] {
-  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader, spaceBonusMm, stripReserveMm });
+  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader, spaceBonusMm, stripReserveMm, reserveTotalsBlock });
   const heights = rows.map((row, i) => estimateHeight(row, i));
   const totalHeight = heights.reduce((sum, h) => sum + h, 0);
 
@@ -405,7 +433,7 @@ function paginateRowsByHeight<T>(
   // Multi-page: the FIRST page carries only header + info band (totals and
   // signatures are on the last page), so it packs to the larger multi-first
   // budget — but always leaves at least one row for the finalized page.
-  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true, spaceBonusMm: { first: spaceBonusMm?.firstMulti ?? spaceBonusMm?.first }, stripReserveMm });
+  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true, spaceBonusMm: { first: spaceBonusMm?.firstMulti ?? spaceBonusMm?.first }, stripReserveMm, reserveTotalsBlock });
   const multiFirstCap = (kind === "summary_rows"
     ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
     : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
