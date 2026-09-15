@@ -122,6 +122,13 @@ describe("multi-section row plan", () => {
     expect(plan[1].header).toMatchObject({ g: 2, soHeader: "SO1" });
   });
 
+  it("gives a single-item section its own header row (like any section)", () => {
+    const plan = buildDnSectionPlan([marker("m", "SO1"), line({ id: "l1" })], {});
+    expect(plan).toHaveLength(1);
+    expect(plan[0].number).toBe("1.1");
+    expect(plan[0].header).toMatchObject({ g: 1, soHeader: "SO1" });
+  });
+
   it("auto-groups source runs inside unmarked segments only", () => {
     const lines = [
       line({ id: "l1", source_document_id: "dn-1", source_line_item_id: "s1" }),

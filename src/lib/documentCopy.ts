@@ -66,6 +66,8 @@ export async function copyDocumentAsDraft(
       note: doc.note,
       customer_po_number: doc.customer_po_number,
       task_name: doc.task_name,
+      // Print-only tax-invoice title preset travels with the copy.
+      print_title_variant: doc.print_title_variant ?? null,
       payment_method: null,
       amount_received: null,
       paid_at: null,

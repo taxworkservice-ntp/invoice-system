@@ -17,6 +17,23 @@ export const BASE_ROW_MM = { modern: 6.9, classic: 6.5 };
 const TEXT_LINE_MM = { modern: 3.7, classic: 3.4 };
 // Height of a line_note line (smaller font than the item name).
 const NOTE_LINE_MM = { modern: 3.7, classic: 3.4 };
+// Classic V2 DELIVERY-NOTE row metrics, calibrated against the rendered CSS
+// (scripts/print-layout-measure.mjs). A DN's line notes (6.5pt / line-height
+// 1.25) and its group-band text are materially shorter than the item-name
+// metric above; charging the item metric pushed dense DNs onto an extra page.
+// Scoped to DNs via opts.dnNotes so invoice/quotation page breaks are
+// untouched. Each stays ≥ the measured height (no clipping).
+const DN_NOTE_LINE_MM = 2.9; // measured 2.99 @1x, 4.70 @1.6x
+const DN_BAND_LINE_MM = 3.0; // measured 2.98 @1x, 4.77 @1.6x
+const DN_BAND_FIXED_MM = 2.95; // band padding/border (measured 2.92–2.99)
+// Classic V2 COMPACT delivery note (classic_v2_compact_dn): tighter row padding
+// (1.5→1.1mm), table line-height (1.3→1.2) and band padding (1.2→0.8mm).
+// Applied only when opts.compactDn — opt-in, DN-only, no font change. Values
+// are the CSS deltas measured by scripts/print-layout-measure.mjs.
+const COMPACT_ROW_FIXED_MM = 2.3; // 3.1 − 0.8mm vertical cell padding
+const COMPACT_TEXT_LINE_MM = 3.2; // 7.5pt × line-height 1.2
+const COMPACT_DN_NOTE_LINE_MM = 2.8; // 6.5pt × line-height 1.2
+const COMPACT_DN_BAND_FIXED_MM = 2.15; // 2.95 − 0.8mm band padding
 // Height of each extra "sub-line" rendered under a normal row: the line
 // discount note (ส่วนลด X%), the inline delivery-note reference
 // (อ้างอิง ใบส่งของ …), and the invoice-number reference (ใบแจ้งหนี้ …).
@@ -90,6 +107,18 @@ export function estimateLineItemHeight(
     /** classic_v2: the group header above this line carries a second SO
      * line (full-band width, wraps). Null/empty = single-line header. */
     dnGroupSoHeader?: string | null;
+    /**
+     * classic_v2: the group band already prints a leading ref line
+     * (`header.number`, e.g. "DN-2026-…"). When false the SO text IS the
+     * band's (only) line, so its first line is already covered by the band
+     * charge and must not be counted again. Defaults to true (all existing
+     * callers — invoice groups always carry a ref line).
+     */
+    dnGroupHasRefLine?: boolean;
+    /** Classic V2 delivery note: use the DN note line metric (6.5pt/1.25). */
+    dnNotes?: boolean;
+    /** Classic V2 delivery note with compact spacing (classic_v2_compact_dn). */
+    compactDn?: boolean;
     /** Quotation line with an example photo (≈26mm image under the name). */
     hasLineImage?: boolean;
     /** --classic-font-scale multiplier for the description column (classic templates only, 1 = default). */
@@ -117,9 +146,12 @@ export function estimateLineItemHeight(
   // Numeric columns are single-line: their line height scales with numScale
   // and must not shrink the row below the description text.
   const numScale = opts.numScale ?? fontScale;
-  const firstLineMm = TEXT_LINE_MM[key] * Math.max(fontScale, numScale);
+  const compactDn = isClassic && opts.compactDn === true;
+  const rowFixedMm = compactDn ? COMPACT_ROW_FIXED_MM : CLASSIC_ROW_FIXED_MM;
+  const nameLineMm = compactDn ? COMPACT_TEXT_LINE_MM : TEXT_LINE_MM[key];
+  const firstLineMm = nameLineMm * Math.max(fontScale, numScale);
   const baseRowMm = isClassic
-    ? CLASSIC_ROW_FIXED_MM + firstLineMm
+    ? rowFixedMm + firstLineMm
     : base;
 
   const rawCharsPerLine = isClassic
@@ -145,23 +177,42 @@ export function estimateLineItemHeight(
   if (opts.hasInvoiceRef) subLines += 1;
   if (opts.hasDnVariance) subLines += 1;
 
+  // Delivery notes use the calibrated DN metrics for notes, group bands and
+  // their SO lines; every other layout keeps the original metrics.
+  const dnLine = isClassic && opts.dnNotes === true;
+  const noteBaseMm = compactDn
+    ? COMPACT_DN_NOTE_LINE_MM
+    : dnLine
+      ? DN_NOTE_LINE_MM
+      : NOTE_LINE_MM[key];
+  const bandLineMm = dnLine ? DN_BAND_LINE_MM : TEXT_LINE_MM.classic;
+  const bandFixedMm = compactDn
+    ? COMPACT_DN_BAND_FIXED_MM
+    : dnLine
+      ? DN_BAND_FIXED_MM
+      : CLASSIC_DN_BAND_FIXED_MM;
+  const soLineMm = dnLine ? DN_BAND_LINE_MM : SUBLINE_MM[key];
+
   const textScale = (mm: number) => (fontScale === 1 ? mm : mm * fontScale);
-  const nameMm = baseRowMm + (nameLines - 1) * textScale(TEXT_LINE_MM[key]);
-  const noteMm = noteLines * textScale(NOTE_LINE_MM[key]);
+  const nameMm = baseRowMm + (nameLines - 1) * textScale(nameLineMm);
+  const noteMm = noteLines * textScale(noteBaseMm);
   const subMm = subLines * textScale(SUBLINE_MM[key]);
   // Scaled text line only; the band's mm padding/border is fixed (identical
-  // to the base-row treatment). At fontScale 1 this is exactly DN_BAND_MM.
+  // to the base-row treatment). At fontScale 1, non-DN is exactly DN_BAND_MM.
   const bandMm =
     isClassic && opts.hasDnGroupBand
-      ? CLASSIC_DN_BAND_FIXED_MM + TEXT_LINE_MM.classic * fontScale
+      ? bandFixedMm + bandLineMm * fontScale
       : 0;
-  // SO second line spans the full band (roughly 2x the description column,
-  // slightly smaller type) — charged conservatively at the sub-line rate so
-  // a wrapped SO can never pack a page tighter than it renders.
+  // SO text spans the full band (roughly 2x the description column, slightly
+  // smaller type). A band that also carries a ref line charges every SO line;
+  // a SO-only band already counts its first line in bandMm, so only extra
+  // wrapped lines are charged (charging the first again over-reserved one
+  // line per single-header section and split dense DNs).
   const soText = String(opts.dnGroupSoHeader || "").trim();
   const soBandChars = Math.max(1, Math.floor(110 / Math.max(fontScale, 1)));
   const soLines = isClassic && soText ? countLines(soText, soBandChars) : 0;
-  const soMm = soLines * textScale(SUBLINE_MM[key]);
+  const soExtraLines = opts.dnGroupHasRefLine === false ? Math.max(0, soLines - 1) : soLines;
+  const soMm = soExtraLines * textScale(soLineMm);
   // Example photo: fixed 26mm print height (font-scale independent) + gap.
   const imageMm = isClassic && opts.hasLineImage ? 26.8 : 0;
   return nameMm + noteMm + subMm + bandMm + soMm + imageMm + ROW_SAFETY_MM;

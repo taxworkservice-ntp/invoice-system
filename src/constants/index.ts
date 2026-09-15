@@ -115,7 +115,9 @@ export const ASSET_SCALE_MULT: Record<string, number> = Object.fromEntries(
 
 /** Base pt of the main reading text (item description body) — the reference for all labels. */
 export const CLASSIC_V2_BASE_FONT_PT = 7.5;
-export const CLASSIC_V2_MIN_FONT_PT = 6;
+// Floor for the custom size input/presets. Allows very small labels (e.g. 2–3pt)
+// for dense documents; the pagination model handles scales < 1 unchanged.
+export const CLASSIC_V2_MIN_FONT_PT = 2;
 export const CLASSIC_V2_MAX_FONT_PT = 13.5;
 
 /** Prefix for per-slot custom sizes stored as `pt:<number>`. */
@@ -164,7 +166,11 @@ export type ClassicV2SectionFontKey =
   | "totals_net"
   | "payment"
   | "terms"
-  | "footer";
+  | "footer"
+  /** English sub-labels under the Thai text ("ป้ายภาษาอังกฤษ") — a shared
+   * slot across the whole document (thead, meta, totals, signatures, title,
+   * copy badge). Defaults to the document global scale. */
+  | "en";
 
 /** Preset value meaning "follow the workspace default". */
 export const CLASSIC_V2_SECTION_INHERIT = "inherit";
@@ -183,6 +189,7 @@ export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
   "payment",
   "terms",
   "footer",
+  "en",
 ];
 
 /**
@@ -311,6 +318,21 @@ export const CLASSIC_V2_HIDE_EN_META_ROW_MM = 1.8;
 export const CLASSIC_V2_HIDE_EN_THEAD_MM = 2.2;
 export const CLASSIC_V2_HIDE_EN_SIG_MM = 3;
 export const CLASSIC_V2_COMPACT_SIG_MM = 5.5;
+
+/**
+ * Vertical space returned to the row budget by compact delivery-note spacing
+ * (classic_v2_compact_dn) — the non-row savings the CSS trims from the fixed
+ * blocks, per page mode. Measured (scale 1, conservative) by
+ * scripts/print-layout-measure.mjs: header top −2.0, info band −3.4,
+ * items margin + thead −1.8, signature margin −0.6. Rounded down so a compact
+ * DN can never pack a page tighter than it renders.
+ */
+export const CLASSIC_V2_COMPACT_DN_BONUS_MM = {
+  first: 7.5,
+  firstMulti: 7,
+  continuation: 1.5,
+  last: 2,
+} as const;
 
 /**
  * Reserved height (mm) of the per-page signature-initials strip

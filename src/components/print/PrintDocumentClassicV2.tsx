@@ -6,6 +6,7 @@ import {
   buildDnSectionPlan,
   buildDnSoHeaderPlan,
   DN_GROUP_SPACER_MM,
+  DN_GROUP_SPACER_COMPACT_MM,
   dnHeaderLabel,
   filterDnRefMarkers,
   filterDnRenderLines,
@@ -20,7 +21,7 @@ import {
   getBaseRowMm,
 } from "../../lib/printRowHeight";
 import { getDnVarianceParts } from "../../lib/dnVariance";
-import { documentTypeLabel } from "../../lib/docLabels";
+import { printTitle } from "../../lib/docLabels";
 import { splitTerms, resolveTermsByType } from "../../lib/terms";
 import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT, CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../constants";
 import type { PrintDocumentData } from "../../lib/print";
@@ -245,6 +246,9 @@ export function PrintDocumentClassicV2({
     (batchLineItems ? data.lineItems.indexOf(batchLineItems[0]) + 1 : summaryStartIndex);
   const isCopy = copyType === "copy";
   const isDeliveryNote = document.doc_type === "delivery_note";
+  // Opt-in compact DN spacing (no font change) — mirrors the classic_v2_compact_dn
+  // profile setting; only affects the CSS class and the pagination estimate.
+  const compactDn = isDeliveryNote && clientProfile.classic_v2_compact_dn === true;
   const hideDeliveryAmounts =
     isDeliveryNote && document.hide_amounts_on_print !== false;
   // Amount columns always render their grid (headers, cells, vertical
@@ -328,7 +332,10 @@ export function PrintDocumentClassicV2({
   const paymentScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("payment", typeFontScales, sectionScales, fontScaleMult);
   const termsScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("terms", typeFontScales, sectionScales, fontScaleMult);
   const footerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, fontScaleMult);
-  const label = documentTypeLabel(document.doc_type, document.vat_registered);
+  // ป้ายภาษาอังกฤษ: one shared slot for every English sub-label; falls back to
+  // the document global scale when unset.
+  const enScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("en", typeFontScales, sectionScales, fontScaleMult);
+  const label = printTitle(document);
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = resolveTermsByType(clientProfile.classic_terms_by_type, clientProfile.classic_terms, document.doc_type);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
@@ -421,9 +428,12 @@ export function PrintDocumentClassicV2({
             hasInlineDnRef: false,
             hasDnGroupBand: !!entry && (entry.header !== null || entry.footerAfter !== null),
             dnGroupSoHeader: entry?.header?.soHeader ?? null,
+            dnGroupHasRefLine: !!entry?.header?.number,
+            dnNotes: isDeliveryNote,
+            compactDn,
             hasLineImage: document.doc_type === "quotation" && !!line.image_url,
             hasInvoiceRef: hasMultiInvoiceRefs && !!invoiceNumberMap[line.document_id],
-          }) + (entry?.spacerAfter ? DN_GROUP_SPACER_MM : 0);
+          }) + (entry?.spacerAfter ? (compactDn ? DN_GROUP_SPACER_COMPACT_MM : DN_GROUP_SPACER_MM) : 0);
       }
       const blankRowMm = Math.max(1, getBaseRowMm("classic_v2", itemsScaleMult));
       const fit = Math.floor((budget - usedMm) / blankRowMm + 1e-6);
@@ -491,6 +501,7 @@ export function PrintDocumentClassicV2({
         + `${clientProfile.classic_v2_hide_english_labels ? " print-hide-en" : ""}`
         + `${clientProfile.classic_v2_compact_signature ? " print-sig-compact" : ""}`
         + `${clientProfile.classic_v2_regular_item_font ? " print-regular-items" : ""}`
+        + `${compactDn ? " print-dn-compact" : ""}`
       }
       style={{
         "--classic-font-scale": fontScaleMult,
@@ -507,6 +518,7 @@ export function PrintDocumentClassicV2({
         "--classic-fs-payment": paymentScaleMult,
         "--classic-fs-terms": termsScaleMult,
         "--classic-fs-footer": footerScaleMult,
+        "--classic-fs-en": enScaleMult,
       } as React.CSSProperties}
     >
       {/* ============== TOP HEADER ============== */}

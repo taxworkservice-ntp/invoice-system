@@ -504,6 +504,91 @@ const dnData = (template: HtmlPrintTemplate): PrintDocumentData => ({
 });
 
 
+// --- "delivery" fixture: a real Classic V2 delivery note (hidden amounts,
+//     two SO section groups) used for compact-DN spacing calibration and the
+//     classic_v2 DN baselines. ---
+const deliveryLines: DocumentLineItem[] = [
+  {
+    id: "del-marker-1", document_id: "doc-delivery", user_id: "user-layout-baseline",
+    item_id: null, item_name: "SO7944758301/Z033248905 Part no.25120021 (เห็ด)",
+    line_note: "[DN_SECTION]", item_sku: null, item_type: "service",
+    unit: "", unit_price: 0, quantity: 0, base_quantity: null,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: null, source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 0, sort_order: 0, created_at: now,
+  },
+  {
+    id: "del-line-1", document_id: "doc-delivery", user_id: "user-layout-baseline",
+    item_id: null, item_name: "เคลือบด้าน / เคลือบเงา (Lamination)",
+    line_note: "สี / ฟอยล์: ฟอยล์ทองด้าน\nขนาดใบพิมพ์ 33 x 44 มม.\nวัสดุ: อาร์ตการ์ด 260g",
+    item_sku: null, item_type: "service", unit: "ชิ้น",
+    unit_price: 4, quantity: 1, base_quantity: 1,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: null, source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 4, sort_order: 1, created_at: now,
+  },
+  {
+    id: "del-line-2", document_id: "doc-delivery", user_id: "user-layout-baseline",
+    item_id: null, item_name: "เจาะรู + ติดตาไก่",
+    line_note: "สี / ฟอยล์: ฟอยล์เงินด้าน\nขนาด 44 x 33 มม.\nวัสดุ: กระดาษคราฟท์",
+    item_sku: null, item_type: "service", unit: "ชิ้น",
+    unit_price: 2, quantity: 1, base_quantity: 1,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: null, source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 2, sort_order: 2, created_at: now,
+  },
+  {
+    id: "del-marker-2", document_id: "doc-delivery", user_id: "user-layout-baseline",
+    item_id: null, item_name: "SO7948302/Z033248906 Part no.25120022 (เห็ด)",
+    line_note: "[DN_SECTION]", item_sku: null, item_type: "service",
+    unit: "", unit_price: 0, quantity: 0, base_quantity: null,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: null, source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 0, sort_order: 3, created_at: now,
+  },
+  {
+    id: "del-line-3", document_id: "doc-delivery", user_id: "user-layout-baseline",
+    item_id: null, item_name: "เคลือบด้าน / เคลือบเงา (Lamination)",
+    line_note: "สี / ฟอยล์: ฟอยล์ทองเงา\nขนาด 33 x 33 มม.\nตำแหน่ง: มุมบนขวา",
+    item_sku: null, item_type: "service", unit: "ชิ้น",
+    unit_price: 4.1, quantity: 1, base_quantity: 1,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: null, source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 4.1, sort_order: 4, created_at: now,
+  },
+] as unknown as DocumentLineItem[];
+
+const deliveryDocument: Document = {
+  ...documentData,
+  id: "doc-delivery",
+  doc_type: "delivery_note",
+  doc_number: "DN-2026-09-107",
+  due_date: null,
+  hide_amounts_on_print: true,
+  show_full_totals: false,
+  discount_percent: 0,
+  discount_amount: 0,
+  vat_amount: 0,
+  wht_rate: 0,
+  wht_amount: 0,
+  dn_so_header: null,
+  dn_appendix: false,
+};
+
+const deliveryData = (template: HtmlPrintTemplate): PrintDocumentData => ({
+  ...data(template),
+  document: deliveryDocument,
+  lineItems: deliveryLines,
+  invoiceDeliveryNotes: [],
+  lineDeliveryNoteMap: {},
+  showInlineDeliveryNotes: false,
+});
+
 const params = new URLSearchParams(window.location.search);
 const rawTemplate = params.get("template");
 const template: HtmlPrintTemplate =
@@ -516,6 +601,7 @@ const docVariant =
   params.get("doc") === "many" ? "many"
   : params.get("doc") === "dn" ? "dn"
   : params.get("doc") === "qt" ? "qt"
+  : params.get("doc") === "delivery" ? "delivery"
   : "base";
 const appendixOn = params.get("appendix") === "1";
 const fontScalePreset = params.get("fontScale");
@@ -524,7 +610,11 @@ const pageMode =
   pageModeParam === "first" || pageModeParam === "continuation" || pageModeParam === "last"
     ? pageModeParam
     : "single";
-const baseData = docVariant === "many" ? manyData(template) : docVariant === "dn" ? dnData(template) : docVariant === "qt" ? qtData(template) : data(template);
+const baseData = docVariant === "many" ? manyData(template)
+  : docVariant === "dn" ? dnData(template)
+  : docVariant === "qt" ? qtData(template)
+  : docVariant === "delivery" ? deliveryData(template)
+  : data(template);
 // โหมดอ้างอิง (classic V2):
 //   refCollapse=1 → pass the refCollapse prop — DN reference table replaces
 //                   the items table (the PDF-export path, เหมือนใบวางบิล)
@@ -598,6 +688,19 @@ if (params.get("compactSig") === "1") {
   activeBaseData.clientProfile = {
     ...activeBaseData.clientProfile,
     classic_v2_compact_signature: true,
+  };
+}
+if (params.get("compactDn") === "1") {
+  activeBaseData.clientProfile = {
+    ...activeBaseData.clientProfile,
+    classic_v2_compact_dn: true,
+  };
+}
+const printTitleVariant = params.get("printTitle");
+if (printTitleVariant) {
+  activeBaseData.document = {
+    ...activeBaseData.document,
+    print_title_variant: printTitleVariant,
   };
 }
 const activeData = appendixOn

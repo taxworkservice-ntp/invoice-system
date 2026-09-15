@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test:print-layout": "node scripts/print-layout-regression.mjs",
     "test:print-layout:update": "node scripts/print-layout-regression.mjs --update",
+    "test:print-layout:measure": "node scripts/print-layout-measure.mjs",
     "seed:testcompany": "node scripts/seed-testcompany.mjs",
     "seed:mock": "node scripts/seed-mock.mjs",
     "seed:mock:clean": "node scripts/seed-mock.mjs --clean",

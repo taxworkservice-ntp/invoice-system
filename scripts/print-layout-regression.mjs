@@ -24,15 +24,22 @@ const variants = [
   { template: "classic_v2", copyType: "original", doc: "many" },
   { template: "classic_v2", copyType: "original", doc: "many", fontScale: "xlarge" },
   { template: "classic_v2", copyType: "original", doc: "many", fontScale: "xxlarge" },
+  { template: "classic_v2", copyType: "original", doc: "delivery" },
+  { template: "classic_v2", copyType: "original", doc: "delivery", compactDn: true },
+  { template: "classic_v2", copyType: "original", printTitle: "tax_invoice_delivery_invoice" },
+  { template: "modern", copyType: "original", printTitle: "tax_invoice_delivery_invoice" },
   { template: "modern", copyType: "original", doc: "many", appendix: true },
 ];
 
-function nameFor({ template, copyType, doc, appendix, fontScale }) {
+function nameFor({ template, copyType, doc, appendix, fontScale, compactDn, printTitle }) {
   const parts = [];
   if (doc === "many") parts.push("many");
+  if (doc === "delivery") parts.push("delivery");
   parts.push(template);
   parts.push(copyType);
   if (fontScale) parts.push(fontScale);
+  if (compactDn) parts.push("compact-dn");
+  if (printTitle) parts.push("title-combined");
   if (appendix) parts.push("appendix");
   return `${parts.join("-")}.png`;
 }
@@ -155,6 +162,8 @@ async function renderVariant(page, baseUrl, variant) {
   if (variant.doc) url.searchParams.set("doc", variant.doc);
   if (variant.appendix) url.searchParams.set("appendix", "1");
   if (variant.fontScale) url.searchParams.set("fontScale", variant.fontScale);
+  if (variant.compactDn) url.searchParams.set("compactDn", "1");
+  if (variant.printTitle) url.searchParams.set("printTitle", variant.printTitle);
 
   // networkidle never settles on the Vite dev server (HMR socket) — use
   // domcontentloaded + the print-sheet selector below instead.

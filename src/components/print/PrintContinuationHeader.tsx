@@ -1,4 +1,4 @@
-import { documentTypeLabel } from "../../lib/docLabels";
+import { printTitle } from "../../lib/docLabels";
 import type { PrintDocumentData } from "../../lib/print";
 
 function formatDate(date: string | null | undefined) {
@@ -21,7 +21,7 @@ export function PrintContinuationHeader({
   totalPages: number;
 }) {
   const { clientProfile, document, customer } = data;
-  const label = documentTypeLabel(document.doc_type, document.vat_registered);
+  const label = printTitle(document);
 
   return (
     <header className="print-continuation-header flex items-center justify-between border-b-[0.5px] border-[#D3DAE6] pb-1.5">

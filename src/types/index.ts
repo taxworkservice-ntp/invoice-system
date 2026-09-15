@@ -134,6 +134,8 @@ export interface ClientProfile {
   classic_v2_sign_every_page?: boolean;
   /** Classic V2: render item-table text (headers, amounts, group labels) in regular weight (default off). */
   classic_v2_regular_item_font?: boolean;
+  /** Classic V2 delivery notes: tighten paddings/margins/line-height (no font change) to fit more lines per page. */
+  classic_v2_compact_dn?: boolean;
   show_signature_on_wht: boolean;
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;
@@ -394,8 +396,20 @@ export interface Document {
   show_dn_variance?: boolean;
   /** Classic V2 per-document font-scale override (null = workspace default). */
   print_font_scale?: string | null;
+  /**
+   * Tax invoice (ใบกำกับภาษี) printed-header title preset. PRINT-ONLY: doc_type
+   * stays "invoice". null = standard type label. See PRINT_TITLE_PRESETS.
+   */
+  print_title_variant?: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * PDF cache version — bumped by every render input (line items, links,
+   * customer, profile, bank account, derivatives). Separate from `updated_at`
+   * so profile/customer edits don't move the user-facing "last edited".
+   * See supabase/migrations/20260915120000_pdf_render_version.sql.
+   */
+  render_updated_at?: string | null;
   customer?: Customer;
   deal?: Deal;
   line_items?: DocumentLineItem[];

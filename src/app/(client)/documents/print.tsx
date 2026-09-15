@@ -17,9 +17,10 @@ import {
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
-import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
+import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, DN_GROUP_SPACER_COMPACT_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
-import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_COMPACT_DN_BONUS_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { PRINT_TITLE_PRESETS } from "../../../lib/docLabels";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -100,6 +101,12 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   // the meta rows render shorter, so their reserve shrinks accordingly.
   const hideEn = isClassicV2 && data.clientProfile.classic_v2_hide_english_labels === true;
   const compactSig = isClassicV2 && data.clientProfile.classic_v2_compact_signature === true;
+  // Opt-in compact delivery-note spacing (no font change) — mirrors the CSS
+  // class and the compactDn row metrics; DN-only.
+  const compactDn =
+    isClassicV2 &&
+    data.document.doc_type === "delivery_note" &&
+    data.clientProfile.classic_v2_compact_dn === true;
   const metaRowReserveMm = hideEn
     ? CLASSIC_V2_META_ROW_RESERVE_MM - CLASSIC_V2_HIDE_EN_META_ROW_MM
     : CLASSIC_V2_META_ROW_RESERVE_MM;
@@ -123,12 +130,14 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     (data.document.customer_po_number ? 1 : 0);
   const hideEnBandMm = hideEn ? metaRowCount * CLASSIC_V2_HIDE_EN_META_ROW_MM : 0;
   const hideEnTheadMm = hideEn ? CLASSIC_V2_HIDE_EN_THEAD_MM : 0;
-  const spaceBonusMm = isClassicV2 && (hideEn || compactSig)
+  const hideEnSigBonus = hideEn ? CLASSIC_V2_HIDE_EN_SIG_MM : 0;
+  const compactSigBonus = compactSig ? CLASSIC_V2_COMPACT_SIG_MM : 0;
+  const spaceBonusMm = isClassicV2 && (hideEn || compactSig || compactDn)
     ? {
-        first: hideEnBandMm + hideEnTheadMm + (hideEn ? CLASSIC_V2_HIDE_EN_SIG_MM : 0) + (compactSig ? CLASSIC_V2_COMPACT_SIG_MM : 0),
-        firstMulti: hideEnBandMm + hideEnTheadMm,
-        continuation: hideEnTheadMm,
-        last: hideEnBandMm + hideEnTheadMm + (hideEn ? CLASSIC_V2_HIDE_EN_SIG_MM : 0) + (compactSig ? CLASSIC_V2_COMPACT_SIG_MM : 0),
+        first: hideEnBandMm + hideEnTheadMm + hideEnSigBonus + compactSigBonus + (compactDn ? CLASSIC_V2_COMPACT_DN_BONUS_MM.first : 0),
+        firstMulti: hideEnBandMm + hideEnTheadMm + (compactDn ? CLASSIC_V2_COMPACT_DN_BONUS_MM.firstMulti : 0),
+        continuation: hideEnTheadMm + (compactDn ? CLASSIC_V2_COMPACT_DN_BONUS_MM.continuation : 0),
+        last: hideEnBandMm + hideEnTheadMm + hideEnSigBonus + compactSigBonus + (compactDn ? CLASSIC_V2_COMPACT_DN_BONUS_MM.last : 0),
       }
     : undefined;
   const continuationFullHeader = isClassicV2 && data.clientProfile.classic_v2_full_page_header === true;
@@ -224,6 +233,9 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       hasFooterAfter: p.footerAfter !== null,
       hasSpacerAfter: p.spacerAfter,
       soHeader: p.header?.soHeader ?? null,
+      // Empty number = SO-only band (DN section/legacy header): its first SO
+      // line is already part of the band charge.
+      headerHasRefLine: !!p.header?.number,
     }));
     return paginateRows(units, data.template, "line_items", {
       estimateHeight: (unit) =>
@@ -242,10 +254,16 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
           // one unit: single-line groups get no sum row.
           hasDnGroupBand: unit.hasHeader || unit.hasFooterAfter,
           dnGroupSoHeader: unit.soHeader,
+          dnGroupHasRefLine: unit.headerHasRefLine,
+          // DN line notes are shorter than the item-name metric; scope the
+          // calibrated metric to delivery notes.
+          dnNotes: data.document.doc_type === "delivery_note",
+          compactDn,
           hasLineImage:
             data.document.doc_type === "quotation" && !!unit.item.image_url,
           hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[unit.item.document_id],
-        }) + (unit.hasSpacerAfter ? DN_GROUP_SPACER_MM : 0),
+        }) +
+        (unit.hasSpacerAfter ? (compactDn ? DN_GROUP_SPACER_COMPACT_MM : DN_GROUP_SPACER_MM) : 0),
       fontScale: budgetScales,
       extraReserveMm,
       continuationFullHeader,
@@ -588,6 +606,30 @@ export default function DocumentPrintPreviewPage() {
     }
   }
 
+  // Tax-invoice printed-title preset (print only — doc_type stays "invoice").
+  // Saved on the document so preview, export PDF, and reprints agree.
+  const [savingPrintTitle, setSavingPrintTitle] = useState(false);
+  async function handlePrintTitleChange(value: string) {
+    if (!data || savingPrintTitle) return;
+    const prev = data.document.print_title_variant || "";
+    if (value === prev) return;
+    setSavingPrintTitle(true);
+    setPdfError("");
+    try {
+      const { error } = await supabase
+        .from("documents")
+        .update({ print_title_variant: value || null })
+        .eq("id", data.document.id);
+      if (error) throw error;
+      setData({ ...data, document: { ...data.document, print_title_variant: value || null } });
+    } catch (err) {
+      console.error("Failed to save document print title:", err);
+      setPdfError("บันทึกชื่อเรื่องเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setSavingPrintTitle(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#EEF2F6] flex items-center justify-center">
@@ -782,6 +824,22 @@ return (
                   ) ? (
                     <option value={data.document.print_font_scale}>{data.document.print_font_scale}</option>
                   ) : null}
+                </select>
+              </div>
+            ) : null}
+            {data?.document.doc_type === "invoice" && data.document.vat_registered ? (
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
+                <span>ชื่อเรื่องบนหัวเอกสาร:</span>
+                <select
+                  value={data.document.print_title_variant || ""}
+                  onChange={(event) => void handlePrintTitleChange(event.target.value)}
+                  disabled={savingPrintTitle}
+                  className="rounded-md border border-cool-200 bg-white px-2 py-1 text-[10px] font-medium text-cool-500 focus:outline-none disabled:opacity-60"
+                >
+                  <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
+                  {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
+                    <option key={value} value={value}>{preset.thai}</option>
+                  ))}
                 </select>
               </div>
             ) : null}

@@ -552,6 +552,9 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   --classic-fs-payment: var(--classic-fs-totals);
   --classic-fs-terms: var(--classic-fs-footer);
   --classic-fs-footer: var(--classic-font-scale);
+  /* ป้ายภาษาอังกฤษ (English sub-labels): one shared slot, independent of the
+     Thai text it sits under. Defaults to the document global scale. */
+  --classic-fs-en: var(--classic-font-scale);
   line-height: 1.4;
   background: #ffffff;
 }
@@ -694,7 +697,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   font-size: calc(15pt * var(--classic-fs-title));
 }
 .print-classic-doc-title--inline .print-classic-doc-title-en {
-  font-size: calc(10pt * var(--classic-fs-title));
+  font-size: calc(10pt * var(--classic-fs-en));
   margin-top: 0.5mm;
 }
 .print-classic-copy-badge {
@@ -710,7 +713,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   color: #1f2937;
 }
 .print-classic-copy-en {
-  font-size: calc(8pt * var(--classic-fs-title));
+  font-size: calc(8pt * var(--classic-fs-en));
   color: #4b5563;
   letter-spacing: 0.05em;
   margin-top: 1mm;
@@ -728,7 +731,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   line-height: 1.15;
 }
 .print-classic-doc-title-en {
-  font-size: calc(11pt * var(--classic-fs-title));
+  font-size: calc(11pt * var(--classic-fs-en));
   font-weight: 700;
   color: #0f172a;
   letter-spacing: 0.02em;
@@ -767,7 +770,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-label-en {
   color: #4b5563;
-  font-size: calc(5.4pt * var(--classic-fs-info));
+  font-size: calc(5.4pt * var(--classic-fs-en));
   display: block;
   line-height: 1.05;
 }
@@ -805,7 +808,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-meta-th-en {
   color: #4b5563;
-  font-size: calc(5.4pt * var(--classic-fs-info));
+  font-size: calc(5.4pt * var(--classic-fs-en));
   display: block;
   line-height: 1.05;
   letter-spacing: 0.02em;
@@ -853,7 +856,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-frame-section-title .en {
   color: #4b5563;
-  font-size: calc(5pt * var(--classic-fs-thead));
+  font-size: calc(5pt * var(--classic-fs-en));
   font-weight: 400;
   margin-left: 2mm;
   letter-spacing: 0.04em;
@@ -867,7 +870,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-items-title .en {
   color: #4b5563;
-  font-size: calc(6.5pt * var(--classic-fs-thead));
+  font-size: calc(6.5pt * var(--classic-fs-en));
   font-weight: 400;
   margin-left: 2mm;
   letter-spacing: 0.04em;
@@ -901,7 +904,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-items-table thead th:first-child { white-space: nowrap; text-align: center; }
 .print-classic-items-table thead th .en {
   color: #4b5563;
-  font-size: calc(4.5pt * var(--classic-fs-thead));
+  font-size: calc(4.5pt * var(--classic-fs-en));
   display: block;
   line-height: 1.15;
   margin-top: 0.4mm;
@@ -1409,7 +1412,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-totals-en {
   color: #4b5563;
-  font-size: calc(6pt * var(--classic-fs-totals));
+  font-size: calc(6pt * var(--classic-fs-en));
   letter-spacing: 0.04em;
 }
 .print-classic-totals-val {
@@ -1443,7 +1446,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   line-height: 1.05;
 }
 .print-theme-classic-v2 .print-classic-totals-en {
-  font-size: calc(5.5pt * var(--classic-fs-totals));
+  font-size: calc(5.5pt * var(--classic-fs-en));
   line-height: 1;
 }
 .print-theme-classic-v2 .print-classic-totals-row {
@@ -1466,7 +1469,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-payment-status-en {
   color: #5b9b75;
-  font-size: calc(6.5pt * var(--classic-fs-net));
+  font-size: calc(6.5pt * var(--classic-fs-en));
   font-weight: 500;
   letter-spacing: 0.08em;
 }
@@ -1495,7 +1498,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-paid-badge-en {
   color: #4b5563;
-  font-size: calc(5.5pt * var(--classic-fs-totals));
+  font-size: calc(5.5pt * var(--classic-fs-en));
   font-weight: 500;
   letter-spacing: 0.08em;
 }
@@ -1624,12 +1627,18 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-classic-sig-th-en {
   color: #4b5563;
-  font-size: calc(6.5pt * var(--classic-fs-footer));
+  font-size: calc(6.5pt * var(--classic-fs-en));
   display: block;
   line-height: 1.1;
   margin-top: 0.5mm;
   font-weight: 400;
   letter-spacing: 0.02em;
+}
+/* Inline English fragments in the signature band ("/ AUTHORIZED BY", "/ DATE")
+   share the ป้ายภาษาอังกฤษ slot instead of the footer scale. */
+.print-classic-sig-role-en,
+.print-classic-sig-dt-en {
+  font-size: calc(6.5pt * var(--classic-fs-en));
 }
 .print-classic-sig-line {
   position: relative;
@@ -1879,4 +1888,69 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   border: 1px solid #cfd8e3;
   border-radius: 8px;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
+}
+
+/* =====================================================================
+   Classic V2 — compact delivery note spacing (opt-in: classic_v2_compact_dn).
+   Trims paddings/margins/line-height on DNs only, without changing any font
+   size, so more lines fit per page. Invoices/quotations are untouched.
+   Keep the pagination estimator (src/lib/printRowHeight.ts compactDn metrics
+   + the FIXED reserve in print.tsx) in sync with these values.
+   ===================================================================== */
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-top {
+  padding-bottom: 1mm;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-company-meta {
+  margin-top: 1.5mm;
+  line-height: 1.35;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-copy-badge {
+  padding: 1.5mm 3mm;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-panel {
+  padding: 1.2mm 3mm;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-customer-row {
+  row-gap: 0.4mm;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-meta-table td,
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-meta-table th {
+  padding: 0.4mm 0;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-items-wrap {
+  margin-top: 1mm;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-items-table thead th {
+  padding: 1mm 1.6mm;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-items-table tbody td {
+  padding: 1.1mm 2.5mm;
+  line-height: 1.2;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-item-note {
+  margin-top: 0.3mm;
+  line-height: 1.2;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-dn-group-row td {
+  padding: 0.8mm 2mm;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-dn-spacer td {
+  height: 2mm;
+}
+.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-bottom-band {
+  margin-top: 1.2mm;
+}
+
+/* Tax-invoice printed-title presets ("ใบกำกับภาษี/ใบส่งของ/ใบแจ้งหนี้"): the
+   right title block is auto-width in an `auto 1fr auto` grid, so a long
+   combined title is capped and allowed to wrap instead of squeezing the
+   company column. Font sizes are unchanged. */
+.print-theme-classic-v2 .print-classic-top-right {
+  max-width: 80mm;
+}
+.print-theme-classic-v2 .print-classic-doc-title--inline .print-classic-doc-title-th,
+.print-theme-classic-v2 .print-classic-doc-title--inline .print-classic-doc-title-en,
+.print-theme-classic-v2 .print-classic-doc-title .print-classic-doc-title-th,
+.print-theme-classic-v2 .print-classic-doc-title .print-classic-doc-title-en {
+  overflow-wrap: anywhere;
 }

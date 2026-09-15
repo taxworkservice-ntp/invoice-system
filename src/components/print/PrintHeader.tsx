@@ -1,4 +1,4 @@
-import { documentTypeLabel } from "../../lib/docLabels";
+import { printTitle } from "../../lib/docLabels";
 import type { PrintDocumentData } from "../../lib/print";
 import type { CopyType } from "./PrintDocument";
 import { DocLogo } from "./DocLogo";
@@ -15,7 +15,7 @@ function formatDate(date: string | null | undefined) {
 
 export function PrintHeader({ data, copyType = "original" }: { data: PrintDocumentData; copyType?: CopyType }) {
   const { clientProfile, customer, document, referenceDoc, receiptPaymentNumber, receiptOutstanding } = data;
-  const label = documentTypeLabel(document.doc_type, document.vat_registered);
+  const label = printTitle(document);
   const copyLabel = copyType === "copy" ? "สำเนา" : "ต้นฉบับ";
   const receiptPaidInFull = document.doc_type === "receipt" && receiptOutstanding !== undefined && receiptOutstanding <= 0.01;
 

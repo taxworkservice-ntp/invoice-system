@@ -378,7 +378,10 @@ console.log(
 {
   assert.equal(getClassicV2FontScaleMult("pt:9"), 1.2, "pt:9 = 9pt / 7.5pt base");
   assert.equal(getClassicV2FontScaleMult("normal"), 1, "preset passthrough");
-  assert.equal(getClassicV2FontScaleMult("pt:6"), 0.8, "min clamp = 6pt");
+  assert.equal(getClassicV2FontScaleMult("pt:6"), 0.8, "pt:6 = 6pt / 7.5pt base");
+  // Min clamp is 2pt: anything smaller snaps up to 2pt (2 / 7.5).
+  assert.equal(getClassicV2FontScaleMult("pt:1"), 2 / 7.5, "min clamp = 2pt");
+  assert.equal(getClassicV2FontScaleMult("pt:3"), 3 / 7.5, "3pt allowed");
   assert.equal(getClassicV2FontScaleMult("pt:99"), 1.8, "max clamp = 13.5pt");
   assert.equal(getClassicV2FontScaleMult("pt:garbage"), 1, "invalid pt falls back to ปกติ");
   assert.equal(getClassicV2FontScaleMult("xxxlarge"), 13 / 7.5, "xxxlarge = 13pt top rung");

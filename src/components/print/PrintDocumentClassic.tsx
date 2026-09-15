@@ -1,7 +1,7 @@
 import { formatCurrency, paymentMethodText } from "../../lib/format";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { getPrintableLineNote } from "../../lib/dnGroups";
-import { documentTypeLabel } from "../../lib/docLabels";
+import { printTitle } from "../../lib/docLabels";
 import { splitTerms, resolveTermsByType } from "../../lib/terms";
 import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
 import { DocLogo } from "./DocLogo";
@@ -150,7 +150,7 @@ export function PrintDocumentClassic({
   const stampUrl = clientProfile.stamp_url;
   const signatureScaleMult = ASSET_SCALE_MULT[clientProfile.signature_scale ?? "medium"] ?? 1;
   const stampScaleMult = ASSET_SCALE_MULT[clientProfile.stamp_scale ?? "medium"] ?? 1;
-  const label = documentTypeLabel(document.doc_type, document.vat_registered);
+  const label = printTitle(document);
   const copyLabel = COPY_LABELS[copyType];
   const classicTerms = resolveTermsByType(clientProfile.classic_terms_by_type, clientProfile.classic_terms, document.doc_type);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";

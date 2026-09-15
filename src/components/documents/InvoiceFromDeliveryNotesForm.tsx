@@ -21,6 +21,7 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
+import { PRINT_TITLE_PRESETS } from "../../lib/docLabels";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
 import { getDnLineSectionMap, getDnSectionHeaders, joinDnSectionHeaders } from "../../lib/dnGroups";
@@ -162,6 +163,8 @@ export function InvoiceFromDeliveryNotesForm() {
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [showDnVariance, setShowDnVariance] = useState(false);
+  // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
+  const [printTitleVariant, setPrintTitleVariant] = useState("");
   const [error, setError] = useState("");
   // Ref mode: one printed line per source delivery note instead of item detail.
   // Default is detail (opt-in, remembered per browser) — ref-saved invoices
@@ -778,6 +781,8 @@ export function InvoiceFromDeliveryNotesForm() {
           dn_appendix: dnAppendix,
           show_dn_variance: showDnVariance,
           title: `ออกบิลรวม ${selectedCustomer.name}`,
+          // Print-only tax-invoice title preset; null when not VAT-registered.
+          print_title_variant: taxSnapshot.vatRegistered ? (printTitleVariant || null) : null,
         },
         p_lines: lineRecords,
         p_source_ids: selectedDeliveryNotes.map((dn) => dn.id),
@@ -1307,6 +1312,23 @@ export function InvoiceFromDeliveryNotesForm() {
               checked={dnAppendix}
               onChange={setDnAppendix}
             />
+          )}
+          {taxSnapshot.vatRegistered && (
+            <div className="py-3 first:pt-0 last:pb-0">
+              <Select
+                label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
+                value={printTitleVariant}
+                onChange={(event) => setPrintTitleVariant(event.target.value)}
+              >
+                <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
+                {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
+                  <option key={value} value={value}>{preset.thai}</option>
+                ))}
+              </Select>
+              <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น — ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
+              </p>
+            </div>
           )}
         </DocumentOptionsCard>
 

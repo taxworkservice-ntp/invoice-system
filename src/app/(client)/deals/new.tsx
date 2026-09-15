@@ -7,7 +7,7 @@ import { useClientFeatures } from "../../../hooks/useClientFeatures";
 import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
-import { Input } from "../../../components/ui/Input";
+import { Input, Select } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
 import { DocumentOptionsCard, DocumentOptionRow } from "../../../components/documents/DocumentOptions";
 import { StepHeading } from "../../../components/documents/FormStep";
@@ -18,6 +18,7 @@ import { PoTaskFields } from "../../../components/documents/PoTaskFields";
 import { Switch } from "../../../components/ui/Switch";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { DN_SECTION_TAG, getDnSectionDisplayNumbers, getDnSectionMarkersWithoutChildren, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../../lib/dnGroups";
+import { PRINT_TITLE_PRESETS } from "../../../lib/docLabels";
 import { DnSectionMarkerRow, LineMoveButtons } from "../../../components/documents/DnSectionMarkerRow";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -569,6 +570,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
   });
   const [isBlankForm, setIsBlankForm] = useState(false);
+  // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
+  const [printTitleVariant, setPrintTitleVariant] = useState("");
   // DN full-totals is settings-only (ตั้งค่า › ใบส่งของ): new docs follow the
   // workspace setting, draft edits keep their saved value frozen at hydrate.
   const frozenShowFullTotals = useRef<boolean | null>(null);
@@ -755,6 +758,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         if (draftDoc.doc_type === "delivery_note" && draftDoc.show_full_totals != null) {
           frozenShowFullTotals.current = draftDoc.show_full_totals;
         }
+        setPrintTitleVariant(draftDoc.print_title_variant || "");
         const hydrated: LineItemForm[] = ((lineData || []) as DocumentLineItem[]).map((line) => {
           if (draftDoc.doc_type === "delivery_note" && isDnSectionMarker(line)) {            return {
               id: line.id || crypto.randomUUID(),
@@ -1634,6 +1638,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         // Grouping lives on section-marker lines now — always clear the legacy
         // single header (kept in the column for old reprints only).
         ...(isDeliveryNote ? { hide_amounts_on_print: hideAmountsOnPrint, is_blank_form: isBlankForm, show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true, dn_so_header: null } : {}),
+        // Print-only tax-invoice title preset; null elsewhere.
+        print_title_variant: type === "invoice" && vatRegistered ? (printTitleVariant || null) : null,
       };
 
       let savedDocumentId = documentId || "";
@@ -2828,6 +2834,26 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               onChange={setIsBlankForm}
             />
             )}
+          </DocumentOptionsCard>
+        )}
+
+        {type === "invoice" && vatRegistered && (
+          <DocumentOptionsCard>
+            <div className="py-3 first:pt-0 last:pb-0">
+              <Select
+                label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
+                value={printTitleVariant}
+                onChange={(e) => setPrintTitleVariant(e.target.value)}
+              >
+                <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
+                {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
+                  <option key={value} value={value}>{preset.thai}</option>
+                ))}
+              </Select>
+              <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น — ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
+              </p>
+            </div>
           </DocumentOptionsCard>
         )}
 

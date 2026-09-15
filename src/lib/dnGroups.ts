@@ -26,6 +26,10 @@ export type DnRefKind = "delivery_note" | "quotation";
  * the `.print-classic-dn-spacer` CSS height. */
 export const DN_GROUP_SPACER_MM = 3;
 
+/** Compact delivery-note spacing: spacer height when classic_v2_compact_dn is on.
+ * Measured 2.2mm (CSS height 2mm + row border) by print-layout-measure.mjs. */
+export const DN_GROUP_SPACER_COMPACT_MM = 2.2;
+
 export interface DnRefInfo {
   number: string;
   issue_date: string | null;
@@ -530,14 +534,15 @@ export function getLegacyDnHeaderForConversion(
   return text;
 }
 
-/**
- * Multi-section row plan for a DN carrying section markers. Marker-led
- * runs become flat "G / G.j" sections headed by the marker text (no sum
- * footer — DN amounts are usually hidden, same as buildDnSoHeaderPlan);
- * unmarked runs behave exactly like today (auto source groups or flat
- * singles, sharing one continuous top-level sequence with the sections).
- * With no markers this is byte-identical to planDnRows(buildDnBlocks()).
- */
+  /**
+   * Multi-section row plan for a DN carrying section markers. Marker-led
+   * runs become flat "G / G.j" sections headed by the marker text (no sum
+   * footer — DN amounts are usually hidden, same as buildDnSoHeaderPlan);
+   * unmarked runs behave exactly like today (auto source groups or flat
+   * singles, sharing one continuous top-level sequence with the sections).
+   * Every non-blank section gets its header row first, even for one item.
+   * With no markers this is byte-identical to planDnRows(buildDnBlocks()).
+   */
 export function buildDnSectionPlan(
   renderableLines: DocumentLineItem[],
   refMap: DnRefMap,

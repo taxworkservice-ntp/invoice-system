@@ -143,6 +143,12 @@ function SectionScaleEditor({
         onSet={(v) => setValue("footer", v)}
         {...rowProps}
       />
+      <ScaleRow
+        label="ป้ายภาษาอังกฤษ (ใต้ข้อความไทย)"
+        value={getValue("en")}
+        onSet={(v) => setValue("en", v)}
+        {...rowProps}
+      />
     </div>
   );
 }
@@ -252,6 +258,7 @@ export default function SettingsDocumentsPage() {
   const [classicV2CompactSignature, setClassicV2CompactSignature] = useState(false);
   const [classicV2SignEveryPage, setClassicV2SignEveryPage] = useState(false);
   const [classicV2RegularItemFont, setClassicV2RegularItemFont] = useState(false);
+  const [classicV2CompactDn, setClassicV2CompactDn] = useState(false);
   const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>(
     CLASSIC_V2_DEFAULT_SECTION_SCALES,
   );
@@ -296,6 +303,7 @@ export default function SettingsDocumentsPage() {
     setClassicV2CompactSignature(clientProfile.classic_v2_compact_signature === true);
     setClassicV2SignEveryPage(clientProfile.classic_v2_sign_every_page === true);
     setClassicV2RegularItemFont(clientProfile.classic_v2_regular_item_font === true);
+    setClassicV2CompactDn(clientProfile.classic_v2_compact_dn === true);
     setSignatureKey(clientProfile.signature_url || null);
     setStampKey(clientProfile.stamp_url || null);
     setSignatureScale(clientProfile.signature_scale || "medium");
@@ -365,6 +373,7 @@ export default function SettingsDocumentsPage() {
       classic_v2_compact_signature: classicV2CompactSignature,
       classic_v2_sign_every_page: classicV2SignEveryPage,
       classic_v2_regular_item_font: classicV2RegularItemFont,
+      classic_v2_compact_dn: classicV2CompactDn,
       classic_v2_font_scale: classicV2FontScale,
       classic_v2_section_font_scales: classicV2SectionScales,
       classic_v2_type_font_scales: Object.fromEntries(
@@ -463,6 +472,7 @@ export default function SettingsDocumentsPage() {
     classicV2CompactSignature !== (clientProfile?.classic_v2_compact_signature === true) ||
     classicV2SignEveryPage !== (clientProfile?.classic_v2_sign_every_page === true) ||
     classicV2RegularItemFont !== (clientProfile?.classic_v2_regular_item_font === true) ||
+    classicV2CompactDn !== (clientProfile?.classic_v2_compact_dn === true) ||
     classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
     JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.classic_v2_type_font_scales || {}) ||
     CLASSIC_V2_SECTION_FONT_KEYS.some(
@@ -517,6 +527,7 @@ export default function SettingsDocumentsPage() {
     { label: "ยอดรวมสุดท้าย", mult: specimenMult("totals_net"), text: "ยอดรวมทั้งสิ้น 12,500.00" },
     { label: "ข้อมูลการชำระเงิน", mult: specimenMult("payment"), text: "ธนาคาร: ธนาคารตัวอย่าง · เลขที่บัญชี 123-4-56789-0" },
     { label: "เงื่อนไขท้ายเอกสาร", mult: specimenMult("terms"), text: "ชำระเงินภายใน 30 วันนับจากวันที่ออกเอกสาร" },
+    { label: "ป้ายภาษาอังกฤษ", mult: specimenMult("en"), text: "INVOICE · SUB TOTAL · AUTHORIZED BY" },
     { label: "ลายเซ็น/ท้ายเอกสาร", mult: specimenMult("footer"), text: "ผู้มีอำนาจลงนาม / วันที่" },
   ];
   // Sub-row inherit labels state the parent group's effective size, e.g.
@@ -683,6 +694,15 @@ export default function SettingsDocumentsPage() {
                 controlAlign="right"
               >
                 <Switch checked={classicV2RegularItemFont} onChange={(checked) => { setClassicV2RegularItemFont(checked); setSaved(false); }} />
+              </SettingRow>
+            )}
+            {pdfTemplate === "classic_v2" && hasClassicV2 && (
+              <SettingRow
+                label="ใบส่งของ: ระยะห่างกระชับ (คลาสสิก V2)"
+                description="ลดระยะขอบ/ช่องว่างในใบส่งของ (หัวเอกสาร กล่องข้อมูล รายการ และช่องว่างระหว่างกลุ่ม) ให้ได้หลายรายการต่อหน้า โดยไม่ลดขนาดตัวอักษร — มีผลกับใบส่งของเท่านั้น"
+                controlAlign="right"
+              >
+                <Switch checked={classicV2CompactDn} onChange={(checked) => { setClassicV2CompactDn(checked); setSaved(false); }} />
               </SettingRow>
             )}
           </div>
