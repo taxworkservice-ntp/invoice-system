@@ -703,6 +703,19 @@ if (printTitleVariant) {
     print_title_variant: printTitleVariant,
   };
 }
+// Force a withholding-tax rate so quotation fixtures exercise the WHT note
+// (and prove no WHT/NET PAYABLE rows render for quotations).
+if (params.get("wht") === "1") {
+  const rate = 3;
+  const total = activeBaseData.document.total_amount || 0;
+  const whtAmount = Math.round(total * rate) / 100;
+  activeBaseData.document = {
+    ...activeBaseData.document,
+    wht_rate: rate,
+    wht_amount: whtAmount,
+    net_payable: total - whtAmount,
+  };
+}
 const activeData = appendixOn
   ? { ...activeBaseData, document: { ...activeBaseData.document, dn_appendix: true } }
   : activeBaseData;

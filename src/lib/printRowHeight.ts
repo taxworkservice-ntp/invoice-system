@@ -213,8 +213,9 @@ export function estimateLineItemHeight(
   const soLines = isClassic && soText ? countLines(soText, soBandChars) : 0;
   const soExtraLines = opts.dnGroupHasRefLine === false ? Math.max(0, soLines - 1) : soLines;
   const soMm = soExtraLines * textScale(soLineMm);
-  // Example photo: fixed 26mm print height (font-scale independent) + gap.
-  const imageMm = isClassic && opts.hasLineImage ? 26.8 : 0;
+  // Example photo: fixed print height (font-scale independent) + gap.
+  // Cap lowered ~15% (22mm; was 26mm) to match .print-classic-line-image.
+  const imageMm = isClassic && opts.hasLineImage ? 22.8 : 0;
   return nameMm + noteMm + subMm + bandMm + soMm + imageMm + ROW_SAFETY_MM;
 }
 

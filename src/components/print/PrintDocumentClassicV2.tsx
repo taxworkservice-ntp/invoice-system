@@ -246,6 +246,8 @@ export function PrintDocumentClassicV2({
     (batchLineItems ? data.lineItems.indexOf(batchLineItems[0]) + 1 : summaryStartIndex);
   const isCopy = copyType === "copy";
   const isDeliveryNote = document.doc_type === "delivery_note";
+  // Quotation: no WHT deduction row, no NET PAYABLE (grand total is final).
+  const isQuotation = document.doc_type === "quotation";
   // Opt-in compact DN spacing (no font change) — mirrors the classic_v2_compact_dn
   // profile setting; only affects the CSS class and the pagination estimate.
   const compactDn = isDeliveryNote && clientProfile.classic_v2_compact_dn === true;
@@ -1357,7 +1359,7 @@ export function PrintDocumentClassicV2({
                         {formatCurrency(document.total_amount)}
                       </div>
                     </div>
-                    {document.wht_amount > 0 && !isCreditNote && !isDebitNote ? (
+                    {document.wht_amount > 0 && !isCreditNote && !isDebitNote && !isQuotation ? (
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">
@@ -1372,7 +1374,7 @@ export function PrintDocumentClassicV2({
                         </div>
                       </div>
                     ) : null}
-                    {!isCreditNote && !isDebitNote ? (
+                    {!isCreditNote && !isDebitNote && !isQuotation ? (
                       <div className="print-classic-totals-row print-classic-totals-row-net">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">ยอดชำระสุทธิ</div>
@@ -1381,6 +1383,14 @@ export function PrintDocumentClassicV2({
                         <div className="print-classic-totals-val">
                           {formatCurrency(document.wht_amount > 0 ? document.net_payable : document.total_amount)}
                         </div>
+                      </div>
+                    ) : null}
+                    {isQuotation && document.wht_rate > 0 ? (
+                      <div className="print-classic-quotation-wht-note">
+                        ราคานี้ไม่รวมภาษีหัก ณ ที่จ่าย (ถ้ามี)
+                        <span className="print-classic-quotation-wht-note-en">
+                          Excluding withholding tax, if any.
+                        </span>
                       </div>
                     ) : null}
                   </>
@@ -1420,7 +1430,7 @@ export function PrintDocumentClassicV2({
           {/* The pin spacer absorbs rounding slack so the band always sits
               at the sheet bottom (see .print-classic-bottom-pin). */}
           <div className="print-classic-bottom-pin" aria-hidden="true" />
-          <div className={`print-classic-bottom-band${document.doc_type === "invoice" ? " print-sig-4col" : ""}${document.doc_type === "receipt" ? " print-sig-receipt" : ""}${document.doc_type === "billing_note" ? " print-sig-2col" : ""}`}>
+          <div className={`print-classic-bottom-band${document.doc_type === "invoice" ? " print-sig-4col" : ""}${document.doc_type === "receipt" ? " print-sig-receipt" : ""}${document.doc_type === "billing_note" ? " print-sig-2col" : ""}${isQuotation ? " print-sig-2eq" : ""}`}>
             {(() => {
               const sig = SIG_LABELS[document.doc_type] ?? SIG_LABELS_DEFAULT;
               // Tax invoice: four boxes (received / delivered / issued /
@@ -1641,6 +1651,9 @@ export function PrintDocumentClassicV2({
                       <span className="print-classic-sig-role-en"> / {sig.box2RoleEn}</span>
                     </div>
                   </div>
+                  {/* Quotation: two signer boxes only — no company
+                      authorized box. */}
+                  {!isQuotation ? (
                   <div className={
                     document.doc_type === "delivery_note"
                       // Title-less like the middle box: bottom-pin the content
@@ -1697,6 +1710,7 @@ export function PrintDocumentClassicV2({
                       )}
                     </div>
                   </div>
+                  ) : null}
                 </>
               );
             })()}

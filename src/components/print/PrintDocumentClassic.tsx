@@ -127,6 +127,8 @@ export function PrintDocumentClassic({
   const isReceipt = document.doc_type === "receipt";
   const isCreditNote = document.doc_type === "credit_note";
   const isDebitNote = document.doc_type === "debit_note";
+  // Quotation: no WHT deduction row, no NET PAYABLE (grand total is final).
+  const isQuotation = document.doc_type === "quotation";
   const receiptCash = document.amount_received ?? document.net_payable;
   const receiptTaxable = isReceipt && document.vat_registered && document.vat_rate > 0 && document.subtotal > 0;
   const receiptPreTax = isReceipt ? document.subtotal : 0;
@@ -965,7 +967,7 @@ export function PrintDocumentClassic({
                         {formatCurrency(document.total_amount)}
                       </div>
                     </div>
-                    {document.wht_amount > 0 && !isCreditNote && !isDebitNote ? (
+                    {document.wht_amount > 0 && !isCreditNote && !isDebitNote && !isQuotation ? (
                       <div className="print-classic-totals-row">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">
@@ -980,7 +982,7 @@ export function PrintDocumentClassic({
                         </div>
                       </div>
                     ) : null}
-                    {!isCreditNote && !isDebitNote ? (
+                    {!isCreditNote && !isDebitNote && !isQuotation ? (
                       <div className="print-classic-totals-row print-classic-totals-row-net">
                         <div className="print-classic-totals-lab">
                           <div className="print-classic-totals-th">ยอดชำระสุทธิ</div>
@@ -989,6 +991,14 @@ export function PrintDocumentClassic({
                         <div className="print-classic-totals-val">
                           {formatCurrency(document.wht_amount > 0 ? document.net_payable : document.total_amount)}
                         </div>
+                      </div>
+                    ) : null}
+                    {isQuotation && document.wht_rate > 0 ? (
+                      <div className="print-classic-quotation-wht-note">
+                        ราคานี้ไม่รวมภาษีหัก ณ ที่จ่าย (ถ้ามี)
+                        <span className="print-classic-quotation-wht-note-en">
+                          Excluding withholding tax, if any.
+                        </span>
                       </div>
                     ) : null}
                   </>

@@ -988,7 +988,8 @@ html[data-accent-mode="gradient"] .print-theme-modern {
    item name inside the description cell. */
 .print-classic-line-image {
   display: block;
-  height: 26mm;
+  /* Cap lowered ~15% (was 26mm) so quotation photos take less vertical space. */
+  height: 22mm;
   max-width: 100%;
   object-fit: contain;
   object-position: left top;
@@ -1745,6 +1746,10 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-sig-2col {
   grid-template-columns: 2fr 1fr;
 }
+/* Quotation: two equal signer boxes (no company authorized box). */
+.print-theme-classic-v2 .print-sig-2eq {
+  grid-template-columns: 1fr 1fr;
+}
 /* Billing-note dated rows: shared grid so both labels form one column and
    every segmented fill starts at the same x (aligned vertically). */
 .print-theme-classic-v2 .print-classic-sig-dates {
@@ -1881,6 +1886,21 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-classic-footer-row {
   font-size: calc(7.5pt * var(--classic-fs-footer));
   color: #1f2937;
+}
+
+/* Quotation: WHT is an informational note, never a deduction row (there is no
+   NET PAYABLE on a price offer). See PrintTotals / classic templates. */
+.print-classic-quotation-wht-note {
+  margin-top: 1mm;
+  font-size: calc(6.5pt * var(--classic-fs-totals, 1));
+  line-height: 1.25;
+  color: #6b7280;
+  text-align: right;
+}
+.print-classic-quotation-wht-note-en {
+  display: block;
+  font-size: calc(5.5pt * var(--classic-fs-totals, 1));
+  color: #94a3b8;
 }
 
 /* Print preview frame border (matches modern template treatment) */
