@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { PRINT_TITLE_PRESETS, printTitle } from "../../src/lib/docLabels";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  PRINT_TITLE_PRESETS,
+  printTitle,
+  readLastPrintTitleVariant,
+  writeLastPrintTitleVariant,
+} from "../../src/lib/docLabels";
 
 const taxInvoice = { doc_type: "invoice" as const, vat_registered: true };
 const plainInvoice = { doc_type: "invoice" as const, vat_registered: false };
@@ -38,5 +43,28 @@ describe("printTitle (tax-invoice printed header)", () => {
       thai: "ใบกำกับภาษี",
       en: "Tax Invoice",
     });
+  });
+});
+
+describe("last print-title selection memory", () => {
+  const store: Record<string, string> = {};
+  beforeEach(() => {
+    for (const key of Object.keys(store)) delete store[key];
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => store[key] ?? null,
+        setItem: (key: string, value: string) => { store[key] = String(value); },
+        removeItem: (key: string) => { delete store[key]; },
+      },
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("persists a valid selection and drops an invalid one", () => {
+    expect(readLastPrintTitleVariant()).toBe("");
+    writeLastPrintTitleVariant("tax_invoice_delivery_invoice");
+    expect(readLastPrintTitleVariant()).toBe("tax_invoice_delivery_invoice");
+    writeLastPrintTitleVariant("bogus");
+    expect(readLastPrintTitleVariant()).toBe("");
   });
 });

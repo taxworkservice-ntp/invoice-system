@@ -50,6 +50,28 @@ export function isPrintTitleVariant(value: unknown): value is PrintTitleVariant 
   return typeof value === "string" && value in PRINT_TITLE_PRESETS;
 }
 
+/**
+ * Remember the last printed-title selection per browser so a new tax invoice
+ * defaults to it (like the copy/ref-mode preferences). Only the choice matters
+ * — the value is still stored per document.
+ */
+const PRINT_TITLE_STORAGE_KEY = "invoice-system.print-title-variant";
+
+export function readLastPrintTitleVariant(): string {
+  if (typeof window === "undefined") return "";
+  const value = window.localStorage.getItem(PRINT_TITLE_STORAGE_KEY) || "";
+  return isPrintTitleVariant(value) ? value : "";
+}
+
+export function writeLastPrintTitleVariant(value: string): void {
+  if (typeof window === "undefined") return;
+  if (isPrintTitleVariant(value)) {
+    window.localStorage.setItem(PRINT_TITLE_STORAGE_KEY, value);
+  } else {
+    window.localStorage.removeItem(PRINT_TITLE_STORAGE_KEY);
+  }
+}
+
 /** A VAT-registered invoice is a tax invoice (ใบกำกับภาษี). */
 export function isTaxInvoice(
   doc: Pick<Document, "doc_type" | "vat_registered">,

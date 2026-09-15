@@ -20,7 +20,7 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
-import { PRINT_TITLE_PRESETS } from "../../lib/docLabels";
+import { PRINT_TITLE_PRESETS, readLastPrintTitleVariant, writeLastPrintTitleVariant } from "../../lib/docLabels";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
@@ -148,7 +148,8 @@ export function InvoiceFromQuotationForm() {
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [showVariance, setShowVariance] = useState(false);
   // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
-  const [printTitleVariant, setPrintTitleVariant] = useState("");
+  // Defaults to the last selection (per browser).
+  const [printTitleVariant, setPrintTitleVariant] = useState(() => readLastPrintTitleVariant());
   // Ref mode: one printed line per source quotation instead of item detail.
   // Default is detail (opt-in, remembered per browser) — ref-saved invoices
   // can never be expanded back into item lines at print time.
@@ -1137,7 +1138,10 @@ export function InvoiceFromQuotationForm() {
               <Select
                 label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
                 value={printTitleVariant}
-                onChange={(event) => setPrintTitleVariant(event.target.value)}
+                onChange={(event) => {
+                  setPrintTitleVariant(event.target.value);
+                  writeLastPrintTitleVariant(event.target.value);
+                }}
               >
                 <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
                 {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (

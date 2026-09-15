@@ -21,7 +21,7 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
-import { PRINT_TITLE_PRESETS } from "../../lib/docLabels";
+import { PRINT_TITLE_PRESETS, readLastPrintTitleVariant, writeLastPrintTitleVariant } from "../../lib/docLabels";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
 import { getDnLineSectionMap, getDnSectionHeaders, joinDnSectionHeaders } from "../../lib/dnGroups";
@@ -164,7 +164,8 @@ export function InvoiceFromDeliveryNotesForm() {
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [showDnVariance, setShowDnVariance] = useState(false);
   // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
-  const [printTitleVariant, setPrintTitleVariant] = useState("");
+  // Defaults to the last selection (per browser).
+  const [printTitleVariant, setPrintTitleVariant] = useState(() => readLastPrintTitleVariant());
   const [error, setError] = useState("");
   // Ref mode: one printed line per source delivery note instead of item detail.
   // Default is detail (opt-in, remembered per browser) — ref-saved invoices
@@ -1318,7 +1319,10 @@ export function InvoiceFromDeliveryNotesForm() {
               <Select
                 label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
                 value={printTitleVariant}
-                onChange={(event) => setPrintTitleVariant(event.target.value)}
+                onChange={(event) => {
+                  setPrintTitleVariant(event.target.value);
+                  writeLastPrintTitleVariant(event.target.value);
+                }}
               >
                 <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
                 {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (

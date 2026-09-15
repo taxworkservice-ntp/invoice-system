@@ -19,8 +19,8 @@ import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
 import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, DN_GROUP_SPACER_COMPACT_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
-import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_FONT_SCALE_OPTIONS, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_COMPACT_DN_BONUS_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
-import { PRINT_TITLE_PRESETS } from "../../../lib/docLabels";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_COMPACT_DN_BONUS_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { PRINT_TITLE_PRESETS, writeLastPrintTitleVariant } from "../../../lib/docLabels";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -451,38 +451,6 @@ export default function DocumentPrintPreviewPage() {
     };
   }, [data]);
 
-  async function openBrowserPrintDialog() {
-    const images = Array.from(document.querySelectorAll(".print-sheet img")) as HTMLImageElement[];
-    const pendingImages = images.filter((img) => !img.complete);
-
-    if (pendingImages.length === 0) {
-      window.setTimeout(() => {
-        window.focus();
-        window.print();
-      }, 250);
-      return;
-    }
-
-    await Promise.all(
-      pendingImages.map(
-        (img) =>
-          new Promise<void>((resolve) => {
-            img.addEventListener("load", () => resolve(), { once: true });
-            img.addEventListener("error", () => resolve(), { once: true });
-          }),
-      ),
-    );
-
-    window.setTimeout(() => {
-      window.focus();
-      window.print();
-    }, 250);
-  }
-
-  function handlePrint() {
-    void openBrowserPrintDialog();
-  }
-
   async function triggerDownload(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
@@ -582,30 +550,6 @@ export default function DocumentPrintPreviewPage() {
     }
   }
 
-  // Per-document font scale (classic V2 only — other templates ignore the
-  // field). Saved on the document so preview, export PDF, and reprints agree.
-  const [savingFontScale, setSavingFontScale] = useState(false);
-  async function handleDocFontScaleChange(value: string) {
-    if (!data || savingFontScale) return;
-    const prev = data.document.print_font_scale || DOCUMENT_FONT_SCALE_DEFAULT;
-    if (value === prev) return;
-    setSavingFontScale(true);
-    setPdfError("");
-    try {
-      const { error } = await supabase
-        .from("documents")
-        .update({ print_font_scale: value })
-        .eq("id", data.document.id);
-      if (error) throw error;
-      setData({ ...data, document: { ...data.document, print_font_scale: value } });
-    } catch (err) {
-      console.error("Failed to save document font scale:", err);
-      setPdfError("บันทึกขนาดตัวอักษรไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-    } finally {
-      setSavingFontScale(false);
-    }
-  }
-
   // Tax-invoice printed-title preset (print only — doc_type stays "invoice").
   // Saved on the document so preview, export PDF, and reprints agree.
   const [savingPrintTitle, setSavingPrintTitle] = useState(false);
@@ -622,6 +566,8 @@ export default function DocumentPrintPreviewPage() {
         .eq("id", data.document.id);
       if (error) throw error;
       setData({ ...data, document: { ...data.document, print_title_variant: value || null } });
+      // Remember for the next new tax invoice.
+      writeLastPrintTitleVariant(value);
     } catch (err) {
       console.error("Failed to save document print title:", err);
       setPdfError("บันทึกชื่อเรื่องเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -732,7 +678,7 @@ export default function DocumentPrintPreviewPage() {
 return (
     <div className="print-preview-shell min-h-screen bg-cool-75 px-2 py-3 sm:px-4 sm:py-6">
       <div
-        className="print-toolbar mx-auto mb-3 flex w-full max-w-[230mm] flex-col gap-3 rounded-xl border border-cool-200 bg-white px-3 py-3 shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:px-4"
+        className="print-toolbar mx-auto mb-3 flex w-full max-w-[230mm] flex-col gap-3 rounded-xl border border-cool-200 bg-white px-3 py-3 shadow-sm sm:mb-4 sm:flex-row sm:items-start sm:justify-between sm:px-4"
         style={previewViewportWidth ? { maxWidth: `${previewViewportWidth}px` } : undefined}
       >
         <div>
@@ -802,31 +748,6 @@ return (
                 </button>
               </div>
             </div>
-            {data?.template === "classic_v2" ? (
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
-                <span>ขนาดตัวอักษรเอกสารนี้:</span>
-                <select
-                  value={data.document.print_font_scale || DOCUMENT_FONT_SCALE_DEFAULT}
-                  onChange={(event) => void handleDocFontScaleChange(event.target.value)}
-                  disabled={savingFontScale}
-                  className="rounded-md border border-cool-200 bg-white px-2 py-1 text-[10px] font-medium text-cool-500 focus:outline-none disabled:opacity-60"
-                >
-                  <option value={DOCUMENT_FONT_SCALE_DEFAULT}>ตามค่าหลัก</option>
-                  {CLASSIC_V2_FONT_SCALE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                  {!(
-                    !data.document.print_font_scale ||
-                    data.document.print_font_scale === DOCUMENT_FONT_SCALE_DEFAULT ||
-                    CLASSIC_V2_FONT_SCALE_OPTIONS.some((opt) => opt.value === data.document.print_font_scale)
-                  ) ? (
-                    <option value={data.document.print_font_scale}>{data.document.print_font_scale}</option>
-                  ) : null}
-                </select>
-              </div>
-            ) : null}
             {data?.document.doc_type === "invoice" && data.document.vat_registered ? (
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
                 <span>ชื่อเรื่องบนหัวเอกสาร:</span>
@@ -887,12 +808,6 @@ return (
           </div>
         )}
         <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
-          <Button variant="secondary" onClick={() => navigate(-1)} className="flex-1 sm:flex-none">
-            กลับ
-          </Button>
-          <Button variant="secondary" onClick={handlePrint} className="flex-1 sm:flex-none">
-            พิมพ์
-          </Button>
           <Button onClick={handleSavePdf} disabled={savingPdf} className="flex-1 sm:flex-none">
             {savingPdf ? "กำลังบันทึก..." : "บันทึกเป็น PDF"}
           </Button>

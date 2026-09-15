@@ -18,7 +18,7 @@ import { PoTaskFields } from "../../../components/documents/PoTaskFields";
 import { Switch } from "../../../components/ui/Switch";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
 import { DN_SECTION_TAG, getDnSectionDisplayNumbers, getDnSectionMarkersWithoutChildren, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../../lib/dnGroups";
-import { PRINT_TITLE_PRESETS } from "../../../lib/docLabels";
+import { PRINT_TITLE_PRESETS, readLastPrintTitleVariant, writeLastPrintTitleVariant } from "../../../lib/docLabels";
 import { DnSectionMarkerRow, LineMoveButtons } from "../../../components/documents/DnSectionMarkerRow";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -571,7 +571,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   });
   const [isBlankForm, setIsBlankForm] = useState(false);
   // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
-  const [printTitleVariant, setPrintTitleVariant] = useState("");
+  // New invoices default to the last selection (per browser); editing an
+  // existing draft overrides this from its stored value below.
+  const [printTitleVariant, setPrintTitleVariant] = useState(() => readLastPrintTitleVariant());
   // DN full-totals is settings-only (ตั้งค่า › ใบส่งของ): new docs follow the
   // workspace setting, draft edits keep their saved value frozen at hydrate.
   const frozenShowFullTotals = useRef<boolean | null>(null);
@@ -2843,7 +2845,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               <Select
                 label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
                 value={printTitleVariant}
-                onChange={(e) => setPrintTitleVariant(e.target.value)}
+                onChange={(e) => {
+                  setPrintTitleVariant(e.target.value);
+                  writeLastPrintTitleVariant(e.target.value);
+                }}
               >
                 <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
                 {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
