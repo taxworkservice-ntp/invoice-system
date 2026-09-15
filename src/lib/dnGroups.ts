@@ -445,6 +445,74 @@ export function getDnLineSectionMap(
 }
 
 /**
+ * Form-facing display numbers for section-marker DN lines, mirroring
+ * buildDnSectionPlan's printed hierarchy (groups `G`, children `G.j`).
+ * Non-blank markers start a section; a blank marker ends one; lines inside a
+ * section are numbered `G.j`, lines outside keep the shared top-level counter.
+ * With no markers this degrades to plain `1, 2, 3`, so forms can always use
+ * it while grouping is on. Keep in sync with buildDnSectionPlan.
+ */
+export function getDnSectionDisplayNumbers<
+  T extends { id: string; isSectionMarker: boolean; item_name: string },
+>(lines: T[]): Map<string, string> {
+  const numbers = new Map<string, string>();
+  let top = 0;
+  let section = 0;
+  let child = 0;
+  let inSection = false;
+  for (const line of lines) {
+    if (line.isSectionMarker) {
+      if (line.item_name.trim()) {
+        top += 1;
+        section = top;
+        child = 0;
+        inSection = true;
+        numbers.set(line.id, String(section));
+      } else {
+        inSection = false;
+      }
+      continue;
+    }
+    if (inSection) {
+      child += 1;
+      numbers.set(line.id, `${section}.${child}`);
+    } else {
+      top += 1;
+      numbers.set(line.id, String(top));
+    }
+  }
+  return numbers;
+}
+
+/**
+ * Ids of non-blank section markers that have no item lines under them before
+ * the next marker (or the end of the list). Such headings are dropped from the
+ * printout (buildDnSectionPlan only emits non-empty runs), so forms surface a
+ * warning instead of letting the heading silently vanish.
+ */
+export function getDnSectionMarkersWithoutChildren<
+  T extends { id: string; isSectionMarker: boolean; item_name: string },
+>(lines: T[]): Set<string> {
+  const empty = new Set<string>();
+  let currentMarkerId: string | null = null;
+  let hasChild = false;
+  const flush = () => {
+    if (currentMarkerId && !hasChild) empty.add(currentMarkerId);
+  };
+  for (const line of lines) {
+    if (line.isSectionMarker) {
+      flush();
+      currentMarkerId = line.item_name.trim() ? line.id : null;
+      hasChild = false;
+    } else if (currentMarkerId) {
+      hasChild = true;
+    }
+  }
+  flush();
+  return empty;
+}
+
+/**
  * Legacy single-header conversion (form unification): the old whole-doc
  * `dn_so_header` field and marker lines are the same concept, so forms
  * offer only markers. When an old draft carries header text but no markers,

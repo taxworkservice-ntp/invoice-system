@@ -1,10 +1,58 @@
-import { Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Input } from "../ui/Input";
+
+interface LineMoveButtonsProps {
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  className?: string;
+}
+
+/** Compact up/down reorder control shared by DN item and heading rows. */
+export function LineMoveButtons({
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+  className,
+}: LineMoveButtonsProps) {
+  return (
+    <div className={`flex shrink-0 flex-col overflow-hidden rounded-lg border border-card-border ${className ?? ""}`}>
+      <button
+        type="button"
+        onClick={onMoveUp}
+        disabled={!canMoveUp}
+        aria-label="เลื่อนขึ้น"
+        title="เลื่อนขึ้น"
+        className="flex h-4 w-7 items-center justify-center text-gray-400 transition-colors hover:bg-paper-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+      >
+        <ChevronUp className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={onMoveDown}
+        disabled={!canMoveDown}
+        aria-label="เลื่อนลง"
+        title="เลื่อนลง"
+        className="-mt-px flex h-4 w-7 items-center justify-center border-t border-card-border text-gray-400 transition-colors hover:bg-paper-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+      >
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
 
 interface DnSectionMarkerRowProps {
   value: string;
   onChange: (value: string) => void;
   onRemove: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  /** Heading has no item lines under it — it will be omitted from the printout. */
+  warnEmpty?: boolean;
 }
 
 /**
@@ -12,9 +60,26 @@ interface DnSectionMarkerRowProps {
  * no quantity or price — it only prints its text as a group header above
  * the following lines on the Classic V2 delivery note.
  */
-export function DnSectionMarkerRow({ value, onChange, onRemove }: DnSectionMarkerRowProps) {
+export function DnSectionMarkerRow({
+  value,
+  onChange,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+  warnEmpty,
+}: DnSectionMarkerRowProps) {
+  // A blank heading is not a section yet (no number, no printout), so it needs
+  // its own prompt rather than the "no children" warning.
+  const isBlank = !value.trim();
+  const warning = isBlank
+    ? "ยังไม่ได้กรอกข้อความหัวข้อกลุ่ม — กรอกข้อความเพื่อให้หัวข้อแสดงบนใบส่งของ"
+    : warnEmpty
+      ? "หัวข้อนี้ยังไม่มีรายการอยู่ข้างใต้ — จะไม่แสดงบนใบส่งของจนกว่าจะมีรายการ"
+      : null;
   return (
-    <div className="rounded-xl border border-dashed border-card-border bg-paper-soft/60 p-3">
+    <div className={`rounded-xl border border-dashed p-3 ${warning ? "border-amber-300 bg-amber-50/60" : "border-card-border bg-paper-soft/60"}`}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <Input
@@ -24,6 +89,13 @@ export function DnSectionMarkerRow({ value, onChange, onRemove }: DnSectionMarke
             placeholder="SO7944758301/Z033248905 Part no.25120021 (เห็ด)"
           />
         </div>
+        <LineMoveButtons
+          className="mt-5"
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          canMoveUp={canMoveUp}
+          canMoveDown={canMoveDown}
+        />
         <button
           type="button"
           onClick={onRemove}
@@ -33,9 +105,13 @@ export function DnSectionMarkerRow({ value, onChange, onRemove }: DnSectionMarke
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-1 text-[11px] leading-4 text-gray-400">
-        บรรทัดนี้ไม่คิดมูลค่า — จะพิมพ์เป็นหัวข้อกลุ่มเหนือรายการในใบส่งของ (Classic V2) และติดไปกับใบกำกับภาษีที่ออกต่อจากใบนี้
-      </p>
+      {warning ? (
+        <p className="mt-1 text-[11px] leading-4 font-medium text-amber-700">{warning}</p>
+      ) : (
+        <p className="mt-1 text-[11px] leading-4 text-gray-400">
+          บรรทัดนี้ไม่คิดมูลค่า — จะพิมพ์เป็นหัวข้อกลุ่มเหนือรายการในใบส่งของ และติดไปกับใบกำกับภาษีที่ออกต่อจากใบนี้
+        </p>
+      )}
     </div>
   );
 }

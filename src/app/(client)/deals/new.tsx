@@ -17,8 +17,8 @@ import { ItemCreateModal } from "../../../components/catalog/ItemCreateModal";
 import { PoTaskFields } from "../../../components/documents/PoTaskFields";
 import { Switch } from "../../../components/ui/Switch";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
-import { DN_SECTION_TAG, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../../lib/dnGroups";
-import { DnSectionMarkerRow } from "../../../components/documents/DnSectionMarkerRow";
+import { DN_SECTION_TAG, getDnSectionDisplayNumbers, getDnSectionMarkersWithoutChildren, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../../lib/dnGroups";
+import { DnSectionMarkerRow, LineMoveButtons } from "../../../components/documents/DnSectionMarkerRow";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
@@ -1315,6 +1315,27 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     setLineItems((prev) => prev.filter((lineItem) => lineItem.id !== id));
   };
 
+  const moveLineItem = (id: string, direction: "up" | "down") => {
+    setLineItems((prev) => {
+      const index = prev.findIndex((lineItem) => lineItem.id === id);
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (index < 0 || target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  // Form badges mirror the printed G / G.j hierarchy whenever grouping is on.
+  const lineNumbers = useMemo(
+    () => (isDeliveryNote && groupingEnabled ? getDnSectionDisplayNumbers(lineItems) : null),
+    [isDeliveryNote, groupingEnabled, lineItems],
+  );
+  const emptySectionIds = useMemo(
+    () => (isDeliveryNote && groupingEnabled ? getDnSectionMarkersWithoutChildren(lineItems) : new Set<string>()),
+    [isDeliveryNote, groupingEnabled, lineItems],
+  );
+
   const toggleGrouping = (on: boolean) => {
     // Turning off deletes the headers (with confirmation) — hidden markers
     // that still affect the printout would be worse than asking once.
@@ -2197,7 +2218,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   }
                 />
                 <p className="mt-1 text-[11px] leading-4 text-gray-400">
-                  เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ (Classic V2)
+                  เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ
                 </p>
                 {legacyHeaderConverted && groupingEnabled && (
                   <p className="mt-1 text-[11px] leading-4 text-gray-500">
@@ -2224,17 +2245,27 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               )}
               {lineItems.map((item, idx) => {
                 if (item.isSectionMarker && isDeliveryNote && groupingEnabled) {
+                  const markerNumber = lineNumbers?.get(item.id);
                   return (
                     <div key={item.id} className="pb-3 border-b border-gray-100 last:border-0">
                       <div className="flex gap-2">
-                        <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
-                          {idx + 1}
-                        </div>
+                        {markerNumber ? (
+                          <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
+                            {markerNumber}
+                          </div>
+                        ) : (
+                          <div className="flex-shrink-0 w-5" aria-hidden />
+                        )}
                         <div className="flex-1 min-w-0">
                           <DnSectionMarkerRow
                             value={item.item_name}
                             onChange={(val) => updateLineItem(item.id, "item_name", val)}
                             onRemove={() => removeLineItem(item.id)}
+                            onMoveUp={() => moveLineItem(item.id, "up")}
+                            onMoveDown={() => moveLineItem(item.id, "down")}
+                            canMoveUp={idx > 0}
+                            canMoveDown={idx < lineItems.length - 1}
+                            warnEmpty={emptySectionIds.has(item.id)}
                           />
                         </div>
                       </div>
@@ -2300,7 +2331,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 <div key={item.id} className="pb-3 border-b border-gray-100 last:border-0">
                   <div className="flex gap-2">
                     <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
-                      {idx + 1}
+                      {lineNumbers?.get(item.id) ?? idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-1 mb-2">
@@ -2327,6 +2358,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         }
                       />
                       </div>
+                      <LineMoveButtons
+                        className="mt-0.5"
+                        onMoveUp={() => moveLineItem(item.id, "up")}
+                        onMoveDown={() => moveLineItem(item.id, "down")}
+                        canMoveUp={idx > 0}
+                        canMoveDown={idx < lineItems.length - 1}
+                      />
                       {lineItems.length > 1 && (
                         <button
                           type="button"

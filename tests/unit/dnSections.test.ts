@@ -7,7 +7,9 @@ import {
   filterDnRefMarkers,
   filterDnRenderLines,
   getDnLineSectionMap,
+  getDnSectionDisplayNumbers,
   getDnSectionHeaders,
+  getDnSectionMarkersWithoutChildren,
   getLegacyDnHeaderForConversion,
   isDnSectionMarker,
   joinDnSectionHeaders,
@@ -308,5 +310,75 @@ describe("marker stripping", () => {
     expect(plan.map((p) => p.number)).toEqual(["1.1"]);
     expect(plan[0].header).toMatchObject({ g: 1, soHeader: "SO1" });
     expect(buildDnSectionPlan(filterDnRenderLines(lines), {}).map((p) => p.number)).toEqual(["1"]);
+  });
+});
+
+describe("form display numbering", () => {
+  const formLine = (id: string, isSectionMarker = false, item_name = id) => ({
+    id,
+    isSectionMarker,
+    item_name,
+  });
+
+  it("numbers sections G and children G.j; ungrouped lines keep the top counter", () => {
+    const lines = [
+      formLine("a"),
+      formLine("m1", true, "SO1"),
+      formLine("b"),
+      formLine("c"),
+      formLine("m2", true, "SO2"),
+      formLine("d"),
+      formLine("e"),
+    ];
+    const numbers = getDnSectionDisplayNumbers(lines);
+    // "e" trails the last section, so it stays a child (3.2) — only a blank
+    // marker or the end of list can end a section without a new heading.
+    expect([...numbers.values()]).toEqual(["1", "2", "2.1", "2.2", "3", "3.1", "3.2"]);
+  });
+
+  it("a blank marker ends the section without consuming a number", () => {
+    const lines = [
+      formLine("m1", true, "SO1"),
+      formLine("a"),
+      formLine("m2", true, "   "),
+      formLine("b"),
+    ];
+    const numbers = getDnSectionDisplayNumbers(lines);
+    expect(numbers.get("m1")).toBe("1");
+    expect(numbers.get("a")).toBe("1.1");
+    expect(numbers.has("m2")).toBe(false);
+    expect(numbers.get("b")).toBe("2");
+  });
+
+  it("degrades to a plain sequence with no markers", () => {
+    const numbers = getDnSectionDisplayNumbers([formLine("a"), formLine("b")]);
+    expect([...numbers.values()]).toEqual(["1", "2"]);
+  });
+});
+
+describe("headings without children", () => {
+  const formLine = (id: string, isSectionMarker = false, item_name = id) => ({
+    id,
+    isSectionMarker,
+    item_name,
+  });
+
+  it("flags a non-blank heading with no item lines before the next heading/end", () => {
+    const lines = [
+      formLine("m1", true, "SO1"),
+      formLine("a"),
+      formLine("m2", true, "SO2"),
+      formLine("m3", true, "SO3"),
+      formLine("b"),
+    ];
+    const empty = getDnSectionMarkersWithoutChildren(lines);
+    expect(empty.has("m1")).toBe(false);
+    expect(empty.has("m2")).toBe(true);
+    expect(empty.has("m3")).toBe(false);
+  });
+
+  it("ignores blank headings (blank text is handled by save validation)", () => {
+    const empty = getDnSectionMarkersWithoutChildren([formLine("m", true, "")]);
+    expect(empty.size).toBe(0);
   });
 });

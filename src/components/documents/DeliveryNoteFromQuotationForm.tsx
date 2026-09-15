@@ -15,7 +15,7 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
-import { DN_SECTION_TAG, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../lib/dnGroups";
+import { DN_SECTION_TAG, getDnSectionDisplayNumbers, getDnSectionMarkersWithoutChildren, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../lib/dnGroups";
 import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
@@ -25,7 +25,7 @@ import { EditableDocNumber } from "./EditableDocNumber";
 import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
 import { FormStep } from "./FormStep";
 import { PoTaskFields } from "./PoTaskFields";
-import { DnSectionMarkerRow } from "./DnSectionMarkerRow";
+import { DnSectionMarkerRow, LineMoveButtons } from "./DnSectionMarkerRow";
 import { FormActionBar } from "./FormActionBar";
 
 type QuotationWithCustomer = Document & { customer?: Customer };
@@ -446,6 +446,27 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
     );
   }, [quotation?.vat_rate, quotation?.vat_registered, quotation?.wht_rate, selectedLines]);
 
+  // Form badges mirror the printed G / G.j hierarchy whenever grouping is on.
+  const lineNumbers = useMemo(
+    () => (groupingEnabled ? getDnSectionDisplayNumbers(lines) : null),
+    [groupingEnabled, lines],
+  );
+  const emptySectionIds = useMemo(
+    () => (groupingEnabled ? getDnSectionMarkersWithoutChildren(lines) : new Set<string>()),
+    [groupingEnabled, lines],
+  );
+
+  const moveLine = (lineId: string, direction: "up" | "down") => {
+    setLines((current) => {
+      const index = current.findIndex((line) => line.id === lineId);
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (index < 0 || target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
   const updateQuantity = (lineId: string, value: string) => {
     const nextQty = Number(value);
     setLines((current) =>
@@ -803,7 +824,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               }
             />
             <p className="mt-1 text-[11px] leading-4 text-gray-400">
-              เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ (Classic V2)
+              เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ
             </p>
             {legacyHeaderConverted && groupingEnabled && (
               <p className="mt-1 text-[11px] leading-4 text-gray-500">
@@ -812,15 +833,31 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
             )}
           </div>
           <div className="space-y-2">
-            {lines.map((line) => {
+            {lines.map((line, index) => {
               if (line.isSectionMarker && groupingEnabled) {
+                const markerNumber = lineNumbers?.get(line.id);
                 return (
-                  <DnSectionMarkerRow
-                    key={line.id}
-                    value={line.item_name}
-                    onChange={(value) => updateLine(line.id, { item_name: value })}
-                    onRemove={() => removeLine(line.id)}
-                  />
+                  <div key={line.id} className="flex gap-2">
+                    {markerNumber ? (
+                      <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
+                        {markerNumber}
+                      </div>
+                    ) : (
+                      <div className="flex-shrink-0 w-5" aria-hidden />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <DnSectionMarkerRow
+                        value={line.item_name}
+                        onChange={(value) => updateLine(line.id, { item_name: value })}
+                        onRemove={() => removeLine(line.id)}
+                        onMoveUp={() => moveLine(line.id, "up")}
+                        onMoveDown={() => moveLine(line.id, "down")}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < lines.length - 1}
+                        warnEmpty={emptySectionIds.has(line.id)}
+                      />
+                    </div>
+                  </div>
                 );
               }
               const remaining = line.source
@@ -835,12 +872,15 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               });
 
               return (
-                <div
-                  key={line.id}
-                  className={`rounded-xl border p-3 ${
-                    over ? "border-amber-300 bg-amber-50" : "border-card-border bg-white"
-                  }`}
-                >
+                <div key={line.id} className="flex gap-2">
+                  <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
+                    {lineNumbers?.get(line.id) ?? index + 1}
+                  </div>
+                  <div
+                    className={`flex-1 min-w-0 rounded-xl border p-3 ${
+                      over ? "border-amber-300 bg-amber-50" : "border-card-border bg-white"
+                    }`}
+                  >
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <Input
@@ -851,6 +891,13 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                       />
                       {line.source?.item_sku && <div className="mt-0.5 text-xs text-gray-500">SKU: {line.source.item_sku}</div>}
                     </div>
+                    <LineMoveButtons
+                      className="mt-5"
+                      onMoveUp={() => moveLine(line.id, "up")}
+                      onMoveDown={() => moveLine(line.id, "down")}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < lines.length - 1}
+                    />
                     <button
                       type="button"
                       onClick={() => removeLine(line.id)}
@@ -986,18 +1033,19 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                       ยังไม่รวมร่างค้าง คงเหลือหลังส่งจริง: {formatQty(round3(line.source!.quantity - line.delivered))} {line.source!.unit} • รวมร่างค้างและรอบนี้: {formatQty(totalWithPending)} {line.source!.unit}
                     </div>
                   )}
+                  </div>
                 </div>
               );
             })}
 
             <Button variant="secondary" size="sm" className="w-full justify-center" onClick={addCustomLine}>
               <Plus className="h-4 w-4 mr-1.5" />
-              เพิ่มรายการ
+              เพิ่มสินค้าหรือบริการ
             </Button>
             {groupingEnabled && (
               <Button variant="secondary" size="sm" className="w-full justify-center" onClick={addSectionMarker}>
                 <Plus className="h-4 w-4 mr-1.5" />
-                เพิ่มหัวข้อกลุ่ม
+                เพิ่มหัวข้อกลุ่ม (SO ของลูกค้า)
               </Button>
             )}
           </div>
