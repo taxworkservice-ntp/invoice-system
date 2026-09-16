@@ -327,20 +327,20 @@ export function PrintDocumentClassic({
                 <tbody>
                   <tr>
                     <th>
-                      <span className="print-classic-meta-th-th">วันที่ :</span>
-                      <span className="print-classic-meta-th-en">DATE</span>
-                    </th>
-                    <td className="print-classic-meta-val">
-                      {formatDate(document.issue_date)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>
                       <span className="print-classic-meta-th-th">เลขที่ :</span>
                       <span className="print-classic-meta-th-en">NO.</span>
                     </th>
                     <td className="print-classic-meta-val">
                       {document.doc_number || "-"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>
+                      <span className="print-classic-meta-th-th">วันที่ :</span>
+                      <span className="print-classic-meta-th-en">DATE</span>
+                    </th>
+                    <td className="print-classic-meta-val">
+                      {formatDate(document.issue_date)}
                     </td>
                   </tr>
                   {isReceipt && receiptPaymentNumber && !receiptPaidInFull ? (
