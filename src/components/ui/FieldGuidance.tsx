@@ -18,30 +18,30 @@ export function FieldGuidance({ title, items, tip }: FieldGuidanceProps) {
   return (
     <div className="relative">
       <div className="flex items-center gap-1.5 mb-1">
-        <label className="block text-xs font-medium text-gray-600">
+        <label className="block text-label font-medium text-ink-600">
           {title}
         </label>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-label="คำแนะนำการกรอกยอด"
-          className="text-gray-400 hover:text-[#378ADD] transition-colors cursor-help"
+          className="text-ink-400 hover:text-primary transition-colors cursor-help"
         >
           <CircleHelp size={14} className="shrink-0" />
         </button>
       </div>
       {open && (
-        <div className="mb-1 rounded-lg border border-[#DCE7F7] bg-[#F3F8FF] px-3 py-2.5">
+        <div className="mb-1 rounded-control border border-primary-soft bg-primary-soft px-3 py-2.5">
           <div className="space-y-1.5">
             {items.map((item) => (
-              <div key={item.label} className="text-xs leading-5">
-                <span className="font-medium text-[#1A1A18]">{item.label}</span>
-                <span className="text-gray-600"> — {item.description}</span>
+              <div key={item.label} className="text-label leading-5">
+                <span className="font-medium text-ink-900">{item.label}</span>
+                <span className="text-ink-600"> — {item.description}</span>
               </div>
             ))}
           </div>
           {tip && (
-            <p className="mt-2 border-t border-[#DCE7F7] pt-1.5 text-[11px] leading-5 text-[#378ADD]">
+            <p className="mt-2 border-t border-primary-soft pt-1.5 text-label leading-5 text-primary">
               {tip}
             </p>
           )}

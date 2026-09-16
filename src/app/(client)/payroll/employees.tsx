@@ -411,7 +411,7 @@ export default function EmployeesPage() {
         { label: "พนักงาน" },
       ]}
       action={
-        <Button size="sm" onClick={openCreate} className="!rounded-lg">
+        <Button size="sm" onClick={openCreate} className="!rounded-control">
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">เพิ่ม</span>
         </Button>
@@ -425,12 +425,12 @@ export default function EmployeesPage() {
             placeholder="ค้นหาพนักงาน..."
             className="max-w-sm"
           />
-          <div className="inline-flex rounded-lg border border-card-border bg-cool-25 p-0.5">
+          <div className="inline-flex rounded-control border border-card-border bg-paper-field p-0.5">
             {([["active", `ทำงาน (${activeCount})`], ["inactive", `ลาออก (${inactiveCount})`], ["all", "ทั้งหมด"]] as [EmployeeFilter, string][]).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filter === key ? "bg-white text-cool-900 shadow-sm" : "text-cool-500 hover:text-cool-700"}`}
+                className={`px-3 py-1.5 text-label font-medium rounded-control transition-colors ${filter === key ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-700"}`}
               >
                 {label}
               </button>
@@ -472,43 +472,39 @@ export default function EmployeesPage() {
                     <tr
                       key={emp.id}
                       onClick={() => openEdit(emp)}
-                      className={`${TABLE.tbodyTr} cursor-pointer group hover:bg-cool-25/50 transition-colors ${emp.status === "inactive" ? "opacity-60" : ""}`}
+                      className={`${TABLE.tbodyTr} cursor-pointer group hover:bg-paper-field/50 transition-colors ${emp.status === "inactive" ? "opacity-60" : ""}`}
                     >
                       <td className="px-3 py-2">
-                        <span className="text-cool-900 font-mono text-[11px]">{emp.employee_code}</span>
+                        <span className="text-ink-900 font-mono text-label">{emp.employee_code}</span>
                       </td>
                       <td className="px-3 py-2 min-w-[180px]">
                         <div className="flex items-center gap-2.5">
-                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${emp.status === "inactive" ? "bg-cool-100 text-cool-400" : "bg-primary-soft text-primary-deep"}`}>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-label font-semibold ${emp.status === "inactive" ? "bg-ink-50 text-ink-400" : "bg-primary-soft text-primary-deep"}`}>
                             {initialsOf(emp.full_name || emp.employee_code)}
                           </span>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-cool-900 font-medium truncate">{emp.full_name || "—"}</span>
-                            {emp.department && <span className="text-cool-400 text-[10px]">{emp.department}</span>}
+                            <span className="text-ink-900 font-medium truncate">{emp.full_name || "—"}</span>
+                            {emp.department && <span className="text-ink-400 text-label">{emp.department}</span>}
                           </div>
                         </div>
                       </td>
                       <td className="px-3 py-2 min-w-[120px]">
-                        <span className="text-cool-500">{emp.position || "—"}</span>
+                        <span className="text-ink-500">{emp.position || "—"}</span>
                       </td>
                       <td className="px-3 py-2">
                         <span
-                          className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${
-                            emp.salary_type === "monthly"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
+                          className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${ emp.salary_type === "monthly" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700" }`}
                         >
                           {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
                         </span>
                         {emp.sso_registered === false && (
-                          <span className="ml-1 inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-yellow-100 text-yellow-700">
+                          <span className="ml-1 inline-flex px-2 py-0.5 rounded-control text-label font-medium bg-yellow-100 text-yellow-700">
                             ภ.ง.ด.3
                           </span>
                         )}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <span className="text-cool-900 tabular-nums font-medium">{formatCurrency(emp.base_salary)}</span>
+                        <span className="text-ink-900 tabular-nums font-medium">{formatCurrency(emp.base_salary)}</span>
                       </td>
                       <td className="px-3 py-2">
                         <StatusBadge
@@ -521,7 +517,7 @@ export default function EmployeesPage() {
                           {emp.status === "active" && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setOffboardingEmployee(emp); setOffboardingDate(new Date().toISOString().split("T")[0]); }}
-                              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-amber-50 text-cool-300 hover:text-amber-600 transition-colors"
+                              className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-amber-50 text-ink-300 hover:text-amber-600 transition-colors"
                               title="จบการจ้างงาน"
                             >
                               <UserRoundX className="w-3.5 h-3.5" />
@@ -529,14 +525,14 @@ export default function EmployeesPage() {
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); openEdit(emp); }}
-                            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-cool-25 text-cool-400 hover:text-cool-700 transition-colors"
+                            className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors"
                             title="แก้ไข"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeletingEmployee(emp); }}
-                            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-300 hover:text-red-500 transition-colors"
+                            className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors"
                             title="ลบ"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -555,7 +551,7 @@ export default function EmployeesPage() {
       <Modal open={modal !== null} onClose={closeModal} title={title} size="xl">
         {modal && (
           <div className="space-y-4">
-            <div className="inline-flex rounded-lg border border-card-border bg-cool-25 p-0.5 max-w-full overflow-x-auto">
+            <div className="inline-flex rounded-control border border-card-border bg-paper-field p-0.5 max-w-full overflow-x-auto">
               {([
                 ["info", "ข้อมูลทั่วไป"],
                 ["job", "การจ้างงาน"],
@@ -566,7 +562,7 @@ export default function EmployeesPage() {
                   key={key}
                   type="button"
                   onClick={() => setModalTab(key)}
-                  className={`whitespace-nowrap px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${modalTab === key ? "bg-white text-cool-900 shadow-sm" : "text-cool-500 hover:text-cool-700"}`}
+                  className={`whitespace-nowrap px-3 py-1.5 text-label font-medium rounded-control transition-colors ${modalTab === key ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-700"}`}
                 >
                   {label}
                 </button>
@@ -595,7 +591,7 @@ export default function EmployeesPage() {
                     placeholder="0000000000000"
                     maxLength={13}
                   />
-                  <p className="mt-1 text-[11px] text-cool-400">เว้นว่างได้ — พนักงานที่ไม่มีเลขฯ จะถูกข้ามเมื่อซิงก์ภาษีหัก ณ ที่จ่าย</p>
+                  <p className="mt-1 text-label text-ink-400">เว้นว่างได้ — พนักงานที่ไม่มีเลขฯ จะถูกข้ามเมื่อซิงก์ภาษีหัก ณ ที่จ่าย</p>
                 </div>
                 <Input
                   label="ตำแหน่ง"
@@ -616,7 +612,7 @@ export default function EmployeesPage() {
                     onChange={(e) => updateField("address", e.target.value)}
                     placeholder="บ้านเลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"
                   />
-                  <p className="mt-1 text-[11px] text-cool-400">ใช้เป็นที่อยู่ผู้รับเงินบนใบรับรองหักภาษี ณ ที่จ่าย</p>
+                  <p className="mt-1 text-label text-ink-400">ใช้เป็นที่อยู่ผู้รับเงินบนใบรับรองหักภาษี ณ ที่จ่าย</p>
                 </div>
                 <Input
                   label="ธนาคาร"
@@ -688,13 +684,13 @@ export default function EmployeesPage() {
             {modalTab === "recurring" && (
               modal.mode === "edit"
                 ? <RecurringPanel employeeId={modal.form.id} />
-                : <p className="text-xs text-cool-400">บันทึกรายการพนักงานก่อน แล้วค่อยเพิ่มรายการประจำ (เช่น เงินกู้, ค่างวด) ในภายหลัง</p>
+                : <p className="text-label text-ink-400">บันทึกรายการพนักงานก่อน แล้วค่อยเพิ่มรายการประจำ (เช่น เงินกู้, ค่างวด) ในภายหลัง</p>
             )}
 
             {modalTab === "history" && (
               modal.mode === "edit"
                 ? <ActivityPanel entityType="employee" entityId={modal.form.id} />
-                : <p className="text-xs text-cool-400">ประวัติจะแสดงหลังจากบันทึกพนักงานแล้ว</p>
+                : <p className="text-label text-ink-400">ประวัติจะแสดงหลังจากบันทึกพนักงานแล้ว</p>
             )}
 
             <div className="sticky bottom-0 -mx-1 bg-white/95 backdrop-blur pt-2 pb-1">
@@ -714,12 +710,12 @@ export default function EmployeesPage() {
       <Modal open={offboardingEmployee !== null} onClose={() => setOffboardingEmployee(null)} title="จบการจ้างงาน">
         {offboardingEmployee && (
           <div className="space-y-4">
-            <p className="text-sm text-cool-600">
+            <p className="text-body text-ink-600">
               ยืนยันการจบการจ้างงาน <strong>{offboardingEmployee.full_name}</strong> (รหัส {offboardingEmployee.employee_code})
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+            <div className="bg-blue-50 border border-blue-200 rounded-control p-3 flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-blue-800">
+              <p className="text-label text-blue-800">
                 ข้อมูลในรอบเงินเดือนก่อนหน้าและสลิปเงินเดือนจะถูกเก็บไว้ตามเดิม พนักงานจะไม่แสดงในรอบเงินเดือนถัดไป
               </p>
             </div>
@@ -744,9 +740,9 @@ export default function EmployeesPage() {
       <Modal open={deletingEmployee !== null} onClose={() => setDeletingEmployee(null)} title="ลบพนักงาน">
         {deletingEmployee && (
           <div className="space-y-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+            <div className="bg-red-50 border border-red-200 rounded-control p-3 flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-800">
+              <p className="text-body text-red-800">
                 ต้องการลบพนักงาน <strong>{deletingEmployee.full_name}</strong> ทั้งหมด? การดำเนินการนี้ไม่สามารถย้อนกลับได้
               </p>
             </div>
@@ -785,31 +781,31 @@ function ActivityPanel({ entityType, entityId }: ActivityPanelProps) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <History className="w-4 h-4 text-cool-500" />
-        <span className="text-xs font-semibold text-cool-700">ประวัติการเปลี่ยนแปลง</span>
+        <History className="w-4 h-4 text-ink-500" />
+        <span className="text-label font-semibold text-ink-700">ประวัติการเปลี่ยนแปลง</span>
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-cool-400">
+        <div className="flex items-center gap-2 text-ink-400">
           <Spinner />
-          <span className="text-xs">กำลังโหลด...</span>
+          <span className="text-label">กำลังโหลด...</span>
         </div>
       ) : logs.length === 0 ? (
-        <div className="flex items-center gap-2 text-cool-400">
+        <div className="flex items-center gap-2 text-ink-400">
           <History className="w-4 h-4" />
-          <span className="text-xs">ไม่มีประวัติการเปลี่ยนแปลง</span>
+          <span className="text-label">ไม่มีประวัติการเปลี่ยนแปลง</span>
         </div>
       ) : (
         <div className="space-y-2 max-h-40 overflow-y-auto">
           {logs.map((log) => (
-            <div key={log.id} className="flex items-start gap-2 text-xs">
-              <span className="text-base leading-none">{getActionIcon(log.action)}</span>
+            <div key={log.id} className="flex items-start gap-2 text-label">
+              <span className="text-title leading-none">{getActionIcon(log.action)}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-cool-700">{getActionLabel(log.action)}</span>
-                  <span className="text-cool-400">{formatAuditDetail(log)}</span>
+                  <span className="font-medium text-ink-700">{getActionLabel(log.action)}</span>
+                  <span className="text-ink-400">{formatAuditDetail(log)}</span>
                 </div>
-                <div className="text-cool-400 text-[10px]">{formatAuditTime(log.created_at)}</div>
+                <div className="text-ink-400 text-label">{formatAuditTime(log.created_at)}</div>
               </div>
             </div>
           ))}
@@ -927,8 +923,8 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
     <div>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Repeat className="w-4 h-4 text-cool-500" />
-          <span className="text-xs font-semibold text-cool-700">รายการประจำ (เติมอัตโนมัติในรอบใหม่)</span>
+          <Repeat className="w-4 h-4 text-ink-500" />
+          <span className="text-label font-semibold text-ink-700">รายการประจำ (เติมอัตโนมัติในรอบใหม่)</span>
         </div>
         <Button size="sm" variant="ghost" onClick={addItem} disabled={busy} className="!px-2 !py-1 !h-7">
           <Plus className="w-3 h-3" /> เพิ่ม
@@ -936,22 +932,22 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-cool-400">
+        <div className="flex items-center gap-2 text-ink-400">
           <Spinner />
-          <span className="text-xs">กำลังโหลด...</span>
+          <span className="text-label">กำลังโหลด...</span>
         </div>
       ) : schemaMissing ? (
-        <p className="text-xs text-amber-600 flex items-start gap-1">
+        <p className="text-label text-amber-600 flex items-start gap-1">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           ฟีเจอร์นี้ต้องอัปเดตฐานข้อมูลก่อน (migration: payroll_recurring_items)
         </p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-cool-400">
+        <p className="text-label text-ink-400">
           เช่น ค่างวดรถ/บ้าน, เงินกู้สหกรณ์, ค่าอาหาร — รายการจะถูกเติมให้พนักงานคนนี้อัตโนมัติในทุกรอบใหม่
         </p>
       ) : (
         <div className="space-y-2">
-          <div className="grid grid-cols-[92px_1fr_96px_46px_32px] gap-2 text-[10px] text-cool-400 font-medium px-1">
+          <div className="grid grid-cols-[92px_1fr_96px_46px_32px] gap-2 text-label text-ink-400 font-medium px-1">
             <span>ประเภท</span>
             <span>รายการ</span>
             <span className="text-right">จำนวน (฿)</span>
@@ -963,7 +959,7 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
               <Select
                 value={item.direction}
                 onChange={(e) => patchItem(item.id, { direction: e.target.value as "addition" | "deduction" })}
-                className="!h-8 !text-[11px]"
+                className="!h-8 !text-label"
                 disabled={busy}
               >
                 <option value="addition">เงินเพิ่ม</option>
@@ -973,7 +969,7 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
                 value={item.label}
                 onChange={(e) => patchItem(item.id, { label: e.target.value })}
                 placeholder="เช่น เงินกู้ยืมสหกรณ์"
-                className="!h-8 !text-[11px]"
+                className="!h-8 !text-label"
                 disabled={busy}
               />
               <Input
@@ -982,13 +978,13 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
                 value={item.amount ?? ""}
                 onChange={(e) => patchItem(item.id, { amount: parseFloat(e.target.value) || 0 })}
                 placeholder="฿"
-                className="!h-8 !text-[11px] text-right"
+                className="!h-8 !text-label text-right"
                 disabled={busy}
               />
               <button
                 onClick={() => patchItem(item.id, { active: !item.active })}
                 aria-label={item.active ? "ปิดการใช้งาน" : "เปิดการใช้งาน"}
-                className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${item.active ? "bg-green-50 text-green-600 hover:bg-green-100" : "bg-cool-25 text-cool-300 hover:text-cool-500"}`}
+                className={`w-7 h-7 flex items-center justify-center rounded-control transition-colors ${item.active ? "bg-green-50 text-green-600 hover:bg-green-100" : "bg-paper-field text-ink-300 hover:text-ink-500"}`}
                 title={item.active ? "กำลังใช้งาน" : "ปิดไว้"}
               >
                 {item.active ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
@@ -996,7 +992,7 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
               <button
                 onClick={() => removeItem(item.id)}
                 disabled={busy}
-                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-400 hover:text-red-500 transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
                 aria-label="ลบรายการ"
               >
                 <Trash2 className="w-3.5 h-3.5" />

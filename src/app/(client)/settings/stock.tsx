@@ -55,35 +55,35 @@ export default function SettingsStockPage() {
 
         <SectionCard title="การตัดสต็อก" description="เลือกจุดที่ระบบตัดสต็อกสินค้าอัตโนมัติ">
           <div className="space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-[#E8E6DF] p-3 has-[:checked]:border-[#378ADD] has-[:checked]:bg-[#EEF6FF]/50">
+            <label className="flex items-start gap-3 cursor-pointer rounded-control border border-card-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary-soft/50">
               <input
                 type="radio"
                 name="stockTrigger"
                 value="invoice"
                 checked={trigger === "invoice"}
                 onChange={() => setTrigger("invoice")}
-                className="mt-0.5 w-4 h-4 text-[#378ADD] border-[#E8E6DF] focus:ring-[#378ADD]"
+                className="mt-0.5 w-4 h-4 text-primary border-card-border focus:ring-primary"
               />
               <div>
-                <div className="text-[14px] text-[#1A1A18]">ส่งใบแจ้งหนี้</div>
-                <div className="text-[12px] text-[#888780] mt-0.5">
+                <div className="text-body text-ink-900">ส่งใบแจ้งหนี้</div>
+                <div className="text-label text-ink-300 mt-0.5">
                   ระบบตัดสต็อกทันทีที่ยืนยันว่าส่งใบแจ้งหนี้แล้ว
                 </div>
               </div>
             </label>
 
-            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-[#E8E6DF] p-3 has-[:checked]:border-[#378ADD] has-[:checked]:bg-[#EEF6FF]/50">
+            <label className="flex items-start gap-3 cursor-pointer rounded-control border border-card-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary-soft/50">
               <input
                 type="radio"
                 name="stockTrigger"
                 value="delivery_note"
                 checked={trigger === "delivery_note"}
                 onChange={() => setTrigger("delivery_note")}
-                className="mt-0.5 w-4 h-4 text-[#378ADD] border-[#E8E6DF] focus:ring-[#378ADD]"
+                className="mt-0.5 w-4 h-4 text-primary border-card-border focus:ring-primary"
               />
               <div>
-                <div className="text-[14px] text-[#1A1A18]">ออกใบส่งของ</div>
-                <div className="text-[12px] text-[#888780] mt-0.5">
+                <div className="text-body text-ink-900">ออกใบส่งของ</div>
+                <div className="text-label text-ink-300 mt-0.5">
                   ระบบตัดสต็อกเมื่อส่งใบส่งของ เหมาะสำหรับธุรกิจที่เบิกสินค้าออกจากคลังก่อน
                 </div>
               </div>
@@ -92,13 +92,13 @@ export default function SettingsStockPage() {
         </SectionCard>
 
         <div className="sticky bottom-3 z-10">
-          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
             <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-xs">
+              <div className="min-w-0 flex-1 text-label">
                 {error ? (
                   <span className="text-red-500">{error}</span>
                 ) : (
-                  <span className="text-gray-400">เลือกจุดตัดสต็อกแล้วกดบันทึก</span>
+                  <span className="text-ink-400">เลือกจุดตัดสต็อกแล้วกดบันทึก</span>
                 )}
               </div>
               <Button onClick={handleSave} disabled={saving} className="shrink-0">

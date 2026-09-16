@@ -79,22 +79,14 @@ export function PriceHistorySheet({
           <button
             type="button"
             onClick={() => setFilter("customer")}
-            className={`flex-1 rounded-lg border px-3 py-2 text-xs transition-colors ${
-              filter === "customer"
-                ? "border-[#378ADD] bg-[#EEF6FF] font-medium text-[#1A56DB]"
-                : "border-[#E8E6DF] bg-white text-[#5F5B54]"
-            }`}
+            className={`flex-1 rounded-control border px-3 py-2 text-label transition-colors ${ filter === "customer" ? "border-primary bg-primary-soft font-medium text-primary-deep" : "border-card-border bg-white text-ink-600" }`}
           >
             ลูกค้านี้{customerName ? ` · ${customerName}` : ""}
           </button>
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`flex-1 rounded-lg border px-3 py-2 text-xs transition-colors ${
-              filter === "all"
-                ? "border-[#378ADD] bg-[#EEF6FF] font-medium text-[#1A56DB]"
-                : "border-[#E8E6DF] bg-white text-[#5F5B54]"
-            }`}
+            className={`flex-1 rounded-control border px-3 py-2 text-label transition-colors ${ filter === "all" ? "border-primary bg-primary-soft font-medium text-primary-deep" : "border-card-border bg-white text-ink-600" }`}
           >
             ลูกค้าทั้งหมด
           </button>
@@ -102,7 +94,7 @@ export function PriceHistorySheet({
       )}
 
       {loading ? (
-        <div className="divide-y divide-[#F0EEE8]" role="status" aria-label="กำลังโหลดประวัติราคา">
+        <div className="divide-y divide-line-faint" role="status" aria-label="กำลังโหลดประวัติราคา">
           {[0, 1, 2].map((row) => (
             <div key={row} className="flex items-center justify-between gap-3 py-3" aria-hidden="true">
               <div className="min-w-0 flex-1 space-y-1.5">
@@ -114,16 +106,16 @@ export function PriceHistorySheet({
           ))}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</div>
+        <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2.5 text-label text-red-700">{error}</div>
       ) : rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[#E8E6DF] bg-[#FBFAF7] px-3 py-6 text-center text-xs text-[#888780]">
+        <div className="rounded-control border border-dashed border-card-border bg-paper-tint px-3 py-6 text-center text-label text-ink-300">
           {filter === "customer" ? (
             <>
               <div>ลูกค้านี้ยังไม่เคยซื้อรายการนี้</div>
               <button
                 type="button"
                 onClick={() => setFilter("all")}
-                className="mt-2 text-xs font-medium text-[#378ADD] hover:underline"
+                className="mt-2 text-label font-medium text-primary hover:underline"
               >
                 ดูราคาลูกค้าอื่นแทน
               </button>
@@ -133,7 +125,7 @@ export function PriceHistorySheet({
           )}
         </div>
       ) : (
-        <div className="divide-y divide-[#F0EEE8]">
+        <div className="divide-y divide-line-faint">
           {rows.map((row, idx) => (
             <div
               key={`${row.createdAt}-${idx}`}
@@ -141,7 +133,7 @@ export function PriceHistorySheet({
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="rounded bg-[#F1EFE8] px-1.5 py-0.5 text-[10px] font-medium text-[#5F5B54]">
+                  <span className="rounded bg-draft-bg px-1.5 py-0.5 text-label font-medium text-ink-600">
                     {priceHistoryDocTypeLabel(row.docType)}
                   </span>
                   {row.docNumber &&
@@ -152,15 +144,15 @@ export function PriceHistorySheet({
                         rel="noopener noreferrer"
                         aria-label={`เปิดงานขายของ ${row.docNumber} ในแท็บใหม่`}
                         title="เปิดงานขายในแท็บใหม่"
-                        className="truncate text-[11px] font-medium text-[#378ADD] hover:underline"
+                        className="truncate text-label font-medium text-primary hover:underline"
                       >
                         {row.docNumber} ↗
                       </a>
                     ) : (
-                      <span className="truncate text-[11px] text-gray-500">{row.docNumber}</span>
+                      <span className="truncate text-label text-ink-500">{row.docNumber}</span>
                     ))}
                 </div>
-                <div className="mt-0.5 truncate text-[11px] text-gray-500">
+                <div className="mt-0.5 truncate text-label text-ink-500">
                   {formatDate(row)}
                   {row.customerName ? ` · ${row.customerName}` : ""}
                   {` · ${row.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${row.unit}`}
@@ -168,13 +160,13 @@ export function PriceHistorySheet({
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-sm font-semibold tabular-nums text-ink-900">
+                <div className="text-body font-semibold tabular-nums text-ink-900">
                   ฿{formatPrice(row.unitPrice)}
                 </div>
                 <button
                   type="button"
                   onClick={() => onApply(row.unitPrice)}
-                  className="mt-1 rounded-lg bg-[#378ADD] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[#2B70B8]"
+                  className="mt-1 rounded-control bg-primary px-2.5 py-1 text-label font-medium text-white transition-colors hover:bg-primary-deep"
                 >
                   ใช้ราคานี้
                 </button>
@@ -183,7 +175,7 @@ export function PriceHistorySheet({
           ))}
         </div>
       )}
-      <p className="mt-3 text-center text-[11px] text-gray-400">แตะ “ใช้ราคานี้” เพื่อใส่ราคาในบรรทัดนี้ · แตะเลขที่เอกสารเพื่อเปิดงานขายในแท็บใหม่</p>
+      <p className="mt-3 text-center text-label text-ink-400">แตะ “ใช้ราคานี้” เพื่อใส่ราคาในบรรทัดนี้ · แตะเลขที่เอกสารเพื่อเปิดงานขายในแท็บใหม่</p>
     </Modal>
   );
 }

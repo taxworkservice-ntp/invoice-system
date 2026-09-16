@@ -39,7 +39,7 @@ const SLIP_CSS = `
   .meta div span { display: block; color: #6b6b6b; font-size: 10px; }
   .meta div { font-weight: 500; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 20px; }
-  h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e8e6df; padding-bottom: 6px; margin: 0 0 8px; color: #444; }
+  h3 { font-size: 11px; text-transform: ; letter-spacing: 0.05em; border-bottom: 1px solid #e8e6df; padding-bottom: 6px; margin: 0 0 8px; color: #444; }
   .line { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
   .total-line { display: flex; justify-content: space-between; border-top: 1px solid #e8e6df; padding-top: 6px; margin-top: 6px; font-weight: 600; }
   .net { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px solid #1a1a18; padding-top: 10px; margin-top: 12px; }

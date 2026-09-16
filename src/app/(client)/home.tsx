@@ -150,28 +150,28 @@ const QUEUE_COLORS: Record<
   { bg: string; text: string; dot: string }
 > = {
   wait_send: {
-    bg: "bg-[#FFF8EB]",
-    text: "text-[#8B6914]",
+    bg: "bg-warning-soft",
+    text: "text-warning-text",
     dot: "bg-amber-500",
   },
   wait_invoice: {
-    bg: "bg-[#F5F0FF]",
-    text: "text-[#5B21B6]",
+    bg: "bg-primary-soft",
+    text: "text-primary-deep",
     dot: "bg-violet-500",
   },
   wait_collect: {
-    bg: "bg-[#ECFDF5]",
-    text: "text-[#065F46]",
+    bg: "bg-success-soft",
+    text: "text-success-text",
     dot: "bg-emerald-500",
   },
   partial: {
-    bg: "bg-[#FFF8EB]",
-    text: "text-[#B45309]",
+    bg: "bg-warning-soft",
+    text: "text-warning-text",
     dot: "bg-amber-600",
   },
-  overdue: { bg: "bg-[#FEF2F2]", text: "text-[#C0392B]", dot: "bg-[#C0392B]" },
-  progress: { bg: "bg-[#EEF6FF]", text: "text-[#0C447C]", dot: "bg-primary" },
-  done: { bg: "bg-gray-100", text: "text-gray-500", dot: "bg-gray-400" },
+  overdue: { bg: "bg-danger-soft", text: "text-danger", dot: "bg-danger" },
+  progress: { bg: "bg-primary-soft", text: "text-primary-deep", dot: "bg-primary" },
+  done: { bg: "bg-ink-50", text: "text-ink-500", dot: "bg-ink-200" },
 };
 
 function isResolvedStatus(status: Document["status"]) {
@@ -1072,7 +1072,7 @@ export default function HomePage() {
   );
   const visibleSortedActiveDeals = useMemo(
     () => dealSort.sorted.slice(0, activeVisibleCount),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [dealSort.sorted, activeVisibleCount],
   );
 
@@ -1232,17 +1232,17 @@ export default function HomePage() {
       <AppShell title="หน้างานขาย" wide>
         <div className="space-y-4">
           <div className="space-y-1 px-1">
-            <Skeleton className="h-5 w-40 rounded-md" />
-            <Skeleton className="h-4 w-48 rounded-md" />
+            <Skeleton className="h-5 w-40 rounded-control" />
+            <Skeleton className="h-4 w-48 rounded-control" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             {Array.from({ length: 3 }).map((_, index) => (
               <div
                 key={index}
-                className="rounded-card border border-card-border bg-white p-3 shadow-sm"
+                className="rounded-card border border-card-border bg-white p-3"
               >
-                <Skeleton className="mb-2 h-5 w-16 rounded-md" />
-                <Skeleton className="h-3 w-14 rounded-md" />
+                <Skeleton className="mb-2 h-5 w-16 rounded-control" />
+                <Skeleton className="h-3 w-14 rounded-control" />
               </div>
             ))}
           </div>
@@ -1250,7 +1250,7 @@ export default function HomePage() {
             {Array.from({
               length: viewMode === "grid" ? 6 : viewMode === "table" ? 5 : 3,
             }).map((_, index) => (
-              <Skeleton key={index} className="h-20 rounded-xl bg-[#F1EFE8]" />
+              <Skeleton key={index} className="h-20 rounded-card bg-draft-bg" />
             ))}
           </div>
         </div>
@@ -1275,7 +1275,7 @@ export default function HomePage() {
                 : 0,
           }}
         >
-          <div className="flex h-10 items-center justify-center text-gray-500">
+          <div className="flex h-10 items-center justify-center text-ink-500">
             <RefreshCw
               className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
             />
@@ -1306,11 +1306,11 @@ export default function HomePage() {
 
         {error ? (
           <Card className="py-10 text-center">
-            <div className="text-sm font-medium text-gray-700">
+            <div className="text-body font-medium text-ink-700">
               โหลดข้อมูลไม่สำเร็จ
             </div>
             <button
-              className="mt-3 text-sm text-primary hover:underline"
+              className="mt-3 text-body text-primary hover:underline"
               onClick={() => fetchDashboard()}
             >
               ลองใหม่
@@ -1335,13 +1335,13 @@ export default function HomePage() {
 
             {deals.length > 3 && (
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
                 <input
                   type="text"
                   placeholder="ค้นหาตามชื่อลูกค้า เลขที่ หรือรหัส..."
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setDonePage(1); }}
-                  className="w-full rounded-lg border border-[#E8E6DF] bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-control border border-card-border bg-white pl-9 pr-3 py-2 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             )}
@@ -1350,14 +1350,14 @@ export default function HomePage() {
               <div className="mb-3 space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-primary" />
-                  <div className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">
+                  <div className="text-label font-semibold text-ink-500">
                     {homeFilter === "all"
                       ? "กำลังดำเนินการ"
                       : quickFilters.find(
                           (filter) => filter.value === homeFilter,
                         )?.label}
                   </div>
-                  <div className="ml-auto text-[11px] text-gray-400">
+                  <div className="ml-auto text-label text-ink-400">
                     {activeDeals.length} รายการ
                   </div>
                 </div>
@@ -1367,14 +1367,10 @@ export default function HomePage() {
                       key={filter.value}
                       type="button"
                       onClick={() => setHomeFilter(filter.value)}
-                      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        homeFilter === filter.value
-                          ? "border-primary bg-blue-50 text-primary"
-                          : "border-card-border bg-white text-gray-500 hover:bg-gray-50"
-                      }`}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${ homeFilter === filter.value ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field" }`}
                     >
                       {filter.label}
-                      <span className="ml-1 text-[10px] opacity-70">
+                      <span className="ml-1 text-label opacity-70">
                         {filter.count}
                       </span>
                     </button>
@@ -1398,7 +1394,7 @@ export default function HomePage() {
                     return (
                       <Card
                         key={deal.dealId}
-                        className={`rounded-xl border-[0.5px] p-3.5 shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-2.5 min-h-[130px] ${deal.isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
+                        className={`rounded-card border-[0.5px] p-3.5 cursor-pointer flex flex-col gap-2.5 min-h-[130px] ${deal.isOverdue ? "border-l-4 border-l-danger" : ""}`}
                         onClick={() => navigate(`/deals/${deal.dealId}`)}
                         onMouseEnter={() => preloadDealDetail(supabase, deal.dealId)}
                       >
@@ -1410,30 +1406,30 @@ export default function HomePage() {
                               className="mt-0.5"
                             />
                             <div className="min-w-0">
-                              <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
+                              <div className="text-body font-semibold text-ink-900 line-clamp-2 leading-tight">
                                 {deal.customerName}
                               </div>
-                              <div className="mt-0.5 text-[10px] text-[#888780] tabular-nums">
+                              <div className="mt-0.5 text-label text-ink-300 tabular-nums">
                                 แก้ไข {formatBuddhistDateTime(deal.updatedAt)}
                               </div>
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-[13px] font-semibold text-[#1A1A18]">
+                            <div className="text-body font-semibold text-ink-900">
                               ฿ {formatCurrency(deal.netPayable)}
                             </div>
                             <span
-                              className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}
+                              className={`mt-1 inline-flex rounded-control px-2 py-0.5 text-label font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}
                             >
                               {deal.stageLabel}
                             </span>
                             {deal.docTypeLabel && (
-                              <div className="mt-1 text-[10px] text-[#888780]">{deal.docTypeLabel}</div>
+                              <div className="mt-1 text-label text-ink-300">{deal.docTypeLabel}</div>
                             )}
                           </div>
                         </div>
                         {deal.internalNote ? (
-                          <div className="mt-auto pt-2 border-t border-[#F0EFE9] text-[11px] text-[#888780] leading-4">
+                          <div className="mt-auto pt-2 border-t border-line-faint text-label text-ink-300 leading-4">
                             {deal.internalNote}
                           </div>
                         ) : null}
@@ -1458,7 +1454,7 @@ export default function HomePage() {
                             onClick={() => dealSort.handleSort("customerName")}
                             className={TABLE.thSortable}
                           />
-                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500 whitespace-nowrap">เอกสารล่าสุด</th>
+                          <th className="px-3 py-2 text-left text-label font-medium text-ink-500 whitespace-nowrap">เอกสารล่าสุด</th>
                           <SortableTh
                             label="สถานะ"
                             align="left"
@@ -1522,15 +1518,15 @@ export default function HomePage() {
                               className={TABLE.tbodyTr}
                             >
                                <td className="px-3 py-2">
-                                  <div className="text-[10px] text-[#111827] font-medium whitespace-nowrap">
+                                  <div className="text-label text-ink-900 font-medium whitespace-nowrap">
                                    {deal.dealNumber || "-"}
                                  </div>
                                  {deal.taxDocNumber ? (
-                                   <div className="text-[10px] text-[#888780] mt-0.5 whitespace-nowrap">
+                                   <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
                                      {deal.taxDocNumber}
                                    </div>
                                  ) : (
-                                   <div className="text-[10px] text-[#AAAAAA] italic mt-0.5 whitespace-nowrap">
+                                   <div className="text-label text-ink-200 italic mt-0.5 whitespace-nowrap">
                                      ยังไม่มีใบกำกับภาษี
                                    </div>
                                  )}
@@ -1541,25 +1537,25 @@ export default function HomePage() {
                                      customer={rowAvatar}
                                      size="sm"
                                    />
-                                    <span className="text-[#111827] truncate">
+                                    <span className="text-ink-900 truncate">
                                      {deal.customerName}
                                    </span>
                                  </div>
                                </td>
-                               <td className="px-3 py-2 text-[#475467] max-w-[130px] truncate">
-                                 {deal.latestDocument?.doc_number || <span className="text-[#AAAAAA] italic">—</span>}
+                               <td className="px-3 py-2 text-ink-500 max-w-[130px] truncate">
+                                 {deal.latestDocument?.doc_number || <span className="text-ink-200 italic">—</span>}
                                </td>
                                 <td className="px-3 py-2 whitespace-nowrap">
                                  <div className="flex items-center gap-1.5">
                                   <span
                                     className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`}
                                   />
-                                  <span className="text-[12px] text-[#475467]">
+                                  <span className="text-label text-ink-500">
                                     {deal.stageLabel}
                                   </span>
                                 </div>
                                 {deal.docTypeLabel && (
-                                  <div className="mt-0.5 text-[10px] text-[#888780]">
+                                  <div className="mt-0.5 text-label text-ink-300">
                                     {deal.docTypeLabel}
                                   </div>
                                 )}
@@ -1567,7 +1563,7 @@ export default function HomePage() {
                               <td className={TABLE.tdDimmed}>
                                 <div className="tabular-nums leading-tight">
                                   <div>{updatedAtParts.date}</div>
-                                  <div className="text-[10px]">เวลา {updatedAtParts.time}</div>
+                                  <div className="text-label">เวลา {updatedAtParts.time}</div>
                                 </div>
                               </td>
                               <td
@@ -1582,27 +1578,27 @@ export default function HomePage() {
                               <td
                                 className="px-3 py-2 text-right hidden md:table-cell"
                               >
-                                <span className="text-[#475467] min-w-[100px] inline-block text-right">
+                                <span className="text-ink-500 min-w-[100px] inline-block text-right">
                                   ฿ {formatCurrency(deal.grossAmount)}
                                   {deal.isPartiallyPaid && deal.partialReceived > 0 && (
-                                    <div className="text-[10px] text-amber-700 font-medium leading-tight">
+                                    <div className="text-label text-amber-700 font-medium leading-tight">
                                       รับแล้ว ฿{formatCurrency(deal.partialReceived)}
                                     </div>
                                   )}
                                 </span>
                               </td>
                               <td className="hidden px-3 py-2 text-right lg:table-cell">
-                                <span className={`inline-block min-w-[100px] text-right ${deal.expectedWhtAmount > 0 ? "text-[#C0392B]" : "text-[#98A2B3]"}`}>
+                                <span className={`inline-block min-w-[100px] text-right ${deal.expectedWhtAmount > 0 ? "text-danger" : "text-ink-300"}`}>
                                   ฿ {formatCurrency(deal.expectedWhtAmount)}
                                   {deal.whtAmount > 0 && deal.whtAmount !== deal.expectedWhtAmount && (
-                                    <span className="block text-[10px] font-medium text-amber-700">
+                                    <span className="block text-label font-medium text-amber-700">
                                       สะสม ฿{formatCurrency(deal.whtAmount)}
                                     </span>
                                   )}
                                 </span>
                               </td>
                                <td className="px-3 py-2 text-right">
-                                <span className="text-[#111827] min-w-[100px] inline-block text-right">
+                                <span className="text-ink-900 min-w-[100px] inline-block text-right">
                                   ฿ {formatCurrency(deal.netPayable)}
                                 </span>
                               </td>
@@ -1652,7 +1648,7 @@ export default function HomePage() {
                     onClick={() =>
                       setActiveVisibleCount((c) => c + ACTIVE_PAGE_SIZE)
                     }
-                    className="rounded-lg border border-[#E8E6DF] bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    className="rounded-control border border-card-border bg-white px-4 py-2 text-label font-medium text-ink-600 hover:bg-paper-field"
                   >
                     แสดงเพิ่มเติม ({activeDeals.length - activeVisibleCount} รายการ)
                   </button>
@@ -1667,16 +1663,16 @@ export default function HomePage() {
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                      <div className="text-xs font-semibold uppercase tracking-[0.05em] text-emerald-700">
+                      <div className="text-label font-semibold text-emerald-700">
                         เสร็จสิ้นล่าสุด
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-gray-400">
+                      <span className="text-label text-ink-400">
                         {recentlyDone.length} รายการ
                       </span>
                       <button
-                        className="text-[11px] text-gray-400 hover:text-gray-600"
+                        className="text-label text-ink-400 hover:text-ink-600"
                         onClick={() => navigate("/documents?preset=paid")}
                       >
                         ดูเอกสารที่ชำระแล้ว
@@ -1684,27 +1680,27 @@ export default function HomePage() {
                     </div>
                   </div>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] text-gray-500">เรียงตาม</span>
+                    <span className="text-label text-ink-500">เรียงตาม</span>
                     <select
                       value={doneSort}
                       onChange={(e) => {
                         setDoneSort(e.target.value as "updatedAt" | "paidAt");
                         setDonePage(1);
                       }}
-                      className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="updatedAt">แก้ไขล่าสุด</option>
                       <option value="paidAt">วันที่ชำระ</option>
                     </select>
 
-                    <span className="text-[11px] text-gray-500">ปี</span>
+                    <span className="text-label text-ink-500">ปี</span>
                     <select
                       value={doneYear}
                       onChange={(e) => {
                         setDoneYear(e.target.value);
                         setDonePage(1);
                       }}
-                      className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="all">ทุกปี</option>
                       {doneYearOptions.map((y) => (
@@ -1714,14 +1710,14 @@ export default function HomePage() {
                       ))}
                     </select>
 
-                    <span className="text-[11px] text-gray-500">เดือน</span>
+                    <span className="text-label text-ink-500">เดือน</span>
                     <select
                       value={doneMonth}
                       onChange={(e) => {
                         setDoneMonth(e.target.value);
                         setDonePage(1);
                       }}
-                      className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="all">ทุกเดือน</option>
                       {DONE_MONTH_OPTIONS.map((m) => (
@@ -1731,7 +1727,7 @@ export default function HomePage() {
                       ))}
                     </select>
                     <label
-                      className="ml-1 flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-gray-500"
+                      className="ml-1 flex cursor-pointer select-none items-center gap-1.5 text-label text-ink-500"
                       title="ซ่อนทุกงานที่เอกสารถูกรวมออกบิลไปยังงานขายอื่น (ใบแจ้งหนี้หรือใบวางบิล) เหลือเฉพาะงานที่ปิดจบภายในตัวเอง"
                     >
                       <input
@@ -1741,7 +1737,7 @@ export default function HomePage() {
                           setHideCombinedDone(e.target.checked);
                           setDonePage(1);
                         }}
-                        className="h-3.5 w-3.5 rounded border-[#E8E6DF] text-primary focus:ring-primary/30"
+                        className="h-3.5 w-3.5 rounded border-card-border text-primary focus:ring-primary/30"
                       />
                       ซ่อนงานที่ถูกรวมออกบิล
                     </label>
@@ -1749,7 +1745,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={clearDoneFilters}
-                        className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
+                        className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label text-ink-500 hover:bg-paper-field"
                       >
                         ล้างตัวกรอง
                       </button>
@@ -1788,11 +1784,11 @@ export default function HomePage() {
                                 className={TABLE.tbodyTr}
                               >
                                  <td className="px-3 py-2">
-                                     <div className="text-[10px] font-mono tabular-nums text-green-500 whitespace-nowrap">
+                                     <div className="text-label font-mono tabular-nums text-green-500 whitespace-nowrap">
                                        {deal.dealNumber || "-"}
                                      </div>
                                     {deal.taxDocNumber && (
-                                      <div className="text-[10px] text-[#888780] mt-0.5 whitespace-nowrap">
+                                      <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
                                         {deal.taxDocNumber}
                                       </div>
                                     )}
@@ -1801,46 +1797,46 @@ export default function HomePage() {
                                   <div className="flex items-center gap-2 min-w-0">
                                     <CustomerAvatar customer={rowAvatar} size="sm" />
                                     <div className="min-w-0">
-                                         <div className="truncate text-[#111827]">
+                                         <div className="truncate text-ink-900">
                                         {deal.customerName}
                                       </div>
                                       {deal.customerCode && (
-                                        <div className="text-[10px] font-mono text-primary">{deal.customerCode}</div>
+                                        <div className="text-label font-mono text-primary">{deal.customerCode}</div>
                                       )}
                                     </div>
                                   </div>
                                 </td>
-                                 <td className="px-3 py-2 text-[#475467] whitespace-nowrap font-mono text-[11px]">
+                                 <td className="px-3 py-2 text-ink-500 whitespace-nowrap font-mono text-label">
                                    {deal.completedDocNumber ? (
                                      <>
                                        <div>{deal.completedDocNumber}</div>
                                        {deal.receiptCount > 1 && (
-                                         <div className="mt-0.5 font-sans text-[10px] text-[#667085]">
+                                         <div className="mt-0.5 font-sans text-label text-ink-400">
                                            +{deal.receiptCount - 1} ใบเสร็จ
                                          </div>
                                        )}
                                      </>
                                    ) : (
-                                     <span className="text-[#AAAAAA] italic font-sans">—</span>
+                                     <span className="text-ink-200 italic font-sans">—</span>
                                    )}
                                  </td>
                                 <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
                                   {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
                                 </td>
-                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-[11px]`}>
+                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-label`}>
                                   {deal.updatedAt
                                     ? `${formatBuddhistDate(deal.updatedAt)} · ${formatBangkokTime(deal.updatedAt)} น.`
                                     : "-"}
                                 </td>
-                                  <td className="px-3 py-2 text-right whitespace-nowrap text-[#111827]">
+                                  <td className="px-3 py-2 text-right whitespace-nowrap text-ink-900">
                                     ฿ {formatCurrency(deal.grossAmount)}
                                  </td>
                                  <td className="px-3 py-2 text-right whitespace-nowrap">
-                                   <span className={deal.whtAmount > 0 ? "text-[#C0392B]" : "text-[#98A2B3]"}>
+                                   <span className={deal.whtAmount > 0 ? "text-danger" : "text-ink-300"}>
                                      ฿ {formatCurrency(deal.whtAmount)}
                                    </span>
                                  </td>
-                                 <td className="px-3 py-2 text-right whitespace-nowrap text-[#111827]">
+                                 <td className="px-3 py-2 text-right whitespace-nowrap text-ink-900">
                                    ฿ {formatCurrency(deal.netPayable)}
                                  </td>
                                 <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px]`}>
@@ -1852,7 +1848,7 @@ export default function HomePage() {
                                 </td>
                                 <td className="px-3 py-2">
                                   {deal.isAllVoided ? (
-                                    <span className="inline-flex rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-500">
+                                    <span className="inline-flex rounded-control bg-ink-50 px-2 py-0.5 text-label font-semibold text-ink-500">
                                       ยกเลิก
                                     </span>
                                   ) : (
@@ -1861,7 +1857,7 @@ export default function HomePage() {
                                         {getDoneDocBadges(deal.documents).map((docType) => (
                                           <span
                                             key={docType}
-                                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
+                                            className={`rounded-control px-1.5 py-0.5 text-label font-semibold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
                                             title={DOC_TYPE_LABELS[docType]?.th || docType}
                                           >
                                             {DOC_TYPE_SHORT[docType] || docType.slice(0, 3).toUpperCase()}
@@ -1875,11 +1871,7 @@ export default function HomePage() {
                                             e.stopPropagation();
                                             navigate(`/deals/${deal.billedIn!.dealId}`);
                                           }}
-                                          className={`inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${
-                                            invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid"
-                                              ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
-                                              : "border-amber-200 bg-amber-50 hover:bg-amber-100"
-                                          }`}
+                                          className={`inline-flex max-w-full items-center gap-1 rounded-control border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${ invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 hover:bg-amber-100" }`}
                                           title={
                                             deal.billedIn.kind === "billing_note"
                                               ? `งานนี้ถูกวางบิลในใบวางบิลของงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
@@ -1887,20 +1879,12 @@ export default function HomePage() {
                                           }
                                         >
                                           <span
-                                            className={`truncate text-[10px] font-semibold leading-4 ${
-                                              invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid"
-                                                ? "text-emerald-700"
-                                                : "text-amber-700"
-                                            }`}
+                                            className={`truncate text-label font-semibold leading-4 ${ invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-emerald-700" : "text-amber-700" }`}
                                           >
                                             {deal.billedIn.kind === "billing_note" ? "วางบิลใน" : "ออกบิลใน"} {deal.billedIn.dealNumber || "—"}
                                           </span>
                                           <span
-                                            className={`shrink-0 text-[10px] leading-4 ${
-                                              invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid"
-                                                ? "text-emerald-600"
-                                                : "text-amber-600"
-                                            }`}
+                                            className={`shrink-0 text-label leading-4 ${ invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-emerald-600" : "text-amber-600" }`}
                                           >
                                             · {invoicePaymentLabel(deal.billedIn.invoiceStatus)}
                                           </span>
@@ -1919,7 +1903,7 @@ export default function HomePage() {
                   {totalDonePages > 1 && (
                     <div className="flex items-center justify-center gap-1 mt-3">
                       <button
-                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                        className="px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30"
                         disabled={donePage === 1}
                         onClick={() => setDonePage((p) => Math.max(1, p - 1))}
                       >
@@ -1939,15 +1923,11 @@ export default function HomePage() {
                         }, [])
                         .map((p, i) =>
                           p === "..." ? (
-                            <span key={`dots-${i}`} className="px-1 text-xs text-gray-300">…</span>
+                            <span key={`dots-${i}`} className="px-1 text-label text-ink-300">…</span>
                           ) : (
                             <button
                               key={p}
-                              className={`min-w-9 px-1 py-1.5 text-xs rounded ${
-                                donePage === p
-                                  ? "bg-primary text-white font-medium"
-                                  : "text-gray-500 hover:bg-gray-100"
-                              }`}
+                              className={`min-w-9 px-1 py-1.5 text-label rounded ${ donePage === p ? "bg-primary text-white font-medium" : "text-ink-500 hover:bg-ink-50" }`}
                               onClick={() => setDonePage(p)}
                             >
                               {p}
@@ -1955,7 +1935,7 @@ export default function HomePage() {
                           ),
                         )}
                       <button
-                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                        className="px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30"
                         disabled={donePage === totalDonePages}
                         onClick={() => setDonePage((p) => Math.min(totalDonePages, p + 1))}
                       >

@@ -44,8 +44,8 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 // Sticky cell layers inside the table's own scroll viewport
-const TH_STICKY = "sticky top-0 z-10 bg-cool-50";
-const TF_STICKY = "sticky bottom-0 z-10 bg-cool-25";
+const TH_STICKY = "sticky top-0 z-10 bg-paper-field";
+const TF_STICKY = "sticky bottom-0 z-10 bg-paper-field";
 
 // Remember the last working period per user so back-dated payroll work survives navigation/reload
 function periodStorageKey(userId: string | null): string {
@@ -1382,7 +1382,7 @@ export default function PayrollPage() {
       ]}
       action={
         <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => navigate("/payroll/employees")} className="!rounded-lg">
+          <Button size="sm" variant="secondary" onClick={() => navigate("/payroll/employees")} className="!rounded-control">
             <Users className="w-4 h-4" />
             <span className="hidden sm:inline">พนักงาน</span>
           </Button>
@@ -1408,7 +1408,7 @@ export default function PayrollPage() {
               setWhtPickIds(defaultWhtPick());
               setWhtDescOverrides({});
               setShowFinalizeModal(true);
-            }} className="!rounded-lg" disabled={employees.length === 0 || incompleteEmployees.length > 0}>
+            }} className="!rounded-control" disabled={employees.length === 0 || incompleteEmployees.length > 0}>
               ปิดรอบ
             </Button>
           )}
@@ -1439,7 +1439,7 @@ export default function PayrollPage() {
                 className="w-[160px]"
               />
               {payDateSaved && (
-                <span className="absolute right-2 top-[2px] flex items-center gap-0.5 text-[10px] text-green-600 pointer-events-none">
+                <span className="absolute right-2 top-[2px] flex items-center gap-0.5 text-label text-green-600 pointer-events-none">
                   <Check className="w-3 h-3" /> บันทึกแล้ว
                 </span>
               )}
@@ -1452,7 +1452,7 @@ export default function PayrollPage() {
                   label={run.status === "finalized" ? "ปิดรอบ" : "ร่าง"}
                 />
                 {supportsBatchType && (
-                  <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${BATCH_BADGE[batchTypeOf(run)]}`}>
+                  <span className={`rounded-control px-2 py-0.5 text-label font-semibold ${BATCH_BADGE[batchTypeOf(run)]}`}>
                     {BATCH_TYPE_LABELS[batchTypeOf(run)]}
                   </span>
                 )}
@@ -1460,7 +1460,7 @@ export default function PayrollPage() {
                   <>
                     <button
                       onClick={openEditRunModal}
-                      className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-cool-25 text-cool-400 hover:text-cool-700 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors"
                       title="แก้ไขข้อมูลรอบ"
                       aria-label="แก้ไขข้อมูลรอบ"
                     >
@@ -1468,7 +1468,7 @@ export default function PayrollPage() {
                     </button>
                     <button
                       onClick={() => setShowDeleteRunModal(true)}
-                      className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-300 hover:text-red-500 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors"
                       title="ลบรอบ"
                       aria-label="ลบรอบ"
                     >
@@ -1491,11 +1491,11 @@ export default function PayrollPage() {
                     onClick={() => setSelectedRunId(r.id)}
                     disabled={isCurrent}
                     title={`${r.period_start} → ${r.period_end}`}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep cursor-default" : "bg-white border-card-border text-cool-600 hover:border-primary/30 hover:text-primary"}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border text-label font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep cursor-default" : "bg-white border-card-border text-ink-600 hover:border-primary/30 hover:text-primary"}`}
                   >
                     <span>{rangeLabel}</span>
                     {supportsBatchType && (
-                      <span className={`shrink-0 rounded px-1 py-px text-[10px] font-semibold ${BATCH_BADGE[batchTypeOf(r)]}`}>
+                      <span className={`shrink-0 rounded px-1 py-px text-label font-semibold ${BATCH_BADGE[batchTypeOf(r)]}`}>
                         {BATCH_TYPE_LABELS[batchTypeOf(r)]}
                       </span>
                     )}
@@ -1505,7 +1505,7 @@ export default function PayrollPage() {
               })}
               <button
                 onClick={openCreateCustomModal}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-cool-300 text-cool-500 hover:text-primary hover:border-primary/40 text-xs font-medium transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-control border border-dashed border-line-strong text-ink-500 hover:text-primary hover:border-primary/40 text-label font-medium transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> ช่วงรอบ
               </button>
@@ -1537,33 +1537,33 @@ export default function PayrollPage() {
           const otCount = runs.filter((r) => batchTypeOf(r) === "ot").length;
           return (
             <details className="bg-white border border-card-border rounded-card px-4 py-3">
-              <summary className="flex items-center gap-2 text-cool-700 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                <Layers className="w-4 h-4 text-cool-400" />
-                <span className="text-sm font-medium">
+              <summary className="flex items-center gap-2 text-ink-700 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <Layers className="w-4 h-4 text-ink-400" />
+                <span className="text-body font-medium">
                   สรุปทั้งเดือน ({MONTHS[month - 1].label} {year + 543}) — {finalized.length} รอบที่ปิดแล้ว
                 </span>
-                <span className="ml-auto text-[11px] text-cool-400">สุทธิ ฿{formatCurrency(sumNet)}</span>
+                <span className="ml-auto text-label text-ink-400">สุทธิ ฿{formatCurrency(sumNet)}</span>
               </summary>
               <div className="pt-3">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div>
-                  <div className="text-[11px] text-green-600 font-medium">ค่าแรงรวม</div>
-                  <div className="text-sm font-semibold text-green-900 tabular-nums">฿{formatCurrency(sumGross)}</div>
+                  <div className="text-label text-green-600 font-medium">ค่าแรงรวม</div>
+                  <div className="text-body font-semibold text-green-900 tabular-nums">฿{formatCurrency(sumGross)}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-green-600 font-medium">สุทธิ</div>
-                  <div className="text-sm font-semibold text-green-900 tabular-nums">฿{formatCurrency(sumNet)}</div>
+                  <div className="text-label text-green-600 font-medium">สุทธิ</div>
+                  <div className="text-body font-semibold text-green-900 tabular-nums">฿{formatCurrency(sumNet)}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-green-600 font-medium">จำนวนคน (รวมช่วง)</div>
-                  <div className="text-sm font-semibold text-green-900 tabular-nums">{empMax} คน</div>
+                  <div className="text-label text-green-600 font-medium">จำนวนคน (รวมช่วง)</div>
+                  <div className="text-body font-semibold text-green-900 tabular-nums">{empMax} คน</div>
                 </div>
               </div>
               {supportsBatchType && byType.length > 1 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {byType.map((b) => (
-                    <span key={b.type} className="inline-flex items-center gap-1 rounded-md bg-cool-25 border border-card-border px-2 py-0.5 text-[11px] text-cool-600">
-                      <span className={`rounded px-1 text-[10px] font-semibold ${BATCH_BADGE[b.type]}`}>{BATCH_TYPE_LABELS[b.type]}</span>
+                    <span key={b.type} className="inline-flex items-center gap-1 rounded-control bg-paper-field border border-card-border px-2 py-0.5 text-label text-ink-600">
+                      <span className={`rounded px-1 text-label font-semibold ${BATCH_BADGE[b.type]}`}>{BATCH_TYPE_LABELS[b.type]}</span>
                       {b.total} รอบ{b.finalized < b.total ? ` (ปิดแล้ว ${b.finalized})` : ""} · สุทธิ ฿{formatCurrency(b.net)}
                     </span>
                   ))}
@@ -1580,7 +1580,7 @@ export default function PayrollPage() {
                 </div>
               )}
               {draftCount > 0 && (
-                <p className="mt-2 flex items-center gap-1 text-xs text-amber-700">
+                <p className="mt-2 flex items-center gap-1 text-label text-amber-700">
                   <AlertCircle className="w-3.5 h-3.5" /> มีรอบ {draftCount} ช่วงยังเป็นร่าง — SSO/PND.1 ยื่นรายเดือน ต้องปิดทุกช่วงก่อนนับรวม
                 </p>
               )}
@@ -1595,11 +1595,11 @@ export default function PayrollPage() {
             <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
               <AlertCircle className="w-8 h-8 text-amber-600" />
             </div>
-            <h3 className="text-lg font-semibold text-cool-900 mb-2">ระบบต้องอัปเดตฐานข้อมูลก่อนใช้งาน</h3>
-            <p className="text-sm text-cool-600 max-w-md mx-auto">
+            <h3 className="text-subtitle font-semibold text-ink-900 mb-2">ระบบต้องอัปเดตฐานข้อมูลก่อนใช้งาน</h3>
+            <p className="text-body text-ink-600 max-w-md mx-auto">
               ฟีเจอร์รอบจ่ายแบบยืดหยุ่นต้องการโครงสร้างฐานข้อมูลใหม่ กรุณาให้ผู้ดูแลระบบรันไฟล์ migration ล่าสุดใน Supabase ก่อน
             </p>
-            <code className="mt-3 inline-block text-[11px] font-mono text-cool-600 bg-white border border-card-border rounded px-3 py-1.5">
+            <code className="mt-3 inline-block text-label font-mono text-ink-600 bg-white border border-card-border rounded px-3 py-1.5">
               supabase/migrations/20260827*_payroll_*.sql
             </code>
           </div>
@@ -1612,8 +1612,8 @@ export default function PayrollPage() {
             <div className="mx-auto w-16 h-16 rounded-full bg-primary-soft flex items-center justify-center mb-4">
               <Wallet className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold text-cool-900 mb-2">เริ่มต้นรอบเงินเดือน</h3>
-            <p className="text-sm text-cool-500 mb-6 max-w-sm mx-auto">
+            <h3 className="text-subtitle font-semibold text-ink-900 mb-2">เริ่มต้นรอบเงินเดือน</h3>
+            <p className="text-body text-ink-500 mb-6 max-w-sm mx-auto">
               สร้างรอบเงินเดือนสำหรับ <strong>{MONTHS[month - 1].label} {year + 543}</strong> เพื่อเริ่มกรอกข้อมูลเงินเดือนพนักงาน
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
@@ -1631,23 +1631,23 @@ export default function PayrollPage() {
               <div className="bg-green-50 border border-green-200 rounded-card p-4 transition-all duration-300">
                 <div className="flex items-center gap-2 text-green-800">
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium">
+                  <span className="text-body font-medium">
                     ปิดรอบแล้ว — {MONTHS[run.period_month - 1].label} {run.period_year + 543} · วันจ่าย {run.pay_date}
                   </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-green-200 flex flex-wrap items-center gap-2">
                   {syncingWht ? (
-                    <span className="flex items-center gap-1.5 text-xs text-green-700">
+                    <span className="flex items-center gap-1.5 text-label text-green-700">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" /> กำลังซิงกรายการภาษีหัก ณ ที่จ่าย...
                     </span>
                   ) : whtSync ? (
                     <>
-                      <span className="text-xs text-green-700">
+                      <span className="text-label text-green-700">
                         รายการภาษีหัก ณ ที่จ่าย: สร้าง {whtSync.created} · อัปเดต {whtSync.updated} · ยืนยันแล้ว {whtSync.keptDone}
                         {whtSync.skipped.length > 0 ? ` · ข้าม ${whtSync.skipped.length}` : ""}
                       </span>
                       {whtSync.skipped.length > 0 && (
-                        <details className="w-full text-xs text-green-700">
+                        <details className="w-full text-label text-green-700">
                           <summary className="cursor-pointer underline underline-offset-2">
                             ดูรายชื่อที่ข้าม ({whtSync.skipped.length} คน)
                           </summary>
@@ -1663,7 +1663,7 @@ export default function PayrollPage() {
                       )}
                     </>
                   ) : whtExistingCount === null ? null : whtExistingCount === 0 ? (
-                    <span className="flex flex-wrap items-center gap-2 text-xs text-amber-700">
+                    <span className="flex flex-wrap items-center gap-2 text-label text-amber-700">
                       ยังไม่ได้สร้างรายการภาษีหัก ณ ที่จ่ายสำหรับรอบนี้
                       <button
                         type="button"
@@ -1674,13 +1674,13 @@ export default function PayrollPage() {
                       </button>
                     </span>
                   ) : (
-                    <span className="text-xs text-green-700">
+                    <span className="text-label text-green-700">
                       มีรายการภาษีหัก ณ ที่จ่าย {whtExistingCount} รายการจากรอบนี้
                     </span>
                   )}
                   <button
                     onClick={() => navigate(`/wht?source=payroll&month=${run.pay_date.slice(0, 7)}`)}
-                    className="ml-auto text-xs font-medium text-green-700 hover:text-green-900 underline underline-offset-2"
+                    className="ml-auto text-label font-medium text-green-700 hover:text-green-900 underline underline-offset-2"
                   >
                     ดูที่หน้าภาษีหัก ณ ที่จ่าย →
                   </button>
@@ -1692,11 +1692,11 @@ export default function PayrollPage() {
               <div className="bg-amber-50 border border-amber-200 rounded-card p-4">
                 <div className="flex items-center gap-2 text-amber-800">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span className="text-sm font-medium">
+                  <span className="text-body font-medium">
                     รอบนี้เคยปิดแล้ว (Revision {run.revision}) และถูกเปิดมาแก้ไข — ยังเป็นร่างจนกว่าจะปิดรอบอีกครั้ง
                   </span>
                 </div>
-                <ol className="mt-2 ml-6 text-xs text-amber-700 space-y-0.5 list-decimal">
+                <ol className="mt-2 ml-6 text-label text-amber-700 space-y-0.5 list-decimal">
                   <li>แก้ไขข้อมูลพนักงานให้ถูกต้อง</li>
                   <li>กดปิดรอบอีกครั้ง (เลือกได้ว่าจะสร้างรายการภาษีพร้อมกันหรือไม่)</li>
                   <li>ซิงก์รายการภาษีหัก ณ ที่จ่าย ถ้ายังไม่ได้ซิงก์</li>
@@ -1709,12 +1709,12 @@ export default function PayrollPage() {
               <div className="bg-white border border-card-border rounded-card p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-cool-400" />
-                    <span className="text-xs font-medium text-cool-600">ความคืบหน้า</span>
+                    <Clock className="w-4 h-4 text-ink-400" />
+                    <span className="text-label font-medium text-ink-600">ความคืบหน้า</span>
                   </div>
-                  <span className="text-xs font-semibold text-cool-700">{completedCount} / {employees.length} คน</span>
+                  <span className="text-label font-semibold text-ink-700">{completedCount} / {employees.length} คน</span>
                 </div>
-                <div className="w-full h-2 bg-cool-100 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-ink-50 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-primary to-primary-deep rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${progressPercent}%` }}
@@ -1723,29 +1723,29 @@ export default function PayrollPage() {
                 {completedCount === employees.length && (
                   <div className="mt-2 flex items-center gap-1 text-green-600">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">กรอกครบทุกคนแล้ว — พร้อมปิดรอบ!</span>
+                    <span className="text-label font-medium">กรอกครบทุกคนแล้ว — พร้อมปิดรอบ!</span>
                   </div>
                 )}
                 {runDiff && (runDiff.added > 0 || runDiff.left > 0) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-label">
                     {runDiff.added > 0 && (
                       <span className="inline-flex items-center gap-0.5 text-green-700">
                         <TrendingUp className="w-3 h-3" />+{runDiff.added} ใหม่
                       </span>
                     )}
                     {runDiff.left > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-cool-500">
+                      <span className="inline-flex items-center gap-0.5 text-ink-500">
                         <TrendingDown className="w-3 h-3" />-{runDiff.left} ลาออก
                       </span>
                     )}
-                    <span className="text-cool-400">เทียบเดือนก่อน</span>
+                    <span className="text-ink-400">เทียบเดือนก่อน</span>
                   </div>
                 )}
               </div>
             )}
 
             {excludedEmployeeCount > 0 && (
-              <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+              <div className="flex items-start gap-2 rounded-control border border-blue-200 bg-blue-50 px-3 py-2 text-label text-blue-800">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
                 <span>
                   ไม่รวมพนักงาน {excludedEmployeeCount} คน เนื่องจากวันที่เริ่มงานหรือวันที่สิ้นสุดการจ้างงานไม่อยู่ในรอบนี้
@@ -1783,8 +1783,8 @@ export default function PayrollPage() {
             {historyRuns.length > 1 && (
               <div className="bg-white border border-card-border rounded-card p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-cool-400" />
-                  <span className="text-xs font-medium text-cool-600">รอบเงินนี้ย้อนหลัง</span>
+                  <Clock className="w-4 h-4 text-ink-400" />
+                  <span className="text-label font-medium text-ink-600">รอบเงินนี้ย้อนหลัง</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {historyRuns.map((hRun) => {
@@ -1802,11 +1802,11 @@ export default function PayrollPage() {
                           setYear(Number(hRun.period_end.slice(0, 4)));
                           setSelectedRunId(hRun.id);
                         }}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep" : "bg-white border-card-border text-cool-600 hover:border-primary/30 hover:text-primary"}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-control border text-label font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep" : "bg-white border-card-border text-ink-600 hover:border-primary/30 hover:text-primary"}`}
                       >
                         <span>{hRun.label || fallbackLabel}</span>
                         <span className={`w-1.5 h-1.5 rounded-full ${hRun.status === "finalized" ? "bg-green-500" : "bg-amber-400"}`} />
-                        {!isCurrent && <span className="tabular-nums text-cool-400">฿{formatCurrency(hRun.total_net)}</span>}
+                        {!isCurrent && <span className="tabular-nums text-ink-400">฿{formatCurrency(hRun.total_net)}</span>}
                       </button>
                     );
                   })}
@@ -1816,7 +1816,7 @@ export default function PayrollPage() {
 
             {run.status === "draft" && employees.length > 0 && (
               <div className="flex justify-end">
-                <Button size="sm" variant="secondary" onClick={handlePreviewCopyFromPrevious} disabled={copyingPrevious} className="!text-xs !rounded-lg">
+                <Button size="sm" variant="secondary" onClick={handlePreviewCopyFromPrevious} disabled={copyingPrevious} className="!text-label !rounded-control">
                   <Copy className="w-3.5 h-3.5" />
                   {copyingPrevious ? "กำลังตรวจสอบ..." : "คัดลอกจากรอบก่อนหน้า"}
                 </Button>
@@ -1832,12 +1832,12 @@ export default function PayrollPage() {
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="ค้นหาพนักงาน..."
                     aria-label="ค้นหาพนักงาน"
-                    className="w-full h-9 pl-3 pr-8 text-sm rounded-lg border border-card-border bg-white placeholder:text-cool-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full h-9 pl-3 pr-8 text-body rounded-control border border-card-border bg-white placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                   {search && (
                     <button
                       onClick={() => setSearch("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-cool-400 hover:text-cool-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
                       aria-label="ล้างการค้นหา"
                     >
                       <X className="w-4 h-4" />
@@ -1845,7 +1845,7 @@ export default function PayrollPage() {
                   )}
                 </div>
                 {search && (
-                  <span className="text-xs text-cool-500">
+                  <span className="text-label text-ink-500">
                     พบ {filteredEmployees.length} จาก {employees.length} คน
                   </span>
                 )}
@@ -1915,7 +1915,7 @@ export default function PayrollPage() {
                       <tr>
                         <td
                           colSpan={run.status === "draft" ? (employees.some((e) => e.salary_type === "daily") ? 9 : 8) : 8}
-                          className="py-10 text-center text-xs text-cool-400"
+                          className="py-10 text-center text-label text-ink-400"
                         >
                           ไม่พบพนักงานที่ตรงกับ "{search.trim()}"
                         </td>
@@ -1932,7 +1932,7 @@ export default function PayrollPage() {
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.ot)}</td>
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.additions)}</td>
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.deductions)}</td>
-                        <td className={`px-3 py-2 text-right font-bold tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.net)}</td>
+                        <td className={`px-3 py-2 text-right font-semibold tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.net)}</td>
                         <td className={TF_STICKY}></td>
                       </tr>
                     </tfoot>
@@ -1945,7 +1945,7 @@ export default function PayrollPage() {
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.sso)}</td>
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.ssoEmp)}</td>
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.wht)}</td>
-                        <td className={`px-3 py-2 text-right font-bold tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.net)}</td>
+                        <td className={`px-3 py-2 text-right font-semibold tabular-nums ${TF_STICKY}`}>฿{formatCurrency(totals.net)}</td>
                         <td className={TF_STICKY}></td>
                       </tr>
                     </tfoot>
@@ -2038,7 +2038,7 @@ export default function PayrollPage() {
               onChange={(e) => setCreateForm((f) => ({ ...f, ot_end: e.target.value }))}
             />
           </div>
-          <p className="-mt-2 text-[11px] text-cool-400">เว้นว่าง = OT ตามรอบเงินเดือน · ตั้งค่าเริ่มต้นที่ ตั้งค่า &gt; เงินเดือน &gt; OT ตัดรอบก่อนเงินเดือน</p>
+          <p className="-mt-2 text-label text-ink-400">เว้นว่าง = OT ตามรอบเงินเดือน · ตั้งค่าเริ่มต้นที่ ตั้งค่า &gt; เงินเดือน &gt; OT ตัดรอบก่อนเงินเดือน</p>
           {supportsBatchType && (
             <Select
               label="ประเภทการจ่าย"
@@ -2050,8 +2050,8 @@ export default function PayrollPage() {
               <option value="adjustment">ปรับปรุง — ส่วนต่าง/แก้ไขงวดก่อน</option>
             </Select>
           )}
-          <p className="text-xs text-cool-500 flex items-start gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cool-400" />
+          <p className="text-label text-ink-500 flex items-start gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-ink-400" />
             ช่วงรอบต้องไม่ทับซ้อนกับรอบอื่น และจะถูกนับยอดภาษี/ประกันสังคมใน "เดือนของวันสิ้นสุดรอบ"
           </p>
           <div className="flex gap-2 pt-1">
@@ -2068,9 +2068,9 @@ export default function PayrollPage() {
       <Modal open={showDeleteRunModal && run !== null} onClose={() => setShowDeleteRunModal(false)} title="ลบรอบเงินเดือน?">
         {run && (
           <div className="space-y-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+            <div className="bg-red-50 border border-red-200 rounded-control p-3 flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-800">
+              <p className="text-body text-red-800">
                 ต้องการลบรอบ <strong>{run.label || formatPayRangeLabel({ start: run.period_start, end: run.period_end })}</strong>?
                 ข้อมูล {run.employee_count} คน (สุทธิ ฿{formatCurrency(run.total_net)}) จะถูกลบถาวรและไม่สามารถย้อนกลับได้
               </p>
@@ -2106,8 +2106,8 @@ export default function PayrollPage() {
             />
           </div>
           {lineItems.size > 0 ? (
-            <p className="text-xs text-cool-500 flex items-start gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cool-400" />
+            <p className="text-label text-ink-500 flex items-start gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-ink-400" />
               รอบนี้มีข้อมูลพนักงานแล้ว — เปลี่ยนช่วงวันที่ได้โดยลบรอบแล้วสร้างใหม่
             </p>
           ) : null}
@@ -2162,13 +2162,13 @@ export default function PayrollPage() {
       <Modal open={copyPreview !== null} onClose={() => setCopyPreview(null)} title="คัดลอกข้อมูลจากรอบก่อนหน้า">
         {copyPreview && (
           <div className="space-y-4">
-            <p className="text-sm text-cool-600">
+            <p className="text-body text-ink-600">
               จะคัดลอกข้อมูลเงินเดือนของพนักงาน <strong>{copyPreview.copyable} คน</strong> จากรอบก่อนหน้า
             </p>
             {copyPreview.overwrite > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <div className="bg-amber-50 border border-amber-200 rounded-control p-3 flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-800">
+                <p className="text-body text-amber-800">
                   มีพนักงาน <strong>{copyPreview.overwrite} คน</strong> ที่กรอกข้อมูลไว้แล้ว การคัดลอกจะ <strong>แทนที่</strong> ข้อมูลเดิม
                 </p>
               </div>
@@ -2187,15 +2187,15 @@ export default function PayrollPage() {
 
       <Modal open={showFinalizeModal} onClose={() => setShowFinalizeModal(false)} title="ยืนยันปิดรอบเงินเดือน">
         <div className="space-y-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+          <div className="bg-amber-50 border border-amber-200 rounded-control p-3 flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-amber-800">
+            <p className="text-body text-amber-800">
               เมื่อปิดรอบแล้ว จะไม่สามารถแก้ไขข้อมูลได้อีก (ต้องเปิดรอบใหม่เป็น Revision ถัดไป) คุณต้องการดำเนินการต่อหรือไม่?
             </p>
           </div>
           {incompleteEmployees.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-red-800">
+            <div className="bg-red-50 border border-red-200 rounded-control p-3">
+              <div className="flex items-center gap-2 text-body font-medium text-red-800">
                 <AlertCircle className="w-4 h-4" />
                 ต้องตรวจสอบข้อมูล {incompleteEmployees.length} คนก่อนปิดรอบ
               </div>
@@ -2204,7 +2204,7 @@ export default function PayrollPage() {
                   <button
                     key={employee.id}
                     onClick={() => { setHighlightedEmployeeId(employee.id); setShowFinalizeModal(false); }}
-                    className="text-xs px-2 py-0.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                    className="text-label px-2 py-0.5 rounded-control bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
                   >
                     {employee.full_name || employee.employee_code}
                   </button>
@@ -2213,25 +2213,25 @@ export default function PayrollPage() {
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-cool-25 rounded-lg p-3">
-              <div className="text-[11px] text-cool-500">ค่าแรงรวม</div>
-              <div className="text-sm font-bold text-cool-900 tabular-nums">฿{formatCurrency(totals.gross)}</div>
+            <div className="bg-paper-field rounded-control p-3">
+              <div className="text-label text-ink-500">ค่าแรงรวม</div>
+              <div className="text-body font-semibold text-ink-900 tabular-nums">฿{formatCurrency(totals.gross)}</div>
             </div>
-            <div className="bg-cool-25 rounded-lg p-3">
-              <div className="text-[11px] text-cool-500">หักรวม</div>
-              <div className="text-sm font-bold text-cool-900 tabular-nums">฿{formatCurrency(totals.sso + totals.wht)}</div>
+            <div className="bg-paper-field rounded-control p-3">
+              <div className="text-label text-ink-500">หักรวม</div>
+              <div className="text-body font-semibold text-ink-900 tabular-nums">฿{formatCurrency(totals.sso + totals.wht)}</div>
             </div>
-            <div className="bg-cool-25 rounded-lg p-3">
-              <div className="text-[11px] text-cool-500">จำนวนพนักงาน</div>
-              <div className="text-sm font-bold text-cool-900 tabular-nums">{employees.length} คน</div>
+            <div className="bg-paper-field rounded-control p-3">
+              <div className="text-label text-ink-500">จำนวนพนักงาน</div>
+              <div className="text-body font-semibold text-ink-900 tabular-nums">{employees.length} คน</div>
             </div>
-            <div className="bg-primary-soft rounded-lg p-3">
-              <div className="text-[11px] text-primary-deep">เงินเดือนสุทธิ</div>
-              <div className="text-sm font-bold text-primary-deep tabular-nums">฿{formatCurrency(totals.net)}</div>
+            <div className="bg-primary-soft rounded-control p-3">
+              <div className="text-label text-primary-deep">เงินเดือนสุทธิ</div>
+              <div className="text-body font-semibold text-primary-deep tabular-nums">฿{formatCurrency(totals.net)}</div>
             </div>
           </div>
-          <div className="rounded-lg border border-card-border p-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-cool-800 cursor-pointer">
+          <div className="rounded-control border border-card-border p-3">
+            <label className="flex items-center gap-2 text-body font-medium text-ink-800 cursor-pointer">
               <input
                 type="checkbox"
                 checked={syncOnFinalize}
@@ -2243,7 +2243,7 @@ export default function PayrollPage() {
               />
               สร้างรายการภาษีหัก ณ ที่จ่ายพร้อมปิดรอบ
             </label>
-            <p className="mt-1 text-xs text-cool-500">
+            <p className="mt-1 text-label text-ink-500">
               ปกติไม่ต้องติ๊ก — ปิดรอบก่อน แล้วค่อยกดซิงก์เมื่อพร้อมยื่นภาษี
             </p>
             {syncOnFinalize && (
@@ -2280,18 +2280,18 @@ export default function PayrollPage() {
       <Modal open={showReopenModal} onClose={() => setShowReopenModal(false)} title="เปิดรอบที่ปิดแล้วมาแก้ไข?">
         <div className="space-y-4">
           {reopenDoneCount === null ? (
-            <div className="flex items-center justify-center gap-2 py-6 text-sm text-cool-500">
+            <div className="flex items-center justify-center gap-2 py-6 text-body text-ink-500">
               <Loader2 className="w-4 h-4 animate-spin" /> กำลังตรวจสอบรายการภาษีที่ยืนยันแล้ว...
             </div>
           ) : reopenDoneCount > 0 ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="bg-red-50 border border-red-200 rounded-control p-3">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-red-800">
+                  <p className="text-body font-medium text-red-800">
                     เปิดไม่ได้ — มีรายการภาษีหัก ณ ที่จ่ายที่ยืนยันแล้ว {reopenDoneCount} รายการ
                   </p>
-                  <p className="mt-1 text-xs text-red-700">
+                  <p className="mt-1 text-label text-red-700">
                     รายการที่ยืนยันแล้วถือว่ายื่น/ล็อกแล้ว ต้องไปยกเลิก (un-done) ที่หน้าภาษีก่อน แล้วค่อยกลับมาเปิดรอบนี้
                   </p>
                   <Button
@@ -2310,12 +2310,12 @@ export default function PayrollPage() {
             </div>
           ) : (
             <>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-control p-3">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-sm text-amber-800">
+                  <div className="text-body text-amber-800">
                     <p className="font-medium">สิ่งที่จะเกิดขึ้น (Revision {(run?.revision ?? 1) + 1}):</p>
-                    <ul className="mt-1 ml-4 list-disc space-y-0.5 text-[13px]">
+                    <ul className="mt-1 ml-4 list-disc space-y-0.5 text-body">
                       <li>รอบกลับเป็นร่าง แก้ไขข้อมูลได้อีกครั้ง</li>
                       <li>รายการภาษีที่ยังไม่ยืนยันจะถูกลบ — ต้องซิงก์ใหม่หลังปิดรอบ</li>
                       <li>สลิปที่ส่งให้พนักงานไปแล้วถือว่าล้าสมัย — ต้องส่งใหม่</li>
@@ -2324,8 +2324,8 @@ export default function PayrollPage() {
                 </div>
               </div>
               <div>
-                <label htmlFor="reopen-reason" className="mb-1 block text-xs font-medium text-cool-600">
-                  เหตุผลการแก้ไข <span className="font-normal text-cool-400">(ไม่บังคับ — เก็บในประวัติตรวจสอบ)</span>
+                <label htmlFor="reopen-reason" className="mb-1 block text-label font-medium text-ink-600">
+                  เหตุผลการแก้ไข <span className="font-normal text-ink-400">(ไม่บังคับ — เก็บในประวัติตรวจสอบ)</span>
                 </label>
                 <input
                   id="reopen-reason"
@@ -2333,7 +2333,7 @@ export default function PayrollPage() {
                   value={reopenReason}
                   onChange={(e) => setReopenReason(e.target.value)}
                   placeholder="เช่น แก้ OT คุณสมชาย เพิ่ม 2 ชม."
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-card-border bg-white placeholder:text-cool-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className="w-full h-10 px-3 text-body rounded-control border border-card-border bg-white placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
             </>
@@ -2351,7 +2351,7 @@ export default function PayrollPage() {
 
       <Modal open={showWhtPickModal} onClose={() => setShowWhtPickModal(false)} title="ซิงก์ภาษีหัก ณ ที่จ่าย">
         {whtPickLoading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-cool-500">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-ink-500">
             <Loader2 className="w-4 h-4 animate-spin" /> กำลังโหลด...
           </div>
         ) : (
@@ -2413,18 +2413,18 @@ function WhtPickList({ candidates, selected, descOverrides, onDescChange, onTogg
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-medium text-cool-600">เลือกพนักงานที่จะสร้างรายการภาษี ({selected.length} คน)</span>
-        <div className="flex gap-3 text-xs font-medium text-primary">
+        <span className="text-label font-medium text-ink-600">เลือกพนักงานที่จะสร้างรายการภาษี ({selected.length} คน)</span>
+        <div className="flex gap-3 text-label font-medium text-primary">
           <button type="button" onClick={onSelectTaxed} className="hover:underline">เฉพาะคนมีภาษี</button>
           <button type="button" onClick={onSelectAll} className="hover:underline">ทั้งหมด</button>
           <button type="button" onClick={onClear} className="hover:underline">ล้าง</button>
         </div>
       </div>
-      <div className="max-h-56 overflow-auto divide-y divide-stone-100 rounded-lg border border-card-border">
+      <div className="max-h-56 overflow-auto divide-y divide-line-faint rounded-control border border-card-border">
         {candidates.map(({ employee, tax, syncable, blocker }) => {
           const isPnd3 = employee.sso_registered === false;
           return (
-            <div key={employee.id} className={`flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 ${syncable ? "" : "opacity-70"}`}>
+            <div key={employee.id} className={`flex items-center gap-2.5 px-3 py-2 hover:bg-paper-field ${syncable ? "" : "opacity-70"}`}>
               <label className={`flex items-center gap-2.5 flex-1 min-w-0 ${syncable ? "cursor-pointer" : "cursor-not-allowed"}`}>
                 <input
                   type="checkbox"
@@ -2435,12 +2435,12 @@ function WhtPickList({ candidates, selected, descOverrides, onDescChange, onTogg
                   className="h-4 w-4 shrink-0 disabled:cursor-not-allowed"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-cool-900">{employee.full_name || employee.employee_code}</span>
-                  <span className="block text-[11px] text-cool-400">
+                  <span className="block truncate text-body text-ink-900">{employee.full_name || employee.employee_code}</span>
+                  <span className="block text-label text-ink-400">
                     {employee.employee_code} · {isPnd3 ? "ภ.ง.ด.3" : "ภ.ง.ด.1"}
                   </span>
                   {!syncable && blocker && (
-                    <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-amber-700">
+                    <span className="mt-0.5 inline-flex items-center gap-1 text-label font-medium text-amber-700">
                       <AlertCircle className="w-3 h-3" /> {blocker} — ซิงก์ไม่ได้
                     </span>
                   )}
@@ -2451,21 +2451,21 @@ function WhtPickList({ candidates, selected, descOverrides, onDescChange, onTogg
                   aria-label={`ประเภทรายจ่ายของ ${employee.full_name || employee.employee_code}`}
                   value={descOverrides[employee.id] ?? WHT_PND3_DEFAULT_DESC}
                   onChange={(e) => onDescChange(employee.id, e.target.value)}
-                  className="max-w-[118px] shrink-0 text-[11px] border border-card-border rounded-md px-1.5 py-1 bg-white text-cool-600 focus:outline-none focus:border-primary"
+                  className="max-w-[118px] shrink-0 text-label border border-card-border rounded-control px-1.5 py-1 bg-white text-ink-600 focus:outline-none focus:border-primary"
                 >
                   {WHT_PND3_DESC_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
               )}
-              <span className={`text-xs tabular-nums shrink-0 ${tax > 0 ? "text-cool-700 font-medium" : "text-cool-300"}`}>
+              <span className={`text-label tabular-nums shrink-0 ${tax > 0 ? "text-ink-700 font-medium" : "text-ink-300"}`}>
                 ฿{formatCurrency(tax)}
               </span>
             </div>
           );
         })}
       </div>
-      <p className="mt-1.5 text-[11px] text-cool-400">ติ๊กไว้เฉพาะคนที่มีภาษีแล้ว — ประเภทรายจ่ายของ ภ.ง.ด.3 เปลี่ยนได้ทีละคน (ค่าเริ่มต้น ค่าจ้างทำของ) · รายการที่ยืนยัน (done) ที่หน้า WHT จะไม่ถูกแตะต้อง</p>
+      <p className="mt-1.5 text-label text-ink-400">ติ๊กไว้เฉพาะคนที่มีภาษีแล้ว — ประเภทรายจ่ายของ ภ.ง.ด.3 เปลี่ยนได้ทีละคน (ค่าเริ่มต้น ค่าจ้างทำของ) · รายการที่ยืนยัน (done) ที่หน้า WHT จะไม่ถูกแตะต้อง</p>
     </div>
   );
 }
@@ -2481,7 +2481,7 @@ interface SummaryCardProps {
 function ChecklistLine({ label, have, expected }: { label: string; have: number; expected: number }) {
   const ok = have >= expected;
   return (
-    <p className={`flex items-center gap-1.5 text-xs ${ok ? "text-green-700" : "text-amber-700"}`}>
+    <p className={`flex items-center gap-1.5 text-label ${ok ? "text-green-700" : "text-amber-700"}`}>
       {ok ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
       <span>
         {label}: มี {have}/{expected} รอบ{ok ? " — ครบแล้ว" : ` — ขาดอีก ${expected - have} รอบ`}
@@ -2492,13 +2492,13 @@ function ChecklistLine({ label, have, expected }: { label: string; have: number;
 
 function SummaryCard({ icon, label, value, sub, highlight }: SummaryCardProps) {
   return (
-    <div className={`rounded-card border p-3 transition-all duration-200 hover:shadow-sm ${highlight ? "bg-primary-soft border-primary/20" : "bg-white border-card-border"}`}>
+    <div className={`rounded-card border p-3 transition-all duration-200 ${highlight ? "bg-primary-soft border-primary/20" : "bg-white border-card-border"}`}>
       <div className="flex items-center gap-2 mb-1">
-        <span className={highlight ? "text-primary" : "text-cool-400"}>{icon}</span>
-        <span className="text-[11px] font-medium text-cool-500">{label}</span>
+        <span className={highlight ? "text-primary" : "text-ink-400"}>{icon}</span>
+        <span className="text-label font-medium text-ink-500">{label}</span>
       </div>
-      <div className={`text-base font-bold tabular-nums ${highlight ? "text-primary-deep" : "text-cool-900"}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-[10px] text-cool-400 tabular-nums">{sub}</div>}
+      <div className={`text-title font-semibold tabular-nums ${highlight ? "text-primary-deep" : "text-ink-900"}`}>{value}</div>
+      {sub && <div className="mt-0.5 text-label text-ink-400 tabular-nums">{sub}</div>}
     </div>
   );
 }
@@ -2539,7 +2539,7 @@ function PayrollExportMenu({ status, onExportSummary, onExportBank, onExportWht,
 
   return (
     <div className="relative" ref={ref}>
-      <Button size="sm" variant="secondary" onClick={() => { if (!busy) setOpen(!open); }} className="!rounded-lg" disabled={busy !== null}>
+      <Button size="sm" variant="secondary" onClick={() => { if (!busy) setOpen(!open); }} className="!rounded-control" disabled={busy !== null}>
         {busy !== null ? (
           <span className="flex items-center gap-1.5">
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -2553,26 +2553,26 @@ function PayrollExportMenu({ status, onExportSummary, onExportBank, onExportWht,
         )}
       </Button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-card-border rounded-lg shadow-lg z-30 py-1">
-          <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-cool-400">
+        <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-card-border rounded-control z-30 py-1">
+          <div className="px-3 pt-1.5 pb-1 text-label font-medium text-ink-400">
             {status === "finalized" ? "รอบปิดแล้ว — ส่งออกเอกสารจริง" : "รอบร่าง — ส่งออกได้เฉพาะสรุป/ภาษี"}
           </div>
-          <button disabled={busy !== null} onClick={() => run("summary", onExportSummary)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+          <button disabled={busy !== null} onClick={() => run("summary", onExportSummary)} className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50">
             {busy === "summary" ? <Loader2 className="w-4 h-4 animate-spin text-green-600" /> : <FileSpreadsheet className="w-4 h-4 text-green-600" />} สรุปเงินเดือน (Excel)
           </button>
-          <button disabled={busy !== null} onClick={() => run("wht", onExportWht)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+          <button disabled={busy !== null} onClick={() => run("wht", onExportWht)} className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50">
             {busy === "wht" ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <FileSpreadsheet className="w-4 h-4 text-blue-600" />} ภาษีหัก ณ ที่จ่าย (Excel)
           </button>
           {status === "finalized" && (
             <>
               <div className="border-t border-card-border my-1" />
-              <button disabled={busy !== null || syncingWht} onClick={() => run("syncwht", onSyncWht)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+              <button disabled={busy !== null || syncingWht} onClick={() => run("syncwht", onSyncWht)} className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50">
                 {busy === "syncwht" || syncingWht ? <Loader2 className="w-4 h-4 animate-spin text-teal-600" /> : <RefreshCw className="w-4 h-4 text-teal-600" />} ซิงก์รายการภาษีหัก ณ ที่จ่าย
               </button>
-              <button disabled={busy !== null} onClick={() => run("bank", onExportBank)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+              <button disabled={busy !== null} onClick={() => run("bank", onExportBank)} className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50">
                 {busy === "bank" ? <Loader2 className="w-4 h-4 animate-spin text-purple-600" /> : <FileSpreadsheet className="w-4 h-4 text-purple-600" />} รายการโอนธนาคาร (Excel)
               </button>
-              <button disabled={busy !== null} onClick={() => run("payslips", onExportPayslips)} className="w-full text-left px-3 py-2 text-sm hover:bg-cool-25 flex items-center gap-2 disabled:opacity-50">
+              <button disabled={busy !== null} onClick={() => run("payslips", onExportPayslips)} className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50">
                 {busy === "payslips" ? <Loader2 className="w-4 h-4 animate-spin text-amber-600" /> : <FileArchive className="w-4 h-4 text-amber-600" />} สลิปเงินเดือนทั้งหมด (ZIP)
               </button>
             </>
@@ -2627,7 +2627,7 @@ function PayrollRow({ employee, calc, status, rowStatus, highlighted, daysColumn
     complete: <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />,
     warning: <AlertCircle className="w-3.5 h-3.5 text-amber-500" />,
     incomplete: <AlertCircle className="w-3.5 h-3.5 text-red-400" />,
-    untouched: <Circle className="w-3.5 h-3.5 text-cool-300" />,
+    untouched: <Circle className="w-3.5 h-3.5 text-ink-300" />,
   };
 
   const statusLabels: Record<RowStatus, string> = {
@@ -2644,7 +2644,7 @@ function PayrollRow({ employee, calc, status, rowStatus, highlighted, daysColumn
       aria-label={`${employee.full_name}, ${statusLabels[rowStatus]}`}
       onClick={onOpenDetails}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenDetails(); } }}
-      className={`${TABLE.tbodyTr} group hover:bg-cool-25/50 transition-colors duration-150 border-l-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/40 ${statusColors[rowStatus]} ${highlighted ? "ring-2 ring-inset ring-amber-400 bg-amber-50/40" : ""}`}
+      className={`${TABLE.tbodyTr} group hover:bg-paper-field/50 transition-colors duration-150 border-l-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/40 ${statusColors[rowStatus]} ${highlighted ? "ring-2 ring-inset ring-amber-400 bg-amber-50/40" : ""}`}
     >
       {status === "draft" && (
         <td className="px-2 py-2">
@@ -2652,7 +2652,7 @@ function PayrollRow({ employee, calc, status, rowStatus, highlighted, daysColumn
             <span className="shrink-0" title={statusLabels[rowStatus]}>{statusIcons[rowStatus]}</span>
             <button
               onClick={(e) => { e.stopPropagation(); onOpenDetails(); }}
-              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-cool-25 text-cool-400 hover:text-cool-700 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors"
               aria-label={`แก้ไขเงินเดือน ${employee.full_name}`}
             >
               <Pencil className="w-3.5 h-3.5" />
@@ -2668,15 +2668,15 @@ function PayrollRow({ employee, calc, status, rowStatus, highlighted, daysColumn
       <td className="px-3 py-2">
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
-            <span className="text-cool-900 font-medium">{employee.full_name}</span>
+            <span className="text-ink-900 font-medium">{employee.full_name}</span>
             {employee.status === "inactive" && employee.end_date && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md bg-cool-100 text-cool-500 font-medium">
+              <span className="inline-flex items-center gap-0.5 text-label px-1.5 py-0.5 rounded-control bg-ink-50 text-ink-500 font-medium">
                 <UserRoundX className="w-3 h-3" />
                 ลาออก {formatThaiDate(employee.end_date)}
               </span>
             )}
           </div>
-          <span className="text-cool-400 text-[10px]">{employee.employee_code} · {employee.position}</span>
+          <span className="text-ink-400 text-label">{employee.employee_code} · {employee.position}</span>
         </div>
       </td>
       {status === "draft" ? (
@@ -2693,22 +2693,22 @@ function PayrollRow({ employee, calc, status, rowStatus, highlighted, daysColumn
                 ) : (
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleInlineEdit?.(); }}
-                    className="tabular-nums text-cool-700 hover:text-primary hover:underline transition-colors cursor-pointer"
+                    className="tabular-nums text-ink-700 hover:text-primary hover:underline transition-colors cursor-pointer"
                     aria-label={`แก้ไขวันทำงาน ${employee.full_name}`}
                   >
                     {daysWorked !== null && daysWorked !== undefined ? `${daysWorked} วัน` : "—"}
                   </button>
                 )
               ) : (
-                <span className="text-cool-300" title="พนักงานรายเดือน — ไม่นับวันทำงาน">—</span>
+                <span className="text-ink-300" title="พนักงานรายเดือน — ไม่นับวันทำงาน">—</span>
               )}
             </td>
           )}
           <td className="px-3 py-2 text-right">
-            <span className="text-cool-700 tabular-nums">฿{formatCurrency(calc.base_pay)}</span>
+            <span className="text-ink-700 tabular-nums">฿{formatCurrency(calc.base_pay)}</span>
           </td>
           <td className="px-3 py-2 text-right">
-            <span className="text-cool-700 tabular-nums">฿{formatCurrency(calc.ot_pay)}</span>
+            <span className="text-ink-700 tabular-nums">฿{formatCurrency(calc.ot_pay)}</span>
           </td>
           <td className="px-3 py-2 text-right">
             <span className="text-green-600 tabular-nums">฿{formatCurrency(calc.additions_total)}</span>
@@ -2720,42 +2720,42 @@ function PayrollRow({ employee, calc, status, rowStatus, highlighted, daysColumn
       ) : (
         <>
           <td className="px-3 py-2 text-right">
-            <span className="text-cool-900 tabular-nums font-medium">฿{formatCurrency(calc.gross_pay)}</span>
+            <span className="text-ink-900 tabular-nums font-medium">฿{formatCurrency(calc.gross_pay)}</span>
           </td>
           <td className="px-3 py-2 text-right">
             {employee.sso_registered === false ? (
-              <span className="text-cool-300">—</span>
+              <span className="text-ink-300">—</span>
             ) : (
-              <span className="text-cool-400 tabular-nums">฿{formatCurrency(calc.sso_employee)}</span>
+              <span className="text-ink-400 tabular-nums">฿{formatCurrency(calc.sso_employee)}</span>
             )}
           </td>
           <td className="px-3 py-2 text-right">
             {employee.sso_registered === false ? (
-              <span className="text-cool-300">—</span>
+              <span className="text-ink-300">—</span>
             ) : (
-              <span className="text-cool-400 tabular-nums">฿{formatCurrency(calc.sso_employer)}</span>
+              <span className="text-ink-400 tabular-nums">฿{formatCurrency(calc.sso_employer)}</span>
             )}
           </td>
           <td className="px-3 py-2 text-right">
             {employee.sso_registered === false ? (
-              <span className="text-cool-400 tabular-nums" title="ภ.ง.ด.3 · ค่าจ้างทำของ 3%">
-                ฿{formatCurrency(calc.withholding_tax)} <span className="text-[10px] text-cool-300">3%</span>
+              <span className="text-ink-400 tabular-nums" title="ภ.ง.ด.3 · ค่าจ้างทำของ 3%">
+                ฿{formatCurrency(calc.withholding_tax)} <span className="text-label text-ink-300">3%</span>
               </span>
             ) : (
-              <span className="text-cool-400 tabular-nums">฿{formatCurrency(calc.withholding_tax)}</span>
+              <span className="text-ink-400 tabular-nums">฿{formatCurrency(calc.withholding_tax)}</span>
             )}
           </td>
         </>
       )}
       <td className="px-3 py-2 text-right">
-        <span className="text-cool-900 font-bold tabular-nums">฿{formatCurrency(calc.net_pay)}</span>
+        <span className="text-ink-900 font-semibold tabular-nums">฿{formatCurrency(calc.net_pay)}</span>
       </td>
       <td className="px-3 py-2">
         <div className="flex items-center gap-1 justify-end">
           {status === "finalized" && (
             <button
               onClick={(e) => { e.stopPropagation(); onPrint(); }}
-              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-cool-25 text-cool-400 hover:text-cool-700 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors"
               title="พิมพ์สลิป"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -2804,10 +2804,10 @@ function InlineDaysWorked({ value, onSave, onCancel }: InlineDaysWorkedProps) {
           if (e.key === "Escape") { e.preventDefault(); onCancel(); }
         }}
         disabled={saving}
-        className="w-16 h-7 text-right text-[11px] tabular-nums rounded border border-primary/40 bg-white px-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+        className="w-16 h-7 text-right text-label tabular-nums rounded border border-primary/40 bg-white px-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
         aria-label="วันทำงาน"
       />
-      <span className="text-[10px] text-cool-400">วัน</span>
+      <span className="text-label text-ink-400">วัน</span>
     </div>
   );
 }
@@ -2932,23 +2932,23 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
     <>
     <Modal open={true} onClose={requestClose} size="xl" title={`รายละเอียดเงินเดือน — ${employee.full_name}`}>
       <div className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-card-border bg-cool-25/40 p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-card-border bg-paper-field/40 p-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1 text-body">
             <div>
-              <span className="text-cool-400 text-xs block">รหัสพนักงาน</span>
-              <span className="text-cool-700 font-mono text-[11px]">{employee.employee_code}</span>
+              <span className="text-ink-400 text-label block">รหัสพนักงาน</span>
+              <span className="text-ink-700 font-mono text-label">{employee.employee_code}</span>
             </div>
             <div>
-              <span className="text-cool-400 text-xs block">ตำแหน่ง</span>
-              <span className="text-cool-700">{employee.position || "—"}</span>
+              <span className="text-ink-400 text-label block">ตำแหน่ง</span>
+              <span className="text-ink-700">{employee.position || "—"}</span>
             </div>
             <div>
-              <span className="text-cool-400 text-xs block">ประเภท</span>
-              <span className="text-cool-700">{employee.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}</span>
+              <span className="text-ink-400 text-label block">ประเภท</span>
+              <span className="text-ink-700">{employee.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}</span>
             </div>
             <div>
-              <span className="text-cool-400 text-xs block">ฐานเงินเดือน</span>
-              <span className="text-cool-700 tabular-nums">฿{formatCurrency(employee.base_salary)}</span>
+              <span className="text-ink-400 text-label block">ฐานเงินเดือน</span>
+              <span className="text-ink-700 tabular-nums">฿{formatCurrency(employee.base_salary)}</span>
             </div>
           </div>
           <StatusBadge
@@ -2958,17 +2958,17 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
         </div>
 
         {isLeaverInPeriod && leaverSuggestion && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+          <div className="bg-blue-50 border border-blue-200 rounded-control p-3 flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm text-blue-800">
+              <p className="text-body text-blue-800">
                 พนักงานลาออกวันที่ {formatThaiDate(employee.end_date as string)} (กลางรอบ) — แนะนำปรับค่าจ้างตามสัดส่วนวันที่ทำงาน
               </p>
               <button
                 type="button"
                 onClick={() => updateLocal({ absent_days: leaverSuggestion.absent_days })}
                 disabled={leaverSuggestion.absent_days === 0}
-                className="mt-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                className="mt-1.5 text-label font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
               >
                 กรอกข้อเสนอให้ ({leaverSuggestion.absent_days} วันเทียบเท่าถึงสิ้นรอบ — คำนวณค่าจ้างตามสัดส่วน)
               </button>
@@ -2977,9 +2977,9 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
         )}
 
         {templateNote && (
-          <div className="bg-primary-soft border border-primary/20 rounded-lg p-3 flex items-start gap-2">
+          <div className="bg-primary-soft border border-primary/20 rounded-control p-3 flex items-start gap-2">
             <Receipt className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-            <p className="text-xs text-primary-deep">{templateNote}</p>
+            <p className="text-label text-primary-deep">{templateNote}</p>
           </div>
         )}
 
@@ -3011,12 +3011,12 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
                   disabled={readOnly}
                 />
                 {employee.salary_type === "monthly" ? (
-                  <p className="text-[10px] text-cool-400 mt-1">
+                  <p className="text-label text-ink-400 mt-1">
                     หัก {formatCurrency(localItem.absence_daily_rate ?? employee.base_salary / resolveDivisorDays(settings, month, year))} / วัน
                     {localItem.absence_daily_rate ? " (กำหนดเอง)" : " (อัตโนมัติ)"}
                   </p>
                 ) : (
-                  <p className="text-[10px] text-cool-400 mt-1">ไม่หักซ้ำ — วันที่ไม่มาไม่ได้รับค่าจ้างผ่านวันทำงานแล้ว</p>
+                  <p className="text-label text-ink-400 mt-1">ไม่หักซ้ำ — วันที่ไม่มาไม่ได้รับค่าจ้างผ่านวันทำงานแล้ว</p>
                 )}
               </div>
             )}
@@ -3032,7 +3032,7 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
                   placeholder={(employee.base_salary / resolveDivisorDays(settings, month, year)).toFixed(2)}
                   disabled={readOnly}
                 />
-                <p className="text-[10px] text-cool-400 mt-1">เว้นว่าง = ใช้อัตราอัตโนมัติ</p>
+                <p className="text-label text-ink-400 mt-1">เว้นว่าง = ใช้อัตราอัตโนมัติ</p>
               </div>
             )}
           </div>
@@ -3080,7 +3080,7 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
         </div>
 
         {dirty && !readOnly && (
-          <p className="text-xs text-amber-600 flex items-center gap-1">
+          <p className="text-label text-amber-600 flex items-center gap-1">
             <AlertCircle className="w-3.5 h-3.5" /> ยังไม่ได้บันทึกการเปลี่ยนแปลง
           </p>
         )}
@@ -3089,7 +3089,7 @@ function PayrollDetailModal({ employee, run, initialItem, settings, month, year,
 
     <Modal open={showDiscardModalLocal} onClose={() => setShowDiscardModalLocal(false)} title="ยกเลิกการแก้ไข?">
       <div className="space-y-4">
-        <p className="text-sm text-cool-600">มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการยกเลิกและออกหรือไม่?</p>
+        <p className="text-body text-ink-600">มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการยกเลิกและออกหรือไม่?</p>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setShowDiscardModalLocal(false)} className="flex-1">
             แก้ไขต่อ
@@ -3141,11 +3141,11 @@ function PayrollEditableSections({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-card-border bg-white p-4">
+      <div className="rounded-control border border-card-border bg-white p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-cool-700">OT (ล่วงเวลา)</span>
-            {hasOT && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md font-medium">{localItem.ot_entries.length} รายการ</span>}
+            <span className="text-label font-semibold text-ink-700">OT (ล่วงเวลา)</span>
+            {hasOT && <span className="text-label bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-control font-medium">{localItem.ot_entries.length} รายการ</span>}
           </div>
           {!readOnly && (
             <Button size="sm" variant="ghost" onClick={addOT} className="!px-2 !py-1 !h-7">
@@ -3155,7 +3155,7 @@ function PayrollEditableSections({
         </div>
         {hasOT && (
           <div className="space-y-2">
-            <div className="grid grid-cols-[80px_100px_70px_80px_auto] gap-2 text-[10px] text-cool-400 font-medium px-1">
+            <div className="grid grid-cols-[80px_100px_70px_80px_auto] gap-2 text-label text-ink-400 font-medium px-1">
               <span>ชั่วโมง</span>
               <span>ประเภท</span>
               <span>อัตราคูณ</span>
@@ -3172,13 +3172,13 @@ function PayrollEditableSections({
                     value={ot.hours ?? ""}
                     onChange={(e) => updateOT(i, "hours", parseFloat(e.target.value) || 0)}
                     placeholder="0"
-                    className="!h-8 !text-[11px]"
+                    className="!h-8 !text-label"
                     disabled={readOnly}
                   />
                   <Select
                     value={ot.type}
                     onChange={(e) => updateOT(i, "type", e.target.value)}
-                    className="!h-8 !text-[11px]"
+                    className="!h-8 !text-label"
                     disabled={readOnly}
                   >
                     <option value="normal">ปกติ (1.5×)</option>
@@ -3191,14 +3191,14 @@ function PayrollEditableSections({
                     value={ot.multiplier ?? ""}
                     onChange={(e) => updateOT(i, "multiplier", parseFloat(e.target.value) || 0)}
                     placeholder="×"
-                    className="!h-8 !text-[11px]"
+                    className="!h-8 !text-label"
                     disabled={readOnly}
                   />
-                  <span className="text-right text-[11px] font-medium text-cool-700 tabular-nums">฿{formatCurrency(otPay)}</span>
+                  <span className="text-right text-label font-medium text-ink-700 tabular-nums">฿{formatCurrency(otPay)}</span>
                   {!readOnly && (
                     <button
                       onClick={() => removeOT(i)}
-                      className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-400 hover:text-red-500 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -3209,16 +3209,16 @@ function PayrollEditableSections({
           </div>
         )}
         {!hasOT && (
-          <p className="text-xs text-cool-400">ยังไม่มีรายการ OT</p>
+          <p className="text-label text-ink-400">ยังไม่มีรายการ OT</p>
         )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="rounded-lg border border-card-border bg-white p-4">
+        <div className="rounded-control border border-card-border bg-white p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-cool-700">เงินเพิ่ม</span>
-              {hasAdditions && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-md font-medium">{localItem.additions.length} รายการ</span>}
+              <span className="text-label font-semibold text-ink-700">เงินเพิ่ม</span>
+              {hasAdditions && <span className="text-label bg-green-100 text-green-700 px-1.5 py-0.5 rounded-control font-medium">{localItem.additions.length} รายการ</span>}
             </div>
             {!readOnly && (
               <Button size="sm" variant="ghost" onClick={addAddition} className="!px-2 !py-1 !h-7">
@@ -3233,7 +3233,7 @@ function PayrollEditableSections({
                   <Select
                     value={(add as { kind?: string | null }).kind ?? "allowance"}
                     onChange={(e) => updateAddition(i, "kind", e.target.value)}
-                    className="w-[118px] shrink-0 !h-8 !text-[11px]"
+                    className="w-[118px] shrink-0 !h-8 !text-label"
                     disabled={readOnly}
                     aria-label="ประเภทเงินเพิ่ม"
                   >
@@ -3245,7 +3245,7 @@ function PayrollEditableSections({
                     value={add.label}
                     onChange={(e) => updateAddition(i, "label", e.target.value)}
                     placeholder="เช่น ค่ากะ, ค่าเบี้ยเลี้ยง"
-                    className="flex-1 !h-8 !text-[11px]"
+                    className="flex-1 !h-8 !text-label"
                     disabled={readOnly}
                   />
                   <Input
@@ -3254,13 +3254,13 @@ function PayrollEditableSections({
                     value={add.amount ?? ""}
                     onChange={(e) => updateAddition(i, "amount", parseFloat(e.target.value) || 0)}
                     placeholder="฿"
-                    className="w-[88px] !h-8 !text-[11px]"
+                    className="w-[88px] !h-8 !text-label"
                     disabled={readOnly}
                   />
                   {!readOnly && (
                     <button
                       onClick={() => removeAddition(i)}
-                      className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-400 hover:text-red-500 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -3269,15 +3269,15 @@ function PayrollEditableSections({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-cool-400">ยังไม่มีเงินเพิ่ม</p>
+            <p className="text-label text-ink-400">ยังไม่มีเงินเพิ่ม</p>
           )}
         </div>
 
-        <div className="rounded-lg border border-card-border bg-white p-4">
+        <div className="rounded-control border border-card-border bg-white p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-cool-700">เงินหัก</span>
-              {hasDeductions && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-md font-medium">{localItem.deductions.length} รายการ</span>}
+              <span className="text-label font-semibold text-ink-700">เงินหัก</span>
+              {hasDeductions && <span className="text-label bg-red-100 text-red-700 px-1.5 py-0.5 rounded-control font-medium">{localItem.deductions.length} รายการ</span>}
             </div>
             {!readOnly && (
               <Button size="sm" variant="ghost" onClick={addDeduction} className="!px-2 !py-1 !h-7">
@@ -3292,7 +3292,7 @@ function PayrollEditableSections({
                   <Select
                     value={(ded as { kind?: string | null }).kind ?? "advance"}
                     onChange={(e) => updateDeduction(i, "kind", e.target.value)}
-                    className="w-[118px] shrink-0 !h-8 !text-[11px]"
+                    className="w-[118px] shrink-0 !h-8 !text-label"
                     disabled={readOnly}
                     aria-label="ประเภทเงินหัก"
                   >
@@ -3304,7 +3304,7 @@ function PayrollEditableSections({
                     value={ded.label}
                     onChange={(e) => updateDeduction(i, "label", e.target.value)}
                     placeholder="เช่น เบิกล่วงหน้า"
-                    className="flex-1 !h-8 !text-[11px]"
+                    className="flex-1 !h-8 !text-label"
                     disabled={readOnly}
                   />
                   <Input
@@ -3313,13 +3313,13 @@ function PayrollEditableSections({
                     value={ded.amount ?? ""}
                     onChange={(e) => updateDeduction(i, "amount", parseFloat(e.target.value) || 0)}
                     placeholder="฿"
-                    className="w-[88px] !h-8 !text-[11px]"
+                    className="w-[88px] !h-8 !text-label"
                     disabled={readOnly}
                   />
                   {!readOnly && (
                     <button
                       onClick={() => removeDeduction(i)}
-                      className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-red-50 text-cool-400 hover:text-red-500 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -3328,7 +3328,7 @@ function PayrollEditableSections({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-cool-400">ยังไม่มีเงินหัก</p>
+            <p className="text-label text-ink-400">ยังไม่มีเงินหัก</p>
           )}
         </div>
       </div>
@@ -3373,77 +3373,77 @@ function CalculationBreakdown({ employee, lineItem, settings, month, year }: Cal
     : employee.base_salary / divisorDays;
 
   return (
-    <div className="rounded-lg border border-primary/20 bg-primary-soft/30 p-4">
+    <div className="rounded-control border border-primary/20 bg-primary-soft/30 p-4">
       <div className="flex items-center gap-2 mb-3">
         <Receipt className="w-4 h-4 text-primary" />
-        <span className="text-xs font-semibold text-primary-deep">สรุปการคำนวณ</span>
+        <span className="text-label font-semibold text-primary-deep">สรุปการคำนวณ</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-body">
         <div className="space-y-1.5">
           <div className="flex justify-between">
-            <span className="text-cool-500">เงินเดือนฐาน</span>
-            <span className="text-cool-700 tabular-nums font-medium">฿{formatCurrency(basePay)}</span>
+            <span className="text-ink-500">เงินเดือนฐาน</span>
+            <span className="text-ink-700 tabular-nums font-medium">฿{formatCurrency(basePay)}</span>
           </div>
           {calc.absence_deduction > 0 && (
             <div className="flex justify-between">
-              <span className="text-cool-500">หักวันไม่ทำงาน ({lineItem.absent_days} วัน × ฿{formatCurrency(absenceDailyRate)}/วัน)</span>
+              <span className="text-ink-500">หักวันไม่ทำงาน ({lineItem.absent_days} วัน × ฿{formatCurrency(absenceDailyRate)}/วัน)</span>
               <span className="text-red-500 tabular-nums font-medium">-฿{formatCurrency(calc.absence_deduction)}</span>
             </div>
           )}
           {lineItem.ot_entries.length > 0 && (
             <div className="flex justify-between">
-              <span className="text-cool-500">OT ({lineItem.ot_entries.length} รายการ)</span>
-              <span className="text-cool-700 tabular-nums font-medium">+฿{formatCurrency(totalOT)}</span>
+              <span className="text-ink-500">OT ({lineItem.ot_entries.length} รายการ)</span>
+              <span className="text-ink-700 tabular-nums font-medium">+฿{formatCurrency(totalOT)}</span>
             </div>
           )}
           {lineItem.additions.length > 0 && (
             <div className="flex justify-between">
-              <span className="text-cool-500">เงินเพิ่ม ({lineItem.additions.length} รายการ)</span>
+              <span className="text-ink-500">เงินเพิ่ม ({lineItem.additions.length} รายการ)</span>
               <span className="text-green-600 tabular-nums font-medium">+฿{formatCurrency(totalAdditions)}</span>
             </div>
           )}
           <div className="flex justify-between border-t border-primary/20 pt-1.5">
-            <span className="text-cool-700 font-semibold">ค่าแรงรวม</span>
-            <span className="text-cool-900 tabular-nums font-bold">฿{formatCurrency(gross)}</span>
+            <span className="text-ink-700 font-semibold">ค่าแรงรวม</span>
+            <span className="text-ink-900 tabular-nums font-semibold">฿{formatCurrency(gross)}</span>
           </div>
         </div>
         <div className="space-y-1.5">
           {employee.sso_registered === false ? (
             <>
               <div className="flex justify-between">
-                <span className="text-cool-500">ประกันสังคม</span>
-                <span className="text-cool-300">— ไม่ลงทะเบียน</span>
+                <span className="text-ink-500">ประกันสังคม</span>
+                <span className="text-ink-300">— ไม่ลงทะเบียน</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-cool-500">ภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 · ค่าจ้างทำของ 3%)</span>
+                <span className="text-ink-500">ภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 · ค่าจ้างทำของ 3%)</span>
                 <span className="text-red-500 tabular-nums font-medium">-฿{formatCurrency(calc.withholding_tax)}</span>
               </div>
             </>
           ) : (
             <>
               <div className="flex justify-between">
-                <span className="text-cool-500">ประกันสังคม (พนักงาน)</span>
+                <span className="text-ink-500">ประกันสังคม (พนักงาน)</span>
                 <span className="text-red-500 tabular-nums font-medium">-฿{formatCurrency(calc.sso_employee)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-cool-500">ประกันสังคม (นายจ้าง)</span>
-                <span className="text-cool-500 tabular-nums font-medium">฿{formatCurrency(calc.sso_employer)}</span>
+                <span className="text-ink-500">ประกันสังคม (นายจ้าง)</span>
+                <span className="text-ink-500 tabular-nums font-medium">฿{formatCurrency(calc.sso_employer)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-cool-500">ภาษีหัก ณ ที่จ่าย</span>
+                <span className="text-ink-500">ภาษีหัก ณ ที่จ่าย</span>
                 <span className="text-red-500 tabular-nums font-medium">-฿{formatCurrency(calc.withholding_tax)}</span>
               </div>
             </>
           )}
           {lineItem.deductions.length > 0 && (
             <div className="flex justify-between">
-              <span className="text-cool-500">เงินหัก ({lineItem.deductions.length} รายการ)</span>
+              <span className="text-ink-500">เงินหัก ({lineItem.deductions.length} รายการ)</span>
               <span className="text-red-500 tabular-nums font-medium">-฿{formatCurrency(totalDeductions)}</span>
             </div>
           )}
           <div className="flex justify-between border-t border-primary/20 pt-1.5">
-            <span className="text-cool-700 font-semibold">เงินเดือนสุทธิ</span>
-            <span className="text-primary-deep tabular-nums font-bold">฿{formatCurrency(calc.net_pay)}</span>
+            <span className="text-ink-700 font-semibold">เงินเดือนสุทธิ</span>
+            <span className="text-primary-deep tabular-nums font-semibold">฿{formatCurrency(calc.net_pay)}</span>
           </div>
         </div>
       </div>
@@ -3496,7 +3496,7 @@ function PayslipView({ employee, run, lineItem, settings, company, onBack, onPri
 
   return (
     <div className="min-h-screen bg-page-bg print:bg-white">
-      <div className="print:hidden sticky top-0 z-30 bg-white border-b border-card-border px-4 py-3 flex items-center justify-between shadow-sm">
+      <div className="print:hidden sticky top-0 z-30 bg-white border-b border-card-border px-4 py-3 flex items-center justify-between">
         <Button variant="secondary" size="sm" onClick={onBack}>
           กลับ
         </Button>
@@ -3511,38 +3511,38 @@ function PayslipView({ employee, run, lineItem, settings, company, onBack, onPri
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="flex items-start gap-3 min-w-0">
                 {company?.logoUrl && (
-                  <img src={company.logoUrl} alt="" className="w-11 h-11 object-contain rounded-lg border border-card-border p-0.5 shrink-0" />
+                  <img src={company.logoUrl} alt="" className="w-11 h-11 object-contain rounded-control border border-card-border p-0.5 shrink-0" />
                 )}
                 <div className="min-w-0">
-                  {company?.name && <div className="text-[15px] font-bold text-ink-900 leading-tight">{company.name}</div>}
-                  {company?.address && <div className="text-[11px] text-ink-400 mt-0.5 leading-snug">{company.address}</div>}
-                  {company?.taxId && <div className="text-[11px] text-ink-400">เลขประจำตัวผู้เสียภาษี {company.taxId}{company?.phone ? ` · โทร ${company.phone}` : ""}</div>}
+                  {company?.name && <div className="text-title font-semibold text-ink-900 leading-tight">{company.name}</div>}
+                  {company?.address && <div className="text-label text-ink-400 mt-0.5 leading-snug">{company.address}</div>}
+                  {company?.taxId && <div className="text-label text-ink-400">เลขประจำตัวผู้เสียภาษี {company.taxId}{company?.phone ? ` · โทร ${company.phone}` : ""}</div>}
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <h1 className="text-xl font-bold text-ink-900">สลิปเงินเดือน</h1>
-                <p className="text-xs text-ink-400 mt-0.5">Pay Slip · {MONTHS[(run?.period_month ?? 1) - 1]?.label} {(run?.period_year ?? 2025) + 543}</p>
-                <div className="text-xs text-ink-400 mt-1">วันจ่าย</div>
-                <div className="text-sm font-medium text-ink-700">{run?.pay_date}</div>
+                <h1 className="text-display font-semibold text-ink-900">สลิปเงินเดือน</h1>
+                <p className="text-label text-ink-400 mt-0.5">Pay Slip · {MONTHS[(run?.period_month ?? 1) - 1]?.label} {(run?.period_year ?? 2025) + 543}</p>
+                <div className="text-label text-ink-400 mt-1">วันจ่าย</div>
+                <div className="text-body font-medium text-ink-700">{run?.pay_date}</div>
               </div>
             </div>
 
-            <div className="border border-card-border rounded-lg p-4 mb-6 bg-cool-25/30">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div className="border border-card-border rounded-control p-4 mb-6 bg-paper-field/30">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-body">
                 <div>
-                  <span className="text-ink-400 text-xs">รหัสพนักงาน</span>
+                  <span className="text-ink-400 text-label">รหัสพนักงาน</span>
                   <div className="text-ink-700 font-medium">{employee.employee_code}</div>
                 </div>
                 <div>
-                  <span className="text-ink-400 text-xs">ชื่อ-นามสกุล</span>
+                  <span className="text-ink-400 text-label">ชื่อ-นามสกุล</span>
                   <div className="text-ink-700 font-medium">{employee.full_name}</div>
                 </div>
                 <div>
-                  <span className="text-ink-400 text-xs">ตำแหน่ง</span>
+                  <span className="text-ink-400 text-label">ตำแหน่ง</span>
                   <div className="text-ink-700 font-medium">{employee.position}</div>
                 </div>
                 <div>
-                  <span className="text-ink-400 text-xs">แผนก</span>
+                  <span className="text-ink-400 text-label">แผนก</span>
                   <div className="text-ink-700 font-medium">{employee.department || "—"}</div>
                 </div>
               </div>
@@ -3550,8 +3550,8 @@ function PayslipView({ employee, run, lineItem, settings, company, onBack, onPri
 
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div>
-                <h3 className="text-xs font-bold text-ink-700 uppercase tracking-wider mb-3 pb-2 border-b border-card-border">รายได้</h3>
-                <div className="space-y-2 text-sm">
+                <h3 className="text-label font-semibold text-ink-700 mb-3 pb-2 border-b border-card-border">รายได้</h3>
+                <div className="space-y-2 text-body">
                   <div className="flex justify-between">
                     <span className="text-ink-500">เงินเดือน{employee.salary_type === "daily" ? ` (${lineItem.days_worked} วัน)` : ""}</span>
                     <span className="text-ink-700 tabular-nums font-medium">฿{formatCurrency(basePay)}</span>
@@ -3576,14 +3576,14 @@ function PayslipView({ employee, run, lineItem, settings, company, onBack, onPri
                   ))}
                   <div className="flex justify-between border-t border-card-border pt-2 mt-2">
                     <span className="text-ink-700 font-semibold">รวมรายได้</span>
-                    <span className="text-ink-900 tabular-nums font-bold">฿{formatCurrency(calc.gross_pay)}</span>
+                    <span className="text-ink-900 tabular-nums font-semibold">฿{formatCurrency(calc.gross_pay)}</span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-bold text-ink-700 uppercase tracking-wider mb-3 pb-2 border-b border-card-border">รายการหัก</h3>
-                <div className="space-y-2 text-sm">
+                <h3 className="text-label font-semibold text-ink-700 mb-3 pb-2 border-b border-card-border">รายการหัก</h3>
+                <div className="space-y-2 text-body">
                   {employee.sso_registered === false ? (
                     <div className="flex justify-between">
                       <span className="text-ink-500">ประกันสังคม</span>
@@ -3607,7 +3607,7 @@ function PayslipView({ employee, run, lineItem, settings, company, onBack, onPri
                   ))}
                   <div className="flex justify-between border-t border-card-border pt-2 mt-2">
                     <span className="text-ink-700 font-semibold">รวมหัก</span>
-                    <span className="text-ink-900 tabular-nums font-bold">-฿{formatCurrency(calc.sso_employee + calc.withholding_tax + totalDeductions)}</span>
+                    <span className="text-ink-900 tabular-nums font-semibold">-฿{formatCurrency(calc.sso_employee + calc.withholding_tax + totalDeductions)}</span>
                   </div>
                 </div>
               </div>
@@ -3616,23 +3616,23 @@ function PayslipView({ employee, run, lineItem, settings, company, onBack, onPri
             <div className="border-t-[2px] border-ink-900 pt-4">
               <div className="flex justify-between items-baseline">
                 <div>
-                  <span className="text-sm font-bold text-ink-700">เงินเดือนสุทธิ</span>
-                  <span className="text-xs text-ink-400 ml-2">Net Pay</span>
+                  <span className="text-body font-semibold text-ink-700">เงินเดือนสุทธิ</span>
+                  <span className="text-label text-ink-400 ml-2">Net Pay</span>
                 </div>
-                <span className="text-2xl font-bold text-ink-900 tabular-nums">฿{formatCurrency(calc.net_pay)}</span>
+                <span className="text-page font-semibold text-ink-900 tabular-nums">฿{formatCurrency(calc.net_pay)}</span>
               </div>
-              <div className="text-right text-xs text-ink-400 mt-1">({thaiNumberToWords(calc.net_pay)})</div>
+              <div className="text-right text-label text-ink-400 mt-1">({thaiNumberToWords(calc.net_pay)})</div>
               {employee.sso_registered !== false ? (
-                <p className="text-[11px] text-ink-400 mt-2">นายจ้างสมทบประกันสังคม ฿{formatCurrency(calc.sso_employer)} (ไม่หักจากเงินเดือนสุทธิของพนักงาน)</p>
+                <p className="text-label text-ink-400 mt-2">นายจ้างสมทบประกันสังคม ฿{formatCurrency(calc.sso_employer)} (ไม่หักจากเงินเดือนสุทธิของพนักงาน)</p>
               ) : (
-                <p className="text-[11px] text-ink-400 mt-2">พนักงานไม่ได้ลงทะเบียนประกันสังคม — ภาษีข้างต้นยื่นแบบ ภ.ง.ด.3 (ค่าจ้างทำของ 3%)</p>
+                <p className="text-label text-ink-400 mt-2">พนักงานไม่ได้ลงทะเบียนประกันสังคม — ภาษีข้างต้นยื่นแบบ ภ.ง.ด.3 (ค่าจ้างทำของ 3%)</p>
               )}
               <div className="grid grid-cols-2 gap-8 mt-7 print:mt-8">
-                <div className="text-center text-xs text-ink-500">
+                <div className="text-center text-label text-ink-500">
                   <div className="border-b border-dotted border-ink-400 h-7 mb-1" />
                   ผู้จ่ายเงิน · วันที่ ......../......../........
                 </div>
-                <div className="text-center text-xs text-ink-500">
+                <div className="text-center text-label text-ink-500">
                   <div className="border-b border-dotted border-ink-400 h-7 mb-1" />
                   ผู้รับเงิน · วันที่ ......../......../........
                 </div>

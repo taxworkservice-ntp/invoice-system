@@ -213,7 +213,7 @@ export default function CatalogItemPage() {
   if (error || !item)
     return (
       <AppShell title="ไม่พบสินค้า" showBack>
-        <p className="text-sm text-gray-500">ไม่พบข้อมูลสินค้า</p>
+        <p className="text-body text-ink-500">ไม่พบข้อมูลสินค้า</p>
       </AppShell>
     );
 
@@ -238,17 +238,17 @@ export default function CatalogItemPage() {
       ) : undefined}
     >
       <div className="space-y-4">
-        <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
+        <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-[18px] font-bold text-[#1A1A18]">
+              <h2 className="text-subtitle font-semibold text-ink-900">
                 {item.name}
               </h2>
-              <p className="text-[15px] text-[#444441] mt-1">
+              <p className="text-title text-ink-700 mt-1">
                 ฿ {formatCurrency(item.unit_price)} / {item.base_unit}
               </p>
               {hasCarton && (
-                <p className="text-[13px] text-[#888780]">
+                <p className="text-body text-ink-300">
                   ฿{" "}
                   {formatCurrency(item.unit_price * item.qty_per_carton!)}{" "}
                   / {item.carton_unit}
@@ -256,11 +256,7 @@ export default function CatalogItemPage() {
               )}
             </div>
             <span
-              className={`inline-flex px-2 py-1 rounded text-[10px] font-medium shrink-0 ${
-                item.item_type === "product"
-                  ? "bg-[#E6F1FB] text-[#0C447C]"
-                  : "bg-[#F1EFE8] text-[#888780]"
-              }`}
+              className={`inline-flex px-2 py-1 rounded text-label font-medium shrink-0 ${ item.item_type === "product" ? "bg-sent-bg text-primary-deep" : "bg-draft-bg text-ink-300" }`}
             >
               {item.item_type === "product" ? "สินค้า" : "บริการ"}
             </span>
@@ -330,12 +326,12 @@ export default function CatalogItemPage() {
         >
           {revertTarget && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-3 text-[13px] space-y-1">
-                <div className="font-medium text-[#1A1A18]">รายการเดิม</div>
-                <div className="text-[#444441]">
+              <div className="rounded-control border border-card-border bg-paper-field p-3 text-body space-y-1">
+                <div className="font-medium text-ink-900">รายการเดิม</div>
+                <div className="text-ink-700">
                   วันที่: {formatBuddhistDate(revertTarget.created_at)}
                 </div>
-                <div className="text-[#444441]">
+                <div className="text-ink-700">
                   จำนวน: {revertTarget.movement_type === "manual_in" ? "+" : "-"}
                   {formatMixedStock(
                     Math.abs(Number(revertTarget.qty_base)),
@@ -345,32 +341,32 @@ export default function CatalogItemPage() {
                   )}
                 </div>
                 {revertTarget.unit_cost != null && (
-                  <div className="text-[#444441]">
+                  <div className="text-ink-700">
                     ต้นทุน/หน่วย: ฿
                     {formatCurrency(Number(revertTarget.unit_cost))}
                   </div>
                 )}
                 {revertTarget.movement_value != null && (
-                  <div className="text-[#444441]">
+                  <div className="text-ink-700">
                     มูลค่า: ฿
                     {formatCurrency(Number(revertTarget.movement_value))}
                   </div>
                 )}
                 {revertTarget.reason && (
-                  <div className="text-[#888780] italic">
+                  <div className="text-ink-300 italic">
                     เหตุผลเดิม: {revertTarget.reason}
                   </div>
                 )}
               </div>
 
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
+              <div className="rounded-control border border-amber-200 bg-amber-50 p-3 text-label text-amber-900">
                 {revertTarget.movement_type === "manual_in"
                   ? "การยกเลิกจะตัดสต็อกออกตามจำนวนเดิม และคืนค่า avg_cost และ stock_value ให้เป็นเหมือนก่อนรับเข้ารายการนี้"
                   : "การยกเลิกจะคืนสต็อกกลับตามจำนวนเดิม และปรับค่า avg_cost และ stock_value กลับเป็นก่อนตัด"}
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-[#1A1A18] mb-1">
+                <label className="block text-body font-medium text-ink-900 mb-1">
                   เหตุผลในการยกเลิก
                 </label>
                 <input
@@ -378,7 +374,7 @@ export default function CatalogItemPage() {
                   value={revertReason}
                   onChange={(e) => setRevertReason(e.target.value)}
                   placeholder={revertTarget.movement_type === "manual_in" ? "เช่น กรอกทุนผิด, จำนวนผิด" : "เช่น ตัดผิดรายการ, จำนวนผิด"}
-                  className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                  className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
@@ -398,7 +394,7 @@ export default function CatalogItemPage() {
                   onClick={handleConfirmRevert}
                   loading={reverting}
                   disabled={reverting}
-                  className="flex-1 !bg-[#C0392B] hover:!bg-[#9C2E25] !text-white"
+                  className="flex-1 !bg-danger hover:!bg-danger !text-white"
                 >
                   ยืนยันยกเลิกรายการ
                 </Button>

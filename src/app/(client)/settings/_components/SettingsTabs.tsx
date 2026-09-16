@@ -14,11 +14,7 @@ export function SettingsTabs({ activePath }: { activePath: string }) {
         <Link
           key={tab.path}
           to={tab.path}
-          className={`px-3 py-2 text-sm rounded-t-lg ${
-            tab.path === activePath
-              ? "bg-white border border-card-border border-b-white text-primary font-medium"
-              : "text-gray-400 hover:text-gray-600"
-          }`}
+          className={`px-3 py-2 text-body rounded-t-control ${ tab.path === activePath ? "bg-white border border-card-border border-b-white text-primary font-medium" : "text-ink-400 hover:text-ink-600" }`}
         >
           {tab.label}
         </Link>

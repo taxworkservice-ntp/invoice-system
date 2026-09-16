@@ -56,23 +56,23 @@ export function CorrectionModal({ item, movement, isOpen, onConfirm, onDismiss }
   return (
     <Modal open={isOpen} onClose={onDismiss} title={isIn ? "แก้ไขการรับสินค้าเข้า" : "แก้ไขการตัดสต็อก"}>
       <div className="space-y-4">
-        <div className="rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-3 text-[13px] space-y-1">
-          <div className="font-medium text-[#1A1A18]">
+        <div className="rounded-control border border-card-border bg-paper-field p-3 text-body space-y-1">
+          <div className="font-medium text-ink-900">
             {isIn ? "รายการเดิม — รับเข้า" : "รายการเดิม — ตัดสต็อก"} {Math.abs(originalQty)} {item.base_unit}
           </div>
           {isIn && movement.unit_cost != null && (
-            <div className="text-[#444441]">
+            <div className="text-ink-700">
               ต้นทุนเดิม: ฿ {Number(movement.unit_cost).toLocaleString("th-TH")} / {item.base_unit}
             </div>
           )}
           {movement.reason && (
-            <div className="text-[#888780] text-[11px] italic">{movement.reason}</div>
+            <div className="text-ink-300 text-label italic">{movement.reason}</div>
           )}
         </div>
 
         {hasCarton ? (
           <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1A1A18]">
+            <label className="block text-body font-medium text-ink-900">
               จำนวนที่ถูกต้อง ({useCarton ? item.carton_unit : item.base_unit})
             </label>
             <div className="flex items-center gap-2">
@@ -86,28 +86,28 @@ export function CorrectionModal({ item, movement, isOpen, onConfirm, onDismiss }
                   else setQtyBase(e.target.value);
                 }}
                 autoFocus
-                className="flex-1 px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                className="flex-1 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <span className="text-sm text-[#888780] shrink-0">
+              <span className="text-body text-ink-300 shrink-0">
                 {useCarton ? item.carton_unit : item.base_unit}
               </span>
             </div>
             {useCarton && qtyCarton && computedQtyBase > 0 && (
-              <div className="text-[11px] text-[#888780]">
+              <div className="text-label text-ink-300">
                 = {computedQtyBase} {item.base_unit}
               </div>
             )}
             <button
               type="button"
               onClick={() => { setUseCarton(!useCarton); setQtyCarton(""); setQtyBase(""); }}
-              className="text-[12px] text-[#378ADD] hover:underline"
+              className="text-label text-primary hover:underline"
             >
               ป้อนเป็น {useCarton ? item.base_unit : item.carton_unit} แทน
             </button>
           </div>
         ) : (
           <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1A1A18]">
+            <label className="block text-body font-medium text-ink-900">
               จำนวนที่ถูกต้อง ({item.base_unit})
             </label>
             <div className="flex items-center gap-2">
@@ -118,16 +118,16 @@ export function CorrectionModal({ item, movement, isOpen, onConfirm, onDismiss }
                 value={qtyBase}
                 onChange={(e) => setQtyBase(e.target.value)}
                 autoFocus
-                className="flex-1 px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                className="flex-1 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <span className="text-sm text-[#888780] shrink-0">{item.base_unit}</span>
+              <span className="text-body text-ink-300 shrink-0">{item.base_unit}</span>
             </div>
           </div>
         )}
 
         {isIn && (
           <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1A1A18]">
+            <label className="block text-body font-medium text-ink-900">
               ต้นทุนต่อ{item.base_unit} ที่ถูกต้อง
             </label>
             <div className="flex items-center gap-2">
@@ -138,15 +138,15 @@ export function CorrectionModal({ item, movement, isOpen, onConfirm, onDismiss }
                 value={unitCost}
                 onChange={(e) => setUnitCost(e.target.value)}
                 placeholder="0.00"
-                className="flex-1 px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                className="flex-1 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <span className="text-sm text-[#888780] shrink-0">฿</span>
+              <span className="text-body text-ink-300 shrink-0">฿</span>
             </div>
           </div>
         )}
 
         <div>
-          <label className="block text-[13px] font-medium text-[#1A1A18] mb-1">
+          <label className="block text-body font-medium text-ink-900 mb-1">
             หมายเหตุ
           </label>
           <input
@@ -154,7 +154,7 @@ export function CorrectionModal({ item, movement, isOpen, onConfirm, onDismiss }
             value={reasonNote}
             onChange={(e) => setReasonNote(e.target.value)}
             placeholder="เช่น กรอกผิด, แก้ไขให้ถูกต้อง"
-            className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+            className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
 

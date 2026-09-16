@@ -34,13 +34,24 @@
   font-display: swap;
 }
 
+/* Mirrors of src/design/tokens.ts for the few values consumed by raw CSS. */
+:root {
+  --page-bg: #f7f6f3;
+  --ink-900: #1a1a18;
+  --ui-font-size: 13px;
+  --ui-line-height: 20px;
+  /* Frozen print base — the print layer is exempt from the UI type scale. */
+  --print-font-size: 14px;
+  --print-line-height: 1.6;
+}
+
 body {
   margin: 0;
   font-family: "Inter", system-ui, -apple-system, sans-serif;
-  background: #F7F6F3;
-  color: #1a1a1a;
-  font-size: 14px;
-  line-height: 1.6;
+  background: var(--page-bg);
+  color: var(--ink-900);
+  font-size: var(--ui-font-size);
+  line-height: var(--ui-line-height);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -101,6 +112,15 @@ body {
 
 .animate-modal-in {
   animation: modal-content-in 0.2s ease-out;
+}
+
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-drawer-in {
+  animation: drawer-in 0.22s ease-out;
 }
 
 @keyframes slide-down {
@@ -199,6 +219,17 @@ body.print-export-document #root {
   box-sizing: border-box;
   overflow-x: hidden;
   font-family: "Sarabun", "Inter", system-ui, -apple-system, sans-serif;
+  /* Frozen so UI base-size changes never move print geometry. */
+  font-size: var(--print-font-size);
+  line-height: var(--print-line-height);
+}
+
+/* The appendix renders directly inside .print-export-page (no .print-sheet
+   wrapper), so it needs the frozen print base to stay immune to UI type
+   changes. */
+.print-appendix {
+  font-size: var(--print-font-size);
+  line-height: var(--print-line-height);
 }
 
 /* Modern template: stack regions as a flex column so the signature/terms

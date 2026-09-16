@@ -19,13 +19,13 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-page-bg flex flex-col items-center justify-center gap-3 p-4">
-          <div className="text-sm font-semibold text-[#1A1A18]">เกิดข้อผิดพลาด</div>
-          <p className="text-xs text-gray-500 text-center max-w-xs">
+          <div className="text-body font-semibold text-ink-900">เกิดข้อผิดพลาด</div>
+          <p className="text-label text-ink-500 text-center max-w-xs">
             กรุณารีเฟรชหน้าใหม่ หรือลองใหม่อีกครั้ง
           </p>
           <button
             onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
-            className="mt-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:opacity-90"
+            className="mt-2 px-4 py-2 text-body font-medium text-white bg-primary rounded-control hover:opacity-90"
           >
             รีเฟรช
           </button>

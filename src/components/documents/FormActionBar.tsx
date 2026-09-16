@@ -25,14 +25,14 @@ export function FormActionBar({
   secondary?: FormActionButton;
 }) {
   return (
-    <div className="sticky bottom-3 z-10 rounded-xl border border-card-border bg-page-bg/95 p-3 shadow-sm backdrop-blur">
+    <div className="sticky bottom-3 z-10 rounded-card border border-card-border bg-page-bg/95 p-3 backdrop-blur">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           {contextLabel ? (
-            <div className="truncate text-xs text-gray-500">{contextLabel}</div>
+            <div className="truncate text-label text-ink-500">{contextLabel}</div>
           ) : null}
           {typeof total === "number" ? (
-            <div className="mt-0.5 text-base font-semibold tabular-nums text-ink-900">
+            <div className="mt-0.5 text-title font-semibold tabular-nums text-ink-900">
               {totalLabel} ฿{total.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           ) : null}

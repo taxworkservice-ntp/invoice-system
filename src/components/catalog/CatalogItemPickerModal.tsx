@@ -99,7 +99,7 @@ export function CatalogItemPickerModal({
     <Modal open={open} onClose={onClose} title="เลือกรายการ" className="md:max-w-2xl">
       <div className="space-y-4">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
           <Input
             className="pl-9"
             placeholder="ค้นหาชื่อรายการ SKU หรือหน่วย"
@@ -110,8 +110,8 @@ export function CatalogItemPickerModal({
         </div>
 
         {adding ? (
-          <div className="rounded-xl border border-card-border bg-[#FAF8F3] p-3">
-            <div className="mb-3 text-sm font-medium text-[#1A1A18]">เพิ่มรายการใหม่</div>
+          <div className="rounded-card border border-card-border bg-paper-soft p-3">
+            <div className="mb-3 text-body font-medium text-ink-900">เพิ่มรายการใหม่</div>
             <div className="space-y-2">
               <Input
                 label="ชื่อรายการ"
@@ -121,9 +121,9 @@ export function CatalogItemPickerModal({
               />
               <div className="flex gap-2">
                 <label className="flex-1 block">
-                  <span className="block text-[13px] text-[#1A1A18] mb-1">ราคาต่อหน่วย</span>
-                  <div className="flex items-center gap-1 border border-card-border rounded-lg bg-white px-2">
-                    <span className="text-[15px] text-[#1A1A18]">฿</span>
+                  <span className="block text-body text-ink-900 mb-1">ราคาต่อหน่วย</span>
+                  <div className="flex items-center gap-1 border border-card-border rounded-control bg-white px-2">
+                    <span className="text-title text-ink-900">฿</span>
                     <input
                       type="number"
                       min="0"
@@ -131,18 +131,18 @@ export function CatalogItemPickerModal({
                       value={newItem.unit_price}
                       onChange={(event) => setNewItem((prev) => ({ ...prev, unit_price: event.target.value }))}
                       placeholder="0.00"
-                      className="flex-1 py-2 text-sm focus:outline-none bg-transparent"
+                      className="flex-1 py-2 text-body focus:outline-none bg-transparent"
                     />
                   </div>
                 </label>
                 <label className="w-28 block">
-                  <span className="block text-[13px] text-[#1A1A18] mb-1">หน่วย</span>
+                  <span className="block text-body text-ink-900 mb-1">หน่วย</span>
                   <input
                     type="text"
                     value={newItem.base_unit}
                     onChange={(event) => setNewItem((prev) => ({ ...prev, base_unit: event.target.value }))}
                     placeholder="ชิ้น"
-                    className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary"
                   />
                 </label>
               </div>
@@ -176,7 +176,7 @@ export function CatalogItemPickerModal({
               <button
                 type="button"
                 onClick={onFullCreate}
-                className="text-xs font-medium text-[#378ADD] hover:underline"
+                className="text-label font-medium text-primary hover:underline"
               >
                 สร้างแบบเต็ม (SKU, หน่วยรอง, ตั้งค่างาน)…
               </button>
@@ -184,9 +184,9 @@ export function CatalogItemPickerModal({
           </div>
         ) : null}
 
-        <div className="max-h-[58vh] overflow-y-auto rounded-xl border border-card-border">
+        <div className="max-h-[58vh] overflow-y-auto rounded-card border border-card-border">
           {filteredItems.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-gray-500">ไม่พบรายการที่ตรงกับคำค้น</div>
+            <div className="px-3 py-6 text-center text-body text-ink-500">ไม่พบรายการที่ตรงกับคำค้น</div>
           ) : (
             <div className="divide-y divide-card-border">
               {filteredItems.map((item) => {
@@ -199,18 +199,18 @@ export function CatalogItemPickerModal({
                       onSelect(item);
                       onClose();
                     }}
-                    className="w-full bg-white px-3 py-3 text-left transition-colors hover:bg-gray-50"
+                    className="w-full bg-white px-3 py-3 text-left transition-colors hover:bg-paper-field"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F3F0E8] text-[#5F5A52]">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-paper-warm text-ink-600">
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="break-words text-sm font-semibold text-[#1A1A18]">{item.name}</span>
+                          <span className="break-words text-body font-semibold text-ink-900">{item.name}</span>
                           {item.is_favorite && <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />}
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-label text-ink-500">
                           {item.sku && <span>SKU {item.sku}</span>}
                           <span>{item.item_type === "service" ? "บริการ" : "สินค้า"}</span>
                           <span>หน่วย {item.base_unit}</span>
@@ -221,7 +221,7 @@ export function CatalogItemPickerModal({
                           )}
                         </div>
                       </div>
-                      <div className="shrink-0 text-right text-sm font-semibold text-[#1A1A18]">
+                      <div className="shrink-0 text-right text-body font-semibold text-ink-900">
                         ฿{formatCurrency(item.unit_price)}
                       </div>
                     </div>

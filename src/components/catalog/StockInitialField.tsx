@@ -42,7 +42,7 @@ export function StockInitialField({
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2 mb-1">
-        <label className="text-[13px] text-[#1A1A18]">
+        <label className="text-body text-ink-900">
           จำนวนสต็อกเริ่มต้น
         </label>
         {hasCarton && (
@@ -52,7 +52,7 @@ export function StockInitialField({
               setUseCarton((prev) => !prev);
               onChange(0);
             }}
-            className="text-[11px] px-2 py-0.5 rounded border border-[#E8E6DF] text-[#888780] hover:border-[#378ADD] hover:text-[#378ADD] transition-colors"
+            className="text-label px-2 py-0.5 rounded border border-card-border text-ink-300 hover:border-primary hover:text-primary transition-colors"
           >
             {useCarton ? baseUnit : cartonUnit}
           </button>
@@ -65,12 +65,12 @@ export function StockInitialField({
           step={step}
           value={displayValue === 0 ? "" : displayValue}
           onChange={(e) => handleChange(e.target.value)}
-          className="flex-1 px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
+          className="flex-1 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
         />
-        <span className="text-sm text-[#888780] shrink-0">{displayUnit}</span>
+        <span className="text-body text-ink-300 shrink-0">{displayUnit}</span>
       </div>
       {hasCarton && numValue > 0 && (
-        <div className="text-[11px] text-[#888780]">
+        <div className="text-label text-ink-300">
           {useCarton
             ? `= ${numValue} ${baseUnit}`
             : `= ${formatMixedStock(numValue, baseUnit, cartonUnit, qtyPerCarton)}`}

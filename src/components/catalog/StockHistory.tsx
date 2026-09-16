@@ -30,20 +30,20 @@ export function StockHistory({
   if (loading && movements.length === 0) {
     return (
       <div>
-        <div className="text-[11px] uppercase font-semibold text-[#888780] mb-2">
+        <div className="text-label font-semibold text-ink-300 mb-2">
           ประวัติการเคลื่อนไหวสต็อก
         </div>
-        <div className="bg-white border border-[#E8E6DF] rounded-[10px]">
+        <div className="bg-white border border-card-border rounded-[10px]">
           {[...Array(5)].map((_, i) => (
             <div
               key={i}
-              className="py-3 px-4 border-b border-[#F1EFE8] last:border-b-0 animate-pulse"
+              className="py-3 px-4 border-b border-draft-bg last:border-b-0 animate-pulse"
             >
               <div className="flex gap-3">
-                <div className="w-5 h-5 bg-gray-200 rounded shrink-0" />
+                <div className="w-5 h-5 bg-line-faint rounded shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  <div className="h-3 bg-line-faint rounded w-3/4" />
+                  <div className="h-3 bg-line-faint rounded w-1/2" />
                 </div>
               </div>
             </div>
@@ -55,15 +55,15 @@ export function StockHistory({
 
   return (
     <div>
-      <div className="text-[11px] uppercase font-semibold text-[#888780] mb-2">
+      <div className="text-label font-semibold text-ink-300 mb-2">
         ประวัติการเคลื่อนไหวสต็อก
       </div>
       {movements.length === 0 ? (
-        <div className="text-center py-8 text-[13px] text-[#888780]">
+        <div className="text-center py-8 text-body text-ink-300">
           ยังไม่มีประวัติการเคลื่อนไหว
         </div>
       ) : (
-        <div className="bg-white border border-[#E8E6DF] rounded-[10px] px-4">
+        <div className="bg-white border border-card-border rounded-[10px] px-4">
           {shown.map((m) => (
             <StockMovementRow key={m.id} movement={m} item={item} onRevert={onRevert} onEdit={onEdit} />
           ))}

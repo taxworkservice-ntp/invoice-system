@@ -127,39 +127,39 @@ export function PayrollExportCard() {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-card-border bg-white p-4">
+    <div className="space-y-4 rounded-control border border-card-border bg-white p-4">
       <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-soft text-primary">
+        <span className="flex h-7 w-7 items-center justify-center rounded-control bg-primary-soft text-primary">
           <Users className="h-4 w-4" />
         </span>
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">เงินเดือน</div>
-          <div className="text-[11px] text-gray-400">สรุป · เงินโอน · ภาษี · สลิป</div>
+          <div className="text-label font-semibold text-ink-400">เงินเดือน</div>
+          <div className="text-label text-ink-400">สรุป · เงินโอน · ภาษี · สลิป</div>
         </div>
       </div>
 
       <div>
-        <label htmlFor="payroll-run" className="mb-0.5 block text-[10px] text-gray-500">รอบจ่าย</label>
-        <select id="payroll-run" value={runId} onChange={(e) => setRunId(e.target.value)} disabled={loading || runs.length === 0} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20 disabled:opacity-50">
+        <label htmlFor="payroll-run" className="mb-0.5 block text-label text-ink-500">รอบจ่าย</label>
+        <select id="payroll-run" value={runId} onChange={(e) => setRunId(e.target.value)} disabled={loading || runs.length === 0} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50">
           {runs.length === 0 && <option value="">{loading ? "กำลังโหลด..." : "ยังไม่มีรอบจ่าย"}</option>}
           {runs.map((run) => (<option key={run.id} value={run.id}>{runLabel(run)}</option>))}
         </select>
       </div>
 
       {selectedRun && (
-        <div className="rounded-lg bg-paper-field px-3 py-2 text-xs text-ink-700">
-          <div className="flex justify-between"><span className="text-gray-500">พนักงาน</span><span className="font-medium">{selectedRun.employee_count ?? 0} คน</span></div>
-          <div className="mt-1 flex justify-between"><span className="text-gray-500">สถานะรอบ</span><span>{selectedRun.status === "finalized" ? "ยืนยันแล้ว" : "ฉบับร่าง"}</span></div>
+        <div className="rounded-control bg-paper-field px-3 py-2 text-label text-ink-700">
+          <div className="flex justify-between"><span className="text-ink-500">พนักงาน</span><span className="font-medium">{selectedRun.employee_count ?? 0} คน</span></div>
+          <div className="mt-1 flex justify-between"><span className="text-ink-500">สถานะรอบ</span><span>{selectedRun.status === "finalized" ? "ยืนยันแล้ว" : "ฉบับร่าง"}</span></div>
         </div>
       )}
 
       <DownloadJobBar state={job} onCancel={job.cancel} onDismiss={job.reset} />
 
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => handleWorkbook("summary")} disabled={!runId || job.status === "running"} className="rounded-lg border border-card-border px-3 py-2 text-xs font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">สรุปเงินเดือน (XLSX)</button>
-        <button type="button" onClick={() => handleWorkbook("bank")} disabled={!runId || job.status === "running"} className="rounded-lg border border-card-border px-3 py-2 text-xs font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">เงินโอนธนาคาร (XLSX)</button>
-        <button type="button" onClick={() => handleWorkbook("wht")} disabled={!runId || job.status === "running"} className="rounded-lg border border-card-border px-3 py-2 text-xs font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">ภาษีหัก ณ ที่จ่าย (XLSX)</button>
-        <button type="button" onClick={handlePayslips} disabled={!runId || job.status === "running"} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50">สลิปเงินเดือน (ZIP)</button>
+        <button type="button" onClick={() => handleWorkbook("summary")} disabled={!runId || job.status === "running"} className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">สรุปเงินเดือน (XLSX)</button>
+        <button type="button" onClick={() => handleWorkbook("bank")} disabled={!runId || job.status === "running"} className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">เงินโอนธนาคาร (XLSX)</button>
+        <button type="button" onClick={() => handleWorkbook("wht")} disabled={!runId || job.status === "running"} className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50">ภาษีหัก ณ ที่จ่าย (XLSX)</button>
+        <button type="button" onClick={handlePayslips} disabled={!runId || job.status === "running"} className="rounded-control bg-primary px-3 py-2 text-label font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50">สลิปเงินเดือน (ZIP)</button>
       </div>
     </div>
   );

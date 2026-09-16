@@ -20,12 +20,12 @@ export function SortableTh({
   onClick,
   className = "",
   activeColor = "text-primary",
-  inactiveColor = "text-[#C9D5E3]",
+  inactiveColor = "text-line-strong",
 }: SortableThProps) {
   return (
     <th
       onClick={onClick}
-      className={`px-3 py-2 text-${align} text-[10px] font-semibold text-[#344054] tracking-[0.04em] cursor-pointer select-none whitespace-nowrap hover:text-[#111827] transition-colors ${className}`}
+      className={`px-3 py-2 text-${align} text-label font-semibold text-ink-600 cursor-pointer select-none whitespace-nowrap hover:text-ink-900 transition-colors ${className}`}
     >
       {label}
       {active ? (

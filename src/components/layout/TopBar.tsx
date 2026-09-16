@@ -21,12 +21,12 @@ export function TopBar({ title, showBack, onBack, action, wide = false }: TopBar
             <button
               onClick={() => (onBack ? onBack() : navigate(-1))}
               aria-label="ย้อนกลับ"
-              className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              className="text-ink-500 hover:text-ink-700 p-1 rounded-control hover:bg-ink-50 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          <h1 className="text-sm font-semibold text-gray-800 tracking-tight">{title}</h1>
+          <h1 className="text-body font-semibold text-ink-800 tracking-tight">{title}</h1>
         </div>
         <div className="flex items-center gap-2">
           {action}

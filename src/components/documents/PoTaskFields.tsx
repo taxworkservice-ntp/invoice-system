@@ -36,15 +36,15 @@ function ReferenceInput({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-label font-medium text-ink-500 mb-1">{label}</label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</span>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400">{icon}</span>
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           list={suggestions && suggestions.length > 0 ? listId : undefined}
-          className="w-full pl-9 pr-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
+          className="w-full pl-9 pr-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary"
         />
         {suggestions && suggestions.length > 0 && (
           <datalist id={listId}>
@@ -102,10 +102,10 @@ export function PoTaskFields({
         />
       </div>
       {sourceHint && !hasConflicts && (
-        <p className="mt-1 text-[11px] text-gray-400">ค่าอัตโนมัติจาก {sourceHint} — แก้ไขได้</p>
+        <p className="mt-1 text-label text-ink-400">ค่าอัตโนมัติจาก {sourceHint} — แก้ไขได้</p>
       )}
       {hasConflicts && (
-        <div className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-4 text-amber-700">
+        <div className="mt-1.5 flex items-start gap-1.5 rounded-control border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-label leading-4 text-amber-700">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
           <div className="space-y-0.5">
             {taskConflicts && taskConflicts.length > 0 && (

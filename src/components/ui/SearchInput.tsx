@@ -74,11 +74,11 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
 
     return (
       <div className={`relative ${className}`}>
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#AAAAAA]" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-200" />
         <input
           ref={inputRef}
           type="text"
-          className="w-full bg-white border-[0.5px] border-[#E8E6DF] rounded-lg pl-9 pr-9 py-[10px] text-[14px] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-1 focus:ring-[#378ADD]/20 transition-colors"
+          className="w-full bg-white border-[0.5px] border-card-border rounded-control pl-9 pr-9 py-2.5 text-body placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
           placeholder={placeholder}
           value={inputValue}
           onChange={handleChange}
@@ -88,7 +88,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             type="button"
             onClick={handleClear}
             aria-label="ล้างการค้นหา"
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md text-[#888780] hover:text-[#1A1A18] hover:bg-[#E8E6DF] transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-control text-ink-300 hover:text-ink-900 hover:bg-ink-50 transition-colors"
           >
             <X size={14} />
           </button>

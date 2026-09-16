@@ -84,12 +84,12 @@ export default function SettingsAccountPage() {
         <SectionCard title="บัญชีผู้ใช้" description="อีเมลเข้าใช้งานและรหัสผ่าน">
           <div className="space-y-4">
             <div>
-              <p className="text-[12px] text-[#888780]">อีเมล</p>
-              <p className="text-[13px] text-[#1A1A18]">{email}</p>
+              <p className="text-label text-ink-300">อีเมล</p>
+              <p className="text-body text-ink-900">{email}</p>
             </div>
 
-            <div className="border-t border-[#F0EEE8] pt-4">
-              <p className="text-xs font-medium text-gray-700 mb-2">เปลี่ยนรหัสผ่าน</p>
+            <div className="border-t border-line-faint pt-4">
+              <p className="text-label font-medium text-ink-700 mb-2">เปลี่ยนรหัสผ่าน</p>
               <div className="space-y-3 max-w-sm">
                 <Input
                   label="รหัสผ่านปัจจุบัน"
@@ -114,20 +114,20 @@ export default function SettingsAccountPage() {
                 />
               </div>
 
-              {passwordError && <p className="mt-3 text-xs text-red-500">{passwordError}</p>}
-              {passwordSaved && <p className="mt-3 text-xs text-green-600">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว</p>}
+              {passwordError && <p className="mt-3 text-label text-red-500">{passwordError}</p>}
+              {passwordSaved && <p className="mt-3 text-label text-green-600">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว</p>}
 
               <Button onClick={handleChangePassword} disabled={changingPassword} className="mt-4">
                 {changingPassword ? "กำลังเปลี่ยน..." : "เปลี่ยนรหัสผ่าน"}
               </Button>
             </div>
 
-            <div className="border-t border-[#F0EEE8] pt-4">
+            <div className="border-t border-line-faint pt-4">
               <button
                 onClick={() => {
                   if (window.confirm("ออกจากระบบ?")) handleLogout();
                 }}
-                className="text-red-500 text-[13px] font-medium hover:underline"
+                className="text-red-500 text-body font-medium hover:underline"
               >
                 ออกจากระบบ
               </button>

@@ -20,17 +20,17 @@ export function StockStatusCard({ item, onStockIn, onStockOut }: Props) {
   );
 
   const stockColor = isOut
-    ? "text-[#C0392B]"
+    ? "text-danger"
     : isLow
-      ? "text-[#633806]"
-      : "text-[#1A1A18]";
+      ? "text-pending-text"
+      : "text-ink-900";
 
   return (
-    <div className="rounded-[10px] border-[0.5px] border-[#E8E6DF] bg-white p-4">
-      <div className="mb-1 text-[11px] font-semibold uppercase text-[#888780]">
+    <div className="rounded-[10px] border-[0.5px] border-card-border bg-white p-4">
+      <div className="mb-1 text-label font-semibold text-ink-300">
         สต็อกปัจจุบัน
       </div>
-      <div className={`text-[36px] font-bold leading-tight ${stockColor}`}>
+      <div className={`text-hero font-semibold leading-tight ${stockColor}`}>
         {formatMixedStock(
           item.stock_count,
           item.base_unit,
@@ -39,7 +39,7 @@ export function StockStatusCard({ item, onStockIn, onStockOut }: Props) {
         )}
       </div>
       {hasCarton && (
-        <div className="text-[16px] text-[#888780]">
+        <div className="text-title text-ink-300">
           รวม{" "}
           {formatBaseWithCartonHint(
             item.stock_count,
@@ -50,12 +50,12 @@ export function StockStatusCard({ item, onStockIn, onStockOut }: Props) {
         </div>
       )}
       {isLow && !isOut && (
-        <span className="mt-2 inline-flex rounded bg-[#FAEEDA] px-2 py-0.5 text-[10px] font-medium text-[#633806]">
+        <span className="mt-2 inline-flex rounded bg-pending-bg px-2 py-0.5 text-label font-medium text-pending-text">
           ใกล้หมด
         </span>
       )}
       {isOut && (
-        <span className="mt-2 inline-flex rounded bg-[#FCEBEB] px-2 py-0.5 text-[10px] font-medium text-[#791F1F]">
+        <span className="mt-2 inline-flex rounded bg-overdue-bg px-2 py-0.5 text-label font-medium text-overdue-text">
           หมด
         </span>
       )}
@@ -65,7 +65,7 @@ export function StockStatusCard({ item, onStockIn, onStockOut }: Props) {
             <button
               type="button"
               onClick={onStockIn}
-              className="flex-1 rounded-lg border-[0.5px] border-[#C8E6B0] bg-[#EAF3DE] px-4 py-2.5 text-[13px] font-medium text-[#27500A] transition-colors hover:bg-[#dcebcb]"
+              className="flex-1 rounded-control border-[0.5px] border-success-border bg-paid-bg px-4 py-2.5 text-body font-medium text-paid-text transition-colors hover:bg-success-border"
             >
               รับสินค้าเข้า
             </button>
@@ -74,7 +74,7 @@ export function StockStatusCard({ item, onStockIn, onStockOut }: Props) {
             <button
               type="button"
               onClick={onStockOut}
-              className="flex-1 rounded-lg border-[0.5px] border-[#F5C6C6] bg-[#FCEBEB] px-4 py-2.5 text-[13px] font-medium text-[#791F1F] transition-colors hover:bg-[#f9d9d9]"
+              className="flex-1 rounded-control border-[0.5px] border-danger-border bg-overdue-bg px-4 py-2.5 text-body font-medium text-overdue-text transition-colors hover:bg-danger-border"
             >
               ตัดสต็อก
             </button>

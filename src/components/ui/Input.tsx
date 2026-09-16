@@ -13,7 +13,7 @@ export function Input({ label, className = "", id, error, ...props }: InputProps
   return (
     <div>
       {label && (
-        <label htmlFor={fieldId} className="block text-xs font-medium text-gray-600 mb-1">
+        <label htmlFor={fieldId} className="block text-label font-medium text-ink-600 mb-1">
           {label}
         </label>
       )}
@@ -21,11 +21,11 @@ export function Input({ label, className = "", id, error, ...props }: InputProps
         id={fieldId}
         aria-invalid={error ? true : undefined}
         aria-describedby={errorId}
-        className={`w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${error ? "border-red-400" : "border-card-border"} ${className}`}
+        className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${error ? "border-danger" : "border-card-border"} ${className}`}
         {...props}
       />
       {error && (
-        <p id={errorId} className="text-xs text-red-500 mt-1">
+        <p id={errorId} className="text-label text-danger mt-1">
           {error}
         </p>
       )}
@@ -45,13 +45,13 @@ export function Select({ label, className = "", id, children, ...props }: Select
   return (
     <div>
       {label && (
-        <label htmlFor={fieldId} className="block text-xs font-medium text-gray-600 mb-1">
+        <label htmlFor={fieldId} className="block text-label font-medium text-ink-600 mb-1">
           {label}
         </label>
       )}
       <select
         id={fieldId}
-        className={`w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${className}`}
+        className={`w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${className}`}
         {...props}
       >
         {children}

@@ -472,7 +472,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
   if (error && !customer) {
     return (
       <AppShell title={issueVerbTh} showBack>
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-body text-red-500">{error}</p>
       </AppShell>
     );
   }
@@ -483,15 +483,15 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
         <FormStep number={1} title="ลูกค้าและการอ้างอิง">
           <div className="space-y-3">
             <div>
-              <span className="text-[11px] text-ink-300">ลูกค้า</span>
-              <p className="text-sm font-medium">{customer?.name || "-"}</p>
+              <span className="text-label text-ink-300">ลูกค้า</span>
+              <p className="text-body font-medium">{customer?.name || "-"}</p>
             </div>
 
-            <div className="rounded-xl border border-line-soft bg-paper-field px-4 py-3">
+            <div className="rounded-card border border-line-soft bg-paper-field px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">วันที่ที่ใช้บนเอกสาร</div>
-                  <div className="mt-1 text-sm font-semibold text-ink-900">{formatBuddhistDate(issueDate)}</div>
+                  <div className="text-label text-ink-500">วันที่ที่ใช้บนเอกสาร</div>
+                  <div className="mt-1 text-body font-semibold text-ink-900">{formatBuddhistDate(issueDate)}</div>
                 </div>
                 {!isReadOnly && (
                   <div className="flex gap-2">
@@ -502,7 +502,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                           setIssueDate(todayString());
                           setShowIssueDatePicker(false);
                         }}
-                        className="rounded-lg border border-cool-200 px-3 py-2 text-xs font-medium text-cool-500 transition-colors hover:bg-white"
+                        className="rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white"
                       >
                         ใช้วันนี้
                       </button>
@@ -510,7 +510,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                     <button
                       type="button"
                       onClick={() => setShowIssueDatePicker((prev) => !prev)}
-                      className="rounded-lg border border-cool-200 bg-white px-3 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-gray-50"
+                      className="rounded-control border border-line bg-white px-3 py-2 text-label font-medium text-ink-900 transition-colors hover:bg-paper-field"
                     >
                       {showIssueDatePicker || issueDate !== todayString() ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
                     </button>
@@ -548,7 +548,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                   if (!refInvoice || invoiceTotal <= 0) return null;
                   const remaining = invoiceTotal - existingCreditTotal;
                   return (
-                    <p className={`text-xs leading-5 ${remaining <= 0 ? "text-amber-600" : "text-gray-500"}`}>
+                    <p className={`text-label leading-5 ${remaining <= 0 ? "text-amber-600" : "text-ink-500"}`}>
                       {remaining > 0
                         ? `วงเงินคงเหลือที่ลดได้จากใบนี้: ฿${remaining.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`
                         : "ใบแจ้งหนี้นี้ถูกลดหนี้ครบวงเงินแล้ว"}
@@ -560,8 +560,8 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
 
             {isEditing && refInvoiceId && (
               <div>
-                <span className="text-[11px] text-ink-300">อ้างอิง</span>
-                <p className="text-sm text-ink-300">
+                <span className="text-label text-ink-300">อ้างอิง</span>
+                <p className="text-body text-ink-300">
                   {refInvoiceLines.length > 0
                     ? (paidInvoices.find((d) => d.id === refInvoiceId)?.doc_number || refInvoiceId)
                     : refInvoiceId}
@@ -573,24 +573,24 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
 
         {paidInvoices.length === 0 && !isEditing && (
           <Card>
-            <p className="text-sm text-ink-300 text-center py-4">
+            <p className="text-body text-ink-300 text-center py-4">
               ไม่มีเอกสารที่ชำระแล้วในงานขายนี้
             </p>
           </Card>
         )}
 
         <FormStep number={2} title="รายการ">
-          <div className="text-[11px] uppercase font-semibold text-ink-300 tracking-wide mb-3">
+          <div className="text-label font-semibold text-ink-300 mb-3">
             รายการ
           </div>
 
           {items.length === 0 ? (
-            <p className="text-sm text-ink-300 text-center py-4">
+            <p className="text-body text-ink-300 text-center py-4">
               ยังไม่มีรายการ — เลือกอ้างอิงใบแจ้งหนี้ด้านบนหรือเพิ่มรายการจากแค็ตตาล็อก
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-label">
                 <thead>
                   <tr className="border-b border-card-border text-ink-300">
                     <th className="text-left py-2 pr-1 w-8">#</th>
@@ -606,11 +606,11 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                     <tr key={it.key} className="border-b border-card-border/50">
                       <td className="py-2 pr-1 text-ink-300">{idx + 1}</td>
                       <td className="py-2 pr-2">
-                        <div className="text-sm font-medium truncate max-w-[160px]">
+                        <div className="text-body font-medium truncate max-w-[160px]">
                           {it.itemName}
                         </div>
-                        {it.lineNote ? <div className="mt-0.5 text-2xs text-ink-300">{it.lineNote}</div> : null}
-                        <div className="text-2xs text-ink-300">{it.unit}</div>
+                        {it.lineNote ? <div className="mt-0.5 text-label text-ink-300">{it.lineNote}</div> : null}
+                        <div className="text-label text-ink-300">{it.unit}</div>
                       </td>
                       <td className="py-2 pr-2">
                         {isReadOnly ? (
@@ -622,7 +622,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                             step="1"
                             value={it.quantity}
                             onChange={(e) => updateItem(it.key, "quantity", e.target.value)}
-                            className="text-xs text-right px-1 py-1"
+                            className="text-label text-right px-1 py-1"
                           />
                         )}
                       </td>
@@ -636,7 +636,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                             step="0.01"
                             value={it.unitPrice}
                             onChange={(e) => updateItem(it.key, "unitPrice", e.target.value)}
-                            className="text-xs text-right px-1 py-1"
+                            className="text-label text-right px-1 py-1"
                           />
                         )}
                       </td>
@@ -647,7 +647,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                         <td className="py-2 text-center">
                           <button
                             onClick={() => removeItem(it.key)}
-                            className="text-red-400 hover:text-red-600 text-xs"
+                            className="text-red-400 hover:text-red-600 text-label"
                           >
                             ✕
                           </button>
@@ -683,10 +683,10 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
         </FormStep>
 
         <FormStep number={3} title="สรุปและบันทึก">
-          <div className="mb-3 text-[11px] uppercase font-semibold text-ink-300 tracking-wide">
+          <div className="mb-3 text-label font-semibold text-ink-300">
             สรุปยอดเงิน
           </div>
-             <div className="space-y-1 text-sm">
+             <div className="space-y-1 text-body">
              <div className="flex justify-between">
                <span className="text-ink-300">{isDebit ? "ยอดเพิ่มก่อน VAT" : "ยอดลดก่อน VAT"}</span>
               <span>฿{tax.subtotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
@@ -724,7 +724,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
           </div>
 
           <div className="mt-4">
-            <label className="block text-xs font-medium text-gray-600 mb-1">
+            <label className="block text-label font-medium text-ink-600 mb-1">
               หมายเหตุ
             </label>
           <textarea
@@ -733,13 +733,13 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
             placeholder={isDebit ? "เหตุผลการเพิ่มหนี้ (เช่น ค่าใช้จ่ายเพิ่มเติมตามข้อตกลง)" : "เหตุผลการลดหนี้ (เช่น สินค้าเสียหาย, คืนเงินบางส่วน)"}
             rows={3}
             disabled={isReadOnly}
-            className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400 resize-none disabled:bg-gray-50"
+            className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-ink-400 resize-none disabled:bg-paper-field"
           />
           </div>
 
           {!isReadOnly && (
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
-              <label className="flex items-start gap-2 text-xs text-amber-900">
+            <div className="mt-4 rounded-card border border-amber-200 bg-amber-50 px-3 py-3">
+              <label className="flex items-start gap-2 text-label text-amber-900">
                 <input
                   type="checkbox"
                   checked={whtConfirmed}
@@ -748,7 +748,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                 />
                 <span>
                   <span className="font-medium">มีการหักภาษี ณ ที่จ่ายจริงสำหรับรายการนี้</span>
-                  <span className="mt-0.5 block text-[11px] leading-4 text-amber-700">
+                  <span className="mt-0.5 block text-label leading-4 text-amber-700">
                     เปิดใช้เฉพาะกรณีที่เกี่ยวข้องกับการชำระเงินจริงและมี/จะมีหนังสือรับรองหัก ณ ที่จ่าย
                   </span>
                 </span>
@@ -768,7 +768,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
             </div>
           )}
 
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-label text-red-500">{error}</p>}
 
         <EditableDocNumber
           value={docNumberOverride}

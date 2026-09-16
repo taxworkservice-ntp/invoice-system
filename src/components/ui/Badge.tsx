@@ -1,15 +1,14 @@
 import type { DocumentStatus } from "../../types";
-import { STATUS_LABELS, STATUS_COLORS } from "../../constants";
+import { StatusBadge } from "./StatusBadge";
 
 interface BadgeProps {
   status: DocumentStatus;
 }
 
+/**
+ * Status pill for a document status. Delegates to StatusBadge so Thai labels
+ * and colors stay defined in one place.
+ */
 export function Badge({ status }: BadgeProps) {
-  const color = STATUS_COLORS[status] || STATUS_COLORS.draft;
-  return (
-    <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${color.bg} ${color.text}`}>
-      {STATUS_LABELS[status] || status}
-    </span>
-  );
+  return <StatusBadge status={status} />;
 }

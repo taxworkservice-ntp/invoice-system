@@ -294,9 +294,9 @@ export function PaymentModal({
       <div className="space-y-4">
         {mismatchConfirm ? (
           <>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-900">ยอดก่อน VAT ไม่ตรงกับยอดคงเหลือ</p>
-              <div className="mt-3 space-y-1.5 text-sm">
+            <div className="rounded-card border border-amber-200 bg-amber-50 p-4">
+              <p className="text-body font-semibold text-amber-900">ยอดก่อน VAT ไม่ตรงกับยอดคงเหลือ</p>
+              <div className="mt-3 space-y-1.5 text-body">
                 <div className="flex justify-between">
                   <span className="text-amber-700">ยอดก่อน VAT คงเหลือ</span>
                   <span className="font-medium text-amber-900">฿{formatCurrency(baseRemaining)}</span>
@@ -307,12 +307,12 @@ export function PaymentModal({
                 </div>
                 <div className="border-t border-amber-200 pt-1.5 flex justify-between">
                   <span className="text-amber-700">ส่วนต่าง</span>
-                  <span className="font-bold text-amber-900">
+                  <span className="font-semibold text-amber-900">
                     {(preview?.preTax || 0) > baseRemaining ? "+" : ""}฿{formatCurrency((preview?.preTax || 0) - baseRemaining)}
                   </span>
                 </div>
               </div>
-              <p className="mt-3 text-xs text-amber-700">
+              <p className="mt-3 text-label text-amber-700">
                 {(preview?.preTax || 0) < baseRemaining
                   ? "คุณกำลังบันทึกชำระบางส่วน ยอดคงเหลือจะแสดงในรายงานลูกหนี้จนกว่าจะชำระครบ"
                   : "ยอดก่อน VAT เกินยอดคงเหลือ ระบบจะไม่บันทึกยอดส่วนเกิน"}
@@ -325,26 +325,26 @@ export function PaymentModal({
           </>
         ) : (
           <>
-            <div className="rounded-lg bg-stone-50 border border-card-border px-4 py-3 text-sm">
+            <div className="rounded-control bg-paper-field border border-card-border px-4 py-3 text-body">
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">ยอดก่อน VAT คงเหลือ</span>
+                <span className="text-ink-500">ยอดก่อน VAT คงเหลือ</span>
                 <span className="font-semibold">฿{formatCurrency(baseRemaining)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-gray-500">ยอดก่อน VAT ของงวดนี้</span>
-                <span className="font-medium text-gray-700">฿{formatCurrency(preview?.preTax || 0)}</span>
+                <span className="text-ink-500">ยอดก่อน VAT ของงวดนี้</span>
+                <span className="font-medium text-ink-700">฿{formatCurrency(preview?.preTax || 0)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-gray-500">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</span>
-                <span className="font-medium text-gray-700">฿{formatCurrency(preview?.grossAmount || 0)}</span>
+                <span className="text-ink-500">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</span>
+                <span className="font-medium text-ink-700">฿{formatCurrency(preview?.grossAmount || 0)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-gray-500">หัก ณ ที่จ่าย</span>
-                <span className="font-medium text-gray-700">฿{formatCurrency(preview?.whtAmount || 0)}</span>
+                <span className="text-ink-500">หัก ณ ที่จ่าย</span>
+                <span className="font-medium text-ink-700">฿{formatCurrency(preview?.whtAmount || 0)}</span>
               </div>
               <div className="mt-3 border-t border-card-border pt-2 flex items-center justify-between">
-                <span className="font-medium text-gray-700">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</span>
-                <span className="text-base font-semibold">฿{formatCurrency(preview?.netAmount || 0)}</span>
+                <span className="font-medium text-ink-700">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</span>
+                <span className="text-title font-semibold">฿{formatCurrency(preview?.netAmount || 0)}</span>
               </div>
             </div>
 
@@ -358,7 +358,7 @@ export function PaymentModal({
               tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, หัก ณ ที่จ่าย และยอดโอนจริงให้อัตโนมัติ"
             />
             <select
-              className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
+              className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white"
               value={inputBasis}
               onChange={(e) => {
                 const nextBasis = e.target.value as ReceiptInputBasis;
@@ -396,9 +396,9 @@ export function PaymentModal({
             />
 
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">วิธีชำระเงิน</label>
+              <label className="block text-label font-medium text-ink-500 mb-1">วิธีชำระเงิน</label>
               <select
-                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
+                className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white"
                 value={method}
                 onChange={(e) => setMethod(e.target.value as PaymentMethod)}
               >
@@ -409,8 +409,8 @@ export function PaymentModal({
             </div>
 
             {method === "cheque" && (
-              <div className="space-y-3 rounded-xl border border-card-border bg-paper-soft p-3">
-                <p className="text-[11px] leading-4 text-gray-500">
+              <div className="space-y-3 rounded-card border border-card-border bg-paper-soft p-3">
+                <p className="text-label leading-4 text-ink-500">
                   รายละเอียดเช็คธนาคารจะแสดงบนใบเสร็จและใช้ตรวจสอบยอดเข้าบัญชีก่อนยืนยัน
                 </p>
                 <Input
@@ -426,7 +426,7 @@ export function PaymentModal({
                   placeholder="เช่น ธ.กสิไทย สาขา..."
                 />
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">วันที่สั่งจ่าย</label>
+                  <label className="mb-1 block text-label font-medium text-ink-500">วันที่สั่งจ่าย</label>
                   <DateInput
                     value={chequeDate}
                     onChange={(e) => setChequeDate(e.target.value)}
@@ -437,9 +437,9 @@ export function PaymentModal({
 
             {method === "bank_transfer" && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">รับเข้าบัญชี</label>
+                <label className="block text-label font-medium text-ink-500 mb-1">รับเข้าบัญชี</label>
                 <select
-                  className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white"
+                  className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white"
                   value={bankAccountId ?? ""}
                   onChange={(e) => setBankAccountId(e.target.value || null)}
                 >
@@ -469,7 +469,7 @@ export function PaymentModal({
             />
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">วันที่รับเงิน</label>
+              <label className="mb-1 block text-label font-medium text-ink-500">วันที่รับเงิน</label>
               <DateInput
                 value={payDate}
                 max={businessToday}
@@ -478,17 +478,17 @@ export function PaymentModal({
             </div>
 
             {isPastDate(payDate, businessToday) && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
-                <p className="text-sm font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
-                <p className="mt-1 text-xs leading-5 text-amber-800">
+              <div className="rounded-card border border-amber-200 bg-amber-50 px-3 py-3">
+                <p className="text-body font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
+                <p className="mt-1 text-label leading-5 text-amber-800">
                   วันที่บนใบเสร็จจะใช้วันที่รับเงินจริง และระบบจะเก็บเวลาที่เข้ามาบันทึกไว้แยกกันเพื่อใช้ตรวจสอบย้อนหลัง
                 </p>
                 <div className="mt-3">
-                  <label className="mb-1 block text-xs font-medium text-amber-900">เหตุผลในการออกย้อนหลัง</label>
+                  <label className="mb-1 block text-label font-medium text-amber-900">เหตุผลในการออกย้อนหลัง</label>
                   <select
                     value={backdateReason}
                     onChange={(e) => setBackdateReason(e.target.value)}
-                    className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    className="w-full rounded-control border border-amber-200 bg-white px-3 py-2 text-body text-ink-900 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
                   >
                     <option value="">เลือกเหตุผล</option>
                     {RECEIPT_BACKDATE_REASON_OPTIONS.map((option) => (
@@ -497,13 +497,13 @@ export function PaymentModal({
                   </select>
                 </div>
                 <div className="mt-3">
-                  <label className="mb-1 block text-xs font-medium text-amber-900">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
+                  <label className="mb-1 block text-label font-medium text-amber-900">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
                   <textarea
                     value={backdateNote}
                     onChange={(e) => setBackdateNote(e.target.value)}
                     rows={3}
                     placeholder="รายละเอียดเพิ่มเติม เช่น วันที่ได้รับสลิป หรือข้อมูลที่ต้องการให้ทีมบัญชีเห็น"
-                    className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    className="w-full rounded-control border border-amber-200 bg-white px-3 py-2 text-body text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
                   />
                 </div>
               </div>

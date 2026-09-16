@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, CalendarDays, CircleDollarSign, FileStack, FileText, NotebookText, Pencil, Printer, UserRound } from "lucide-react";
+import { ArrowRight, Ban, CalendarDays, CheckCircle2, CircleDollarSign, Copy, CreditCard, FileStack, FileText, MoreHorizontal, NotebookText, Pencil, Printer, Trash2, UserRound } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
@@ -26,9 +26,11 @@ import { businessTodayString } from "../../../lib/devDate";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
 import { EditableDocNumber, EditableDocNumberInline } from "../../../components/documents/EditableDocNumber";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { Money } from "../../../components/ui/Money";
 import { AmountRow } from "../../../components/ui/AmountRow";
 import { PAYMENT_METHOD_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
+import { isDocumentOverdue } from "../../../lib/dealStatus";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
@@ -73,13 +75,37 @@ function DetailCard({
   className?: string;
 }) {
   return (
-    <section className={`rounded-sheet border border-card-border bg-white p-4 sm:p-5 ${className}`}>
+    <section className={`rounded-card border border-card-border bg-white p-4 sm:p-5 ${className}`}>
       <div className="mb-4 flex items-center gap-2">
         {icon ? <span className="text-ink-300">{icon}</span> : null}
-        <h3 className="text-sm font-semibold text-ink-900">{title}</h3>
+        <h3 className="text-body font-semibold text-ink-900">{title}</h3>
       </div>
       {children}
     </section>
+  );
+}
+
+function MenuItem({
+  icon,
+  danger,
+  onClick,
+  children,
+}: {
+  icon?: ReactNode;
+  danger?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-body ${ danger ? "text-red-600 hover:bg-red-50" : "text-ink-700 hover:bg-paper-field" }`}
+    >
+      {icon}
+      <span>{children}</span>
+    </button>
   );
 }
 
@@ -116,6 +142,9 @@ export default function DocumentDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   const [docNumberOverride, setDocNumberOverride] = useState("");
+  const [showNumberOverride, setShowNumberOverride] = useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
   const [dnInvoiceRef, setDnInvoiceRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [copiedFromRef, setCopiedFromRef] = useState<{ id: string; doc_number: string | null } | null>(null);
   const [replacementRef, setReplacementRef] = useState<{ id: string; doc_number: string | null } | null>(null);
@@ -178,6 +207,24 @@ export default function DocumentDetailPage() {
   useEffect(() => {
     fetchDoc();
   }, [id]);
+
+  useEffect(() => {
+    if (!actionsMenuOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+        setActionsMenuOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActionsMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [actionsMenuOpen]);
 
   const handleDelete = async () => {
     if (!doc || !userId) return;
@@ -431,7 +478,7 @@ export default function DocumentDetailPage() {
   const isPartiallyPaid = doc.status === "partially_paid";
   const isSettled = isPaid || isPartiallyPaid;
   const isVoided = doc.status === "voided";
-  const isOverdue = doc.due_date && isSent && new Date(doc.due_date) < new Date();
+  const isOverdue = isDocumentOverdue(doc, businessToday);
   const lineDiscountTotal = doc.line_items?.reduce((sum, item) => sum + (item.discount_amount || 0), 0) || 0;
   const grossSubtotal = doc.subtotal + (doc.discount_amount || 0) + lineDiscountTotal;
   const docLabel = documentTypeLabel(doc.doc_type, doc.vat_registered);
@@ -466,6 +513,109 @@ export default function DocumentDetailPage() {
             : isSent || isIssued
               ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
               : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
+
+  const openVoidModal = (recreate: boolean) => {
+    setVoidReason("");
+    setCorrectionReason("");
+    setVoidAndRecreate(recreate);
+    setVoidModal(true);
+  };
+
+  const issueCreditNote = async () => {
+    setActionLoading("send");
+    try {
+      await supabase
+        .from("documents")
+        .update({
+          status: "issued" as DocumentStatus,
+          ...(devIssueDate ? { issue_date: devIssueDate } : {}),
+        })
+        .eq("id", doc.id);
+      await fetchDoc();
+      toast.success(doc.doc_type === "debit_note" ? "ออกใบเพิ่มหนี้แล้ว" : "ออกใบลดหนี้แล้ว");
+      warmPdfCache(doc.id);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  const confirmReceipt = async () => {
+    setConfirmingReceipt(true);
+    try {
+      if (!userId) {
+        toast.error("กรุณาเข้าสู่ระบบอีกครั้ง");
+        return;
+      }
+      await confirmDraftReceipt(doc.id, userId);
+      toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
+      warmPdfCache(doc.id);
+      await fetchDoc();
+    } catch (err: any) {
+      setError(err.message || "เกิดข้อผิดพลาด");
+      toast.error(err.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setConfirmingReceipt(false);
+    }
+  }
+
+  const canEditDraft = isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && doc.doc_type !== "debit_note";
+  const canIssueCorrection = isDraft && (doc.doc_type === "credit_note" || doc.doc_type === "debit_note") && canSendDocumentType(permissions, doc.doc_type);
+  const canConfirmReceipt = isDraft && doc.doc_type === "receipt" && permissions.canRecordPayments;
+  const isCollectible = (isSent || isPartiallyPaid) && (doc.doc_type === "invoice" || doc.doc_type === "billing_note");
+  const canTakePayment = isCollectible && !doc.deal_id && permissions.canRecordPayments;
+
+  const primaryAction: ReactNode = canConfirmReceipt ? (
+    <Button variant="primary" size="md" className="w-full sm:w-auto" loading={confirmingReceipt} onClick={confirmReceipt}>
+      <CheckCircle2 className="mr-1.5 h-4 w-4" />
+      ยืนยันการรับเงิน
+    </Button>
+  ) : canIssueCorrection ? (
+    <Button variant="primary" size="md" className="w-full sm:w-auto" loading={actionLoading === "send"} onClick={issueCreditNote}>
+      <FileText className="mr-1.5 h-4 w-4" />
+      {doc.doc_type === "debit_note" ? "ออกใบเพิ่มหนี้" : "ออกใบลดหนี้"}
+    </Button>
+  ) : canEditDraft ? (
+    <Button
+      variant="primary"
+      size="md"
+      className="w-full sm:w-auto"
+      onClick={() => navigate(`/documents/${doc.id}/${isUtilityBill ? "edit-utility" : "edit"}`)}
+    >
+      <Pencil className="mr-1.5 h-4 w-4" />
+      แก้ไขฉบับร่าง
+    </Button>
+  ) : isCollectible && doc.deal_id ? (
+    <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
+      เปิดงานขายเพื่อดำเนินการต่อ
+    </Button>
+  ) : canTakePayment ? (
+    <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={openPayModal}>
+      <CreditCard className="mr-1.5 h-4 w-4" />
+      {isPartiallyPaid ? "รับชำระเพิ่ม" : "รับเงินแล้ว"}
+    </Button>
+  ) : null;
+
+  const canVoid =
+    permissions.canVoidDocuments && !isVoided && !isPaid && (isSent || isIssued || isPartiallyPaid);
+  const canRecreate = canVoid && doc.doc_type !== "quotation";
+  const canCopy =
+    doc.status !== "draft" &&
+    doc.status !== "voided" &&
+    ["invoice", "quotation", "billing_note", "delivery_note"].includes(doc.doc_type);
+  const canCreateCorrection =
+    (isSent || isPartiallyPaid) && doc.doc_type === "invoice" && canSendDocumentType(permissions, "credit_note");
+  const recreateLabel =
+    doc.doc_type === "credit_note" || doc.doc_type === "debit_note"
+      ? "ยกเลิกและออกฉบับใหม่"
+      : doc.doc_type === "invoice"
+        ? "แก้ไขโดยออกฉบับใหม่"
+        : "ยกเลิกและสร้างใหม่";
+  const hasMenuActions =
+    Boolean((isConverted && doc.doc_type === "delivery_note" && dnInvoiceRef) || canCreateCorrection || canCopy || canVoid || canRecreate) ||
+    (isDraft && permissions.canDeleteDocuments);
+
   return (
     <AppShell
       title={docLabel.thai}
@@ -477,31 +627,25 @@ export default function DocumentDetailPage() {
       ]}
     >
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-control text-body text-red-600">
           {error}
         </div>
       )}
 
-      <div className="mb-4 rounded-hero border border-card-border bg-[linear-gradient(135deg,theme(colors.paper.glow)_0%,theme(colors.paper.warm2)_100%)] p-5 sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-4">
+      <div className="mb-4 rounded-card border border-card-border bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <DocTypeBadge docType={doc.doc_type} vatRegistered={doc.vat_registered} />
               <Badge status={doc.status} />
               {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form ? (
-                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                  ฟอร์มเปล่า
-                </span>
+                <StatusBadge label="ฟอร์มเปล่า" tone="amber" />
               ) : null}
-              {isOverdue && (
-                <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
-                  เกินกำหนด
-                </span>
-              )}
+              {isOverdue && <StatusBadge label="เกินกำหนด" tone="red" />}
             </div>
 
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
+              <h2 className="text-page font-semibold tracking-tight text-ink-900">
                 <EditableDocNumberInline
                   value={doc.doc_number || "-"}
                   onSave={async (newValue) => {
@@ -514,32 +658,43 @@ export default function DocumentDetailPage() {
                   }}
                 />
               </h2>
-              <EditableDocNumber
-                value={docNumberOverride}
-                onChange={setDocNumberOverride}
-                placeholder="ตั้งเลขที่เอง (เว้นว่าง = อัตโนมัติ)"
-                className="mt-2 max-w-xs"
-              />
               {isVoided && doc.voided_reason && (
-                <p className="mt-1 text-xs text-ink-300 italic">เหตุผลการยกเลิก: {doc.voided_reason}</p>
+                <p className="mt-1 text-label italic text-ink-300">เหตุผลการยกเลิก: {doc.voided_reason}</p>
               )}
-              {copiedFromRef && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {copiedFromRef && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/documents/${copiedFromRef.id}`)}
+                    className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-label font-medium text-blue-700 hover:bg-blue-100"
+                  >
+                    ออกแทน {copiedFromRef.doc_number || "เอกสารเดิม"}
+                  </button>
+                )}
+                {replacementRef && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/documents/${replacementRef.id}`)}
+                    className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-label font-medium text-amber-800 hover:bg-amber-100"
+                  >
+                    ออกใหม่เป็น {replacementRef.doc_number || "ฉบับใหม่"}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => navigate(`/documents/${copiedFromRef.id}`)}
-                  className="mt-2 inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                  onClick={() => setShowNumberOverride((value) => !value)}
+                  className="text-label text-ink-400 hover:text-ink-700 hover:underline"
                 >
-                  ออกแทน {copiedFromRef.doc_number || "เอกสารเดิม"}
+                  {showNumberOverride ? "ซ่อนการตั้งเลขที่เอง" : "ตั้งเลขที่เอง"}
                 </button>
-              )}
-              {replacementRef && (
-                <button
-                  type="button"
-                  onClick={() => navigate(`/documents/${replacementRef.id}`)}
-                  className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
-                >
-                  ออกใหม่เป็น {replacementRef.doc_number || "ฉบับใหม่"}
-                </button>
+              </div>
+              {showNumberOverride && (
+                <EditableDocNumber
+                  value={docNumberOverride}
+                  onChange={setDocNumberOverride}
+                  placeholder="ตั้งเลขที่เอง (เว้นว่าง = อัตโนมัติ)"
+                  className="mt-2 max-w-xs"
+                />
               )}
             </div>
 
@@ -555,14 +710,10 @@ export default function DocumentDetailPage() {
                     };
                   });
                   return steps.map((step, i) => (
-                    <span key={`${step.key}-${i}`} className="flex items-center gap-1 shrink-0">
-                      {i > 0 && <span className="text-ink-100 text-xs">→</span>}
+                    <span key={`${step.key}-${i}`} className="flex shrink-0 items-center gap-1">
+                      {i > 0 && <span className="text-label text-ink-200">→</span>}
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium shrink-0 ${
-                          step.active
-                            ? "bg-primary text-white"
-                            : "bg-white/50 text-ink-400 border border-white/50"
-                        }`}
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-label font-medium ${ step.active ? "bg-primary text-white" : "bg-paper-field text-ink-400" }`}
                       >
                         {step.label}
                       </span>
@@ -572,52 +723,55 @@ export default function DocumentDetailPage() {
               </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+              <div className="min-w-0">
+                <dt className="flex items-center gap-1.5 text-label font-medium text-ink-300">
                   <UserRound className="h-3.5 w-3.5" />
                   ลูกค้า
-                </div>
-                <p className="mt-2 text-sm font-medium text-ink-900">{customerName}</p>
+                </dt>
+                <dd className="mt-1 truncate text-body font-medium text-ink-900">{customerName}</dd>
               </div>
-              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
+              <div>
+                <dt className="flex items-center gap-1.5 text-label font-medium text-ink-300">
                   <CalendarDays className="h-3.5 w-3.5" />
                   วันที่ออก
-                </div>
-                <p className="mt-2 text-sm font-medium text-ink-900">{issueDateLabel}</p>
+                </dt>
+                <dd className="mt-1 text-body font-medium text-ink-900">{issueDateLabel}</dd>
               </div>
-              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
+              <div>
+                <dt className="flex items-center gap-1.5 text-label font-medium text-ink-300">
                   <ArrowRight className="h-3.5 w-3.5" />
                   ครบกำหนด
-                </div>
-                <p className={`mt-2 text-sm font-medium ${isOverdue ? "text-red-700" : "text-ink-900"}`}>{dueDateLabel}</p>
+                </dt>
+                <dd className={`mt-1 text-body font-medium ${isOverdue ? "text-red-700" : "text-ink-900"}`}>
+                  {dueDateLabel}
+                </dd>
               </div>
-              <div className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
+              <div>
+                <dt className="flex items-center gap-1.5 text-label font-medium text-ink-300">
                   <CalendarDays className="h-3.5 w-3.5" />
                   แก้ไขล่าสุด
-                </div>
-                <p className="mt-2 text-sm font-medium text-ink-900">{doc.updated_at ? formatDate(doc.updated_at) : "-"}</p>
+                </dt>
+                <dd className="mt-1 text-body font-medium text-ink-900">
+                  {doc.updated_at ? formatDate(doc.updated_at) : "-"}
+                </dd>
               </div>
-            </div>
+            </dl>
           </div>
 
-          <div className="w-full max-w-sm rounded-2xl border border-line-soft bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-ink-300">
+          <div className="w-full shrink-0 rounded-card border border-line-soft bg-paper-field p-4 lg:max-w-xs">
+            <div className="flex items-center gap-2 text-label font-medium text-ink-300">
               <CircleDollarSign className="h-4 w-4" />
-              ยอดสำคัญ
+              {getDisplayAmountLabel(doc)}
             </div>
-            <div className="mt-3 text-3xl font-semibold text-ink-900">฿ {formatCurrency(getDisplayAmount(doc))}</div>
-            <p className="mt-1 text-sm text-ink-600">{getDisplayAmountLabel(doc)}</p>
+            <Money value={getDisplayAmount(doc)} className="mt-2 block text-page font-semibold text-ink-900" />
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" onClick={handleGeneratePdf}>
-                <Printer className="h-3.5 w-3.5 mr-1" />
+              <Button variant="primary" size="sm" onClick={handleGeneratePdf}>
+                <Printer className="mr-1 h-3.5 w-3.5" />
                 พิมพ์ / PDF
               </Button>
               {canEditDocument && (
-                <Button size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
+                <Button variant="secondary" size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
                   แก้ไขเอกสาร
                 </Button>
               )}
@@ -626,7 +780,7 @@ export default function DocumentDetailPage() {
                   tone="amber"
                   solid
                   size="sm"
-                  className="shadow-sm"
+                  className=""
                   onClick={() => navigate(`/deals/${doc.deal_id}`)}
                 >
                   ไปที่หน้างานขาย
@@ -638,19 +792,7 @@ export default function DocumentDetailPage() {
       </div>
 
       <div
-        className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
-          isVoided
-            ? "border-danger-border bg-danger-soft text-danger-text"
-      : isPaid
-        ? "border-success-border bg-success-soft text-success-text"
-        : isPartiallyPaid
-          ? "border-warning-border bg-warning-soft text-warning-text"
-          : isOverdue
-                ? "border-danger-border bg-danger-soft text-danger-text"
-                : isSent || isIssued
-                  ? "border-sent-bg bg-primary-soft text-primary-deep"
-                  : "border-line-strong bg-paper-warm text-ink-700"
-        }`}
+        className={`mb-4 rounded-card border px-4 py-3 text-body ${ isVoided ? "border-danger-border bg-danger-soft text-danger-text" : isPaid ? "border-success-border bg-success-soft text-success-text" : isPartiallyPaid ? "border-warning-border bg-warning-soft text-warning-text" : isOverdue ? "border-danger-border bg-danger-soft text-danger-text" : isSent || isIssued ? "border-sent-bg bg-primary-soft text-primary-deep" : "border-line-strong bg-paper-warm text-ink-700" }`}
       >
         {statusMessage}
       </div>
@@ -699,19 +841,19 @@ export default function DocumentDetailPage() {
             <tbody>
               {lineItemSort.sorted.map((item, index) => (
                 <tr key={item.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-cool-400">{index + 1}</td>
-                  <td className="px-4 py-2 text-cool-500">
+                  <td className="px-4 py-2 text-ink-400">{index + 1}</td>
+                  <td className="px-4 py-2 text-ink-500">
                     <div>{item.item_name}</div>
-                    {item.line_note ? <div className="mt-1 text-xs text-gray-500">{item.line_note}</div> : null}
+                    {item.line_note ? <div className="mt-1 text-label text-ink-500">{item.line_note}</div> : null}
                     {item.discount_amount > 0 && (
-                      <div className="text-xs text-red-500">
+                      <div className="text-label text-red-500">
                         ส่วนลด {item.discount_percent}% (-฿{formatCurrency(item.discount_amount)})
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right text-cool-500">{item.quantity} {item.unit}</td>
-                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(item.unit_price)}</td>
-                  <td className="px-4 py-2 text-right text-cool-500 font-medium">฿{formatCurrency(item.line_total)}</td>
+                  <td className="px-4 py-2 text-right text-ink-500">{item.quantity} {item.unit}</td>
+                  <td className="px-4 py-2 text-right text-ink-500"><Money value={item.unit_price} /></td>
+                  <td className="px-4 py-2 text-right font-medium text-ink-500"><Money value={item.line_total} /></td>
                 </tr>
               ))}
             </tbody>
@@ -763,10 +905,10 @@ export default function DocumentDetailPage() {
             <tbody>
               {billingInvoiceSort.sorted.map((invoice) => (
                 <tr key={invoice.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-cool-500">{invoice.invoice_number}</td>
-                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(invoice.subtotal)}</td>
-                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(invoice.vat_amount)}</td>
-                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(invoice.total_amount)}</td>
+                  <td className="px-4 py-2 text-ink-500">{invoice.invoice_number}</td>
+                  <td className="px-4 py-2 text-right text-ink-500"><Money value={invoice.subtotal} /></td>
+                  <td className="px-4 py-2 text-right text-ink-500"><Money value={invoice.vat_amount} /></td>
+                  <td className="px-4 py-2 text-right text-ink-500"><Money value={invoice.total_amount} /></td>
                 </tr>
               ))}
             </tbody>
@@ -788,9 +930,9 @@ export default function DocumentDetailPage() {
             </thead>
             <tbody>
               <tr className={TABLE.tbodyTr}>
-                <td className="px-4 py-2 text-cool-500">{paidViaBillingNote.doc_number || "-"}</td>
-                <td className="px-4 py-2 text-cool-500">{paidViaBillingNote.issue_date ? formatDate(paidViaBillingNote.issue_date) : "-"}</td>
-                <td className="px-4 py-2 text-right text-cool-500 font-medium">฿{formatCurrency(paidViaBillingNote.total_amount)}</td>
+                <td className="px-4 py-2 text-ink-500">{paidViaBillingNote.doc_number || "-"}</td>
+                <td className="px-4 py-2 text-ink-500">{paidViaBillingNote.issue_date ? formatDate(paidViaBillingNote.issue_date) : "-"}</td>
+                <td className="px-4 py-2 text-right font-medium text-ink-500"><Money value={paidViaBillingNote.total_amount} /></td>
               </tr>
             </tbody>
           </table>
@@ -833,9 +975,9 @@ export default function DocumentDetailPage() {
             <tbody>
               {receiptInvoiceSort.sorted.map((invoice) => (
                 <tr key={invoice.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-cool-500">{invoice.invoice_number}</td>
-                  <td className="px-4 py-2 text-cool-500">{invoice.issue_date ? formatDate(invoice.issue_date) : "-"}</td>
-                  <td className="px-4 py-2 text-right text-cool-500 font-medium">฿{formatCurrency(invoice.paid_amount)}</td>
+                  <td className="px-4 py-2 text-ink-500">{invoice.invoice_number}</td>
+                  <td className="px-4 py-2 text-ink-500">{invoice.issue_date ? formatDate(invoice.issue_date) : "-"}</td>
+                  <td className="px-4 py-2 text-right font-medium text-ink-500"><Money value={invoice.paid_amount} /></td>
                 </tr>
               ))}
             </tbody>
@@ -879,9 +1021,9 @@ export default function DocumentDetailPage() {
             <tbody>
               {deliveryNoteSort.sorted.map((deliveryNote) => (
                 <tr key={deliveryNote.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-cool-500">{deliveryNote.delivery_note_number}</td>
-                  <td className="px-4 py-2 text-cool-500">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>
-                  <td className="px-4 py-2 text-right text-cool-500">฿{formatCurrency(deliveryNote.total_amount)}</td>
+                  <td className="px-4 py-2 text-ink-500">{deliveryNote.delivery_note_number}</td>
+                  <td className="px-4 py-2 text-ink-500">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>
+                  <td className="px-4 py-2 text-right text-ink-500"><Money value={deliveryNote.total_amount} /></td>
                 </tr>
               ))}
             </tbody>
@@ -906,18 +1048,18 @@ export default function DocumentDetailPage() {
             />
           )}
           {doc.doc_type === "delivery_note" ? (
-            <div className="rounded-lg bg-paper-field px-3 py-2">
+            <div className="rounded-control bg-paper-field px-3 py-2">
               <AmountRow label="มูลค่าอ้างอิง" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" />
             </div>
           ) : (
             <>
               {!doc.vat_registered && (
-                <div className="rounded-lg bg-paper-field px-3 py-2">
+                <div className="rounded-control bg-paper-field px-3 py-2">
                   <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" />
                 </div>
               )}
               {doc.vat_registered && (
-                <div className="rounded-lg bg-paper-field px-3 py-2">
+                <div className="rounded-control bg-paper-field px-3 py-2">
                   <AmountRow label="ยอดก่อน VAT" value={`฿${formatCurrency(doc.subtotal)}`} tone="default" />
                   <AmountRow label={`VAT ${doc.vat_rate}%`} value={`฿${formatCurrency(doc.vat_amount)}`} tone="default" className="mt-1.5" />
                   <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" className="mt-2 border-t border-line-soft pt-2" />
@@ -932,14 +1074,14 @@ export default function DocumentDetailPage() {
             label={getDisplayAmountLabel(doc)}
             value={`฿${formatCurrency(getDisplayAmount(doc))}`}
             tone="strong"
-            className="border-t border-line-strong pt-2 text-base"
+            className="border-t border-line-strong pt-2 text-title"
           />
         </div>
       </DetailCard>
 
       {isSettled && (doc.payment_method || doc.paid_at || doc.amount_received != null) && (
         <DetailCard title="ข้อมูลรับเงิน" icon={<CircleDollarSign className="h-4 w-4" />} className={`mb-4 ${isPartiallyPaid ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"}`}>
-          <div className="space-y-1 text-sm">
+          <div className="space-y-1 text-body">
           {doc.payment_method && (
             <div className="flex justify-between">
               <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>วิธีชำระ:</span>
@@ -949,13 +1091,13 @@ export default function DocumentDetailPage() {
           {doc.amount_received != null && (
             <div className="flex justify-between">
               <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>จำนวนเงิน:</span>
-              <span>฿{formatCurrency(doc.amount_received)}</span>
+              <Money value={doc.amount_received} />
             </div>
           )}
           {isPartiallyPaid && (
             <div className="flex justify-between text-amber-700">
               <span>คงเหลือ:</span>
-              <span className="font-semibold">฿{formatCurrency(Math.max(0, doc.net_payable - (doc.amount_received || 0)))}</span>
+              <span className="font-semibold"><Money value={Math.max(0, doc.net_payable - (doc.amount_received || 0))} /></span>
             </div>
           )}
           {doc.paid_at && (
@@ -976,7 +1118,7 @@ export default function DocumentDetailPage() {
 
       {hasBackdateAudit && (
         <DetailCard title="ข้อมูลการออกย้อนหลัง" icon={<CalendarDays className="h-4 w-4" />} className="mb-4 border-amber-200 bg-amber-50">
-          <div className="space-y-2 text-sm text-amber-950">
+          <div className="space-y-2 text-body text-amber-950">
             <div className="flex justify-between gap-4">
               <span className="text-amber-800">วันที่บนใบเสร็จ</span>
               <span>{formatDate(doc.issue_date)}</span>
@@ -994,8 +1136,8 @@ export default function DocumentDetailPage() {
               </div>
             )}
             {doc.backdated_reason && (
-              <div className="rounded-xl border border-amber-200 bg-white/70 p-3 text-sm text-amber-950">
-                <div className="mb-1 text-xs font-medium uppercase tracking-[0.12em] text-amber-700">เหตุผล</div>
+              <div className="rounded-card border border-amber-200 bg-white/70 p-3 text-body text-amber-950">
+                <div className="mb-1 text-label font-medium text-amber-700">เหตุผล</div>
                 <p className="whitespace-pre-wrap">{doc.backdated_reason}</p>
               </div>
             )}
@@ -1005,344 +1147,131 @@ export default function DocumentDetailPage() {
 
       {doc.note && (
         <DetailCard title="หมายเหตุ" icon={<NotebookText className="h-4 w-4" />} className="mb-4">
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{doc.note}</p>
+          <p className="text-body text-ink-700 whitespace-pre-wrap">{doc.note}</p>
         </DetailCard>
       )}
 
-      <div className="bg-white border-t border-card-border px-4 py-3 md:static md:border-0 md:bg-transparent md:p-0">
-        <div className="mx-auto w-full max-w-7xl space-y-2 rounded-2xl border border-card-border bg-white p-3 shadow-[0_12px_30px_rgba(26,26,24,0.08)] md:p-4">
-          <div className="pb-1">
-            <h3 className="text-sm font-semibold text-ink-900">การดำเนินการถัดไป</h3>
-            <p className="mt-1 text-xs leading-5 text-ink-500">{statusMessage}</p>
+      <div className="rounded-card border border-card-border bg-white p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-body font-semibold text-ink-900">การดำเนินการ</h3>
           </div>
-          <div className="space-y-2">
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full"
-              onClick={handleGeneratePdf}
-            >
+
+          <div className="flex flex-wrap items-center gap-2">
+            {primaryAction}
+            <Button variant="secondary" size="md" className="w-full sm:w-auto" onClick={handleGeneratePdf}>
+              <Printer className="mr-1.5 h-4 w-4" />
               พิมพ์ / PDF
             </Button>
-            {doc.deal_id && (isSent || isPartiallyPaid) && (
-              <div className="space-y-1.5">
-                <p className="text-center text-[11px] leading-4 text-gray-500">
-                  การดำเนินการถัดไป (ออกใบแจ้งหนี้ / วางบิล / รับชำระ) ทำบนหน้างานขาย
-                </p>
+            {doc.deal_id && (
+              <Button variant="secondary" size="md" className="w-full sm:w-auto" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
+                ไปที่หน้างานขาย
+              </Button>
+            )}
+
+            {hasMenuActions && (
+              <div className="relative" ref={actionsMenuRef}>
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="md"
-                  className="w-full"
-                  onClick={() => navigate(`/deals/${doc.deal_id}`)}
+                  aria-label="ตัวเลือกเพิ่มเติม"
+                  aria-haspopup="menu"
+                  aria-expanded={actionsMenuOpen}
+                  onClick={() => setActionsMenuOpen((value) => !value)}
                 >
-                  เปิดงานขายเพื่อดำเนินการต่อ
+                  <MoreHorizontal className="h-4 w-4" />
                 </Button>
+
+                {actionsMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 z-50 mt-1 w-64 rounded-control border border-card-border bg-white py-1"
+                  >
+                    {isConverted && doc.doc_type === "delivery_note" && dnInvoiceRef && (
+                      <MenuItem
+                        icon={<FileStack size={14} />}
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          navigate(`/documents/${dnInvoiceRef.id}`);
+                        }}
+                      >
+                        เปิดใบแจ้งหนี้ {dnInvoiceRef.doc_number || ""}
+                      </MenuItem>
+                    )}
+                    {canCreateCorrection && (
+                      <>
+                        <MenuItem
+                          icon={<FileText size={14} />}
+                          onClick={() => {
+                            setActionsMenuOpen(false);
+                            navigate(`/documents/new?type=credit_note&dealId=${doc.deal_id || ""}`);
+                          }}
+                        >
+                          ออกใบลดหนี้
+                        </MenuItem>
+                        <MenuItem
+                          icon={<FileText size={14} />}
+                          onClick={() => {
+                            setActionsMenuOpen(false);
+                            navigate(`/documents/new?type=debit_note&dealId=${doc.deal_id || ""}`);
+                          }}
+                        >
+                          ออกใบเพิ่มหนี้
+                        </MenuItem>
+                      </>
+                    )}
+                    {canCopy && (
+                      <MenuItem
+                        icon={<Copy size={14} />}
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          handleCopy();
+                        }}
+                      >
+                        สร้างฉบับเหมือนเดิม
+                      </MenuItem>
+                    )}
+                    {canVoid && (
+                      <MenuItem
+                        icon={<Ban size={14} />}
+                        danger
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          openVoidModal(false);
+                        }}
+                      >
+                        ยกเลิกอย่างเดียว
+                      </MenuItem>
+                    )}
+                    {canRecreate && (
+                      <MenuItem
+                        icon={<Ban size={14} />}
+                        danger
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          openVoidModal(true);
+                        }}
+                      >
+                        {recreateLabel}
+                      </MenuItem>
+                    )}
+                    {isDraft && permissions.canDeleteDocuments && (
+                      <MenuItem
+                        icon={<Trash2 size={14} />}
+                        danger
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          setDeleteModal(true);
+                        }}
+                      >
+                        ลบเอกสาร
+                      </MenuItem>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
-
-          {isDraft && isUtilityBill && (
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full"
-              onClick={() => navigate(`/documents/${doc.id}/edit-utility`)}
-            >
-              <Pencil className="h-4 w-4 mr-1.5" />
-              แก้ไข
-            </Button>
-          )}
-
-          {isDraft && doc.doc_type === "quotation" && (
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full"
-              onClick={() => navigate(`/documents/${doc.id}/edit`)}
-            >
-              แก้ไขฉบับร่าง
-            </Button>
-          )}
-
-          {isDraft && doc.doc_type === "invoice" && !isUtilityBill && (
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full"
-              onClick={() => navigate(`/documents/${doc.id}/edit`)}
-            >
-              แก้ไขฉบับร่าง
-            </Button>
-          )}
-
-          {isDraft && doc.doc_type === "delivery_note" && (
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full"
-              onClick={() => navigate(`/documents/${doc.id}/edit`)}
-            >
-              แก้ไขฉบับร่าง
-            </Button>
-          )}
-
-          {isDraft && doc.doc_type === "credit_note" && canSendDocumentType(permissions, doc.doc_type) && (
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full"
-              onClick={async () => {
-                setActionLoading("send");
-                try {
-                  await supabase
-                    .from("documents")
-                    .update({
-                      status: "issued" as DocumentStatus,
-                      ...(devIssueDate ? { issue_date: devIssueDate } : {}),
-                    })
-                    .eq("id", doc.id);
-                  await fetchDoc();
-                  toast.success("ออกใบลดหนี้แล้ว");
-                  warmPdfCache(doc.id);
-                } catch (err: any) {
-                  setError(err.message);
-                } finally {
-                  setActionLoading(null);
-                }
-              }}
-              loading={actionLoading === "send"}
-            >
-              <FileText className="h-4 w-4 mr-1.5" />
-              ออกใบลดหนี้
-            </Button>
-          )}
-
-          {isSent && doc.doc_type === "delivery_note" && canSendDocumentType(permissions, doc.doc_type) && (
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
-              เอกสารถูกล็อกหลังยืนยันส่งของแล้ว หากผิดให้ยกเลิกและสร้างใหม่
-            </div>
-          )}
-
-          {(isDraft || (isSent && doc.doc_type === "invoice")) && (
-            <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-5 text-stone-700">
-              {isDraft
-                ? doc.doc_type === "delivery_note"
-                  ? "ใบส่งของฉบับร่างยังแก้ไขหรือลบได้ก่อนยืนยันส่งของ"
-                  : "ฉบับร่างสามารถลบได้ถาวร"
-                : "ใบแจ้งหนี้ที่ส่งแล้วควรยกเลิกเพื่อเก็บประวัติ ใช้เมนูยกเลิกด้านล่างแทนการลบ"}
-            </div>
-          )}
-
-          {isIssued && (doc.doc_type === "credit_note" || doc.doc_type === "debit_note") && permissions.canVoidDocuments && (
-            <div className="space-y-2">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                {doc.doc_type === "credit_note" ? "ใบลดหนี้" : "ใบเพิ่มหนี้"}ที่ออกแล้วแก้ไขไม่ได้ หากผิดพลาดให้ยกเลิกและออกฉบับใหม่
-                ระบบจะคืนสต็อกที่เคยรับคืนจากการยกเลิกโดยอัตโนมัติ
-              </div>
-              <Button
-                variant="primary"
-                size="md"
-                className="w-full"
-                onClick={() => {
-                  setVoidReason("");
-                  setCorrectionReason("");
-                  setVoidAndRecreate(true);
-                  setVoidModal(true);
-                }}
-              >
-                ยกเลิกและออกฉบับใหม่
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                className="w-full"
-                onClick={() => {
-                  setVoidReason("");
-                  setCorrectionReason("");
-                  setVoidAndRecreate(false);
-                  setVoidModal(true);
-                }}
-              >
-                ยกเลิกอย่างเดียว
-              </Button>
-            </div>
-          )}
-
-          {isSent && doc.doc_type === "delivery_note" && (
-            <div className="space-y-2">
-              <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
-                เอกสารถูกล็อคหลังยืนยันส่งของแล้ว หากผิดให้ยกเลิกและสร้างใหม่ การออกใบแจ้งหนี้ทำได้จากหน้างานขาย
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {permissions.canVoidDocuments && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="md"
-                      className="w-full"
-                      onClick={() => {
-                        setVoidReason("");
-                        setVoidAndRecreate(false);
-                        setVoidModal(true);
-                      }}
-                    >
-                      ยกเลิกอย่างเดียว
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="md"
-                      className="w-full"
-                      onClick={() => {
-                        setVoidReason("");
-                        setVoidAndRecreate(true);
-                        setVoidModal(true);
-                      }}
-                    >
-                      ยกเลิกและสร้างใหม่
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {isConverted && doc.doc_type === "delivery_note" && dnInvoiceRef && (
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full"
-              onClick={() => navigate(`/documents/${dnInvoiceRef.id}`)}
-            >
-              เปิดใบแจ้งหนี้ {dnInvoiceRef.doc_number || ""}
-            </Button>
-          )}
-
-          {isDraft && doc.doc_type === "receipt" && permissions.canRecordPayments && (
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full"
-              loading={confirmingReceipt}
-              onClick={async () => {
-                setConfirmingReceipt(true);
-                try {
-                  if (!userId) {
-                    toast.error("กรุณาเข้าสู่ระบบอีกครั้ง");
-                    setConfirmingReceipt(false);
-                    return;
-                  }
-                  await confirmDraftReceipt(doc.id, userId);
-                  toast.success("ยืนยันการรับเงินสำเร็จ — บันทึกยอดและออกใบเสร็จแล้ว");
-                  warmPdfCache(doc.id);
-                  await fetchDoc();
-                } catch (err: any) {
-                  setError(err.message || "เกิดข้อผิดพลาด");
-                  toast.error(err.message || "เกิดข้อผิดพลาด");
-                } finally {
-                  setConfirmingReceipt(false);
-                }
-              }}
-            >
-              ยืนยันการรับเงิน
-            </Button>
-          )}
-
-          {isDraft && permissions.canDeleteDocuments && (
-            <Button variant="danger" size="md" className="w-full" onClick={() => setDeleteModal(true)}>
-              ลบเอกสาร
-            </Button>
-          )}
-
-          {(isSent || isPartiallyPaid) && (doc.doc_type === "invoice" || doc.doc_type === "billing_note") && permissions.canRecordPayments && (
-            <div className="space-y-2">
-              {!doc.deal_id && (
-                <>
-                  <Button variant="primary" size="md" className="w-full" onClick={openPayModal}>
-                    {isPartiallyPaid ? "รับชำระเพิ่ม" : "รับเงินแล้ว"}
-                  </Button>
-                  <p className="text-xs leading-5 text-gray-500">เอกสารนี้ไม่ผูกกับงานขาย จึงบันทึกการรับชำระได้จากหน้านี้</p>
-                </>
-              )}
-              {doc.doc_type === "invoice" && canSendDocumentType(permissions, "credit_note") && (
-                <div className="space-y-2">
-                  <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
-                    ยอดลดลงออกใบลดหนี้ · ยอดเพิ่มขึ้นออกใบเพิ่มหนี้ · ออกผิดให้ยกเลิกและออกฉบับใหม่
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="secondary" size="md" className="w-full" onClick={() => navigate(`/documents/new?type=credit_note&dealId=${doc.deal_id || ""}`)}>
-                      ออกใบลดหนี้
-                    </Button>
-                    <Button variant="secondary" size="md" className="w-full" onClick={() => navigate(`/documents/new?type=debit_note&dealId=${doc.deal_id || ""}`)}>
-                      ออกใบเพิ่มหนี้
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {doc.doc_type === "invoice" && (
-                <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
-                  ระบบจะเก็บใบเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข เลขที่ใบเดิมจะไม่ถูกนำกลับมาใช้ซ้ำ
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="ghost"
-                  size="md"
-                  className="w-full"
-                  onClick={() => {
-                    setVoidReason("");
-                    setCorrectionReason("");
-                    setVoidAndRecreate(false);
-                    setVoidModal(true);
-                  }}
-                >
-                  ยกเลิกอย่างเดียว
-                </Button>
-                <Button
-                  variant={doc.doc_type === "invoice" ? "primary" : "danger"}
-                  size="md"
-                  className="w-full"
-                  onClick={() => {
-                    setVoidReason("");
-                    setCorrectionReason("");
-                    setVoidAndRecreate(true);
-                    setVoidModal(true);
-                  }}
-                >
-                  {doc.doc_type === "invoice" ? "แก้ไขโดยออกฉบับใหม่" : "ยกเลิกและสร้างใหม่"}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {isSent && !isPaid && !isVoided && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && permissions.canVoidDocuments && (
-            <Button
-              variant="danger"
-              size="md"
-              className="w-full"
-              onClick={() => {
-                setVoidReason("");
-                setVoidAndRecreate(false);
-                setVoidModal(true);
-              }}
-            >
-              ยกเลิก
-            </Button>
-          )}
-
-          {isSent && !isPaid && !isVoided && doc.doc_type !== "invoice" && doc.doc_type !== "billing_note" && doc.doc_type !== "delivery_note" && permissions.canVoidDocuments && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                setVoidReason("");
-                setVoidAndRecreate(false);
-                setVoidModal(true);
-              }}
-            >
-              ยกเลิกอย่างเดียว
-            </Button>
-          )}
         </div>
       </div>
 
@@ -1352,26 +1281,26 @@ export default function DocumentDetailPage() {
         title={voidAndRecreate ? correctionTitle : "ยกเลิกเอกสาร"}
       >
         <div className="space-y-3">
-          <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
-            เอกสารเดิม: <span className="font-semibold text-stone-900">{doc.doc_number || docLabel.thai}</span>
+          <div className="rounded-control border border-line bg-paper-field px-3 py-2 text-body text-ink-700">
+            เอกสารเดิม: <span className="font-semibold text-ink-900">{doc.doc_number || docLabel.thai}</span>
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             {voidAndRecreate
               ? "ฉบับเดิมจะถูกยกเลิกและเก็บไว้เป็นประวัติ จากนั้นระบบจะสร้างฉบับร่างใหม่ให้แก้ไข โดยใช้เลขที่ใหม่"
               : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้?"}
           </p>
           {voidAndRecreate && isCorrectionCandidate && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
               เอกสารที่ออกแล้วแก้ไขทับฉบับเดิมไม่ได้ หากเป็นการลดยอดหรือคืนเงิน ให้ใช้เมนู “ออกใบลดหนี้” แทน
             </div>
           )}
           {voidAndRecreate && isCorrectionCandidate && (
-            <label className="block text-sm text-gray-700">
+            <label className="block text-body text-ink-700">
               <span className="mb-1 block font-medium">สาเหตุการแก้ไข *</span>
               <select
                 value={correctionReason}
                 onChange={(event) => setCorrectionReason(event.target.value)}
-                className="w-full rounded-lg border border-card-border bg-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full rounded-control border border-card-border bg-white px-3 py-2.5 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">เลือกสาเหตุ</option>
                 {CORRECTION_REASONS.map((reason) => (
@@ -1409,7 +1338,7 @@ export default function DocumentDetailPage() {
 
       <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="ลบเอกสาร">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             คุณแน่ใจว่าต้องการลบเอกสารนี้? การลบไม่สามารถเรียกคืนได้
           </p>
           <div className="flex gap-2 justify-end">

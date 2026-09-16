@@ -155,12 +155,12 @@ function PermissionToggle({
   const meta = PERMISSION_GROUPS.find((group) => group.key === permissionKey);
   if (!meta) return null;
   return (
-    <label className={`flex items-start justify-between gap-3 rounded-lg border border-[#E8E6DF] p-3 ${disabled ? "opacity-60" : "cursor-pointer hover:bg-[#FBFAF7]"}`}>
+    <label className={`flex items-start justify-between gap-3 rounded-control border border-card-border p-3 ${disabled ? "opacity-60" : "cursor-pointer hover:bg-paper-tint"}`}>
       <span>
-        <span className="block text-sm font-medium text-[#1A1A18]">{meta.label}</span>
-        <span className="mt-1 block text-xs leading-5 text-gray-500">{meta.description}</span>
+        <span className="block text-body font-medium text-ink-900">{meta.label}</span>
+        <span className="mt-1 block text-label leading-5 text-ink-500">{meta.description}</span>
       </span>
-      <span className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full ${checked ? "bg-primary" : "bg-gray-300"}`}>
+      <span className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full ${checked ? "bg-primary" : "bg-line"}`}>
         <input
           type="checkbox"
           checked={checked}
@@ -168,7 +168,7 @@ function PermissionToggle({
           onChange={(event) => onChange(event.target.checked)}
           className="sr-only"
         />
-        <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
+        <span className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
       </span>
     </label>
   );
@@ -185,7 +185,7 @@ function PermissionSections({
     <div className="space-y-5">
       {PERMISSION_SECTIONS.map((section) => (
         <div key={section.title}>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">
+          <div className="mb-2 text-label font-semibold text-ink-500">
             {section.title}
           </div>
           <div className="space-y-2">
@@ -403,13 +403,13 @@ export default function SettingsTeamPage() {
           title="ทีมงานและสิทธิ์"
           description="สมาชิกใหม่เริ่มต้นโดยไม่มีสิทธิ์ใดๆ กำหนดบทบาทหรือเปิดสิทธิ์ให้แต่ละคนเอง"
           titleRight={
-            <div className="flex gap-1 rounded-lg bg-[#F1EFE8] p-1">
+            <div className="flex gap-1 rounded-control bg-draft-bg p-1">
               {tabs.map((item) => (
                 <button
                   key={item.key}
                   type="button"
                   onClick={() => switchTab(item.key)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${tab === item.key ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`rounded-control px-3 py-1.5 text-label font-medium transition-colors ${tab === item.key ? "bg-white text-primary " : "text-ink-500 hover:text-ink-700"}`}
                 >
                   {item.label}
                 </button>
@@ -420,21 +420,21 @@ export default function SettingsTeamPage() {
 
         {loading ? <SettingsRowsSkeleton /> : tab === "members" ? (
           members.length === 0 ? (
-            <Card><p className="text-sm text-gray-500">ยังไม่มีสมาชิกในทีม — เพิ่มสมาชิกได้จากผู้ดูแลระบบ</p></Card>
+            <Card><p className="text-body text-ink-500">ยังไม่มีสมาชิกในทีม — เพิ่มสมาชิกได้จากผู้ดูแลระบบ</p></Card>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
               <Card className="h-fit p-2">
-                <div className="px-2 py-2 text-xs font-semibold text-gray-500">สมาชิกในทีม</div>
+                <div className="px-2 py-2 text-label font-semibold text-ink-500">สมาชิกในทีม</div>
                 <div className="space-y-1">
                   {members.map((member) => (
                     <button
                       key={member.id}
                       type="button"
                       onClick={() => selectMember(member)}
-                      className={`w-full rounded-lg px-3 py-2 text-left ${selectedMemberId === member.id ? "bg-blue-50 text-primary" : "hover:bg-gray-50"}`}
+                      className={`w-full rounded-control px-3 py-2 text-left ${selectedMemberId === member.id ? "bg-blue-50 text-primary" : "hover:bg-paper-field"}`}
                     >
-                      <div className="truncate text-sm font-medium">{member.email || member.member_user_id}</div>
-                      <div className="mt-0.5 text-xs text-gray-500">{memberRoleLabel(member)}{member.status === "disabled" ? " · ปิดใช้งาน" : ""}</div>
+                      <div className="truncate text-body font-medium">{member.email || member.member_user_id}</div>
+                      <div className="mt-0.5 text-label text-ink-500">{memberRoleLabel(member)}{member.status === "disabled" ? " · ปิดใช้งาน" : ""}</div>
                     </button>
                   ))}
                 </div>
@@ -444,18 +444,18 @@ export default function SettingsTeamPage() {
                 <Card>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-sm font-semibold text-[#1A1A18]">สิทธิ์ของ {selectedMember.email}</h2>
-                      <p className="mt-1 text-xs text-gray-500">บทบาท: {memberRoleLabel(selectedMember)}</p>
+                      <h2 className="text-body font-semibold text-ink-900">สิทธิ์ของ {selectedMember.email}</h2>
+                      <p className="mt-1 text-label text-ink-500">บทบาท: {memberRoleLabel(selectedMember)}</p>
                     </div>
                     <Button variant="secondary" size="sm" onClick={() => setMemberDraft(emptyDraft())}>ล้างทั้งหมด</Button>
                   </div>
 
                   <div className="mt-4">
-                    <label className="mb-1 block text-xs font-medium text-gray-600">บทบาท</label>
+                    <label className="mb-1 block text-label font-medium text-ink-600">บทบาท</label>
                     <select
                       value={selectedMember.custom_role_id ?? `base:${selectedMember.role}`}
                       onChange={(event) => void changeMemberRole(selectedMember, event.target.value)}
-                      className="w-full rounded-lg border border-card-border bg-white px-3 py-2 text-sm"
+                      className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-body"
                     >
                       <optgroup label="บทบาทพื้นฐาน">
                         <option value="base:manager">Manager</option>
@@ -470,7 +470,7 @@ export default function SettingsTeamPage() {
                       )}
                     </select>
                     {selectedMember.custom_role_id && (
-                      <p className="mt-1 text-[11px] text-amber-600">การบันทึกสิทธิ์ด้านล่างจะมีความสำคัญเหนือบทบาทที่เลือก</p>
+                      <p className="mt-1 text-label text-amber-600">การบันทึกสิทธิ์ด้านล่างจะมีความสำคัญเหนือบทบาทที่เลือก</p>
                     )}
                   </div>
 
@@ -490,8 +490,8 @@ export default function SettingsTeamPage() {
             <Card>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-semibold text-[#1A1A18]">บทบาทกำหนดเอง</h2>
-                  <p className="mt-1 text-xs leading-5 text-gray-500">สร้างชุดสิทธิ์ที่ใช้บ่อยเป็นบทบาท แล้วมอบหมายให้สมาชิกได้ทันที</p>
+                  <h2 className="text-body font-semibold text-ink-900">บทบาทกำหนดเอง</h2>
+                  <p className="mt-1 text-label leading-5 text-ink-500">สร้างชุดสิทธิ์ที่ใช้บ่อยเป็นบทบาท แล้วมอบหมายให้สมาชิกได้ทันที</p>
                 </div>
                 <Button size="sm" onClick={() => openRoleBuilder(null)}>+ สร้างบทบาท</Button>
               </div>
@@ -499,7 +499,7 @@ export default function SettingsTeamPage() {
 
             {roles.length === 0 ? (
               <Card>
-                <p className="text-sm text-gray-500">ยังไม่มีบทบาทกำหนดเอง — เริ่มจากเทมเพลตตัวอย่างหรือกำหนดเองทั้งหมดได้</p>
+                <p className="text-body text-ink-500">ยังไม่มีบทบาทกำหนดเอง — เริ่มจากเทมเพลตตัวอย่างหรือกำหนดเองทั้งหมดได้</p>
               </Card>
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
@@ -509,8 +509,8 @@ export default function SettingsTeamPage() {
                     <Card key={role.id}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <h3 className="text-sm font-semibold text-[#1A1A18]">{role.name}</h3>
-                          <p className="mt-0.5 text-xs text-gray-500">{role.member_count} สมาชิก · {granted.length} สิทธิ์</p>
+                          <h3 className="text-body font-semibold text-ink-900">{role.name}</h3>
+                          <p className="mt-0.5 text-label text-ink-500">{role.member_count} สมาชิก · {granted.length} สิทธิ์</p>
                         </div>
                         <div className="flex shrink-0 gap-1">
                           <Button variant="secondary" size="sm" onClick={() => openRoleBuilder(role)}>แก้ไข</Button>
@@ -519,9 +519,9 @@ export default function SettingsTeamPage() {
                       </div>
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         {granted.length === 0 ? (
-                          <span className="text-xs text-gray-400">ยังไม่เปิดสิทธิ์ใดๆ</span>
+                          <span className="text-label text-ink-400">ยังไม่เปิดสิทธิ์ใดๆ</span>
                         ) : granted.map((key) => (
-                          <span key={key} className="rounded-full bg-[#EAF3DE] px-2 py-0.5 text-[11px] font-medium text-[#27500A]">
+                          <span key={key} className="rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
                             {PERMISSION_LABELS.get(key) || key}
                           </span>
                         ))}
@@ -534,24 +534,24 @@ export default function SettingsTeamPage() {
           </div>
         ) : (
           <Card>
-            <h2 className="text-sm font-semibold text-[#1A1A18]">ประวัติการเปลี่ยนแปลงล่าสุด</h2>
+            <h2 className="text-body font-semibold text-ink-900">ประวัติการเปลี่ยนแปลงล่าสุด</h2>
             {audit.length === 0 ? (
-              <p className="mt-3 text-sm text-gray-500">ยังไม่มีประวัติการเปลี่ยนแปลง</p>
+              <p className="mt-3 text-body text-ink-500">ยังไม่มีประวัติการเปลี่ยนแปลง</p>
             ) : (
-              <div className="mt-3 divide-y divide-[#F0EFE9]">
+              <div className="mt-3 divide-y divide-line-faint">
                 {audit.map((entry) => (
                   <div key={entry.id} className="py-3">
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="font-semibold text-[#1A1A18]">{AUDIT_ACTION_LABELS[entry.action] || entry.action}</span>
-                      <span className="text-gray-500">{entry.actor_email || "ระบบ"}</span>
+                    <div className="flex flex-wrap items-center gap-2 text-label">
+                      <span className="font-semibold text-ink-900">{AUDIT_ACTION_LABELS[entry.action] || entry.action}</span>
+                      <span className="text-ink-500">{entry.actor_email || "ระบบ"}</span>
                       {entry.target_email && entry.target_email !== entry.actor_email && (
-                        <span className="text-gray-500">→ {entry.target_email}</span>
+                        <span className="text-ink-500">→ {entry.target_email}</span>
                       )}
-                      <span className="ml-auto text-gray-400">
+                      <span className="ml-auto text-ink-400">
                         {new Date(entry.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
                       </span>
                     </div>
-                    <p className="mt-1 text-[11px] leading-5 text-gray-500">{summarizeAuditChange(entry)}</p>
+                    <p className="mt-1 text-label leading-5 text-ink-500">{summarizeAuditChange(entry)}</p>
                   </div>
                 ))}
               </div>
@@ -579,9 +579,9 @@ export default function SettingsTeamPage() {
             </div>
             {!editingRoleId && (
               <div className="sm:w-56">
-                <label className="mb-1 block text-xs font-medium text-gray-600">เริ่มจากเทมเพลต</label>
+                <label className="mb-1 block text-label font-medium text-ink-600">เริ่มจากเทมเพลต</label>
                 <select
-                  className="w-full rounded-lg border border-card-border bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-body"
                   defaultValue="blank"
                   onChange={(event) => applyRoleTemplate(event.target.value)}
                 >
@@ -610,7 +610,7 @@ export default function SettingsTeamPage() {
         onClose={() => setDeleteRoleTarget(null)}
         title="ลบบทบาท"
       >
-        <p className="text-sm leading-6 text-gray-700">
+        <p className="text-body leading-6 text-ink-700">
           ต้องการลบบทบาท “{deleteRoleTarget?.name}” หรือไม่? สมาชิกที่ใช้บทบาทนี้จะกลับไปใช้บทบาทพื้นฐาน
         </p>
         <div className="mt-4 flex justify-end gap-2">

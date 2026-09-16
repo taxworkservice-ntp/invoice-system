@@ -410,7 +410,7 @@ export default function WhtPrintPage() {
   const hideStamp = searchParams.get("hideStamp") === "1";
 
   useEffect(() => {
-    let cancelled = false;
+    const cancelled = false;
     async function load() {
       setLoading(true);
       try {

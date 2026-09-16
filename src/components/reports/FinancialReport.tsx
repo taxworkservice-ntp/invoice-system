@@ -34,24 +34,24 @@ function SummaryCard({ icon, label, scope, value, alert = false, delta, deltaGoo
   const deltaColor = delta === null || delta === undefined
     ? ""
     : delta >= 0 === deltaGood
-      ? "text-[#1E5A38]"
-      : "text-[#C0392B]";
+      ? "text-success-text"
+      : "text-danger";
   return (
-    <Card className="min-h-[96px] border-[#E8E6DF] p-3 shadow-sm">
-      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#888780]">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EAF4FF] text-primary">
+    <Card className="min-h-[96px] border-card-border p-3">
+      <div className="flex items-center gap-2 text-label font-medium text-ink-300">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary">
           {icon}
         </span>
         <span className="min-w-0">
           {label}
-          {scope && <span className="block text-[10px] font-normal normal-case tracking-normal text-[#A8A6A0]">{scope}</span>}
+          {scope && <span className="block text-label font-normal normal-case text-ink-200">{scope}</span>}
         </span>
       </div>
-      <div className={`mt-2 text-lg font-semibold leading-tight tabular-nums truncate ${alert ? "text-[#C0392B]" : "text-[#1A1A18]"}`} title={`฿${value}`}>
+      <div className={`mt-2 text-subtitle font-semibold leading-tight tabular-nums truncate ${alert ? "text-danger" : "text-ink-900"}`} title={`฿${value}`}>
         ฿{value}
       </div>
       {deltaFormatted && (
-        <div className={`mt-0.5 text-[11px] font-medium ${deltaColor}`}>
+        <div className={`mt-0.5 text-label font-medium ${deltaColor}`}>
           {deltaFormatted} {deltaCaption}
         </div>
       )}
@@ -80,7 +80,7 @@ function BarChart({ data, max, activeIndex, onBarClick }: { data: { label: strin
             onMouseLeave={() => setHoveredIndex(null)}
           >
             {showValue && (
-              <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#1A1A18] px-2 py-0.5 text-[10px] font-medium tabular-nums text-white shadow-sm">
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-control bg-ink-900 px-2 py-0.5 text-label font-medium tabular-nums text-white">
                 ฿{formatCurrency(d.value)}
               </div>
             )}
@@ -90,11 +90,11 @@ function BarChart({ data, max, activeIndex, onBarClick }: { data: { label: strin
               className={[
                 "w-full rounded-t-sm transition-all",
                 d.value > 0 ? "cursor-pointer hover:brightness-110" : "",
-                isActive ? "bg-primary" : isMax ? "bg-[#2E7D4F]" : "bg-primary/40",
+                isActive ? "bg-primary" : isMax ? "bg-success-text" : "bg-primary/40",
               ].join(" ")}
               style={{ height: h }}
             />
-            <span className={`text-[10px] ${isActive ? "font-semibold text-primary" : "text-gray-500"}`}>{d.label}</span>
+            <span className={`text-label ${isActive ? "font-semibold text-primary" : "text-ink-500"}`}>{d.label}</span>
           </div>
         );
       })}
@@ -175,31 +175,31 @@ export function FinancialReport({ userId }: FinancialReportProps) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-48 rounded-md" />
-          <Skeleton className="h-8 w-32 rounded-md" />
+          <Skeleton className="h-8 w-48 rounded-control" />
+          <Skeleton className="h-8 w-32 rounded-control" />
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-card" />
           ))}
         </div>
-        <Skeleton className="h-40 rounded-xl" />
-        <Skeleton className="h-40 rounded-xl" />
-        <Skeleton className="h-40 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-40 rounded-card" />
+        <Skeleton className="h-40 rounded-card" />
+        <Skeleton className="h-40 rounded-card" />
+        <Skeleton className="h-32 rounded-card" />
       </div>
     );
   }
 
   if (error) {
-    return <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">{error}</div>;
+    return <div className="rounded-card border border-red-200 bg-red-50 p-4 text-body text-red-600">{error}</div>;
   }
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-card border border-card-border bg-paper-field p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#888780]">
+          <div className="flex items-center gap-2 text-label font-semibold text-ink-300">
             <CalendarDays className="h-4 w-4 text-primary" />
             <span>ช่วงเวลา</span>
           </div>
@@ -208,7 +208,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
               aria-label="เดือนของรายงาน"
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="min-w-0 rounded-lg border border-[#E8E6DF] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="min-w-0 rounded-control border border-card-border bg-white px-3 py-1.5 text-body text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               {MONTH_NAMES_TH.map((name, i) => (
                 <option key={i + 1} value={i + 1}>{name}</option>
@@ -218,7 +218,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
               aria-label="ปีของรายงาน"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="min-w-0 rounded-lg border border-[#E8E6DF] bg-white px-3 py-1.5 text-sm text-[#1A1A18] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="min-w-0 rounded-control border border-card-border bg-white px-3 py-1.5 text-body text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               {years.map((y) => (
                 <option key={y} value={y}>{y + 543}</option>
@@ -246,13 +246,13 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       )}
 
       {chartMonths.length > 0 && (
-        <Card className="border-[0.5px] p-4 shadow-sm">
+        <Card className="border-[0.5px] p-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">
+            <h3 className="text-label font-semibold text-ink-500">
               {chartTitle}
-              {chartMonths.length === 1 && <span className="ml-2 font-normal normal-case tracking-normal text-[#A8A6A0]">ข้อมูลเดือนเดียว</span>}
+              {chartMonths.length === 1 && <span className="ml-2 font-normal normal-case text-ink-200">ข้อมูลเดือนเดียว</span>}
             </h3>
-            <div className="flex items-center gap-0.5 rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-0.5" role="tablist" aria-label="ช่วงเวลาของกราฟรายได้">
+            <div className="flex items-center gap-0.5 rounded-control border border-card-border bg-paper-field p-0.5" role="tablist" aria-label="ช่วงเวลาของกราฟรายได้">
               {CHART_RANGES.map((range) => (
                 <button
                   key={range.key}
@@ -260,7 +260,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
                   role="tab"
                   aria-selected={chartRange === range.key}
                   onClick={() => setChartRange(range.key)}
-                  className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${chartRange === range.key ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#475467]"}`}
+                  className={`rounded-control px-2 py-1 text-label font-medium transition-colors ${chartRange === range.key ? "bg-white text-ink-900 " : "text-ink-300 hover:text-ink-500"}`}
                 >
                   {range.label}
                 </button>
@@ -282,21 +282,21 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       )}
 
       {arByCustomer.length > 0 && (
-        <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ <span className="font-normal normal-case tracking-normal text-[#A8A6A0]">สะสม</span></h3>
+        <Card className="border-[0.5px] p-4">
+          <h3 className="mb-3 text-label font-semibold text-ink-500">ลูกค้าค้างชำระ <span className="font-normal normal-case text-ink-200">สะสม</span></h3>
           <div className="space-y-1">
             {arByCustomer.map((c) => (
               <div
                 key={c.customerId}
-                className="flex items-center justify-between text-sm cursor-pointer hover:bg-[#FAFAF8] rounded px-2 py-1.5 -mx-2 transition-colors"
+                className="flex items-center justify-between text-body cursor-pointer hover:bg-paper-field rounded px-2 py-1.5 -mx-2 transition-colors"
                 onClick={() => navigate(`/customers/${c.customerId}`)}
               >
                 <div className="min-w-0 flex-1">
-                  <span className="text-gray-700 truncate block">{c.name}</span>
-                  <span className="text-[11px] text-gray-400">{c.count} บิล · ค้าง {c.daysOverdue} วัน</span>
+                  <span className="text-ink-700 truncate block">{c.name}</span>
+                  <span className="text-label text-ink-400">{c.count} บิล · ค้าง {c.daysOverdue} วัน</span>
                 </div>
                 <div className="text-right tabular-nums shrink-0 ml-3">
-                  <span className="font-medium text-[#C0392B]">฿{formatCurrency(c.total)}</span>
+                  <span className="font-medium text-danger">฿{formatCurrency(c.total)}</span>
                 </div>
               </div>
             ))}
@@ -305,9 +305,9 @@ export function FinancialReport({ userId }: FinancialReportProps) {
       )}
 
       {arByCustomer.length === 0 && summary && summary.outstanding > 0 && (
-        <Card className="border-[0.5px] p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">ลูกค้าค้างชำระ <span className="font-normal normal-case tracking-normal text-[#A8A6A0]">สะสม</span></h3>
-          <p className="text-center py-6 text-[13px] text-[#888780]">ไม่มีลูกค้าค้างชำระ</p>
+        <Card className="border-[0.5px] p-4">
+          <h3 className="mb-3 text-label font-semibold text-ink-500">ลูกค้าค้างชำระ <span className="font-normal normal-case text-ink-200">สะสม</span></h3>
+          <p className="text-center py-6 text-body text-ink-300">ไม่มีลูกค้าค้างชำระ</p>
         </Card>
       )}
 

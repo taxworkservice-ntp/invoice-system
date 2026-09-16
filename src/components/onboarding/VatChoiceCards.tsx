@@ -13,17 +13,13 @@ export function VatChoiceCards({ value, onChange }: VatChoiceCardsProps) {
         <div
           key={String(opt.key)}
           onClick={() => onChange(opt.key)}
-          className={`cursor-pointer rounded-[10px] p-4 text-center border transition-colors ${
-            value === opt.key
-              ? "border-[#378ADD] bg-[#F0F7FF]"
-              : "border-[#E8E6DF] bg-white"
-          }`}
+          className={`cursor-pointer rounded-[10px] p-4 text-center border transition-colors ${ value === opt.key ? "border-primary bg-primary-soft" : "border-card-border bg-white" }`}
         >
-          <div className="text-2xl mb-1">{opt.icon}</div>
-          <div className="text-[13px] font-medium text-[#1A1A18] whitespace-pre-line">
+          <div className="text-page mb-1">{opt.icon}</div>
+          <div className="text-body font-medium text-ink-900 whitespace-pre-line">
             {opt.title}
           </div>
-          <div className="text-[11px] text-[#888780] whitespace-pre-line mt-1">
+          <div className="text-label text-ink-300 whitespace-pre-line mt-1">
             {opt.desc}
           </div>
         </div>

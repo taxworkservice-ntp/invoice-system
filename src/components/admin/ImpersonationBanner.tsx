@@ -16,17 +16,17 @@ export function ImpersonationBanner({ clientName, onStop, returnTo }: Impersonat
   }
 
   return (
-    <div className="bg-[#FAEEDA] border-b border-[#E8D5B2] text-[#633806] px-4 py-2 flex items-center justify-between">
+    <div className="bg-pending-bg border-b border-warning-border text-pending-text px-4 py-2 flex items-center justify-between">
       <div className="flex items-center gap-2 min-w-0">
         <button
           onClick={handleStop}
-          className="flex items-center gap-1 text-[#633806] font-medium text-sm hover:underline shrink-0"
+          className="flex items-center gap-1 text-pending-text font-medium text-body hover:underline shrink-0"
         >
           <ArrowLeft className="w-4 h-4" />
           หยุดดูในฐานะลูกค้า
         </button>
       </div>
-      <span className="text-sm text-[#633806]/80 truncate ml-2">
+      <span className="text-body text-pending-text/80 truncate ml-2">
         กำลังดูในฐานะ: <strong>{clientName}</strong>
       </span>
     </div>

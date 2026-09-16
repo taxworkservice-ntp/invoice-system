@@ -294,7 +294,7 @@ export function InvoiceFromQuotationForm() {
       const qtLineIds = refPairs.map((p) => p.lineId);
       const qtIds = refPairs.map((p) => p.qtId);
 
-      let billedByLine = new Map<string, number>();
+      const billedByLine = new Map<string, number>();
       if (qtLineIds.length) {
         const { data: invLines } = await supabase
           .from("document_line_items")
@@ -723,37 +723,37 @@ export function InvoiceFromQuotationForm() {
   return (
     <AppShell title="ออกใบแจ้งหนี้จากใบเสนอราคา" showBack>
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <div className="mb-4 rounded-control border border-red-200 bg-red-50 p-3 text-body text-red-600">
           {error}
         </div>
       )}
 
       {clientProfile?.vat_registered && (
-        <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">โปรดยืนยันเวลาการออกใบกำกับภาษีกับบัญชีของคุณ</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบรองรับการรวมใบเสนอราคาหลายใบเพื่อออกใบกำกับภาษีภายหลัง แต่กิจการ VAT ควรตรวจสอบจุดรับรู้ภาษีให้ถูกต้อง</p>
+            <p className="mt-0.5 text-label leading-5">ระบบรองรับการรวมใบเสนอราคาหลายใบเพื่อออกใบกำกับภาษีภายหลัง แต่กิจการ VAT ควรตรวจสอบจุดรับรู้ภาษีให้ถูกต้อง</p>
           </div>
         </div>
       )}
 
       {taxSnapshot.mixed && (
-        <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">ใบเสนอราคาที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบจะใช้การตั้งค่าภาษีจากใบเสนอราคาใบแรกในรายการ โปรดตรวจสอบก่อนสร้างใบแจ้งหนี้</p>
+            <p className="mt-0.5 text-label leading-5">ระบบจะใช้การตั้งค่าภาษีจากใบเสนอราคาใบแรกในรายการ โปรดตรวจสอบก่อนสร้างใบแจ้งหนี้</p>
           </div>
         </div>
       )}
 
       {hasMixedDeals && (
-        <div className="mb-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+        <div className="mb-4 flex items-start gap-3 rounded-control border border-blue-200 bg-blue-50 p-3 text-body text-blue-900">
           <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">ใบเสนอราคาที่เลือกมาจากหลายงานขาย</p>
-            <p className="mt-0.5 text-xs leading-5">ระบบจะรวมใบเสนอราคาทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็นขั้นตอนเอกสารต่อเนื่องบนหน้าหลัก</p>
+            <p className="mt-0.5 text-label leading-5">ระบบจะรวมใบเสนอราคาทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็นขั้นตอนเอกสารต่อเนื่องบนหน้าหลัก</p>
           </div>
         </div>
       )}
@@ -765,15 +765,15 @@ export function InvoiceFromQuotationForm() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-gray-600">ลูกค้า</label>
+                <label className="mb-1 block text-label font-medium text-ink-600">ลูกค้า</label>
                 {selectedCustomer ? (
-                  <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-paper-soft p-3">
+                  <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-ink-900">{selectedCustomer.name}</div>
-                      {selectedCustomer.tax_id && <div className="mt-1 text-xs text-gray-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</div>}
-                      {selectedCustomer.address && <div className="mt-1 line-clamp-2 text-xs text-gray-500">{selectedCustomer.address}</div>}
+                      <div className="text-body font-medium text-ink-900">{selectedCustomer.name}</div>
+                      {selectedCustomer.tax_id && <div className="mt-1 text-label text-ink-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</div>}
+                      {selectedCustomer.address && <div className="mt-1 line-clamp-2 text-label text-ink-500">{selectedCustomer.address}</div>}
                       {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
-                        <div className="mt-1 text-xs text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</div>
+                        <div className="mt-1 text-label text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</div>
                       )}
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setCustomerPickerOpen(true)}>เปลี่ยน</Button>
@@ -794,24 +794,24 @@ export function InvoiceFromQuotationForm() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">วันที่ใบแจ้งหนี้</label>
+                <label className="mb-1 block text-label font-medium text-ink-600">วันที่ใบแจ้งหนี้</label>
                 <DateInput value={issueDate} onChange={(event) => setIssueDate(event.target.value)} />
               </div>
-              <div className="sm:col-span-2 overflow-hidden rounded-xl border border-card-border bg-paper-soft">
+              <div className="sm:col-span-2 overflow-hidden rounded-card border border-card-border bg-paper-soft">
                 <button
                   type="button"
                   onClick={() => setDateExpanded((prev) => !prev)}
                   className="flex w-full items-center justify-between gap-3 p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
                   <div>
-                    <div className="text-xs font-medium text-gray-700">ช่วงวันที่เสนอราคา</div>
-                    <div className="mt-0.5 text-[11px] text-gray-500">{dateRangeSummary}</div>
+                    <div className="text-label font-medium text-ink-700">ช่วงวันที่เสนอราคา</div>
+                    <div className="mt-0.5 text-label text-ink-500">{dateRangeSummary}</div>
                   </div>
-                  <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`} />
                 </button>
                 {dateExpanded && (
                   <div className="border-t border-card-border p-3">
-                    <div className="mb-2 text-[11px] text-gray-500">ใช้กรองใบเสนอราคาที่พร้อมนำมาออกใบแจ้งหนี้</div>
+                    <div className="mb-2 text-label text-ink-500">ใช้กรองใบเสนอราคาที่พร้อมนำมาออกใบแจ้งหนี้</div>
                     <div className="flex flex-wrap gap-1.5">
                       {([
                         ["thisMonth", "เดือนนี้"],
@@ -836,11 +836,7 @@ export function InvoiceFromQuotationForm() {
                               setDateTo(preset === "thisMonth" ? businessToday : range.to);
                             }
                           }}
-                          className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                            datePreset === preset
-                              ? "border-primary bg-primary text-white"
-                              : "border-gray-200 bg-white text-gray-600 hover:border-primary/40"
-                          }`}
+                          className={`rounded-full border px-2.5 py-1 text-label font-medium transition-colors ${ datePreset === preset ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-primary/40" }`}
                         >
                           {label}
                         </button>
@@ -848,7 +844,7 @@ export function InvoiceFromQuotationForm() {
                     </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">ตั้งแต่วันที่</label>
+                        <label className="mb-1 block text-label font-medium text-ink-600">ตั้งแต่วันที่</label>
                         <DateInput
                           value={dateFrom}
                           onChange={(event) => {
@@ -858,7 +854,7 @@ export function InvoiceFromQuotationForm() {
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">ถึงวันที่</label>
+                        <label className="mb-1 block text-label font-medium text-ink-600">ถึงวันที่</label>
                         <DateInput
                           value={dateTo}
                           onChange={(event) => {
@@ -869,12 +865,12 @@ export function InvoiceFromQuotationForm() {
                       </div>
                     </div>
                     {datePreset === "all" ? (
-                      <div className="mt-2 text-[11px] text-gray-500">แสดงใบเสนอราคาที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
+                      <div className="mt-2 text-label text-ink-500">แสดงใบเสนอราคาที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
                     ) : null}
                   </div>
                 )}
               </div>
-              <p className="text-xs leading-5 text-gray-500 sm:col-span-2">
+              <p className="text-label leading-5 text-ink-500 sm:col-span-2">
                 ระบบแสดงเฉพาะรายการที่ยังไม่ถูกออกใบแจ้งหนี้ (คงเหลือหลังหักยอดที่ออกไปแล้ว) สามารถออกบิลทีละส่วนได้
               </p>
             </div>
@@ -913,11 +909,7 @@ export function InvoiceFromQuotationForm() {
                   key={qt.id}
                   type="button"
                   onClick={() => toggleQt(qt.id)}
-                  className={`w-full rounded-xl border p-3 text-left transition-colors ${
-                    selectedIds.has(qt.id)
-                      ? "border-primary bg-blue-50"
-                      : "border-card-border bg-white hover:bg-gray-50"
-                  }`}
+                  className={`w-full rounded-card border p-3 text-left transition-colors ${ selectedIds.has(qt.id) ? "border-primary bg-blue-50" : "border-card-border bg-white hover:bg-paper-field" }`}
                 >
                   <div className="flex items-start gap-3">
                     <input
@@ -930,15 +922,15 @@ export function InvoiceFromQuotationForm() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-ink-900">{qt.doc_number || "ไม่มีเลขเอกสาร"}</span>
-                        <span className="text-xs text-gray-500">{formatBuddhistDate(qt.issue_date)}</span>
+                        <span className="text-label text-ink-500">{formatBuddhistDate(qt.issue_date)}</span>
                       </div>
-                      <div className="mt-1 text-xs leading-5 text-gray-500">
+                      <div className="mt-1 text-label leading-5 text-ink-500">
                         {buildItemSummary(qt.line_items.map((l) => ({ ...l, quantity: l.remaining })))}
                       </div>
                     </div>
-                    <div className="shrink-0 text-right text-xs text-gray-500">
+                    <div className="shrink-0 text-right text-label text-ink-500">
                       <div>{qt.line_items.length} รายการ</div>
-                      <div className="mt-1 font-medium text-gray-700">฿{formatCurrency(qt.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0))}</div>
+                      <div className="mt-1 font-medium text-ink-700">฿{formatCurrency(qt.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0))}</div>
                     </div>
                   </div>
                 </button>
@@ -956,7 +948,7 @@ export function InvoiceFromQuotationForm() {
               : "รายการคัดลอกจากใบเสนอราคา สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้"
           }
           right={
-            <div className="rounded-full bg-paper-warm px-2.5 py-1 text-xs text-ink-600">
+            <div className="rounded-full bg-paper-warm px-2.5 py-1 text-label text-ink-600">
               {selectedQuotations.length} ใบเสนอราคา / {invoiceLines.length} รายการต้นทาง
             </div>
           }
@@ -970,22 +962,22 @@ export function InvoiceFromQuotationForm() {
                   {refGroups.map((group) => (
                     <div
                       key={group.key}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-card-border bg-paper-soft px-3 py-2.5"
+                      className="flex items-center justify-between gap-3 rounded-card border border-card-border bg-paper-soft px-3 py-2.5"
                     >
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-ink-900">{group.label}</div>
-                        <div className="mt-0.5 text-[11px] text-gray-500">
+                        <div className="text-body font-medium text-ink-900">{group.label}</div>
+                        <div className="mt-0.5 text-label text-ink-500">
                           {[group.dateLabel, `รายการ ${group.lineCount} บรรทัด`].filter(Boolean).join(" · ")}
                         </div>
                       </div>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums text-ink-900">
+                      <span className="shrink-0 text-body font-semibold tabular-nums text-ink-900">
                         ฿{formatCurrency(group.total)}
                       </span>
                     </div>
                   ))}
                 </div>
               )}
-              <div className="overflow-hidden rounded-xl border border-card-border">
+              <div className="overflow-hidden rounded-card border border-card-border">
                 <div className="overflow-x-auto">
                   <div className="min-w-[620px]">
                     <LineGridHeaderRow />
@@ -1009,7 +1001,7 @@ export function InvoiceFromQuotationForm() {
                                     updateLine(l.key, { item_name: event.target.value })
                                   }
                                   placeholder="ชื่อรายการ"
-                                  className="w-full rounded-lg border border-transparent bg-gray-50 px-2 py-1.5 text-sm font-medium text-ink-900 outline-none transition-colors placeholder:font-normal placeholder:text-gray-400 hover:border-gray-200 focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20"
+                                  className="w-full rounded-control border border-transparent bg-paper-field px-2 py-1.5 text-body font-medium text-ink-900 outline-none transition-colors placeholder:font-normal placeholder:text-ink-400 hover:border-line focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20"
                                 />
                                 <input
                                   value={l.line_note}
@@ -1017,7 +1009,7 @@ export function InvoiceFromQuotationForm() {
                                     updateLine(l.key, { line_note: event.target.value })
                                   }
                                   placeholder="+ รายละเอียด / สเปค"
-                                  className="mt-1 w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-gray-500 outline-none transition-colors placeholder:text-gray-300 hover:bg-gray-50 focus:bg-gray-50 focus:text-ink-900"
+                                  className="mt-1 w-full rounded-control border border-transparent bg-transparent px-2 py-1 text-label text-ink-500 outline-none transition-colors placeholder:text-ink-300 hover:bg-paper-field focus:bg-paper-field focus:text-ink-900"
                                 />
                               </div>
                               <div>
@@ -1038,7 +1030,7 @@ export function InvoiceFromQuotationForm() {
                                   className={numericInputClass(false)}
                                 />
                                 {qtyChanged && (
-                                  <div className="mt-0.5 text-right text-[10px] leading-3 text-gray-400">
+                                  <div className="mt-0.5 text-right text-label leading-3 text-ink-400">
                                     QT: {trimQty(l.quotedQty)}
                                   </div>
                                 )}
@@ -1049,7 +1041,7 @@ export function InvoiceFromQuotationForm() {
                                   onChange={(event) =>
                                     updateLine(l.key, { unit: event.target.value })
                                   }
-                                  className="w-full rounded-lg border border-card-border bg-white px-2 py-1.5 text-sm text-ink-900 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                  className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-body text-ink-900 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
                                 />
                               </div>
                               <div>
@@ -1066,7 +1058,7 @@ export function InvoiceFromQuotationForm() {
                                   className={numericInputClass(priceChanged)}
                                 />
                                 {priceChanged && (
-                                  <div className="mt-0.5 text-right text-[10px] font-medium leading-3 text-amber-600">
+                                  <div className="mt-0.5 text-right text-label font-medium leading-3 text-amber-600">
                                     QT: {trimQty(l.qtUnitPrice)}
                                   </div>
                                 )}
@@ -1090,14 +1082,14 @@ export function InvoiceFromQuotationForm() {
                                   className={numericInputClass(false)}
                                 />
                               </div>
-                              <div className="pt-1.5 text-right text-sm font-semibold tabular-nums text-ink-900">
+                              <div className="pt-1.5 text-right text-body font-semibold tabular-nums text-ink-900">
                                 {formatCurrency(lineNetAmount(l))}
                               </div>
                               <button
                                 type="button"
                                 onClick={() => removeLine(l.key)}
                                 aria-label="ลบรายการ"
-                                className="mx-auto mt-1.5 text-gray-300 transition-colors hover:text-red-600"
+                                className="mx-auto mt-1.5 text-ink-300 transition-colors hover:text-red-600"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -1148,7 +1140,7 @@ export function InvoiceFromQuotationForm() {
                   <option key={value} value={value}>{preset.thai}</option>
                 ))}
               </Select>
-              <p className="mt-1 text-[11px] leading-4 text-gray-400">
+              <p className="mt-1 text-label leading-4 text-ink-400">
                 ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น — ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
               </p>
             </div>
@@ -1178,8 +1170,8 @@ export function InvoiceFromQuotationForm() {
               }
             />
             <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้" />
-            <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
+            <div className="rounded-card border border-card-border bg-paper-soft p-3 text-body">
+              <div className="mb-2 flex items-center gap-2 text-label font-medium text-ink-500">
                 <FileStack className="h-3.5 w-3.5" />
                 รวม {selectedQuotations.length} ใบเสนอราคา / {billableLines.length} รายการที่ออกบิล
               </div>
@@ -1188,7 +1180,7 @@ export function InvoiceFromQuotationForm() {
                 {taxSnapshot.vatRegistered && <div className="flex justify-between"><span>VAT {taxSnapshot.vatRate}%</span><span>฿{formatCurrency(tax.vatAmount)}</span></div>}
                 <div className="flex justify-between font-medium"><span>รวมทั้งสิ้น</span><span>฿{formatCurrency(tax.total)}</span></div>
                 {tax.whtAmount > 0 && <div className="flex justify-between text-red-600"><span>หัก ณ ที่จ่าย {whtRate}%</span><span>-฿{formatCurrency(tax.whtAmount)}</span></div>}
-                <div className="flex justify-between border-t border-line-strong pt-2 text-base font-semibold"><span>ยอดชำระสุทธิ</span><span>฿{formatCurrency(tax.netPayable)}</span></div>
+                <div className="flex justify-between border-t border-line-strong pt-2 text-title font-semibold"><span>ยอดชำระสุทธิ</span><span>฿{formatCurrency(tax.netPayable)}</span></div>
               </div>
             </div>
             <EditableDocNumber

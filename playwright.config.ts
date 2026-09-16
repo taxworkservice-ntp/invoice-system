@@ -30,7 +30,22 @@ export default defineConfig({
       name: "journeys",
       dependencies: ["setup"],
       use: { storageState: "e2e/.auth/state.json" },
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: [/auth\.setup\.ts/, /visual\.spec\.ts/],
+    },
+    {
+      // Design-system visual baselines. Generate/refresh with
+      // `npm run test:ui-snapshots:update`.
+      name: "visual",
+      dependencies: ["setup"],
+      testMatch: /visual\.spec\.ts/,
+      use: {
+        storageState: "e2e/.auth/state.json",
+        viewport: { width: 1280, height: 900 },
+        colorScheme: "light",
+      },
+      expect: {
+        toHaveScreenshot: { animations: "disabled", caret: "hide", maxDiffPixels: 250 },
+      },
     },
   ],
 });

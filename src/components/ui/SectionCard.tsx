@@ -33,14 +33,14 @@ export function SectionCard({
 }: SectionCardProps) {
   const hasHeader = Boolean(title || icon || titleRight);
   return (
-    <section className={`rounded-sheet border ${TONES[tone]} ${padding === "none" ? "overflow-hidden" : "p-4 sm:p-5"} ${className}`}>
+    <section className={`rounded-card border ${TONES[tone]} ${padding === "none" ? "overflow-hidden" : "p-4 sm:p-5"} ${className}`}>
       {hasHeader && (
         <div className={`flex items-center gap-2 ${padding === "none" ? "p-4 pb-0 sm:p-5 sm:pb-0" : "mb-4"}`}>
           {icon ? <span className="text-ink-400">{icon}</span> : null}
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-ink-900">{title}</h3>
+            <h3 className="text-title font-semibold text-ink-900">{title}</h3>
             {description ? (
-              <p className="mt-0.5 text-[11px] text-[#888780]">{description}</p>
+              <p className="mt-0.5 text-label text-ink-300">{description}</p>
             ) : null}
           </div>
           {titleRight ? <div className="ml-auto">{titleRight}</div> : null}

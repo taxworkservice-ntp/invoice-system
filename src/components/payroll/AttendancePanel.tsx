@@ -76,17 +76,17 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
       className="bg-white border border-card-border rounded-card px-4 py-3"
       onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
     >
-      <summary className="flex items-center gap-2 text-cool-700 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-        <CalendarClock className="w-4 h-4 text-cool-400" />
-        <span className="text-sm font-medium">เวลา & การลา — นำเข้าจากไฟล์ตอกบัตร</span>
-        <span className="ml-auto text-[11px] text-cool-400">
+      <summary className="flex items-center gap-2 text-ink-700 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <CalendarClock className="w-4 h-4 text-ink-400" />
+        <span className="text-body font-medium">เวลา & การลา — นำเข้าจากไฟล์ตอกบัตร</span>
+        <span className="ml-auto text-label text-ink-400">
           {run ? describeOtWindow(run.period_start, run.period_end, run.ot_start, run.ot_end) : "เลือกรอบก่อน"}
         </span>
       </summary>
 
       {open && (
         <div className="pt-3 space-y-3">
-          <p className="text-xs text-cool-500">
+          <p className="text-label text-ink-500">
             วางข้อมูล CSV จากเครื่องสแกน/Excel (รหัส, วันที่ ปปปป-ดด-วว, สถานะ มา/ขาด/ลา/หยุด, ชั่วโมง)
             ระบบจะสรุปวันทำงาน–วันขาดให้อัตโนมัติ แล้วกรอกลงแถวเงินเดือนแต่ละคน —
             พนักงานรายวันใช้วันมาทำงานคูณอัตรารายวัน, รายเดือนหักวันขาดตามฐานคำนวณที่ตั้งไว้
@@ -98,18 +98,18 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
             placeholder="วาง CSV ที่นี่…"
             rows={5}
             disabled={disabled}
-            className="w-full text-xs font-mono rounded-lg border border-card-border bg-cool-25/50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
+            className="w-full text-label font-mono rounded-control border border-card-border bg-paper-field/50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
           />
 
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={handleFillSample} disabled={disabled} className="!text-xs !rounded-lg">
+            <Button size="sm" variant="secondary" onClick={handleFillSample} disabled={disabled} className="!text-label !rounded-control">
               <FileSpreadsheet className="w-3.5 h-3.5" /> ตัวอย่าง
             </Button>
-            <Button size="sm" variant="secondary" onClick={handleParse} disabled={disabled || !text.trim()} className="!text-xs !rounded-lg">
+            <Button size="sm" variant="secondary" onClick={handleParse} disabled={disabled || !text.trim()} className="!text-label !rounded-control">
               ตรวจสอบข้อมูล
             </Button>
             {knownSummaries.length > 0 && (
-              <Button size="sm" onClick={handleApply} disabled={disabled || applying} className="!text-xs !rounded-lg">
+              <Button size="sm" onClick={handleApply} disabled={disabled || applying} className="!text-label !rounded-control">
                 <Upload className="w-3.5 h-3.5" />
                 {applying ? "กำลังกรอก…" : `กรอกลงเงินเดือน ${knownSummaries.length} คน`}
               </Button>
@@ -117,9 +117,9 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
           </div>
 
           {errors.length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 space-y-0.5">
+            <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2 space-y-0.5">
               {errors.map((e, i) => (
-                <p key={i} className="flex items-start gap-1.5 text-xs text-red-700">
+                <p key={i} className="flex items-start gap-1.5 text-label text-red-700">
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {e}
                 </p>
               ))}
@@ -127,10 +127,10 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
           )}
 
           {parsed.length > 0 && (
-            <div className="rounded-lg border border-card-border overflow-hidden">
-              <table className="w-full text-xs">
+            <div className="rounded-control border border-card-border overflow-hidden">
+              <table className="w-full text-label">
                 <thead>
-                  <tr className="bg-cool-50 text-cool-500">
+                  <tr className="bg-paper-field text-ink-500">
                     <th className="px-2.5 py-1.5 text-left font-medium">รหัส</th>
                     <th className="px-2.5 py-1.5 text-right font-medium">มา</th>
                     <th className="px-2.5 py-1.5 text-right font-medium">ขาด</th>
@@ -139,12 +139,12 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
                     <th className="px-2.5 py-1.5 text-left font-medium">สถานะ</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100">
+                <tbody className="divide-y divide-line-faint">
                   {parsed.map((s) => {
                     const known = codeToEmployee.has(s.employee_code);
                     return (
                       <tr key={s.employee_code} className={known ? "" : "bg-amber-50/50"}>
-                        <td className="px-2.5 py-1.5 font-mono text-[11px] text-cool-900">{s.employee_code}</td>
+                        <td className="px-2.5 py-1.5 font-mono text-label text-ink-900">{s.employee_code}</td>
                         <td className="px-2.5 py-1.5 text-right tabular-nums">{s.present_days}</td>
                         <td className="px-2.5 py-1.5 text-right tabular-nums">{s.absent_days}</td>
                         <td className="px-2.5 py-1.5 text-right tabular-nums">{s.leave_days}</td>
@@ -165,13 +165,13 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
           )}
 
           {unknownCodes.length > 0 && (
-            <p className="text-[11px] text-amber-700">
+            <p className="text-label text-amber-700">
               มี {unknownCodes.length} รหัสที่ไม่ตรงกับพนักงานในระบบ — จะถูกข้ามตอนกรอก
             </p>
           )}
 
           {applied && (
-            <p className="flex items-center gap-1.5 text-xs text-green-700">
+            <p className="flex items-center gap-1.5 text-label text-green-700">
               <CheckCircle2 className="w-3.5 h-3.5" /> กรอกข้อมูลเวลาเรียบร้อย — ตรวจสอบยอดในตารางแล้วกดบันทึกแต่ละแถว
             </p>
           )}

@@ -192,7 +192,7 @@ export default function SettingsNumberingPage() {
         <SectionCard title="เลขที่เอกสาร" description="กำหนด prefix และการรีเซ็ตเลขรันของแต่ละประเภทเอกสาร">
           <div className="space-y-4">
             {isDevMode && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="rounded-control border border-amber-200 bg-amber-50 p-3">
                 <div className="grid gap-2 sm:grid-cols-[minmax(0,240px)_auto] sm:items-end">
                   <Input
                     id="devEffectiveDate"
@@ -206,7 +206,7 @@ export default function SettingsNumberingPage() {
                     Clear fixed date
                   </Button>
                 </div>
-                <p className="mt-2 text-xs text-amber-800">
+                <p className="mt-2 text-label text-amber-800">
                   Used as the default issue/payment date only. Audit timestamps stay real.
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,240px)_auto] sm:items-end">
@@ -228,9 +228,9 @@ export default function SettingsNumberingPage() {
             )}
 
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-label">
                 <thead>
-                  <tr className="border-b border-card-border text-gray-500">
+                  <tr className="border-b border-card-border text-ink-500">
                     <th className="text-left py-2 pr-2">ประเภทเอกสาร</th>
                     <th className="text-left py-2 pr-2">Prefix</th>
                     {isDevMode && <th className="text-left py-2 pr-2">Start at</th>}
@@ -243,7 +243,7 @@ export default function SettingsNumberingPage() {
                       <td className="py-2 pr-2 align-top">
                         <div className="font-medium text-ink-900">{DOC_TYPE_LABELS[docType].th}</div>
                         {DOC_TYPE_NOTES[docType] && (
-                          <div className="mt-0.5 max-w-[260px] text-[11px] leading-snug text-gray-500">{DOC_TYPE_NOTES[docType]}</div>
+                          <div className="mt-0.5 max-w-[260px] text-label leading-snug text-ink-500">{DOC_TYPE_NOTES[docType]}</div>
                         )}
                       </td>
                       <td className="py-2 pr-2">
@@ -251,7 +251,7 @@ export default function SettingsNumberingPage() {
                           value={getPrefix(docType)}
                           onChange={(e) => setPrefix(docType, e.target.value)}
                           placeholder="เช่น INV"
-                          className="text-xs"
+                          className="text-label"
                         />
                       </td>
                       {isDevMode && (
@@ -262,7 +262,7 @@ export default function SettingsNumberingPage() {
                             step={1}
                             value={getStartSequence(docType)}
                             onChange={(e) => setStartSequence(docType, e.target.value)}
-                            className="text-xs font-mono"
+                            className="text-label font-mono"
                           />
                         </td>
                       )}
@@ -280,15 +280,15 @@ export default function SettingsNumberingPage() {
         </SectionCard>
 
         <div className="sticky bottom-3 z-10">
-          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
             <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-xs">
+              <div className="min-w-0 flex-1 text-label">
                 {error ? (
                   <span className="text-red-500">{error}</span>
                 ) : success ? (
                   <span className="text-green-600">{success}</span>
                 ) : (
-                  <span className="text-gray-400">บันทึกครั้งเดียวใช้ได้กับทุกประเภทเอกสาร</span>
+                  <span className="text-ink-400">บันทึกครั้งเดียวใช้ได้กับทุกประเภทเอกสาร</span>
                 )}
               </div>
               <Button onClick={handleSave} disabled={saving} className="shrink-0">

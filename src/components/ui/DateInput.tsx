@@ -47,7 +47,7 @@ export function DateInput({
         placeholder="dd/mm/yyyy"
         inputMode="numeric"
         disabled={disabled}
-        className={`w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${disabled ? "opacity-60" : ""} ${className}`}
+        className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${disabled ? "opacity-60" : ""} ${className}`}
         {...props}
       />
       <input

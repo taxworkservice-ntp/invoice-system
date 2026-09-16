@@ -136,34 +136,34 @@ export function WhtBatchCard() {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-card-border bg-white p-4">
+    <div className="space-y-4 rounded-control border border-card-border bg-white p-4">
       <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-soft text-primary">
+        <span className="flex h-7 w-7 items-center justify-center rounded-control bg-primary-soft text-primary">
           <FileBadge className="h-4 w-4" />
         </span>
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">ภาษีหัก ณ ที่จ่าย</div>
-          <div className="text-[11px] text-gray-400">ใบรับรอง · ภ.ง.ด.3/53</div>
+          <div className="text-label font-semibold text-ink-400">ภาษีหัก ณ ที่จ่าย</div>
+          <div className="text-label text-ink-400">ใบรับรอง · ภ.ง.ด.3/53</div>
         </div>
       </div>
 
       <div>
-        <label htmlFor="wht-month" className="mb-0.5 block text-[10px] text-gray-500">เดือน</label>
-        <input id="wht-month" type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20" />
+        <label htmlFor="wht-month" className="mb-0.5 block text-label text-ink-500">เดือน</label>
+        <input id="wht-month" type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
       </div>
 
-      <div className="rounded-lg bg-paper-field px-3 py-2 text-xs text-ink-700">
-        <div className="flex justify-between"><span className="text-gray-500">รายการในเดือนนี้</span><span className="font-medium">{loading ? "…" : `${rows.length} รายการ`}</span></div>
-        <div className="mt-1 flex justify-between"><span className="text-gray-500">ยังไม่มีเลขที่ใบรับรอง</span><span>{rows.filter((r) => !r.certificate_no).length}</span></div>
+      <div className="rounded-control bg-paper-field px-3 py-2 text-label text-ink-700">
+        <div className="flex justify-between"><span className="text-ink-500">รายการในเดือนนี้</span><span className="font-medium">{loading ? "…" : `${rows.length} รายการ`}</span></div>
+        <div className="mt-1 flex justify-between"><span className="text-ink-500">ยังไม่มีเลขที่ใบรับรอง</span><span>{rows.filter((r) => !r.certificate_no).length}</span></div>
       </div>
 
       <DownloadJobBar state={job} onCancel={job.cancel} onDismiss={job.reset} />
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <button type="button" onClick={handleCertificatesPdf} disabled={job.status === "running" || rows.length === 0} className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50">
+        <button type="button" onClick={handleCertificatesPdf} disabled={job.status === "running" || rows.length === 0} className="flex-1 rounded-control bg-primary px-3 py-2 text-label font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50">
           ดาวน์โหลดใบรับรอง (PDF)
         </button>
-        <button type="button" onClick={handleCsv} disabled={job.status === "running" || rows.length === 0} className="rounded-lg border border-card-border px-3 py-2 text-xs font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50 sm:w-40">
+        <button type="button" onClick={handleCsv} disabled={job.status === "running" || rows.length === 0} className="rounded-control border border-card-border px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:border-primary/40 disabled:opacity-50 sm:w-40">
           CSV ภ.ง.ด.3/53
         </button>
       </div>

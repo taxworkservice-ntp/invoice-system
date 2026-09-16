@@ -76,7 +76,7 @@ function uniqueStrings(values: (string | null | undefined)[]) {
 }
 
 function staticSkeletonLine(className: string) {
-  return <div className={`rounded bg-gray-200 ${className}`} />;
+  return <div className={`rounded bg-line-faint ${className}`} />;
 }
 
 interface BillingNoteFormProps {
@@ -888,7 +888,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     currentDocumentId && isDraft ? (
       <button
         onClick={() => setDeleteModalOpen(true)}
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-label text-ink-500 hover:bg-ink-50 hover:text-ink-700"
       >
         <MoreHorizontal className="h-4 w-4" />
         <span className="hidden sm:inline">ลบร่าง</span>
@@ -917,14 +917,14 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
     <AppShell title="ใบวางบิล" showBack onBack={requestBack} action={topAction}>
       <div className="space-y-4 pb-24">
         {showVoidedWarning && (
-          <div className="rounded-card border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+          <div className="rounded-card border border-yellow-200 bg-yellow-50 p-4 text-body text-yellow-800">
             <div className="flex items-start gap-2">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
                 <div className="font-medium">
                   ใบแจ้งหนี้ที่เชื่อมอยู่ถูกยกเลิกแล้ว
                 </div>
-                <div className="mt-1 text-xs text-yellow-700">
+                <div className="mt-1 text-label text-yellow-700">
                   กรุณาตรวจสอบรายการที่เลือกก่อนส่งอีกครั้ง
                 </div>
               </div>
@@ -933,13 +933,13 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         )}
 
         {existingDocument?.status === "paid" && (
-          <div className="rounded-card border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          <div className="rounded-card border border-green-200 bg-green-50 p-4 text-body text-green-800">
             <div className="font-medium">ชำระแล้ว — เอกสารนี้ปิดแล้ว</div>
           </div>
         )}
 
         {errors.general && (
-          <div className="rounded-card border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+          <div className="rounded-card border border-red-200 bg-red-50 p-3 text-body text-red-600">
             {errors.general}
           </div>
         )}
@@ -947,8 +947,8 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         <Card>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-lg font-bold text-gray-900">ใบวางบิล</div>
-              <div className="mt-1 text-sm text-gray-500">
+              <div className="text-subtitle font-semibold text-ink-900">ใบวางบิล</div>
+              <div className="mt-1 text-body text-ink-500">
                 {selectedCustomer?.name || "ยังไม่ได้เลือกลูกค้า"}
               </div>
             </div>
@@ -970,7 +970,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 }}
               />
               {!existingDocument?.doc_number && (
-                <span className="text-xs text-gray-500">
+                <span className="text-label text-ink-500">
                   ร่าง — ยังไม่มีเลขที่
                 </span>
               )}
@@ -981,17 +981,17 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         <FormStep number={1} title="ลูกค้าและวันที่">
           {customerLocked ? (
             selectedCustomer ? (
-              <div className="rounded-xl border border-card-border bg-page-bg p-3">
-                <div className="text-sm font-medium text-gray-900">
+              <div className="rounded-card border border-card-border bg-page-bg p-3">
+                <div className="text-body font-medium text-ink-900">
                   {selectedCustomer.name}
                 </div>
                 {selectedCustomer.tax_id && (
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="mt-1 text-label text-ink-500">
                     เลขผู้เสียภาษี: {selectedCustomer.tax_id}
                   </div>
                 )}
                 {selectedCustomer.address && (
-                  <div className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">
+                  <div className="mt-1 text-label text-ink-500 whitespace-pre-wrap">
                     {selectedCustomer.address}
                   </div>
                 )}
@@ -1000,23 +1000,23 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               <Spinner />
             )
           ) : selectedCustomer ? (
-            <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-paper-soft p-3">
+            <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
               <div className="min-w-0">
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-body font-medium text-ink-900">
                   {selectedCustomer.name}
                 </div>
                 {selectedCustomer.tax_id && (
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="mt-1 text-label text-ink-500">
                     เลขผู้เสียภาษี: {selectedCustomer.tax_id}
                   </div>
                 )}
                 {selectedCustomer.address && (
-                  <div className="mt-1 line-clamp-2 text-xs text-gray-500">
+                  <div className="mt-1 line-clamp-2 text-label text-ink-500">
                     {selectedCustomer.address}
                   </div>
                 )}
                 {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
-                  <div className="mt-1 text-xs text-amber-600">
+                  <div className="mt-1 text-label text-amber-600">
                     ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี
                   </div>
                 )}
@@ -1042,7 +1042,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             </Button>
           )}
           {errors.customer && (
-            <div className="mt-2 text-xs text-red-500">{errors.customer}</div>
+            <div className="mt-2 text-label text-red-500">{errors.customer}</div>
           )}
           <CustomerPickerModal
             open={customerPickerOpen && !readOnly}
@@ -1055,7 +1055,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           />
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <label htmlFor="issueDate" className="block text-xs font-medium text-gray-600 mb-1">
+              <label htmlFor="issueDate" className="block text-label font-medium text-ink-600 mb-1">
                 วันที่ออกใบวางบิล
               </label>
               <DateInput
@@ -1077,12 +1077,12 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 }}
                 disabled={readOnly}
               />
-              <div className="mt-1 text-xs text-gray-500">
+              <div className="mt-1 text-label text-ink-500">
                 {formatBuddhistDate(issueDate)}
               </div>
             </div>
             <div>
-              <label htmlFor="dueDate" className="block text-xs font-medium text-gray-600 mb-1">
+              <label htmlFor="dueDate" className="block text-label font-medium text-ink-600 mb-1">
                 ครบกำหนดชำระ
               </label>
               <DateInput
@@ -1095,12 +1095,12 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 }}
                 disabled={readOnly}
                 className={errors.dueDate ? "border-red-400" : ""}
-              />{errors.dueDate && <p className="text-xs text-red-500 mt-1">{errors.dueDate}</p>}
-              <div className="mt-1 text-xs text-gray-500">
+              />{errors.dueDate && <p className="text-label text-red-500 mt-1">{errors.dueDate}</p>}
+              <div className="mt-1 text-label text-ink-500">
                 {dueDate ? formatBuddhistDate(dueDate) : "-"}
               </div>
               {pastDueDate && (
-                <div className="mt-1 flex items-center gap-1 text-xs text-amber-600">
+                <div className="mt-1 flex items-center gap-1 text-label text-amber-600">
                   <TriangleAlert className="h-3.5 w-3.5" />
                   <span>วันครบกำหนดผ่านมาแล้ว</span>
                 </div>
@@ -1121,7 +1121,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
           }
         >
           {!selectedCustomerId ? (
-            <div className="rounded-xl border border-dashed border-card-border bg-page-bg px-4 py-6 text-center text-sm text-gray-500">
+            <div className="rounded-card border border-dashed border-card-border bg-page-bg px-4 py-6 text-center text-body text-ink-500">
               เลือกลูกค้าก่อนเพื่อดูใบแจ้งหนี้
             </div>
           ) : loadingInvoices ? (
@@ -1129,7 +1129,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               {[0, 1, 2].map((index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-3 rounded-xl border border-card-border px-3 py-3"
+                  className="flex items-center gap-3 rounded-card border border-card-border px-3 py-3"
                 >
                   {staticSkeletonLine("h-5 w-5 rounded")}
                   <div className="flex-1 space-y-2">
@@ -1147,7 +1147,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               action={
                 dealId ? (
                   <button
-                    className="text-sm font-medium text-primary"
+                    className="text-body font-medium text-primary"
                     onClick={() =>
                       navigate(`/deals/new?type=invoice&dealId=${dealId}`)
                     }
@@ -1161,7 +1161,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             <div className="space-y-3">
               {dealId && availableCurrentDealInvoices.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-[11px] text-gray-400">จากงานขายนี้</div>
+                  <div className="text-label text-ink-400">จากงานขายนี้</div>
                   {availableCurrentDealInvoices.map((invoice) => (
                     <InvoiceRow
                       key={invoice.id}
@@ -1175,9 +1175,9 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               )}
 
               {otherDealInvoices.length > 0 && (
-                <div className="rounded-xl border border-card-border">
+                <div className="rounded-card border border-card-border">
                   <button
-                    className="flex w-full items-center justify-between px-3 py-3 text-left text-sm font-medium text-primary"
+                    className="flex w-full items-center justify-between px-3 py-3 text-left text-body font-medium text-primary"
                     onClick={() => setOtherDealsExpanded((prev) => !prev)}
                     type="button"
                   >
@@ -1194,7 +1194,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                       <div className="space-y-3">
                         {otherDealInvoiceGroups.map((group) => (
                           <div key={group.dealId} className="space-y-1">
-                            <div className="text-[11px] text-gray-400">
+                            <div className="text-label text-ink-400">
                               งานขาย: {group.label}
                             </div>
                             {group.invoices.map((invoice) => (
@@ -1218,13 +1218,13 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             </div>
           )}
           {errors.invoices && (
-            <div className="mt-2 text-xs text-red-500">{errors.invoices}</div>
+            <div className="mt-2 text-label text-red-500">{errors.invoices}</div>
           )}
         </FormStep>
 
         <FormStep number={3} title="สรุปและบันทึก">
           {selectedInvoices.length === 0 ? (
-            <div className="text-sm text-gray-500">
+            <div className="text-body text-ink-500">
               ยังไม่ได้เลือกใบแจ้งหนี้
             </div>
           ) : (
@@ -1237,14 +1237,14 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-body font-medium text-ink-900">
                           {invoice.doc_number}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-label text-ink-500">
                           {formatBuddhistDate(invoice.issue_date)}
                         </div>
                       </div>
-                      <div className="text-right text-xs text-gray-700">
+                      <div className="text-right text-label text-ink-700">
                         <div>
                           ฿{" "}
                           {invoice.subtotal.toLocaleString(undefined, {
@@ -1269,9 +1269,9 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 ))}
               </div>
 
-              <div className="border-t border-card-border pt-3 text-sm">
+              <div className="border-t border-card-border pt-3 text-body">
                 <div className="flex justify-between py-1">
-                  <span className="text-gray-500">ราคารวมทั้งหมด</span>
+                  <span className="text-ink-500">ราคารวมทั้งหมด</span>
                   <span>
                     ฿{" "}
                     {totals.subtotal.toLocaleString(undefined, {
@@ -1280,7 +1280,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                   </span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className="text-gray-500">VAT รวม</span>
+                  <span className="text-ink-500">VAT รวม</span>
                   <span>
                     ฿{" "}
                     {totals.vatAmount.toLocaleString(undefined, {
@@ -1308,7 +1308,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                   </span>
                 </div>
                 <div className="my-2 h-px bg-card-border" />
-                <div className="flex justify-between py-1 text-base font-semibold text-gray-900">
+                <div className="flex justify-between py-1 text-title font-semibold text-ink-900">
                   <span>ยอดที่ต้องชำระ</span>
                   <span>
                     ฿{" "}
@@ -1337,7 +1337,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
               </option>
             ))}
           </Select>
-          <div className="mt-2 text-xs text-gray-500">คำนวณจากราคาก่อน VAT</div>
+          <div className="mt-2 text-label text-ink-500">คำนวณจากราคาก่อน VAT</div>
 
           <textarea
             value={note}
@@ -1348,7 +1348,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
             rows={3}
             placeholder="เช่น กรุณาโอนเงินภายในวันที่กำหนด ขอบคุณครับ/ค่ะ"
             disabled={readOnly}
-            className="w-full rounded-xl border border-card-border bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-card border border-card-border bg-white px-3 py-2 text-body placeholder:text-ink-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </FormStep>
 
@@ -1392,7 +1392,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         title="ยังไม่ได้บันทึก"
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             คุณมีการแก้ไขที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้โดยไม่บันทึกใช่หรือไม่?
           </p>
           <div className="flex justify-end gap-2">
@@ -1419,7 +1419,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
         title="ลบร่างใบวางบิล"
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             คุณแน่ใจว่าต้องการลบร่างใบวางบิลนี้?
             ระบบจะคืนสถานะใบแจ้งหนี้ที่เลือกกลับเป็นส่งแล้ว
           </p>
@@ -1469,22 +1469,22 @@ function InvoiceRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div
-            className={`text-sm font-semibold text-gray-900 ${invoice.isVoidedLinked ? "line-through" : ""}`}
+            className={`text-body font-semibold text-ink-900 ${invoice.isVoidedLinked ? "line-through" : ""}`}
           >
             {invoice.doc_number}
           </div>
-          <div className="text-sm font-semibold text-gray-900">
+          <div className="text-body font-semibold text-ink-900">
             ฿{" "}
             {invoice.net_payable.toLocaleString(undefined, {
               minimumFractionDigits: 2,
             })}
           </div>
         </div>
-        <div className="mt-1 text-xs text-gray-500">
+        <div className="mt-1 text-label text-ink-500">
           {formatBuddhistDate(invoice.issue_date)} • {invoice.itemSummary}
         </div>
         {invoice.isVoidedLinked && (
-          <div className="mt-2 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-600">
+          <div className="mt-2 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-label font-medium text-red-600">
             ยกเลิกแล้ว
           </div>
         )}

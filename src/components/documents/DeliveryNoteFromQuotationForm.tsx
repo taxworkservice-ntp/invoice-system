@@ -732,7 +732,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   if (error || !quotation) {
     return (
       <AppShell title={isEditing ? "แก้ไขร่างใบส่งของ" : "ออกใบส่งของจากใบเสนอราคา"} showBack>
-        <div className="py-12 text-center text-sm text-red-600">{error || "ไม่พบใบเสนอราคา"}</div>
+        <div className="py-12 text-center text-body text-red-600">{error || "ไม่พบใบเสนอราคา"}</div>
       </AppShell>
     );
   }
@@ -748,20 +748,20 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   return (
     <AppShell title={isEditing ? "แก้ไขร่างใบส่งของ" : "ออกใบส่งของจากใบเสนอราคา"} showBack>
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <div className="mb-4 rounded-control border border-red-200 bg-red-50 p-3 text-body text-red-600">
           {error}
         </div>
       )}
 
       {existingDraft && (
-        <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="flex-1">
             <p className="font-medium">
               มีร่างใบส่งของที่ยังไม่ได้ส่ง
               {existingDraft.doc_number ? ` (${existingDraft.doc_number})` : ""}
             </p>
-            <p className="mt-0.5 text-xs leading-5">เปิดร่างเดิมเพื่อแก้ไขหรือยืนยันส่งของ ก่อนสร้างร่างใหม่</p>
+            <p className="mt-0.5 text-label leading-5">เปิดร่างเดิมเพื่อแก้ไขหรือยืนยันส่งของ ก่อนสร้างร่างใหม่</p>
           </div>
           <Button
             variant="secondary"
@@ -777,23 +777,23 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
         <Card>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-xs font-medium uppercase tracking-[0.12em] text-gray-500">อ้างอิงใบเสนอราคา</div>
-              <div className="mt-1 text-lg font-semibold text-ink-900">{quotation.doc_number || "-"}</div>
-              <div className="mt-1 text-sm text-gray-500">{quotation.customer?.name || "ลูกค้า"}</div>
+              <div className="text-label font-medium text-ink-500">อ้างอิงใบเสนอราคา</div>
+              <div className="mt-1 text-subtitle font-semibold text-ink-900">{quotation.doc_number || "-"}</div>
+              <div className="mt-1 text-body text-ink-500">{quotation.customer?.name || "ลูกค้า"}</div>
             </div>
-            <div className="text-right text-xs text-gray-500">
+            <div className="text-right text-label text-ink-500">
               <div>วันที่ใบเสนอราคา</div>
-              <div className="mt-1 font-medium text-gray-800">{formatBuddhistDate(quotation.issue_date)}</div>
+              <div className="mt-1 font-medium text-ink-800">{formatBuddhistDate(quotation.issue_date)}</div>
             </div>
           </div>
         </Card>
 
         {overDeliveryLines.length > 0 && (
-          <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">มีรายการที่เกินจำนวนคงเหลือจากใบเสนอราคา</p>
-              <p className="mt-0.5 text-xs leading-5">ระบบอนุญาตให้บันทึกได้ แต่ควรตรวจสอบกับลูกค้าก่อนส่งของ</p>
+              <p className="mt-0.5 text-label leading-5">ระบบอนุญาตให้บันทึกได้ แต่ควรตรวจสอบกับลูกค้าก่อนส่งของ</p>
             </div>
           </div>
         )}
@@ -804,7 +804,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           description="แก้ไขจำนวน ราคา หรือรายละเอียดได้ ใส่ 0 หรือลบรายการ หากยังไม่ส่ง"
           right={
             <div className="w-[160px]">
-              <label className="mb-1 block text-xs font-medium text-gray-600">วันที่ส่งของ</label>
+              <label className="mb-1 block text-label font-medium text-ink-600">วันที่ส่งของ</label>
               <DateInput
                 value={issueDate}
                 onChange={(event) => setIssueDate(event.target.value)}
@@ -812,22 +812,22 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
             </div>
           }
         >
-          <div className="rounded-lg border border-dashed border-card-border bg-paper-soft/60 px-3 py-2">
+          <div className="rounded-control border border-dashed border-card-border bg-paper-soft/60 px-3 py-2">
             <Switch
               checked={groupingEnabled}
               onChange={toggleGrouping}
               label={
                 <>
                   จัดกลุ่มด้วยหัวข้ออ้างอิง{" "}
-                  <span className="font-normal text-gray-400">(เช่น แยกตาม SO ของลูกค้า)</span>
+                  <span className="font-normal text-ink-400">(เช่น แยกตาม SO ของลูกค้า)</span>
                 </>
               }
             />
-            <p className="mt-1 text-[11px] leading-4 text-gray-400">
+            <p className="mt-1 text-label leading-4 text-ink-400">
               เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ
             </p>
             {legacyHeaderConverted && groupingEnabled && (
-              <p className="mt-1 text-[11px] leading-4 text-gray-500">
+              <p className="mt-1 text-label leading-4 text-ink-500">
                 แปลงหัวข้อ SO เดี่ยวเดิมเป็นบรรทัดหัวข้อนี้แล้ว — ตรวจสอบและบันทึกเพื่อยืนยัน
               </p>
             )}
@@ -839,7 +839,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                 return (
                   <div key={line.id} className="flex gap-2">
                     {markerNumber ? (
-                      <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
+                      <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-label font-semibold text-primary leading-none">
                         {markerNumber}
                       </div>
                     ) : (
@@ -873,13 +873,11 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
 
               return (
                 <div key={line.id} className="flex gap-2">
-                  <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
+                  <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-label font-semibold text-primary leading-none">
                     {lineNumbers?.get(line.id) ?? index + 1}
                   </div>
                   <div
-                    className={`flex-1 min-w-0 rounded-xl border p-3 ${
-                      over ? "border-amber-300 bg-amber-50" : "border-card-border bg-white"
-                    }`}
+                    className={`flex-1 min-w-0 rounded-card border p-3 ${ over ? "border-amber-300 bg-amber-50" : "border-card-border bg-white" }`}
                   >
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
@@ -889,7 +887,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                         onChange={(event) => updateLine(line.id, { item_name: event.target.value })}
                         placeholder="ระบุชื่อสินค้า"
                       />
-                      {line.source?.item_sku && <div className="mt-0.5 text-xs text-gray-500">SKU: {line.source.item_sku}</div>}
+                      {line.source?.item_sku && <div className="mt-0.5 text-label text-ink-500">SKU: {line.source.item_sku}</div>}
                     </div>
                     <LineMoveButtons
                       className="mt-5"
@@ -901,7 +899,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                     <button
                       type="button"
                       onClick={() => removeLine(line.id)}
-                      className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-card-border text-gray-400 transition-colors hover:border-red-300 hover:text-red-600"
+                      className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-red-300 hover:text-red-600"
                       title="ลบรายการนี้"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -909,22 +907,22 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                   </div>
 
                   {line.source && (
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-label text-ink-600 sm:grid-cols-4">
                       <div>
-                        <div className="text-gray-400">เสนอราคา</div>
-                        <div className="font-medium text-gray-800">{formatQty(line.source.quantity)} {line.source.unit}</div>
+                        <div className="text-ink-400">เสนอราคา</div>
+                        <div className="font-medium text-ink-800">{formatQty(line.source.quantity)} {line.source.unit}</div>
                       </div>
                       <div>
-                        <div className="text-gray-400">ส่งแล้ว</div>
-                        <div className="font-medium text-gray-800">{formatQty(line.delivered)} {line.source.unit}</div>
+                        <div className="text-ink-400">ส่งแล้ว</div>
+                        <div className="font-medium text-ink-800">{formatQty(line.delivered)} {line.source.unit}</div>
                       </div>
                       <div>
-                        <div className="text-gray-400">ร่างค้าง</div>
-                        <div className="font-medium text-gray-800">{formatQty(line.pending)} {line.source.unit}</div>
+                        <div className="text-ink-400">ร่างค้าง</div>
+                        <div className="font-medium text-ink-800">{formatQty(line.pending)} {line.source.unit}</div>
                       </div>
                       <div>
-                        <div className="text-gray-400">คงเหลือ</div>
-                        <div className={`font-medium ${remaining! < 0 ? "text-red-700" : "text-gray-800"}`}>{formatQty(remaining!)} {line.source.unit}</div>
+                        <div className="text-ink-400">คงเหลือ</div>
+                        <div className={`font-medium ${remaining! < 0 ? "text-red-700" : "text-ink-800"}`}>{formatQty(remaining!)} {line.source.unit}</div>
                       </div>
                     </div>
                   )}
@@ -977,13 +975,13 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                         type="checkbox"
                         checked={line.price_confirmed}
                         onChange={(event) => updateLine(line.id, { price_confirmed: event.target.checked })}
-                        className="h-3.5 w-3.5 rounded border-[#D7DEE7] text-primary focus:ring-primary"
+                        className="h-3.5 w-3.5 rounded border-line text-primary focus:ring-primary"
                       />
-                      <span className={`text-xs font-medium ${line.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
+                      <span className={`text-label font-medium ${line.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
                         {line.price_confirmed ? "ยืนยันราคาแล้ว" : "กรุณายืนยันราคา"}
                       </span>
                       {!line.price_confirmed && (
-                        <span className="rounded bg-amber-100 px-1 py-px text-[10px] font-semibold text-amber-700">รอตรวจ</span>
+                        <span className="rounded bg-amber-100 px-1 py-px text-label font-semibold text-amber-700">รอตรวจ</span>
                       )}
                     </label>
                   )}
@@ -997,8 +995,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                       placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
                     />
                     <div className="shrink-0 text-right">
-                      <div className="text-xs font-medium text-gray-700">฿{formatCurrency(lineCalc.lineTotal)}</div>
-                      <div className="text-2xs text-gray-400">{formatQty(line.quantity)} × ฿{formatCurrency(line.unit_price)}</div>
+                      <div className="text-label font-medium text-ink-700">฿{formatCurrency(lineCalc.lineTotal)}</div>
+                      <div className="text-label text-ink-400">{formatQty(line.quantity)} × ฿{formatCurrency(line.unit_price)}</div>
                     </div>
                   </div>
 
@@ -1006,17 +1004,13 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                     <button
                       type="button"
                       onClick={() => updateLine(line.id, { hide_amounts_on_print: !line.hide_amounts_on_print })}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
-                        line.hide_amounts_on_print
-                          ? "border-amber-300 bg-amber-50 text-amber-800"
-                          : "border-card-border text-gray-500 hover:border-primary hover:text-primary"
-                      }`}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-label transition-colors ${ line.hide_amounts_on_print ? "border-amber-300 bg-amber-50 text-amber-800" : "border-card-border text-ink-500 hover:border-primary hover:text-primary" }`}
                       title={line.hide_amounts_on_print ? "คลิกเพื่อแสดงราคาในเอกสาร" : "คลิกเพื่อซ่อนราคาในเอกสาร"}
                     >
                       {line.hide_amounts_on_print ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                       {line.hide_amounts_on_print ? "ซ่อนราคาแล้ว" : "ซ่อนราคา"}
                     </button>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-label text-ink-500">
                       {line.hide_amounts_on_print
                         ? "เอกสารจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคาและยอดเงินของรายการนี้"
                         : "ราคา/หน่วย ส่วนลด และยอดเงินของรายการนี้จะแสดงบนเอกสาร"}
@@ -1024,12 +1018,12 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                   </div>
 
                   {over && (
-                    <div className="mt-2 text-xs font-medium text-amber-800">
+                    <div className="mt-2 text-label font-medium text-amber-800">
                       รอบนี้เกินคงเหลือ {formatQty(round3(line.quantity - Math.max(0, remaining!)))} {line.source!.unit}
                     </div>
                   )}
                   {line.pending > 0 && (
-                    <div className="mt-1 text-xs text-gray-500">
+                    <div className="mt-1 text-label text-ink-500">
                       ยังไม่รวมร่างค้าง คงเหลือหลังส่งจริง: {formatQty(round3(line.source!.quantity - line.delivered))} {line.source!.unit} • รวมร่างค้างและรอบนี้: {formatQty(totalWithPending)} {line.source!.unit}
                     </div>
                   )}
@@ -1082,8 +1076,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               onChange={(event) => setNote(event.target.value)}
               placeholder="เช่น ส่งบางส่วนจากใบเสนอราคา"
             />
-            <div className="rounded-xl border border-card-border bg-paper-soft p-3 text-sm">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
+            <div className="rounded-card border border-card-border bg-paper-soft p-3 text-body">
+              <div className="mb-2 flex items-center gap-2 text-label font-medium text-ink-500">
                 <PackageCheck className="h-3.5 w-3.5" />
                 สรุปภายในระบบ
               </div>
@@ -1096,9 +1090,9 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                 <span>฿{formatCurrency(tax.total)}</span>
               </div>
               {hideAmountsOnPrint ? (
-                <p className="mt-2 text-xs leading-5 text-gray-500">มูลค่านี้ใช้สำหรับรวมออกใบแจ้งหนี้ภายหลัง แต่ PDF ใบส่งของจะไม่แสดงราคา</p>
+                <p className="mt-2 text-label leading-5 text-ink-500">มูลค่านี้ใช้สำหรับรวมออกใบแจ้งหนี้ภายหลัง แต่ PDF ใบส่งของจะไม่แสดงราคา</p>
               ) : (
-                <p className="mt-2 text-xs leading-5 text-blue-600">PDF ใบส่งของจะแสดงราคาและยอดรวมด้วย</p>
+                <p className="mt-2 text-label leading-5 text-blue-600">PDF ใบส่งของจะแสดงราคาและยอดรวมด้วย</p>
               )}
             </div>
             <EditableDocNumber

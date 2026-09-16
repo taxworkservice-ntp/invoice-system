@@ -18,15 +18,15 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
 
   if (variant === "grid") {
     const dotColor = isOut
-      ? "bg-[#C0392B]"
+      ? "bg-danger"
       : isLow
-      ? "bg-[#F59E0B]"
-      : "bg-[#22C55E]";
+      ? "bg-warning"
+      : "bg-success";
 
     return (
       <div
         onClick={() => onTap(item)}
-        className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] px-3.5 py-3 w-full cursor-pointer hover:shadow-md transition-shadow relative min-h-[120px] flex flex-col gap-2"
+        className="bg-white border-[0.5px] border-card-border rounded-[10px] px-3.5 py-3 w-full cursor-pointer transition-shadow relative min-h-[120px] flex flex-col gap-2"
       >
         {onToggleFavorite && (
           <button
@@ -34,11 +34,11 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
             onClick={(e) => onToggleFavorite(item, e)}
             aria-label={item.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
             aria-pressed={item.is_favorite}
-            className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F7F6F3] transition-colors z-10"
+            className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors z-10"
           >
             <Star
               size={15}
-              className={item.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+              className={item.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
             />
           </button>
         )}
@@ -55,27 +55,27 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
               }
             />
           ) : (
-            <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#F1EFE8] text-[#888780] shrink-0">
+            <span className="inline-flex px-1.5 py-0.5 rounded text-label font-medium bg-draft-bg text-ink-300 shrink-0">
               บริการ
             </span>
           )}
           <div className="min-w-0 flex-1">
             {item.sku && (
-              <div className="text-[10px] font-mono text-[#888780] mb-0.5 truncate">
+              <div className="text-label font-mono text-ink-300 mb-0.5 truncate">
                 {item.sku}
               </div>
             )}
-            <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
+            <div className="text-body font-semibold text-ink-900 line-clamp-2 leading-tight">
               {item.name}
             </div>
           </div>
         </div>
-        <div className="mt-auto pt-2 border-t border-[#F0EFE9]">
-          <div className="text-[12px] font-medium text-[#1A1A18] whitespace-nowrap truncate">
+        <div className="mt-auto pt-2 border-t border-line-faint">
+          <div className="text-label font-medium text-ink-900 whitespace-nowrap truncate">
             ฿ {formatCurrency(item.unit_price)} / {item.base_unit}
           </div>
           {hasCarton && (
-            <div className="text-[10px] text-[#888780] truncate">
+            <div className="text-label text-ink-300 truncate">
               ฿ {formatCurrency(item.unit_price * item.qty_per_carton!)} / {item.carton_unit}
             </div>
           )}
@@ -87,7 +87,7 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
   return (
     <div
       onClick={() => onTap(item)}
-      className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] px-4 py-[14px] w-full cursor-pointer hover:shadow-md transition-shadow"
+      className="bg-white border-[0.5px] border-card-border rounded-[10px] px-4 py-[14px] w-full cursor-pointer transition-shadow"
     >
       <div className="flex items-center gap-3">
         {onToggleFavorite && (
@@ -96,11 +96,11 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
             onClick={(e) => onToggleFavorite(item, e)}
             aria-label={item.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
             aria-pressed={item.is_favorite}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F7F6F3] transition-colors"
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors"
           >
             <Star
               size={16}
-              className={item.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+              className={item.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
             />
           </button>
         )}
@@ -108,21 +108,21 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
           <div className="flex-1 min-w-0 pr-3">
             {item.sku && (
               <div className="mb-1">
-                <span className="inline-flex rounded-full border border-[#E3DDD0] bg-[#F7F3EA] px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-[#7A5C1B]">
+                <span className="inline-flex rounded-full border border-paper-warm bg-paper-warm px-2 py-0.5 text-label font-semibold text-warning-text">
                   {item.sku}
                 </span>
               </div>
             )}
-            <div className="text-[14px] font-semibold text-[#1A1A18] truncate">
+            <div className="text-body font-semibold text-ink-900 truncate">
               {item.name}
             </div>
           </div>
           <div className="text-right shrink-0">
-            <div className="text-[13px] font-medium text-[#1A1A18] whitespace-nowrap">
+            <div className="text-body font-medium text-ink-900 whitespace-nowrap">
               ฿ {formatCurrency(item.unit_price)} / {item.base_unit}
             </div>
             {hasCarton && (
-              <div className="text-[11px] text-[#888780]">
+              <div className="text-label text-ink-300">
                 ฿ {formatCurrency(item.unit_price * item.qty_per_carton!)} /{" "}
                 {item.carton_unit}
               </div>
@@ -133,19 +133,13 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
 
       <div className="flex items-center gap-2 mt-2">
         <span
-          className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-            isProduct
-              ? "bg-[#E6F1FB] text-[#0C447C]"
-              : "bg-[#F1EFE8] text-[#888780]"
-          }`}
+          className={`inline-flex px-1.5 py-0.5 rounded text-label font-medium ${ isProduct ? "bg-sent-bg text-primary-deep" : "bg-draft-bg text-ink-300" }`}
         >
           {isProduct ? "สินค้า" : "บริการ"}
         </span>
         {isProduct && (
           <span
-            className={`text-[12px] ${
-              isOut ? "text-[#C0392B] font-medium" : "text-[#888780]"
-            }`}
+            className={`text-label ${ isOut ? "text-danger font-medium" : "text-ink-300" }`}
           >
             {isOut
               ? "สต็อก: หมด"
@@ -161,12 +155,12 @@ export function ItemCard({ item, onTap, onToggleFavorite, variant = "list" }: Pr
 
       <div className="flex justify-end mt-1">
         {isOut && (
-          <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FCEBEB] text-[#791F1F]">
+          <span className="inline-flex px-1.5 py-0.5 rounded text-label font-medium bg-overdue-bg text-overdue-text">
             หมด
           </span>
         )}
         {isLow && !isOut && (
-          <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
+          <span className="inline-flex px-1.5 py-0.5 rounded text-label font-medium bg-pending-bg text-pending-text">
             ใกล้หมด
           </span>
         )}

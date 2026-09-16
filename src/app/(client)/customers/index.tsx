@@ -239,7 +239,7 @@ export default function CustomersPage() {
           <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี..." className="flex-1" />
           <ViewToggle value={viewMode} onChange={setViewMode} />
           {canManageCustomers && (
-            <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-lg shrink-0">
+            <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-control shrink-0">
               + เพิ่ม
             </Button>
           )}
@@ -249,22 +249,14 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => setFilterMode("all")}
-            className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors ${
-              filterMode === "all"
-                ? "bg-[#1A1A18] text-white"
-                : "bg-[#F7F6F3] text-[#888780] hover:bg-[#E8E6DF]"
-            }`}
+            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors ${ filterMode === "all" ? "bg-ink-900 text-white" : "bg-page-bg text-ink-300 hover:bg-line" }`}
           >
             ทั้งหมด {customers.length > 0 && <span className="ml-1 opacity-70">{customers.length}</span>}
           </button>
           <button
             type="button"
             onClick={() => setFilterMode((prev) => (prev === "favorites" ? "all" : "favorites"))}
-            className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors inline-flex items-center gap-1 ${
-              filterMode === "favorites"
-                ? "bg-[#F59E0B] text-white"
-                : "bg-[#FEF3E2] text-[#B45309] hover:bg-[#FDE9C4]"
-            }`}
+            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${ filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border" }`}
           >
             <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
             รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
@@ -272,11 +264,7 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => setFilterMode((prev) => (prev === "hasDeals" ? "all" : "hasDeals"))}
-            className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors inline-flex items-center gap-1 ${
-              filterMode === "hasDeals"
-                ? "bg-[#22C55E] text-white"
-                : "bg-[#DCFCE7] text-[#15803D] hover:bg-[#BBF7D0]"
-            }`}
+            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${ filterMode === "hasDeals" ? "bg-success text-white" : "bg-paid-bg text-paid-text hover:bg-success-border" }`}
           >
             <Briefcase size={12} />
             มีงานขาย {hasDealsCount > 0 && <span className="ml-1 opacity-70">{hasDealsCount}</span>}
@@ -284,7 +272,7 @@ export default function CustomersPage() {
         </div>
 
         {(search.trim() || filterMode !== "all") && customers.length > 0 && (
-          <div className="text-[11px] text-[#888780]">
+          <div className="text-label text-ink-300">
             แสดง {filtered.length} จาก {customers.length} รายการ
           </div>
         )}
@@ -299,14 +287,14 @@ export default function CustomersPage() {
             {viewMode === "table" ? (
               <div className="p-4 space-y-2">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-8 bg-gray-200 rounded animate-pulse" />
+                  <div key={i} className="h-8 bg-line-faint rounded animate-pulse" />
                 ))}
               </div>
             ) : (
               [...Array(viewMode === "grid" ? 6 : 4)].map((_, i) => (
-                <div key={i} className="bg-white border border-[#E8E6DF] rounded-[10px] p-4 animate-pulse min-h-[120px]">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
+                <div key={i} className="bg-white border border-card-border rounded-[10px] p-4 animate-pulse min-h-[120px]">
+                  <div className="h-4 bg-line-faint rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-line-faint rounded w-1/2" />
                 </div>
               ))
             )}
@@ -319,16 +307,16 @@ export default function CustomersPage() {
               action={canManageCustomers ? <Button onClick={() => setShowAddSheet(true)}>+ เพิ่มลูกค้า</Button> : undefined}
             />
           ) : (
-            <div className="text-center py-12 text-[13px] text-[#888780]">
+            <div className="text-center py-12 text-body text-ink-300">
               {filterMode === "favorites" && favoriteCount === 0 ? (
                 <>
-                  <Star size={28} className="mx-auto mb-2 text-[#AAAAAA]" />
+                  <Star size={28} className="mx-auto mb-2 text-ink-200" />
                   <p>ยังไม่มีรายการโปรด</p>
                   <p className="mt-1">กด ★ ที่การ์ดลูกค้าเพื่อเพิ่มเป็นรายการโปรด</p>
                 </>
               ) : filterMode === "hasDeals" && hasDealsCount === 0 ? (
                 <>
-                  <Briefcase size={28} className="mx-auto mb-2 text-[#AAAAAA]" />
+                  <Briefcase size={28} className="mx-auto mb-2 text-ink-200" />
                   <p>ยังไม่มีลูกค้าที่มีงานขาย</p>
                   <p className="mt-1">สร้างงานขายกับลูกค้าก่อน แล้วจะปรากฏที่นี่</p>
                 </>
@@ -362,51 +350,51 @@ export default function CustomersPage() {
                     onClick={(e) => toggleFavorite(c, e)}
                     aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
                     aria-pressed={c.is_favorite}
-                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F7F6F3] transition-colors"
+                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors"
                   >
                     <Star
                       size={16}
-                      className={c.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+                      className={c.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
                     />
                   </button>
                   <div className="flex items-start gap-2.5 pr-7">
                     <CustomerAvatar customer={c} size="md" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">
+                      <div className="text-body font-semibold text-ink-900 line-clamp-2 leading-tight">
                         {c.name}
                       </div>
                       {c.code && (
-                        <div className="text-[11px] text-primary font-mono font-medium mt-0.5">
+                        <div className="text-label text-primary font-mono font-medium mt-0.5">
                           {c.code}
                         </div>
                       )}
                       {c.tax_id ? (
-                        <div className="text-[11px] text-[#888780] mt-1 font-mono truncate">
+                        <div className="text-label text-ink-300 mt-1 font-mono truncate">
                           {c.tax_id}
                         </div>
                       ) : (
-                        <div className="text-[11px] text-[#AAAAAA] mt-1 italic">
+                        <div className="text-label text-ink-200 mt-1 italic">
                           ไม่มีเลขผู้เสียภาษี
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between pt-2 mt-auto border-t border-[#F0EFE9]">
+                  <div className="flex items-center justify-between pt-2 mt-auto border-t border-line-faint">
                     {incomplete ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-label font-medium bg-pending-bg text-pending-text">
                         <AlertTriangle size={10} />
                         ข้อมูลไม่ครบ
                       </span>
                     ) : (
-                      <span className="text-[10px] text-[#AAAAAA]">ข้อมูลครบ</span>
+                      <span className="text-label text-ink-200">ข้อมูลครบ</span>
                     )}
                     {stats.total > 0 ? (
-                      <span className="text-right text-[11px] leading-4">
-                        <span className="font-semibold text-[#378ADD]">งานขาย {stats.total} →</span>
-                        <span className="block text-[#888780]">กำลังทำ {stats.active} · เสร็จแล้ว {stats.done}</span>
+                      <span className="text-right text-label leading-4">
+                        <span className="font-semibold text-primary">งานขาย {stats.total} →</span>
+                        <span className="block text-ink-300">กำลังทำ {stats.active} · เสร็จแล้ว {stats.done}</span>
                       </span>
                     ) : (
-                      <span className="text-[11px] text-[#AAAAAA]">ยังไม่มีงานขาย</span>
+                      <span className="text-label text-ink-200">ยังไม่มีงานขาย</span>
                     )}
                   </div>
                 </Card>
@@ -439,7 +427,7 @@ export default function CustomersPage() {
                       onClick={() => customerSort.handleSort("name")}
                       className={TABLE.thSortable}
                     />
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500 whitespace-nowrap">รหัส</th>
+                    <th className="px-3 py-2 text-left text-label font-medium text-ink-500 whitespace-nowrap">รหัส</th>
                     <SortableTh
                       label="เลขผู้เสียภาษี"
                       align="left"
@@ -505,58 +493,58 @@ export default function CustomersPage() {
                             onClick={(e) => toggleFavorite(c, e)}
                             aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
                             aria-pressed={c.is_favorite}
-                            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F0EFE9] transition-colors"
+                            className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-line-faint transition-colors"
                           >
                             <Star
                               size={14}
-                              className={c.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+                              className={c.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
                             />
                           </button>
                         </td>
                         <td className="px-3 py-2 min-w-0">
                           <div className="flex items-center gap-2 min-w-0">
                             <CustomerAvatar customer={c} size="sm" />
-                            <span className="text-[#111827] truncate">{c.name}</span>
+                            <span className="text-ink-900 truncate">{c.name}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-2 font-mono text-[12px] text-primary truncate">
-                          {c.code || <span className="text-[#AAAAAA] italic font-sans">—</span>}
+                        <td className="px-3 py-2 font-mono text-label text-primary truncate">
+                          {c.code || <span className="text-ink-200 italic font-sans">—</span>}
                         </td>
-                        <td className="px-3 py-2 font-mono text-[12px] text-[#475467] whitespace-nowrap">
-                          {c.tax_id || <span className="text-[#AAAAAA] italic font-sans">—</span>}
+                        <td className="px-3 py-2 font-mono text-label text-ink-500 whitespace-nowrap">
+                          {c.tax_id || <span className="text-ink-200 italic font-sans">—</span>}
                         </td>
-                        <td className="px-3 py-2 text-[#475467] whitespace-nowrap">
-                          {c.phone || <span className="text-[#AAAAAA] italic">—</span>}
+                        <td className="px-3 py-2 text-ink-500 whitespace-nowrap">
+                          {c.phone || <span className="text-ink-200 italic">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {c.dealActive > 0 ? (
-                            <span className="text-[#C2410C]">{c.dealActive}</span>
+                            <span className="text-warning-text">{c.dealActive}</span>
                           ) : (
-                            <span className="text-[#AAAAAA]">0</span>
+                            <span className="text-ink-200">0</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {c.dealDone > 0 ? (
-                            <span className="text-[#15803D]">{c.dealDone}</span>
+                            <span className="text-paid-text">{c.dealDone}</span>
                           ) : (
-                            <span className="text-[#AAAAAA]">0</span>
+                            <span className="text-ink-200">0</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {c.dealTotal > 0 ? (
-                            <span className="text-[#378ADD]">{c.dealTotal}</span>
+                            <span className="text-primary">{c.dealTotal}</span>
                           ) : (
-                            <span className="text-[#AAAAAA]">0</span>
+                            <span className="text-ink-200">0</span>
                           )}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap align-middle">
                           {incomplete ? (
-                            <span className={`${TABLE.statusPill} inline-flex items-center gap-1 whitespace-nowrap bg-[#FAEEDA] text-[#633806]`}>
+                            <span className={`${TABLE.statusPill} inline-flex items-center gap-1 whitespace-nowrap bg-pending-bg text-pending-text`}>
                               <AlertTriangle size={10} className="shrink-0" />
                               ไม่ครบ
                             </span>
                           ) : (
-                            <span className="text-[10px] text-[#AAAAAA]">ครบ</span>
+                            <span className="text-label text-ink-200">ครบ</span>
                           )}
                         </td>
                       </tr>
@@ -578,38 +566,38 @@ export default function CustomersPage() {
                       onClick={(e) => toggleFavorite(c, e)}
                       aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
                       aria-pressed={c.is_favorite}
-                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F7F6F3] transition-colors"
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors"
                     >
                       <Star
                         size={16}
-                        className={c.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+                        className={c.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
                       />
                     </button>
                     <CustomerAvatar customer={c} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <div className="text-[14px] font-semibold text-[#1A1A18] truncate">
+                        <div className="text-body font-semibold text-ink-900 truncate">
                           {c.name}
                         </div>
                         {c.code && (
-                          <div className="text-[12px] text-primary font-mono font-medium mt-0.5">
+                          <div className="text-label text-primary font-mono font-medium mt-0.5">
                             {c.code}
                           </div>
                         )}
                         {isIncomplete(c) && (
-                          <span className="inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FAEEDA] text-[#633806]">
+                          <span className="inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded text-label font-medium bg-pending-bg text-pending-text">
                             <AlertTriangle size={10} />
                             ข้อมูลไม่ครบ
                           </span>
                         )}
                       </div>
                       {c.tax_id && (
-                        <div className="text-[12px] text-[#888780] mt-0.5">
+                        <div className="text-label text-ink-300 mt-0.5">
                           เลขผู้เสียภาษี: {c.tax_id}
                         </div>
                       )}
                       {c.phone && (
-                        <div className="text-[12px] text-[#888780] mt-0.5">
+                        <div className="text-label text-ink-300 mt-0.5">
                           {c.phone}
                         </div>
                       )}
@@ -617,11 +605,11 @@ export default function CustomersPage() {
                     <div className="text-right shrink-0">
                       {stats.total > 0 ? (
                         <div className="leading-4">
-                          <div className="text-[12px] font-medium text-[#378ADD]">{stats.total} งานขาย →</div>
-                          <div className="text-[10px] text-[#888780]">กำลังทำ {stats.active} · เสร็จแล้ว {stats.done}</div>
+                          <div className="text-label font-medium text-primary">{stats.total} งานขาย →</div>
+                          <div className="text-label text-ink-300">กำลังทำ {stats.active} · เสร็จแล้ว {stats.done}</div>
                         </div>
                       ) : (
-                        <span className="text-[12px] text-[#AAAAAA]">ยังไม่มีงานขาย</span>
+                        <span className="text-label text-ink-200">ยังไม่มีงานขาย</span>
                       )}
                     </div>
                   </div>
@@ -635,9 +623,9 @@ export default function CustomersPage() {
       {showAddSheet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowAddSheet(false)} />
-          <div className="relative bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 shadow-xl mx-4">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[16px] font-semibold text-[#1A1A18] mb-4">เพิ่มลูกค้าใหม่</h2>
+          <div className="relative bg-white rounded-card w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 mx-4">
+            <div className="w-10 h-1 bg-line rounded-full mx-auto mb-4" />
+            <h2 className="text-title font-semibold text-ink-900 mb-4">เพิ่มลูกค้าใหม่</h2>
 
             <div className="space-y-3">
               <Input

@@ -57,16 +57,16 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
 
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-gray-500">{label}</label>
+      <label className="mb-1 block text-label font-medium text-ink-500">{label}</label>
       <div className="flex items-center gap-3">
         <div
-          className="flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-card-border bg-gray-50"
+          className="flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-control border border-card-border bg-paper-field"
           onClick={() => fileRef.current?.click()}
         >
           {preview ? (
             <img src={preview} alt={displayLabel} className="h-full w-full object-contain" />
           ) : (
-            <span className="text-2xl text-gray-300">+</span>
+            <span className="text-page text-ink-300">+</span>
           )}
         </div>
 
@@ -74,7 +74,7 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="text-xs text-primary hover:underline"
+            className="text-label text-primary hover:underline"
             disabled={uploading}
           >
             {uploading ? "กำลังอัปโหลด..." : preview ? `เปลี่ยน${label}` : `อัปโหลด${label}`}
@@ -84,7 +84,7 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
             <button
               type="button"
               onClick={handleRemove}
-              className="mt-1 block text-xs text-red-400 hover:underline"
+              className="mt-1 block text-label text-red-400 hover:underline"
             >
               ลบ{label}
             </button>
@@ -92,7 +92,7 @@ export function ImageUpload({ userId, storageKeyFn, currentKey, onKeyChange, lab
         </div>
       </div>
 
-      {uploadError && <p className="mt-2 text-xs text-red-500">{uploadError}</p>}
+      {uploadError && <p className="mt-2 text-label text-red-500">{uploadError}</p>}
 
       <input
         ref={fileRef}

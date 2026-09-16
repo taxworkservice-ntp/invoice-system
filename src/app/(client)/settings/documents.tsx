@@ -46,7 +46,7 @@ function ScaleRow({
 }) {
   return (
     <div className={`flex items-center justify-between gap-4 py-1.5 ${indent ? "sm:pl-6" : ""}`}>
-      <span className={`text-xs ${indent ? "text-gray-500" : "text-gray-600"}`}>{label}</span>
+      <span className={`text-label ${indent ? "text-ink-500" : "text-ink-600"}`}>{label}</span>
       <div className="w-[280px] shrink-0">
         <FontScaleControl value={value} onChange={onSet} allowInherit inheritOptionLabel={inheritOptionLabel} />
       </div>
@@ -92,7 +92,7 @@ function SectionScaleEditor({
     );
   };
   return (
-    <div className="divide-y divide-[#F0EEE8]">
+    <div className="divide-y divide-line-faint">
       <div className="py-1.5">
         <ScaleRow
           label="ส่วนหัว (ชื่อบริษัท/ลูกค้า)"
@@ -103,7 +103,7 @@ function SectionScaleEditor({
         {subRow("header")}
       </div>
       <div className="py-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">ตารางรายการ</p>
+        <p className="text-label font-semibold text-ink-400">ตารางรายการ</p>
         <div className="mt-0.5 space-y-0.5">
           {CLASSIC_V2_ITEMS_TABLE_ROWS.map((row) => (
             <ScaleRow
@@ -116,7 +116,7 @@ function SectionScaleEditor({
             />
           ))}
         </div>
-        <p className="mt-1 text-[10px] leading-snug text-gray-400">
+        <p className="mt-1 text-label leading-snug text-ink-400">
           โหมดแบบอ้างอิง (ตารางใบส่งของ) ใช้ขนาด “ตัวเลข/จำนวน” กับ “หัวตาราง/คอลัมน์” — ตารางนั้นไม่มีคอลัมน์คำอธิบายสินค้า
         </p>
       </div>
@@ -154,7 +154,7 @@ function SectionScaleEditor({
 }
 
 const pillClass = (active: boolean) =>
-  `rounded-lg border px-3 py-2 text-xs transition-colors ${active ? "border-[#378ADD] bg-[#EEF6FF] text-[#1A56DB] font-medium" : "border-[#E8E6DF] bg-white text-[#5F5B54] hover:border-[#c9d5e3]"}`;
+  `rounded-control border px-3 py-2 text-label transition-colors ${active ? "border-primary bg-primary-soft text-primary-deep font-medium" : "border-card-border bg-white text-ink-600 hover:border-line-strong"}`;
 
 const FONT_CUSTOM = "__custom__";
 
@@ -228,9 +228,9 @@ function FontScaleControl({
                   onChange(`${CLASSIC_V2_CUSTOM_PT_PREFIX}${clamped}`);
                 }
               }}
-              className="w-20 rounded-lg border border-[#E8E6DF] bg-white px-2 py-1 text-xs focus:border-[#378ADD] focus:outline-none"
+              className="w-20 rounded-control border border-card-border bg-white px-2 py-1 text-label focus:border-primary focus:outline-none"
             />
-            <span className="text-[11px] text-[#888780]">pt ({CLASSIC_V2_MIN_FONT_PT}–{CLASSIC_V2_MAX_FONT_PT})</span>
+            <span className="text-label text-ink-300">pt ({CLASSIC_V2_MIN_FONT_PT}–{CLASSIC_V2_MAX_FONT_PT})</span>
           </div>
         )}
       </div>
@@ -546,7 +546,7 @@ export default function SettingsDocumentsPage() {
         <SettingsTabs activePath="/settings/documents" />
 
         <SectionCard title="โลโก้และชื่อบริษัท" description="โลโก้และข้อมูลหัวเอกสารที่พิมพ์ทุกฉบับ">
-          <div className="divide-y divide-[#F0EEE8]">
+          <div className="divide-y divide-line-faint">
             <div className="pb-2">
               {profile && (
                 <LogoUpload
@@ -559,7 +559,7 @@ export default function SettingsDocumentsPage() {
                   }}
                 />
               )}
-              <p className="-mt-1 pb-2 text-[11px] text-[#888780]">
+              <p className="-mt-1 pb-2 text-label text-ink-300">
                 โลโก้ตัวอักษรแนวนอน: ใช้ไฟล์พื้นหลังโปร่งใส กว้าง ≥1200px เว้นขอบรอบตัวอักษร — ระบบจะคงสัดส่วนและจำกัดความสูงให้เอง
               </p>
             </div>
@@ -580,16 +580,16 @@ export default function SettingsDocumentsPage() {
                   </Select>
                   <div className="mt-2 flex items-center gap-2">
                     <div
-                      className="h-5 rounded bg-[#243043]"
+                      className="h-5 rounded bg-ink-800"
                       style={{ width: Math.round((LOGO_SIZE_OPTIONS.find((o) => o.value === logoSize)?.px ?? 64) * (220 / 312)) }}
                       aria-hidden
                     />
-                    <span className="text-[11px] text-[#888780]">
+                    <span className="text-label text-ink-300">
                       กว้าง {LOGO_SIZE_OPTIONS.find((o) => o.value === logoSize)?.mm ?? "~17มม."} · สูงไม่เกิน 15มม. (แบนเนอร์ 22มม.)
                     </span>
                   </div>
                   {logoSize === "large" && showCompanyName && (
-                    <p className="mt-1 text-[11px] text-[#888780]">
+                    <p className="mt-1 text-label text-ink-300">
                       แบนเนอร์มักมีชื่อบริษัทอยู่ในโลโก้แล้ว — แนะนำให้ปิด “แสดงชื่อบริษัทในเอกสาร” ด้านล่าง
                     </p>
                   )}
@@ -636,7 +636,7 @@ export default function SettingsDocumentsPage() {
         </SectionCard>
 
         <SectionCard title="เทมเพลตเอกสาร" description="รูปแบบ PDF และข้อความท้ายเอกสาร — มีผลกับเอกสารใหม่เท่านั้น">
-          <div className="divide-y divide-[#F0EEE8]">
+          <div className="divide-y divide-line-faint">
             <SettingRow
               label="เทมเพลต PDF"
               description="เทมเพลตเริ่มต้นสำหรับเอกสารทุกประเภท มีผลกับเอกสารใหม่เท่านั้น"
@@ -731,7 +731,7 @@ export default function SettingsDocumentsPage() {
             </div>
 
             {scaleTab === "default" ? (
-              <div className="divide-y divide-[#F0EEE8]">
+              <div className="divide-y divide-line-faint">
                 <SettingRow
                   label="ขนาดหลัก (ทั้งเอกสาร)"
                   description="ขนาดฐานของเอกสาร — ทุกส่วนด้านล่างที่ตั้งเป็น “ตามขนาดหลัก” จะใช้ขนาดนี้"
@@ -745,8 +745,8 @@ export default function SettingsDocumentsPage() {
                   />
                 </SettingRow>
                 <div className="py-2.5">
-                  <div className="text-xs font-medium text-gray-700">ปรับขนาดเฉพาะส่วน</div>
-                  <p className="mt-0.5 text-[11px] text-[#888780]">
+                  <div className="text-label font-medium text-ink-700">ปรับขนาดเฉพาะส่วน</div>
+                  <p className="mt-0.5 text-label text-ink-300">
                     ส่วนที่ตั้งเป็น “ตามขนาดหลัก” จะปรับตามขนาดหลักด้านบนทันที — รายการย่อยที่ตั้งเป็น “ตาม…” จะปรับตามกลุ่มแม่ของตัวเอง
                     ช่องตัวเลขขนาดใหญ่มากอาจล้นคอลัมน์แคบ
                   </p>
@@ -762,7 +762,7 @@ export default function SettingsDocumentsPage() {
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-[#F0EEE8]">
+              <div className="divide-y divide-line-faint">
                 <SettingRow
                   label={`${selectedTypeLabel} — ขนาดหลัก`}
                   description="ขนาดฐานของประเภทนี้ — เว้นไว้ที่ “ตามค่าเริ่มต้น” เพื่อใช้ขนาดหลักของแท็บค่าเริ่มต้น"
@@ -782,8 +782,8 @@ export default function SettingsDocumentsPage() {
                   })()}
                 </SettingRow>
                 <div className="py-2.5">
-                  <div className="text-xs font-medium text-gray-700">ปรับขนาดเฉพาะส่วน</div>
-                  <p className="mt-0.5 text-[11px] text-[#888780]">
+                  <div className="text-label font-medium text-ink-700">ปรับขนาดเฉพาะส่วน</div>
+                  <p className="mt-0.5 text-label text-ink-300">
                     ใช้กับ{selectedTypeLabel}ทุกฉบับ — หน้าแก้ไขเอกสารแต่ละฉบับยังตั้งทับได้อีกชั้น
                   </p>
                   <div className="mt-1">
@@ -804,13 +804,13 @@ export default function SettingsDocumentsPage() {
                 </div>
               </div>
             )}
-            <div className="mt-3 rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">ตัวอย่างขนาดจริง</p>
+            <div className="mt-3 rounded-control border border-card-border bg-paper-field p-3">
+              <p className="mb-2 text-label font-semibold text-ink-400">ตัวอย่างขนาดจริง</p>
               <div className="space-y-1.5">
                 {specimenRows.map((row) => (
                   <div key={row.label} className="flex items-baseline gap-3">
-                    <span className="w-[120px] shrink-0 text-[10px] text-gray-400">{row.label}</span>
-                    <span className="min-w-0 truncate text-gray-700" style={{ fontSize: `calc(${CLASSIC_V2_BASE_FONT_PT}pt * ${row.mult})` }}>
+                    <span className="w-[120px] shrink-0 text-label text-ink-400">{row.label}</span>
+                    <span className="min-w-0 truncate text-ink-700" style={{ fontSize: `calc(${CLASSIC_V2_BASE_FONT_PT}pt * ${row.mult})` }}>
                       {row.text}
                     </span>
                   </div>
@@ -838,9 +838,9 @@ export default function SettingsDocumentsPage() {
             onChange={(e) => { setTermsByType({ ...termsByType, [termsTab]: e.target.value }); setSaved(false); }}
             rows={4}
             placeholder="เว้นว่าง = ไม่แสดงเงื่อนไขท้ายเอกสารประเภทนี้"
-            className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 resize-none"
+            className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
           />
-          <p className="text-[11px] text-[#888780] mt-1">
+          <p className="text-label text-ink-300 mt-1">
             {DOC_VISIBILITY_TYPES.find((t) => t.key === termsTab)?.label || termsTab}
             {(() => {
               const lines = termsByType[termsTab]?.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) ?? [];
@@ -901,7 +901,7 @@ export default function SettingsDocumentsPage() {
                               }}
                               className="w-3 h-3 accent-primary rounded"
                             />
-                            <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
+                            <span className="text-label text-ink-500 select-none">{t.label}</span>
                           </label>
                         ))}
                       </div>
@@ -957,7 +957,7 @@ export default function SettingsDocumentsPage() {
                               }}
                               className="w-3 h-3 accent-primary rounded"
                             />
-                            <span className="text-[11px] text-gray-500 select-none">{t.label}</span>
+                            <span className="text-label text-ink-500 select-none">{t.label}</span>
                           </label>
                         ))}
                       </div>
@@ -1001,35 +1001,35 @@ export default function SettingsDocumentsPage() {
                 value={priceWarnPct}
                 onChange={(e) => { setPriceWarnPct(e.target.value); setSaved(false); }}
                 placeholder="10"
-                className="w-20 rounded-lg border border-[#E8E6DF] bg-white px-2 py-1.5 text-right text-sm focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                className="w-20 rounded-control border border-card-border bg-white px-2 py-1.5 text-right text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
-              <span className="text-sm text-[#888780]">%</span>
+              <span className="text-body text-ink-300">%</span>
             </div>
           </SettingRow>
         </SectionCard>
 
         <div className="sticky bottom-3 z-10">
-          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
             <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-xs">
+              <div className="min-w-0 flex-1 text-label">
                 {error ? (
                   <span className="text-red-500">{error}</span>
                 ) : saved ? (
                   <span className="text-green-600">บันทึกแล้ว</span>
                 ) : isDirty ? (
-                  <span className="flex items-center gap-1.5 text-[#888780]">
-                    <span className="w-[6px] h-[6px] rounded-full bg-[#378ADD] inline-block" />
+                  <span className="flex items-center gap-1.5 text-ink-300">
+                    <span className="w-[6px] h-[6px] rounded-full bg-primary inline-block" />
                     ยังไม่ได้บันทึก
                   </span>
                 ) : (
-                  <span className="text-gray-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
+                  <span className="text-ink-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
                 )}
               </div>
               {isDirty && !saving && (
                 <button
                   type="button"
                   onClick={hydrateFromProfile}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                  className="text-label text-ink-500 hover:text-ink-700 underline underline-offset-2"
                 >
                   ยกเลิกการแก้ไข
                 </button>

@@ -56,7 +56,7 @@ function WorkspaceMark({ profile }: { profile: ClientProfile | null }) {
 
   if (logoUrl) {
     return (
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#E8E6DF] bg-white overflow-hidden">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-card-border bg-white overflow-hidden">
         <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" loading="lazy" onError={() => setLogoFailed(true)} />
       </div>
     );
@@ -131,18 +131,18 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
               type="button"
               onClick={() => navigate("/home")}
               aria-label={companyName}
-              className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#F7F6F3] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 ${sidebarExpanded ? "" : "justify-center"}`}
+              className={`flex min-w-0 flex-1 items-center gap-3 rounded-control px-2 py-2 text-left transition-colors hover:bg-page-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 ${sidebarExpanded ? "" : "justify-center"}`}
             >
               <WorkspaceMark profile={clientProfile} />
               {sidebarExpanded ? (
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center">
-                    <h1 className="truncate text-sm font-semibold text-[#1A1A18]" title={companyName}>
+                    <h1 className="truncate text-body font-semibold text-ink-900" title={companyName}>
                       {companyName}
                     </h1>
                     <DevBadge />
                   </div>
-                  <p className="mt-0.5 truncate text-[11px] font-medium text-[#7B766E]">{workspaceMeta}</p>
+                  <p className="mt-0.5 truncate text-label font-medium text-ink-400">{workspaceMeta}</p>
                 </div>
               ) : null}
             </button>
@@ -151,7 +151,7 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
               onClick={toggleSidebar}
               aria-label={sidebarExpanded ? "ย่อเมนู" : "ขยายเมนู"}
               title={sidebarExpanded ? "ย่อเมนู" : "ขยายเมนู"}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-[#F7F6F3] hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-ink-500 transition-colors hover:bg-page-bg hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
             >
               {sidebarExpanded ? <PanelLeftClose className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -163,11 +163,7 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
               key={item.path}
               to={item.path}
               title={sidebarExpanded ? undefined : item.label}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                isActive(item.path)
-                  ? "bg-[#EEF6FF] font-medium text-primary"
-                  : "text-[#5F5B54] hover:bg-[#F7F6F3] hover:text-[#1A1A18]"
-              } ${sidebarExpanded ? "" : "justify-center px-0"}`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-control text-body transition-colors ${ isActive(item.path) ? "bg-primary-soft font-medium text-primary" : "text-ink-600 hover:bg-page-bg hover:text-ink-900" } ${sidebarExpanded ? "" : "justify-center px-0"}`}
             >
               {iconMap[item.path] || <Home className="w-5 h-5" />}
               {sidebarExpanded ? <span>{item.label}</span> : null}
@@ -179,7 +175,7 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
             onClick={() => setLogoutOpen(true)}
             aria-label="ออกจากระบบ"
             title={sidebarExpanded ? undefined : "ออกจากระบบ"}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50 ${sidebarExpanded ? "" : "justify-center px-0"}`}
+            className={`flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-body text-red-500 transition-colors hover:bg-red-50 ${sidebarExpanded ? "" : "justify-center px-0"}`}
           >
             <LogOut className="w-5 h-5" />
             {sidebarExpanded ? <span>ออกจากระบบ</span> : null}
@@ -189,17 +185,17 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
 
       <div className="flex-1 min-w-0">
         {isImpersonating && (
-          <div className="bg-[#FAEEDA] border-b border-[#E8D5B2] text-[#633806] px-4 py-2 flex items-center justify-between sticky top-0 z-40">
+          <div className="bg-pending-bg border-b border-warning-border text-pending-text px-4 py-2 flex items-center justify-between sticky top-0 z-40">
             <div className="flex items-center gap-2 min-w-0">
               <button
                 onClick={handleStopImpersonate}
-                className="flex items-center gap-1 text-[#633806] font-medium text-sm hover:underline shrink-0"
+                className="flex items-center gap-1 text-pending-text font-medium text-body hover:underline shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
                 หยุดดูในฐานะลูกค้า
               </button>
             </div>
-            <span className="text-sm text-[#633806]/80 truncate ml-2">
+            <span className="text-body text-pending-text/80 truncate ml-2">
               กำลังดูในฐานะ: <strong>{impersonatedName}</strong>
             </span>
           </div>
@@ -207,14 +203,14 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
         <TopBar title={title} showBack={showBack} onBack={onBack} action={action} wide={wide} />
         {breadcrumbs && breadcrumbs.length > 0 && (
           <div className="mx-auto w-full max-w-7xl px-4 pt-2 sm:px-5 lg:px-8">
-            <nav className="flex items-center gap-1 text-xs text-gray-500">
+            <nav className="flex items-center gap-1 text-label text-ink-500">
               {breadcrumbs.map((item, i) => (
                 <React.Fragment key={i}>
-                  {i > 0 && <ChevronRight className="w-3 h-3 text-gray-400" />}
+                  {i > 0 && <ChevronRight className="w-3 h-3 text-ink-400" />}
                   {item.path ? (
                     <Link to={item.path} className="hover:text-primary transition-colors">{item.label}</Link>
                   ) : (
-                    <span className="text-gray-700 font-medium">{item.label}</span>
+                    <span className="text-ink-700 font-medium">{item.label}</span>
                   )}
                 </React.Fragment>
               ))}
@@ -230,7 +226,7 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
 
       <Modal open={logoutOpen} onClose={() => setLogoutOpen(false)} title="ออกจากระบบ">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             คุณแน่ใจว่าต้องการออกจากระบบใช่หรือไม่?
           </p>
           <div className="flex gap-2 justify-end">

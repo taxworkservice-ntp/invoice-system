@@ -71,8 +71,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-page-bg flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-xl font-semibold text-gray-800">Invoice System</h1>
-          <p className="text-sm text-gray-400 mt-1">เข้าสู่ระบบ</p>
+          <h1 className="text-display font-semibold text-ink-800">Invoice System</h1>
+          <p className="text-body text-ink-400 mt-1">เข้าสู่ระบบ</p>
         </div>
         <form onSubmit={handleLogin} className="bg-white border border-card-border rounded-card p-6 space-y-4">
           <Input
@@ -91,7 +91,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-label text-red-500">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </Button>

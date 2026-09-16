@@ -18,7 +18,7 @@ export function CartonPreview({
   const cartonPrice = unitPrice * qtyPerCarton;
 
   return (
-    <div className="bg-[#E6F1FB] rounded-lg px-3 py-2 space-y-0.5 text-[12px] text-[#0C447C]">
+    <div className="bg-sent-bg rounded-control px-3 py-2 space-y-0.5 text-label text-primary-deep">
       <div>
         1 {cartonUnit} = {qtyPerCarton} {baseUnit}
       </div>

@@ -90,7 +90,7 @@ export function StockInModal({
       <div className="space-y-4">
         {hasCarton ? (
           <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1A1A18]">
+            <label className="block text-body font-medium text-ink-900">
               รับเข้า ({useCarton ? item.carton_unit : item.base_unit})
             </label>
             <div className="flex items-center gap-2">
@@ -104,28 +104,28 @@ export function StockInModal({
                   else setQtyBase(e.target.value);
                 }}
                 autoFocus
-                className="flex-1 px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                className="flex-1 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <span className="text-sm text-[#888780] shrink-0">
+              <span className="text-body text-ink-300 shrink-0">
                 {useCarton ? item.carton_unit : item.base_unit}
               </span>
             </div>
             {useCarton && qtyCarton && computedQtyBase > 0 && (
-              <div className="text-[11px] text-[#888780]">
+              <div className="text-label text-ink-300">
                 = {computedQtyBase} {item.base_unit}
               </div>
             )}
             <button
               type="button"
               onClick={() => setUseCarton(!useCarton)}
-              className="text-[12px] text-[#378ADD] hover:underline"
+              className="text-label text-primary hover:underline"
             >
               ป้อนเป็น {item.base_unit} แทน
             </button>
           </div>
         ) : (
           <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1A1A18]">
+            <label className="block text-body font-medium text-ink-900">
               รับเข้า ({item.base_unit})
             </label>
             <div className="flex items-center gap-2">
@@ -136,9 +136,9 @@ export function StockInModal({
                 value={qtyBase}
                 onChange={(e) => setQtyBase(e.target.value)}
                 autoFocus
-                className="flex-1 px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                className="flex-1 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <span className="text-sm text-[#888780] shrink-0">
+              <span className="text-body text-ink-300 shrink-0">
                 {item.base_unit}
               </span>
             </div>
@@ -146,7 +146,7 @@ export function StockInModal({
         )}
 
         <div>
-          <label className="block text-[13px] font-medium text-[#1A1A18] mb-1">
+          <label className="block text-body font-medium text-ink-900 mb-1">
             ต้นทุนต่อ {hasCarton && useCarton ? item.carton_unit : item.base_unit}
           </label>
           <input
@@ -156,20 +156,20 @@ export function StockInModal({
             value={unitCost}
             onChange={(e) => setUnitCost(e.target.value)}
             placeholder="0.00"
-            className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+            className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
-          <div className="mt-1 text-[11px] text-[#888780]">
+          <div className="mt-1 text-label text-ink-300">
             ใช้ราคาทุนจริงของล็อตที่รับเข้าในครั้งนี้
           </div>
           {hasCarton && useCarton && item.qty_per_carton && item.qty_per_carton > 0 && parsedDisplayUnitCost > 0 && (
-            <div className="mt-1 text-[11px] text-[#888780]">
+            <div className="mt-1 text-label text-ink-300">
               = {parsedBaseUnitCost.toFixed(2)} ต่อ {item.base_unit}
             </div>
           )}
         </div>
 
         <div>
-          <label className="block text-[13px] font-medium text-[#1A1A18] mb-1">
+          <label className="block text-body font-medium text-ink-900 mb-1">
             เหตุผล / หมายเหตุ
           </label>
           <input
@@ -177,7 +177,7 @@ export function StockInModal({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="ซื้อสินค้าใหม่..."
-            className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+            className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
@@ -195,7 +195,7 @@ export function StockInModal({
           onClick={handleConfirm}
           disabled={computedQtyBase <= 0 || parsedBaseUnitCost < 0 || saving}
           loading={saving}
-          className="w-full !bg-[#27500A] hover:!bg-[#1a3e07] !text-white"
+          className="w-full !bg-paid-text hover:!bg-success-text !text-white"
         >
           ยืนยันรับสินค้าเข้า
         </Button>

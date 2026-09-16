@@ -24,9 +24,9 @@ function StockRow({ item, index, onToggleFavorite }: { item: Item; index: number
 
   let textColor = "";
   if (out) {
-    textColor = "text-[#791F1F]";
+    textColor = "text-overdue-text";
   } else if (low) {
-    textColor = "text-[#633806]";
+    textColor = "text-pending-text";
   }
 
   return (
@@ -41,56 +41,54 @@ function StockRow({ item, index, onToggleFavorite }: { item: Item; index: number
             onClick={(e) => onToggleFavorite(item, e)}
             aria-label={item.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
             aria-pressed={item.is_favorite}
-            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F0EFE9] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-line-faint transition-colors"
           >
             <Star
               size={14}
-              className={item.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+              className={item.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
             />
           </button>
         </td>
       )}
-      <td className={`border-l-2 px-3 py-2 text-[11px] text-[#667085] w-8 text-right tabular-nums ${
-        out ? "border-l-[#C0392B]" : low ? "border-l-[#F59E0B]" : "border-l-transparent"
-      }`}>
+      <td className={`border-l-2 px-3 py-2 text-label text-ink-400 w-8 text-right tabular-nums ${ out ? "border-l-danger" : low ? "border-l-warning" : "border-l-transparent" }`}>
         {index}
       </td>
       <td className="px-3 py-2 min-w-0">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-[13px] leading-tight text-[#111827]">
+          <span className="truncate text-body leading-tight text-ink-900">
             {item.name}
           </span>
           {out && (
-            <span className="shrink-0 rounded border border-[#F2C7C7] bg-[#FEF3F2] px-1.5 py-0.5 text-[10px] font-medium text-[#B42318]">
+            <span className="shrink-0 rounded border border-danger-border bg-danger-soft px-1.5 py-0.5 text-label font-medium text-danger-text">
               หมด
             </span>
           )}
           {low && !out && (
-            <span className="shrink-0 rounded border border-[#FCDFA6] bg-[#FFFAEB] px-1.5 py-0.5 text-[10px] font-medium text-[#B54708]">
+            <span className="shrink-0 rounded border border-warning-border bg-warning-soft px-1.5 py-0.5 text-label font-medium text-warning-text">
               ใกล้หมด
             </span>
           )}
         </div>
         {item.sku && (
-          <div className="text-[10px] text-[#667085]">{item.sku}</div>
+          <div className="text-label text-ink-400">{item.sku}</div>
         )}
       </td>
-      <td className={`px-3 py-2 text-[13px] text-right tabular-nums font-medium ${textColor || "text-[#111827]"}`}>
+      <td className={`px-3 py-2 text-body text-right tabular-nums font-medium ${textColor || "text-ink-900"}`}>
         {item.item_type === "product" ? item.stock_count : "—"}
       </td>
-      <td className="px-3 py-2 text-[11px] text-[#667085] text-center">
+      <td className="px-3 py-2 text-label text-ink-400 text-center">
         {item.item_type === "product" ? item.base_unit : "—"}
       </td>
-      <td className="px-3 py-2 text-[11px] text-right text-[#667085]">
+      <td className="px-3 py-2 text-label text-right text-ink-400">
         {item.item_type === "product" ? formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton) : "—"}
       </td>
-      <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#667085]">
+      <td className="px-3 py-2 text-label text-right tabular-nums text-ink-400">
         {item.item_type === "product" ? item.low_stock_threshold : "—"}
       </td>
-      <td className="px-3 py-2 text-[12px] text-right tabular-nums text-[#475467] hidden sm:table-cell">
+      <td className="px-3 py-2 text-label text-right tabular-nums text-ink-500 hidden sm:table-cell">
         {item.item_type === "product" ? item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : "—"}
       </td>
-      <td className="px-3 py-2 text-[12px] text-right tabular-nums font-medium text-[#111827] hidden sm:table-cell">
+      <td className="px-3 py-2 text-label text-right tabular-nums font-medium text-ink-900 hidden sm:table-cell">
         {item.item_type === "product" ? value.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : formatCurrency(item.unit_price)}
       </td>
     </tr>
@@ -106,9 +104,7 @@ function StockRowMobile({ item, index, onToggleFavorite }: { item: Item; index: 
 
   return (
     <div
-      className={`cursor-pointer border-b border-l-2 border-b-[#F0EFE9] last:border-b-0 px-3 py-2.5 transition-colors hover:bg-[#FAFAF7] ${
-        out ? "border-l-[#C0392B]" : low ? "border-l-[#F59E0B]" : "border-l-transparent"
-      }`}
+      className={`cursor-pointer border-b border-l-2 border-b-line-faint last:border-b-0 px-3 py-2.5 transition-colors hover:bg-paper-field ${ out ? "border-l-danger" : low ? "border-l-warning" : "border-l-transparent" }`}
       onClick={() => navigate(`/catalog/${item.id}`)}
     >
       <div className="flex items-start justify-between gap-2">
@@ -118,46 +114,46 @@ function StockRowMobile({ item, index, onToggleFavorite }: { item: Item; index: 
             onClick={(e) => { e.stopPropagation(); onToggleFavorite(item, e); }}
             aria-label={item.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
             aria-pressed={item.is_favorite}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#F7F6F3] transition-colors"
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors"
           >
             <Star
               size={16}
-              className={item.is_favorite ? "fill-[#F59E0B] text-[#F59E0B]" : "text-[#AAAAAA] hover:text-[#F59E0B]"}
+              className={item.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
             />
           </button>
         )}
         <div className="min-w-0 flex-1">
-          <span className="text-[10px] text-[#888780] mr-1">{index}.</span>
-          <span className="text-[14px] text-[#1A1A18]">
+          <span className="text-label text-ink-300 mr-1">{index}.</span>
+          <span className="text-body text-ink-900">
             {item.name}
           </span>
           {out && (
-            <span className="ml-1 inline-flex rounded border border-[#F2C7C7] bg-[#FEF3F2] px-1.5 py-0.5 text-[10px] font-medium text-[#B42318]">
+            <span className="ml-1 inline-flex rounded border border-danger-border bg-danger-soft px-1.5 py-0.5 text-label font-medium text-danger-text">
               หมด
             </span>
           )}
           {low && !out && (
-            <span className="ml-1 inline-flex rounded border border-[#FCDFA6] bg-[#FFFAEB] px-1.5 py-0.5 text-[10px] font-medium text-[#B54708]">
+            <span className="ml-1 inline-flex rounded border border-warning-border bg-warning-soft px-1.5 py-0.5 text-label font-medium text-warning-text">
               ใกล้หมด
             </span>
           )}
-          {item.sku && <span className="text-[10px] text-[#888780] ml-1">{item.sku}</span>}
+          {item.sku && <span className="text-label text-ink-300 ml-1">{item.sku}</span>}
         </div>
-        <div className={`shrink-0 text-[14px] font-medium tabular-nums text-right ${out ? "text-[#791F1F]" : low ? "text-[#633806]" : "text-[#1A1A18]"}`}>
+        <div className={`shrink-0 text-body font-medium tabular-nums text-right ${out ? "text-overdue-text" : low ? "text-pending-text" : "text-ink-900"}`}>
           {isProduct ? (
-            <>{item.stock_count} <span className="text-[10px] font-normal text-[#888780]">{item.base_unit}</span></>
+            <>{item.stock_count} <span className="text-label font-normal text-ink-300">{item.base_unit}</span></>
           ) : (
-            <span className="text-[#1A1A18]">฿ {formatCurrency(item.unit_price)}</span>
+            <span className="text-ink-900">฿ {formatCurrency(item.unit_price)}</span>
           )}
         </div>
       </div>
-      <div className="mt-1 flex items-center gap-4 text-[11px] text-[#888780] flex-wrap">
+      <div className="mt-1 flex items-center gap-4 text-label text-ink-300 flex-wrap">
         {isProduct ? (
           <>
             <span>นับรวม: {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}</span>
             <span>แจ้งเตือน: {item.low_stock_threshold}</span>
             <span>ทุน ฿{item.avg_cost.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
-            <span className="font-medium text-[#444441]">= ฿{value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+            <span className="font-medium text-ink-700">= ฿{value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
           </>
         ) : (
           <span>{item.base_unit}</span>

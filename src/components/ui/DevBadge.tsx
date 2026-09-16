@@ -5,7 +5,7 @@ export function DevBadge() {
   if (!isDevMode) return null;
   return (
     <span
-      className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 border border-amber-300"
+      className="ml-2 inline-flex items-center rounded-full bg-warning-soft px-2 py-0.5 text-label font-semibold text-warning-text border border-warning-border"
       title={devEffectiveDate ? `DEV date: ${devEffectiveDate}` : "DEV mode"}
     >
       {devEffectiveDate ? `DEV ${devEffectiveDate}` : "DEV"}

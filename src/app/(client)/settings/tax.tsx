@@ -118,33 +118,29 @@ export default function SettingsTaxPage() {
         <SettingsTabs activePath="/settings/tax" />
 
         <SectionCard title="ภาษีและการชำระเงิน" description="การตั้งค่ามีผลกับเอกสารใหม่เท่านั้น — เอกสารที่สร้างไปแล้วจะไม่เปลี่ยนแปลง">
-          <div className="divide-y divide-[#F0EEE8]">
+          <div className="divide-y divide-line-faint">
             <div className="py-2.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs font-medium text-gray-700">สถานะ VAT ของกิจการ</div>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-[#888780]">
+                  <div className="text-label font-medium text-ink-700">สถานะ VAT ของกิจการ</div>
+                  <p className="mt-0.5 text-label leading-relaxed text-ink-300">
                     ใช้กำหนดชื่อเอกสาร การแสดง VAT และยอดภาษีของเอกสารใหม่
                   </p>
                 </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                  vatRegistered ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
-                }`}>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-label font-medium ${ vatRegistered ? "bg-emerald-50 text-emerald-700" : "bg-ink-50 text-ink-600" }`}>
                   {vatRegistered ? "จด VAT" : "ไม่จด VAT"}
                 </span>
               </div>
             </div>
 
             <div className="py-2.5">
-              <div className={`rounded-[8px] border p-3 ${
-                vatRegistered ? "border-emerald-200 bg-emerald-50/60" : "border-[#E8E6DF] bg-[#FAF8F3]"
-              }`}>
+              <div className={`rounded-[8px] border p-3 ${ vatRegistered ? "border-emerald-200 bg-emerald-50/60" : "border-card-border bg-paper-soft" }`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-[13px] font-semibold text-[#1A1A18]">
+                    <div className="text-body font-semibold text-ink-900">
                       {vatRegistered ? "ใช้โหมดจดทะเบียน VAT" : "ใช้โหมดไม่จด VAT"}
                     </div>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-[#66625C]">
+                    <p className="mt-0.5 text-label leading-relaxed text-ink-600">
                       {vatRegistered
                         ? "เอกสารขายใหม่จะเป็นใบกำกับภาษีและคำนวณ VAT ตามอัตราที่ตั้งไว้"
                         : "เอกสารขายใหม่จะไม่มีรายการ VAT และรับเงินทันทีจะออกเป็นใบเสร็จรับเงิน"}
@@ -154,12 +150,12 @@ export default function SettingsTaxPage() {
                     type="button"
                     variant="secondary"
                     onClick={() => openVatChange(!vatRegistered)}
-                    className="shrink-0 !w-auto px-3 py-1.5 text-xs"
+                    className="shrink-0 !w-auto px-3 py-1.5 text-label"
                   >
                     เปลี่ยน
                   </Button>
                 </div>
-                <div className="mt-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+                <div className="mt-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-relaxed text-amber-800">
                   สถานะ VAT ถูกล็อกไว้เพื่อกันการกดผิด ต้องยืนยันแยกต่างหากก่อนเปลี่ยน
                 </div>
               </div>
@@ -175,16 +171,16 @@ export default function SettingsTaxPage() {
                     max="100"
                     value={vatRate}
                     onChange={(e) => { setVatRate(e.target.value); setSaved(false); }}
-                    className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 pr-8 text-right text-sm focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                    className="w-full rounded-control border border-card-border bg-white px-3 py-2 pr-8 text-right text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#888780]">%</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-body text-ink-300">%</span>
                 </div>
               </SettingRow>
             )}
 
             <div className="py-2.5">
-              <div className="rounded-[8px] border border-[#E8E6DF] bg-[#FAF8F3] px-3 py-2.5 text-[12px] text-[#444441]">
-                <div className="font-medium text-[#1A1A18]">ตัวอย่างผลกับเอกสารใหม่</div>
+              <div className="rounded-[8px] border border-card-border bg-paper-soft px-3 py-2.5 text-label text-ink-700">
+                <div className="font-medium text-ink-900">ตัวอย่างผลกับเอกสารใหม่</div>
                 <div className="mt-1 grid gap-1 sm:grid-cols-3">
                   <span>ใบขาย: {vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้"}</span>
                   <span>รับเงินทันที: {vatRegistered ? "ใบกำกับภาษี/ใบเสร็จ" : "ใบเสร็จรับเงิน"}</span>
@@ -220,36 +216,36 @@ export default function SettingsTaxPage() {
                   max={90}
                   value={creditTermDays}
                   onChange={(e) => { setCreditTermDays(Number(e.target.value)); setSaved(false); }}
-                  className="w-20 px-2 py-1.5 text-sm text-right border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD]"
+                  className="w-20 px-2 py-1.5 text-body text-right border border-card-border rounded-control bg-white focus:outline-none focus:border-primary"
                 />
-                <span className="text-sm text-[#888780]">วัน</span>
+                <span className="text-body text-ink-300">วัน</span>
               </div>
             </SettingRow>
           </div>
         </SectionCard>
 
         <div className="sticky bottom-3 z-10">
-          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
             <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-xs">
+              <div className="min-w-0 flex-1 text-label">
                 {error ? (
                   <span className="text-red-500">{error}</span>
                 ) : saved ? (
                   <span className="text-green-600">บันทึกแล้ว</span>
                 ) : isDirty ? (
-                  <span className="flex items-center gap-1.5 text-[#888780]">
-                    <span className="w-[6px] h-[6px] rounded-full bg-[#378ADD] inline-block" />
+                  <span className="flex items-center gap-1.5 text-ink-300">
+                    <span className="w-[6px] h-[6px] rounded-full bg-primary inline-block" />
                     ยังไม่ได้บันทึก
                   </span>
                 ) : (
-                  <span className="text-gray-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
+                  <span className="text-ink-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
                 )}
               </div>
               {isDirty && !saving && (
                 <button
                   type="button"
                   onClick={hydrateFromProfile}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                  className="text-label text-ink-500 hover:text-ink-700 underline underline-offset-2"
                 >
                   ยกเลิกการแก้ไข
                 </button>
@@ -271,7 +267,7 @@ export default function SettingsTaxPage() {
           }}
         >
           <div className="space-y-4">
-            <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm leading-relaxed text-amber-900">
+            <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-body leading-relaxed text-amber-900">
               คุณกำลังจะเปลี่ยนจาก
               <span className="font-semibold"> {vatRegistered ? "จด VAT" : "ไม่จด VAT"} </span>
               เป็น
@@ -279,16 +275,16 @@ export default function SettingsTaxPage() {
               สำหรับเอกสารใหม่หลังจากบันทึกการตั้งค่า
             </div>
 
-            <div className="text-[12px] leading-relaxed text-[#66625C]">
+            <div className="text-label leading-relaxed text-ink-600">
               เอกสารที่สร้างไปแล้วจะไม่ถูกเปลี่ยนย้อนหลัง แต่เอกสารใหม่จะใช้ชื่อเอกสารและการคำนวณภาษีตามสถานะใหม่
             </div>
 
-            <label className="flex cursor-pointer items-start gap-2 rounded-[8px] border border-[#E8E6DF] p-3 text-[12px] leading-relaxed text-[#444441]">
+            <label className="flex cursor-pointer items-start gap-2 rounded-[8px] border border-card-border p-3 text-label leading-relaxed text-ink-700">
               <input
                 type="checkbox"
                 checked={vatChangeConfirmed}
                 onChange={(e) => setVatChangeConfirmed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-[#D8D5CC] text-[#378ADD]"
+                className="mt-0.5 h-4 w-4 rounded border-ink-100 text-primary"
               />
               <span>ฉันเข้าใจว่าสถานะ VAT มีผลกับเอกสารใหม่และยอดภาษีที่จะคำนวณหลังจากนี้</span>
             </label>

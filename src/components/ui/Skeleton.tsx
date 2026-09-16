@@ -5,7 +5,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ className = "" }: SkeletonProps) {
-  return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
+  return <div className={`animate-pulse bg-line-faint rounded-control ${className}`} />;
 }
 
 export function SkeletonLine({ className = "" }: SkeletonProps) {
@@ -14,7 +14,7 @@ export function SkeletonLine({ className = "" }: SkeletonProps) {
 
 export function SkeletonCard({ className = "" }: SkeletonProps) {
   return (
-    <div className={`bg-white border border-card-border rounded-card p-4 ${className}`}>
+    <div className={`bg-white border-[0.5px] border-card-border rounded-card p-4 ${className}`}>
       <SkeletonLine className="w-3/4 mb-3" />
       <SkeletonLine className="w-1/2 mb-3" />
       <SkeletonLine className="w-full" />
@@ -24,13 +24,11 @@ export function SkeletonCard({ className = "" }: SkeletonProps) {
 
 export function SkeletonTable({ className = "" }: SkeletonProps) {
   return (
-    <div className={`bg-white border border-card-border rounded-card overflow-hidden ${className}`}>
+    <div className={`bg-white border-[0.5px] border-card-border rounded-card overflow-hidden ${className}`}>
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className={`flex items-center gap-4 px-4 py-3 ${
-            i < 4 ? "border-b border-[#E8E6DF]" : ""
-          }`}
+          className={`flex items-center gap-4 px-4 py-3 ${ i < 4 ? "border-b border-line-faint" : "" }`}
         >
           <Skeleton className="h-4 w-1/4" />
           <Skeleton className="h-4 w-1/3" />

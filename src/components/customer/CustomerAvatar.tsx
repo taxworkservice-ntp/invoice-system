@@ -52,9 +52,9 @@ function contrastFg(hex: string): string {
 }
 
 const SIZE_CLASSES: Record<NonNullable<CustomerAvatarProps["size"]>, string> = {
-  sm: "w-8 h-8 text-[11px]",
-  md: "w-10 h-10 text-[13px]",
-  lg: "w-16 h-16 text-[18px]",
+  sm: "w-8 h-8 text-label",
+  md: "w-10 h-10 text-body",
+  lg: "w-16 h-16 text-subtitle",
 };
 
 export function CustomerAvatar({ customer, size = "md", className = "" }: CustomerAvatarProps) {
@@ -81,7 +81,7 @@ export function CustomerAvatar({ customer, size = "md", className = "" }: Custom
   if (isWhite) {
     return (
       <div
-        className={`shrink-0 rounded-lg flex items-center justify-center ${SIZE_CLASSES[size]} ${className} border border-[#E8E6DF] bg-white`}
+        className={`shrink-0 rounded-control flex items-center justify-center ${SIZE_CLASSES[size]} ${className} border border-card-border bg-white`}
         aria-label={customer.name}
       />
     );
@@ -89,7 +89,7 @@ export function CustomerAvatar({ customer, size = "md", className = "" }: Custom
 
   return (
     <div
-      className={`shrink-0 rounded-lg flex items-center justify-center font-semibold select-none ${SIZE_CLASSES[size]} ${className}`}
+      className={`shrink-0 rounded-control flex items-center justify-center font-semibold select-none ${SIZE_CLASSES[size]} ${className}`}
       style={{ backgroundColor: bg, color: fg }}
       aria-label={customer.name}
     >

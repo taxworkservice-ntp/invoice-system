@@ -127,7 +127,7 @@ export function buildReceiptPaymentRows(input: {
 }
 
 export function sanitizeFilename(name: string, fallback = "doc"): string {
-  let s = name
+  const s = name
     .replace(/\s+/g, "_")
     .replace(/[<>:"/\\|?*]/g, "")
     .replace(/_+/g, "_")

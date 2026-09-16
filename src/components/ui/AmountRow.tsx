@@ -12,24 +12,24 @@ interface AmountRowProps {
 const LABEL_CLASSES: Record<AmountTone, string> = {
   default: "text-ink-600",
   muted: "text-ink-400",
-  red: "text-red-600",
-  green: "text-green-700",
-  amber: "text-amber-700",
+  red: "text-danger",
+  green: "text-success-text",
+  amber: "text-warning-text",
   strong: "text-ink-700 font-semibold",
 };
 
 const VALUE_CLASSES: Record<AmountTone, string> = {
   default: "text-ink-800",
   muted: "text-ink-400",
-  red: "text-red-600",
-  green: "text-green-700",
-  amber: "text-amber-700",
+  red: "text-danger",
+  green: "text-success-text",
+  amber: "text-warning-text",
   strong: "text-ink-900 font-semibold",
 };
 
 export function AmountRow({ label, value, tone = "default", className = "" }: AmountRowProps) {
   return (
-    <div className={`flex items-baseline justify-between gap-3 text-sm ${className}`}>
+    <div className={`flex items-baseline justify-between gap-3 text-body ${className}`}>
       <span className={LABEL_CLASSES[tone]}>{label}</span>
       <span className={`text-right tabular-nums ${VALUE_CLASSES[tone]}`}>{value}</span>
     </div>

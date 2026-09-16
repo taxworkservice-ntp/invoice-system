@@ -25,7 +25,7 @@ export function ViewToggle({ value, onChange, variants, className = "" }: ViewTo
   const modes = variants ?? (["list", "grid", "table"] as ViewMode[]);
 
   return (
-    <div className={`flex items-center bg-white border-[0.5px] border-[#E8E6DF] rounded-lg p-0.5 shrink-0 ${className}`}>
+    <div className={`flex items-center bg-paper-field border-[0.5px] border-card-border rounded-control p-0.5 shrink-0 ${className}`}>
       {modes.map((mode) => {
         const Icon = ICON[mode];
         const labels = LABELS[mode];
@@ -37,9 +37,7 @@ export function ViewToggle({ value, onChange, variants, className = "" }: ViewTo
             aria-label={labels.aria}
             aria-pressed={value === mode}
             title={labels.title}
-            className={`p-1.5 rounded-md transition-colors ${
-              value === mode ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-            }`}
+            className={`p-1.5 rounded-control transition-colors ${ value === mode ? "bg-white text-ink-900 " : "text-ink-300 hover:text-ink-900" }`}
           >
             <Icon size={16} />
           </button>

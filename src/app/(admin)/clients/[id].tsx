@@ -41,7 +41,7 @@ import {
 import { DOC_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from "../../../constants";
 import type { ClientFeature, ClientFeatureKey, ClientProfile, Document } from "../../../types";
 
-const CARD_LABEL = "text-[11px] uppercase font-semibold text-[#888780] tracking-wide";
+const CARD_LABEL = "text-label  font-semibold text-ink-300 ";
 
 const AUDIT_ACTION_LABELS: Record<string, string> = {
   "role.change": "เปลี่ยนบทบาท",
@@ -542,13 +542,13 @@ export default function AdminClientDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F6F3]">
-        <header className="sticky top-0 z-30 border-b border-[#E8E6DF] bg-white/90 backdrop-blur-sm">
+      <div className="min-h-screen bg-page-bg">
+        <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
           <div className="flex items-center px-4 h-14 max-w-4xl mx-auto">
-            <button onClick={() => navigate("/admin/clients")} className="text-gray-500 hover:text-gray-700 p-1">
+            <button onClick={() => navigate("/admin/clients")} className="text-ink-500 hover:text-ink-700 p-1">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-sm font-semibold text-gray-800 ml-2">ข้อมูลลูกค้า</h1>
+            <h1 className="text-body font-semibold text-ink-800 ml-2">ข้อมูลลูกค้า</h1>
           </div>
         </header>
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -560,17 +560,17 @@ export default function AdminClientDetailPage() {
 
   if (!clientProfile) {
     return (
-      <div className="min-h-screen bg-[#F7F6F3]">
-        <header className="sticky top-0 z-30 border-b border-[#E8E6DF] bg-white/90 backdrop-blur-sm">
+      <div className="min-h-screen bg-page-bg">
+        <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
           <div className="flex items-center px-4 h-14 max-w-4xl mx-auto">
-            <button onClick={() => navigate("/admin/clients")} className="text-gray-500 hover:text-gray-700 p-1">
+            <button onClick={() => navigate("/admin/clients")} className="text-ink-500 hover:text-ink-700 p-1">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-sm font-semibold text-gray-800 ml-2">ไม่พบข้อมูล</h1>
+            <h1 className="text-body font-semibold text-ink-800 ml-2">ไม่พบข้อมูล</h1>
           </div>
         </header>
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <p className="text-sm text-gray-500">ไม่พบข้อมูลลูกค้า</p>
+          <p className="text-body text-ink-500">ไม่พบข้อมูลลูกค้า</p>
         </div>
       </div>
     );
@@ -588,30 +588,30 @@ export default function AdminClientDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3]">
-      <header className="sticky top-0 z-30 border-b border-[#E8E6DF] bg-white/90 backdrop-blur-sm">
+    <div className="min-h-screen bg-page-bg">
+      <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 h-14 max-w-4xl mx-auto">
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate("/admin/clients")} className="text-gray-500 hover:text-gray-700 p-1">
+            <button onClick={() => navigate("/admin/clients")} className="text-ink-500 hover:text-ink-700 p-1">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-sm font-semibold text-[#1A1A18] truncate">
+            <h1 className="text-body font-semibold text-ink-900 truncate">
               {clientProfile.company_name_th || email || "ลูกค้า"}
             </h1>
           </div>
           <div className="relative">
             <button
               onClick={() => setShowMenu((value) => !value)}
-              className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
+              className="text-ink-500 hover:text-ink-700 p-1 rounded-control hover:bg-ink-50"
             >
               <MoreHorizontal className="w-5 h-5" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-[#E8E6DF] rounded-lg shadow-lg py-1 min-w-[180px] z-50">
+              <div className="absolute right-0 top-full mt-1 bg-white border border-card-border rounded-control py-1 min-w-[180px] z-50">
                 <button
                   onClick={handleToggleActive}
                   disabled={toggling}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+                  className="w-full text-left px-3 py-2 text-body hover:bg-paper-field disabled:opacity-50"
                 >
                   {isActive ? "ปิดการใช้งานบัญชี" : "เปิดใช้งานบัญชี"}
                 </button>
@@ -622,20 +622,20 @@ export default function AdminClientDetailPage() {
       </header>
 
       {isImpersonating && (
-        <div className="bg-[#FAEEDA] border-b border-[#E8D5B2] text-[#633806] px-4 py-2 flex items-center justify-between">
+        <div className="bg-pending-bg border-b border-warning-border text-pending-text px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => {
                 handleStopImpersonate();
                 window.location.reload();
               }}
-              className="flex items-center gap-1 text-[#633806] font-medium text-sm hover:underline shrink-0"
+              className="flex items-center gap-1 text-pending-text font-medium text-body hover:underline shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
               หยุดดูในฐานะลูกค้า
             </button>
           </div>
-          <span className="text-sm text-[#633806]/80 truncate ml-2">
+          <span className="text-body text-pending-text/80 truncate ml-2">
             กำลังดูในฐานะ: <strong>{clientProfile.company_name_th}</strong>
           </span>
         </div>
@@ -645,13 +645,13 @@ export default function AdminClientDetailPage() {
         <div className={CARD_LABEL}>ข้อมูลลูกค้า</div>
 
         {accountError && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
+          <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2.5 text-label leading-5 text-amber-900">
             <span className="font-medium">โหลดข้อมูลบัญชีไม่สำเร็จ:</span> {accountError}
             <span className="text-amber-800/80"> ข้อมูลอื่นด้านล่างแสดงตามปกติ</span>
             <button
               type="button"
               onClick={() => void fetchData()}
-              className="ml-2 font-medium text-[#0C447C] hover:underline"
+              className="ml-2 font-medium text-primary-deep hover:underline"
             >
               ลองใหม่
             </button>
@@ -661,61 +661,55 @@ export default function AdminClientDetailPage() {
         <Card>
           <div className="space-y-2">
             <div>
-              <span className="text-[11px] text-[#888780]">ชื่อบริษัท</span>
-              <p className="text-[13px] text-[#1A1A18] font-medium">{clientProfile.company_name_th || "-"}</p>
+              <span className="text-label text-ink-300">ชื่อบริษัท</span>
+              <p className="text-body text-ink-900 font-medium">{clientProfile.company_name_th || "-"}</p>
             </div>
             {clientProfile.company_name_en && (
               <div>
-                <span className="text-[11px] text-[#888780]">ชื่อบริษัท (EN)</span>
-                <p className="text-[13px] text-[#1A1A18]">{clientProfile.company_name_en}</p>
+                <span className="text-label text-ink-300">ชื่อบริษัท (EN)</span>
+                <p className="text-body text-ink-900">{clientProfile.company_name_en}</p>
               </div>
             )}
             <div>
-              <span className="text-[11px] text-[#888780]">อีเมล</span>
-              <p className="text-[13px] text-[#1A1A18]">{email || "-"}</p>
+              <span className="text-label text-ink-300">อีเมล</span>
+              <p className="text-body text-ink-900">{email || "-"}</p>
             </div>
             {clientProfile.tax_id && (
               <div>
-                <span className="text-[11px] text-[#888780]">เลขผู้เสียภาษี</span>
-                <p className="text-[13px] text-[#1A1A18]">{clientProfile.tax_id}</p>
+                <span className="text-label text-ink-300">เลขผู้เสียภาษี</span>
+                <p className="text-body text-ink-900">{clientProfile.tax_id}</p>
               </div>
             )}
             {clientProfile.address && (
               <div>
-                <span className="text-[11px] text-[#888780]">ที่อยู่</span>
-                <p className="text-[13px] text-[#1A1A18]">{clientProfile.address}</p>
+                <span className="text-label text-ink-300">ที่อยู่</span>
+                <p className="text-body text-ink-900">{clientProfile.address}</p>
               </div>
             )}
             {clientProfile.phone && (
               <div>
-                <span className="text-[11px] text-[#888780]">โทร</span>
-                <p className="text-[13px] text-[#1A1A18]">{clientProfile.phone}</p>
+                <span className="text-label text-ink-300">โทร</span>
+                <p className="text-body text-ink-900">{clientProfile.phone}</p>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-4 pt-2 border-t border-[#E8E6DF]">
+            <div className="grid grid-cols-3 gap-4 pt-2 border-t border-card-border">
               <div>
-                <span className="text-[11px] text-[#888780]">VAT</span>
-                <p className="text-[13px] text-[#1A1A18]">
+                <span className="text-label text-ink-300">VAT</span>
+                <p className="text-body text-ink-900">
                   {clientProfile.vat_registered ? "จดทะเบียน" : "ไม่ได้จด"}
                 </p>
               </div>
               <div>
-                <span className="text-[11px] text-[#888780]">หัก ณ ที่จ่าย เริ่มต้น</span>
-                <p className="text-[13px] text-[#1A1A18]">
+                <span className="text-label text-ink-300">หัก ณ ที่จ่าย เริ่มต้น</span>
+                <p className="text-body text-ink-900">
                   {clientProfile.default_wht_rate === "0" ? "ไม่มี" : `${clientProfile.default_wht_rate}%`}
                 </p>
               </div>
               <div>
-                <span className="text-[11px] text-[#888780]">สถานะ</span>
-                <p className="text-[13px]">
+                <span className="text-label text-ink-300">สถานะ</span>
+                <p className="text-body">
                   <span
-                    className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${
-                      accountError
-                        ? "bg-[#F1EFE8] text-[#888780]"
-                        : isActive
-                          ? "bg-[#EAF3DE] text-[#27500A]"
-                          : "bg-[#F1EFE8] text-[#888780]"
-                    }`}
+                    className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${ accountError ? "bg-draft-bg text-ink-300" : isActive ? "bg-paid-bg text-paid-text" : "bg-draft-bg text-ink-300" }`}
                   >
                     {accountError ? "ไม่ทราบสถานะ" : isActive ? "ใช้งานอยู่" : "ปิดการใช้งาน"}
                   </span>
@@ -723,9 +717,9 @@ export default function AdminClientDetailPage() {
               </div>
             </div>
             <div className="pt-1">
-              <span className="text-[11px] text-[#888780]">สร้างบัญชีเมื่อ: {formatBuddhistDate(clientProfile.created_at)}</span>
-              <span className="text-[11px] text-[#888780] ml-4">เอกสารทั้งหมด: {documents.length >= 10 ? "10+" : documents.length}</span>
-              <span className="text-[11px] text-[#888780] ml-4">งานขาย: {dealCount}</span>
+              <span className="text-label text-ink-300">สร้างบัญชีเมื่อ: {formatBuddhistDate(clientProfile.created_at)}</span>
+              <span className="text-label text-ink-300 ml-4">เอกสารทั้งหมด: {documents.length >= 10 ? "10+" : documents.length}</span>
+              <span className="text-label text-ink-300 ml-4">งานขาย: {dealCount}</span>
             </div>
           </div>
         </Card>
@@ -737,21 +731,17 @@ export default function AdminClientDetailPage() {
             {CLIENT_FEATURES.map((feature) => {
               const enabled = enabledFeatureKeys.has(feature.key);
               return (
-                <div key={feature.key} className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] p-3">
+                <div key={feature.key} className="rounded-control border border-card-border bg-paper-tint p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-[#1A1A18]">{feature.label}</div>
-                      <p className="mt-1 text-xs leading-5 text-[#888780]">{feature.description}</p>
+                      <div className="text-body font-medium text-ink-900">{feature.label}</div>
+                      <p className="mt-1 text-label leading-5 text-ink-300">{feature.description}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleToggleFeature(feature.key)}
                       disabled={togglingFeature === feature.key}
-                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        enabled
-                          ? "bg-[#E7F6EC] text-[#1E5A38] hover:bg-[#D8F0E0]"
-                          : "bg-[#F1F2F4] text-[#5F5A52] hover:bg-[#E8E6DF]"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                      className={`shrink-0 rounded-full px-3 py-1 text-label font-medium transition-colors ${ enabled ? "bg-success-border text-success-text hover:bg-success-border" : "bg-line-faint text-ink-600 hover:bg-line" } disabled:cursor-not-allowed disabled:opacity-60`}
                     >
                       {togglingFeature === feature.key ? "..." : enabled ? "ON" : "OFF"}
                     </button>
@@ -768,8 +758,8 @@ export default function AdminClientDetailPage() {
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-sm font-medium text-[#1A1A18]">Owner, manager, officer</div>
-                <p className="mt-1 text-xs leading-5 text-[#888780]">
+                <div className="text-body font-medium text-ink-900">Owner, manager, officer</div>
+                <p className="mt-1 text-label leading-5 text-ink-300">
                   Admin-managed staff access for this client workspace. Owner keeps settings control; managers operate documents; officers prepare drafts.
                 </p>
               </div>
@@ -787,22 +777,20 @@ export default function AdminClientDetailPage() {
               </Button>
             </div>
 
-            <div className="divide-y divide-[#E8E6DF] rounded-lg border border-[#E8E6DF] bg-white">
+            <div className="divide-y divide-line rounded-control border border-card-border bg-white">
               {members.length === 0 ? (
-                <div className="px-3 py-4 text-sm text-[#888780]">No team members yet.</div>
+                <div className="px-3 py-4 text-body text-ink-300">No team members yet.</div>
               ) : (
                 members.map((member) => {
                   const isOwner = member.memberUserId === id || member.role === "owner";
                   return (
                     <div key={member.id} className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-[#1A1A18]">{member.email || "-"}</div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#888780]">
+                        <div className="truncate text-body font-medium text-ink-900">{member.email || "-"}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-label text-ink-300">
                           <span>{member.customRoleName || roleLabels[member.role]}</span>
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              member.status === "active" ? "bg-[#EAF3DE] text-[#27500A]" : "bg-[#F1EFE8] text-[#6F6A61]"
-                            }`}
+                            className={`rounded-full px-2 py-0.5 text-label font-medium ${ member.status === "active" ? "bg-paid-bg text-paid-text" : "bg-draft-bg text-ink-500" }`}
                           >
                             {member.status === "active" ? "Active" : "Disabled"}
                           </span>
@@ -820,7 +808,7 @@ export default function AdminClientDetailPage() {
                               handleUpdateMember(member, { roleId: value });
                             }
                           }}
-                          className="rounded-lg border border-card-border bg-white px-3 py-1.5 text-xs text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
+                          className="rounded-control border border-card-border bg-white px-3 py-1.5 text-label text-ink-700 disabled:bg-paper-field disabled:text-ink-400"
                         >
                           <optgroup label="บทบาทพื้นฐาน">
                             <option value="base:manager">Manager</option>
@@ -887,18 +875,18 @@ export default function AdminClientDetailPage() {
 
         <Card>
           {auditEntries.length === 0 ? (
-            <p className="text-sm text-[#888780]">ยังไม่มีประวัติการเปลี่ยนแปลง</p>
+            <p className="text-body text-ink-300">ยังไม่มีประวัติการเปลี่ยนแปลง</p>
           ) : (
-            <div className="divide-y divide-[#F0EFE9]">
+            <div className="divide-y divide-line-faint">
               {auditEntries.slice(0, 20).map((entry) => (
                 <div key={entry.id} className="py-2.5">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-semibold text-[#1A1A18]">{AUDIT_ACTION_LABELS[entry.action] || entry.action}</span>
-                    <span className="text-[#888780]">{entry.actor_email || "ระบบ"}</span>
+                  <div className="flex flex-wrap items-center gap-2 text-label">
+                    <span className="font-semibold text-ink-900">{AUDIT_ACTION_LABELS[entry.action] || entry.action}</span>
+                    <span className="text-ink-300">{entry.actor_email || "ระบบ"}</span>
                     {entry.target_email && entry.target_email !== entry.actor_email && (
-                      <span className="text-[#888780]">→ {entry.target_email}</span>
+                      <span className="text-ink-300">→ {entry.target_email}</span>
                     )}
-                    <span className="ml-auto text-[#B5B2A8]">
+                    <span className="ml-auto text-ink-100">
                       {new Date(entry.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
                     </span>
                   </div>
@@ -937,13 +925,13 @@ export default function AdminClientDetailPage() {
               เปลี่ยนรหัสผ่าน (กำหนดเอง)
             </Button>
 
-            <Button variant="secondary" className="w-full text-[#C0392B] border-[#C0392B]/20 hover:bg-red-50" onClick={handleToggleActive} disabled={toggling}>
+            <Button variant="secondary" className="w-full text-danger border-danger/20 hover:bg-red-50" onClick={handleToggleActive} disabled={toggling}>
               {toggling ? "กำลังดำเนินการ..." : isActive ? "ปิดการใช้งานบัญชี" : "เปิดใช้งานบัญชี"}
             </Button>
 
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">Dev Mode</div>
-              <p className="mt-1 text-sm leading-6 text-amber-900">
+            <div className="rounded-control border border-amber-200 bg-amber-50 p-3">
+              <div className="text-label font-semibold text-amber-800">Dev Mode</div>
+              <p className="mt-1 text-body leading-6 text-amber-900">
                 Allow client to freely edit document numbers (invoice number, receipt number, etc.).
                 Currently: <strong>{clientProfile?.dev_mode_enabled ? "ON" : "OFF"}</strong>
               </p>
@@ -957,13 +945,13 @@ export default function AdminClientDetailPage() {
               </Button>
             </div>
 
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">Start New Workspace</div>
-              <p className="mt-1 text-sm leading-6 text-amber-900">
+            <div className="rounded-control border border-amber-200 bg-amber-50 p-3">
+              <div className="text-label font-semibold text-amber-800">Start New Workspace</div>
+              <p className="mt-1 text-body leading-6 text-amber-900">
                 Archive active deals, customers, and catalog items for this client, then reset document numbering.
                 Old documents remain available as history, and deal numbers (DL-) continue after the highest archived number.
               </p>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-amber-900/80">
+              <div className="mt-2 grid grid-cols-3 gap-2 text-label text-amber-900/80">
                 <div>Active deals: {activeDealCount}</div>
                 <div>Active customers: {activeCustomerCount}</div>
                 <div>Active items: {activeItemCount}</div>
@@ -980,9 +968,9 @@ export default function AdminClientDetailPage() {
               </Button>
             </div>
 
-            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-orange-800">Clear Documents &amp; Numbering</div>
-              <p className="mt-1 text-sm leading-6 text-orange-900">
+            <div className="rounded-control border border-orange-200 bg-orange-50 p-3">
+              <div className="text-label font-semibold text-orange-800">Clear Documents &amp; Numbering</div>
+              <p className="mt-1 text-body leading-6 text-orange-900">
                 End-of-trial cleanup: delete all documents, deals, stock movements, and WHT records for this client.
                 Document numbering restarts at 1 and deal numbering (DL-) restarts at 00001.
                 Item stock counts are restored to their pre-trial levels. Customers, catalog items, and
@@ -1000,9 +988,9 @@ export default function AdminClientDetailPage() {
               </Button>
             </div>
 
-            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-orange-800">Reset All Data</div>
-              <p className="mt-1 text-sm leading-6 text-orange-900">
+            <div className="rounded-control border border-orange-200 bg-orange-50 p-3">
+              <div className="text-label font-semibold text-orange-800">Reset All Data</div>
+              <p className="mt-1 text-body leading-6 text-orange-900">
                 Permanently delete all documents, deals, customers, catalog items, stock history, and WHT records.
                 Number sequences (documents and deals) will be reset. The client account and profile settings are preserved.
                 This action cannot be undone.
@@ -1019,9 +1007,9 @@ export default function AdminClientDetailPage() {
               </Button>
             </div>
 
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-red-800">Delete Client</div>
-              <p className="mt-1 text-sm leading-6 text-red-900">
+            <div className="rounded-control border border-red-200 bg-red-50 p-3">
+              <div className="text-label font-semibold text-red-800">Delete Client</div>
+              <p className="mt-1 text-body leading-6 text-red-900">
                 Permanently delete this client, all their documents, customers, items, and account data.
                 This action cannot be undone.
               </p>
@@ -1043,7 +1031,7 @@ export default function AdminClientDetailPage() {
 
         <Card>
           {documents.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">ยังไม่มีเอกสาร</p>
+            <p className="text-body text-ink-400 text-center py-4">ยังไม่มีเอกสาร</p>
           ) : (
             <div className="overflow-x-auto">
               <table className={TABLE.table}>
@@ -1080,22 +1068,20 @@ export default function AdminClientDetailPage() {
                       active={adminDocSort.sort.key === "status"}
                       dir={adminDocSort.sort.dir}
                       onClick={() => adminDocSort.handleSort("status")}
-                      className="!text-[#888780] !text-[12px] !font-normal !py-2 !pl-0"
+                      className="!text-ink-300 !text-label !font-normal !py-2 !pl-0"
                     />
                   </tr>
                 </thead>
                 <tbody>
                   {adminDocSort.sorted.map((document) => (
                     <tr key={document.id} className={`${TABLE.tbodyTr}`}>
-                      <td className="py-2 pr-2 font-medium text-[#111827]">{document.doc_number || "-"}</td>
-                      <td className="py-2 pr-2 text-[#475467]">{DOC_TYPE_LABELS[document.doc_type]?.th || document.doc_type}</td>
-                      <td className="py-2 pr-2 text-[#667085]">{(document as any).customer?.name || "-"}</td>
+                      <td className="py-2 pr-2 font-medium text-ink-900">{document.doc_number || "-"}</td>
+                      <td className="py-2 pr-2 text-ink-500">{DOC_TYPE_LABELS[document.doc_type]?.th || document.doc_type}</td>
+                      <td className="py-2 pr-2 text-ink-400">{(document as any).customer?.name || "-"}</td>
                       <td className="py-2 pr-2 text-right">฿ {document.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
                       <td className="py-2">
                         <span
-                          className={`inline-flex px-1.5 py-0.5 rounded text-[11px] font-medium ${
-                            STATUS_COLORS[document.status]?.bg || "bg-[#F1EFE8]"
-                          } ${STATUS_COLORS[document.status]?.text || "text-[#444441]"}`}
+                          className={`inline-flex px-1.5 py-0.5 rounded text-label font-medium ${ STATUS_COLORS[document.status]?.bg || "bg-draft-bg" } ${STATUS_COLORS[document.status]?.text || "text-ink-700"}`}
                         >
                           {STATUS_LABELS[document.status] || document.status}
                         </span>
@@ -1139,7 +1125,7 @@ export default function AdminClientDetailPage() {
             onChange={(event) => setMemberPassword(event.target.value)}
             placeholder="Leave blank to use invite email"
           />
-          <div className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] p-3 text-xs leading-5 text-[#6F6A61]">
+          <div className="rounded-control border border-card-border bg-paper-tint p-3 text-label leading-5 text-ink-500">
             Staff users share this client's customers, catalog, documents, and numbering. They do not get their own company profile.
           </div>
           <div className="flex justify-end gap-2">
@@ -1165,16 +1151,16 @@ export default function AdminClientDetailPage() {
       >
         {permissionMember && permissionDraft && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] p-3">
-              <div className="text-sm font-medium text-[#1A1A18]">{permissionMember.email}</div>
-              <p className="mt-1 text-xs leading-5 text-[#888780]">
+            <div className="rounded-control border border-card-border bg-paper-tint p-3">
+              <div className="text-body font-medium text-ink-900">{permissionMember.email}</div>
+              <p className="mt-1 text-label leading-5 text-ink-300">
                 Role: {permissionMember.customRoleName || roleLabels[permissionMember.role]}. These toggles override the default access for this staff member only.
               </p>
             </div>
 
             {PERMISSION_SECTIONS.map((section) => (
               <div key={section.title}>
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#888780]">
+                <div className="mb-2 text-label font-semibold text-ink-300">
                   {section.title}
                 </div>
                 <div className="space-y-2">
@@ -1184,16 +1170,14 @@ export default function AdminClientDetailPage() {
                     return (
                       <label
                         key={permissionKey}
-                        className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-[#E8E6DF] bg-white p-3 hover:bg-[#FBFAF7]"
+                        className="flex cursor-pointer items-start justify-between gap-3 rounded-control border border-card-border bg-white p-3 hover:bg-paper-tint"
                       >
                         <span className="min-w-0">
-                          <span className="block text-sm font-medium text-[#1A1A18]">{meta?.label ?? permissionKey}</span>
-                          <span className="mt-1 block text-xs leading-5 text-[#888780]">{meta?.description ?? ""}</span>
+                          <span className="block text-body font-medium text-ink-900">{meta?.label ?? permissionKey}</span>
+                          <span className="mt-1 block text-label leading-5 text-ink-300">{meta?.description ?? ""}</span>
                         </span>
                         <span
-                          className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                            checked ? "bg-[#378ADD]" : "bg-[#D8D5CE]"
-                          }`}
+                          className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${ checked ? "bg-primary" : "bg-ink-100" }`}
                         >
                           <input
                             type="checkbox"
@@ -1202,9 +1186,7 @@ export default function AdminClientDetailPage() {
                             className="sr-only"
                           />
                           <span
-                            className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                              checked ? "translate-x-5" : "translate-x-0.5"
-                            }`}
+                            className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${ checked ? "translate-x-5" : "translate-x-0.5" }`}
                           />
                         </span>
                       </label>
@@ -1253,12 +1235,12 @@ export default function AdminClientDetailPage() {
         title="Archive workspace and reset numbering"
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-gray-700">
+          <p className="text-body leading-6 text-ink-700">
             This will hide the client&apos;s active workspace from normal day-to-day screens by archiving active deals, customers, and items.
             It will also reset document numbering. Existing documents remain in the database as history, and deal numbers
             (DL-) continue after the highest archived number.
           </p>
-          <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700">
+          <div className="rounded-control border border-line bg-paper-field p-3 text-body text-ink-700">
             <div>Active deals to archive: {activeDealCount}</div>
             <div>Active customers to archive: {activeCustomerCount}</div>
             <div>Active items to archive: {activeItemCount}</div>
@@ -1299,21 +1281,21 @@ export default function AdminClientDetailPage() {
         title="Clear documents and numbering"
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-gray-700">
+          <p className="text-body leading-6 text-ink-700">
             This will permanently delete all documents, deals, stock movements, and WHT records for this client.
             Document numbering will restart from 1 and deal numbering (DL-) from 00001. Item stock counts will be
             restored to their pre-trial levels (document-driven movements are reversed; manual stock-ins stay counted).
           </p>
-          <p className="text-sm leading-6 text-gray-700 font-medium">
+          <p className="text-body leading-6 text-ink-700 font-medium">
             The following will be preserved:
           </p>
-          <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
+          <ul className="text-body text-ink-600 list-disc pl-5 space-y-1">
             <li>Customers ({activeCustomerCount} active)</li>
             <li>Catalog items ({activeItemCount} active)</li>
             <li>WHT vendors (master data)</li>
             <li>Profile settings (company name, tax ID, logo, etc.)</li>
           </ul>
-          <p className="text-sm font-semibold text-amber-700">This action cannot be undone. The documents will be permanently deleted.</p>
+          <p className="text-body font-semibold text-amber-700">This action cannot be undone. The documents will be permanently deleted.</p>
           <Input
             id="reset-docs-confirm"
             label={`Type "${confirmName}" to confirm`}
@@ -1350,7 +1332,7 @@ export default function AdminClientDetailPage() {
         title="Reset all client data"
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-gray-700">
+          <p className="text-body leading-6 text-ink-700">
             This will permanently delete all documents, deals, customers, catalog items,
             stock history, and WHT records for this client. Number sequences for documents
             and deals will be reset to defaults. The client account and profile settings
@@ -1392,18 +1374,18 @@ export default function AdminClientDetailPage() {
         title="Delete client permanently"
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-gray-700">
+          <p className="text-body leading-6 text-ink-700">
             This will <strong className="text-red-600">permanently delete</strong> the client{" "}
             <strong>{clientProfile.company_name_th || email}</strong>, including:
           </p>
-          <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
+          <ul className="text-body text-ink-600 list-disc pl-5 space-y-1">
             <li>All documents ({dealCount} deals, {documents.length} recent docs)</li>
             <li>All customers ({activeCustomerCount} active)</li>
             <li>All catalog items ({activeItemCount} active)</li>
             <li>Company profile, settings, and numbering</li>
             <li>Login account ({email})</li>
           </ul>
-          <p className="text-sm font-semibold text-red-600">This action is irreversible. The data cannot be recovered.</p>
+          <p className="text-body font-semibold text-red-600">This action is irreversible. The data cannot be recovered.</p>
           <Input
             id="delete-confirm"
             label={`Type "${confirmName}" to confirm deletion`}
@@ -1441,7 +1423,7 @@ export default function AdminClientDetailPage() {
         title="เปลี่ยนรหัสผ่าน"
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-gray-700">
+          <p className="text-body leading-6 text-ink-700">
             กำหนดรหัสผ่านใหม่ให้กับ <strong>{clientProfile.company_name_th || email}</strong>
           </p>
           <Input
@@ -1481,7 +1463,7 @@ export default function AdminClientDetailPage() {
 
       <Modal open={showResetMemberPasswordModal} onClose={() => setShowResetMemberPasswordModal(false)} title="รีเซ็ตรหัสผ่านสมาชิก">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             ตั้งรหัสผ่านชั่วคราวให้ <strong>{resetMemberTarget?.email || ""}</strong> สมาชิกจะถูกขอให้เปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งถัดไป
           </p>
           <Input
@@ -1507,7 +1489,7 @@ export default function AdminClientDetailPage() {
 
       <Modal open={showDeleteMemberModal} onClose={() => setShowDeleteMemberModal(false)} title="ลบสมาชิก">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             คุณแน่ใจว่าต้องการลบ <strong>{deleteMemberTarget?.email || ""}</strong> ออกจากทีมใช่หรือไม่? การลบจะยกเลิกบัญชีผู้ใช้ทั้งหมดและไม่สามารถเรียกคืนได้
           </p>
           <div className="flex gap-2 justify-end">

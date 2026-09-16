@@ -114,8 +114,8 @@ export default function SetPasswordPage() {
     <div className="min-h-screen bg-page-bg flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-xl font-semibold text-gray-800">ตั้งรหัสผ่านของคุณ</h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <h1 className="text-display font-semibold text-ink-800">ตั้งรหัสผ่านของคุณ</h1>
+          <p className="text-body text-ink-400 mt-1">
             เนื่องจากนี่คือการเข้าสู่ระบบครั้งแรก กรุณาตั้งรหัสผ่านใหม่ของคุณเอง
           </p>
         </div>
@@ -139,7 +139,7 @@ export default function SetPasswordPage() {
             required
             minLength={6}
           />
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-label text-red-500">{error}</p>}
           <Button type="submit" className="w-full" loading={submitting} disabled={submitting}>
             {submitting ? "กำลังตั้งรหัสผ่าน..." : "ตั้งรหัสผ่าน"}
           </Button>

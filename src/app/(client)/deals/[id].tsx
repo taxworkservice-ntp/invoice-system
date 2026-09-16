@@ -387,11 +387,11 @@ export default function DealDetailPage() {
           return;
         }
         if (rpcError) {
-          // eslint-disable-next-line no-console
+           
           console.info("[get_deal_detail RPC fallback]", rpcError.message);
         }
       } catch (rpcErr) {
-        // eslint-disable-next-line no-console
+         
         console.info("[get_deal_detail RPC fallback]", rpcErr);
       }
       if (dashboardStale()) return;
@@ -583,7 +583,7 @@ export default function DealDetailPage() {
         if (!dashboardStale()) setBorrowedDocs([]);
       }
     } catch (err: any) {
-      // eslint-disable-next-line no-console
+       
       console.error(err);
       if (dealRequestId.current !== requestId) return;
       setLoadError(err?.message || "ไม่สามารถโหลดข้อมูลงานขายได้");
@@ -1587,10 +1587,10 @@ export default function DealDetailPage() {
     return (
       <AppShell title="งานขาย" showBack>
         <div className="space-y-3 animate-pulse">
-          <div className="h-16 rounded-card bg-stone-200" />
-          <div className="h-44 rounded-card bg-stone-200" />
-          <div className="h-72 rounded-card bg-stone-200" />
-          <div className="h-24 rounded-card bg-stone-200" />
+          <div className="h-16 rounded-card bg-line-faint" />
+          <div className="h-44 rounded-card bg-line-faint" />
+          <div className="h-72 rounded-card bg-line-faint" />
+          <div className="h-24 rounded-card bg-line-faint" />
         </div>
       </AppShell>
     );
@@ -1601,8 +1601,8 @@ export default function DealDetailPage() {
       <AppShell title="งานขาย" showBack>
         {loadError ? (
           <div className="space-y-3 py-10 text-center">
-            <p className="text-sm font-medium text-red-700">โหลดงานขายไม่สำเร็จ</p>
-            <p className="text-xs text-gray-500">{loadError}</p>
+            <p className="text-body font-medium text-red-700">โหลดงานขายไม่สำเร็จ</p>
+            <p className="text-label text-ink-500">{loadError}</p>
             <Button
               variant="secondary"
               onClick={() => {
@@ -1658,10 +1658,10 @@ export default function DealDetailPage() {
           <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {deal?.deal_number && (
-                  <div className="text-[11px] font-medium text-primary tabular-nums">{deal.deal_number}</div>
+                  <div className="text-label font-medium text-primary tabular-nums">{deal.deal_number}</div>
                 )}
                 <div className="flex items-center gap-2">
-                  <div className="text-[15px] font-semibold text-gray-900 truncate">{customer?.name || title}</div>
+                  <div className="text-title font-semibold text-ink-900 truncate">{customer?.name || title}</div>
                   {customer && (
                     <button
                       type="button"
@@ -1669,7 +1669,7 @@ export default function DealDetailPage() {
                         e.stopPropagation();
                         navigate(`/customers/${customer.id}`);
                       }}
-                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-primary hover:bg-primary-soft transition-colors"
+                      className="shrink-0 rounded-control p-1 text-ink-400 hover:text-primary hover:bg-primary-soft transition-colors"
                       title="เปิดหน้าลูกค้า"
                       aria-label="เปิดหน้าลูกค้า"
                     >
@@ -1684,7 +1684,7 @@ export default function DealDetailPage() {
                         e.stopPropagation();
                         void openCustomerPicker();
                       }}
-                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-primary hover:bg-primary-soft transition-colors disabled:opacity-40"
+                      className="shrink-0 rounded-control p-1 text-ink-400 hover:text-primary hover:bg-primary-soft transition-colors disabled:opacity-40"
                       title="เปลี่ยนลูกค้าของงานนี้"
                       aria-label="เปลี่ยนลูกค้าของงานนี้"
                     >
@@ -1694,7 +1694,7 @@ export default function DealDetailPage() {
                   {customer?.phone && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopyText(customer.phone!); }}
-                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                      className="shrink-0 rounded-control p-1 text-ink-400 hover:text-ink-600 hover:bg-ink-50"
                       title="คัดลอกเบอร์โทร"
                     >
                       <Phone className="h-3.5 w-3.5" />
@@ -1703,7 +1703,7 @@ export default function DealDetailPage() {
                   {customer?.tax_id && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopyText(customer.tax_id!); }}
-                      className="shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                      className="shrink-0 rounded-control p-1 text-ink-400 hover:text-ink-600 hover:bg-ink-50"
                       title="คัดลอกเลขที่ผู้เสียภาษี"
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -1711,21 +1711,21 @@ export default function DealDetailPage() {
                   )}
                 </div>
               {itemSummary ? (
-                <div className="mt-1 text-xs text-gray-500 leading-5">{itemSummary}</div>
+                <div className="mt-1 text-label text-ink-500 leading-5">{itemSummary}</div>
               ) : customer?.address ? (
-                <div className="mt-1 text-xs text-gray-500 leading-5 line-clamp-2">{customer.address}</div>
+                <div className="mt-1 text-label text-ink-500 leading-5 line-clamp-2">{customer.address}</div>
               ) : (
-                <div className="mt-1 text-xs text-gray-400">ยังไม่มีรายการสินค้า</div>
+                <div className="mt-1 text-label text-ink-400">ยังไม่มีรายการสินค้า</div>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${statusPill.className}`}>
+                <span className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${statusPill.className}`}>
                   {statusPill.label}
                 </span>
                 <select
                   value={deal?.manual_stage ?? ""}
                   onChange={(e) => handleSetManualStage(e.target.value)}
                   disabled={stageOverrideBusy || !deal}
-                  className="rounded-md border border-[#E8E6DF] bg-white px-1.5 py-0.5 text-[11px] text-gray-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  className="rounded-control border border-card-border bg-white px-1.5 py-0.5 text-label text-ink-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                   title="ระบุสถานะที่แสดงบนหน้าหลักเอง เมื่อสถานะอัตโนมัติไม่ตรงกับความจริง"
                 >
                   <option value="">สถานะหน้าหลัก: อัตโนมัติ</option>
@@ -1738,8 +1738,8 @@ export default function DealDetailPage() {
               </div>
             </div>
             <div className="text-right shrink-0">
-              <div className="text-xl font-bold text-gray-900">฿{formatCurrency(amountDoc ? getDocumentAmount(amountDoc.document) : 0)}</div>
-              <div className="mt-1 text-[11px] text-gray-500">{amountLabel}</div>
+              <div className="text-display font-semibold text-ink-900">฿{formatCurrency(amountDoc ? getDocumentAmount(amountDoc.document) : 0)}</div>
+              <div className="mt-1 text-label text-ink-500">{amountLabel}</div>
               <Button
                 variant="secondary"
                 size="sm"
@@ -1757,11 +1757,7 @@ export default function DealDetailPage() {
                 <button
                   type="button"
                   onClick={() => navigate(`/deals/${billingRefs.billedIn!.dealId}`)}
-                  className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
-                    invoicePaymentTone(billingRefs.billedIn.invoiceStatus) === "paid"
-                      ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      : "border-amber-100 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                  }`}
+                  className={`flex w-full items-center justify-between gap-2 rounded-control border px-3 py-2 text-label transition-colors ${ invoicePaymentTone(billingRefs.billedIn.invoiceStatus) === "paid" ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-100 bg-amber-50 text-amber-800 hover:bg-amber-100" }`}
                 >
                   <span>
                     {billingRefs.billedIn.kind === "billing_note"
@@ -1776,7 +1772,7 @@ export default function DealDetailPage() {
                 </button>
               )}
               {billingRefs.sourceDeals.length > 0 && (
-                <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                <div className="flex items-start gap-2 rounded-control border border-blue-100 bg-blue-50 px-3 py-2 text-label text-blue-800">
                   <FileStack className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <span>
                     รวมจาก {billingRefs.sourceDeals.length} งานขาย:{" "}
@@ -1798,7 +1794,7 @@ export default function DealDetailPage() {
             </div>
           )}
           {isOverdue && activeDoc?.document.due_date && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-700">
+            <div className="mt-3 flex items-start gap-2 rounded-control bg-red-50 border border-red-100 px-3 py-2 text-label text-red-700">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>เอกสารนี้เกินกำหนดชำระแล้ว ตั้งแต่ {formatBuddhistDate(activeDoc.document.due_date)}</span>
             </div>
@@ -1808,7 +1804,7 @@ export default function DealDetailPage() {
             if (!partialDoc) return null;
             const remaining = (partialDoc.net_payable || 0) - (partialDoc.amount_received || 0);
             return (
-              <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-800">
+              <div className="mt-3 flex items-start gap-2 rounded-control bg-amber-50 border border-amber-100 px-3 py-2 text-label text-amber-800">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <div>
                   <span className="font-semibold">ชำระบางส่วน</span>
@@ -1819,7 +1815,7 @@ export default function DealDetailPage() {
           })()}
         </Card>
 
-        <div className="flex gap-1 rounded-xl bg-stone-100 p-1" role="tablist" aria-label="ส่วนของงานขาย">
+        <div className="flex gap-1 rounded-card bg-ink-50 p-1" role="tablist" aria-label="ส่วนของงานขาย">
           {([
             ["main", "เอกสาร"],
             ["activity", activities.length > 0 ? `กิจกรรม (${activities.length})` : "กิจกรรม"],
@@ -1829,11 +1825,7 @@ export default function DealDetailPage() {
               role="tab"
               aria-selected={activeTab === key}
               onClick={() => setActiveTab(key)}
-              className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium transition-colors ${
-                activeTab === key
-                  ? "bg-white text-ink-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`flex-1 rounded-control px-2 py-2 text-label font-medium transition-colors ${ activeTab === key ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-700" }`}
             >
               {label}
             </button>
@@ -1844,8 +1836,8 @@ export default function DealDetailPage() {
         <>
         <Card>
           <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ขั้นตอน</div>
-            <div className="text-[11px] text-gray-400">{currentStage}/4</div>
+            <div className="text-label font-semibold text-ink-500">ขั้นตอน</div>
+            <div className="text-label text-ink-400">{currentStage}/4</div>
           </div>
           <div className="flex items-start mb-4">
             {[
@@ -1865,23 +1857,23 @@ export default function DealDetailPage() {
                     <div
                       onClick={stageDoc ? () => navigate(`/documents/${stageDoc.document.id}`) : undefined}
                       className={[
-                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold relative z-[1]",
+                        "w-8 h-8 rounded-full flex items-center justify-center text-label font-semibold relative z-[1]",
                         stageDoc ? "cursor-pointer" : "",
-                        isSkipped ? "bg-stone-100 text-stone-400" : "",
+                        isSkipped ? "bg-ink-50 text-ink-400" : "",
                         isDone ? "bg-paid-bg text-paid-text" : "",
-                        isActive ? "bg-primary text-white shadow-[0_0_0_4px_rgba(55,138,221,0.12)]" : "",
-                        !isDone && !isActive && !isSkipped ? "bg-stone-100 text-stone-400" : "",
+                        isActive ? "bg-primary text-white ring-4 ring-primary/15" : "",
+                        !isDone && !isActive && !isSkipped ? "bg-ink-50 text-ink-400" : "",
                       ].join(" ")}
                     >
                       {isSkipped ? "–" : isDone ? <CheckCircle2 className="h-4 w-4" /> : stage.step}
                     </div>
-                    <div className={`mt-1.5 text-2xs leading-4 text-center ${isDone ? "text-paid-text" : isActive ? "text-primary font-semibold" : "text-gray-500"}`}>
+                    <div className={`mt-1.5 text-label leading-4 text-center ${isDone ? "text-paid-text" : isActive ? "text-primary font-semibold" : "text-ink-500"}`}>
                       {stage.top}
                       <br />
                       {stage.bottom}
                     </div>
                     {isDone && stageDoc?.document.doc_number && (
-                      <div className="mt-0.5 max-w-[64px] truncate text-3xs text-paid-text">{stageDoc.document.doc_number}</div>
+                      <div className="mt-0.5 max-w-[64px] truncate text-label text-paid-text">{stageDoc.document.doc_number}</div>
                     )}
                   </div>
                   {index < 3 && (
@@ -1893,12 +1885,12 @@ export default function DealDetailPage() {
           </div>
 
           {mainAction?.type === "done" ? (
-            <div className="text-center text-sm font-semibold text-paid-text py-1">{mainAction.label}</div>
+            <div className="text-center text-body font-semibold text-paid-text py-1">{mainAction.label}</div>
           ) : mainAction ? (
             <>
               <Button
                 variant={"danger" in mainAction && mainAction.danger ? "danger" : "primary"}
-                className="w-full justify-center py-3 text-sm"
+                className="w-full justify-center py-3 text-body"
                 loading={actionLoadingId === mainAction.doc.id}
                 onClick={() => {
                   if (mainAction.type === "send_draft") handleSendDraft(mainAction.doc);
@@ -1921,24 +1913,24 @@ export default function DealDetailPage() {
               {activeDoc?.document.status === "draft" && (
                 <Button
                   variant="secondary"
-                  className="mt-2 w-full justify-center py-3 text-sm"
+                  className="mt-2 w-full justify-center py-3 text-body"
                   onClick={handleCurrentDocAction}
                 >
                   แก้ไขฉบับร่าง
                 </Button>
               )}
               {actionHint && (
-                <div className={`mt-2 text-center text-[11px] ${isOverdue ? "text-red-700" : "text-gray-500"}`}>{actionHint}</div>
+                <div className={`mt-2 text-center text-label ${isOverdue ? "text-red-700" : "text-ink-500"}`}>{actionHint}</div>
               )}
               {actionHelper && (
-                <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-center text-[11px] leading-4 text-blue-800">
+                <div className="mt-2 rounded-control bg-blue-50 px-3 py-2 text-center text-label leading-4 text-blue-800">
                   ขั้นตอนถัดไป: {actionHelper}
                 </div>
               )}
               {optionalAction && (
                 <Button
                   variant="secondary"
-                  className="mt-2 w-full justify-center py-3 text-sm"
+                  className="mt-2 w-full justify-center py-3 text-body"
                   loading={actionLoadingId === optionalAction.doc.id}
                   onClick={() => {
                     if (optionalAction.type === "convert") navigate(`/documents/new?type=invoice_from_quotation&quotationId=${optionalAction.doc.id}`);
@@ -1957,7 +1949,7 @@ export default function DealDetailPage() {
               )}
             </>
           ) : (
-            <div className="rounded-lg bg-stone-50 px-3 py-2 text-center text-xs leading-5 text-gray-600">
+            <div className="rounded-control bg-paper-field px-3 py-2 text-center text-label leading-5 text-ink-600">
               {activeDoc && !allDone
                 ? "รอผู้จัดการดำเนินการต่อ เอกสารนี้ถูกบันทึกเป็นฉบับร่างแล้ว"
                 : "ไม่มีการดำเนินการที่ต้องทำตอนนี้"}
@@ -1972,10 +1964,10 @@ export default function DealDetailPage() {
               <div className="flex items-start gap-3">
                 <FileText className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-amber-900">
+                  <div className="text-body font-semibold text-amber-900">
                     มีฉบับร่างค้าง {pendingDrafts.length} รายการ
                   </div>
-                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                  <p className="mt-1 text-label leading-5 text-amber-800">
                     ฉบับร่างจะทำให้งานขายยังไม่ปิด — เปิดส่งต่อ หรือลบออกหากไม่ต้องใช้
                   </p>
                   <div className="mt-2 space-y-1">
@@ -1984,7 +1976,7 @@ export default function DealDetailPage() {
                         key={item.document.id}
                         type="button"
                         onClick={() => navigate(`/documents/${item.document.id}`)}
-                        className="block w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-left text-xs font-medium text-ink-900 transition-colors hover:bg-amber-100"
+                        className="block w-full rounded-control border border-amber-200 bg-white px-3 py-2 text-left text-label font-medium text-ink-900 transition-colors hover:bg-amber-100"
                       >
                         {DOC_TYPE_LABELS[item.document.doc_type]?.th || item.document.doc_type}
                         {item.document.doc_number ? ` · ${item.document.doc_number}` : ""}
@@ -1997,12 +1989,12 @@ export default function DealDetailPage() {
           );
         })()}
         {allDone && summaryStats && (
-          <Card className=" border-green-200 bg-green-50">
+          <Card className="border-green-200 bg-green-50">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-green-800">งานขายเสร็จสิ้น</div>
-                <div className="mt-1 space-y-0.5 text-xs leading-5 text-green-700">
+                <div className="text-body font-semibold text-green-800">งานขายเสร็จสิ้น</div>
+                <div className="mt-1 space-y-0.5 text-label leading-5 text-green-700">
                   <div>รับเงินแล้ว ฿{formatCurrency(summaryStats.totalCollected)}</div>
                   {summaryStats.lastPaid && (
                     <div>
@@ -2036,22 +2028,14 @@ export default function DealDetailPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <PackageCheck className="h-4 w-4 text-accent-teal" />
-                  <div className="text-sm font-semibold text-ink-900">ความคืบหน้าการส่งของจากใบเสนอราคา</div>
+                  <div className="text-body font-semibold text-ink-900">ความคืบหน้าการส่งของจากใบเสนอราคา</div>
                 </div>
-                <div className="mt-1 text-xs leading-5 text-gray-500">
+                <div className="mt-1 text-label leading-5 text-ink-500">
                   {deliveryProgress.quotation.doc_number || "ใบเสนอราคา"} • ส่งแล้ว {formatQty(deliveryProgress.totalDelivered)} / เสนอราคา {formatQty(deliveryProgress.totalQuoted)}
                   {deliveryProgress.totalPending > 0 ? ` • ร่างค้าง ${formatQty(deliveryProgress.totalPending)}` : ""}
                 </div>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                allDone
-                  ? "bg-paid-bg text-paid-text"
-                  : deliveryProgress.allDelivered
-                    ? "bg-green-100 text-green-700"
-                    : deliveryProgress.hasOverDelivery
-                      ? "bg-amber-100 text-amber-800"
-                      : "bg-blue-100 text-blue-700"
-              }`}>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-label font-medium ${ allDone ? "bg-paid-bg text-paid-text" : deliveryProgress.allDelivered ? "bg-green-100 text-green-700" : deliveryProgress.hasOverDelivery ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-700" }`}>
                 {allDone
                   ? "ชำระแล้ว"
                   : deliveryProgress.allDelivered
@@ -2064,28 +2048,28 @@ export default function DealDetailPage() {
 
             <div className="mt-3 space-y-2">
               {deliveryProgress.rows.slice(0, 4).map((row) => (
-                <div key={row.line.id} className="rounded-lg border border-white/70 bg-white/70 px-3 py-2">
-                  <div className="flex items-start justify-between gap-3 text-xs">
+                <div key={row.line.id} className="rounded-control border border-white/70 bg-white/70 px-3 py-2">
+                  <div className="flex items-start justify-between gap-3 text-label">
                     <div className="min-w-0">
                       <div className="truncate font-medium text-ink-900">{row.line.item_name}</div>
-                      <div className="mt-0.5 text-gray-500">
+                      <div className="mt-0.5 text-ink-500">
                         ส่งแล้ว {formatQty(row.delivered)} / {formatQty(row.line.quantity)} {row.line.unit}
                         {row.pending > 0 ? ` • ร่างค้าง ${formatQty(row.pending)}` : ""}
                       </div>
                     </div>
-                    <div className={`shrink-0 text-right font-medium ${row.remaining < 0 ? "text-amber-700" : "text-gray-700"}`}>
+                    <div className={`shrink-0 text-right font-medium ${row.remaining < 0 ? "text-amber-700" : "text-ink-700"}`}>
                       คงเหลือ {formatQty(row.remaining)} {row.line.unit}
                     </div>
                   </div>
                 </div>
               ))}
               {deliveryProgress.rows.length > 4 && (
-                <div className="text-center text-[11px] text-gray-500">และอีก {deliveryProgress.rows.length - 4} รายการ</div>
+                <div className="text-center text-label text-ink-500">และอีก {deliveryProgress.rows.length - 4} รายการ</div>
             )}
           </div>
 
           {allDone && !deliveryProgress.allDelivered && (
-            <p className="mt-2 text-[11px] leading-4 text-gray-400">
+            <p className="mt-2 text-label leading-4 text-ink-400">
               ชำระแล้ว — จำนวนที่เหลือเป็นเพียงบันทึกการส่ง ระบบจะไม่ออกเอกสารเพิ่มจากส่วนนี้
               (หากบันทึกจำนวนผิด ให้ยกเลิกใบส่งของแล้วออกฉบับใหม่)
             </p>
@@ -2115,11 +2099,7 @@ export default function DealDetailPage() {
                     {dnAction.label}
                     {dnAction.badge && (
                       <span
-                        className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium ${
-                          dnAction.disabled
-                            ? "bg-white/70 text-gray-500"
-                            : "bg-white/70 text-accent-teal"
-                        }`}
+                        className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-label font-medium ${ dnAction.disabled ? "bg-white/70 text-ink-500" : "bg-white/70 text-accent-teal" }`}
                       >
                         {dnAction.badge}
                       </span>
@@ -2136,7 +2116,7 @@ export default function DealDetailPage() {
                     }
                   >
                     สร้างบิลจากใบส่งของ
-                    <span className="ml-2 inline-flex items-center rounded-full bg-white/25 px-2 py-0.5 text-2xs font-medium">
+                    <span className="ml-2 inline-flex items-center rounded-full bg-white/25 px-2 py-0.5 text-label font-medium">
                       {billableSentDns.length} ใบ
                     </span>
                   </Button>
@@ -2146,7 +2126,7 @@ export default function DealDetailPage() {
 
             {deliveryNotes.length > 0 && (
               <div className="mt-3 space-y-1.5">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
+                <div className="text-label font-semibold text-ink-500">
                   ใบส่งของในดีลนี้ ({deliveryNotes.length})
                 </div>
                 {deliveryNotes.map((item) => {
@@ -2158,25 +2138,19 @@ export default function DealDetailPage() {
                       key={doc.id}
                       type="button"
                       onClick={() => navigate(`/documents/${doc.id}`)}
-                      className="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-left transition-colors hover:bg-white"
+                      className="w-full rounded-control border border-white/70 bg-white/70 px-3 py-2 text-left transition-colors hover:bg-white"
                     >
-                      <div className="flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center justify-between gap-3 text-label">
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium text-ink-900">
                             {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
                           </div>
-                          <div className="mt-0.5 text-gray-500">
+                          <div className="mt-0.5 text-ink-500">
                             {formatBuddhistDate(doc.issue_date)}
                           </div>
                         </div>
                         <span
-                          className={`shrink-0 rounded-md px-2 py-0.5 text-2xs font-medium ${
-                            isDraft
-                              ? "bg-amber-100 text-amber-700"
-                              : isConverted
-                                ? "bg-stone-100 text-stone-600"
-                                : "bg-paid-bg text-paid-text"
-                          }`}
+                          className={`shrink-0 rounded-control px-2 py-0.5 text-label font-medium ${ isDraft ? "bg-amber-100 text-amber-700" : isConverted ? "bg-ink-50 text-ink-600" : "bg-paid-bg text-paid-text" }`}
                         >
                           {isDraft ? "ร่าง" : isConverted ? "รวมในบิลแล้ว" : "ส่งแล้ว"}
                         </span>
@@ -2189,7 +2163,7 @@ export default function DealDetailPage() {
           </Card>
         )}
         <FinancialSummaryCard summary={financialSummary}>
-          <div className={`rounded-full px-2.5 py-1 text-2xs font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
+          <div className={`rounded-full px-2.5 py-1 text-label font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
             {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
           </div>
         </FinancialSummaryCard>
@@ -2205,10 +2179,10 @@ export default function DealDetailPage() {
         {activities.length > 0 && (
           <Card>
             <div className="mb-3 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-gray-400" />
+              <Clock className="h-4 w-4 text-ink-400" />
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติการดำเนินงาน</div>
-                <div className="mt-0.5 text-xs text-gray-500">ใครทำอะไรกับงานขายนี้และเมื่อไหร่</div>
+                <div className="text-label font-semibold text-ink-500">ประวัติการดำเนินงาน</div>
+                <div className="mt-0.5 text-label text-ink-500">ใครทำอะไรกับงานขายนี้และเมื่อไหร่</div>
               </div>
             </div>
             <div className="space-y-3">
@@ -2219,15 +2193,15 @@ export default function DealDetailPage() {
                     <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span className="text-xs font-medium text-ink-900">{activity.description}</span>
-                        <span className="text-2xs text-gray-400">
+                        <span className="text-label font-medium text-ink-900">{activity.description}</span>
+                        <span className="text-label text-ink-400">
                           {new Date(activity.created_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}
                         </span>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-label text-ink-500">
                         <span>{activity.actor_name} · {activity.actor_role}</span>
                         {activity.metadata?.doc_type && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-cool-25 px-2 py-0.5 text-2xs font-medium text-gray-600">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-paper-field px-2 py-0.5 text-label font-medium text-ink-600">
                             {DOC_TYPE_LABELS[activity.metadata.doc_type as DocumentType]?.th || activity.metadata.doc_type}
                             {activity.metadata.doc_number ? ` · ${activity.metadata.doc_number}` : ""}
                           </span>
@@ -2243,7 +2217,7 @@ export default function DealDetailPage() {
               <button
                 type="button"
                 onClick={() => setShowAllActivities((v) => !v)}
-                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-700"
+                className="mt-3 inline-flex items-center gap-1 text-label font-medium text-primary hover:text-primary-700"
               >
                 {showAllActivities ? (
                   <>
@@ -2274,7 +2248,7 @@ export default function DealDetailPage() {
         {activeTab === "main" && (
         <>
         <div>
-          <div className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">ประวัติเอกสาร</div>
+          <div className="px-1 mb-2 text-label font-semibold text-ink-500">ประวัติเอกสาร</div>
           {historyDocs.length === 0 ? (
             <Card className="border-[0.5px]">
               <EmptyState title="ยังไม่มีเอกสาร" description="กดปุ่มด้านบนเพื่อเริ่มต้นขั้นตอนของงานขายนี้" />
@@ -2303,9 +2277,9 @@ export default function DealDetailPage() {
                           className={[
                             "mt-1 rounded-full",
                             "w-2.5 h-2.5",
-                            doc.status === "draft" ? "bg-stone-300" : "",
+                            doc.status === "draft" ? "bg-line" : "",
                             doc.status === "paid" || doc.status === "generated" || doc.status === "issued" ? "bg-paid-text" : "",
-                            doc.status === "converted" ? "bg-stone-400" : "",
+                            doc.status === "converted" ? "bg-ink-200" : "",
                             overdue ? "bg-danger" : "",
                           ].join(" ")}
                         />
@@ -2317,10 +2291,10 @@ export default function DealDetailPage() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-xs font-semibold text-gray-900">
+                            <div className="text-label font-semibold text-ink-900">
                               {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
                             </div>
-                            <div className="mt-0.5 text-[11px] text-gray-500">
+                            <div className="mt-0.5 text-label text-ink-500">
                               {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
                             </div>
                             <button
@@ -2329,19 +2303,19 @@ export default function DealDetailPage() {
                                 event.stopPropagation();
                                 navigate(`/deals/${borrowed.sourceDealId}`);
                               }}
-                              className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700 hover:bg-blue-100"
+                              className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700 hover:bg-blue-100"
                               title="เปิดงานขายต้นทางของเอกสารนี้"
                             >
                               จากงานขาย {borrowed.sourceDealNumber || "(ไม่มีเลขงานขาย)"}
                             </button>
-                            <div className="mt-1 text-2xs text-gray-400">
+                            <div className="mt-1 text-label text-ink-400">
                               {formatBuddhistDate(doc.issue_date)}
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1.5 shrink-0">
                             <div className="text-right">
-                              <div className="text-2xs text-gray-400">ยอดรวม</div>
-                              <div className="text-sm font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
+                              <div className="text-label text-ink-400">ยอดรวม</div>
+                              <div className="text-body font-semibold text-ink-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
                             </div>
                             <Badge status={overdue ? "overdue" : doc.status} />
                             <button
@@ -2350,7 +2324,7 @@ export default function DealDetailPage() {
                                 event.stopPropagation();
                                 handleOpenPreview(doc);
                               }}
-                              className="rounded-md p-1.5 text-gray-400 hover:bg-stone-100 hover:text-primary transition-colors"
+                              className="rounded-control p-1.5 text-ink-400 hover:bg-ink-50 hover:text-primary transition-colors"
                               title="พรีวิวเอกสาร"
                             >
                               <FileText className="h-4 w-4" />
@@ -2367,11 +2341,11 @@ export default function DealDetailPage() {
                       <div
                         className={[
                           "mt-1 rounded-full",
-                          isCurrent ? "w-3 h-3 bg-primary shadow-[0_0_0_3px_rgba(55,138,221,0.12)]" : "w-2.5 h-2.5",
-                          doc.status === "draft" ? "bg-stone-300" : "",
+                          isCurrent ? "w-3 h-3 bg-primary ring-4 ring-primary/20" : "w-2.5 h-2.5",
+                          doc.status === "draft" ? "bg-line" : "",
                           doc.status === "paid" || doc.status === "generated" || doc.status === "issued" ? "bg-paid-text" : "",
                           doc.status === "partially_paid" ? "bg-amber-600" : "",
-                          doc.status === "converted" ? "bg-stone-400" : "",
+                          doc.status === "converted" ? "bg-ink-200" : "",
                           overdue ? "bg-danger" : "",
                           (doc.status === "sent" || doc.status === "in_billing") && !overdue && !isCurrent ? "bg-primary" : "",
                         ].join(" ")}
@@ -2384,22 +2358,22 @@ export default function DealDetailPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className={`text-xs font-semibold ${isCurrent ? "text-primary" : "text-gray-900"}`}>
+                          <div className={`text-label font-semibold ${isCurrent ? "text-primary" : "text-ink-900"}`}>
                             {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
                           </div>
-                          <div className={`mt-0.5 text-[11px] ${doc.status === "voided" ? "line-through" : "text-gray-500"}`}>
+                          <div className={`mt-0.5 text-label ${doc.status === "voided" ? "line-through" : "text-ink-500"}`}>
                             {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
                             {convertedFromDoc && (
-                              <span className="text-gray-400"> • จาก {convertedFromDoc.doc_number || ""}</span>
+                              <span className="text-ink-400"> • จาก {convertedFromDoc.doc_number || ""}</span>
                             )}
                           </div>
                           {copiedFromDoc && (
-                            <div className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700">
+                            <div className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">
                               ออกแทน {copiedFromDoc.doc_number || "เอกสารเดิม"}
                             </div>
                           )}
                           {doc.doc_type === "delivery_note" && doc.status === "draft" && doc.is_blank_form ? (
-                            <div className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-2xs font-medium text-amber-700">
+                            <div className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-700">
                               ฟอร์มเปล่า
                             </div>
                           ) : null}
@@ -2433,12 +2407,12 @@ export default function DealDetailPage() {
                             const badgeLabel = uniqueKinds.length === 1 ? getSourceVarianceLabel(uniqueKinds[0]) : "ส่วนต่างจากเอกสารต้นฉบับ";
                             return (
                               <div className="mt-1">
-                                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-2xs font-medium text-amber-700">
+                                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-700">
                                   {badgeLabel}
                                 </span>
                                 <ul className="mt-1 space-y-0.5">
                                   {varianceLines.map((vl, vi) => (
-                                    <li key={vi} className="text-2xs leading-snug text-amber-800">
+                                    <li key={vi} className="text-label leading-snug text-amber-800">
                                       <span className="font-medium">{vl.name}</span> — {vl.parts.join(" | ")}
                                     </li>
                                   ))}
@@ -2446,7 +2420,7 @@ export default function DealDetailPage() {
                               </div>
                             );
                           })() : null}
-                          <div className="mt-1 text-2xs text-gray-400">
+                          <div className="mt-1 text-label text-ink-400">
                             {formatBuddhistDate(doc.issue_date)}
                             {doc.due_date ? (
                               <>
@@ -2456,14 +2430,14 @@ export default function DealDetailPage() {
                             ) : null}
                            </div>
                            {isFinancialDocument && (
-                             <div className="mt-1 flex flex-wrap gap-x-2 text-2xs leading-relaxed text-gray-400">
+                             <div className="mt-1 flex flex-wrap gap-x-2 text-label leading-relaxed text-ink-400">
                                <span>ก่อน VAT ฿{formatCurrency(doc.subtotal)}</span>
                                {doc.vat_registered && <span>VAT ฿{formatCurrency(doc.vat_amount)}</span>}
                                {doc.wht_amount > 0 && <span className="text-amber-600">หัก ณ ที่จ่าย -฿{formatCurrency(doc.wht_amount)}</span>}
                              </div>
                            )}
                            {(doc.status === "paid" || doc.status === "partially_paid" || doc.status === "generated" || doc.status === "issued") && (
-                            <div className="mt-1 text-2xs leading-relaxed">
+                            <div className="mt-1 text-label leading-relaxed">
                               {doc.doc_type === "receipt" ? (
                                 <>
                                   {doc.wht_amount > 0 && (
@@ -2472,7 +2446,7 @@ export default function DealDetailPage() {
                                     </div>
                                   )}
                                   {doc.payment_method && (
-                                    <div className={doc.wht_amount > 0 ? "text-gray-400" : "text-green-600"}>
+                                    <div className={doc.wht_amount > 0 ? "text-ink-400" : "text-green-600"}>
                                       {PAYMENT_METHOD_LABELS[doc.payment_method]}
                                     </div>
                                   )}
@@ -2486,7 +2460,7 @@ export default function DealDetailPage() {
                                     <span className="font-medium">คงเหลือ</span> ฿{Math.max(0, ((doc.net_payable || 0) - (doc.amount_received || 0))).toLocaleString()}
                                     {" "}({Math.round(((doc.amount_received || 0) / (doc.net_payable || 1)) * 100)}%)
                                   </div>
-                                   <div className="text-gray-400">
+                                   <div className="text-ink-400">
                                      {doc.payment_method ? PAYMENT_METHOD_LABELS[doc.payment_method] : ""}
                                      {!isFinancialDocument && doc.payment_method && doc.wht_amount > 0 ? " · " : ""}
                                      {!isFinancialDocument && doc.wht_amount > 0 ? <>หัก ณ ที่จ่าย ฿{formatCurrency(doc.wht_amount)}</> : ""}
@@ -2505,12 +2479,12 @@ export default function DealDetailPage() {
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <div className="text-right">
                             {(isFinancialDocument || doc.doc_type === "billing_note" || doc.doc_type === "receipt") && (
-                              <div className="text-2xs text-gray-400">ก่อน VAT ฿{formatCurrency(doc.subtotal)}</div>
+                              <div className="text-label text-ink-400">ก่อน VAT ฿{formatCurrency(doc.subtotal)}</div>
                             )}
-                            <div className="text-2xs text-gray-400">{isFinancialDocument && doc.wht_amount > 0 ? "รวม" : "ยอดรวม"}</div>
-                            <div className="text-sm font-semibold text-gray-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
+                            <div className="text-label text-ink-400">{isFinancialDocument && doc.wht_amount > 0 ? "รวม" : "ยอดรวม"}</div>
+                            <div className="text-body font-semibold text-ink-900">฿{formatCurrency(getDocumentAmount(doc))}</div>
                             {isFinancialDocument && doc.wht_amount > 0 && (
-                              <div className="mt-0.5 text-2xs font-medium text-ink-500">สุทธิ ฿{formatCurrency(doc.net_payable)}</div>
+                              <div className="mt-0.5 text-label font-medium text-ink-500">สุทธิ ฿{formatCurrency(doc.net_payable)}</div>
                             )}
                           </div>
                           <Badge status={overdue ? "overdue" : doc.status} />
@@ -2520,7 +2494,7 @@ export default function DealDetailPage() {
                               event.stopPropagation();
                               handleOpenPreview(doc);
                             }}
-                            className="mt-0.5 inline-flex items-center justify-center rounded-md border border-primary bg-white px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                            className="mt-0.5 inline-flex items-center justify-center rounded-control border border-primary bg-white px-2.5 py-1 text-label font-medium text-primary transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                           >
                             พิมพ์ / PDF
                           </button>
@@ -2533,7 +2507,7 @@ export default function DealDetailPage() {
 
               {voidedDocs.length > 0 && (
                 <button
-                  className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700"
+                  className="mt-1 inline-flex items-center gap-1 text-label text-ink-500 hover:text-ink-700"
                   onClick={() => setShowVoided((prev) => !prev)}
                 >
                   {showVoided ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -2547,25 +2521,25 @@ export default function DealDetailPage() {
                 return (
                   <div key={doc.id} className="flex gap-3 opacity-50">
                     <div className="w-7 flex flex-col items-center shrink-0">
-                      <div className="mt-1 w-2.5 h-2.5 rounded-full bg-stone-300" />
+                      <div className="mt-1 w-2.5 h-2.5 rounded-full bg-line" />
                     </div>
                     <Card className="mb-2 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="text-xs font-semibold text-gray-700">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</div>
-                          <div className="mt-0.5 text-[11px] text-gray-500 line-through">{doc.doc_number || "ยังไม่มีเลขเอกสาร"}</div>
+                          <div className="text-label font-semibold text-ink-700">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</div>
+                          <div className="mt-0.5 text-label text-ink-500 line-through">{doc.doc_number || "ยังไม่มีเลขเอกสาร"}</div>
                           {replacementDoc && (
-                            <div className="mt-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-2xs font-medium text-amber-800">
+                            <div className="mt-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-800">
                               ออกใหม่เป็น {replacementDoc.doc_number || "ฉบับใหม่"}
                             </div>
                           )}
-                          <div className="mt-1 text-2xs text-gray-400">{formatBuddhistDate(doc.issue_date)}</div>
+                          <div className="mt-1 text-label text-ink-400">{formatBuddhistDate(doc.issue_date)}</div>
                           {doc.voided_reason && (
-                            <div className="mt-0.5 text-2xs text-gray-400 italic">เหตุผล: {doc.voided_reason}</div>
+                            <div className="mt-0.5 text-label text-ink-400 italic">เหตุผล: {doc.voided_reason}</div>
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
-                          <div className="text-sm font-semibold text-gray-800">฿{formatCurrency(getDocumentAmount(doc))}</div>
+                          <div className="text-body font-semibold text-ink-800">฿{formatCurrency(getDocumentAmount(doc))}</div>
                           <Badge status="voided" />
                           <button
                             type="button"
@@ -2573,7 +2547,7 @@ export default function DealDetailPage() {
                               event.stopPropagation();
                               handleOpenPreview(doc);
                             }}
-                            className="mt-0.5 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+                            className="mt-0.5 inline-flex items-center justify-center rounded-control border border-line-strong bg-white px-2.5 py-1 text-label font-medium text-ink-500 transition-colors hover:bg-paper-field focus:outline-none focus-visible:ring-2 focus-visible:ring-line"
                           >
                             พิมพ์ / PDF
                           </button>
@@ -2590,13 +2564,13 @@ export default function DealDetailPage() {
           value={docNumberOverride}
           onChange={setDocNumberOverride}
           placeholder="ตั้งเลขที่เอกสารเอง (เว้นว่าง = อัตโนมัติ)"
-          className=" mb-3"
+          className="mb-3"
         />
         <Card>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">การจัดการเอกสาร</div>
-          <div className="mt-1 text-xs text-gray-500">แก้ไขเอกสารล่าสุดหรือจัดการเอกสารที่เกี่ยวข้อง</div>
+          <div className="text-label font-semibold text-ink-500">การจัดการเอกสาร</div>
+          <div className="mt-1 text-label text-ink-500">แก้ไขเอกสารล่าสุดหรือจัดการเอกสารที่เกี่ยวข้อง</div>
           {activeDoc && (
-            <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-5 text-stone-700">
+            <div className="mt-3 rounded-control border border-line bg-paper-field px-3 py-2 text-label leading-5 text-ink-700">
               {activeDoc.document.status === "draft"
                 ? "เอกสารร่างสามารถแก้ไขได้โดยตรง"
                 : activeDoc.document.doc_type === "invoice"
@@ -2682,11 +2656,11 @@ export default function DealDetailPage() {
       <Modal open={!!sendConfirmDoc} onClose={() => setSendConfirmDoc(null)} title="ยืนยันการส่งเอกสาร">
         {sendConfirmDoc && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
               <span className="font-semibold">{sendConfirmDoc.doc_number || "เอกสาร"}</span> จะถูกล็อคหลังส่ง
               หากผิดต้องยกเลิกและออกใหม่
             </div>
-            <p className="text-sm text-gray-600">ยืนยันส่งเอกสารนี้ให้ลูกค้าหรือไม่?</p>
+            <p className="text-body text-ink-600">ยืนยันส่งเอกสารนี้ให้ลูกค้าหรือไม่?</p>
             <div className="flex gap-2 justify-end">
               <Button variant="secondary" onClick={() => setSendConfirmDoc(null)}>ยกเลิก</Button>
               <Button
@@ -2705,7 +2679,7 @@ export default function DealDetailPage() {
       </Modal>
 
       <Modal open={showDocList} onClose={() => setShowDocList(false)} title="เลือกเอกสาร">
-        <div className="divide-y divide-stone-100">
+        <div className="divide-y divide-line-faint">
           {nonVoidedDocs.map((item) => {
             const doc = item.document;
             return (
@@ -2713,17 +2687,17 @@ export default function DealDetailPage() {
                 key={doc.id}
                 type="button"
                 onClick={() => { handleOpenPreview(doc); setShowDocList(false); }}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-stone-50 transition-colors text-left"
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-paper-field transition-colors text-left"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-900">
+                  <div className="text-body font-medium text-ink-900">
                     {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
                   </div>
-                  <div className="text-[12px] text-gray-500">
+                  <div className="text-label text-ink-500">
                     {doc.doc_number || "ยังไม่มีเลขเอกสาร"} · {formatBuddhistDate(doc.issue_date)}
                   </div>
                 </div>
-                <ExternalLink size={14} className="shrink-0 text-gray-300" />
+                <ExternalLink size={14} className="shrink-0 text-ink-300" />
               </button>
             );
           })}
@@ -2732,7 +2706,7 @@ export default function DealDetailPage() {
 
       <Modal open={cloneChooserOpen} onClose={() => setCloneChooserOpen(false)} title="สร้างงานขายเหมือนงานนี้">
         <div className="space-y-2">
-          <p className="text-sm text-gray-600">เลือกเอกสารที่ต้องการคัดลอกรายการจาก ระบบจะสร้างงานขายใหม่พร้อมฉบับร่างให้แก้ไข</p>
+          <p className="text-body text-ink-600">เลือกเอกสารที่ต้องการคัดลอกรายการจาก ระบบจะสร้างงานขายใหม่พร้อมฉบับร่างให้แก้ไข</p>
           {availableCloneTypes.map(({ type, label }) => (
             <Button
               key={type}
@@ -2754,17 +2728,17 @@ export default function DealDetailPage() {
       >
         <div className="space-y-3">
           {voidDocument && (
-            <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
-              เอกสารเดิม: <span className="font-semibold text-stone-900">{voidDocument.doc_number || documentTypeLabel(voidDocument.doc_type, voidDocument.vat_registered).thai}</span>
+            <div className="rounded-control border border-line bg-paper-field px-3 py-2 text-body text-ink-700">
+              เอกสารเดิม: <span className="font-semibold text-ink-900">{voidDocument.doc_number || documentTypeLabel(voidDocument.doc_type, voidDocument.vat_registered).thai}</span>
             </div>
           )}
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             {voidAndRecreate
               ? "ระบบจะเก็บเอกสารเดิมไว้เป็นประวัติ และสร้างฉบับใหม่ให้แก้ไข โดยฉบับใหม่จะใช้เลขที่เอกสารใหม่"
               : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้? สินค้าจะถูกคืนสต็อก"}
           </p>
           {voidAndRecreate && voidDocument && voidDocument.doc_type === "invoice" && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
               หากเอกสารนี้ผูกกับใบวางบิล ใบเสร็จ หรือใบส่งของ ระบบจะปลดสถานะที่เกี่ยวข้องตามกฎการยกเลิกเดิม และเก็บประวัติไว้ตรวจสอบย้อนหลัง
             </div>
           )}
@@ -2806,18 +2780,18 @@ export default function DealDetailPage() {
       >
         {unlinkDnConfirm && (
           <div className="space-y-3">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
               <span className="font-semibold">{unlinkDnConfirm.invoiceNo}</span> จะถูกยกเลิกและเก็บไว้เป็นประวัติ
               ใบส่งของ {unlinkDnConfirm.dns.length} ใบจะถูกแยกออกและกลับไปออกบิลใหม่ได้ทันที
             </div>
-            <ul className="divide-y divide-stone-100 rounded-lg border border-stone-200">
+            <ul className="divide-y divide-line-faint rounded-control border border-line">
               {unlinkDnConfirm.dns.map((dn) => (
-                <li key={dn.id} className="px-3 py-2 text-sm text-gray-700">
-                  ใบส่งของ <span className="font-medium text-gray-900">{dn.no}</span>
+                <li key={dn.id} className="px-3 py-2 text-body text-ink-700">
+                  ใบส่งของ <span className="font-medium text-ink-900">{dn.no}</span>
                 </li>
               ))}
             </ul>
-            <p className="text-sm text-gray-600">ยืนยันแยกใบส่งของเหล่านี้ออกจากใบแจ้งหนี้หรือไม่?</p>
+            <p className="text-body text-ink-600">ยืนยันแยกใบส่งของเหล่านี้ออกจากใบแจ้งหนี้หรือไม่?</p>
             <div className="flex gap-2">
               <Button variant="secondary" className="flex-1" onClick={() => setUnlinkDnConfirm(null)} disabled={unlinkingDn}>
                 ยกเลิก
@@ -2853,21 +2827,21 @@ export default function DealDetailPage() {
       <Modal open={!!confirmingReceiptDoc} onClose={() => setConfirmingReceiptDoc(null)} title="ยืนยันการรับเงิน">
         {confirmingReceiptDoc && (
           <div className="space-y-4">
-            <div className="rounded-lg bg-stone-50 border border-card-border px-4 py-3 text-sm space-y-2">
+            <div className="rounded-control bg-paper-field border border-card-border px-4 py-3 text-body space-y-2">
               <div className="flex justify-between gap-3">
-                <span className="text-gray-500">ใบเสร็จ</span>
+                <span className="text-ink-500">ใบเสร็จ</span>
                 <span className="font-medium">{confirmingReceiptDoc.doc_number || "-"}</span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-gray-500">วันที่รับเงิน</span>
+                <span className="text-ink-500">วันที่รับเงิน</span>
                 <span>{formatBuddhistDate(confirmingReceiptDoc.issue_date)}</span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-gray-500">ยอดรับสุทธิ</span>
+                <span className="text-ink-500">ยอดรับสุทธิ</span>
                 <span className="font-semibold">฿{formatCurrency(confirmingReceiptDoc.net_payable)}</span>
               </div>
             </div>
-            <p className="text-xs leading-5 text-gray-500">
+            <p className="text-label leading-5 text-ink-500">
               ยืนยันแล้วระบบจะบันทึกยอดรับเงิน ปรับสถานะเอกสารอ้างอิงเป็นชำระแล้ว และนับเป็นรายได้ของงวดนี้
             </p>
             <div className="flex gap-2 justify-end">
@@ -2888,15 +2862,15 @@ export default function DealDetailPage() {
       />
       <Modal open={revertConfirmOpen} onClose={() => setRevertConfirmOpen(false)} title="ยืนยันการลบงานขาย (Dev)">
         <div className="space-y-4">
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+          <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2.5 text-body text-red-800">
             การดำเนินการนี้จะลบงานขายนี้<strong>อย่างถาวร</strong> รวมถึง:
-            <ul className="mt-1.5 list-disc pl-5 text-xs space-y-0.5">
+            <ul className="mt-1.5 list-disc pl-5 text-label space-y-0.5">
               <li>ยกเลิกเอกสารทุกฉบับ (คืนสต็อกหากมีการตัด)</li>
               <li>ลบเอกสารและรายการสินค้าทั้งหมด</li>
               <li>ลบงานขายนี้จากระบบ</li>
             </ul>
           </div>
-          <p className="text-xs text-gray-500">เฉพาะ Dev mode เท่านั้น ไม่สามารถกู้คืนได้</p>
+          <p className="text-label text-ink-500">เฉพาะ Dev mode เท่านั้น ไม่สามารถกู้คืนได้</p>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setRevertConfirmOpen(false)}>
               ยกเลิก
@@ -2925,9 +2899,9 @@ export default function DealDetailPage() {
         {pendingCustomer && deal && (
           <div className="space-y-4">
             {customerLockingDocs.length > 0 ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+              <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2.5 text-body text-red-800">
                 ไม่สามารถเปลี่ยนลูกค้าได้ เพราะมีเอกสารที่ออกแล้วผูกกับลูกค้าเดิม:
-                <ul className="mt-1.5 list-disc pl-5 text-xs space-y-0.5">
+                <ul className="mt-1.5 list-disc pl-5 text-label space-y-0.5">
                   {customerLockingDocs.slice(0, 5).map((doc) => (
                     <li key={doc.id}>
                       {DOC_TYPE_LABELS[doc.doc_type]?.th || doc.doc_type} {doc.doc_number || ""} ({STATUS_LABELS[doc.status] || doc.status})
@@ -2939,12 +2913,12 @@ export default function DealDetailPage() {
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-2 text-sm text-gray-700">
+                <div className="flex items-center gap-2 text-body text-ink-700">
                   <span className="font-medium">{customer?.name}</span>
-                  <span className="text-gray-400">→</span>
+                  <span className="text-ink-400">→</span>
                   <span className="font-medium text-primary">{pendingCustomer.name}</span>
                 </div>
-                <ul className="rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2.5 text-xs text-gray-600 space-y-1">
+                <ul className="rounded-control border border-card-border bg-paper-tint px-3 py-2.5 text-label text-ink-600 space-y-1">
                   <li>ข้อมูลงาน โน้ต และกิจกรรมทั้งหมดจะยังอยู่ครบ</li>
                   <li>
                     {draftDocCount > 0

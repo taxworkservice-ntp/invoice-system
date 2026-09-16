@@ -137,7 +137,7 @@ export function CatalogAutocomplete({
       <div className="relative">
         <input
           ref={inputRef}
-          className={`w-full py-1.5 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary ${matched ? "pl-2 pr-16" : "pl-2 pr-10"}`}
+          className={`w-full py-1.5 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary ${matched ? "pl-2 pr-16" : "pl-2 pr-10"}`}
           placeholder={placeholder}
           value={value}
           onChange={(e) => {
@@ -164,7 +164,7 @@ export function CatalogAutocomplete({
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={openFullPicker}
-          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-control text-ink-400 transition-colors hover:bg-ink-50 hover:text-ink-600"
           aria-label="เปิดตัวเลือกรายการ"
         >
           <Search size={14} />
@@ -174,16 +174,12 @@ export function CatalogAutocomplete({
       {open && (sliced.length > 0 || search) && (
         <ul
           ref={listRef}
-          className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+          className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-control border border-line bg-white"
         >
           {sliced.map((item, index) => (
             <li
               key={item.id}
-              className={`flex items-center gap-2 cursor-pointer px-3 py-2 text-sm transition-colors ${
-                index === highlightIndex
-                  ? "bg-primary/10 text-primary"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
+              className={`flex items-center gap-2 cursor-pointer px-3 py-2 text-body transition-colors ${ index === highlightIndex ? "bg-primary/10 text-primary" : "text-ink-700 hover:bg-paper-field" }`}
               onMouseDown={(e) => {
                 e.preventDefault();
                 onSelect(item);
@@ -191,7 +187,7 @@ export function CatalogAutocomplete({
               }}
               onMouseEnter={() => setHighlightIndex(index)}
             >
-              <span className="shrink-0 text-gray-400">
+              <span className="shrink-0 text-ink-400">
                 {item.item_type === "service" ? (
                   <Wrench size={12} />
                 ) : (
@@ -201,26 +197,26 @@ export function CatalogAutocomplete({
               <div className="min-w-0 flex-1">
                 <div className="truncate">{item.name}</div>
                 {item.sku && (
-                  <div className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
+                  <div className="text-label text-ink-400">
                     {item.sku}
                   </div>
                 )}
               </div>
-              <span className="shrink-0 text-xs text-gray-400">
+              <span className="shrink-0 text-label text-ink-400">
                 ฿{item.unit_price.toLocaleString()}
               </span>
-              <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+              <span className="shrink-0 rounded bg-ink-50 px-1.5 py-0.5 text-label text-ink-500">
                 {item.item_type === "service" ? "บริการ" : "สินค้า"}
               </span>
             </li>
           ))}
           {sliced.length === 0 && (
-            <li className="px-3 py-3 text-sm text-gray-500">
+            <li className="px-3 py-3 text-body text-ink-500">
               ไม่พบรายการที่ตรงกับคำค้น
             </li>
           )}
           {hiddenCount > 0 && (
-            <li className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-[11px] text-gray-500">
+            <li className="border-t border-line-faint bg-paper-field px-3 py-2 text-label text-ink-500">
               แสดง {sliced.length} จาก {filtered.length} รายการ พิมพ์ชื่อหรือ SKU เพื่อค้นหาให้แคบลง
             </li>
           )}

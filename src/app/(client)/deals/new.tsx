@@ -120,7 +120,7 @@ function CommaInput({ value, onChange, ...props }: { value: number; onChange: (v
         const num = parseFloat(raw);
         if (!isNaN(num)) onChange(num);
       }}
-      className="w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors border-card-border"
+      className="w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors border-card-border"
       placeholder="0"
       {...props}
     />
@@ -154,7 +154,7 @@ function JobDetailPresetInput({
 
   return (
     <label className="relative block">
-      <span className="mb-1 block text-xs font-medium text-gray-700">{label}</span>
+      <span className="mb-1 block text-label font-medium text-ink-700">{label}</span>
       <div className="relative">
         <input
           value={value}
@@ -167,14 +167,14 @@ function JobDetailPresetInput({
           placeholder={placeholder}
           role="combobox"
           aria-expanded={showPanel}
-          className="w-full rounded-lg border border-card-border bg-white py-2 pl-3 pr-8 text-xs text-ink-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          className="w-full rounded-control border border-card-border bg-white py-2 pl-3 pr-8 text-label text-ink-900 placeholder:text-ink-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
         {presets.length > 0 && (
           <button
             type="button"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => setOpen((current) => !current)}
-            className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-gray-400 transition-colors hover:bg-cool-50 hover:text-ink-900"
+            className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-ink-400 transition-colors hover:bg-paper-field hover:text-ink-900"
             aria-label={`แสดงตัวเลือก${label}`}
           >
             <ChevronDown className="h-3.5 w-3.5" />
@@ -183,18 +183,14 @@ function JobDetailPresetInput({
       </div>
 
       {showPanel && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-cool-200 bg-white shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-control border border-line bg-white">
           <div className="max-h-44 overflow-y-auto py-1">
             {filteredPresets.map((preset) => {
               const selected = preset === value;
               return (
                 <div
                   key={preset}
-                  className={`group flex items-center justify-between gap-2 px-2 py-1.5 text-xs ${
-                    selected
-                      ? "bg-primary-soft text-primary-deep"
-                      : "bg-white text-ink-900 hover:bg-cool-25"
-                  }`}
+                  className={`group flex items-center justify-between gap-2 px-2 py-1.5 text-label ${ selected ? "bg-primary-soft text-primary-deep" : "bg-white text-ink-900 hover:bg-paper-field" }`}
                 >
                   <button
                     type="button"
@@ -211,7 +207,7 @@ function JobDetailPresetInput({
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => onDeletePreset(preset)}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-400 transition-colors hover:bg-red-50 hover:text-red-500"
                     aria-label={`ลบ ${preset}`}
                   >
                     <X className="h-3.5 w-3.5" />
@@ -1880,14 +1876,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   return (
     <AppShell title={label} showBack>
       {!isClassicMode && (
-        <div className="mb-4 rounded-xl border border-card-border bg-white px-4 py-3">
+        <div className="mb-4 rounded-card border border-card-border bg-white px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-ink-900">{experience.isSimpleMode ? "บันทึกงานขาย" : "กรอกข้อมูลตามลำดับ"}</div>
-              <div className="mt-0.5 text-xs text-gray-500">{experience.isSimpleMode ? "กรอกข้อมูลที่จำเป็น ระบบจะบันทึกเป็นร่างให้ผู้จัดการดำเนินการต่อ" : "กรอกข้อมูลในแต่ละส่วนจากบนลงล่าง ระบบจะคำนวณยอดให้ทันที"}</div>
+              <div className="text-body font-semibold text-ink-900">{experience.isSimpleMode ? "บันทึกงานขาย" : "กรอกข้อมูลตามลำดับ"}</div>
+              <div className="mt-0.5 text-label text-ink-500">{experience.isSimpleMode ? "กรอกข้อมูลที่จำเป็น ระบบจะบันทึกเป็นร่างให้ผู้จัดการดำเนินการต่อ" : "กรอกข้อมูลในแต่ละส่วนจากบนลงล่าง ระบบจะคำนวณยอดให้ทันที"}</div>
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-gray-500">
+          <div className="mt-4 flex flex-wrap gap-2 text-label text-ink-500">
             <span className="rounded-full bg-page-bg px-2.5 py-1">1 ลูกค้า</span>
             <span className="rounded-full bg-page-bg px-2.5 py-1">2 วันที่</span>
             <span className="rounded-full bg-page-bg px-2.5 py-1">3 รายการ</span>
@@ -1897,21 +1893,21 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         </div>
       )}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-control text-body text-red-600">
           {error}
         </div>
       )}
 
       {type === "invoice" && clientProfile?.vat_registered && !clientProfile?.tax_id && (
-        <div className="mb-4 p-3 bg-warning-soft border-[0.5px] border-warning-border rounded-lg text-sm text-pending-text flex items-center gap-3">
+        <div className="mb-4 p-3 bg-warning-soft border-[0.5px] border-warning-border rounded-control text-body text-pending-text flex items-center gap-3">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <div className="flex-1">
             <p className="font-medium">คุณเป็นผู้ประกอบการจดทะเบียน VAT แต่ยังไม่ได้ตั้งค่าเลขผู้เสียภาษี</p>
-            <p className="text-[12px] mt-0.5">เลขผู้เสียภาษีจำเป็นสำหรับใบกำกับภาษี</p>
+            <p className="text-label mt-0.5">เลขผู้เสียภาษีจำเป็นสำหรับใบกำกับภาษี</p>
           </div>
           <button
             onClick={() => navigate("/settings/profile")}
-            className="shrink-0 text-[12px] text-primary hover:underline font-medium"
+            className="shrink-0 text-label text-primary hover:underline font-medium"
           >
             ตั้งค่าเลย →
           </button>
@@ -1922,20 +1918,20 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         <Card>
           <div className="mb-3 flex items-center justify-between gap-2">
             <StepHeading number={1} title="ลูกค้า" />
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700">จำเป็น</span>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">จำเป็น</span>
           </div>
           {selectedCustomer ? (
-            <div className="flex items-start justify-between gap-3 rounded-xl border border-card-border bg-paper-soft p-3">
+            <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium">{selectedCustomer.name}</p>
+                <p className="text-body font-medium">{selectedCustomer.name}</p>
                 {selectedCustomer.tax_id && (
-                  <p className="text-xs text-gray-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</p>
+                  <p className="text-label text-ink-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</p>
                 )}
                 {selectedCustomer.address && (
-                  <p className="line-clamp-2 text-xs text-gray-500">{selectedCustomer.address}</p>
+                  <p className="line-clamp-2 text-label text-ink-500">{selectedCustomer.address}</p>
                 )}
                 {type !== "delivery_note" && (!selectedCustomer.tax_id || !selectedCustomer.address) && (
-                  <p className="mt-1 text-xs text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</p>
+                  <p className="mt-1 text-label text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</p>
                 )}
               </div>
               <Button
@@ -1947,10 +1943,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </Button>
             </div>
           ) : (
-            <div className="rounded-xl border border-primary-border bg-primary-soft px-4 py-4 text-center">
-              <p className="text-sm font-medium text-ink-900">เลือกลูกค้าก่อนสร้างเอกสาร</p>
-              <p className="mt-1 text-xs text-cool-500">ระบบจะใช้ข้อมูลลูกค้าในเอกสารและการคำนวณภาษี</p>
-              <Button className="mt-3 w-full justify-center shadow-md" onClick={() => setCustomerPickerOpen(true)}>
+            <div className="rounded-card border border-primary-border bg-primary-soft px-4 py-4 text-center">
+              <p className="text-body font-medium text-ink-900">เลือกลูกค้าก่อนสร้างเอกสาร</p>
+              <p className="mt-1 text-label text-ink-500">ระบบจะใช้ข้อมูลลูกค้าในเอกสารและการคำนวณภาษี</p>
+              <Button className="mt-3 w-full justify-center" onClick={() => setCustomerPickerOpen(true)}>
                 เลือกลูกค้า
               </Button>
             </div>
@@ -1980,22 +1976,22 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             <div className="flex items-start justify-between gap-3">
               <div>
                 <StepHeading number={2} title="วันที่ออกเอกสาร" />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-label text-ink-500">
                   ค่าเริ่มต้นเป็นวันนี้ และเปลี่ยนได้เมื่อต้องการออกย้อนหลัง
                 </p>
               </div>
               {!isIssueDateToday && (
-                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-label font-medium text-amber-700">
                   ย้อนหลัง
                 </span>
               )}
             </div>
 
-            <div className="mt-4 rounded-xl border border-line-soft bg-paper-field px-4 py-3">
+            <div className="mt-4 rounded-card border border-line-soft bg-paper-field px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">วันที่ที่ใช้บนเอกสาร</div>
-                    <div className="mt-1 text-sm font-semibold text-ink-900">{formatBuddhistDate(issueDate)}</div>
+                    <div className="text-label text-ink-500">วันที่ที่ใช้บนเอกสาร</div>
+                    <div className="mt-1 text-body font-semibold text-ink-900">{formatBuddhistDate(issueDate)}</div>
                   </div>
                   <div className="flex gap-2">
                     {!isIssueDateToday && (
@@ -2005,7 +2001,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                           setIssueDate(todayString());
                           setShowIssueDatePicker(false);
                         }}
-                        className="rounded-lg border border-cool-200 px-3 py-2 text-xs font-medium text-cool-500 transition-colors hover:bg-white"
+                        className="rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white"
                       >
                         ใช้วันนี้
                       </button>
@@ -2013,14 +2009,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     <button
                       type="button"
                       onClick={() => setIssueDate(addDaysString(issueDate, 1))}
-                      className="rounded-lg border border-cool-200 px-3 py-2 text-xs font-medium text-cool-500 transition-colors hover:bg-white"
+                      className="rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white"
                     >
                       เลือกวันถัดไป
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowIssueDatePicker((prev) => !prev)}
-                      className="rounded-lg border border-cool-200 bg-white px-3 py-2 text-xs font-medium text-ink-900 transition-colors hover:bg-gray-50"
+                      className="rounded-control border border-line bg-white px-3 py-2 text-label font-medium text-ink-900 transition-colors hover:bg-paper-field"
                     >
                       {showIssueDatePicker || !isIssueDateToday ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
                     </button>
@@ -2044,8 +2040,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         <Card>
           <div className="mb-3">
-            <span className="block text-sm font-medium">
-              ชื่อโครงการ / เลขที่ใบสั่งซื้อ <span className="font-normal text-gray-400">(ไม่บังคับ)</span>
+            <span className="block text-body font-medium">
+              ชื่อโครงการ / เลขที่ใบสั่งซื้อ <span className="font-normal text-ink-400">(ไม่บังคับ)</span>
             </span>
           </div>
           <PoTaskFields
@@ -2063,25 +2059,25 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             <div className="flex items-start justify-between gap-3">
               <div>
                 <StepHeading number={3} title="ข้อมูลรอบบิล" />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-label text-ink-500">
                   ระบบจะคำนวณจำนวนหน่วย และบันทึกรายละเอียดไว้ในหมายเหตุรายการ
                 </p>
               </div>
               {loadingUtilityLast ? (
-                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">กำลังดูรอบก่อน</span>
+                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-label font-medium text-blue-700">กำลังดูรอบก่อน</span>
               ) : null}
             </div>
 
             {utilityLastHint && utilityLastHint.includes("ดึงเลขครั้งก่อน") && (
-              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 flex items-center gap-1.5">
-                <span className="text-emerald-600 font-bold">&#10003;</span>
+              <div className="mt-3 rounded-control border border-emerald-200 bg-emerald-50 px-3 py-2 text-label text-emerald-800 flex items-center gap-1.5">
+                <span className="text-emerald-600 font-semibold">&#10003;</span>
                 {utilityLastHint}
               </div>
             )}
 
             <div className="mt-4 space-y-4">
               <label className="block">
-                <span className="mb-1 block text-sm text-ink-900">ค่าบริการ</span>
+                <span className="mb-1 block text-body text-ink-900">ค่าบริการ</span>
                 <CatalogAutocomplete
                   items={serviceItems}
                   value={utilityServiceName}
@@ -2100,13 +2096,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     }
                   }}
                 />
-                <span className="mt-1 block text-[11px] text-gray-500">
+                <span className="mt-1 block text-label text-ink-500">
                   เลือกบริการเดิมเพื่อดึงราคา หน่วย เลขครั้งก่อน และรอบบิลถัดไปของลูกค้ารายนี้
                 </span>
               </label>
 
               <div>
-                <span className="mb-1.5 block text-sm text-ink-900">รอบบิล</span>
+                <span className="mb-1.5 block text-body text-ink-900">รอบบิล</span>
                 <div className="grid grid-cols-2 gap-3">
                   <Input
                     label="เริ่ม"
@@ -2125,7 +2121,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </div>
 
               <div>
-                <span className="mb-1.5 block text-sm text-ink-900">มาตรวัด</span>
+                <span className="mb-1.5 block text-body text-ink-900">มาตรวัด</span>
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                   <Input
                     label="เลขก่อนหน้า"
@@ -2135,7 +2131,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     onChange={(e) => setUtilityPreviousReading(e.target.value)}
                     placeholder="0"
                   />
-                  <span className="pb-2 text-gray-400 text-sm">→</span>
+                  <span className="pb-2 text-ink-400 text-body">→</span>
                   <Input
                     label="เลขปัจจุบัน"
                     type="number"
@@ -2147,7 +2143,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   />
                 </div>
                 {(parseAmount(utilityCurrentReading) > 0 || parseAmount(utilityPreviousReading) > 0) && parseAmount(utilityCurrentReading) > parseAmount(utilityPreviousReading) && (
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-label text-ink-500">
                     ใช้ไป {Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000).toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {utilityUnit || "หน่วย"}
                   </p>
                 )}
@@ -2172,10 +2168,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl border border-line-soft bg-paper-soft px-4 py-3">
+            <div className="mt-4 rounded-card border border-line-soft bg-paper-soft px-4 py-3">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-gray-600">ยอดก่อนภาษี</span>
-                <span className="text-base font-semibold text-ink-900">
+                <span className="text-body text-ink-600">ยอดก่อนภาษี</span>
+                <span className="text-title font-semibold text-ink-900">
                   ฿{(
                     Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000) *
                     parseAmount(utilityRate)
@@ -2183,12 +2179,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 </span>
               </div>
               {parseAmount(utilityCurrentReading) > parseAmount(utilityPreviousReading) && parseAmount(utilityRate) > 0 && (
-                <div className="mt-1 text-xs text-gray-500">
+                <div className="mt-1 text-label text-ink-500">
                   {Math.max(0, Math.round((parseAmount(utilityCurrentReading) - parseAmount(utilityPreviousReading)) * 1000) / 1000).toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {utilityUnit || "หน่วย"} × ฿{parseAmount(utilityRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}/หน่วย
                 </div>
               )}
               {utilityLastHint && !utilityLastHint.includes("ดึงเลขครั้งก่อน") && (
-                <p className="mt-2 text-xs text-gray-500">{utilityLastHint}</p>
+                <p className="mt-2 text-label text-ink-500">{utilityLastHint}</p>
               )}
             </div>
           </Card>
@@ -2199,13 +2195,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             <div className="mb-3 flex items-center justify-between gap-2">
               <StepHeading number={3} title={isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการสินค้าและบริการ"} />
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-2xs font-medium text-blue-700">จำเป็น</span>
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">จำเป็น</span>
                 {permissions.canManageCatalog && (
                   <button
                     type="button"
                     onClick={() => setItemCreateModal({ open: true, targetLineId: null })}
                     title="สร้างสินค้า/บริการใหม่ในแคตตาล็อก"
-                    className="inline-flex items-center gap-1 rounded-lg border border-card-border bg-white px-2.5 py-1.5 text-xs font-medium text-[#5F5B54] transition-colors hover:border-[#378ADD] hover:text-[#1A56DB]"
+                    className="inline-flex items-center gap-1 rounded-control border border-card-border bg-white px-2.5 py-1.5 text-label font-medium text-ink-600 transition-colors hover:border-primary hover:text-primary-deep"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     สร้าง
@@ -2214,22 +2210,22 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </div>
             </div>
             {isDeliveryNote && (
-              <div className="mb-3 rounded-lg border border-dashed border-card-border bg-paper-soft/60 px-3 py-2">
+              <div className="mb-3 rounded-control border border-dashed border-card-border bg-paper-soft/60 px-3 py-2">
                 <Switch
                   checked={groupingEnabled}
                   onChange={toggleGrouping}
                   label={
                     <>
                       จัดกลุ่มด้วยหัวข้ออ้างอิง{" "}
-                      <span className="font-normal text-gray-400">(เช่น แยกตาม SO ของลูกค้า)</span>
+                      <span className="font-normal text-ink-400">(เช่น แยกตาม SO ของลูกค้า)</span>
                     </>
                   }
                 />
-                <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                <p className="mt-1 text-label leading-4 text-ink-400">
                   เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ
                 </p>
                 {legacyHeaderConverted && groupingEnabled && (
-                  <p className="mt-1 text-[11px] leading-4 text-gray-500">
+                  <p className="mt-1 text-label leading-4 text-ink-500">
                     แปลงหัวข้อ SO เดี่ยวเดิมเป็นบรรทัดหัวข้อนี้แล้ว — ตรวจสอบและบันทึกเพื่อยืนยัน
                   </p>
                 )}
@@ -2237,14 +2233,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             )}
             <div className="space-y-2">
               {!isUtilityBill && lineItems.length === 0 && (
-                <div className="rounded-lg border border-dashed border-cool-200 bg-paper-field px-4 py-4 text-center text-xs text-gray-400 space-y-2">
+                <div className="rounded-control border border-dashed border-line bg-paper-field px-4 py-4 text-center text-label text-ink-400 space-y-2">
                   <div>ยังไม่มีรายการ — เพิ่มสินค้าหรือบริการโดยคลิกปุ่มด้านล่าง</div>
                   {selectedCustomer && !documentId && (
                     <button
                       type="button"
                       onClick={loadLatestInvoiceLines}
                       disabled={loadingLastInvoice}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-[#378ADD] hover:underline disabled:opacity-50"
+                      className="inline-flex items-center gap-1 text-label font-medium text-primary hover:underline disabled:opacity-50"
                     >
                       {loadingLastInvoice ? "กำลังโหลด..." : "ใช้รายการจากใบแจ้งหนี้ล่าสุดของลูกค้านี้"}
                     </button>
@@ -2255,10 +2251,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 if (item.isSectionMarker && isDeliveryNote && groupingEnabled) {
                   const markerNumber = lineNumbers?.get(item.id);
                   return (
-                    <div key={item.id} className="pb-3 border-b border-gray-100 last:border-0">
+                    <div key={item.id} className="pb-3 border-b border-line-faint last:border-0">
                       <div className="flex gap-2">
                         {markerNumber ? (
-                          <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
+                          <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-label font-semibold text-primary leading-none">
                             {markerNumber}
                           </div>
                         ) : (
@@ -2310,24 +2306,24 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   const amounts = calculateLineAmounts(item);
                   const hasData = utilityServiceName.trim() || parseAmount(utilityRate) > 0;
                   return (
-                    <div key={item.id} className="pb-3 border-b border-gray-100">
+                    <div key={item.id} className="pb-3 border-b border-line-faint">
                       {hasData ? (
-                        <div className="rounded-lg border border-card-border bg-paper-soft px-3 py-3">
+                        <div className="rounded-control border border-card-border bg-paper-soft px-3 py-3">
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-medium text-ink-900">{item.item_name}</span>
-                            <span className="text-sm font-semibold text-ink-900">
+                            <span className="text-body font-medium text-ink-900">{item.item_name}</span>
+                            <span className="text-body font-semibold text-ink-900">
                               ฿{amounts.lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </span>
                           </div>
-                          <div className="mt-1.5 whitespace-pre-line text-xs leading-5 text-ink-600">
+                          <div className="mt-1.5 whitespace-pre-line text-label leading-5 text-ink-600">
                             {getUtilityDisplayNote(item.line_note)}
                           </div>
-                          <div className="mt-1.5 text-[11px] text-gray-500">
+                          <div className="mt-1.5 text-label text-ink-500">
                             {item.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {item.unit} × ฿{item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}/หน่วย
                           </div>
                         </div>
                       ) : (
-                        <div className="rounded-lg border border-dashed border-card-border bg-paper-field px-3 py-3 text-center text-xs text-gray-400">
+                        <div className="rounded-control border border-dashed border-card-border bg-paper-field px-3 py-3 text-center text-label text-ink-400">
                           กรุณากรอกข้อมูลรอบบิลด้านบน ระบบจะแสดงตัวอย่างรายการที่นี่
                         </div>
                       )}
@@ -2336,9 +2332,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 }
 
                 return (
-                <div key={item.id} className="pb-3 border-b border-gray-100 last:border-0">
+                <div key={item.id} className="pb-3 border-b border-line-faint last:border-0">
                   <div className="flex gap-2">
-                    <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-[11px] font-semibold text-primary leading-none">
+                    <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-label font-semibold text-primary leading-none">
                       {lineNumbers?.get(item.id) ?? idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -2379,28 +2375,28 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                           onClick={() => removeLineItem(item.id)}
                           aria-label="ลบรายการ"
                           title="ลบรายการ"
-                          className="flex-shrink-0 mt-0.5 text-gray-400 transition-colors hover:text-red-600"
+                          className="flex-shrink-0 mt-0.5 text-ink-400 transition-colors hover:text-red-600"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       )}
                     </div>
                   {isUtilityBill && item.line_note.includes("[USAGE_BILL]") ? (
-                    <div className="mb-2 whitespace-pre-line rounded-lg border border-card-border bg-paper-field px-3 py-2 text-xs leading-5 text-ink-600">
+                    <div className="mb-2 whitespace-pre-line rounded-control border border-card-border bg-paper-field px-3 py-2 text-label leading-5 text-ink-600">
                       {getUtilityDisplayNote(item.line_note)}
                     </div>
                   ) : jobDetailsEnabled ? (
-                    <div className="mb-2 rounded-lg border border-card-border bg-paper-field px-3 py-2">
+                    <div className="mb-2 rounded-control border border-card-border bg-paper-field px-3 py-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                           <button
                             type="button"
                             onClick={() => toggleJobDetails(item.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-cool-200 bg-white px-2.5 py-1.5 text-xs font-medium text-ink-900 transition-colors hover:border-primary hover:text-primary"
+                            className="inline-flex items-center gap-1.5 rounded-control border border-line bg-white px-2.5 py-1.5 text-label font-medium text-ink-900 transition-colors hover:border-primary hover:text-primary"
                           >
                             <SlidersHorizontal className="h-3.5 w-3.5" />
                             {jobDetailsSummary ? "แก้ไขรายละเอียดงาน" : "เพิ่มรายละเอียดงาน"}
                           </button>
-                        <span className="max-w-full truncate text-[11px] text-ink-600">
+                        <span className="max-w-full truncate text-label text-ink-600">
                           {filledJobDetailFields}/{enabledJobDetailFields.length} ช่อง
                           {jobDetailsSummary ? ` · ${jobDetailsSummary}` : " · ยังไม่มีรายละเอียด"}
                         </span>
@@ -2413,7 +2409,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                 const { width, height } = getJobDetailDimension(item, field.field_key);
                                 return (
                                   <div key={field.field_key}>
-                                    <span className="mb-1 block text-xs font-medium text-gray-700">{field.label}</span>
+                                    <span className="mb-1 block text-label font-medium text-ink-700">{field.label}</span>
                                     <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
                                       <input
                                         type="number"
@@ -2421,21 +2417,21 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                                         value={width}
                                         onChange={(event) => updateJobDetail(item.id, `${field.field_key}_width`, event.target.value)}
                                         placeholder="24"
-                                        className="w-full rounded-lg border border-card-border bg-white px-3 py-2 text-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                                       />
-                                      <span className="text-xs text-gray-400">x</span>
+                                      <span className="text-label text-ink-400">x</span>
                                       <input
                                         type="number"
                                         min="0"
                                         value={height}
                                         onChange={(event) => updateJobDetail(item.id, `${field.field_key}_height`, event.target.value)}
                                         placeholder="35"
-                                        className="w-full rounded-lg border border-card-border bg-white px-3 py-2 text-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                                       />
                                       <select
                                         value={getJobDetailValue(item, `${field.field_key}_unit`) || field.default_unit || "มม."}
                                         onChange={(e) => updateJobDetail(item.id, `${field.field_key}_unit`, e.target.value)}
-                                        className="rounded-lg border border-card-border bg-white px-2 py-1.5 text-[11px]"
+                                        className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label"
                                       >
                                         <option value="มม.">มม.</option>
                                         <option value="ซม.">ซม.</option>
@@ -2473,7 +2469,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       onChange={(e) => updateLineItem(item.id, "line_note", e.target.value)}
                       placeholder="หมายเหตุของรายการนี้ (ถ้ามี)"
                       rows={2}
-                      className="mb-2 w-full rounded-lg border border-card-border bg-white px-3 py-2 text-xs text-ink-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className="mb-2 w-full rounded-control border border-card-border bg-white px-3 py-2 text-label text-ink-900 placeholder:text-ink-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   )}
                   {type === "quotation" && (
@@ -2485,7 +2481,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   )}
                   <div className="grid grid-cols-2 gap-2 items-start sm:flex sm:gap-1">
                     <label className="col-span-1 block sm:w-[160px]">
-                      <span className="text-2xs text-gray-400 block mb-0.5">จำนวน</span>
+                      <span className="text-label text-ink-400 block mb-0.5">จำนวน</span>
                       <CommaInput
                         value={item.quantity}
                         onChange={(v) => updateLineItem(item.id, "quantity", v)}
@@ -2493,7 +2489,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       />
                     </label>
                     <label className="col-span-1 block sm:w-[72px]">
-                      <span className="text-2xs text-gray-400 block mb-0.5">หน่วย</span>
+                      <span className="text-label text-ink-400 block mb-0.5">หน่วย</span>
                       <Input
                         placeholder="ชิ้น"
                         value={item.unit}
@@ -2502,10 +2498,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       />
                     </label>
                     <div className="col-span-1 block sm:w-[160px]">
-                      <span className="text-2xs text-gray-400 block mb-0.5">
+                      <span className="text-label text-ink-400 block mb-0.5">
                         ราคา/หน่วย
                         {needsPriceReview && !item.price_confirmed && (
-                          <span className="ml-1 rounded bg-amber-100 px-1 py-px text-[9px] font-semibold text-amber-700">รอตรวจ</span>
+                          <span className="ml-1 rounded bg-amber-100 px-1 py-px text-label font-semibold text-amber-700">รอตรวจ</span>
                         )}
                       </span>
                       <CommaInput
@@ -2514,7 +2510,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         placeholder="0"
                       />
                       {priceDeviation != null && (
-                        <span className="mt-0.5 block text-[10px] font-medium leading-4 text-amber-600">
+                        <span className="mt-0.5 block text-label font-medium leading-4 text-amber-600">
                           ⚠ ต่างจากแค็ตตาล็อก ฿{priceDeviation.toLocaleString(undefined, { minimumFractionDigits: 2 })}/{item.unit}
                         </span>
                       )}
@@ -2525,7 +2521,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                             e.preventDefault();
                             updateLineItem(item.id, "unit_price", priceHint.price);
                           }}
-                          className="mt-0.5 block text-left text-[10px] leading-4 text-[#378ADD] hover:underline"
+                          className="mt-0.5 block text-left text-label leading-4 text-primary hover:underline"
                         >
                           {priceHint.scope === "customer"
                             ? `เคยขายลูกค้านี้ ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })} — แตะเพื่อใช้`
@@ -2536,7 +2532,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         <button
                           type="button"
                           onClick={() => setPriceHistoryLineId(item.id)}
-                          className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#D7DEE7] bg-white px-2.5 py-1 text-[11px] font-medium text-[#378ADD] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
+                          className="mt-1 inline-flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-label font-medium text-primary transition-colors hover:border-primary hover:bg-primary-soft"
                         >
                           <History className="h-3 w-3" />
                           ประวัติราคาขาย
@@ -2548,16 +2544,16 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                             type="checkbox"
                             checked={item.price_confirmed}
                             onChange={(e) => updateLineItem(item.id, "price_confirmed", e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-[#D7DEE7] text-primary focus:ring-primary"
+                            className="h-3.5 w-3.5 rounded border-line text-primary focus:ring-primary"
                           />
-                          <span className={`text-[11px] font-medium ${item.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
+                          <span className={`text-label font-medium ${item.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
                             {item.price_confirmed ? "ยืนยันราคาแล้ว" : "กรุณายืนยันราคา"}
                           </span>
                         </label>
                       )}
                     </div>
                     <label className="col-span-1 block sm:w-[68px]">
-                      <span className="text-2xs text-gray-400 block mb-0.5">ส่วนลด %</span>
+                      <span className="text-label text-ink-400 block mb-0.5">ส่วนลด %</span>
                       <CommaInput
                         value={item.discount_percent ?? 0}
                         onChange={(v) => updateLineItem(item.id, "discount_percent", v)}
@@ -2565,36 +2561,32 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       />
                     </label>
                     <div className="col-span-2 flex items-center justify-between text-right sm:flex-1 sm:min-w-[70px] sm:block sm:pt-[16px]">
-                      <div className="text-xs font-medium text-gray-700">
+                      <div className="text-label font-medium text-ink-700">
                         ฿{calculateLineAmounts(item).lineTotal.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                         })}
                       </div>
                       {item.unit_price > 0 && item.quantity > 0 && (
-                        <div className="text-2xs text-gray-400 leading-tight">
+                        <div className="text-label text-ink-400 leading-tight">
                           {item.unit_price.toLocaleString()} × {item.quantity.toLocaleString()}
                         </div>
                       )}
                     </div>
                   </div>
                   {hasCartonOption(item) && (
-                    <div className="mt-2 rounded-lg border border-line-faint bg-paper-field px-3 py-2 text-xs text-gray-600">
+                    <div className="mt-2 rounded-control border border-line-faint bg-paper-field px-3 py-2 text-label text-ink-600">
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           onClick={() => updateLineUnit(item.id, item.base_unit)}
-                          className={`rounded-full px-2.5 py-1 transition-colors ${
-                            !soldByCarton ? "bg-ink-900 text-white" : "bg-white text-gray-600 border border-cool-200"
-                          }`}
+                          className={`rounded-full px-2.5 py-1 transition-colors ${ !soldByCarton ? "bg-ink-900 text-white" : "bg-white text-ink-600 border border-line" }`}
                         >
                           ขายเป็น {item.base_unit}
                         </button>
                         <button
                           type="button"
                           onClick={() => item.carton_unit && updateLineUnit(item.id, item.carton_unit)}
-                          className={`rounded-full px-2.5 py-1 transition-colors ${
-                            soldByCarton ? "bg-ink-900 text-white" : "bg-white text-gray-600 border border-cool-200"
-                          }`}
+                          className={`rounded-full px-2.5 py-1 transition-colors ${ soldByCarton ? "bg-ink-900 text-white" : "bg-white text-ink-600 border border-line" }`}
                         >
                           ขายเป็น {item.carton_unit}
                         </button>
@@ -2605,7 +2597,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         {soldByCarton ? ` จาก ${item.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${item.carton_unit}` : ""}
                       </div>
                       {matchedItem && (
-                        <div className="mt-1 text-gray-500">
+                        <div className="mt-1 text-ink-500">
                           คงเหลือ {formatMixedStock(
                             matchedItem.stock_count,
                             matchedItem.base_unit,
@@ -2624,7 +2616,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               <button
                 type="button"
                 onClick={addLineItem}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-soft border border-primary-border px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-soft transition-colors active:translate-y-[1px]"
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-control bg-primary-soft border border-primary-border px-3 py-1.5 text-label font-medium text-primary hover:bg-primary-soft transition-colors active:translate-y-[1px]"
               >
                 <PlusCircle className="h-4 w-4" />
                 เพิ่มสินค้าหรือบริการ
@@ -2633,17 +2625,17 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 <button
                   type="button"
                   onClick={addSectionMarker}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-card-border bg-paper-soft/60 px-3 py-1.5 text-xs font-medium text-[#5F5B54] transition-colors hover:border-[#378ADD] hover:text-[#1A56DB] active:translate-y-[1px]"
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-control border border-dashed border-card-border bg-paper-soft/60 px-3 py-1.5 text-label font-medium text-ink-600 transition-colors hover:border-primary hover:text-primary-deep active:translate-y-[1px]"
                 >
                   <PlusCircle className="h-4 w-4" />
                   เพิ่มหัวข้อกลุ่ม (SO ของลูกค้า)
                 </button>
               )}
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-200 text-right text-sm space-y-0.5">
+            <div className="mt-4 pt-3 border-t border-line text-right text-body space-y-0.5">
               {tax.lineDiscountAmount > 0 && (
                 <>
-                  <p className="text-gray-500">
+                  <p className="text-ink-500">
                     ยอดก่อนส่วนลด: ฿{tax.grossSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-red-500">
@@ -2652,7 +2644,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 </>
               )}
               <div className="flex items-center justify-end gap-2">
-                <span className="text-gray-500">ส่วนลดท้ายบิล (%)</span>
+                <span className="text-ink-500">ส่วนลดท้ายบิล (%)</span>
                 <Input
                   type="number"
                   step="0.01"
@@ -2666,11 +2658,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   ส่วนลดท้ายบิล: -฿{tax.discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
               )}
-              <p className="text-gray-500">
+              <p className="text-ink-500">
                 ราคารวม: ฿{tax.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </p>
               {vatRegistered && (
-                <p className="text-gray-500">
+                <p className="text-ink-500">
                   VAT {vatRate}%: ฿{tax.vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
               )}
@@ -2682,7 +2674,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   หัก ณ ที่จ่าย {whtRate}%: -฿{tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
               )}
-              <p className="font-semibold text-base mt-1">
+              <p className="font-semibold text-title mt-1">
                 ยอดที่ต้องชำระ: ฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </p>
             </div>
@@ -2693,11 +2685,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           <Card>
             <div className="mb-3"><StepHeading number={3} title="ใบแจ้งหนี้ที่ยังไม่ได้ชำระ" /></div>
             {!selectedCustomer ? (
-              <p className="text-sm text-gray-400">กรุณาเลือกลูกค้าก่อน</p>
+              <p className="text-body text-ink-400">กรุณาเลือกลูกค้าก่อน</p>
             ) : loadingInvoices ? (
               <Spinner />
             ) : unpaidInvoices.length === 0 ? (
-              <p className="text-sm text-gray-400">
+              <p className="text-body text-ink-400">
                 ไม่พบใบแจ้งหนี้ที่ยังไม่ได้ชำระสำหรับลูกค้านี้
               </p>
             ) : (
@@ -2705,7 +2697,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 {unpaidInvoices.map((invoice) => (
                   <label
                     key={invoice.id}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                    className="flex items-center gap-3 p-2 rounded-control hover:bg-paper-field cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -2714,11 +2706,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       className="rounded"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{invoice.doc_number}</p>
-                      <p className="text-xs text-gray-500">{formatBuddhistDate(invoice.issue_date)}</p>
+                      <p className="text-body font-medium">{invoice.doc_number}</p>
+                      <p className="text-label text-ink-500">{formatBuddhistDate(invoice.issue_date)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium">
+                      <p className="text-body font-medium">
                         ฿{invoice.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
@@ -2727,11 +2719,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </div>
             )}
             {selectedInvoiceIds.size > 0 && (
-              <div className="mt-4 pt-3 border-t border-gray-200 text-right text-sm space-y-0.5">
-                <p className="text-gray-500">
+              <div className="mt-4 pt-3 border-t border-line text-right text-body space-y-0.5">
+                <p className="text-ink-500">
                   ราคารวม: ฿{billingNoteSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
-                <p className="text-gray-500">
+                <p className="text-ink-500">
                   VAT: ฿{billingNoteSummary.vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
                 <p className="font-medium">
@@ -2742,7 +2734,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     <p className="text-red-500">
                       หัก ณ ที่จ่าย {whtRate}%: -฿{tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </p>
-                    <p className="font-semibold text-base mt-1">
+                    <p className="font-semibold text-title mt-1">
                       ยอดที่ต้องชำระ: ฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </p>
                   </>
@@ -2760,14 +2752,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             className="flex w-full items-center justify-between gap-3 text-left"
           >
             <span>
-              <span className="block text-sm font-medium">4. รายละเอียดเพิ่มเติม (VAT, หัก ณ ที่จ่าย และหมายเหตุ)</span>
+              <span className="block text-body font-medium">4. รายละเอียดเพิ่มเติม (VAT, หัก ณ ที่จ่าย และหมายเหตุ)</span>
               {!showAdditionalDetails && (
-                <span className="mt-0.5 block text-[11px] text-gray-500">
+                <span className="mt-0.5 block text-label text-ink-500">
                   VAT {vatRate}% · หัก ณ ที่จ่าย {WHT_RATE_OPTIONS.find((o) => o.value === whtRate)?.label ?? whtRate} · {note.trim() ? "มีหมายเหตุ" : "ไม่มีหมายเหตุ"}
                 </span>
               )}
             </span>
-            <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${showAdditionalDetails ? "rotate-180" : ""}`} />
+            <ChevronDown className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${showAdditionalDetails ? "rotate-180" : ""}`} />
           </button>
           {showAdditionalDetails && <div className="mt-3 space-y-3">
             {vatRegistered && (
@@ -2780,11 +2772,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               />
             )}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-label font-medium text-ink-500 mb-1">
                 หัก ณ ที่จ่าย
               </label>
               <select
-                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary"
+                className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary"
                 value={whtRate}
                 onChange={(e) => setWhtRate(e.target.value as WhtRate)}
               >
@@ -2796,7 +2788,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </select>
             </div>
             <div className="border-t border-card-border pt-3">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-label font-medium text-ink-500 mb-1">
                 หมายเหตุ
               </label>
               <textarea
@@ -2804,7 +2796,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 onChange={(event) => setNote(event.target.value)}
                 rows={3}
                 placeholder="เช่น ชำระภายใน 30 วัน โอนก่อนส่งของ"
-                className="w-full px-3 py-2 text-sm border border-card-border rounded-lg bg-white focus:outline-none focus:border-primary whitespace-pre-line"
+                className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary whitespace-pre-line"
               />
             </div>
           </div>}
@@ -2855,24 +2847,24 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   <option key={value} value={value}>{preset.thai}</option>
                 ))}
               </Select>
-              <p className="mt-1 text-[11px] leading-4 text-gray-400">
+              <p className="mt-1 text-label leading-4 text-ink-400">
                 ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น — ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
               </p>
             </div>
           </DocumentOptionsCard>
         )}
 
-        <div className="sticky bottom-3 z-10 rounded-xl bg-page-bg/95 pb-2 pt-1 backdrop-blur">
+        <div className="sticky bottom-3 z-10 rounded-card bg-page-bg/95 pb-2 pt-1 backdrop-blur">
           <div className="mb-2 flex items-end justify-between gap-3 px-1">
             <div>
-              <div className="text-sm font-medium text-ink-900">5. ตรวจสอบและบันทึก</div>
-              <div className="mt-0.5 text-[11px] text-gray-500">
+              <div className="text-body font-medium text-ink-900">5. ตรวจสอบและบันทึก</div>
+              <div className="mt-0.5 text-label text-ink-500">
                 {selectedCustomer?.name || "ยังไม่ได้เลือกลูกค้า"} · {isBillingNote ? `${selectedInvoiceIds.size} ใบแจ้งหนี้` : `${lineItems.filter((line) => line.item_name.trim()).length} รายการ`}
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <div className="text-2xs text-gray-500">ยอดสุทธิ</div>
-              <div className="text-base font-semibold tabular-nums text-ink-900">฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div className="text-label text-ink-500">ยอดสุทธิ</div>
+              <div className="text-title font-semibold tabular-nums text-ink-900">฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
             </div>
           </div>
           {!experience.isSimpleMode && <EditableDocNumber
@@ -2891,23 +2883,23 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         <Modal open={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="ยืนยันการบันทึก">
           <div className="space-y-4">
-            <div className="rounded-lg border border-card-border bg-paper-field p-3 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">ประเภท</span><span className="font-medium text-ink-900">{DOC_TYPE_LABELS[type]?.th || type}</span></div>
-              <div className="flex justify-between mt-1.5"><span className="text-gray-500">เลขที่เอกสาร</span><span className="font-medium text-ink-900">{docNumberOverride.trim() || "สร้างอัตโนมัติ"}</span></div>
+            <div className="rounded-control border border-card-border bg-paper-field p-3 text-body">
+              <div className="flex justify-between"><span className="text-ink-500">ประเภท</span><span className="font-medium text-ink-900">{DOC_TYPE_LABELS[type]?.th || type}</span></div>
+              <div className="flex justify-between mt-1.5"><span className="text-ink-500">เลขที่เอกสาร</span><span className="font-medium text-ink-900">{docNumberOverride.trim() || "สร้างอัตโนมัติ"}</span></div>
               <div className="flex justify-between mt-1.5">
-                <span className="text-gray-500">วันที่ออกเอกสาร</span>
+                <span className="text-ink-500">วันที่ออกเอกสาร</span>
                 <span className="font-medium text-ink-900">
                   {formatBuddhistDate(issueDate)}
                   {!isIssueDateToday && (
-                    <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">{issueDate > todayString() ? "ล่วงหน้า" : "ย้อนหลัง"}</span>
+                    <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-700">{issueDate > todayString() ? "ล่วงหน้า" : "ย้อนหลัง"}</span>
                   )}
                 </span>
               </div>
-              <div className="flex justify-between mt-1.5"><span className="text-gray-500">ลูกค้า</span><span className="font-medium text-ink-900 text-right">{selectedCustomer?.name}</span></div>
+              <div className="flex justify-between mt-1.5"><span className="text-ink-500">ลูกค้า</span><span className="font-medium text-ink-900 text-right">{selectedCustomer?.name}</span></div>
             </div>
 
             {duplicateWarning && duplicateWarning.length > 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+              <div className="rounded-control border border-amber-200 bg-amber-50 p-3 text-label leading-5 text-amber-900">
                 <p className="font-medium">พบใบแจ้งหนี้ที่อาจซ้ำกัน — โปรดตรวจสอบก่อนบันทึก</p>
                 <ul className="mt-1 list-disc ml-4">
                   {duplicateWarning.map((line) => (<li key={line}>{line}</li>))}
@@ -2916,18 +2908,18 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             )}
 
             {isBillingNote ? (
-              <div className="rounded-lg border border-card-border p-3 text-sm">
-                <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500">ใบแจ้งหนี้ที่รวม ({selectedInvoiceIds.size})</div>
+              <div className="rounded-control border border-card-border p-3 text-body">
+                <div className="text-label text-ink-500">ใบแจ้งหนี้ที่รวม ({selectedInvoiceIds.size})</div>
               </div>
             ) : (
-              <div className="rounded-lg border border-card-border p-3 text-sm">
-                <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-gray-500">รายการ ({lineItems.filter((li) => li.item_name.trim()).length})</div>
+              <div className="rounded-control border border-card-border p-3 text-body">
+                <div className="mb-2 text-label text-ink-500">รายการ ({lineItems.filter((li) => li.item_name.trim()).length})</div>
                 <div className="space-y-2">
                   {lineItems.filter((li) => li.item_name.trim()).map((li) => (
                     <div key={li.id} className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate font-medium text-ink-900">{li.item_name}</div>
-                        <div className="text-[11px] text-gray-500">{li.quantity} {li.unit || li.base_unit} × ฿{li.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                        <div className="text-label text-ink-500">{li.quantity} {li.unit || li.base_unit} × ฿{li.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                       </div>
                       <div className="shrink-0 font-medium text-ink-900">฿{lineItemAmount(li).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                     </div>
@@ -2936,18 +2928,18 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </div>
             )}
 
-            <div className="rounded-lg border border-card-border bg-paper-field p-3 text-sm space-y-1.5">
-              <div className="flex justify-between"><span className="text-gray-500">ก่อน VAT</span><span className="font-medium text-ink-900">฿{tax.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+            <div className="rounded-control border border-card-border bg-paper-field p-3 text-body space-y-1.5">
+              <div className="flex justify-between"><span className="text-ink-500">ก่อน VAT</span><span className="font-medium text-ink-900">฿{tax.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               {vatRegistered && tax.vatAmount > 0 && (
-                <div className="flex justify-between"><span className="text-gray-500">VAT {vatRate}%</span><span className="font-medium text-ink-900">฿{tax.vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between"><span className="text-ink-500">VAT {vatRate}%</span><span className="font-medium text-ink-900">฿{tax.vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               )}
               {vatRegistered && tax.vatAmount > 0 && (
-                <div className="flex justify-between"><span className="text-gray-500">ยอดรวม</span><span className="font-medium text-ink-900">฿{(tax.subtotal + tax.vatAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between"><span className="text-ink-500">ยอดรวม</span><span className="font-medium text-ink-900">฿{(tax.subtotal + tax.vatAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               )}
               {tax.whtAmount > 0 && (
-                <div className="flex justify-between"><span className="text-gray-500">หัก ณ ที่จ่าย</span><span className="font-medium text-danger">-฿{tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between"><span className="text-ink-500">หัก ณ ที่จ่าย</span><span className="font-medium text-danger">-฿{tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               )}
-              <div className="flex justify-between border-t border-card-border pt-1.5 mt-1.5"><span className="text-gray-700 font-medium">ยอดสุทธิ</span><span className="font-semibold text-ink-900">฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              <div className="flex justify-between border-t border-card-border pt-1.5 mt-1.5"><span className="text-ink-700 font-medium">ยอดสุทธิ</span><span className="font-semibold text-ink-900">฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="secondary" onClick={() => setShowConfirmModal(false)} disabled={saving}>ยกเลิก</Button>

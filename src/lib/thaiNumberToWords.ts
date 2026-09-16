@@ -21,6 +21,7 @@ function convertBlock(n: number): string {
     if (i === 1 && digit === 2) {
       result += "ยี่";
     } else if (i === 1 && digit === 1) {
+      // "สิบ" — the tens digit 1 takes no prefix.
     } else if (i === 0 && digit === 1 && digits.length > 1) {
       result += "เอ็ด";
       continue;

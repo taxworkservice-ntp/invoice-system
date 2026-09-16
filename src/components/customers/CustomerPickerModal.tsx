@@ -76,7 +76,7 @@ export function CustomerPickerModal({
     <Modal open={open} onClose={onClose} title="เลือกลูกค้า" className="md:max-w-2xl">
       <div className="space-y-4">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
           <Input
             className="pl-9"
             placeholder="ค้นหาชื่อ รหัส หรือเลขผู้เสียภาษี"
@@ -87,8 +87,8 @@ export function CustomerPickerModal({
         </div>
 
         {adding ? (
-          <div className="rounded-xl border border-card-border bg-[#FAF8F3] p-3">
-            <div className="mb-3 text-sm font-medium text-[#1A1A18]">เพิ่มลูกค้าใหม่</div>
+          <div className="rounded-card border border-card-border bg-paper-soft p-3">
+            <div className="mb-3 text-body font-medium text-ink-900">เพิ่มลูกค้าใหม่</div>
             <div className="space-y-2">
               <Input label="รหัสลูกค้า *" value={newCustomer.code} onChange={(event) => setNewCustomer((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))} placeholder="เช่น JMK-001" />
               <Input label="ชื่อลูกค้า *" value={newCustomer.name} onChange={(event) => setNewCustomer((prev) => ({ ...prev, name: event.target.value }))} />
@@ -114,9 +114,9 @@ export function CustomerPickerModal({
           </Button>
         ) : null}
 
-        <div className="max-h-[52vh] overflow-y-auto rounded-xl border border-card-border">
+        <div className="max-h-[52vh] overflow-y-auto rounded-card border border-card-border">
           {filteredCustomers.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-gray-500">ไม่พบลูกค้าที่ตรงกับคำค้น</div>
+            <div className="px-3 py-6 text-center text-body text-ink-500">ไม่พบลูกค้าที่ตรงกับคำค้น</div>
           ) : (
             <div className="divide-y divide-card-border">
               {filteredCustomers.map((customer) => {
@@ -130,24 +130,24 @@ export function CustomerPickerModal({
                       onSelect(customer);
                       onClose();
                     }}
-                    className={`w-full px-3 py-3 text-left transition-colors hover:bg-gray-50 ${selected ? "bg-blue-50" : "bg-white"}`}
+                    className={`w-full px-3 py-3 text-left transition-colors hover:bg-paper-field ${selected ? "bg-blue-50" : "bg-white"}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F3F0E8] text-[#5F5A52]">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-paper-warm text-ink-600">
                         <Building2 className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="break-words text-sm font-semibold text-[#1A1A18]">{customer.name}</span>
-                          {customer.code && <span className="text-xs font-mono text-primary font-medium">{customer.code}</span>}
+                          <span className="break-words text-body font-semibold text-ink-900">{customer.name}</span>
+                          {customer.code && <span className="text-label font-mono text-primary font-medium">{customer.code}</span>}
                           {customer.is_favorite && <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />}
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-label text-ink-500">
                           {customer.tax_id && <span>เลขผู้เสียภาษี: {customer.tax_id}</span>}
                           {customer.phone && <span>{customer.phone}</span>}
                         </div>
-                        {customer.address && <div className="mt-1 line-clamp-2 text-xs text-gray-500">{customer.address}</div>}
-                        {missingTaxInfo && <div className="mt-1 text-xs text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</div>}
+                        {customer.address && <div className="mt-1 line-clamp-2 text-label text-ink-500">{customer.address}</div>}
+                        {missingTaxInfo && <div className="mt-1 text-label text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</div>}
                       </div>
                     </div>
                   </button>

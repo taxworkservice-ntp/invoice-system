@@ -70,14 +70,14 @@ export function TransactionTable({ transactions }: Props) {
   }
 
   return (
-    <Card className="border-[0.5px] shadow-sm overflow-x-auto">
+    <Card className="border-[0.5px] overflow-x-auto">
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500">รายการแยกตามธุรกรรม</h3>
-        <span className="text-[11px] text-gray-400">{sorted.length} รายการ</span>
+        <h3 className="text-label font-semibold text-ink-500">รายการแยกตามธุรกรรม</h3>
+        <span className="text-label text-ink-400">{sorted.length} รายการ</span>
       </div>
-      <table className="w-full text-[11px]">
+      <table className="w-full text-label">
         <thead>
-          <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
+          <tr className="border-b border-line bg-paper-field">
             {COLUMNS.map((col) => (
               <SortableTh
                 key={col.key}
@@ -96,13 +96,13 @@ export function TransactionTable({ transactions }: Props) {
             <tr
               key={t.id}
               onClick={() => navigate(t.deal_id ? `/deals/${t.deal_id}` : `/documents/${t.id}`)}
-              className="border-b border-[#E6EBF2] hover:bg-[#F8FAFC] cursor-pointer transition-colors"
+              className="border-b border-line hover:bg-paper-field cursor-pointer transition-colors"
             >
               {COLUMNS.map((col) => {
                 if (col.key === "status") {
                   return (
                     <td key={col.key} className="px-3 py-2 text-left whitespace-nowrap">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${t.is_paid ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
+                      <span className={`text-label px-1.5 py-0.5 rounded font-medium ${t.is_paid ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
                         {t.status}
                       </span>
                     </td>
@@ -113,7 +113,7 @@ export function TransactionTable({ transactions }: Props) {
                 return (
                   <td
                     key={col.key}
-                    className={`px-3 py-2 text-${col.align} whitespace-nowrap tabular-nums ${col.key === "total_amount" || col.key === "net_payable" ? "font-medium text-[#111827]" : "text-[#475467]"} ${col.key === "customer_name" ? "max-w-[140px] truncate" : ""}`}
+                    className={`px-3 py-2 text-${col.align} whitespace-nowrap tabular-nums ${col.key === "total_amount" || col.key === "net_payable" ? "font-medium text-ink-900" : "text-ink-500"} ${col.key === "customer_name" ? "max-w-[140px] truncate" : ""}`}
                   >
                     {isMoney ? `฿${val}` : val}
                   </td>
@@ -123,12 +123,12 @@ export function TransactionTable({ transactions }: Props) {
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t-[1.5px] border-[#C9D5E3] bg-[#F8FAFC] font-semibold text-[#111827]">
+          <tr className="border-t-[1.5px] border-line-strong bg-paper-field font-semibold text-ink-900">
             <td className="px-3 py-2 text-left" colSpan={4}>รวม</td>
             <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.subtotal)}</td>
             <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.vat_amount)}</td>
             <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.total_amount)}</td>
-            <td className="px-3 py-2 text-right tabular-nums text-[#C0392B]">฿{formatCurrency(totals.wht_amount)}</td>
+            <td className="px-3 py-2 text-right tabular-nums text-danger">฿{formatCurrency(totals.wht_amount)}</td>
             <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.net_payable)}</td>
             <td className="px-3 py-2"></td>
             <td className="px-3 py-2"></td>

@@ -159,7 +159,7 @@ export default function SettingsPayrollPage() {
 
         {/* Calculation conventions */}
         <SectionCard title="กฎการคำนวณ" description="ตั้งค่าวิธีแปลงเงินเดือนรายเดือนเป็นอัตรารายวัน/รายชั่วโมง การหักวันขาดงาน และการปัดเศษ">
-          <div className="divide-y divide-[#F0EEE8]">
+          <div className="divide-y divide-line-faint">
             <SettingRow label="ฐานคำนวณรายวัน" controlWidthClass="sm:w-[260px]">
               <Select value={prorateMode} onChange={(e) => setProrateMode(e.target.value)}>
                 <option value="fixed_30">ตายที่นิยม (ตามตัวหารด้านล่าง)</option>
@@ -198,7 +198,7 @@ export default function SettingsPayrollPage() {
 
         {/* OT */}
         <SectionCard title="การคำนวณ OT (ล่วงเวลา)" description="ตั้งค่าอัตราการคำนวณค่าแรงล่วงเวลา ใช้กับระบบจัดการเงินเดือน">
-          <div className="divide-y divide-[#F0EEE8]">
+          <div className="divide-y divide-line-faint">
             <SettingRow
               label="ตัวหารอัตรารายชั่วโมง"
               description={prorateMode === "actual_days"
@@ -292,12 +292,12 @@ export default function SettingsPayrollPage() {
                 placeholder="0"
               />
             </div>
-            <p className="text-[11px] text-cool-400">
+            <p className="text-label text-ink-400">
               0 = จ่าย OT ตามจริงไม่กำหนดจำนวนรอบ (เช่น จ่ายแยกจากเงินเดือนเดือนละหลายครั้ง) — ตัวเลขนี้ใช้ตรวจเช็ครอบ OT ว่าครบตามแผนในหน้าสรุปทั้งเดือน
             </p>
 
             {cyclePreviewWin && (
-              <p className="text-[11px] text-primary-deep bg-primary-soft rounded-lg px-3 py-2 inline-block">
+              <p className="text-label text-primary-deep bg-primary-soft rounded-control px-3 py-2 inline-block">
                 ตัวอย่างช่วงรอบถัดไป: {formatPayRangeLabel(cyclePreviewWin)} ({cyclePreviewWin.start} → {cyclePreviewWin.end})
               </p>
             )}
@@ -327,35 +327,35 @@ export default function SettingsPayrollPage() {
               />
             </div>
 
-            <div className="rounded-lg border border-card-border bg-cool-25 p-4 space-y-1.5 text-sm">
+            <div className="rounded-control border border-card-border bg-paper-field p-4 space-y-1.5 text-body">
               <div className="flex justify-between">
-                <span className="text-cool-500">ค่าแรงรวม (หลังหักวันขาด)</span>
+                <span className="text-ink-500">ค่าแรงรวม (หลังหักวันขาด)</span>
                 <span className="tabular-nums font-medium">฿{calcPreview.gross_pay.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-cool-500">ประกันสังคม (พนักงาน 5%)</span>
+                <span className="text-ink-500">ประกันสังคม (พนักงาน 5%)</span>
                 <span className="tabular-nums font-medium text-red-500">-฿{calcPreview.sso_employee.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-cool-500">ภาษีหัก ณ ที่จ่าย</span>
+                <span className="text-ink-500">ภาษีหัก ณ ที่จ่าย</span>
                 <span className="tabular-nums font-medium text-red-500">-฿{calcPreview.withholding_tax.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between border-t border-card-border pt-1.5 mt-1.5">
                 <span className="font-semibold">เงินเดือนสุทธิ</span>
-                <span className="tabular-nums font-bold text-primary-deep">฿{calcPreview.net_pay.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums font-semibold text-primary-deep">฿{calcPreview.net_pay.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
         </SectionCard>
 
         <div className="sticky bottom-3 z-10">
-          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
             <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-xs">
+              <div className="min-w-0 flex-1 text-label">
                 {saved ? (
                   <span className="text-green-600">บันทึกแล้ว</span>
                 ) : (
-                  <span className="text-gray-400">การตั้งค่าใช้กับระบบจัดการเงินเดือน</span>
+                  <span className="text-ink-400">การตั้งค่าใช้กับระบบจัดการเงินเดือน</span>
                 )}
               </div>
               <Button onClick={handleSave} disabled={saving} className="shrink-0">

@@ -70,13 +70,13 @@ const STAGE_LABELS: Record<DealStage, string> = {
 };
 
 const STAGE_COLORS: Record<DealStage, string> = {
-  draft: "bg-stone-100 text-stone-500",
+  draft: "bg-ink-50 text-ink-500",
   waiting: "bg-blue-50 text-blue-600",
   pending_payment: "bg-green-50 text-green-600",
   partial: "bg-amber-100 text-amber-700",
   overdue: "bg-red-50 text-red-700",
   paid: "bg-green-100 text-green-700",
-  voided: "bg-stone-100 text-stone-400",
+  voided: "bg-ink-50 text-ink-400",
 };
 
 type DealHistoryItem = {
@@ -551,7 +551,7 @@ export default function CustomerDetailPage() {
   if (error || !customer) {
     return (
       <AppShell title="ไม่พบลูกค้า" showBack>
-        <p className="text-sm text-gray-500">ไม่พบข้อมูลลูกค้า</p>
+        <p className="text-body text-ink-500">ไม่พบข้อมูลลูกค้า</p>
       </AppShell>
     );
   }
@@ -564,26 +564,26 @@ export default function CustomerDetailPage() {
       showBack
       action={
         <div className="flex items-center gap-1">
-          <Button size="sm" onClick={() => setNewSheetOpen(true)} className="!text-[12px]">
+          <Button size="sm" onClick={() => setNewSheetOpen(true)} className="!text-label">
             + สร้างงานขาย
           </Button>
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F7F6F3] transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors"
             >
-              <MoreVertical className="w-4 h-4 text-[#888780]" />
+              <MoreVertical className="w-4 h-4 text-ink-300" />
             </button>
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 bg-white border border-[#E8E6DF] rounded-lg shadow-lg z-50 min-w-[130px]">
+                <div className="absolute right-0 top-full mt-1 bg-white border border-card-border rounded-control z-50 min-w-[130px]">
                   <button
                     onClick={() => {
                       setMenuOpen(false);
                       setDeleteConfirm(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 text-[13px] text-[#C0392B] hover:bg-red-50 rounded-lg transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-body text-danger hover:bg-red-50 rounded-control transition-colors"
                   >
                     ลบลูกค้า
                   </button>
@@ -599,48 +599,48 @@ export default function CustomerDetailPage() {
           <div className="flex items-start gap-3 mb-3">
             <CustomerAvatar customer={customer} size="lg" />
             <div className="flex-1 min-w-0">
-              <h2 className="text-[16px] font-bold text-[#1A1A18] truncate">
+              <h2 className="text-title font-semibold text-ink-900 truncate">
                 {customer.name}
               </h2>
-              <div className="text-[11px] text-[#888780] mt-0.5">
+              <div className="text-label text-ink-300 mt-0.5">
                 avatar: {customer.avatar_initials || customer.avatar_color
-                  ? <span className="text-[#378ADD]">กำหนดเอง</span>
+                  ? <span className="text-primary">กำหนดเอง</span>
                   : "อัตโนมัติ"}
               </div>
             </div>
             {permissions.canManageCustomers && (
               <button
                 onClick={() => setEditing(true)}
-                className="text-[12px] text-[#378ADD] hover:underline shrink-0"
+                className="text-label text-primary hover:underline shrink-0"
               >
                 แก้ไข
               </button>
             )}
           </div>
 
-          <div className="border-t border-[#F0EFE9] pt-3 mt-1">
+          <div className="border-t border-line-faint pt-3 mt-1">
             <button
               type="button"
               onClick={() => setAvatarSectionOpen((prev) => !prev)}
               className="flex w-full items-center justify-between gap-2 text-left"
               aria-expanded={avatarSectionOpen}
             >
-              <div className="text-[11px] uppercase font-semibold text-[#888780]">
+              <div className="text-label font-semibold text-ink-300">
                 รูป avatar
               </div>
               <ChevronDown
                 size={14}
-                className={`text-[#888780] transition-transform ${avatarSectionOpen ? "" : "-rotate-90"}`}
+                className={`text-ink-300 transition-transform ${avatarSectionOpen ? "" : "-rotate-90"}`}
               />
             </button>
             {avatarSectionOpen && (
               <div className="mt-2 space-y-3">
-                <label className="flex items-center gap-2 text-[13px] text-[#444441]">
+                <label className="flex items-center gap-2 text-body text-ink-700">
                   <input
                     type="checkbox"
                     checked={useCustomAvatar}
                     onChange={(e) => setUseCustomAvatar(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-[#378ADD] focus:ring-[#378ADD]"
+                    className="w-4 h-4 rounded border-line-strong text-primary focus:ring-primary"
                   />
                   กำหนด avatar เอง
                 </label>
@@ -648,7 +648,7 @@ export default function CustomerDetailPage() {
                 {useCustomAvatar && (
                   <>
                     <div>
-                      <div className="text-[11px] text-[#888780] mb-1.5">
+                      <div className="text-label text-ink-300 mb-1.5">
                         ตัวอักษร (สูงสุด 3 ตัว)
                       </div>
                       <Input
@@ -660,7 +660,7 @@ export default function CustomerDetailPage() {
                       />
                     </div>
                     <div>
-                      <div className="text-[11px] text-[#888780] mb-1.5">
+                      <div className="text-label text-ink-300 mb-1.5">
                         สีพื้น
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -670,13 +670,7 @@ export default function CustomerDetailPage() {
                             type="button"
                             onClick={() => setEditAvatarColor(c)}
                             aria-label={`เลือกสี ${c}`}
-                            className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                              editAvatarColor.toLowerCase() === c.toLowerCase()
-                                ? "border-[#1A1A18] scale-110"
-                                : c === "#FFFFFF"
-                                  ? "border-[#D4D0C8] shadow-sm hover:scale-105"
-                                  : "border-white shadow-sm hover:scale-105"
-                            }`}
+                            className={`w-7 h-7 rounded-full border-2 transition-transform ${ editAvatarColor.toLowerCase() === c.toLowerCase() ? "border-ink-900 scale-110" : c === "#FFFFFF" ? "border-ink-100 hover:scale-105" : "border-white hover:scale-105" }`}
                             style={{ backgroundColor: c }}
                           />
                         ))}
@@ -688,7 +682,7 @@ export default function CustomerDetailPage() {
                         onClick={saveAvatar}
                         loading={savingAvatar}
                         disabled={savingAvatar}
-                        className="!text-[12px]"
+                        className="!text-label"
                       >
                         บันทึก avatar
                       </Button>
@@ -697,7 +691,7 @@ export default function CustomerDetailPage() {
                         variant="ghost"
                         onClick={resetAvatar}
                         disabled={savingAvatar || (!customer.avatar_initials && !customer.avatar_color)}
-                        className="!text-[12px]"
+                        className="!text-label"
                       >
                         <RotateCcw size={12} className="mr-1" />
                         คืนค่าอัตโนมัติ
@@ -752,7 +746,7 @@ export default function CustomerDetailPage() {
                 placeholder="ชื่อคนที่ติดต่อด้วย"
               />
               <div>
-                <label className="block text-[13px] text-[#1A1A18] mb-1">
+                <label className="block text-body text-ink-900 mb-1">
                   ระยะเวลาเครดิต (วัน)
                 </label>
                 <div className="flex items-center gap-2">
@@ -763,21 +757,21 @@ export default function CustomerDetailPage() {
                     value={editCreditTerm}
                     onChange={(e) => setEditCreditTerm(e.target.value)}
                     placeholder={`ใช้ค่าเริ่มต้น (${clientProfile?.credit_term_days ?? 7} วัน)`}
-                    className="w-24 px-2 py-1.5 text-sm text-right border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD]"
+                    className="w-24 px-2 py-1.5 text-body text-right border border-card-border rounded-control bg-white focus:outline-none focus:border-primary"
                   />
-                  <span className="text-sm text-[#888780]">วัน</span>
+                  <span className="text-body text-ink-300">วัน</span>
                   {editCreditTerm.trim() === "" && (
-                    <span className="text-[11px] text-[#888780]">
+                    <span className="text-label text-ink-300">
                       เว้นว่างไว้เพื่อใช้ค่าเริ่มต้นของบริษัท
                     </span>
                   )}
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={saving} loading={saving} className="!text-[12px]">
+                <Button onClick={handleSave} disabled={saving} loading={saving} className="!text-label">
                   บันทึก
                 </Button>
-                <Button variant="ghost" onClick={() => setEditing(false)} className="!text-[12px]">
+                <Button variant="ghost" onClick={() => setEditing(false)} className="!text-label">
                   ยกเลิก
                 </Button>
               </div>
@@ -787,57 +781,57 @@ export default function CustomerDetailPage() {
           <Card>
             <div className="space-y-2">
               <div>
-                <span className="text-[11px] text-[#888780]">รหัสลูกค้า: </span>
-                <span className="text-[13px] text-primary font-mono font-medium">{customer.code || "—"}</span>
+                <span className="text-label text-ink-300">รหัสลูกค้า: </span>
+                <span className="text-body text-primary font-mono font-medium">{customer.code || "—"}</span>
               </div>
               {customer.tax_id && (
                 <div>
-                  <span className="text-[11px] text-[#888780]">เลขผู้เสียภาษี: </span>
-                  <span className="text-[13px] text-[#444441]">{customer.tax_id}</span>
+                  <span className="text-label text-ink-300">เลขผู้เสียภาษี: </span>
+                  <span className="text-body text-ink-700">{customer.tax_id}</span>
                 </div>
               )}
               {customer.address && (
                 <div>
-                  <span className="text-[11px] text-[#888780]">ที่อยู่: </span>
-                  <span className="text-[13px] text-[#444441]">{customer.address}</span>
+                  <span className="text-label text-ink-300">ที่อยู่: </span>
+                  <span className="text-body text-ink-700">{customer.address}</span>
                 </div>
               )}
               {customer.phone && (
                 <div>
-                  <span className="text-[11px] text-[#888780]">เบอร์โทร: </span>
-                  <span className="text-[13px] text-[#444441]">{customer.phone}</span>
+                  <span className="text-label text-ink-300">เบอร์โทร: </span>
+                  <span className="text-body text-ink-700">{customer.phone}</span>
                 </div>
               )}
               {customer.email && (
                 <div>
-                  <span className="text-[11px] text-[#888780]">อีเมล: </span>
-                  <span className="text-[13px] text-[#444441]">{customer.email}</span>
+                  <span className="text-label text-ink-300">อีเมล: </span>
+                  <span className="text-body text-ink-700">{customer.email}</span>
                 </div>
               )}
               {customer.contact_name && (
                 <div>
-                  <span className="text-[11px] text-[#888780]">ชื่อผู้ติดต่อ: </span>
-                  <span className="text-[13px] text-[#444441]">{customer.contact_name}</span>
+                  <span className="text-label text-ink-300">ชื่อผู้ติดต่อ: </span>
+                  <span className="text-body text-ink-700">{customer.contact_name}</span>
                 </div>
               )}
               <div>
-                <span className="text-[11px] text-[#888780]">ระยะเวลาเครดิต: </span>
+                <span className="text-label text-ink-300">ระยะเวลาเครดิต: </span>
                 {customer.credit_term_days != null ? (
-                  <span className="text-[13px] text-[#444441]">{customer.credit_term_days} วัน</span>
+                  <span className="text-body text-ink-700">{customer.credit_term_days} วัน</span>
                 ) : (
-                  <span className="text-[13px] text-[#888780] italic">
+                  <span className="text-body text-ink-300 italic">
                     ใช้ค่าเริ่มต้นของบริษัท ({clientProfile?.credit_term_days ?? 7} วัน)
                   </span>
                 )}
               </div>
               {!customer.tax_id && !customer.address && !customer.phone && !customer.email && !customer.contact_name && (
-                <div className="text-[12px] text-[#AAAAAA] italic">
+                <div className="text-label text-ink-200 italic">
                   ยังไม่มีข้อมูลติดต่อ — กด แก้ไข เพื่อเพิ่ม
                 </div>
               )}
             </div>
             {showIncomplete && (
-              <div className="mt-3 flex items-start gap-2 bg-[#FAEEDA] text-[#633806] text-[11px] rounded-md px-2.5 py-2">
+              <div className="mt-3 flex items-start gap-2 bg-pending-bg text-pending-text text-label rounded-control px-2.5 py-2">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>ข้อมูลไม่ครบ — กรอกให้ครบเพื่อให้เอกสาร PDF แสดงถูกต้อง</span>
               </div>
@@ -848,8 +842,8 @@ export default function CustomerDetailPage() {
         <Card>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-[#1A1A18]">ช่วงเวลา</span>
-              <span className="text-[11px] text-[#888780]">งานขายตามรอบเวลา</span>
+              <span className="text-label font-semibold text-ink-900">ช่วงเวลา</span>
+              <span className="text-label text-ink-300">งานขายตามรอบเวลา</span>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="flex flex-wrap gap-1.5">
@@ -858,32 +852,28 @@ export default function CustomerDetailPage() {
                     key={range.key}
                     type="button"
                     onClick={() => applyRangePreset(range.key)}
-                    className={`shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                      rangePreset === range.key
-                        ? "border-primary bg-primary text-white shadow-sm"
-                        : "border-gray-200 bg-white text-gray-600 hover:border-primary/40 hover:bg-blue-50/40"
-                    }`}
+                    className={`shrink-0 rounded-control border px-3 py-1.5 text-label font-medium transition-colors ${ rangePreset === range.key ? "border-primary bg-primary text-white " : "border-line bg-white text-ink-600 hover:border-primary/40 hover:bg-blue-50/40" }`}
                   >
                     {range.label}
                   </button>
                 ))}
               </div>
               {rangePreset === "custom" && (
-                <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1">
+                <div className="flex items-center gap-2 rounded-control border border-line bg-paper-field px-2 py-1">
                   <input
                     type="date"
                     value={dateFrom}
                     max={dateTo || undefined}
                     onChange={(e) => { setDateFrom(e.target.value); setRangePreset("custom"); }}
-                    className="rounded-md border border-[#E8E6DF] bg-white px-2 py-1 text-[11px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="rounded-control border border-card-border bg-white px-2 py-1 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
-                  <span className="text-[11px] text-gray-400">ถึง</span>
+                  <span className="text-label text-ink-400">ถึง</span>
                   <input
                     type="date"
                     value={dateTo}
                     min={dateFrom || undefined}
                     onChange={(e) => { setDateTo(e.target.value); setRangePreset("custom"); }}
-                    className="rounded-md border border-[#E8E6DF] bg-white px-2 py-1 text-[11px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="rounded-control border border-card-border bg-white px-2 py-1 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
               )}
@@ -894,19 +884,19 @@ export default function CustomerDetailPage() {
         <Card>
           <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3 sm:gap-3">
             <div>
-              <div className="text-[18px] font-bold leading-none tabular-nums text-[#1A1A18] sm:text-[20px]">{periodFilteredDealItems.length}</div>
-              <div className="mt-1 text-[11px] text-[#888780]">งานขายทั้งหมด</div>
-              <div className="mt-0.5 text-[10px] text-[#AAA49A]">กำลังทำ {activeDealItems.length} · เสร็จแล้ว {doneDealItems.length}</div>
+              <div className="text-subtitle font-semibold leading-none tabular-nums text-ink-900 sm:text-display">{periodFilteredDealItems.length}</div>
+              <div className="mt-1 text-label text-ink-300">งานขายทั้งหมด</div>
+              <div className="mt-0.5 text-label text-ink-200">กำลังทำ {activeDealItems.length} · เสร็จแล้ว {doneDealItems.length}</div>
             </div>
             <div>
-              <div className="text-[18px] font-bold leading-none tabular-nums text-[#1A1A18] sm:text-[20px]">฿ {formatCurrency(totalReceived)}</div>
-              <div className="mt-1 text-[11px] text-[#888780]">รับแล้วทั้งหมด</div>
+              <div className="text-subtitle font-semibold leading-none tabular-nums text-ink-900 sm:text-display">฿ {formatCurrency(totalReceived)}</div>
+              <div className="mt-1 text-label text-ink-300">รับแล้วทั้งหมด</div>
             </div>
             <div>
-              <div className={`text-[18px] font-bold leading-none tabular-nums sm:text-[20px] ${unpaid > 0 ? "text-[#C0392B]" : "text-[#1A1A18]"}`}>
+              <div className={`text-subtitle font-semibold leading-none tabular-nums sm:text-display ${unpaid > 0 ? "text-danger" : "text-ink-900"}`}>
                 ฿ {formatCurrency(unpaid)}
               </div>
-              <div className="mt-1 text-[11px] text-[#888780]">ค้างชำระ</div>
+              <div className="mt-1 text-label text-ink-300">ค้างชำระ</div>
             </div>
           </div>
         </Card>
@@ -914,22 +904,22 @@ export default function CustomerDetailPage() {
         <div>
 
           <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
             <input
               type="text"
               placeholder="ค้นหาจากชื่อโครงการ เลขที่เอกสาร หรือรายการ..."
               value={dealSearchQuery}
               onChange={(e) => setDealSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-[#E8E6DF] bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="w-full rounded-control border border-card-border bg-white pl-9 pr-3 py-2 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-[11px] uppercase font-semibold text-[#888780]">
+              <div className="text-label font-semibold text-ink-300">
                 ประวัติงานขาย
               </div>
-              <div className="mt-0.5 text-[11px] text-[#AAA49A]">
+              <div className="mt-0.5 text-label text-ink-200">
                 กำลังดำเนินการ {activeDealItems.length} · เสร็จสิ้น {doneDealItems.length}
               </div>
             </div>
@@ -949,11 +939,7 @@ export default function CustomerDetailPage() {
                   key={tab}
                   type="button"
                   onClick={() => setDealFilter(tab)}
-                  className={`shrink-0 px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors ${
-                    dealFilter === tab
-                      ? "bg-[#378ADD] text-white"
-                      : "bg-[#F7F6F3] text-[#888780] hover:bg-[#E8E6DF]"
-                  }`}
+                  className={`shrink-0 px-3 py-1.5 text-label rounded-control font-medium transition-colors ${ dealFilter === tab ? "bg-primary text-white" : "bg-page-bg text-ink-300 hover:bg-line" }`}
                 >
                   {tab === "all" ? "ทั้งหมด" : tab === "active" ? "กำลังดำเนินการ" : tab === "partial" ? "ชำระบางส่วน" : "เสร็จสิ้น"} {count}
                 </button>
@@ -962,7 +948,7 @@ export default function CustomerDetailPage() {
           </div>
 
           {filteredDealItems.length === 0 ? (
-            <div className="text-center py-8 text-[13px] text-[#888780]">
+            <div className="text-center py-8 text-body text-ink-300">
               ยังไม่มีงานขาย — กด + สร้างงานขาย ด้านบนเพื่อเริ่ม
             </div>
           ) : dealHistoryView === "table" ? (
@@ -972,27 +958,27 @@ export default function CustomerDetailPage() {
                   <Card
                     key={item.deal.id}
                     onClick={() => navigate(`/deals/${item.deal.id}`)}
-                    className={item.isDone ? "!bg-[#FAFAF8] !border-[#F0EEE8] !shadow-none" : ""}
+                    className={item.isDone ? "!bg-paper-field !border-line-faint !shadow-none" : ""}
                   >
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
-                          <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
+                          <div className={`truncate text-body font-semibold ${item.isDone ? "text-ink-500" : "text-ink-900"}`}>
                             {item.deal.title || item.deal.deal_number || "งานขาย"}
                           </div>
-                          <div className="mt-0.5 text-[11px] text-[#888780]">
+                          <div className="mt-0.5 text-label text-ink-300">
                             {item.representativeDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
                             {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
                           </div>
                         </div>
                       <div className="ml-3 shrink-0 text-right">
-                        <div className={`font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[13px] text-[#1A1A18]"}`}>
+                        <div className={`font-semibold ${item.isDone ? "text-label text-ink-400" : "text-body text-ink-900"}`}>
                           ฿ {formatCurrency(item.amount)}
                         </div>
                         {item.credit > 0 && (
-                          <div className="text-[10px] font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
+                          <div className="text-label font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
                         )}
                         <div className="mt-1">
-                          <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${STAGE_COLORS[item.stage]}`}>
+                          <span className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${STAGE_COLORS[item.stage]}`}>
                             {STAGE_LABELS[item.stage]}
                           </span>
                         </div>
@@ -1042,31 +1028,29 @@ export default function CustomerDetailPage() {
                       <tr
                         key={item.deal.id}
                         onClick={() => navigate(`/deals/${item.deal.id}`)}
-                        className={`cursor-pointer transition-colors hover:bg-[#F8FAFC] ${
-                          item.isDone ? "bg-[#FAFAF8] text-[#8A8478]" : "bg-white"
-                        }`}
+                        className={`cursor-pointer transition-colors hover:bg-paper-field ${ item.isDone ? "bg-paper-field text-ink-400" : "bg-white" }`}
                       >
                         <td className="px-3 py-2">
-                          <div className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-[#8A8478]" : "text-[#111827]"}`}>
+                          <div className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-ink-400" : "text-ink-900"}`}>
                             {item.deal.title || item.deal.deal_number || "งานขาย"}
                           </div>
-                          <div className="mt-0.5 truncate text-[11px] text-[#667085]">
+                          <div className="mt-0.5 truncate text-label text-ink-400">
                             {rep?.doc_number || "ยังไม่มีเลขเอกสาร"}
                             {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
                           </div>
                         </td>
                         <td className="px-3 py-2">
-                          <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${STAGE_COLORS[item.stage]}`}>
+                          <span className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${STAGE_COLORS[item.stage]}`}>
                             {STAGE_LABELS[item.stage]}
                           </span>
                         </td>
-                        <td className={`px-3 py-2 text-right ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[#111827]"}`}>
+                        <td className={`px-3 py-2 text-right ${item.isDone ? "text-label text-ink-400" : "text-ink-900"}`}>
                           <div className="font-semibold">฿ {formatCurrency(item.amount)}</div>
                           {item.credit > 0 && (
-                            <div className="text-[10px] font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
+                            <div className="text-label font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
                           )}
                           {isPartial && partialReceived > 0 && (
-                            <div className="text-[10px] text-[#667085]">
+                            <div className="text-label text-ink-400">
                               รับแล้ว ฿{formatCurrency(partialReceived)}
                             </div>
                           )}
@@ -1088,7 +1072,7 @@ export default function CustomerDetailPage() {
                 .map((section) => (
                   <div key={section.key} className="space-y-2">
                     {dealFilter === "all" && (
-                      <div className={`text-[11px] font-semibold ${section.key === "done" ? "text-[#AAA49A]" : "text-[#888780]"}`}>
+                      <div className={`text-label font-semibold ${section.key === "done" ? "text-ink-200" : "text-ink-300"}`}>
                         {section.title} ({section.items.length})
                       </div>
                     )}
@@ -1096,29 +1080,29 @@ export default function CustomerDetailPage() {
                       <Card
                         key={item.deal.id}
                         onClick={() => navigate(`/deals/${item.deal.id}`)}
-                        className={item.isDone ? "!bg-[#FAFAF8] !border-[#F0EEE8] !shadow-none" : ""}
+                        className={item.isDone ? "!bg-paper-field !border-line-faint !shadow-none" : ""}
                       >
                         <div className="flex items-start justify-between">
                           <div className="min-w-0 flex-1">
-                            <div className={`truncate text-[13px] font-semibold ${item.isDone ? "text-[#777166]" : "text-[#1A1A18]"}`}>
+                            <div className={`truncate text-body font-semibold ${item.isDone ? "text-ink-500" : "text-ink-900"}`}>
                               {item.deal.title || item.deal.deal_number || "งานขาย"}
                             </div>
                             {item.representativeDoc && (
-                              <div className="text-[11px] text-[#888780] mt-0.5">
+                              <div className="text-label text-ink-300 mt-0.5">
                                 {item.representativeDoc.doc_number || "ยังไม่มีเลขเอกสาร"}
                                 {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
                               </div>
                             )}
                           </div>
                           <div className="text-right shrink-0 ml-3">
-                            <div className={`font-semibold ${item.isDone ? "text-[12px] text-[#8A8478]" : "text-[13px] text-[#1A1A18]"}`}>
+                            <div className={`font-semibold ${item.isDone ? "text-label text-ink-400" : "text-body text-ink-900"}`}>
                               ฿ {formatCurrency(item.amount)}
                             </div>
                             {item.credit > 0 && (
-                              <div className="text-[10px] font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
+                              <div className="text-label font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
                             )}
                             <div className="mt-1">
-                              <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${STAGE_COLORS[item.stage]}`}>
+                              <span className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${STAGE_COLORS[item.stage]}`}>
                                 {STAGE_LABELS[item.stage]}
                               </span>
                             </div>
@@ -1136,9 +1120,9 @@ export default function CustomerDetailPage() {
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setDeleteConfirm(false)} />
-          <div className="relative bg-white rounded-t-xl md:rounded-xl w-full max-w-sm p-5 shadow-xl">
-            <h3 className="text-base font-semibold mb-1">ลบ {customer.name}?</h3>
-            <p className="text-sm text-[#888780] mb-4">ข้อมูลงานขายและเอกสารทั้งหมดจะยังคงอยู่</p>
+          <div className="relative bg-white rounded-t-card md:rounded-card w-full max-w-sm p-5">
+            <h3 className="text-title font-semibold mb-1">ลบ {customer.name}?</h3>
+            <p className="text-body text-ink-300 mb-4">ข้อมูลงานขายและเอกสารทั้งหมดจะยังคงอยู่</p>
             <div className="flex gap-2">
               <Button variant="danger" onClick={handleDeactivate} disabled={deleting} loading={deleting} className="flex-1">
                 ลบลูกค้า

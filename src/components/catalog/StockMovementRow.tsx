@@ -26,38 +26,38 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
   const typeConfig = (() => {
     switch (movement.movement_type) {
       case "manual_in":
-        return { qtyColor: "text-[#27500A]", iconColor: "text-[#27500A]" };
+        return { qtyColor: "text-paid-text", iconColor: "text-paid-text" };
       case "auto_out":
-        return { qtyColor: "text-[#888780]", iconColor: "text-[#888780]" };
+        return { qtyColor: "text-ink-300", iconColor: "text-ink-300" };
       case "manual_out":
-        return { qtyColor: "text-[#C0392B]", iconColor: "text-[#C0392B]" };
+        return { qtyColor: "text-danger", iconColor: "text-danger" };
       case "auto_in":
-        return { qtyColor: "text-[#888780]", iconColor: "text-[#888780]" };
+        return { qtyColor: "text-ink-300", iconColor: "text-ink-300" };
       case "return_in":
-        return { qtyColor: "text-[#378ADD]", iconColor: "text-[#378ADD]" };
+        return { qtyColor: "text-primary", iconColor: "text-primary" };
       default:
-        return { qtyColor: "text-[#888780]", iconColor: "text-[#888780]" };
+        return { qtyColor: "text-ink-300", iconColor: "text-ink-300" };
     }
   })();
 
   const displayQty = Math.abs(movement.qty_base);
 
   return (
-    <div className="border-b border-[#F1EFE8] py-3 last:border-b-0">
+    <div className="border-b border-draft-bg py-3 last:border-b-0">
       <div className="flex items-start gap-3">
         <span
-          className={`mt-0.5 shrink-0 text-lg leading-none ${typeConfig.iconColor}`}
+          className={`mt-0.5 shrink-0 text-subtitle leading-none ${typeConfig.iconColor}`}
         >
           {MOVEMENT_TYPE_ICONS[movement.movement_type] || "+"}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
-            <span className="text-[13px] font-medium text-[#1A1A18]">
+            <span className="text-body font-medium text-ink-900">
               {MOVEMENT_TYPE_LABELS[movement.movement_type] ||
                 movement.movement_type}
             </span>
             <span
-              className={`ml-3 shrink-0 text-[13px] font-semibold ${typeConfig.qtyColor}`}
+              className={`ml-3 shrink-0 text-body font-semibold ${typeConfig.qtyColor}`}
             >
               {isIn ? "+" : "-"}
               {formatMixedStock(
@@ -69,10 +69,10 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
             </span>
           </div>
           <div className="mt-0.5 flex items-center justify-between">
-            <span className="text-[11px] text-[#888780]">
+            <span className="text-label text-ink-300">
               {formatBuddhistDate(movement.created_at)}
             </span>
-            <span className="text-[11px] text-[#888780]">
+            <span className="text-label text-ink-300">
               คงเหลือ{" "}
               {formatMixedStock(
                 movement.balance_after,
@@ -83,12 +83,12 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
             </span>
           </div>
           {movement.reason && (
-            <div className="mt-0.5 truncate text-[11px] italic text-[#AAAAAA]">
+            <div className="mt-0.5 truncate text-label italic text-ink-200">
               {movement.reason}
             </div>
           )}
           {(movement.unit_cost != null || movement.movement_value != null) && (
-            <div className="mt-0.5 text-[11px] text-[#888780]">
+            <div className="mt-0.5 text-label text-ink-300">
               ทุน/หน่วย ฿{formatCurrency(movement.unit_cost || 0)} · มูลค่า ฿{formatCurrency(movement.movement_value || 0)}
             </div>
           )}
@@ -96,13 +96,13 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
             <button
               type="button"
               onClick={() => navigate(`/documents/${movement.document_id}`)}
-              className="mt-0.5 text-[11px] text-[#378ADD] hover:underline"
+              className="mt-0.5 text-label text-primary hover:underline"
             >
               เอกสาร: {movement.document_id.slice(0, 8)}...
             </button>
           )}
           {movement.qty_carton && movement.carton_unit && (
-            <div className="mt-0.5 text-[11px] text-[#888780]">
+            <div className="mt-0.5 text-label text-ink-300">
               รวม{" "}
               {formatBaseWithCartonHint(
                 displayQty,
@@ -124,7 +124,7 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
                       e.stopPropagation();
                       onEdit(movement);
                     }}
-                    className="text-[11px] text-[#378ADD] hover:underline"
+                    className="text-label text-primary hover:underline"
                   >
                     แก้ไข
                   </button>
@@ -136,7 +136,7 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
                       e.stopPropagation();
                       onRevert(movement);
                     }}
-                    className="text-[11px] text-[#C0392B] hover:underline"
+                    className="text-label text-danger hover:underline"
                   >
                     ยกเลิกรายการนี้
                   </button>

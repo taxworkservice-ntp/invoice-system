@@ -59,7 +59,7 @@ export default function CatalogEditPage() {
   if (error || !item)
     return (
       <AppShell title="ไม่พบสินค้า" showBack>
-        <p className="text-sm text-gray-500">ไม่พบข้อมูลสินค้า</p>
+        <p className="text-body text-ink-500">ไม่พบข้อมูลสินค้า</p>
       </AppShell>
     );
 
@@ -89,14 +89,14 @@ export default function CatalogEditPage() {
             className="absolute inset-0 bg-black/30"
             onClick={() => setDeleteConfirm(false)}
           />
-          <div className="relative bg-white rounded-t-xl md:rounded-xl w-full max-w-sm p-5 shadow-xl">
-            <h3 className="text-base font-semibold mb-1">
+          <div className="relative bg-white rounded-t-card md:rounded-card w-full max-w-sm p-5">
+            <h3 className="text-title font-semibold mb-1">
               ลบ {item.name}?
             </h3>
-            <p className="text-sm text-[#888780] mb-1">
+            <p className="text-body text-ink-300 mb-1">
               รายการนี้จะถูกซ่อนจากแค็ตตาล็อก
             </p>
-            <p className="text-sm text-[#888780] mb-4">
+            <p className="text-body text-ink-300 mb-4">
               เอกสารที่ใช้รายการนี้ไม่ได้รับผลกระทบ
             </p>
             <div className="flex gap-2">

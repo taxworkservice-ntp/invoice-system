@@ -34,23 +34,17 @@ export function CartonUnitSection({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-[14px] text-[#1A1A18]">หน่วยรอง</span>
+        <span className="text-body text-ink-900">หน่วยรอง</span>
         <button
           type="button"
           onClick={() => onEnabledChange(!enabled)}
-          className={`flex items-center gap-1.5 text-[13px] transition-colors ${
-            enabled ? "text-[#378ADD]" : "text-[#888780]"
-          }`}
+          className={`flex items-center gap-1.5 text-body transition-colors ${ enabled ? "text-primary" : "text-ink-300" }`}
         >
           <span
-            className={`w-8 h-5 flex items-center rounded-full p-0.5 transition-colors ${
-              enabled ? "bg-[#378ADD]" : "bg-[#D0D0D0]"
-            }`}
+            className={`w-8 h-5 flex items-center rounded-full p-0.5 transition-colors ${ enabled ? "bg-primary" : "bg-ink-200" }`}
           >
             <span
-              className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                enabled ? "translate-x-3" : "translate-x-0"
-              }`}
+              className={`w-4 h-4 bg-white rounded-full transition-transform ${ enabled ? "translate-x-3" : "translate-x-0" }`}
             />
           </span>
           {enabled ? "เปิดใช้งาน" : "ปิดใช้งาน"}
@@ -58,7 +52,7 @@ export function CartonUnitSection({
       </div>
 
       {enabled && (
-        <div className="space-y-3 pl-2 border-l-2 border-[#E8E6DF]">
+        <div className="space-y-3 pl-2 border-l-2 border-card-border">
           <UnitSelector
             value={unit}
             onChange={onUnitChange}
@@ -67,7 +61,7 @@ export function CartonUnitSection({
             onAddPreset={onAddPreset}
           />
           <div>
-            <label className="block text-[11px] uppercase font-semibold text-[#888780] mb-1">
+            <label className="block text-label font-semibold text-ink-300 mb-1">
               จำนวนต่อหน่วย
             </label>
             <input
@@ -77,7 +71,7 @@ export function CartonUnitSection({
               value={qtyPerCarton}
               onChange={(e) => onQtyChange(e.target.value)}
               placeholder={`เช่น ${qtyNum || 10} ${baseUnit} ต่อ${unit || "ลัง"}`}
-              className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
+              className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
             />
           </div>
           {unit && qtyNum >= 1 && (

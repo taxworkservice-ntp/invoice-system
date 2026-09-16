@@ -163,18 +163,18 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] flex flex-col">
+    <div className="min-h-screen bg-page-bg flex flex-col">
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-[400px]">
           <OnboardingProgressDots currentStep={step} totalSteps={TOTAL_STEPS} />
 
           {step === 1 && (
-            <div className="bg-white border border-[#E8E6DF] rounded-[10px] p-6 shadow-sm">
+            <div className="bg-white border border-card-border rounded-[10px] p-6">
               <div className="text-center mb-5">
-                <h2 className="text-[22px] font-bold text-[#1A1A18]">
+                <h2 className="text-display font-semibold text-ink-900">
                   เริ่มต้นใช้งาน
                 </h2>
-                <p className="text-[14px] text-[#888780] mt-1.5">
+                <p className="text-body text-ink-300 mt-1.5">
                   เริ่มต้นด้วยการตั้งค่าข้อมูลบริษัทของคุณ
                 </p>
               </div>
@@ -188,11 +188,11 @@ export default function SetupPage() {
                     setErrors((prev) => ({ ...prev, companyName: "" }));
                   }}
                   placeholder="เช่น ร้านมาลี หรือ บริษัท สมชาย จำกัด"
-                  className="text-[16px]"
+                  className="text-title"
                   autoFocus
                 />
                 {errors.companyName && (
-                  <p className="text-xs text-red-500 -mt-3">{errors.companyName}</p>
+                  <p className="text-label text-red-500 -mt-3">{errors.companyName}</p>
                 )}
 
                 <Input
@@ -203,7 +203,7 @@ export default function SetupPage() {
                 />
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                  <label className="block text-label font-medium text-ink-600 mb-2">
                     จดทะเบียน VAT หรือไม่ *
                   </label>
                   <VatChoiceCards value={vatRegistered} onChange={(val) => {
@@ -211,7 +211,7 @@ export default function SetupPage() {
                     setErrors((prev) => ({ ...prev, vat: "" }));
                   }} />
                   {errors.vat && (
-                    <p className="text-xs text-red-500 mt-1">{errors.vat}</p>
+                    <p className="text-label text-red-500 mt-1">{errors.vat}</p>
                   )}
                 </div>
 
@@ -224,16 +224,16 @@ export default function SetupPage() {
                       placeholder="0000000000000 (13 หลัก)"
                       maxLength={13}
                     />
-                    <p className="text-[11px] text-[#888780] mt-1">
+                    <p className="text-label text-ink-300 mt-1">
                       จำเป็นสำหรับการออกใบกำกับภาษีที่ถูกต้องตามกฎหมาย
                     </p>
                   </div>
                 )}
 
-                {error && <p className="text-xs text-red-500">{error}</p>}
+                {error && <p className="text-label text-red-500">{error}</p>}
 
                 <Button
-                  className="w-full text-[15px] font-semibold"
+                  className="w-full text-title font-semibold"
                   onClick={handleSaveStep1}
                   disabled={saving || !companyName.trim() || vatRegistered === null}
                 >
@@ -244,19 +244,19 @@ export default function SetupPage() {
           )}
 
           {step === 2 && (
-            <div className="bg-white border border-[#E8E6DF] rounded-[10px] p-6 shadow-sm">
+            <div className="bg-white border border-card-border rounded-[10px] p-6">
               <div className="flex items-start mb-5">
                 <button
                   onClick={() => setStep(1)}
-                  className="text-[13px] text-[#378ADD] hover:underline shrink-0 mr-3"
+                  className="text-body text-primary hover:underline shrink-0 mr-3"
                 >
                   ← ย้อนกลับ
                 </button>
                 <div className="text-center flex-1">
-                  <h2 className="text-[20px] font-bold text-[#1A1A18]">
+                  <h2 className="text-display font-semibold text-ink-900">
                     เพิ่มสินค้าหรือบริการชิ้นแรก
                   </h2>
-                  <p className="text-[13px] text-[#888780] mt-1">
+                  <p className="text-body text-ink-300 mt-1">
                     คุณสามารถเพิ่มเพิ่มเติมได้ภายหลัง
                   </p>
                 </div>
@@ -265,19 +265,15 @@ export default function SetupPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                  <label className="block text-label font-medium text-ink-600 mb-2">
                     ประเภท
                   </label>
-                  <div className="flex bg-[#F7F6F3] rounded-lg p-0.5">
+                  <div className="flex bg-page-bg rounded-control p-0.5">
                     {(["product", "service"] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setItemType(t)}
-                        className={`flex-1 py-2 text-sm rounded-md text-center transition-colors ${
-                          itemType === t
-                            ? "bg-white shadow-sm text-[#1A1A18] font-medium"
-                            : "text-[#888780]"
-                        }`}
+                        className={`flex-1 py-2 text-body rounded-control text-center transition-colors ${ itemType === t ? "bg-white text-ink-900 font-medium" : "text-ink-300" }`}
                       >
                         {t === "product" ? "🛍 สินค้า" : "⚙ บริการ"}
                       </button>
@@ -293,12 +289,12 @@ export default function SetupPage() {
                 />
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                  <label className="block text-label font-medium text-ink-600 mb-2">
                     ราคา * ต่อ
                   </label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#888780]">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-body text-ink-300">
                         ฿
                       </span>
                       <input
@@ -308,7 +304,7 @@ export default function SetupPage() {
                         value={itemPrice}
                         onChange={(e) => setItemPrice(e.target.value)}
                         placeholder="0.00"
-                        className="w-full pl-8 pr-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                        className="w-full pl-8 pr-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <Select value={itemUnit} onChange={(e) => setItemUnit(e.target.value)}>
@@ -328,7 +324,7 @@ export default function SetupPage() {
 
                 {itemType === "product" && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                    <label className="block text-label font-medium text-ink-600 mb-2">
                       สต็อกเริ่มต้น
                     </label>
                     <div className="flex items-center gap-2">
@@ -337,17 +333,17 @@ export default function SetupPage() {
                         min="0"
                         value={initialStock}
                         onChange={(e) => setInitialStock(e.target.value)}
-                        className="w-24 px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                        className="w-24 px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
-                      <span className="text-sm text-[#888780]">ชิ้น</span>
+                      <span className="text-body text-ink-300">ชิ้น</span>
                     </div>
                   </div>
                 )}
 
                 {errors.item && (
-                  <p className="text-xs text-red-500">{errors.item}</p>
+                  <p className="text-label text-red-500">{errors.item}</p>
                 )}
-                {error && <p className="text-xs text-red-500">{error}</p>}
+                {error && <p className="text-label text-red-500">{error}</p>}
 
                 <Button
                   className="w-full"
@@ -359,7 +355,7 @@ export default function SetupPage() {
 
                 <button
                   onClick={handleSkipStep2}
-                  className="w-full text-sm text-[#888780] hover:text-[#1A1A18] py-2"
+                  className="w-full text-body text-ink-300 hover:text-ink-900 py-2"
                 >
                   ข้ามขั้นตอนนี้ →
                 </button>
@@ -368,22 +364,22 @@ export default function SetupPage() {
           )}
 
           {step === 3 && (
-            <div className="bg-white border border-[#E8E6DF] rounded-[10px] p-6 shadow-sm">
+            <div className="bg-white border border-card-border rounded-[10px] p-6">
               <div className="text-center mb-6">
-                <h2 className="text-[24px] font-bold text-[#1A1A18]">
+                <h2 className="text-page font-semibold text-ink-900">
                   ตั้งค่าเริ่มต้นเรียบร้อยแล้ว
                 </h2>
               </div>
 
-              <div className="bg-[#F7F6F3] rounded-lg p-4 mb-6 space-y-1">
-                <p className="text-[14px] text-[#27500A]">
+              <div className="bg-page-bg rounded-control p-4 mb-6 space-y-1">
+                <p className="text-body text-paid-text">
                   ข้อมูลบริษัท: {companyName}
                 </p>
-                <p className="text-[14px] text-[#27500A]">
+                <p className="text-body text-paid-text">
                   VAT: {vatRegistered ? "จดทะเบียน" : "ไม่ได้จด"}
                 </p>
                 {itemAdded && (
-                  <p className="text-[14px] text-[#27500A]">
+                  <p className="text-body text-paid-text">
                     สินค้า: {savedItemName}
                   </p>
                 )}
@@ -398,14 +394,14 @@ export default function SetupPage() {
                   <div
                     key={opt.to}
                     onClick={() => handleNavigateAndComplete(opt.to)}
-                    className="flex items-center gap-3 bg-white border border-[#E8E6DF] rounded-[10px] px-4 py-3.5 cursor-pointer hover:shadow-sm hover:border-gray-300 transition-all active:translate-y-[1px]"
+                    className="flex items-center gap-3 bg-white border border-card-border rounded-[10px] px-4 py-3.5 cursor-pointer hover:border-line-strong transition-all active:translate-y-[1px]"
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F7F6F3] text-xs font-semibold text-[#888780]">{opt.icon}</span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-page-bg text-label font-semibold text-ink-300">{opt.icon}</span>
                     <div>
-                      <div className="text-[14px] font-medium text-[#1A1A18]">
+                      <div className="text-body font-medium text-ink-900">
                         {opt.title}
                       </div>
-                      <div className="text-[12px] text-[#888780]">{opt.desc}</div>
+                      <div className="text-label text-ink-300">{opt.desc}</div>
                     </div>
                   </div>
                 ))}
@@ -413,7 +409,7 @@ export default function SetupPage() {
 
               <button
                 onClick={() => handleNavigateAndComplete("/home")}
-                className="w-full text-[#378ADD] text-sm font-medium py-2 hover:underline"
+                className="w-full text-primary text-body font-medium py-2 hover:underline"
               >
                 เข้าสู่หน้างานขาย →
               </button>

@@ -19,21 +19,21 @@ export function HomeNudgeBanner({ type, onDismiss }: HomeNudgeBannerProps) {
   const { text, actionLabel, route } = NUDGE_CONTENT[type];
 
   return (
-    <div className="flex items-center justify-between gap-2 bg-[#E6F1FB] text-[#0C447C] rounded-[8px] px-3 py-2.5 text-sm mb-3">
+    <div className="flex items-center justify-between gap-2 bg-sent-bg text-primary-deep rounded-[8px] px-3 py-2.5 text-body mb-3">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-base shrink-0">ℹ</span>
+        <span className="text-title shrink-0">ℹ</span>
         <span className="truncate">{text}</span>
       </div>
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={() => navigate(route)}
-          className="text-[#0C447C] font-medium underline underline-offset-2 whitespace-nowrap text-sm"
+          className="text-primary-deep font-medium underline underline-offset-2 whitespace-nowrap text-body"
         >
           {actionLabel} →
         </button>
         <button
           onClick={onDismiss}
-          className="text-[#0C447C]/60 hover:text-[#0C447C] p-1 rounded"
+          className="text-primary-deep/60 hover:text-primary-deep p-1 rounded"
           aria-label="ปิด"
         >
           <X className="w-3.5 h-3.5" />

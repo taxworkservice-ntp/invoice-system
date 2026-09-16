@@ -11,7 +11,7 @@ export function Spinner({ className = "", inline = false }: SpinnerProps) {
   }
   return (
     <div className={`flex items-center justify-center py-12 ${className}`}>
-      <div className="w-6 h-6 border-2 border-gray-200 border-t-primary rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-line border-t-primary rounded-full animate-spin" />
     </div>
   );
 }

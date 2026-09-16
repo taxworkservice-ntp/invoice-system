@@ -80,7 +80,7 @@ export function BottomNav() {
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-card-border shadow-[0_-1px_3px_rgba(0,0,0,0.04)] z-40 md:hidden"
+        className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-card-border z-40 md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="flex py-1.5">
@@ -92,16 +92,10 @@ export function BottomNav() {
                 key={item.path}
                 onClick={() => handleClick(item)}
                 aria-label={item.label}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl text-xs transition-all duration-150 active:scale-95 ${
-                  isLogout
-                    ? "text-red-500 hover:text-red-600"
-                    : active
-                      ? "text-primary font-semibold"
-                      : "text-gray-500 hover:text-gray-700"
-                }`}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${ isLogout ? "text-red-500 hover:text-red-600" : active ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700" }`}
               >
                 {iconMap[item.path] || <Home className="w-5 h-5" />}
-                <span className="text-[11px] whitespace-nowrap leading-tight">{item.label}</span>
+                <span className="text-label whitespace-nowrap leading-tight">{item.label}</span>
               </button>
             );
           })}
@@ -109,12 +103,10 @@ export function BottomNav() {
             <button
               onClick={() => setOverflowOpen(true)}
               aria-label="เพิ่มเติม"
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-xl text-xs transition-all duration-150 active:scale-95 ${
-                overflowActive ? "text-primary font-semibold" : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${ overflowActive ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700" }`}
             >
               <MoreHorizontal className="w-5 h-5" />
-              <span className="text-[11px] whitespace-nowrap leading-tight">เพิ่มเติม</span>
+              <span className="text-label whitespace-nowrap leading-tight">เพิ่มเติม</span>
             </button>
           )}
         </div>
@@ -129,13 +121,7 @@ export function BottomNav() {
                 <button
                   key={item.path}
                   onClick={() => handleOverflowClick(item)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                    isLogout
-                      ? "text-red-500 hover:bg-red-50"
-                      : isActive(item.path)
-                        ? "bg-[#EEF6FF] text-primary font-medium"
-                        : "text-gray-700 hover:bg-gray-50"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-control text-body transition-colors ${ isLogout ? "text-red-500 hover:bg-red-50" : isActive(item.path) ? "bg-primary-soft text-primary font-medium" : "text-ink-700 hover:bg-paper-field" }`}
                 >
                   {iconMap[item.path]}
                   <span>{item.label}</span>
@@ -148,7 +134,7 @@ export function BottomNav() {
 
       <Modal open={logoutOpen} onClose={() => setLogoutOpen(false)} title="ออกจากระบบ">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-ink-600">
             คุณแน่ใจว่าต้องการออกจากระบบใช่หรือไม่?
           </p>
           <div className="flex gap-2 justify-end">

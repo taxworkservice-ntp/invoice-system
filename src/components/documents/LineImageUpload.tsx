@@ -65,9 +65,9 @@ export function LineImageUpload({ userId, imageKey, onKeyChange }: LineImageUplo
           <img
             src={getProxiedImageUrl(imageKey)}
             alt="รูปตัวอย่าง"
-            className="h-14 w-20 rounded border border-card-border bg-gray-50 object-cover"
+            className="h-14 w-20 rounded border border-card-border bg-paper-field object-cover"
           />
-          <div className="space-y-0.5 text-xs">
+          <div className="space-y-0.5 text-label">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -89,12 +89,12 @@ export function LineImageUpload({ userId, imageKey, onKeyChange }: LineImageUplo
           type="button"
           disabled={uploading}
           onClick={() => fileRef.current?.click()}
-          className="rounded-lg border border-card-border bg-white px-2 py-1 text-xs text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 disabled:opacity-50"
+          className="rounded-control border border-card-border bg-white px-2 py-1 text-label text-ink-500 transition-colors hover:border-blue-300 hover:text-blue-600 disabled:opacity-50"
         >
           {uploading ? "กำลังอัปโหลด..." : "+ เพิ่มรูปตัวอย่าง"}
         </button>
       )}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-label text-red-500">{error}</p>}
       <input
         ref={fileRef}
         type="file"

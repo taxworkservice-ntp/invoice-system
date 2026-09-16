@@ -277,7 +277,7 @@ export default function EditUtilityBillPage() {
     return (
       <AppShell title="แก้ไข" showBack>
         <div className="p-4">
-          <p className="text-sm text-red-600">{error || "ไม่พบเอกสาร"}</p>
+          <p className="text-body text-red-600">{error || "ไม่พบเอกสาร"}</p>
           <Button variant="secondary" className="mt-3" onClick={() => navigate(-1)}>
             กลับ
           </Button>
@@ -290,7 +290,7 @@ export default function EditUtilityBillPage() {
     <AppShell title="แก้ไขออกบิลประจำรอบ" showBack>
       <div className="space-y-4">
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-control text-body text-red-600">
             {error}
           </div>
         )}
@@ -298,20 +298,20 @@ export default function EditUtilityBillPage() {
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-medium text-ink-900">เอกสาร</h3>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <h3 className="text-body font-medium text-ink-900">เอกสาร</h3>
+              <p className="mt-0.5 text-label text-ink-500">
                 {doc.doc_number} — {(doc as any).customer?.name || "ไม่ระบุลูกค้า"}
               </p>
             </div>
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">ฉบับร่าง</span>
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-label font-medium text-amber-700">ฉบับร่าง</span>
           </div>
         </Card>
 
         <Card>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-medium text-ink-900">ข้อมูลรอบบิล</h3>
-              <p className="mt-1 text-xs text-gray-500">
+              <h3 className="text-body font-medium text-ink-900">ข้อมูลรอบบิล</h3>
+              <p className="mt-1 text-label text-ink-500">
                 ระบบจะคำนวณจำนวนหน่วย และบันทึกรายละเอียดไว้ในหมายเหตุรายการ
               </p>
             </div>
@@ -319,7 +319,7 @@ export default function EditUtilityBillPage() {
 
           <div className="mt-4 space-y-4">
             <label className="block">
-              <span className="mb-1 block text-sm text-ink-900">ค่าบริการ</span>
+              <span className="mb-1 block text-body text-ink-900">ค่าบริการ</span>
               <CatalogAutocomplete
                 items={serviceItems}
                 value={utilityServiceName}
@@ -341,7 +341,7 @@ export default function EditUtilityBillPage() {
             </label>
 
             <div>
-              <span className="mb-1.5 block text-sm text-ink-900">รอบบิล</span>
+              <span className="mb-1.5 block text-body text-ink-900">รอบบิล</span>
               <div className="grid grid-cols-2 gap-3">
                 <Input
                   label="เริ่ม"
@@ -360,7 +360,7 @@ export default function EditUtilityBillPage() {
             </div>
 
             <div>
-              <span className="mb-1.5 block text-sm text-ink-900">มาตรวัด</span>
+              <span className="mb-1.5 block text-body text-ink-900">มาตรวัด</span>
               <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                 <Input
                   label="เลขก่อนหน้า"
@@ -370,7 +370,7 @@ export default function EditUtilityBillPage() {
                   onChange={(e) => setUtilityPreviousReading(e.target.value)}
                   placeholder="0"
                 />
-                <span className="pb-2 text-gray-400 text-sm">→</span>
+                <span className="pb-2 text-ink-400 text-body">→</span>
                 <Input
                   label="เลขปัจจุบัน"
                   type="number"
@@ -382,7 +382,7 @@ export default function EditUtilityBillPage() {
                 />
               </div>
               {(parseAmount(utilityCurrentReading) > 0 || parseAmount(utilityPreviousReading) > 0) && parseAmount(utilityCurrentReading) > parseAmount(utilityPreviousReading) && (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-label text-ink-500">
                   ใช้ไป {usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {utilityUnit || "หน่วย"}
                 </p>
               )}
@@ -407,15 +407,15 @@ export default function EditUtilityBillPage() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl border border-line-soft bg-paper-soft px-4 py-3">
+          <div className="mt-4 rounded-card border border-line-soft bg-paper-soft px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-gray-600">ยอดก่อนภาษี</span>
-              <span className="text-base font-semibold text-ink-900">
+              <span className="text-body text-ink-600">ยอดก่อนภาษี</span>
+              <span className="text-title font-semibold text-ink-900">
                 ฿{(usage * parseAmount(utilityRate)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
             {usage > 0 && parseAmount(utilityRate) > 0 && (
-              <div className="mt-1 text-xs text-gray-500">
+              <div className="mt-1 text-label text-ink-500">
                 {usage.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {utilityUnit || "หน่วย"} × ฿{parseAmount(utilityRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}/หน่วย
               </div>
             )}

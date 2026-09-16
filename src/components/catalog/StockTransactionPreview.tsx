@@ -21,17 +21,17 @@ export function StockTransactionPreview({
   const isIn = delta > 0;
 
   return (
-    <div className="bg-[#F7F6F3] rounded-lg px-3 py-2.5 space-y-1 text-[12px]">
+    <div className="bg-page-bg rounded-control px-3 py-2.5 space-y-1 text-label">
       <div className="flex justify-between">
-        <span className="text-[#888780]">สต็อกปัจจุบัน</span>
-        <span className="font-medium text-[#1A1A18]">
+        <span className="text-ink-300">สต็อกปัจจุบัน</span>
+        <span className="font-medium text-ink-900">
           {formatMixedStock(currentStock, baseUnit, cartonUnit, qtyPerCarton)}
         </span>
       </div>
       <div className="flex justify-between">
-        <span className="text-[#888780]">{isIn ? "รับเข้า" : "ตัดออก"}</span>
+        <span className="text-ink-300">{isIn ? "รับเข้า" : "ตัดออก"}</span>
         <span
-          className={`font-medium ${isIn ? "text-[#27500A]" : "text-[#C0392B]"}`}
+          className={`font-medium ${isIn ? "text-paid-text" : "text-danger"}`}
         >
           {isIn ? "+" : "-"}
           {formatMixedStock(
@@ -42,16 +42,16 @@ export function StockTransactionPreview({
           )}
         </span>
       </div>
-      <div className="border-t border-[#E8E6DF] pt-1 flex justify-between">
-        <span className="text-[#888780]">
+      <div className="border-t border-card-border pt-1 flex justify-between">
+        <span className="text-ink-300">
           {isIn ? "สต็อกหลังรับ" : "สต็อกคงเหลือ"}
         </span>
-        <span className="font-semibold text-[#1A1A18]">
+        <span className="font-semibold text-ink-900">
           {formatMixedStock(clampedAfter, baseUnit, cartonUnit, qtyPerCarton)}
         </span>
       </div>
       {willNegative && (
-        <div className="text-[#633806] text-[11px]">
+        <div className="text-pending-text text-label">
           สต็อกจะติดลบ ระบบจะตั้งค่าเป็น 0
         </div>
       )}

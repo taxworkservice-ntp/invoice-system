@@ -13,33 +13,33 @@ export function ItemDetailsCard({ item }: Props) {
   );
 
   return (
-    <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
+    <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
       {item.sku && (
-        <div className="mb-4 flex items-center justify-between rounded-[10px] border border-[#ECE8DE] bg-[#FBFAF7] px-3 py-2.5">
-          <span className="text-[12px] text-[#888780]">SKU</span>
-          <span className="text-[13px] font-semibold tracking-[0.08em] text-[#1A1A18]">
+        <div className="mb-4 flex items-center justify-between rounded-[10px] border border-paper-warm bg-paper-tint px-3 py-2.5">
+          <span className="text-label text-ink-300">SKU</span>
+          <span className="text-body font-semibold text-ink-900">
             {item.sku}
           </span>
         </div>
       )}
-      <div className="divide-y divide-[#F1EFE8]">
+      <div className="divide-y divide-draft-bg">
         <div className="flex justify-between py-2.5">
-          <span className="text-[12px] text-[#888780]">ราคา</span>
-          <span className="text-[13px] text-[#1A1A18]">
+          <span className="text-label text-ink-300">ราคา</span>
+          <span className="text-body text-ink-900">
             ฿ {formatCurrency(item.unit_price)} / {item.base_unit}
           </span>
         </div>
         {item.item_type === "product" && (
           <>
             <div className="flex justify-between py-2.5">
-              <span className="text-[12px] text-[#888780]">ต้นทุนเฉลี่ย</span>
-              <span className="text-[13px] text-[#1A1A18]">
+              <span className="text-label text-ink-300">ต้นทุนเฉลี่ย</span>
+              <span className="text-body text-ink-900">
                 ฿ {formatCurrency(item.avg_cost)} / {item.base_unit}
               </span>
             </div>
             <div className="flex justify-between py-2.5">
-              <span className="text-[12px] text-[#888780]">มูลค่าสต็อก</span>
-              <span className="text-[13px] text-[#1A1A18]">
+              <span className="text-label text-ink-300">มูลค่าสต็อก</span>
+              <span className="text-body text-ink-900">
                 ฿ {formatCurrency(item.stock_value)}
               </span>
             </div>
@@ -47,24 +47,24 @@ export function ItemDetailsCard({ item }: Props) {
         )}
         {hasCarton && (
           <div className="flex justify-between py-2.5">
-            <span className="text-[12px] text-[#888780]">หน่วยรอง</span>
-            <span className="text-[13px] text-[#1A1A18]">
+            <span className="text-label text-ink-300">หน่วยรอง</span>
+            <span className="text-body text-ink-900">
               1 {item.carton_unit} = {item.qty_per_carton} {item.base_unit}
             </span>
           </div>
         )}
         {item.item_type === "product" && (
           <div className="flex justify-between py-2.5">
-            <span className="text-[12px] text-[#888780]">แจ้งเตือน</span>
-            <span className="text-[13px] text-[#1A1A18]">
+            <span className="text-label text-ink-300">แจ้งเตือน</span>
+            <span className="text-body text-ink-900">
               เหลือน้อยกว่า {item.low_stock_threshold} {item.base_unit}
             </span>
           </div>
         )}
         <div className="flex justify-between py-2.5">
-          <span className="text-[12px] text-[#888780]">สถานะ</span>
+          <span className="text-label text-ink-300">สถานะ</span>
           <span
-            className={`text-[13px] ${item.is_active ? "text-[#27500A]" : "text-[#888780]"}`}
+            className={`text-body ${item.is_active ? "text-paid-text" : "text-ink-300"}`}
           >
             {item.is_active ? "ใช้งานอยู่" : "ซ่อนแล้ว"}
           </span>

@@ -25,21 +25,21 @@ interface DealCardProps {
 }
 
 const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
-  wait_send: { bg: "bg-[#FFF8EB]", text: "text-[#8B6914]" },
-  wait_invoice: { bg: "bg-[#F5F0FF]", text: "text-[#5B21B6]" },
-  wait_collect: { bg: "bg-[#ECFDF5]", text: "text-[#065F46]" },
-  overdue: { bg: "bg-[#FEF2F2]", text: "text-[#C0392B]" },
-  progress: { bg: "bg-[#EEF6FF]", text: "text-[#0C447C]" },
-  done: { bg: "bg-gray-100", text: "text-gray-500" },
+  wait_send: { bg: "bg-warning-soft", text: "text-warning-text" },
+  wait_invoice: { bg: "bg-primary-soft", text: "text-primary-deep" },
+  wait_collect: { bg: "bg-success-soft", text: "text-success-text" },
+  overdue: { bg: "bg-danger-soft", text: "text-danger" },
+  progress: { bg: "bg-primary-soft", text: "text-primary-deep" },
+  done: { bg: "bg-ink-50", text: "text-ink-500" },
 };
 
 const ROLE_BADGE: Record<string, { label: string; color: string }> = {
   owner: { label: "Owner", color: "bg-amber-100 text-amber-800" },
   manager: { label: "Manager", color: "bg-blue-100 text-blue-800" },
-  officer: { label: "Officer", color: "bg-slate-100 text-slate-600" },
+  officer: { label: "Officer", color: "bg-ink-50 text-ink-500" },
 };
 
-const ITEM_CHIP_CLASS = "bg-[#F7F6F3] text-[#62605A]";
+const ITEM_CHIP_CLASS = "bg-page-bg text-ink-600";
 
 export const DealCard = memo(function DealCard({
   customerName,
@@ -68,7 +68,7 @@ export const DealCard = memo(function DealCard({
 
   return (
     <Card
-      className={`rounded-xl border-[0.5px] py-3 px-4 shadow-sm hover:shadow-md ${isOverdue ? "border-l-4 border-l-[#C0392B]" : ""}`}
+      className={`rounded-card border-[0.5px] py-3 px-4 ${isOverdue ? "border-l-4 border-l-danger" : ""}`}
       onClick={onTap}
     >
       <div className="flex items-start gap-2.5">
@@ -76,17 +76,17 @@ export const DealCard = memo(function DealCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex flex-col gap-0.5">
-              <div className="text-sm font-semibold text-[#1A1A18] truncate">
+              <div className="text-body font-semibold text-ink-900 truncate">
                 {customerName}
               </div>
               {customerCode && (
-                <span className="text-[10px] text-primary font-mono font-medium">{customerCode}</span>
+                <span className="text-label text-primary font-mono font-medium">{customerCode}</span>
               )}
             </div>
-            <div className="text-sm font-semibold text-[#1A1A18] shrink-0">{amountText}</div>
+            <div className="text-body font-semibold text-ink-900 shrink-0">{amountText}</div>
           </div>
           <div className="mt-0.5 flex items-end justify-between gap-3">
-            <div className="text-[10px] text-[#888780] tabular-nums">
+            <div className="text-label text-ink-300 tabular-nums">
               {updatedAt && updatedAt !== createdAt ? (
                 <>แก้ไข {formatBuddhistDateTime(updatedAt)}</>
               ) : (
@@ -94,12 +94,12 @@ export const DealCard = memo(function DealCard({
               )}
             </div>
             <div className="text-right shrink-0">
-              {stageHint && <div className="text-[10px] leading-4 text-gray-400">{stageHint}</div>}
-              <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${colors.bg} ${colors.text}`}>
+              {stageHint && <div className="text-label leading-4 text-ink-400">{stageHint}</div>}
+              <span className={`inline-flex rounded-control px-2 py-0.5 text-label font-medium ${colors.bg} ${colors.text}`}>
                 {stageLabel}
               </span>
               {docTypeLabel && (
-                <div className="mt-1 text-[10px] leading-4 text-gray-400">{docTypeLabel}</div>
+                <div className="mt-1 text-label leading-4 text-ink-400">{docTypeLabel}</div>
               )}
             </div>
           </div>
@@ -109,32 +109,32 @@ export const DealCard = memo(function DealCard({
                   {previewItems.map((itemName, index) => (
                     <span
                       key={`${customerName}-item-${index}-${itemName}`}
-                      className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs ${ITEM_CHIP_CLASS}`}
+                      className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-label ${ITEM_CHIP_CLASS}`}
                     >
                       <span className="truncate">{itemName}</span>
                     </span>
                   ))}
                   {remainingItems > 0 && (
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${ITEM_CHIP_CLASS} opacity-80`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-label font-medium ${ITEM_CHIP_CLASS} opacity-80`}>
                       +{remainingItems} more
                     </span>
                   )}
                 </div>
               ) : (
-                <div className="text-xs text-gray-500 truncate">{itemSummary}</div>
+                <div className="text-label text-ink-500 truncate">{itemSummary}</div>
               )}
           </div>
         </div>
       </div>
       {nextActionLabel ? (
-        <div className={`mt-2 border-t border-[#F0EFE9] pt-1.5 text-xs font-medium ${isOverdue ? "text-[#C0392B]" : "text-primary"}`}>
+        <div className={`mt-2 border-t border-line-faint pt-1.5 text-label font-medium ${isOverdue ? "text-danger" : "text-primary"}`}>
           {nextActionLabel}
         </div>
       ) : null}
       {internalNote ? (
-        <div className="mt-2 border-t border-[#F0EFE9] pt-1.5 text-xs leading-4 text-[#777166]">
+        <div className="mt-2 border-t border-line-faint pt-1.5 text-label leading-4 text-ink-500">
           {roleBadge && (
-            <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium mr-1 ${roleBadge.color}`}>
+            <span className={`inline-flex rounded px-1.5 py-0.5 text-label font-medium mr-1 ${roleBadge.color}`}>
               {roleBadge.label}
             </span>
           )}

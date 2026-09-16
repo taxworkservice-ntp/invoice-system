@@ -39,14 +39,14 @@ export function EditableDocNumber({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-sm font-mono text-gray-900 placeholder:text-gray-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+        className="w-full rounded-control border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-body font-mono text-ink-900 placeholder:text-ink-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
       />
       {autoGenerate && (
         <button
           type="button"
           onClick={handleGenerate}
           disabled={generating}
-          className="shrink-0 rounded-md border border-amber-300 bg-amber-100 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-200 disabled:opacity-50"
+          className="shrink-0 rounded-control border border-amber-300 bg-amber-100 px-2.5 py-1.5 text-label font-medium text-amber-800 hover:bg-amber-200 disabled:opacity-50"
         >
           {generating ? "..." : "สร้างเลขที่"}
         </button>
@@ -104,7 +104,7 @@ export function EditableDocNumberInline({
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            className="w-48 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-sm font-mono text-gray-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="w-48 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-body font-mono text-ink-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSave();
@@ -115,19 +115,19 @@ export function EditableDocNumberInline({
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="text-xs font-medium text-amber-700 hover:text-amber-900 disabled:opacity-50"
+            className="text-label font-medium text-amber-700 hover:text-amber-900 disabled:opacity-50"
           >
             บันทึก
           </button>
           <button
             type="button"
             onClick={handleCancel}
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="text-label text-ink-400 hover:text-ink-600"
           >
             ยกเลิก
           </button>
         </span>
-        {error && <span className="text-xs font-normal text-red-600">{error}</span>}
+        {error && <span className="text-label font-normal text-red-600">{error}</span>}
       </span>
     );
   }

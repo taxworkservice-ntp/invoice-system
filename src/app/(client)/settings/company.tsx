@@ -241,7 +241,7 @@ export default function SettingsCompanyPage() {
         <SettingsTabs activePath="/settings/company" />
 
         <SectionCard title="ข้อมูลบริษัท" description="ข้อมูลที่พิมพ์บนเอกสารทุกฉบับ">
-          <div className="divide-y divide-[#F0EEE8]">
+          <div className="divide-y divide-line-faint">
             <SettingRow label="ชื่อบริษัท (ภาษาไทย) *" controlWidthClass="sm:flex-1 sm:max-w-none">
               <Input
                 value={companyNameTh}
@@ -269,7 +269,7 @@ export default function SettingsCompanyPage() {
               />
             </SettingRow>
             <div className="py-2.5">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-label font-medium text-ink-700 mb-1">
                 ที่อยู่
               </label>
               <textarea
@@ -277,7 +277,7 @@ export default function SettingsCompanyPage() {
                 onChange={(e) => { setAddress(e.target.value); setSaved(false); }}
                 placeholder="ที่อยู่สำหรับพิมพ์บนเอกสาร"
                 rows={3}
-                className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 placeholder:text-gray-400 resize-none"
+                className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-ink-400 resize-none"
               />
             </div>
             <SettingRow label="เบอร์โทรศัพท์" controlWidthClass="sm:w-[240px]">
@@ -306,7 +306,7 @@ export default function SettingsCompanyPage() {
           ) : (
             <>
               {bankAccounts.length === 0 ? (
-                <p className="text-xs text-[#888780] mb-3">
+                <p className="text-label text-ink-300 mb-3">
                   ยังไม่มีบัญชีธนาคาร เพิ่มบัญชีแรกด้านล่าง
                 </p>
               ) : (
@@ -314,20 +314,20 @@ export default function SettingsCompanyPage() {
                   {bankAccounts.map((account) => (
                     <div
                       key={account.id}
-                      className="flex items-center justify-between rounded-lg border border-[#E8E6DF] px-3 py-2"
+                      className="flex items-center justify-between rounded-control border border-card-border px-3 py-2"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-gray-800 truncate">
+                          <p className="text-body font-medium text-ink-800 truncate">
                             {account.bank_name}
                           </p>
                           {account.is_primary && (
-                            <span className="rounded bg-[#378ADD]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#378ADD]">
+                            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-label font-medium text-primary">
                               บัญชีหลัก
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-label text-ink-500 truncate">
                           {account.account_number}
                           {account.account_holder_name
                             ? ` · ${account.account_holder_name}`
@@ -355,8 +355,8 @@ export default function SettingsCompanyPage() {
                   ))}
                 </div>
               )}
-              <div className="rounded-lg border border-[#E8E6DF] bg-[#FAFAF8] p-3">
-                <p className="text-[11px] font-semibold text-[#888780] mb-2">
+              <div className="rounded-control border border-card-border bg-paper-field p-3">
+                <p className="text-label font-semibold text-ink-300 mb-2">
                   {editingBankId ? "แก้ไขบัญชีธนาคาร" : "เพิ่มบัญชีธนาคาร"}
                 </p>
                 <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-3">
@@ -395,27 +395,27 @@ export default function SettingsCompanyPage() {
         </SectionCard>
 
         <div className="sticky bottom-3 z-10">
-          <div className="rounded-xl border border-card-border bg-white/95 p-3 shadow-lg backdrop-blur">
+          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
             <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-xs">
+              <div className="min-w-0 flex-1 text-label">
                 {error ? (
                   <span className="text-red-500">{error}</span>
                 ) : saved ? (
                   <span className="text-green-600">บันทึกแล้ว</span>
                 ) : isDirty ? (
-                  <span className="flex items-center gap-1.5 text-[#888780]">
-                    <span className="w-[6px] h-[6px] rounded-full bg-[#378ADD] inline-block" />
+                  <span className="flex items-center gap-1.5 text-ink-300">
+                    <span className="w-[6px] h-[6px] rounded-full bg-primary inline-block" />
                     ยังไม่ได้บันทึก
                   </span>
                 ) : (
-                  <span className="text-gray-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
+                  <span className="text-ink-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
                 )}
               </div>
               {isDirty && !saving && (
                 <button
                   type="button"
                   onClick={hydrateFromProfile}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                  className="text-label text-ink-500 hover:text-ink-700 underline underline-offset-2"
                 >
                   ยกเลิกการแก้ไข
                 </button>

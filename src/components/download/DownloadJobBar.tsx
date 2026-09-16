@@ -19,15 +19,15 @@ export function DownloadJobBar({ state, onCancel, onRetry, onDismiss }: Download
   const percent = state.total > 0 ? Math.round((state.current / state.total) * 100) : 0;
 
   return (
-    <div className="rounded-lg border border-card-border bg-white px-4 py-3">
+    <div className="rounded-control border border-card-border bg-white px-4 py-3">
       {state.status === "running" && (
         <div className="flex items-center gap-3">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-medium text-[#1A1A18]">
+            <div className="text-label font-medium text-ink-900">
               กำลังสร้างไฟล์{state.total > 0 ? ` ${state.current}/${state.total}` : "..."}
             </div>
-            <div className="mt-1.5 h-2 w-full rounded-full bg-gray-100">
+            <div className="mt-1.5 h-2 w-full rounded-full bg-ink-50">
               <div className="h-2 rounded-full bg-primary transition-all duration-300" style={{ width: `${percent}%` }} />
             </div>
           </div>
@@ -42,14 +42,14 @@ export function DownloadJobBar({ state, onCancel, onRetry, onDismiss }: Download
           ) : (
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
           )}
-          <div className="min-w-0 flex-1 text-xs leading-5 text-gray-600">
+          <div className="min-w-0 flex-1 text-label leading-5 text-ink-600">
             {state.result
               ? state.result.failed > 0
                 ? `ดาวน์โหลดสำเร็จ ${state.result.succeeded}/${state.result.total} ไฟล์ — ล้มเหลว ${state.result.failed} ไฟล์`
                 : `ดาวน์โหลด ${state.result.succeeded} ไฟล์เรียบร้อย`
               : "ดาวน์โหลดเรียบร้อย"}
             {state.result?.failures && state.result.failures.length > 0 && (
-              <ul className="mt-1 list-inside list-disc text-[11px] text-amber-700">
+              <ul className="mt-1 list-inside list-disc text-label text-amber-700">
                 {state.result.failures.slice(0, 5).map((failure, index) => (
                   <li key={`${failure.label}-${index}`}>{failure.label}{failure.error ? ` — ${failure.error}` : ""}</li>
                 ))}
@@ -60,7 +60,7 @@ export function DownloadJobBar({ state, onCancel, onRetry, onDismiss }: Download
             {onRetry && (state.result?.failed ?? 0) > 0 && (
               <Button variant="secondary" size="sm" onClick={onRetry}>ลองใหม่</Button>
             )}
-            <button type="button" onClick={onDismiss} aria-label="ปิด" className="rounded p-1 text-gray-400 hover:bg-gray-100">
+            <button type="button" onClick={onDismiss} aria-label="ปิด" className="rounded p-1 text-ink-400 hover:bg-ink-50">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -70,10 +70,10 @@ export function DownloadJobBar({ state, onCancel, onRetry, onDismiss }: Download
       {state.status === "error" && (
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-          <div className="min-w-0 flex-1 text-xs leading-5 text-red-600">{state.error || "เกิดข้อผิดพลาด"}</div>
+          <div className="min-w-0 flex-1 text-label leading-5 text-red-600">{state.error || "เกิดข้อผิดพลาด"}</div>
           <div className="flex shrink-0 items-center gap-1">
             {onRetry && <Button variant="secondary" size="sm" onClick={onRetry}>ลองใหม่</Button>}
-            <button type="button" onClick={onDismiss} aria-label="ปิด" className="rounded p-1 text-gray-400 hover:bg-gray-100">
+            <button type="button" onClick={onDismiss} aria-label="ปิด" className="rounded p-1 text-ink-400 hover:bg-ink-50">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>

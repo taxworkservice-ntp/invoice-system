@@ -8,7 +8,7 @@ export function SettingsPageSkeleton() {
     <div className="space-y-4" role="status" aria-label="กำลังโหลดการตั้งค่า">
       <div className="flex gap-1 border-b border-card-border pb-0" aria-hidden="true">
         {[0, 1, 2, 3].map((tab) => (
-          <Skeleton key={tab} className="h-9 w-24 rounded-b-none rounded-t-lg" />
+          <Skeleton key={tab} className="h-9 w-24 rounded-b-none rounded-t-control" />
         ))}
       </div>
       {[0, 1].map((card) => (
@@ -19,7 +19,7 @@ export function SettingsPageSkeleton() {
         >
           <Skeleton className="h-5 w-44 mb-1.5" />
           <Skeleton className="h-4 w-72 mb-4" />
-          <div className="divide-y divide-[#F0EEE8]">
+          <div className="divide-y divide-line-faint">
             {[0, 1, 2].map((row) => (
               <div key={row} className="flex items-center justify-between gap-3 py-2.5">
                 <Skeleton className="h-4 w-1/3" />

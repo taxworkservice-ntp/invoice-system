@@ -12,8 +12,8 @@ export interface StatusDocLike {
 
 const bangkokDayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" });
 
-function todayStart(): Date {
-  const today = bangkokDayFormatter.format(new Date());
+function todayStart(todayOverride?: string): Date {
+  const today = todayOverride || bangkokDayFormatter.format(new Date());
   return new Date(`${today}T00:00:00+07:00`);
 }
 
@@ -21,14 +21,18 @@ function todayStart(): Date {
  * THE overdue rule — single source used by home, deal page and documents list.
  * A document is overdue when its due date has passed while still collectible:
  * sent / in_billing / partially_paid, or the DB cron already flagged it `overdue`.
+ *
+ * `today` (YYYY-MM-DD) lets dev-mode / effective-date surfaces override the
+ * Bangkok clock so every page agrees. Defaults to the real Bangkok date.
  */
 export function isDocumentOverdue(
   doc: Pick<StatusDocLike, "status" | "due_date"> | null,
+  today?: string,
 ): boolean {
   if (!doc) return false;
   if (doc.status === "overdue") return true;
   if (!doc.due_date) return false;
-  const pastDue = new Date(doc.due_date) < todayStart();
+  const pastDue = new Date(doc.due_date) < todayStart(today);
   if (!pastDue) return false;
   return ["sent", "in_billing", "partially_paid"].includes(doc.status);
 }
@@ -71,7 +75,7 @@ export function getStatusPill(
     | (Pick<StatusDocLike, "doc_type" | "status" | "due_date"> & { id?: string })
     | null,
 ): { label: string; className: string } {
-  if (!doc) return { label: "ยังไม่มีเอกสาร", className: "bg-stone-100 text-stone-500" };
+  if (!doc) return { label: "ยังไม่มีเอกสาร", className: "bg-ink-50 text-ink-500" };
   if (doc.status === "draft") return { label: "ร่าง", className: "bg-draft-bg text-draft-text" };
   if (doc.status === "paid") return { label: "ชำระแล้ว", className: "bg-paid-bg text-paid-text" };
   if (doc.status === "partially_paid")
@@ -85,6 +89,6 @@ export function getStatusPill(
     return { label: "รอชำระ", className: "bg-sent-bg text-sent-text" };
   return {
     label: STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status,
-    className: "bg-stone-100 text-stone-600",
+    className: "bg-ink-50 text-ink-600",
   };
 }

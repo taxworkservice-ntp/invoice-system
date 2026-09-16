@@ -117,7 +117,7 @@ function docTypeLabel(type: string | undefined): string {
 }
 
 const chipClass = (active: boolean) =>
-  `rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`;
+  `rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${active ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-line-strong"}`;
 
 export default function DownloadCenterPage() {
   const { profile } = useAuth();
@@ -275,7 +275,7 @@ export default function DownloadCenterPage() {
   const builderRange = useMemo(() => computeRange(rangeMode, customFrom, customTo), [rangeMode, customFrom, customTo]);
 
   const applyBuilderFilters = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     (query: any): any => {
       let q = query.eq("user_id", userId).eq("doc_type", builderDocType);
       if (builderCustomerId) q = q.eq("customer_id", builderCustomerId);
@@ -544,17 +544,17 @@ export default function DownloadCenterPage() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-soft text-primary">
+                <span className="flex h-7 w-7 items-center justify-center rounded-control bg-primary-soft text-primary">
                   <Download className="h-4 w-4" />
                 </span>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">ดาวน์โหลดด่วน</span>
+                <span className="text-label font-semibold text-ink-400">ดาวน์โหลดด่วน</span>
               </div>
               <div className="flex gap-1">
                 <button type="button" onClick={() => setQuickFilter("thisMonth")} className={chipClass(quickFilter === "thisMonth")}>เดือนนี้</button>
                 <button type="button" onClick={() => setQuickFilter("prevMonth")} className={chipClass(quickFilter === "prevMonth")}>เดือนก่อน</button>
               </div>
             </div>
-            <div className="text-[11px] text-gray-400">{selectedMonthLabel}</div>
+            <div className="text-label text-ink-400">{selectedMonthLabel}</div>
             <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
               {presetTypes.map((preset) => {
                 const count = counts[preset.key] ?? 0;
@@ -566,13 +566,13 @@ export default function DownloadCenterPage() {
                     disabled={busy || empty}
                     onClick={() => setConfirmAction({ type: "preset", preset })}
                     title={empty ? "ไม่มีเอกสารในช่วงนี้" : undefined}
-                    className="group flex items-center justify-between rounded-lg border border-card-border bg-white px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm disabled:translate-y-0 disabled:opacity-50 disabled:hover:shadow-none"
+                    className="group flex items-center justify-between rounded-control border border-card-border bg-white px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 disabled:translate-y-0 disabled:opacity-50 disabled:hover:shadow-none"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-gray-400 group-hover:text-primary" />
-                      <span className="truncate text-[13px] text-ink-900">{preset.label}</span>
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-ink-400 group-hover:text-primary" />
+                      <span className="truncate text-body text-ink-900">{preset.label}</span>
                     </div>
-                    <span className="ml-2 shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium tabular-nums text-primary-deep">
+                    <span className="ml-2 shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-label font-medium tabular-nums text-primary-deep">
                       {countsLoaded ? count : "—"}
                     </span>
                   </button>
@@ -589,17 +589,17 @@ export default function DownloadCenterPage() {
         <Card>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-soft text-primary">
+              <span className="flex h-7 w-7 items-center justify-center rounded-control bg-primary-soft text-primary">
                 <FileText className="h-4 w-4" />
               </span>
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">เอกสารตามเงื่อนไข</div>
-                <div className="text-[11px] text-gray-400">รวม PDF เป็น ZIP หรือรวมเป็นไฟล์เดียว</div>
+                <div className="text-label font-semibold text-ink-400">เอกสารตามเงื่อนไข</div>
+                <div className="text-label text-ink-400">รวม PDF เป็น ZIP หรือรวมเป็นไฟล์เดียว</div>
               </div>
             </div>
 
             <div>
-              <div className="mb-2 text-[11px] font-semibold text-gray-500">ช่วงวันที่</div>
+              <div className="mb-2 text-label font-semibold text-ink-500">ช่วงวันที่</div>
               <div className="flex flex-wrap gap-1.5">
                 {RANGE_MODES.map((mode) => (
                   <button key={mode.key} type="button" onClick={() => setRangeMode(mode.key)} className={chipClass(rangeMode === mode.key)}>
@@ -610,12 +610,12 @@ export default function DownloadCenterPage() {
               {rangeMode === "custom" && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="builder-from" className="mb-0.5 block text-[10px] text-gray-500">จากวันที่</label>
-                    <input id="builder-from" type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20" />
+                    <label htmlFor="builder-from" className="mb-0.5 block text-label text-ink-500">จากวันที่</label>
+                    <input id="builder-from" type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
-                    <label htmlFor="builder-to" className="mb-0.5 block text-[10px] text-gray-500">ถึงวันที่</label>
-                    <input id="builder-to" type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20" />
+                    <label htmlFor="builder-to" className="mb-0.5 block text-label text-ink-500">ถึงวันที่</label>
+                    <input id="builder-to" type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               )}
@@ -631,7 +631,7 @@ export default function DownloadCenterPage() {
             </div>
 
             <div>
-              <div className="mb-2 text-[11px] font-semibold text-gray-500">สถานะ</div>
+              <div className="mb-2 text-label font-semibold text-ink-500">สถานะ</div>
               <div className="flex flex-wrap gap-1.5">
                 {STATUS_FILTERS.map((status) => (
                   <button key={status.key} type="button" onClick={() => setStatusFilter(status.key)} className={chipClass(statusFilter === status.key)}>
@@ -642,18 +642,18 @@ export default function DownloadCenterPage() {
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-card-border bg-paper-field px-3 py-2 text-xs text-ink-700">
-                <input type="checkbox" checked={zipGrouping} onChange={(e) => setZipGrouping(e.target.checked)} className="h-3.5 w-3.5 rounded border-[#D7DEE7] text-primary focus:ring-primary" />
+              <label className="flex cursor-pointer items-center gap-2 rounded-control border border-card-border bg-paper-field px-3 py-2 text-label text-ink-700">
+                <input type="checkbox" checked={zipGrouping} onChange={(e) => setZipGrouping(e.target.checked)} className="h-3.5 w-3.5 rounded border-line text-primary focus:ring-primary" />
                 จัดโฟลเดอร์ใน ZIP ตามประเภทเอกสาร
               </label>
-              <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-card-border px-3 py-2 text-xs ${copyType === "both" ? "bg-gray-50 text-gray-400" : "bg-paper-field text-ink-700"}`}>
-                <input type="checkbox" checked={mergePdf} disabled={copyType === "both"} onChange={(e) => setMergePdf(e.target.checked)} className="h-3.5 w-3.5 rounded border-[#D7DEE7] text-primary focus:ring-primary disabled:opacity-50" />
+              <label className={`flex cursor-pointer items-center gap-2 rounded-control border border-card-border px-3 py-2 text-label ${copyType === "both" ? "bg-paper-field text-ink-400" : "bg-paper-field text-ink-700"}`}>
+                <input type="checkbox" checked={mergePdf} disabled={copyType === "both"} onChange={(e) => setMergePdf(e.target.checked)} className="h-3.5 w-3.5 rounded border-line text-primary focus:ring-primary disabled:opacity-50" />
                 รวมเป็น PDF ไฟล์เดียว {copyType === "both" && "(ไม่ใช้กับต้นฉบับ+สำเนา)"}
               </label>
             </div>
 
             <div>
-              <div className="mb-2 text-[11px] font-semibold text-gray-500">รูปแบบสำเนา</div>
+              <div className="mb-2 text-label font-semibold text-ink-500">รูปแบบสำเนา</div>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setCopyType("original")} className={chipClass(copyType === "original")}>ต้นฉบับ</button>
                 <button type="button" onClick={() => setCopyType("both")} className={chipClass(copyType === "both")}>ต้นฉบับ + สำเนา</button>
@@ -671,7 +671,7 @@ export default function DownloadCenterPage() {
                 ดาวน์โหลด CSV
               </Button>
             </div>
-            {builderCount === 0 && <div className="text-[11px] text-gray-400">ไม่พบเอกสารตามเงื่อนไขที่เลือก</div>}
+            {builderCount === 0 && <div className="text-label text-ink-400">ไม่พบเอกสารตามเงื่อนไขที่เลือก</div>}
           </div>
         </Card>
 
@@ -680,12 +680,12 @@ export default function DownloadCenterPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-soft text-primary">
+                <span className="flex h-7 w-7 items-center justify-center rounded-control bg-primary-soft text-primary">
                   <BarChart3 className="h-4 w-4" />
                 </span>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">รายงาน</span>
+                <span className="text-label font-semibold text-ink-400">รายงาน</span>
               </div>
-              <span className="text-[10px] text-gray-400">XLSX / CSV</span>
+              <span className="text-label text-ink-400">XLSX / CSV</span>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -711,15 +711,15 @@ export default function DownloadCenterPage() {
                   {finPeriodMode === "month" && <MonthSelect label="เดือน" value={finMonth} onChange={setFinMonth} />}
                   {finPeriodMode === "quarter" && (
                     <div>
-                      <label htmlFor="download-fin-quarter" className="mb-0.5 block text-[10px] text-gray-500">ไตรมาส</label>
-                      <select id="download-fin-quarter" value={finQuarter} onChange={(e) => setFinQuarter(Number(e.target.value))} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20">
+                      <label htmlFor="download-fin-quarter" className="mb-0.5 block text-label text-ink-500">ไตรมาส</label>
+                      <select id="download-fin-quarter" value={finQuarter} onChange={(e) => setFinQuarter(Number(e.target.value))} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
                         {[1, 2, 3, 4].map((q) => (<option key={q} value={q}>Q{q}</option>))}
                       </select>
                     </div>
                   )}
                   <YearSelect label="ปี" value={finYear} onChange={setFinYear} />
                 </div>
-                <div className="mt-1.5 text-[10px] text-gray-400">{finPeriodLabel}</div>
+                <div className="mt-1.5 text-label text-ink-400">{finPeriodLabel}</div>
               </ReportCard>
 
               <ReportCard
@@ -733,12 +733,12 @@ export default function DownloadCenterPage() {
               >
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label htmlFor="download-stock-from" className="mb-0.5 block text-[10px] text-gray-500">จากวันที่</label>
-                    <input id="download-stock-from" type="date" value={stockFrom} onChange={(e) => setStockFrom(e.target.value)} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20" />
+                    <label htmlFor="download-stock-from" className="mb-0.5 block text-label text-ink-500">จากวันที่</label>
+                    <input id="download-stock-from" type="date" value={stockFrom} onChange={(e) => setStockFrom(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
-                    <label htmlFor="download-stock-to" className="mb-0.5 block text-[10px] text-gray-500">ถึงวันที่</label>
-                    <input id="download-stock-to" type="date" value={stockTo} onChange={(e) => setStockTo(e.target.value)} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20" />
+                    <label htmlFor="download-stock-to" className="mb-0.5 block text-label text-ink-500">ถึงวันที่</label>
+                    <input id="download-stock-to" type="date" value={stockTo} onChange={(e) => setStockTo(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </ReportCard>
@@ -748,7 +748,7 @@ export default function DownloadCenterPage() {
 
         {/* Tax, WHT, payroll */}
         <div>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-400">ภาษีและเงินเดือน</div>
+          <div className="mb-2 text-label font-semibold text-ink-400">ภาษีและเงินเดือน</div>
           <div className="grid gap-3 lg:grid-cols-2">
             <TaxPackCard />
             <div className="space-y-3">
@@ -763,13 +763,13 @@ export default function DownloadCenterPage() {
           <Card>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary">
                   <Database className="h-4 w-4" />
                 </span>
                 <div>
-                  <div className="text-sm font-semibold text-ink-900">สำรองข้อมูลและส่งออก</div>
-                  <p className="mt-1 text-xs leading-5 text-gray-500">ดาวน์โหลดสำเนาข้อมูลบริษัทไว้เปิดใน Excel การส่งออกจะไม่ลบหรือเปลี่ยนแปลงข้อมูลในระบบ</p>
-                  <div className="mt-1 text-[11px] text-gray-400">รวมข้อมูลบริษัท ลูกค้า สินค้า งานขาย เอกสาร รายการเอกสาร ใบวางบิล และสต็อก</div>
+                  <div className="text-body font-semibold text-ink-900">สำรองข้อมูลและส่งออก</div>
+                  <p className="mt-1 text-label leading-5 text-ink-500">ดาวน์โหลดสำเนาข้อมูลบริษัทไว้เปิดใน Excel การส่งออกจะไม่ลบหรือเปลี่ยนแปลงข้อมูลในระบบ</p>
+                  <div className="mt-1 text-label text-ink-400">รวมข้อมูลบริษัท ลูกค้า สินค้า งานขาย เอกสาร รายการเอกสาร ใบวางบิล และสต็อก</div>
                 </div>
               </div>
               <Button onClick={handleCompanyDataExport} loading={dataExporting} disabled={dataExporting} className="shrink-0">
@@ -801,28 +801,28 @@ export default function DownloadCenterPage() {
       <Modal open={!!confirmAction} onClose={() => setConfirmAction(null)} title="ยืนยันการดาวน์โหลด">
         {confirmAction?.type === "preset" && (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">คุณต้องการดาวน์โหลดเอกสารต่อไปนี้หรือไม่?</p>
-            <div className="space-y-1.5 rounded-lg bg-gray-50 p-3 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">ประเภท:</span><span>{confirmAction.preset.label}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">เดือน:</span><span>{selectedMonthLabel}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">จำนวน:</span><span>{confirmCount} ฉบับ</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">รูปแบบ:</span><span>{copyType === "original" ? "ต้นฉบับ" : "ต้นฉบับ + สำเนา"}</span></div>
+            <p className="text-body text-ink-600">คุณต้องการดาวน์โหลดเอกสารต่อไปนี้หรือไม่?</p>
+            <div className="space-y-1.5 rounded-control bg-paper-field p-3 text-body">
+              <div className="flex justify-between"><span className="text-ink-500">ประเภท:</span><span>{confirmAction.preset.label}</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">เดือน:</span><span>{selectedMonthLabel}</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">จำนวน:</span><span>{confirmCount} ฉบับ</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">รูปแบบ:</span><span>{copyType === "original" ? "ต้นฉบับ" : "ต้นฉบับ + สำเนา"}</span></div>
             </div>
           </div>
         )}
         {confirmAction?.type === "builder" && (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">ยืนยันการสร้างไฟล์ตามเงื่อนไข</p>
-            <div className="space-y-1.5 rounded-lg bg-gray-50 p-3 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">ประเภท:</span><span>{docTypeLabels[builderDocType]?.th}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">ช่วงวันที่:</span><span>{builderRange.start ? formatBuddhistDate(builderRange.start) : "ทั้งหมด"}{builderRange.end ? ` – ${formatBuddhistDate(builderRange.end)}` : ""}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">สถานะ:</span><span>{STATUS_FILTERS.find((s) => s.key === statusFilter)?.label}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">จำนวน:</span><span>{confirmCount} ฉบับ</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">รูปแบบ:</span><span>{mergePdf && copyType === "original" ? "รวมเป็น PDF ไฟล์เดียว" : zipGrouping ? "ZIP (แยกโฟลเดอร์)" : "ZIP"}{copyType === "both" ? " · ต้นฉบับ + สำเนา" : ""}</span></div>
+            <p className="text-body text-ink-600">ยืนยันการสร้างไฟล์ตามเงื่อนไข</p>
+            <div className="space-y-1.5 rounded-control bg-paper-field p-3 text-body">
+              <div className="flex justify-between"><span className="text-ink-500">ประเภท:</span><span>{docTypeLabels[builderDocType]?.th}</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">ช่วงวันที่:</span><span>{builderRange.start ? formatBuddhistDate(builderRange.start) : "ทั้งหมด"}{builderRange.end ? ` – ${formatBuddhistDate(builderRange.end)}` : ""}</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">สถานะ:</span><span>{STATUS_FILTERS.find((s) => s.key === statusFilter)?.label}</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">จำนวน:</span><span>{confirmCount} ฉบับ</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">รูปแบบ:</span><span>{mergePdf && copyType === "original" ? "รวมเป็น PDF ไฟล์เดียว" : zipGrouping ? "ZIP (แยกโฟลเดอร์)" : "ZIP"}{copyType === "both" ? " · ต้นฉบับ + สำเนา" : ""}</span></div>
             </div>
           </div>
         )}
-        <div className="mt-4 flex justify-end gap-2 border-t border-gray-100 pt-3">
+        <div className="mt-4 flex justify-end gap-2 border-t border-line-faint pt-3">
           <Button variant="secondary" onClick={() => setConfirmAction(null)}>ยกเลิก</Button>
           <Button
             variant="primary"
@@ -844,13 +844,13 @@ export default function DownloadCenterPage() {
 
 function FormatToggle({ value, onChange }: { value: "xlsx" | "csv"; onChange: (v: "xlsx" | "csv") => void }) {
   return (
-    <div className="mb-2 inline-flex overflow-hidden rounded-md border border-[#E8E6DF]">
+    <div className="mb-2 inline-flex overflow-hidden rounded-control border border-card-border">
       {(["xlsx", "csv"] as const).map((format) => (
         <button
           key={format}
           type="button"
           onClick={() => onChange(format)}
-          className={`px-2.5 py-1 text-[10px] font-semibold uppercase transition-colors ${value === format ? "bg-primary text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+          className={`px-2.5 py-1 text-label font-semibold transition-colors ${value === format ? "bg-primary text-white" : "bg-white text-ink-500 hover:bg-paper-field"}`}
         >
           {format}
         </button>
@@ -887,14 +887,14 @@ function CustomerQuickSelect({ value, onChange, userId }: { value: string; onCha
 
   return (
     <div>
-      <label htmlFor={selectId} className="mb-1 block text-xs font-medium text-gray-600">ลูกค้า (ไม่บังคับ)</label>
-      <select id={selectId} value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-sm focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20">
+      <label htmlFor={selectId} className="mb-1 block text-label font-medium text-ink-600">ลูกค้า (ไม่บังคับ)</label>
+      <select id={selectId} value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
         <option value="">ทั้งหมด</option>
         {customers.map((c) => (
           <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</option>
         ))}
       </select>
-      {loadError && <p className="mt-1 text-[11px] text-red-500">โหลดรายชื่อลูกค้าไม่สำเร็จ</p>}
+      {loadError && <p className="mt-1 text-label text-red-500">โหลดรายชื่อลูกค้าไม่สำเร็จ</p>}
     </div>
   );
 }
@@ -903,8 +903,8 @@ function MonthSelect({ label, value, onChange }: { label: string; value: number;
   const selectId = useId();
   return (
     <div>
-      <label htmlFor={selectId} className="mb-0.5 block text-[10px] text-gray-500">{label}</label>
-      <select id={selectId} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20">
+      <label htmlFor={selectId} className="mb-0.5 block text-label text-ink-500">{label}</label>
+      <select id={selectId} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
         {MONTH_LABELS.map((l, i) => (<option key={i} value={i + 1}>{l}</option>))}
       </select>
     </div>
@@ -916,8 +916,8 @@ function YearSelect({ label, value, onChange }: { label: string; value: number; 
   const nowYear = new Date().getFullYear();
   return (
     <div>
-      <label htmlFor={selectId} className="mb-0.5 block text-[10px] text-gray-500">{label}</label>
-      <select id={selectId} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-md border border-[#E8E6DF] bg-white px-2 py-1.5 text-xs focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20">
+      <label htmlFor={selectId} className="mb-0.5 block text-label text-ink-500">{label}</label>
+      <select id={selectId} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
         {[nowYear - 1, nowYear, nowYear + 1].map((y) => (<option key={y} value={y}>{y + 543}</option>))}
       </select>
     </div>
@@ -944,13 +944,13 @@ function ReportCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col rounded-lg border border-card-border bg-white p-4 transition-colors hover:border-primary/30 hover:bg-blue-50/30">
+    <div className="flex flex-col rounded-control border border-card-border bg-white p-4 transition-colors hover:border-primary/30 hover:bg-blue-50/30">
       <div className="mb-1.5 flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="shrink-0 rounded-md bg-blue-50 p-1.5 text-primary">{icon}</div>
+          <div className="shrink-0 rounded-control bg-blue-50 p-1.5 text-primary">{icon}</div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-ink-900">{title}</div>
-            <div className="text-[11px] leading-snug text-gray-500">{description}</div>
+            <div className="truncate text-body font-semibold text-ink-900">{title}</div>
+            <div className="text-label leading-snug text-ink-500">{description}</div>
           </div>
         </div>
       </div>

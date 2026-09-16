@@ -1,5 +1,5 @@
 import type { DocumentStatus, DocumentType } from "../../types";
-import { DOC_TYPE_COLORS, STATUS_COLORS } from "../../constants";
+import { DOC_TYPE_COLORS, STATUS_COLORS, STATUS_LABELS } from "../../constants";
 import { documentTypeLabel } from "../../lib/docLabels";
 
 type BadgeTone =
@@ -13,12 +13,12 @@ type BadgeTone =
 
 const TONE_COLORS: Record<BadgeTone, { bg: string; text: string }> = {
   primary: { bg: "bg-primary-soft", text: "text-primary-deep" },
-  teal: { bg: "bg-teal-100", text: "text-teal-700" },
-  amber: { bg: "bg-amber-100", text: "text-amber-800" },
-  green: { bg: "bg-green-100", text: "text-green-700" },
-  gray: { bg: "bg-stone-100", text: "text-stone-600" },
-  red: { bg: "bg-red-100", text: "text-red-700" },
-  stone: { bg: "bg-stone-100", text: "text-stone-500" },
+  teal: { bg: "bg-accent-teal/10", text: "text-accent-teal" },
+  amber: { bg: "bg-warning-soft", text: "text-warning-text" },
+  green: { bg: "bg-success-soft", text: "text-success-text" },
+  gray: { bg: "bg-ink-50", text: "text-ink-600" },
+  red: { bg: "bg-danger-soft", text: "text-danger-text" },
+  stone: { bg: "bg-ink-50", text: "text-ink-500" },
 };
 
 interface StatusBadgeProps {
@@ -38,7 +38,7 @@ export function StatusBadge({
   vatRegistered = false,
   className = "",
 }: StatusBadgeProps) {
-  let color: { bg: string; text: string } = { bg: "bg-stone-100", text: "text-stone-600" };
+  let color: { bg: string; text: string } = { bg: "bg-ink-50", text: "text-ink-600" };
   let text = label;
 
   if (status) {
@@ -52,11 +52,11 @@ export function StatusBadge({
   if (docType && !text) {
     text = documentTypeLabel(docType, vatRegistered).thai;
   } else if (status && !text) {
-    text = status;
+    text = STATUS_LABELS[status] || status;
   }
 
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ${color.bg} ${color.text} ${className}`}>
+    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-label font-medium ${color.bg} ${color.text} ${className}`}>
       {text}
     </span>
   );

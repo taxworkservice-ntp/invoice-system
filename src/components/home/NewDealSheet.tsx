@@ -243,27 +243,27 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
     return (
       <div
         key={option.type}
-        className="flex items-center gap-2 px-3 py-3 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-page-bg"
+        className="flex items-center gap-2 px-3 py-3 transition-colors first:rounded-t-card last:rounded-b-card hover:bg-page-bg"
       >
         <button
           type="button"
           onClick={() => handleSelect(option.type)}
           className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-primary">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-blue-50 text-primary">
             <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <div className="truncate text-sm font-semibold text-[#1A1A18]">{optionTitle(option)}</div>
-              <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${TAG_STYLES[option.type]}`}>{option.tag}</span>
+              <div className="truncate text-body font-semibold text-ink-900">{optionTitle(option)}</div>
+              <span className={`shrink-0 rounded-control px-1.5 py-0.5 text-label font-semibold ${TAG_STYLES[option.type]}`}>{option.tag}</span>
               {option.recommended && (
-                <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">แนะนำ</span>
+                <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-label font-medium text-green-700">แนะนำ</span>
               )}
             </div>
-            <div className="mt-0.5 line-clamp-2 text-xs leading-4 text-gray-500">{optionSubtitle(option)}</div>
+            <div className="mt-0.5 line-clamp-2 text-label leading-4 text-ink-500">{optionSubtitle(option)}</div>
           </div>
-          <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+          <ChevronRight className="h-4 w-4 shrink-0 text-ink-300" />
         </button>
         <button
           type="button"
@@ -272,7 +272,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
           aria-label={isFavorite ? `ยกเลิกโปรด ${optionTitle(option)}` : `เพิ่มรายการโปรด ${optionTitle(option)}`}
           aria-pressed={isFavorite}
           title={isFavorite ? "ยกเลิกรายการโปรด" : (favoriteTypes?.length ?? 0) >= 3 ? "เลือกได้สูงสุด 3 รายการ" : "เพิ่มรายการโปรด"}
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-amber-500 hover:bg-amber-50" : "text-gray-300 hover:bg-amber-50 hover:text-amber-500"}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-control transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${isFavorite ? "text-amber-500 hover:bg-amber-50" : "text-ink-300 hover:bg-amber-50 hover:text-amber-500"}`}
         >
           <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
         </button>
@@ -283,7 +283,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
               onClick={() => moveFavorite(option.type, -1)}
               disabled={favoriteIndex === 0 || favoritesUnknown || preferencesLoading}
               aria-label={`เลื่อน ${optionTitle(option)} ขึ้น`}
-              className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-25"
+              className="rounded p-0.5 text-ink-300 hover:bg-ink-50 hover:text-ink-600 disabled:opacity-25"
             >
               <ArrowUp className="h-3 w-3" />
             </button>
@@ -292,7 +292,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
               onClick={() => moveFavorite(option.type, 1)}
               disabled={favoriteIndex === (favoriteTypes?.length ?? 1) - 1 || favoritesUnknown || preferencesLoading}
               aria-label={`เลื่อน ${optionTitle(option)} ลง`}
-              className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-25"
+              className="rounded p-0.5 text-ink-300 hover:bg-ink-50 hover:text-ink-600 disabled:opacity-25"
             >
               <ArrowDown className="h-3 w-3" />
             </button>
@@ -306,53 +306,53 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
     <Modal open={open} onClose={onClose}>
       <div className="pb-1">
         <div className="mb-3 flex justify-center">
-          <GripHorizontal className="h-5 w-8 text-[#E8E6DF]" />
+          <GripHorizontal className="h-5 w-8 text-line" />
         </div>
-        <div className="px-1 pb-1 text-base font-semibold text-[#1A1A18]">เริ่มงานแบบไหน?</div>
-        <div className="px-1 text-xs leading-5 text-gray-500">เลือกตามสิ่งที่ต้องทำตอนนี้ ระบบจะพาไปขั้นตอนถัดไปให้</div>
+        <div className="px-1 pb-1 text-title font-semibold text-ink-900">เริ่มงานแบบไหน?</div>
+        <div className="px-1 text-label leading-5 text-ink-500">เลือกตามสิ่งที่ต้องทำตอนนี้ ระบบจะพาไปขั้นตอนถัดไปให้</div>
         <div className="mt-4">
           <div className="flex items-center justify-between px-1 pb-1">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">
+            <div className="text-label font-semibold text-ink-400">
               {favoritesUnknown ? (
-                <span className="inline-block h-3 w-24 animate-pulse rounded bg-gray-200" aria-hidden="true" />
+                <span className="inline-block h-3 w-24 animate-pulse rounded bg-line-faint" aria-hidden="true" />
               ) : hasCustomizedFavorites ? (
                 "เริ่มงานด่วน"
               ) : (
                 "แนะนำสำหรับคุณ"
               )}
             </div>
-            <span className="text-[10px] text-gray-400">ปักหมุดได้สูงสุด 3 รายการ</span>
+            <span className="text-label text-ink-400">ปักหมุดได้สูงสุด 3 รายการ</span>
           </div>
           {favoritesUnknown ? (
             <div className="space-y-2" aria-label="กำลังโหลดรายการโปรด">
               {[0, 1].map((key) => (
-                <div key={key} className="flex items-center gap-3 rounded-xl border border-card-border bg-white px-3 py-3">
-                  <div className="h-9 w-9 shrink-0 animate-pulse rounded-lg bg-gray-100" />
+                <div key={key} className="flex items-center gap-3 rounded-card border border-card-border bg-white px-3 py-3">
+                  <div className="h-9 w-9 shrink-0 animate-pulse rounded-control bg-ink-50" />
                   <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="h-3.5 w-2/3 animate-pulse rounded bg-gray-100" />
-                    <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+                    <div className="h-3.5 w-2/3 animate-pulse rounded bg-ink-50" />
+                    <div className="h-3 w-1/2 animate-pulse rounded bg-ink-50" />
                   </div>
                 </div>
               ))}
             </div>
           ) : quickOptions.length > 0 ? (
-            <div className="divide-y divide-card-border rounded-xl border border-card-border bg-white">
+            <div className="divide-y divide-card-border rounded-card border border-card-border bg-white">
               {quickOptions.map(renderOption)}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-card-border bg-[#FAFAF8] px-4 py-4 text-center">
+            <div className="rounded-card border border-dashed border-card-border bg-paper-field px-4 py-4 text-center">
               <Star className="mx-auto h-5 w-5 text-amber-400" />
-              <div className="mt-2 text-xs font-medium text-gray-700">ยังไม่มีรายการโปรด</div>
-              <div className="mt-1 text-[11px] leading-4 text-gray-500">เลือกดาวจากตัวเลือกเพิ่มเติม เพื่อให้แสดงที่นี่</div>
+              <div className="mt-2 text-label font-medium text-ink-700">ยังไม่มีรายการโปรด</div>
+              <div className="mt-1 text-label leading-4 text-ink-500">เลือกดาวจากตัวเลือกเพิ่มเติม เพื่อให้แสดงที่นี่</div>
             </div>
           )}
-          {preferencesError && <div className="mt-1 px-1 text-[10px] text-amber-700">{preferencesError}</div>}
+          {preferencesError && <div className="mt-1 px-1 text-label text-amber-700">{preferencesError}</div>}
         </div>
         <div className="mt-3">
           <button
             type="button"
             onClick={() => setShowAllOptions((current) => !current)}
-            className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-xs font-medium text-gray-600 hover:bg-page-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            className="flex w-full items-center justify-between rounded-control px-2 py-2 text-left text-label font-medium text-ink-600 hover:bg-page-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             aria-expanded={showAllOptions}
           >
             <span>{showAllOptions ? "ซ่อนตัวเลือกเพิ่มเติม" : "ตัวเลือกเพิ่มเติม"}</span>
@@ -365,8 +365,8 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
                 if (options.length === 0) return null;
                 return (
                 <div key={group.title}>
-                  <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{group.title}</div>
-                  <div className="divide-y divide-card-border rounded-xl border border-card-border bg-white">
+                  <div className="px-1 pb-1 text-label font-semibold text-ink-400">{group.title}</div>
+                  <div className="divide-y divide-card-border rounded-card border border-card-border bg-white">
                     {options.map(renderOption)}
                   </div>
                 </div>
@@ -375,7 +375,7 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
             </div>
           )}
         </div>
-        <button onClick={onClose} className="mt-2 w-full py-4 text-center text-sm text-gray-500">
+        <button onClick={onClose} className="mt-2 w-full py-4 text-center text-body text-ink-500">
           ยกเลิก
         </button>
       </div>

@@ -32,9 +32,9 @@ export function Toast({ toasts, removeToast }: ToastProps) {
         <div
           key={toast.id}
           onClick={() => removeToast(toast.id)}
-          className={`flex items-center gap-2 px-4 py-3 rounded-card text-sm font-medium shadow-lg pointer-events-auto cursor-pointer animate-toast-in w-full md:w-auto md:max-w-xs ${COLOR_MAP[toast.type]}`}
+          className={`flex items-center gap-2 px-4 py-3 rounded-card border-[0.5px] border-card-border text-body font-medium shadow-overlay pointer-events-auto cursor-pointer animate-toast-in w-full md:w-auto md:max-w-xs ${COLOR_MAP[toast.type]}`}
         >
-          <span className="text-base leading-none shrink-0">{ICON_MAP[toast.type]}</span>
+          <span className="text-title leading-none shrink-0">{ICON_MAP[toast.type]}</span>
           <span>{toast.message}</span>
         </div>
       ))}

@@ -105,16 +105,16 @@ function validateVendorForm(v: VendorFormState): { name?: string; tax_id?: strin
 
 /** KPI stat card — mirrors the FinancialReport summary design language. */
 function StatCard({ icon, label, value, tone = "default" }: { icon: ReactNode; label: string; value: string; tone?: "default" | "danger" | "primary" }) {
-  const valueColor = tone === "danger" ? "text-[#C0392B]" : tone === "primary" ? "text-primary" : "text-[#1A1A18]";
+  const valueColor = tone === "danger" ? "text-danger" : tone === "primary" ? "text-primary" : "text-ink-900";
   return (
-    <Card className="min-h-[84px] border-[0.5px] p-3 shadow-sm">
-      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#888780]">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EAF4FF] text-primary">
+    <Card className="min-h-[84px] border-[0.5px] p-3">
+      <div className="flex items-center gap-2 text-label font-medium text-ink-300">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary">
           {icon}
         </span>
         {label}
       </div>
-      <div className={`mt-2 text-base font-semibold leading-tight tabular-nums truncate ${valueColor}`} title={value}>
+      <div className={`mt-2 text-title font-semibold leading-tight tabular-nums truncate ${valueColor}`} title={value}>
         {value}
       </div>
     </Card>
@@ -615,13 +615,11 @@ export default function WhtPage() {
   return (
     <AppShell title="ภาษีหัก ณ ที่จ่าย">
       <div className="space-y-4">
-        <div className="flex gap-1 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-1">
+        <div className="flex gap-1 rounded-card border border-card-border bg-paper-field p-1">
           <button
             type="button"
             onClick={() => { setTab(TAB_RECORDS); setSearch(""); }}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              tab === TAB_RECORDS ? "bg-white text-[#1A1A18] shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors ${ tab === TAB_RECORDS ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-700" }`}
           >
             <FileText className="h-4 w-4" />
             บันทึก หัก ณ ที่จ่าย
@@ -629,9 +627,7 @@ export default function WhtPage() {
           <button
             type="button"
             onClick={() => { setTab(TAB_VENDORS); setSearch(""); }}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              tab === TAB_VENDORS ? "bg-white text-[#1A1A18] shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors ${ tab === TAB_VENDORS ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-700" }`}
           >
             <Users className="h-4 w-4" />
             ผู้ขาย/ผู้รับเงิน
@@ -650,25 +646,25 @@ export default function WhtPage() {
             )}
 
             {payrollStrip && (
-              <div className="rounded-xl border border-teal-200 bg-teal-50/60 px-4 py-3">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+              <div className="rounded-card border border-teal-200 bg-teal-50/60 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body">
                   <span className="inline-flex items-center gap-1 font-medium text-teal-800">
                     <Sparkles size={13} /> จากรอบเงินเดือน
                   </span>
                   <span className="text-teal-700">{payrollStrip.count} รายการ · ภาษีรวม <strong className="tabular-nums">฿{formatCurrency(payrollStrip.totalWht)}</strong></span>
-                  <span className="text-[12px] text-teal-600">
+                  <span className="text-label text-teal-600">
                     ภ.ง.ด.1 {payrollStrip.pnd1Count} (฿{formatCurrency(payrollStrip.pnd1Wht)}) · ภ.ง.ด.3 {payrollStrip.pnd3Count} (฿{formatCurrency(payrollStrip.pnd3Wht)})
                   </span>
                   <button
                     type="button"
                     onClick={() => navigate("/payroll")}
-                    className="ml-auto text-[12px] font-medium text-teal-700 hover:text-teal-900 underline underline-offset-2"
+                    className="ml-auto text-label font-medium text-teal-700 hover:text-teal-900 underline underline-offset-2"
                   >
                     ← กลับหน้าเงินเดือน
                   </button>
                 </div>
                 {missingTaxIdCount > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1 text-[12px] text-amber-700">
+                  <div className="mt-2 flex flex-wrap items-center gap-1 text-label text-amber-700">
                     <Info size={13} className="shrink-0" />
                     <span>
                       พนักงาน {missingTaxIdCount} คนยังไม่มีเลขภาษี — ภาษีของพวกเขาจะไม่ถูกสร้างตอนซิงก์
@@ -687,19 +683,19 @@ export default function WhtPage() {
 
             <div className="flex flex-wrap items-center gap-2">
               <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขที่ผู้เสียภาษี เลขใบรับรอง..." className="flex-1 min-w-[200px]" />
-              <select aria-label="กรองตามเดือน" value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <select aria-label="กรองตามเดือน" value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white border-[0.5px] border-card-border rounded-control px-3 py-[10px] text-body text-ink-900 focus:outline-none focus:border-primary [color-scheme:dark]">
                 <option value="">ทุกเดือน</option>
                 {availableMonths.map((m) => (
                   <option key={m} value={m}>{formatBuddhistMonth(m)}</option>
                 ))}
               </select>
-              <select aria-label="กรองตามผู้ขาย" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <select aria-label="กรองตามผู้ขาย" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} className="bg-white border-[0.5px] border-card-border rounded-control px-3 py-[10px] text-body text-ink-900 focus:outline-none focus:border-primary [color-scheme:dark]">
                 <option value="">ผู้ขายทั้งหมด</option>
                 {recordVendors.map((v) => (
                   <option key={v.id} value={v.id}>{v.name}</option>
                 ))}
               </select>
-              <select aria-label="กรองตามแบบภาษี" value={formFilter} onChange={(e) => setFormFilter(e.target.value)} className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]">
+              <select aria-label="กรองตามแบบภาษี" value={formFilter} onChange={(e) => setFormFilter(e.target.value)} className="bg-white border-[0.5px] border-card-border rounded-control px-3 py-[10px] text-body text-ink-900 focus:outline-none focus:border-primary [color-scheme:dark]">
                 <option value="">ทุกแบบ</option>
                 {WHT_FORM_TYPES.map((ft) => (
                   <option key={ft} value={ft}>{WHT_FORM_TYPE_LABELS[ft]}</option>
@@ -716,75 +712,65 @@ export default function WhtPage() {
                   else next.delete("source");
                   setSearchParams(next, { replace: true });
                 }}
-                className="bg-white border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-[10px] text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] [color-scheme:dark]"
+                className="bg-white border-[0.5px] border-card-border rounded-control px-3 py-[10px] text-body text-ink-900 focus:outline-none focus:border-primary [color-scheme:dark]"
               >
                 <option value="">ทุกแหล่งที่มา</option>
                 <option value="manual">รายการรับเอง</option>
                 <option value="payroll">จากเงินเดือน</option>
               </select>
-              <Button onClick={openAddRecord} className="!rounded-lg shrink-0">
+              <Button onClick={openAddRecord} className="!rounded-control shrink-0">
                 <Plus size={15} className="mr-1" /> เพิ่มรายการ
               </Button>
             </div>
 
             {!recordsLoading && filteredRecords.length > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex gap-0.5 bg-[#F0EFE9] rounded-lg p-0.5">
+                <div className="flex gap-0.5 bg-line-faint rounded-control p-0.5">
                   <button
                     type="button"
                     onClick={() => setDoneView("active")}
-                    className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
-                      doneView === "active" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-                    }`}
+                    className={`px-3 py-1 text-label font-medium rounded-control transition-colors ${ doneView === "active" ? "bg-white text-ink-900 " : "text-ink-300 hover:text-ink-900" }`}
                   >
                     รอจัดการ ({activeRecords.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setDoneView("done")}
-                    className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
-                      doneView === "done" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-                    }`}
+                    className={`px-3 py-1 text-label font-medium rounded-control transition-colors ${ doneView === "done" ? "bg-white text-ink-900 " : "text-ink-300 hover:text-ink-900" }`}
                   >
                     เรียบร้อย ({doneRecords.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setDoneView("all")}
-                    className={`px-3 py-1 text-[12px] font-medium rounded-md transition-colors ${
-                      doneView === "all" ? "bg-white text-[#1A1A18] shadow-sm" : "text-[#888780] hover:text-[#1A1A18]"
-                    }`}
+                    className={`px-3 py-1 text-label font-medium rounded-control transition-colors ${ doneView === "all" ? "bg-white text-ink-900 " : "text-ink-300 hover:text-ink-900" }`}
                   >
                     ทั้งหมด ({filteredRecords.length})
                   </button>
                 </div>
 
                 <div className="flex items-center gap-1 ml-auto">
-                  <span className="text-[10px] text-[#CCCCCC] mr-0.5">PDF</span>
+                  <span className="text-label text-ink-200 mr-0.5">PDF</span>
                   <button
                     type="button"
                     onClick={() => setShowSig(!showSig)}
                     title={`ลายเซ็น: ${showSig ? "แสดง" : "ซ่อน"}`}
-                    className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
-                      showSig ? "border-blue-200 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500"
-                    }`}
+                    className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${ showSig ? "border-blue-200 bg-blue-50 text-blue-600" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500" }`}
                   >
                     {showSig ? <Eye size={12} /> : <EyeOff size={12} />}
-                    <span className="text-[10px]">ลายเซ็น</span>
+                    <span className="text-label">ลายเซ็น</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowStp(!showStp)}
                     title={`ตราประทับ: ${showStp ? "แสดง" : "ซ่อน"}`}
-                    className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
-                      showStp ? "border-orange-200 bg-orange-50 text-orange-600" : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500"
-                    }`}
+                    className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${ showStp ? "border-orange-200 bg-orange-50 text-orange-600" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500" }`}
                   >
                     {showStp ? <Eye size={12} /> : <EyeOff size={12} />}
-                    <span className="text-[10px]">ตรา</span>
+                    <span className="text-label">ตรา</span>
                   </button>
-                  <div className="w-px h-4 bg-gray-200 mx-1.5" />
-                  <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-lg">
+                  <div className="w-px h-4 bg-line-faint mx-1.5" />
+                  <Button size="sm" variant="secondary" onClick={handleBatchGenerate} loading={generating} className="!rounded-control">
                     <Download size={14} className="mr-1" /> ออกรายงาน PDF
                   </Button>
                 </div>
@@ -794,7 +780,7 @@ export default function WhtPage() {
             {recordsLoading ? (
               <div className="bg-white border border-card-border rounded-card overflow-hidden">
                 <div className="p-4 space-y-2">
-                  {[...Array(6)].map((_, i) => <div key={i} className="h-8 bg-gray-200 rounded animate-pulse" />)}
+                  {[...Array(6)].map((_, i) => <div key={i} className="h-8 bg-line-faint rounded animate-pulse" />)}
                 </div>
               </div>
             ) : filteredRecords.length === 0 ? (
@@ -805,22 +791,22 @@ export default function WhtPage() {
                   action={<Button onClick={openAddRecord}><Plus size={15} className="mr-1" /> เพิ่มรายการ หัก ณ ที่จ่าย</Button>}
                 />
               ) : (
-                <div className="text-center py-12 text-[13px] text-[#888780]">
+                <div className="text-center py-12 text-body text-ink-300">
                   <p>ไม่พบรายการที่ตรงกับตัวกรอง</p>
                 </div>
               )
             ) : displayedRecords.length === 0 ? (
-              <div className="text-center py-12 text-[13px] text-[#888780]">
+              <div className="text-center py-12 text-body text-ink-300">
                 <p>{doneView === "all" ? "ไม่มีรายการ" : doneView === "active" ? "ไม่มีรายการรอจัดการ" : "ไม่มีรายการที่เรียบร้อย"}</p>
               </div>
             ) : (
               <div className="bg-white border border-card-border rounded-card overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[13px]">
+                  <table className="w-full text-body">
                     <thead>
-                      <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
+                      <tr className="border-b border-line bg-paper-field">
                         <th className="px-3 py-2.5 w-[44px] text-center" title="ทำเครื่องหมายว่าเรียบร้อย">
-                          <span className="inline-flex items-center justify-center text-[#344054]"><Check className="h-3.5 w-3.5" aria-hidden /></span>
+                          <span className="inline-flex items-center justify-center text-ink-600"><Check className="h-3.5 w-3.5" aria-hidden /></span>
                           <span className="sr-only">เรียบร้อย</span>
                         </th>
                         <SortableTh
@@ -830,9 +816,9 @@ export default function WhtPage() {
                           onClick={() => tableSort.handleSort("issue_date")}
                           className="px-3 py-2.5"
                         />
-                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">ผู้ขาย</th>
-                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">เลขที่ผู้เสียภาษี</th>
-                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">รายละเอียด</th>
+                        <th className="px-3 py-2.5 text-left text-label font-semibold text-ink-600 whitespace-nowrap">ผู้ขาย</th>
+                        <th className="px-3 py-2.5 text-left text-label font-semibold text-ink-600 whitespace-nowrap">เลขที่ผู้เสียภาษี</th>
+                        <th className="px-3 py-2.5 text-left text-label font-semibold text-ink-600 whitespace-nowrap">รายละเอียด</th>
                         <SortableTh
                           label="แบบ"
                           active={tableSort.sort.key === "form_type"}
@@ -848,38 +834,38 @@ export default function WhtPage() {
                           onClick={() => tableSort.handleSort("amount")}
                           className="px-3 py-2.5"
                         />
-                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">หัก ณ ที่จ่าย</th>
-                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-[#344054] tracking-[0.04em] whitespace-nowrap">ใบรับรอง</th>
-                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-[#344054] tracking-[0.04em]" />
+                        <th className="px-3 py-2.5 text-right text-label font-semibold text-ink-600 whitespace-nowrap">หัก ณ ที่จ่าย</th>
+                        <th className="px-3 py-2.5 text-left text-label font-semibold text-ink-600 whitespace-nowrap">ใบรับรอง</th>
+                        <th className="px-3 py-2.5 text-right text-label font-semibold text-ink-600" />
                       </tr>
                     </thead>
                     <tbody>
                       {tableSort.sorted.map((r, idx) => {
                         const isDone = r.status === "done";
                         return (
-                        <tr key={r.id} className={`border-b border-[#F0EFE9] hover:bg-[#FAFAF8] transition-colors ${isDone ? "opacity-60" : ""}`}>
+                        <tr key={r.id} className={`border-b border-line-faint hover:bg-paper-field transition-colors ${isDone ? "opacity-60" : ""}`}>
                           <td className="px-3 py-2.5 text-center">
                             {isDone ? (
                               <button type="button" onClick={() => handleUnmarkDone(r.id)} className="text-green-500 hover:text-green-600 transition-colors" title="เรียบร้อยแล้ว — คลิกเพื่อย้อนกลับ">
                                 <CheckCircle size={16} />
                               </button>
                             ) : (
-                              <button type="button" onClick={() => handleMarkDone(r.id)} className="text-[#CCCCCC] hover:text-green-500 transition-colors" title="รอจัดการ — คลิกเมื่อเรียบร้อย">
+                              <button type="button" onClick={() => handleMarkDone(r.id)} className="text-ink-200 hover:text-green-500 transition-colors" title="รอจัดการ — คลิกเมื่อเรียบร้อย">
                                 <Circle size={16} />
                               </button>
                             )}
                           </td>
                           <td className="px-3 py-2.5 whitespace-nowrap">
-                            <div className="text-[#1A1A18]">{formatDate(r.issue_date)}</div>
-                            <div className="text-[10px] text-[#AAAAAA] mt-0.5">บันทึก {formatDate(r.created_at)}</div>
+                            <div className="text-ink-900">{formatDate(r.issue_date)}</div>
+                            <div className="text-label text-ink-200 mt-0.5">บันทึก {formatDate(r.created_at)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-[#1A1A18]">{r.vendor?.name || "-"}</td>
-                          <td className="px-3 py-2.5 font-mono text-[12px] text-[#888780]">{formatTaxId(r.vendor?.tax_id)}</td>
-                          <td className="px-3 py-2.5 text-[12px] text-[#555]">{r.description || "-"}</td>
+                          <td className="px-3 py-2.5 text-ink-900">{r.vendor?.name || "-"}</td>
+                          <td className="px-3 py-2.5 font-mono text-label text-ink-300">{formatTaxId(r.vendor?.tax_id)}</td>
+                          <td className="px-3 py-2.5 text-label text-ink-700">{r.description || "-"}</td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-1">
                               <span
-                                className="inline-block px-2 py-0.5 rounded text-[11px] font-medium"
+                                className="inline-block px-2 py-0.5 rounded text-label font-medium"
                                 style={{ backgroundColor: `${WHT_FORM_TYPE_COLORS[r.form_type]}15`, color: WHT_FORM_TYPE_COLORS[r.form_type] }}
                               >
                                 {WHT_FORM_TYPE_LABELS[r.form_type] || r.form_type}
@@ -888,7 +874,7 @@ export default function WhtPage() {
                                 <button
                                   type="button"
                                   onClick={() => navigate(`/payroll?run=${r.payroll_run_id}`)}
-                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 text-[10px] font-medium hover:bg-teal-100 transition-colors"
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 text-label font-medium hover:bg-teal-100 transition-colors"
                                   title="สร้างอัตโนมัติจากรอบเงินเดือน — กดเพื่อเปิดรอบนั้น"
                                 >
                                   <Sparkles size={10} /> Payroll
@@ -896,32 +882,32 @@ export default function WhtPage() {
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-[#1A1A18]">{formatCurrency(r.amount)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-[#C0392B]">{formatCurrency(r.wht_amount)}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-ink-900">{formatCurrency(r.amount)}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-danger">{formatCurrency(r.wht_amount)}</td>
                           <td className="px-3 py-2.5">
                             {r.certificate_no ? (
-                              <span className="inline-block px-2 py-0.5 rounded bg-[#EEF4FF] text-[#378ADD] font-mono text-[11px] font-medium">{r.certificate_no}</span>
+                              <span className="inline-block px-2 py-0.5 rounded bg-primary-soft text-primary font-mono text-label font-medium">{r.certificate_no}</span>
                             ) : (
-                              <span className="text-[#CCCCCC] text-[12px]">—</span>
+                              <span className="text-ink-200 text-label">—</span>
                             )}
                           </td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center justify-end gap-0.5">
-                              <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-md hover:bg-[#EEF2FF] text-[#378ADD] transition-colors" title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "ดาวน์โหลด PDF"}>
+                              <button type="button" onClick={() => handleGenerateSingle(r)} disabled={generating} className="p-1.5 rounded-control hover:bg-primary-soft text-primary transition-colors" title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "ดาวน์โหลด PDF"}>
                                 <Download size={15} />
                               </button>
                               {r.status !== "done" && r.source !== "payroll" && (
-                                <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-md hover:bg-[#F7F6F3] text-[#888780] hover:text-[#1A1A18] transition-colors" title={r.certificate_no ? "แก้ไข (ใบรับรองออกแล้ว)" : "แก้ไข"}>
+                                <button type="button" onClick={() => openEditRecord(r)} className="p-1.5 rounded-control hover:bg-page-bg text-ink-300 hover:text-ink-900 transition-colors" title={r.certificate_no ? "แก้ไข (ใบรับรองออกแล้ว)" : "แก้ไข"}>
                                   <Pencil size={15} />
                                 </button>
                               )}
                               {r.status !== "done" && r.source !== "payroll" && (
-                                <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-md hover:bg-red-50 text-[#CCCCCC] hover:text-red-500 transition-colors" title="ลบ">
+                                <button type="button" onClick={() => handleDeleteRecord(r.id)} className="p-1.5 rounded-control hover:bg-red-50 text-ink-200 hover:text-red-500 transition-colors" title="ลบ">
                                   <Trash2 size={15} />
                                 </button>
                               )}
                               {r.source === "payroll" && r.payroll_run_id && (
-                                <button type="button" onClick={() => navigate(`/payroll?run=${r.payroll_run_id}`)} className="p-1.5 rounded-md hover:bg-teal-50 text-[#CCCCCC] hover:text-teal-700 transition-colors" title="แก้ไขที่รอบเงินเดือน">
+                                <button type="button" onClick={() => navigate(`/payroll?run=${r.payroll_run_id}`)} className="p-1.5 rounded-control hover:bg-teal-50 text-ink-200 hover:text-teal-700 transition-colors" title="แก้ไขที่รอบเงินเดือน">
                                   <ExternalLink size={15} />
                                 </button>
                               )}
@@ -930,10 +916,10 @@ export default function WhtPage() {
                         </tr>
                       )})}
                       {tableSort.sorted.length > 0 && (
-                        <tr className="border-t-[1.5px] border-[#E6EBF2] bg-[#FAFAF8] font-semibold text-[#344054]">
+                        <tr className="border-t-[1.5px] border-line bg-paper-field font-semibold text-ink-600">
                           <td colSpan={6} className="px-3 py-2.5 text-right">รวม {tableSort.sorted.length} รายการ</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">{formatCurrency(tableSort.sorted.reduce((s, r) => s + r.amount, 0))}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-[#C0392B]">{formatCurrency(tableSort.sorted.reduce((s, r) => s + r.wht_amount, 0))}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-danger">{formatCurrency(tableSort.sorted.reduce((s, r) => s + r.wht_amount, 0))}</td>
                           <td colSpan={2} />
                         </tr>
                       )}
@@ -948,7 +934,7 @@ export default function WhtPage() {
             <div className="flex items-center gap-2">
               <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ เลขผู้เสียภาษี..." className="flex-1" />
               <ViewToggle value={viewMode} onChange={setViewMode} />
-              <Button size="sm" onClick={openAddVendorForm} className="!rounded-lg shrink-0">
+              <Button size="sm" onClick={openAddVendorForm} className="!rounded-control shrink-0">
                 <Plus size={14} className="mr-1" /> เพิ่ม
               </Button>
             </div>
@@ -956,9 +942,9 @@ export default function WhtPage() {
             {vendorsLoading ? (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-white border border-[#E8E6DF] rounded-[10px] p-4 animate-pulse min-h-[100px]">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  <div key={i} className="bg-white border border-card-border rounded-[10px] p-4 animate-pulse min-h-[100px]">
+                    <div className="h-4 bg-line-faint rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-line-faint rounded w-1/2" />
                   </div>
                 ))}
               </div>
@@ -970,41 +956,41 @@ export default function WhtPage() {
                   action={<Button onClick={openAddVendorForm}><Plus size={14} className="mr-1" /> เพิ่มผู้ขาย</Button>}
                 />
               ) : (
-                <div className="text-center py-12 text-[13px] text-[#888780]">ไม่พบ "{search}"</div>
+                <div className="text-center py-12 text-body text-ink-300">ไม่พบ "{search}"</div>
               )
             ) : viewMode === "grid" ? (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredVendors.map((v) => {
                   const stat = vendorStats.get(v.id);
                   return (
-                    <div key={v.id} className="bg-white border border-card-border rounded-[10px] p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => openEditVendor(v)}>
+                    <div key={v.id} className="bg-white border border-card-border rounded-[10px] p-4 transition-shadow cursor-pointer" onClick={() => openEditVendor(v)}>
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">
-                          <div className="text-[13px] font-semibold text-[#1A1A18] line-clamp-2 leading-tight">{v.name}</div>
-                          <div className={`text-[11px] mt-1 font-mono ${v.tax_id ? "text-[#888780]" : "italic text-[#AAAAAA] font-sans"}`}>
+                          <div className="text-body font-semibold text-ink-900 line-clamp-2 leading-tight">{v.name}</div>
+                          <div className={`text-label mt-1 font-mono ${v.tax_id ? "text-ink-300" : "italic text-ink-200 font-sans"}`}>
                             {v.tax_id ? formatTaxId(v.tax_id) : "ไม่มีเลขผู้เสียภาษี"}
                           </div>
-                          <div className="mt-2 pt-2 border-t border-gray-100 space-y-0.5">
+                          <div className="mt-2 pt-2 border-t border-line-faint space-y-0.5">
                             {stat ? (
                               <>
-                                <div className="flex items-center gap-1.5 text-[11px] text-[#888780]">
+                                <div className="flex items-center gap-1.5 text-label text-ink-300">
                                   <ReceiptText size={12} className="shrink-0" />
                                   {stat.count} รายการ
-                                  <span className="text-[#CCCCCC]">·</span>
+                                  <span className="text-ink-200">·</span>
                                   ฿{formatCurrency(stat.totalPaid)}
-                                  <span className="text-[#CCCCCC]">·</span>
-                                  <span className="text-[#C0392B]">หัก ฿{formatCurrency(stat.totalWht)}</span>
+                                  <span className="text-ink-200">·</span>
+                                  <span className="text-danger">หัก ฿{formatCurrency(stat.totalWht)}</span>
                                 </div>
                                 {stat.lastDate && (
-                                  <div className="text-[10px] text-[#AAAAAA]">จ่ายล่าสุด {formatDate(stat.lastDate)}</div>
+                                  <div className="text-label text-ink-200">จ่ายล่าสุด {formatDate(stat.lastDate)}</div>
                                 )}
                               </>
                             ) : (
-                              <div className="text-[11px] italic text-[#CCCCCC]">ยังไม่มีรายการ หัก ณ ที่จ่าย</div>
+                              <div className="text-label italic text-ink-200">ยังไม่มีรายการ หัก ณ ที่จ่าย</div>
                             )}
                           </div>
                         </div>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v.id); }} className="p-1 rounded-md hover:bg-red-50 text-[#AAAAAA] hover:text-red-500">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v.id); }} className="p-1 rounded-control hover:bg-red-50 text-ink-200 hover:text-red-500">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -1015,36 +1001,36 @@ export default function WhtPage() {
             ) : (
               <div className="bg-white border border-card-border rounded-card overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[13px]">
+                  <table className="w-full text-body">
                     <thead>
-                      <tr className="border-b border-[#E6EBF2] bg-[#F4F7FB]">
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ชื่อ</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">เลขผู้เสียภาษี</th>
-                        <th className="px-3 py-2 text-center text-[11px] font-medium text-gray-500">รายการ</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500">ยอดจ่ายรวม</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500">หัก ณ ที่จ่าย</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-500">ที่อยู่</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-500" />
+                      <tr className="border-b border-line bg-paper-field">
+                        <th className="px-3 py-2 text-left text-label font-medium text-ink-500">ชื่อ</th>
+                        <th className="px-3 py-2 text-left text-label font-medium text-ink-500">เลขผู้เสียภาษี</th>
+                        <th className="px-3 py-2 text-center text-label font-medium text-ink-500">รายการ</th>
+                        <th className="px-3 py-2 text-right text-label font-medium text-ink-500">ยอดจ่ายรวม</th>
+                        <th className="px-3 py-2 text-right text-label font-medium text-ink-500">หัก ณ ที่จ่าย</th>
+                        <th className="px-3 py-2 text-left text-label font-medium text-ink-500">ที่อยู่</th>
+                        <th className="px-3 py-2 text-right text-label font-medium text-ink-500" />
                       </tr>
                     </thead>
                     <tbody>
                       {filteredVendors.map((v) => (
-                        <tr key={v.id} className="border-b border-[#F0EFE9] hover:bg-[#F7F6F3] transition-colors cursor-pointer" onClick={() => openEditVendor(v)}>
+                        <tr key={v.id} className="border-b border-line-faint hover:bg-page-bg transition-colors cursor-pointer" onClick={() => openEditVendor(v)}>
                           <td className="px-3 py-2">{v.name}</td>
-                          <td className="px-3 py-2 font-mono text-[12px] text-[#888780]">{formatTaxId(v.tax_id)}</td>
+                          <td className="px-3 py-2 font-mono text-label text-ink-300">{formatTaxId(v.tax_id)}</td>
                           {(() => {
                             const stat = vendorStats.get(v.id);
                             return (
                               <>
-                                <td className="px-3 py-2 text-center tabular-nums text-[12px]">{stat?.count ?? 0}</td>
-                                <td className="px-3 py-2 text-right tabular-nums text-[12px]">{stat ? formatCurrency(stat.totalPaid) : "-"}</td>
-                                <td className="px-3 py-2 text-right tabular-nums text-[12px] text-[#C0392B]">{stat ? formatCurrency(stat.totalWht) : "-"}</td>
+                                <td className="px-3 py-2 text-center tabular-nums text-label">{stat?.count ?? 0}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-label">{stat ? formatCurrency(stat.totalPaid) : "-"}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-label text-danger">{stat ? formatCurrency(stat.totalWht) : "-"}</td>
                               </>
                             );
                           })()}
-                          <td className="px-3 py-2 text-[#888780] max-w-[200px] truncate">{v.address || "-"}</td>
+                          <td className="px-3 py-2 text-ink-300 max-w-[200px] truncate">{v.address || "-"}</td>
                           <td className="px-3 py-2 text-right">
-                            <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v.id); }} className="p-1.5 rounded-md hover:bg-red-50 text-[#AAAAAA] hover:text-red-500">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v.id); }} className="p-1.5 rounded-control hover:bg-red-50 text-ink-200 hover:text-red-500">
                               <Trash2 size={14} />
                             </button>
                           </td>
@@ -1061,7 +1047,7 @@ export default function WhtPage() {
 
       <Modal open={showAddRecord} onClose={() => { setShowAddRecord(false); resetNewRecord(); }} title="เพิ่มรายการ หัก ณ ที่จ่าย">
         <div>
-          <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
+          <div className="mb-3 flex items-center gap-2 rounded-control bg-primary-soft px-3 py-2 text-label text-primary">
             <Info size={14} className="shrink-0" />
             <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
           </div>
@@ -1083,7 +1069,7 @@ export default function WhtPage() {
               </Select>
               <Input label="วันที่ *" type="date" value={newRecord.issue_date} onChange={(e) => setNewRecord({ ...newRecord, issue_date: e.target.value })} />
               <div>
-                <label htmlFor="wht-new-amount" className="block text-xs font-medium text-gray-600 mb-1">จำนวนเงิน *</label>
+                <label htmlFor="wht-new-amount" className="block text-label font-medium text-ink-600 mb-1">จำนวนเงิน *</label>
                 <input
                   id="wht-new-amount"
                   type="number"
@@ -1095,12 +1081,12 @@ export default function WhtPage() {
                     setAmountError(null);
                   }}
                   placeholder="0.00"
-                  className={`w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-red-400" : "border-card-border"}`}
+                  className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-red-400" : "border-card-border"}`}
                 />
-                {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
+                {amountError && <p className="text-label text-red-500 mt-1">{amountError}</p>}
               </div>
               <div>
-                <label htmlFor="wht-new-desc" className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
+                <label htmlFor="wht-new-desc" className="block text-label font-medium text-ink-300 mb-1.5">รายละเอียด *</label>
                 {customDescAddMode ? (
                   <div className="flex gap-2">
                     <input
@@ -1109,12 +1095,12 @@ export default function WhtPage() {
                       onChange={(e) => setNewRecord({ ...newRecord, description: e.target.value })}
                       placeholder="พิมพ์รายละเอียด"
                       autoFocus
-                      className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
+                      className="w-full bg-page-bg border-[0.5px] border-card-border rounded-control px-3 py-2.5 text-body text-ink-900 placeholder-ink-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => { setCustomDescAddMode(false); setNewRecord({ ...newRecord, description: "" }); }}
-                      className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[12px] text-[#888780] hover:bg-[#F7F6F3] transition-colors"
+                      className="shrink-0 rounded-control border border-line bg-white px-3 py-2.5 text-label text-ink-300 hover:bg-page-bg transition-colors"
                     >
                       ↰ เลือกจากรายการ
                     </button>
@@ -1132,7 +1118,7 @@ export default function WhtPage() {
                       const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
                       setNewRecord({ ...newRecord, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
                     }}
-                    className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                    className="w-full bg-page-bg border-[0.5px] border-card-border rounded-control px-3 py-2.5 text-body text-ink-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors [color-scheme:dark]"
                   >
                     <option value="">เลือกประเภทรายจ่าย</option>
                     {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1152,7 +1138,7 @@ export default function WhtPage() {
                 <option value="0">0%</option>
               </Select>
               {previewWht && (
-                <div className="text-[12px] text-[#888780]">
+                <div className="text-label text-ink-300">
                   หัก ณ ที่จ่าย = {previewWht}
                 </div>
               )}
@@ -1168,12 +1154,12 @@ export default function WhtPage() {
       <Modal open={!!showEditRecord} onClose={closeEditRecord} title="แก้ไขรายการ หัก ณ ที่จ่าย">
         <div>
           {showEditRecord?.certificate_no && (
-            <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
+            <div className="mb-3 flex items-start gap-2 rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-800">
               <Info size={14} className="shrink-0 mt-0.5" />
               <span>ใบรับรอง <span className="font-mono font-medium">{showEditRecord.certificate_no}</span> ออกแล้ว — หากแก้ไขข้อมูล เอกสาร PDF ที่พิมพ์ซ้ำจะแสดงค่าที่แก้ไขแล้ว</span>
             </div>
           )}
-          <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-2 text-[11px] text-[#378ADD]">
+          <div className="mb-3 flex items-center gap-2 rounded-control bg-primary-soft px-3 py-2 text-label text-primary">
             <Info size={14} className="shrink-0" />
             <span>รุ่น Beta — รองรับเฉพาะ ภ.ง.ด.3 และ ภ.ง.ด.53</span>
           </div>
@@ -1195,7 +1181,7 @@ export default function WhtPage() {
               </Select>
               <Input label="วันที่ *" type="date" value={editRecordForm.issue_date} onChange={(e) => setEditRecordForm({ ...editRecordForm, issue_date: e.target.value })} />
               <div>
-                <label htmlFor="wht-edit-amount" className="block text-xs font-medium text-gray-600 mb-1">จำนวนเงิน *</label>
+                <label htmlFor="wht-edit-amount" className="block text-label font-medium text-ink-600 mb-1">จำนวนเงิน *</label>
                 <input
                   id="wht-edit-amount"
                   type="number"
@@ -1207,12 +1193,12 @@ export default function WhtPage() {
                     setAmountError(null);
                   }}
                   placeholder="0.00"
-                  className={`w-full px-3 py-2 text-sm border rounded-lg bg-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-red-400" : "border-card-border"}`}
+                  className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-red-400" : "border-card-border"}`}
                 />
-                {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
+                {amountError && <p className="text-label text-red-500 mt-1">{amountError}</p>}
               </div>
               <div>
-                <label htmlFor="wht-edit-desc" className="block text-[12px] font-medium text-[#888780] mb-1.5">รายละเอียด *</label>
+                <label htmlFor="wht-edit-desc" className="block text-label font-medium text-ink-300 mb-1.5">รายละเอียด *</label>
                 {customDescEditMode ? (
                   <div className="flex gap-2">
                     <input
@@ -1221,12 +1207,12 @@ export default function WhtPage() {
                       onChange={(e) => setEditRecordForm({ ...editRecordForm, description: e.target.value })}
                       placeholder="พิมพ์รายละเอียด"
                       autoFocus
-                      className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] placeholder-[#AAAAAA] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
+                      className="w-full bg-page-bg border-[0.5px] border-card-border rounded-control px-3 py-2.5 text-body text-ink-900 placeholder-ink-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => { setCustomDescEditMode(false); setEditRecordForm({ ...editRecordForm, description: "" }); }}
-                      className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[12px] text-[#888780] hover:bg-[#F7F6F3] transition-colors"
+                      className="shrink-0 rounded-control border border-line bg-white px-3 py-2.5 text-label text-ink-300 hover:bg-page-bg transition-colors"
                     >
                       ↰ เลือกจากรายการ
                     </button>
@@ -1244,7 +1230,7 @@ export default function WhtPage() {
                       const mappedRate = WHT_DESCRIPTION_RATE_MAP[desc];
                       setEditRecordForm({ ...editRecordForm, description: desc, ...(mappedRate ? { wht_rate: mappedRate } : {}) });
                     }}
-                    className="w-full bg-[#F7F6F3] border-[0.5px] border-[#E8E6DF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1A18] focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors [color-scheme:dark]"
+                    className="w-full bg-page-bg border-[0.5px] border-card-border rounded-control px-3 py-2.5 text-body text-ink-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors [color-scheme:dark]"
                   >
                     <option value="">เลือกประเภทรายจ่าย</option>
                     {WHT_DESCRIPTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1358,7 +1344,7 @@ export default function WhtPage() {
       >
         {confirmState && (
           <div>
-            <p className="text-sm text-[#555]">{confirmState.message}</p>
+            <p className="text-body text-ink-700">{confirmState.message}</p>
             <div className="mt-4 flex gap-2 justify-end">
               <Button variant="secondary" onClick={() => setConfirmState(null)}>ยกเลิก</Button>
               <Button variant="danger" onClick={() => { const fn = confirmState.onConfirm; setConfirmState(null); fn(); }}>ลบ</Button>

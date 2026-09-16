@@ -19,7 +19,7 @@ export function UnitSelector({ value, onChange, label, disabled, customPresets =
   return (
     <div className="space-y-2">
       {label && (
-        <div className="text-[11px] uppercase font-semibold text-[#888780]">
+        <div className="text-label font-semibold text-ink-300">
           {label}
         </div>
       )}
@@ -36,7 +36,7 @@ export function UnitSelector({ value, onChange, label, disabled, customPresets =
           }
         }}
         disabled={disabled}
-        className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
+        className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
       >
         <option value="" disabled>
           เลือกหน่วย...
@@ -68,7 +68,7 @@ export function UnitSelector({ value, onChange, label, disabled, customPresets =
             }
           }}
           placeholder="พิมพ์ชื่อหน่วยเอง"
-          className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 transition-colors"
+          className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
           autoFocus
         />
       )}

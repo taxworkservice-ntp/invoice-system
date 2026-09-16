@@ -12,7 +12,7 @@ export function Card({ children, className = "", onClick, onMouseEnter }: CardPr
     <div
       onClick={onClick}
       onMouseEnter={onMouseEnter}
-      className={`bg-white border border-card-border rounded-card p-4 shadow-sm transition-[box-shadow,border-color,transform] ${onClick ? "cursor-pointer hover:shadow-md hover:border-gray-300 active:translate-y-[1px]" : ""} ${className}`}
+      className={`bg-white border-[0.5px] border-card-border rounded-card p-4 transition-[border-color,transform] ${onClick ? "cursor-pointer hover:border-line-strong active:translate-y-[1px]" : ""} ${className}`}
     >
       {children}
     </div>

@@ -437,11 +437,11 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
         disabled={isEdit}
       />
 
-      <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
-        <div className="mb-4 rounded-[10px] border border-[#ECE8DE] bg-[#FBFAF7] px-3 py-3">
-            <div className="flex items-center gap-2 text-[11px] uppercase font-semibold tracking-[0.12em] text-[#888780]">
+      <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
+        <div className="mb-4 rounded-[10px] border border-paper-warm bg-paper-tint px-3 py-3">
+            <div className="flex items-center gap-2 text-label font-semibold text-ink-300">
             <span>SKU</span>
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-blue-700">จำเป็น</span>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium normal-case text-blue-700">จำเป็น</span>
           </div>
           <div className="mt-2 flex items-center gap-3">
             <input
@@ -452,17 +452,17 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                 setErrors((prev) => ({ ...prev, sku: "" }));
               }}
               placeholder="BOX-001"
-              className="flex-1 text-[15px] px-0 py-1 border-b border-[#E8E6DF] focus:outline-none focus:border-[#378ADD] transition-colors bg-transparent uppercase tracking-[0.08em]"
+              className="flex-1 text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
             />
-            <span className="shrink-0 rounded-full border border-[#E8E6DF] bg-white px-2.5 py-1 text-[10px] font-medium text-[#6B7280]">
+            <span className="shrink-0 rounded-full border border-card-border bg-white px-2.5 py-1 text-label font-medium text-ink-400">
               Internal ID
             </span>
           </div>
-          <p className="mt-2 text-[11px] leading-5 text-[#888780]">
+          <p className="mt-2 text-label leading-5 text-ink-300">
             ใช้รหัสสั้นที่ไม่ซ้ำกัน เพื่อค้นหาและแยกสินค้าได้ง่าย เช่น BOX-001 หรือ PAPER-A4-80G
           </p>
           {errors.sku && (
-            <p className="mt-1 text-[11px] text-[#C0392B]">{errors.sku}</p>
+            <p className="mt-1 text-label text-danger">{errors.sku}</p>
           )}
         </div>
 
@@ -474,17 +474,17 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
             setErrors((prev) => ({ ...prev, name: "" }));
           }}
           placeholder="เช่น กระดาษ A4, ออกแบบโลโก้..."
-          className="w-full text-[15px] px-0 py-1 border-b border-[#E8E6DF] focus:outline-none focus:border-[#378ADD] transition-colors bg-transparent"
+          className="w-full text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
           autoFocus={!isEdit}
         />
         {errors.name && (
-          <p className="text-[11px] text-[#C0392B] mt-1">{errors.name}</p>
+          <p className="text-label text-danger mt-1">{errors.name}</p>
         )}
       </div>
 
-      <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4">
+      <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
         <div className="flex items-center gap-1">
-          <span className="text-[15px] text-[#1A1A18]">฿</span>
+          <span className="text-title text-ink-900">฿</span>
           <input
             type="number"
             min="0"
@@ -495,16 +495,16 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
               setErrors((prev) => ({ ...prev, unitPrice: "" }));
             }}
             placeholder="0.00"
-            className="flex-1 text-[15px] px-0 py-1 border-b border-[#E8E6DF] focus:outline-none focus:border-[#378ADD] transition-colors bg-transparent"
+            className="flex-1 text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
           />
         </div>
         {errors.unitPrice && (
-          <p className="text-[11px] text-[#C0392B] mt-1">
+          <p className="text-label text-danger mt-1">
             {errors.unitPrice}
           </p>
         )}
         {cartonPreviewPrice && (
-          <p className="text-[12px] text-[#888780] mt-1">
+          <p className="text-label text-ink-300 mt-1">
             = ฿{" "}
             {(
               (parseFloat(unitPrice) || 0) * parseFloat(String(qtyPerCarton))
@@ -520,8 +520,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
         )}
       </div>
 
-      <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4 space-y-4">
-        <div className="text-[11px] uppercase font-semibold text-[#888780]">
+      <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
+        <div className="text-label font-semibold text-ink-300">
           หน่วย
         </div>
         <UnitSelector
@@ -552,12 +552,12 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
               onAddPreset={addUnitPreset}
             />
             {errors.cartonUnit && (
-              <p className="text-[11px] text-[#C0392B]">
+              <p className="text-label text-danger">
                 {errors.cartonUnit}
               </p>
             )}
             {errors.qtyPerCarton && (
-              <p className="text-[11px] text-[#C0392B]">
+              <p className="text-label text-danger">
                 {errors.qtyPerCarton}
               </p>
             )}
@@ -566,62 +566,62 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
       </div>
 
       {itemType === "service" && jobDetailsFeatureEnabled && (
-        <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4 space-y-4">
+        <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
           <label className="flex items-start gap-3">
             <input
               type="checkbox"
               checked={hasJobDetails}
               onChange={(event) => setHasJobDetails(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[#D7DEE7] text-primary focus:ring-primary"
+              className="mt-1 h-4 w-4 rounded border-line text-primary focus:ring-primary"
             />
               <span>
-                <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#1A1A18]">
+                <span className="flex flex-wrap items-center gap-2 text-body font-medium text-ink-900">
                 <span>เก็บรายละเอียดงานของบริการนี้</span>
-                <span className="inline-flex items-center rounded-full border border-[#B8D7F1] bg-[#EAF4FF] px-2 py-0.5 text-[10px] font-medium text-[#0C447C]">
+                <span className="inline-flex items-center rounded-full border border-primary-border bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep">
                   ฟีเจอร์รายละเอียดงาน
                 </span>
               </span>
-              <span className="mt-1 block text-xs leading-5 text-[#888780]">
+              <span className="mt-1 block text-label leading-5 text-ink-300">
                 แสดงช่องกรอกรายละเอียดบนเอกสาร เช่น สี/ฟอยล์ ขนาด ตำแหน่ง วัสดุ และหมายเหตุ
               </span>
-              <span className="mt-2 block rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2 text-xs leading-5 text-[#5F5A52]">
+              <span className="mt-2 block rounded-control border border-card-border bg-paper-tint px-3 py-2 text-label leading-5 text-ink-600">
                 เหมาะกับบริการงานผลิต/งานพิมพ์ที่ต้องระบุสเปกต่อรายการ หากเป็นบริการทั่วไปให้ปิดไว้เพื่อให้ฟอร์มเอกสารสั้นและใช้งานเร็ว
               </span>
-              <span className="mt-2 block rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+              <span className="mt-2 block rounded-control border border-blue-100 bg-blue-50 px-3 py-2 text-label leading-5 text-blue-800">
                 การเปลี่ยนช่องรายละเอียดมีผลกับผู้ใช้ทุกคนที่เลือกบริการนี้ในงานขายใหม่ เอกสารเดิมจะไม่ถูกเปลี่ยนแปลง
               </span>
             </span>
           </label>
 
           {hasJobDetails && (
-            <div className="border-t border-[#ECE8DE] pt-4">
+            <div className="border-t border-paper-warm pt-4">
               <div className="mb-3">
-                <div className="text-sm font-medium text-[#1A1A18]">ช่องรายละเอียดและตัวเลือกที่ใช้บ่อย</div>
-                <p className="mt-1 text-xs leading-5 text-[#888780]">
+                <div className="text-body font-medium text-ink-900">ช่องรายละเอียดและตัวเลือกที่ใช้บ่อย</div>
+                <p className="mt-1 text-label leading-5 text-ink-300">
                   กำหนดช่องที่ต้องการให้กรอกในเอกสาร แล้วเพิ่มค่าที่ใช้บ่อยใต้แต่ละช่อง ผู้ใช้ยังสามารถพิมพ์ค่าใหม่เองได้เสมอ
                 </p>
                 {loadingJobDetailPresets && (
-                  <p className="mt-2 rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-xs text-[#888780]">
+                  <p className="mt-2 rounded-control border border-card-border bg-white px-3 py-2 text-label text-ink-300">
                     กำลังโหลดตัวเลือกที่บันทึกไว้...
                   </p>
                 )}
                 {jobDetailPresetError && (
-                  <p className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
+                  <p className="mt-2 rounded-control border border-red-100 bg-red-50 px-3 py-2 text-label text-red-600">
                     โหลดตัวเลือกที่บันทึกไว้ไม่สำเร็จ: {jobDetailPresetError}
                   </p>
                 )}
                 {!loadingJobDetailPresets && !jobDetailPresetError && presetCount === 0 && (
-                  <p className="mt-2 rounded-lg border border-dashed border-[#E8E6DF] bg-white px-3 py-2 text-xs leading-5 text-[#888780]">
+                  <p className="mt-2 rounded-control border border-dashed border-card-border bg-white px-3 py-2 text-label leading-5 text-ink-300">
                     ยังไม่มีตัวเลือกที่บันทึกไว้ เพิ่มค่าด้านล่างแล้วกดบันทึก รายการจะกลับมาเป็นปุ่มให้ลบ/แก้ไขครั้งต่อไป
                   </p>
                 )}
               </div>
 
-              <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-3">
-                <div className="text-xs font-semibold text-emerald-900">ตัวอย่างที่ผู้ใช้จะเห็นตอนสร้างงานขาย</div>
+              <div className="mb-4 rounded-control border border-emerald-100 bg-emerald-50 px-3 py-3">
+                <div className="text-label font-semibold text-emerald-900">ตัวอย่างที่ผู้ใช้จะเห็นตอนสร้างงานขาย</div>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {jobDetailFields.filter((field) => field.is_enabled).map((field) => (
-                    <div key={field.field_key} className="rounded-md border border-emerald-100 bg-white px-2.5 py-2 text-xs text-emerald-900">
+                    <div key={field.field_key} className="rounded-control border border-emerald-100 bg-white px-2.5 py-2 text-label text-emerald-900">
                       {field.label || "รายละเอียด"}
                       <span className="ml-1 text-emerald-600">{field.field_type === "dimension" ? `หน่วย ${field.default_unit || "มม."}` : "เลือกหรือพิมพ์"}</span>
                     </div>
@@ -631,7 +631,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
 
               <div className="space-y-4">
                 {jobDetailFields.map((field, index) => (
-                  <div key={field.field_key} className="rounded-lg border border-[#ECE8DE] bg-white p-3">
+                  <div key={field.field_key} className="rounded-control border border-paper-warm bg-white p-3">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <label className="flex min-w-0 flex-1 items-center gap-2">
                         <input
@@ -646,7 +646,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                               ),
                             )
                           }
-                          className="h-4 w-4 rounded border-[#D7DEE7] text-primary focus:ring-primary"
+                          className="h-4 w-4 rounded border-line text-primary focus:ring-primary"
                         />
                         <input
                           type="text"
@@ -660,11 +660,11 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                               ),
                             )
                           }
-                          className="min-w-0 flex-1 rounded-lg border border-[#E8E6DF] bg-[#FBFAF7] px-3 py-2 text-[13px] font-medium text-[#1A1A18] focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                          className="min-w-0 flex-1 rounded-control border border-card-border bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                           placeholder="ชื่อช่อง"
                         />
                       </label>
-                      <span className="rounded-full border border-[#E8E6DF] bg-[#FBFAF7] px-2 py-1 text-[10px] text-[#888780]">
+                      <span className="rounded-full border border-card-border bg-paper-tint px-2 py-1 text-label text-ink-300">
                         {field.field_type === "dimension" ? "ขนาด" : "ข้อความ"}
                       </span>
                       {field.field_type === "dimension" && (
@@ -679,7 +679,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                               ),
                             )
                           }
-                          className="rounded-lg border border-[#E8E6DF] bg-white px-2 py-1 text-[11px]"
+                          className="rounded-control border border-card-border bg-white px-2 py-1 text-label"
                         >
                           <option value="มม.">มม.</option>
                           <option value="ซม.">ซม.</option>
@@ -687,23 +687,23 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                           <option value="เมตร">เมตร</option>
                         </select>
                       )}
-                      <div className="flex items-center rounded-lg border border-[#E8E6DF] bg-white">
+                      <div className="flex items-center rounded-control border border-card-border bg-white">
                         <button
                           type="button"
                           onClick={() => moveJobDetailField(field.field_key, -1)}
                           disabled={index === 0}
-                          className="flex h-8 w-8 items-center justify-center rounded-l-lg text-[#5F5A52] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
+                          className="flex h-8 w-8 items-center justify-center rounded-l-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white"
                           aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ขึ้น`}
                           title="เลื่อนขึ้น"
                         >
                           <ChevronUp className="h-4 w-4" />
                         </button>
-                        <div className="h-5 w-px bg-[#E8E6DF]" />
+                        <div className="h-5 w-px bg-line" />
                         <button
                           type="button"
                           onClick={() => moveJobDetailField(field.field_key, 1)}
                           disabled={index === jobDetailFields.length - 1}
-                          className="flex h-8 w-8 items-center justify-center rounded-r-lg text-[#5F5A52] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
+                          className="flex h-8 w-8 items-center justify-center rounded-r-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white"
                           aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ลง`}
                           title="เลื่อนลง"
                         >
@@ -721,7 +721,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                               return next;
                             });
                           }}
-                          className="rounded-lg border border-red-100 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                          className="rounded-control border border-red-100 px-2.5 py-1.5 text-label font-medium text-red-600 transition-colors hover:bg-red-50"
                         >
                           ลบช่อง
                         </button>
@@ -729,7 +729,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                     </div>
 
                     {field.field_type === "dimension" && (
-                      <p className="text-xs leading-5 text-[#888780]">
+                      <p className="text-label leading-5 text-ink-300">
                         ช่องขนาดใช้รูปแบบกว้าง x สูง และไม่มีตัวเลือกเริ่มต้น
                       </p>
                     )}
@@ -741,13 +741,13 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                         {(jobDetailPresets[field.field_key] || []).map((value) => (
                           <span
                             key={value}
-                            className="inline-flex items-center gap-1 rounded-full border border-[#D7DEE7] bg-white px-2.5 py-1 text-xs text-[#5F5A52]"
+                            className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-label text-ink-600"
                           >
                             {value}
                             <button
                               type="button"
                               onClick={() => removePreset(field.field_key, value)}
-                              className="text-gray-400 transition-colors hover:text-red-500"
+                              className="text-ink-400 transition-colors hover:text-red-500"
                               aria-label={`ลบ ${value}`}
                             >
                               ×
@@ -770,12 +770,12 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                           }
                         }}
                         placeholder={field.placeholder}
-                        className="min-w-0 flex-1 rounded-lg border border-[#E8E6DF] bg-white px-3 py-2 text-sm focus:border-[#378ADD] focus:outline-none focus:ring-2 focus:ring-[#378ADD]/20"
+                        className="min-w-0 flex-1 rounded-control border border-card-border bg-white px-3 py-2 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                       <button
                         type="button"
                         onClick={() => addPreset(field.field_key)}
-                        className="shrink-0 rounded-lg border border-card-border bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                        className="shrink-0 rounded-control border border-card-border bg-white px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:bg-paper-field"
                       >
                         เพิ่ม
                       </button>
@@ -793,7 +793,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                         { ...createCustomJobDetailField("ช่องใหม่", "text"), sort_order: prev.length },
                       ])
                     }
-                    className="rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-3 py-2 text-sm font-medium text-[#1A1A18] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
+                    className="rounded-control border border-dashed border-line bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 transition-colors hover:border-primary hover:bg-primary-soft"
                   >
                     + เพิ่มช่องข้อความ
                   </button>
@@ -805,7 +805,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                         { ...createCustomJobDetailField("ช่องใหม่", "dimension"), sort_order: prev.length },
                       ])
                     }
-                    className="rounded-lg border border-dashed border-[#D7DEE7] bg-[#FBFAF7] px-3 py-2 text-sm font-medium text-[#1A1A18] transition-colors hover:border-[#378ADD] hover:bg-[#F5FAFF]"
+                    className="rounded-control border border-dashed border-line bg-paper-tint px-3 py-2 text-body font-medium text-ink-900 transition-colors hover:border-primary hover:bg-primary-soft"
                   >
                     + เพิ่มช่องขนาด
                   </button>
@@ -817,8 +817,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
       )}
 
       {itemType === "product" && (
-        <div className="bg-white border-[0.5px] border-[#E8E6DF] rounded-[10px] p-4 space-y-4">
-          <div className="text-[11px] uppercase font-semibold text-[#888780]">
+        <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4 space-y-4">
+          <div className="text-label font-semibold text-ink-300">
             สต็อก
           </div>
           {!isEdit && (
@@ -833,7 +833,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                 }
               />
               <div>
-                <label className="block text-[13px] text-[#1A1A18] mb-1">
+                <label className="block text-body text-ink-900 mb-1">
                   ต้นทุนเริ่มต้นต่อ {baseUnit}
                 </label>
                 <input
@@ -845,14 +845,14 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                     setInitialCost(e.target.value);
                     setErrors((prev) => ({ ...prev, initialCost: "" }));
                   }}
-                  className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                  className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   placeholder="เช่น 45.00"
                 />
-                <p className="text-[11px] text-[#888780] mt-1">
+                <p className="text-label text-ink-300 mt-1">
                   ใช้คำนวณต้นทุนเฉลี่ยและมูลค่าสต็อกเริ่มต้น
                 </p>
                 {errors.initialCost && (
-                  <p className="text-[11px] text-[#C0392B] mt-1">
+                  <p className="text-label text-danger mt-1">
                     {errors.initialCost}
                   </p>
                 )}
@@ -860,7 +860,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
             </>
           )}
           <div>
-            <label className="block text-[13px] text-[#1A1A18] mb-1">
+            <label className="block text-body text-ink-900 mb-1">
               แจ้งเตือนเมื่อเหลือ
             </label>
             <div className="flex items-center gap-2">
@@ -870,11 +870,11 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                 step="1"
                 value={lowStockThreshold}
                 onChange={(e) => setLowStockThreshold(e.target.value)}
-                className="w-24 px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20"
+                className="w-24 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <span className="text-sm text-[#888780]">{baseUnit}</span>
+              <span className="text-body text-ink-300">{baseUnit}</span>
             </div>
-            <p className="text-[11px] text-[#888780] mt-1">
+            <p className="text-label text-ink-300 mt-1">
               ระบบจะแสดงเตือนเมื่อสต็อกเหลือน้อยกว่าจำนวนนี้
             </p>
           </div>

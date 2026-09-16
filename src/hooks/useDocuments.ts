@@ -5,17 +5,26 @@ import type { Document, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNot
 export function useDocuments(userId: string | undefined) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
+    setError(null);
     const { data, error } = await supabase
       .from("documents")
       .select("*, customer:customer_id(name)")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      setError(error.message || "โหลดเอกสารไม่สำเร็จ");
+      setDocuments([]);
+      setLoading(false);
+      return;
+    }
+
+    if (data) {
       const docs = data as unknown as Document[];
       const docIds = docs.map((doc) => doc.id).filter(Boolean);
 
@@ -52,7 +61,7 @@ export function useDocuments(userId: string | undefined) {
     fetch();
   }, [fetch]);
 
-  return { documents, loading, refetch: fetch };
+  return { documents, loading, error, refetch: fetch };
 }
 
 export async function getDocumentDetail(documentId: string) {

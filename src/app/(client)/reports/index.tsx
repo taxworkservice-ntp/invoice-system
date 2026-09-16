@@ -18,11 +18,11 @@ function ReportFallback() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-20 rounded-xl" />
+          <Skeleton key={index} className="h-20 rounded-card" />
         ))}
       </div>
-      <Skeleton className="h-48 rounded-xl" />
-      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-48 rounded-card" />
+      <Skeleton className="h-64 rounded-card" />
     </div>
   );
 }
@@ -35,7 +35,7 @@ export default function ReportsPage() {
   return (
     <AppShell title="รายงาน">
       <div className="space-y-4">
-        <div className="flex gap-1 rounded-xl border border-[#E8E6DF] bg-[#FAFAF8] p-1" role="tablist" aria-label="ประเภทรายงาน">
+        <div className="flex gap-1 rounded-card border border-card-border bg-paper-field p-1" role="tablist" aria-label="ประเภทรายงาน">
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -43,11 +43,7 @@ export default function ReportsPage() {
               role="tab"
               aria-selected={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? "bg-white text-[#1A1A18] shadow-sm"
-                  : "text-[#888780] hover:bg-white/60 hover:text-[#475467]"
-              }`}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors ${ activeTab === tab.key ? "bg-white text-ink-900 " : "text-ink-300 hover:bg-white/60 hover:text-ink-500" }`}
             >
               {tab.icon}
               {tab.label}

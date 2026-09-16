@@ -246,20 +246,20 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
   if (loading) {
     return (
       <div className="space-y-3">
-        <div className="h-10 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-10 bg-line-faint rounded-control animate-pulse" />
         <div className="flex gap-4">
-          <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
-          <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
-          <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
+          <div className="h-8 w-16 bg-line-faint rounded animate-pulse" />
+          <div className="h-8 w-16 bg-line-faint rounded animate-pulse" />
+          <div className="h-8 w-16 bg-line-faint rounded animate-pulse" />
         </div>
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="bg-white border border-[#E8E6DF] rounded-[10px] p-4 animate-pulse"
+            className="bg-white border border-card-border rounded-[10px] p-4 animate-pulse"
           >
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-3" />
-            <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
-            <div className="h-3 bg-gray-200 rounded w-1/3" />
+            <div className="h-4 bg-line-faint rounded w-3/4 mb-3" />
+            <div className="h-3 bg-line-faint rounded w-1/2 mb-2" />
+            <div className="h-3 bg-line-faint rounded w-1/3" />
           </div>
         ))}
       </div>
@@ -276,7 +276,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
           size="sm"
           onClick={handleExportCSV}
           disabled={productItems.length === 0}
-          className="!rounded-lg shrink-0"
+          className="!rounded-control shrink-0"
         >
           <Download size={14} className="mr-1" />
           CSV
@@ -287,13 +287,13 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
           onClick={handleExportMovementsCSV}
           loading={exportingMovements}
           disabled={exportingMovements || !userId}
-          className="!rounded-lg shrink-0"
+          className="!rounded-control shrink-0"
         >
           <FileText size={14} className="mr-1" />
           ประวัติ
         </Button>
         {canManage && (
-          <Button onClick={onAdd} size="sm" className="!rounded-lg shrink-0">
+          <Button onClick={onAdd} size="sm" className="!rounded-control shrink-0">
             + เพิ่ม
           </Button>
         )}
@@ -304,11 +304,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
         <button
           type="button"
           onClick={() => setFilterMode((prev) => (prev === "favorites" ? "all" : "favorites"))}
-          className={`px-3 py-1.5 text-[12px] rounded-md font-medium transition-colors inline-flex items-center gap-1 ${
-            filterMode === "favorites"
-              ? "bg-[#F59E0B] text-white"
-              : "bg-[#FEF3E2] text-[#B45309] hover:bg-[#FDE9C4]"
-          }`}
+          className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${ filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border" }`}
         >
           <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
           รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
@@ -316,7 +312,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
       </div>
 
       {showCount && (
-        <div className="text-[11px] text-[#888780]">
+        <div className="text-label text-ink-300">
           แสดง {filtered.length} จาก {items.length} รายการ
         </div>
       )}
@@ -329,13 +325,13 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
             action={canManage ? <Button onClick={onAdd}>+ เพิ่มสินค้า / บริการ</Button> : undefined}
           />
         ) : filterMode === "favorites" && favoriteCount === 0 ? (
-          <div className="text-center py-12 text-[13px] text-[#888780]">
-            <Star size={28} className="mx-auto mb-2 text-[#AAAAAA]" />
+          <div className="text-center py-12 text-body text-ink-300">
+            <Star size={28} className="mx-auto mb-2 text-ink-200" />
             <p>ยังไม่มีรายการโปรด</p>
             <p className="mt-1">กด ★ ที่การ์ดสินค้าเพื่อเพิ่มเป็นรายการโปรด</p>
           </div>
         ) : (
-          <div className="text-center py-12 text-[13px] text-[#888780]">
+          <div className="text-center py-12 text-body text-ink-300">
             <p>ไม่พบ "{search}"</p>
             <p className="mt-1">ลองค้นหาด้วยคำอื่น</p>
           </div>
@@ -347,7 +343,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
           <div className="space-y-4">
             {productItems.length > 0 && (
               <div>
-                <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+                <div className="text-label font-semibold text-ink-300 py-2">
                   สินค้า
                 </div>
                 <StockReportTable items={productItems} onToggleFavorite={onToggleFavorite} />
@@ -355,7 +351,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
             )}
             {services.length > 0 && (
               <div>
-                <div className="text-[11px] uppercase font-semibold text-[#888780] py-2 mt-4">
+                <div className="text-label font-semibold text-ink-300 py-2 mt-4">
                   บริการ
                 </div>
                 <StockReportTable items={services} startIndex={productItems.length} onToggleFavorite={onToggleFavorite} />
@@ -372,7 +368,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
           <div className="space-y-4">
             {productItems.length > 0 && (
               <div>
-                <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+                <div className="text-label font-semibold text-ink-300 py-2">
                   สินค้า
                 </div>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -382,7 +378,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
             )}
             {services.length > 0 && (
               <div>
-                <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+                <div className="text-label font-semibold text-ink-300 py-2">
                   บริการ
                 </div>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -400,7 +396,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
         <div className="space-y-4">
           {productItems.length > 0 && (
             <div>
-              <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+              <div className="text-label font-semibold text-ink-300 py-2">
                 สินค้า
               </div>
               <div className="space-y-2">
@@ -410,7 +406,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
           )}
           {services.length > 0 && (
             <div>
-              <div className="text-[11px] uppercase font-semibold text-[#888780] py-2">
+              <div className="text-label font-semibold text-ink-300 py-2">
                 บริการ
               </div>
               <div className="space-y-2">

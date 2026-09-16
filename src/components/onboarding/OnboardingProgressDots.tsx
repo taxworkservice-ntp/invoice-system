@@ -9,9 +9,7 @@ export function OnboardingProgressDots({ currentStep, totalSteps }: OnboardingPr
       {Array.from({ length: totalSteps }).map((_, i) => (
         <div
           key={i}
-          className={`w-2 h-2 rounded-full transition-colors ${
-            i + 1 <= currentStep ? "bg-[#378ADD]" : "bg-[#E8E6DF]"
-          }`}
+          className={`w-2 h-2 rounded-full transition-colors ${ i + 1 <= currentStep ? "bg-primary" : "bg-line" }`}
         />
       ))}
     </div>

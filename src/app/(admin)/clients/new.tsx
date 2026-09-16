@@ -75,17 +75,17 @@ export default function AdminClientNewPage() {
 
   if (createdResult) {
     return (
-      <div className="min-h-screen bg-[#F7F6F3]">
-        <header className="sticky top-0 z-30 border-b border-[#E8E6DF] bg-white/90 backdrop-blur-sm">
+      <div className="min-h-screen bg-page-bg">
+        <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
           <div className="flex items-center justify-between px-4 h-14 max-w-4xl mx-auto">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate("/admin/clients")}
-                className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
+                className="text-ink-500 hover:text-ink-700 p-1 rounded-control hover:bg-ink-50"
               >
-                <span className="text-sm">← ลูกค้า</span>
+                <span className="text-body">← ลูกค้า</span>
               </button>
-              <h1 className="text-sm font-semibold text-gray-800">
+              <h1 className="text-body font-semibold text-ink-800">
                 สร้างบัญชีสำเร็จ
               </h1>
             </div>
@@ -96,18 +96,18 @@ export default function AdminClientNewPage() {
           <Card>
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#888780] uppercase tracking-wide">อีเมล</span>
+                <span className="text-label text-ink-300">อีเมล</span>
               </div>
-              <p className="text-sm font-medium">{createdResult.email}</p>
+              <p className="text-body font-medium">{createdResult.email}</p>
             </div>
           </Card>
 
           {createdResult.tempPassword && (
             <Card>
               <div className="space-y-3">
-                <p className="text-xs text-[#888780] uppercase tracking-wide">รหัสผ่านชั่วคราว</p>
+                <p className="text-label text-ink-300">รหัสผ่านชั่วคราว</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded-lg border border-[#E8E6DF] bg-[#FBFBF9] px-3 py-2 text-lg font-mono tracking-wider select-all">
+                  <code className="flex-1 rounded-control border border-card-border bg-paper-field px-3 py-2 text-subtitle font-mono select-all">
                     {createdResult.tempPassword}
                   </code>
                   <Button
@@ -121,7 +121,7 @@ export default function AdminClientNewPage() {
                     <Copy size={14} />
                   </Button>
                 </div>
-                <p className="text-xs text-amber-700">
+                <p className="text-label text-amber-700">
                   กรุณาบันทึกรหัสผ่านนี้ — ลูกค้าจะต้องใช้รหัสผ่านนี้เพื่อเข้าสู่ระบบครั้งแรก
                   เมื่อเข้าสู่ระบบแล้ว ระบบจะบังคับให้ลูกค้าตั้งรหัสผ่านใหม่
                 </p>
@@ -157,17 +157,17 @@ export default function AdminClientNewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3]">
-      <header className="sticky top-0 z-30 border-b border-[#E8E6DF] bg-white/90 backdrop-blur-sm">
+    <div className="min-h-screen bg-page-bg">
+      <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 h-14 max-w-4xl mx-auto">
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate("/admin/clients")}
-              className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
+              className="text-ink-500 hover:text-ink-700 p-1 rounded-control hover:bg-ink-50"
             >
-              <span className="text-sm">← ลูกค้า</span>
+              <span className="text-body">← ลูกค้า</span>
             </button>
-            <h1 className="text-sm font-semibold text-gray-800">
+            <h1 className="text-body font-semibold text-ink-800">
               เพิ่มลูกค้าใหม่
             </h1>
           </div>
@@ -199,7 +199,7 @@ export default function AdminClientNewPage() {
               />
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-label font-medium text-ink-600 mb-1">
                   รหัสผ่านชั่วคราว
                 </label>
                 <div className="flex gap-2">
@@ -219,7 +219,7 @@ export default function AdminClientNewPage() {
                     <RefreshCw size={14} />
                   </Button>
                 </div>
-                <p className="text-[11px] text-[#888780] mt-1">
+                <p className="text-label text-ink-300 mt-1">
                   {tempPassword
                     ? "ลูกค้าจะเข้าสู่ระบบด้วยรหัสนี้และต้องเปลี่ยนรหัสผ่านทันที"
                     : "ถ้าไม่กรอก ระบบจะส่งอีเมลเชิญเพื่อให้ลูกค้าตั้งรหัสผ่านเอง"}
@@ -227,7 +227,7 @@ export default function AdminClientNewPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-label font-medium text-ink-600 mb-1">
                   หมายเหตุสำหรับ admin
                 </label>
                 <textarea
@@ -235,11 +235,11 @@ export default function AdminClientNewPage() {
                   onChange={(e) => setAdminNote(e.target.value)}
                   placeholder="บันทึกข้อมูลเพิ่มเติมสำหรับทีม admin"
                   rows={3}
-                  className="w-full px-3 py-2 text-sm border border-[#E8E6DF] rounded-lg bg-white focus:outline-none focus:border-[#378ADD] focus:ring-2 focus:ring-[#378ADD]/20 placeholder:text-gray-400 resize-none"
+                  className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-ink-400 resize-none"
                 />
               </div>
 
-              {error && <p className="text-xs text-red-500">{error}</p>}
+              {error && <p className="text-label text-red-500">{error}</p>}
 
               <Button type="submit" className="w-full" loading={creating} disabled={creating}>
                 {tempPassword ? "สร้างบัญชี" : "สร้างบัญชีและส่งอีเมลเชิญ"}
