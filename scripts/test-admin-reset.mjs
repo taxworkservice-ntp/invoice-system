@@ -268,7 +268,7 @@ const { data: nextInv, error: invErr } = await admin.rpc("generate_doc_number", 
 if (invErr) throw invErr;
 const year = new Date().getFullYear();
 const month = String(new Date().getMonth() + 1).padStart(2, "0");
-check("next invoice number restarts", nextInv, `INV-${year}-${month}-001`);
+check("next invoice number restarts", nextInv, `INV-${year}-${month}-0001`);
 
 const { data: restartDeal } = await admin.from("deals").insert({ user_id: userId, customer_id: customer.id, title: "Post-reset real deal", is_active: true }).select().single();
 check("next deal number restarts", restartDeal.deal_number, `DL-${year}-00001`);

@@ -1157,7 +1157,7 @@ begin
   where user_id = p_user_id and doc_type = p_doc_type;
 
   -- Format: PREFIX-YYYY-MM-001
-  v_doc_number := v_seq.prefix || '-' || v_year || '-' || lpad(v_month::text, 2, '0') || '-' || lpad(v_next_seq::text, 3, '0');
+  v_doc_number := v_seq.prefix || '-' || v_year || '-' || lpad(v_month::text, 2, '0') || '-' || lpad(v_next_seq::text, 4, '0');
 
   return v_doc_number;
 end;
@@ -1230,7 +1230,7 @@ begin
             else ranked.global_sequence
           end
         )::text,
-        3,
+        4,
         '0'
       )
     from ranked
@@ -1326,7 +1326,7 @@ begin
                 else ranked.global_sequence
               end
             )::text,
-            3,
+            4,
             '0'
           )
       from ranked

@@ -1,14 +1,23 @@
--- Fix: generate_doc_number must not overflow int32 when a document has a
--- doc_number whose trailing numeric segment exceeds 2,147,483,647 (e.g. a
--- Date.now()-style number like "INV-1757307000000"). The old
--- `substring(doc_number from '([0-9]+)$')::int` cast threw
--- `22003 value out of range for type integer`, aborting number generation and
--- breaking convert_quotation_to_invoice / create_deal_document.
+-- Change: widen the document-number running segment from 3 to 4 digits.
 --
--- Fix: parse the trailing segment as bigint and ignore any segment longer than
--- 9 digits (treated as 0). Legitimate sequences (<= 9 digits, far below the
--- int32 max) are honored; runaway/timestamp-style suffixes no longer poison
--- sequencing or overflow the `last_sequence` int column.
+-- Format was {PREFIX}-{YYYY}-{MM}-{NNN} (e.g. INV-2026-09-001); it becomes
+-- {PREFIX}-{YYYY}-{MM}-{NNNN} (e.g. INV-2026-09-0001).
+--
+-- Why: PostgreSQL lpad() truncates on the right when the input is longer than
+-- the requested length, so lpad('1000', 3, '0') => '100'. Past the 999th
+-- document of a type in a month, numbers collapsed onto earlier values and the
+-- partial unique index (user_id, doc_type, doc_number) rejected the insert,
+-- hard-failing numbering. 4 digits raises the ceiling to 9,999/month.
+--
+-- Scope: all document types share this function. Existing 3-digit numbers are
+-- intentionally left untouched; the generator parses any width via the
+-- trailing-digit regex, so mixed widths resolve correctly (MAX of numeric
+-- suffixes, not lexicographic order).
+--
+-- This supersedes the function body in fix_generate_doc_number_overflow.sql
+-- (keeps the bigint / >9-digit overflow guard and the voided-doc exclusion).
+--
+-- Apply manually via the Supabase SQL editor or Management API.
 
 create or replace function generate_doc_number(
   p_user_id   uuid,

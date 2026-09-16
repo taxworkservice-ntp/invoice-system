@@ -42,7 +42,7 @@ describe("generate_doc_number: int32 overflow guard", () => {
       p_issue_date: "2026-08-21",
     });
     expect(r.error).toBeNull();
-    expect(r.data).toBe("INV-2026-08-001");
+    expect(r.data).toBe("INV-2026-08-0001");
   });
 
   it("still honors a legitimate sequence", async () => {
@@ -53,6 +53,6 @@ describe("generate_doc_number: int32 overflow guard", () => {
       p_issue_date: "2026-08-21",
     });
     expect(r.error).toBeNull();
-    expect(r.data).toBe("INV-2026-08-006");
+    expect(r.data).toBe("INV-2026-08-0006");
   });
 });

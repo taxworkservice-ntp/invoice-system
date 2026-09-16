@@ -36,7 +36,7 @@ const chunk = (arr, size) => {
   return out;
 };
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const pad3 = (n) => String(n).padStart(3, "0");
+const pad4 = (n) => String(n).padStart(4, "0");
 const yyyy = (y) => String(y);
 const isoDate = (d) => d.toISOString().slice(0, 10);
 const addDays = (d, days) => new Date(d.getTime() + days * 86400000);
@@ -98,7 +98,7 @@ function makeNumberer(sb, userId, sequences) {
       counters[docType] = (counters[docType] ?? seq.last) + 1;
       const now = new Date();
       const mm = String(now.getMonth() + 1).padStart(2, "0");
-      return { number: `${seq.prefix}-${yyyy(now.getFullYear())}-${mm}-${pad3(counters[docType])}` };
+      return { number: `${seq.prefix}-${yyyy(now.getFullYear())}-${mm}-${pad4(counters[docType])}` };
     },
   };
 }

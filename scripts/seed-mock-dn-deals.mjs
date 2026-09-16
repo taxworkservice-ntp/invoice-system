@@ -28,7 +28,7 @@ const VAT_RATE = 7;
 const DEAL_COUNT = 20;
 const MONTH = "09";
 const YEAR = "2026";
-const dnNumber = (seq) => `DN-${YEAR}-${MONTH}-${String(seq).padStart(3, "0")}`;
+const dnNumber = (seq) => `DN-${YEAR}-${MONTH}-${String(seq).padStart(4, "0")}`;
 
 const round2 = (n) => Math.round(n * 100) / 100;
 const chunk = (arr, size) => {

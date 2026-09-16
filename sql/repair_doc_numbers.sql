@@ -65,7 +65,7 @@ begin
             else ranked.global_sequence
           end
         )::text,
-        3,
+        4,
         '0'
       )
     from ranked
@@ -120,7 +120,7 @@ begin
                   else global_sequence
                 end
               )::text,
-              3,
+              4,
               '0'
             ) as effective_doc_number
         from ranked
@@ -177,7 +177,7 @@ begin
                   else global_sequence
                 end
               )::text,
-              3,
+              4,
               '0'
             ) as effective_doc_number
         from ranked

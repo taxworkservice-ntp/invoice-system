@@ -34,7 +34,7 @@ const DN_COUNTS = [7, 14, 26, 37, 50];
 const BN_INVOICE_COUNTS = [7, 114, 26, 37, 50];
 const MONTH = "09";
 const YEAR = "2026";
-const num = (prefix, seq) => `${prefix}-${YEAR}-${MONTH}-${String(seq).padStart(3, "0")}`;
+const num = (prefix, seq) => `${prefix}-${YEAR}-${MONTH}-${String(seq).padStart(4, "0")}`;
 
 let step = 0;
 const log = (label, ...args) => console.log(`[${++step}] ${label}`, ...args);
