@@ -32,8 +32,9 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes("node_modules")) {
             if (id.includes("exceljs")) return "excel-export";
-            if (id.includes("jspdf")) return "pdf";
-            if (id.includes("html2canvas")) return "html-render";
+          if (id.includes("jspdf")) return "pdf";
+          if (id.includes("pdf-lib")) return "pdf-merge";
+          if (id.includes("html2canvas")) return "html-render";
             if (id.includes("jszip")) return "zip";
             if (id.includes("@supabase")) return "supabase";
             if (id.includes("react-router-dom")) return "router";

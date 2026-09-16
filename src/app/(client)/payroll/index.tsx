@@ -27,7 +27,8 @@ import { formatPayRangeLabel, suggestNextWindow, BATCH_TYPE_LABELS, expectedSala
 import { AttendancePanel } from "../../../components/payroll/AttendancePanel";
 import { suggestOtWindow } from "../../../lib/payroll/attendance";
 import { PAY_ITEM_KINDS } from "../../../lib/payroll/payItems";
-import { applyRecurringTemplates, type RecurringTemplate } from "../../../lib/payroll/recurring";
+import { type RecurringTemplate } from "../../../lib/payroll/recurring";
+import { buildPayrollCalcRows, createEmptyLineItem, resolveEffectiveLineItem } from "../../../lib/payroll/rows";
 import { syncRunToWht, cleanupRunWht, type WhtSyncResult } from "../../../lib/payroll/whtSync";
 import type { Employee, PayrollRun, PayrollLineItem, OtEntry } from "../../../types";
 
@@ -104,30 +105,6 @@ const BATCH_BADGE: Record<BatchType, string> = {
 /** Runtime-safe batch kind (pre-migration rows have no batch_type column). */
 function batchTypeOf(r: { batch_type?: string | null }): BatchType {
   return r.batch_type === "ot" || r.batch_type === "adjustment" ? r.batch_type : "salary";
-}
-
-function createEmptyLineItem(runId: string, employeeId: string): PayrollLineItem {
-  return {
-    id: "",
-    payroll_run_id: runId,
-    employee_id: employeeId,
-    days_worked: null,
-    ot_entries: [],
-    additions: [],
-    deductions: [],
-    absent_days: null,
-    absence_daily_rate: null,
-    gross_pay: null,
-    sso_employee: null,
-    sso_employer: null,
-    withholding_tax: null,
-    net_pay: null,
-    employee_code_snapshot: null,
-    full_name_snapshot: null,
-    position_snapshot: null,
-    salary_type_snapshot: null,
-    base_salary_snapshot: null,
-  };
 }
 
 function formatThaiDate(dateStr: string): string {
@@ -1015,10 +992,14 @@ export default function PayrollPage() {
   }
 
   function buildCalcRows(): PayrollCalcRow[] {
-    return employees.map((emp) => {
-      const item = getEffectiveItem(emp.id);
-      const calc = calcLineItem(emp, item);
-      return { employee: emp, lineItem: lineItems.get(emp.id) ?? null, ...calc };
+    return buildPayrollCalcRows({
+      employees,
+      lineItems,
+      settings,
+      month: calcMonth,
+      year: calcYear,
+      recurringByEmployee,
+      runId: run?.id ?? "",
     });
   }
 
@@ -1273,11 +1254,7 @@ export default function PayrollPage() {
 
   /** Raw stored item with active recurring templates merged in (view/save layer). */
   function getEffectiveItem(employeeId: string): PayrollLineItem {
-    const raw = getLineItem(employeeId);
-    const templates = recurringByEmployee.get(employeeId) ?? [];
-    if (templates.length === 0) return raw;
-    const merged = applyRecurringTemplates(raw, templates);
-    return { ...raw, additions: merged.additions, deductions: merged.deductions };
+    return resolveEffectiveLineItem(employeeId, lineItems, recurringByEmployee, run?.id ?? "");
   }
 
   function calcLineItem(employee: Employee, item: PayrollLineItem) {

@@ -44,6 +44,7 @@ import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { deleteDraftDocument } from "../../../lib/documentDelete";
 import { isDocumentOverdue } from "../../../lib/dealStatus";
 import { businessTodayString } from "../../../lib/devDate";
+import { buildCsvBlob, datedFilename, downloadBlob } from "../../../lib/download/download";
 import {
   DOC_TYPE_LABELS,
   STATUS_LABELS,
@@ -1499,14 +1500,15 @@ export default function DocumentsPage() {
 
       const JSZip = (await import("jszip")).default;
 
-      const { getPrintableDocumentDataBase, generatePDFBlob } =
+      const { getPrintableDocumentDataBase, generatePDFBlob, isHtmlPrintTemplate } =
         await import("../../../lib/print");
       const generateBlob = async (docId: string) => {
         const data = await getPrintableDocumentDataBase(docId);
-        // Stamp the template from the client profile so the dispatcher
-        // picks the right generator for each document.
-        const template =
-          clientProfile.pdf_template === "classic" ? "classic" : "modern";
+        // Stamp the exact template from the client profile (including
+        // classic_v2) so the dispatcher picks the right generator.
+        const template = isHtmlPrintTemplate(clientProfile.pdf_template)
+          ? clientProfile.pdf_template
+          : "modern";
         return generatePDFBlob({ ...data, template } as Parameters<
           typeof generatePDFBlob
         >[0]);
@@ -1777,19 +1779,7 @@ export default function DocumentsPage() {
       doc.due_date || "",
       getDisplayAmount(doc).toString(),
     ]);
-    const csv = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-    ].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `documents_export_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(buildCsvBlob(headers, rows), datedFilename("documents_export", "csv"));
   }
 
   async function openDocModal(doc: Document) {

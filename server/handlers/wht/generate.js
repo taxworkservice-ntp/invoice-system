@@ -102,9 +102,15 @@ export default async function handler(req, res) {
       throw new ApiError(404, "No WHT records found");
     }
 
-    const firstRec = records[0];
-    if (profile.role !== "admin" && firstRec.user_id !== user.id) {
-      throw new ApiError(403, "Forbidden");
+    // Ownership: validate EVERY requested record, not just the first, and
+    // require an exact id match so a caller cannot mix in another workspace's
+    // certificates (or pass unknown ids).
+    if (profile.role !== "admin") {
+      const uniqueIds = new Set(ids);
+      const allOwned = records.every((rec) => rec.user_id === user.id);
+      if (!allOwned || records.length !== uniqueIds.size) {
+        throw new ApiError(403, "Forbidden");
+      }
     }
 
     const origin = originFromRequest(req);
