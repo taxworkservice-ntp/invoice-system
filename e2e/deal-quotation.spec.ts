@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { test } from "@playwright/test";
 import { createCustomer, createDeal, createDocument, createLineItems, deleteDealCascade, getUserId, today, uid } from "./helpers/data";
+import { linePriceInput } from "./helpers/locators";
 
 test.describe.serial("deal + quotation journey", () => {
   let customerId: string;
@@ -21,7 +22,7 @@ test.describe.serial("deal + quotation journey", () => {
     const itemInput = page.getByPlaceholder("พิมพ์ชื่อสินค้าหรือบริการ...");
     await itemInput.fill("E2E Service Item");
     await itemInput.press("Enter");
-    await page.getByLabel("ราคา/หน่วย").fill("150");
+    await linePriceInput(page).fill("150");
 
     // Confirm modal "ยืนยันการบันทึก" appears first; save inside it.
     // exact:true so it cannot match the form's own "ตรวจสอบและบันทึก".
@@ -91,7 +92,7 @@ test.describe.serial("deal + quotation journey", () => {
         (el) => el.value === "E2E Edit Item",
       ),
     );
-    const priceInput = page.getByLabel("ราคา/หน่วย");
+    const priceInput = linePriceInput(page);
     await priceInput.fill("250");
 
     await page.getByRole("button", { name: "บันทึกร่าง", exact: true }).click();
