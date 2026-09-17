@@ -5,8 +5,16 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { ErrorBoundary } from "../../../components/ui/ErrorBoundary";
 import { useAuth } from "../../../hooks/useAuth";
 
-const FinancialReport = lazy(() => import("../../../components/reports/FinancialReport").then((module) => ({ default: module.FinancialReport })));
-const StockReport = lazy(() => import("../../../components/reports/StockReport").then((module) => ({ default: module.StockReport })));
+const FinancialReport = lazy(() =>
+  import("../../../components/reports/FinancialReport").then((module) => ({
+    default: module.FinancialReport,
+  })),
+);
+const StockReport = lazy(() =>
+  import("../../../components/reports/StockReport").then((module) => ({
+    default: module.StockReport,
+  })),
+);
 
 const TABS = [
   { key: "financial", label: "รายงานการเงิน", icon: <BarChart3 className="h-4 w-4" /> },
@@ -16,13 +24,17 @@ const TABS = [
 function ReportFallback() {
   return (
     <div className="space-y-4">
-      <div className="grid max-w-row grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-20 rounded-card" />
+      {/* Mirrors the loaded report: 6 KPI cards on the same column steps and the
+          same `max-w-row` cap, so the page does not jump when the lazy tab
+          resolves. */}
+      <div className="grid max-w-row grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Skeleton key={index} className="h-24 rounded-card" />
         ))}
       </div>
-      <Skeleton className="h-48 rounded-card" />
-      <Skeleton className="h-64 rounded-card" />
+      <Skeleton className="h-40 rounded-card" />
+      <Skeleton className="h-40 rounded-card" />
+      <Skeleton className="h-32 rounded-card" />
     </div>
   );
 }
@@ -35,7 +47,11 @@ export default function ReportsPage() {
   return (
     <AppShell title="รายงาน">
       <div className="space-y-4">
-        <div className="flex gap-1 rounded-card border border-card-border bg-paper-field p-1" role="tablist" aria-label="ประเภทรายงาน">
+        <div
+          className="flex gap-1 rounded-card border border-card-border bg-paper-field p-1"
+          role="tablist"
+          aria-label="ประเภทรายงาน"
+        >
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -43,7 +59,7 @@ export default function ReportsPage() {
               role="tab"
               aria-selected={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors ${ activeTab === tab.key ? "bg-white text-ink-900 " : "text-ink-300 hover:bg-white/60 hover:text-ink-500" }`}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors ${activeTab === tab.key ? "bg-white text-ink-900 " : "text-ink-300 hover:bg-white/60 hover:text-ink-500"}`}
             >
               {tab.icon}
               {tab.label}
@@ -52,10 +68,10 @@ export default function ReportsPage() {
         </div>
 
         <ErrorBoundary>
-        <Suspense fallback={<ReportFallback />}>
-          {activeTab === "financial" && <FinancialReport userId={userId} />}
-          {activeTab === "stock" && <StockReport userId={userId} />}
-        </Suspense>
+          <Suspense fallback={<ReportFallback />}>
+            {activeTab === "financial" && <FinancialReport userId={userId} />}
+            {activeTab === "stock" && <StockReport userId={userId} />}
+          </Suspense>
         </ErrorBoundary>
       </div>
     </AppShell>

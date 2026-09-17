@@ -1,10 +1,29 @@
 import ExcelJS from "exceljs";
-import type { FinancialSummary, ARByCustomer, ARDetail, ARAgingBucket, TopCustomer, MonthlyRevenue, RevenueByType, Transaction, LineItemRow, DealNoteRow } from "../hooks/useReports";
+import type {
+  FinancialSummary,
+  ARByCustomer,
+  ARDetail,
+  ARAgingBucket,
+  TopCustomer,
+  MonthlyRevenue,
+  RevenueByType,
+  Transaction,
+  LineItemRow,
+  DealNoteRow,
+} from "../hooks/useReports";
 
 // ============ Styling ============
 
-const BRAND_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF378ADD" } };
-const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F7FB" } };
+const BRAND_FILL: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "FF378ADD" },
+};
+const HEADER_FILL: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "FFF4F7FB" },
+};
 const RED_TEXT = "FFC0392B";
 const GREEN_TEXT = "FF1E5A38";
 const CURRENCY_FMT = "#,##0.00";
@@ -35,9 +54,16 @@ function applySubtitle(cell: ExcelJS.Cell) {
   cell.alignment = { vertical: "middle", horizontal: "left" };
 }
 
-function applyBody(cell: ExcelJS.Cell, opts: { bold?: boolean; right?: boolean; color?: string } = {}) {
+function applyBody(
+  cell: ExcelJS.Cell,
+  opts: { bold?: boolean; right?: boolean; color?: string } = {},
+) {
   cell.font = { size: 10, color: { argb: opts.color ?? "FF1A1A18" }, bold: opts.bold ?? false };
-  cell.alignment = { vertical: "middle", horizontal: opts.right ? "right" : "left", wrapText: true };
+  cell.alignment = {
+    vertical: "middle",
+    horizontal: opts.right ? "right" : "left",
+    wrapText: true,
+  };
   cell.border = THIN_BORDER;
 }
 
@@ -59,7 +85,12 @@ function freezeHeaderRows(ws: ExcelJS.Worksheet, rowCount: number) {
   ws.views = [{ state: "frozen", ySplit: rowCount }];
 }
 
-function applyAutoFilter(ws: ExcelJS.Worksheet, headerRow: number, lastRow: number, lastCol: number) {
+function applyAutoFilter(
+  ws: ExcelJS.Worksheet,
+  headerRow: number,
+  lastRow: number,
+  lastCol: number,
+) {
   if (lastRow < headerRow) return;
   ws.autoFilter = {
     from: { row: headerRow, column: 1 },
@@ -83,7 +114,8 @@ function writeDate(cell: ExcelJS.Cell, value: string | null | undefined) {
 
 function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("รายงานสรุป");
-  const { summary, cogs, collectionRate, periodLabel, companyName, vatRegistered, generatedAt } = opts;
+  const { summary, cogs, collectionRate, periodLabel, companyName, vatRegistered, generatedAt } =
+    opts;
 
   applyTitle(ws.getCell("A1"));
   ws.getCell("A1").value = "รายงานการเงิน";
@@ -99,8 +131,12 @@ function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
 
   const metaRow = contextRow + 1;
   const metaParts: string[] = [];
-  if (vatRegistered != null) metaParts.push(vatRegistered ? "สถานะ: จดทะเบียน VAT" : "สถานะ: ไม่จดทะเบียน VAT");
-  if (generatedAt) metaParts.push(`สร้างเมื่อ ${generatedAt.toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}`);
+  if (vatRegistered != null)
+    metaParts.push(vatRegistered ? "สถานะ: จดทะเบียน VAT" : "สถานะ: ไม่จดทะเบียน VAT");
+  if (generatedAt)
+    metaParts.push(
+      `สร้างเมื่อ ${generatedAt.toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}`,
+    );
   if (metaParts.length > 0) {
     ws.getCell(`A${metaRow}`).font = { size: 9, color: { argb: "FF9B988F" } };
     ws.getCell(`A${metaRow}`).value = metaParts.join(" · ");
@@ -115,12 +151,13 @@ function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     ["กำไรขั้นต้น", grossProfit, CURRENCY_FMT],
     ["อัตรากำไรขั้นต้น", grossMargin, PCT_FMT],
     ["เก็บแล้ว", summary?.collected ?? 0, CURRENCY_FMT],
-    ["หัก ณ ที่จ่าย", summary?.whtWithheld ?? 0, CURRENCY_FMT],
+    ["หัก ณ ที่จ่าย · คาดหวัง (ตามใบกำกับ)", summary?.whtWithheld ?? 0, CURRENCY_FMT],
+    ["หัก ณ ที่จ่าย · หักจริง (ตามใบเสร็จ)", summary?.whtActual ?? 0, CURRENCY_FMT],
     ["ค้างชำระ", summary?.outstanding ?? 0, CURRENCY_FMT],
     ["VAT ที่เก็บ", summary?.vatCollected ?? 0, CURRENCY_FMT],
     ["จำนวนเอกสาร", summary?.docCount ?? 0, INT_FMT],
     ["ต้นทุนขาย (COGS)", cogs, CURRENCY_FMT],
-    ["อัตราการเก็บเงิน", collectionRate, PCT_FMT],
+    ["อัตราการเก็บเงิน (เก็บแล้ว ÷ รายได้รอบนี้)", collectionRate, PCT_FMT],
   ];
 
   let row = metaRow + 2;
@@ -145,7 +182,20 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("รายการธุรกรรม");
   const { transactions } = opts;
 
-  const headers = ["วันที่", "เลขที่", "เลขที่ดีล", "ประเภท", "ลูกค้า", "ก่อน VAT", "VAT", "ยอดรวม", "หัก ณ ที่จ่าย", "ยอดสุทธิ", "วันที่ชำระ", "สถานะ"];
+  const headers = [
+    "วันที่",
+    "เลขที่",
+    "เลขที่ดีล",
+    "ประเภท",
+    "ลูกค้า",
+    "ก่อน VAT",
+    "VAT",
+    "ยอดรวม",
+    "หัก ณ ที่จ่าย",
+    "ยอดสุทธิ",
+    "วันที่ชำระ",
+    "สถานะ",
+  ];
   headers.forEach((h, i) => {
     const cell = ws.getCell(1, i + 1);
     applyHeader(cell);
@@ -191,7 +241,9 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     ws.getCell(row, 1).value = "รวม";
     for (const col of [6, 7, 8, 9, 10]) {
       applyBody(ws.getCell(row, col), { right: true, bold: true });
-      ws.getCell(row, col).value = { formula: `SUM(${TRANSACTION_COL_LETTERS[col - 1]}2:${TRANSACTION_COL_LETTERS[col - 1]}${row - 1})` };
+      ws.getCell(row, col).value = {
+        formula: `SUM(${TRANSACTION_COL_LETTERS[col - 1]}2:${TRANSACTION_COL_LETTERS[col - 1]}${row - 1})`,
+      };
       ws.getCell(row, col).numFmt = CURRENCY_FMT;
     }
     applyAutoFilter(ws, 1, row - 1, headers.length);
@@ -208,20 +260,40 @@ function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   const ws = wb.addWorksheet("หัก ณ ที่จ่าย");
   const whtTransactions = opts.whtTransactions || [];
 
+  // The sheet reports what was actually withheld, per the receipts issued in
+  // the period — the summary sheet also carries the expected figure stated on
+  // the invoices, so each number states its basis.
+  applyTitle(ws.getCell("A1"));
+  ws.getCell("A1").value = "หัก ณ ที่จ่าย · หักจริงตามใบเสร็จ";
+
   if (whtTransactions.length === 0) {
-    applyBody(ws.getCell(1, 1));
-    ws.getCell(1, 1).value = "ไม่มีรายการหัก ณ ที่จ่ายในช่วงเวลานี้";
+    applyBody(ws.getCell(3, 1));
+    ws.getCell(3, 1).value = "ไม่มีรายการหัก ณ ที่จ่ายในช่วงเวลานี้";
     setColumnWidths(ws, [40]);
     return ws;
   }
 
-  const headers = ["วันที่", "เลขที่ดีล", "เลขที่เอกสาร", "ประเภท", "ลูกค้า", "เลขผู้เสียภาษี", "ที่อยู่", "ยอดรวม", "ก่อน VAT", "หัก ณ ที่จ่าย %", "หัก ณ ที่จ่าย", "ใบรับรองหัก ณ ที่จ่าย", "วันที่ชำระ"];
+  const headers = [
+    "วันที่",
+    "เลขที่ดีล",
+    "เลขที่เอกสาร",
+    "ประเภท",
+    "ลูกค้า",
+    "เลขผู้เสียภาษี",
+    "ที่อยู่",
+    "ยอดรวม",
+    "ก่อน VAT",
+    "หัก ณ ที่จ่าย %",
+    "หัก ณ ที่จ่าย",
+    "ใบรับรองหัก ณ ที่จ่าย",
+    "วันที่ชำระ",
+  ];
   headers.forEach((h, i) => {
-    applyHeader(ws.getCell(1, i + 1));
-    ws.getCell(1, i + 1).value = h;
+    applyHeader(ws.getCell(3, i + 1));
+    ws.getCell(3, i + 1).value = h;
   });
 
-  let row = 2;
+  let row = 4;
   for (const t of whtTransactions) {
     applyBody(ws.getCell(row, 1));
     writeDate(ws.getCell(row, 1), t.date);
@@ -263,8 +335,8 @@ function buildWhtSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   ws.getCell(row, 11).value = totalWht;
   ws.getCell(row, 11).numFmt = CURRENCY_FMT;
 
-  applyAutoFilter(ws, 1, lastDataRow, headers.length);
-  freezeHeaderRows(ws, 1);
+  applyAutoFilter(ws, 3, lastDataRow, headers.length);
+  freezeHeaderRows(ws, 3);
   setColumnWidths(ws, [12, 14, 16, 16, 22, 14, 22, 14, 14, 8, 14, 14, 12]);
   applyPageSetup(ws);
   return ws;
@@ -280,7 +352,15 @@ function buildARSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
   applyTitle(ws.getCell("A1"));
   ws.getCell("A1").value = "ลูกหนี้คงค้าง (รายเอกสาร)";
 
-  const headers = ["ลูกค้า", "เลขที่ดีล", "เลขที่เอกสาร", "ประเภท", "ยอดค้าง", "วันครบกำหนด", "ค้าง (วัน)"];
+  const headers = [
+    "ลูกค้า",
+    "เลขที่ดีล",
+    "เลขที่เอกสาร",
+    "ประเภท",
+    "ยอดค้าง",
+    "วันครบกำหนด",
+    "ค้าง (วัน)",
+  ];
   const headerRow = 3;
   headers.forEach((h, i) => {
     const cell = ws.getCell(headerRow, i + 1);
@@ -328,7 +408,19 @@ function buildARSheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
 function buildLineItemsSheet(wb: ExcelJS.Workbook, lineItems: LineItemRow[]) {
   const ws = wb.addWorksheet("รายการบรรทัด");
 
-  const headers = ["เลขที่ดีล", "เลขที่", "วันที่", "ลูกค้า", "รายการ", "จำนวน", "หน่วย", "หน่วยละ", "ส่วนลด%", "จำนวนเงิน", "สถานะชำระ"];
+  const headers = [
+    "เลขที่ดีล",
+    "เลขที่",
+    "วันที่",
+    "ลูกค้า",
+    "รายการ",
+    "จำนวน",
+    "หน่วย",
+    "หน่วยละ",
+    "ส่วนลด%",
+    "จำนวนเงิน",
+    "สถานะชำระ",
+  ];
   headers.forEach((h, i) => {
     const cell = ws.getCell(1, i + 1);
     applyHeader(cell);
@@ -360,7 +452,9 @@ function buildLineItemsSheet(wb: ExcelJS.Workbook, lineItems: LineItemRow[]) {
     applyBody(ws.getCell(row, 10), { right: true, bold: true });
     ws.getCell(row, 10).value = li.lineTotal;
     ws.getCell(row, 10).numFmt = CURRENCY_FMT;
-    applyBody(ws.getCell(row, 11), { color: li.paidStatus === "ชำระแล้ว" ? GREEN_TEXT : undefined });
+    applyBody(ws.getCell(row, 11), {
+      color: li.paidStatus === "ชำระแล้ว" ? GREEN_TEXT : undefined,
+    });
     ws.getCell(row, 11).value = li.paidStatus;
     row++;
   }
@@ -497,7 +591,11 @@ function buildTopCustomersSheet(wb: ExcelJS.Workbook, topCustomers: TopCustomer[
 
 // ============ Monthly trend ============
 
-function buildMonthlyTrendSheet(wb: ExcelJS.Workbook, monthly: MonthlyRevenue[], periodLabel?: string) {
+function buildMonthlyTrendSheet(
+  wb: ExcelJS.Workbook,
+  monthly: MonthlyRevenue[],
+  periodLabel?: string,
+) {
   const ws = wb.addWorksheet("แนวโน้มรายได้");
 
   applyTitle(ws.getCell("A1"));
@@ -512,8 +610,18 @@ function buildMonthlyTrendSheet(wb: ExcelJS.Workbook, monthly: MonthlyRevenue[],
   });
 
   const MONTH_NAMES = [
-    "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
-    "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+    "ม.ค.",
+    "ก.พ.",
+    "มี.ค.",
+    "เม.ย.",
+    "พ.ค.",
+    "มิ.ย.",
+    "ก.ค.",
+    "ส.ค.",
+    "ก.ย.",
+    "ต.ค.",
+    "พ.ย.",
+    "ธ.ค.",
   ];
 
   row = 4;
@@ -539,7 +647,14 @@ function buildMonthlyTrendSheet(wb: ExcelJS.Workbook, monthly: MonthlyRevenue[],
     applyBody(ws.getCell(row, 3), { right: true, bold: true });
     ws.getCell(row, 3).value = m.total;
     ws.getCell(row, 3).numFmt = CURRENCY_FMT;
-    applyBody(ws.getCell(row, 4), { right: true, color: changeStr.startsWith("+") ? GREEN_TEXT : changeStr.startsWith("-") ? RED_TEXT : undefined });
+    applyBody(ws.getCell(row, 4), {
+      right: true,
+      color: changeStr.startsWith("+")
+        ? GREEN_TEXT
+        : changeStr.startsWith("-")
+          ? RED_TEXT
+          : undefined,
+    });
     ws.getCell(row, 4).value = changeStr;
     row++;
   }

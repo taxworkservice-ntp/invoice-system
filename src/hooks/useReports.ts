@@ -6,7 +6,10 @@ import type { Document, DocumentLineItem, Item, StockMovement } from "../types";
 export interface FinancialSummary {
   revenue: number;
   collected: number;
+  /** WHT expected on the invoices issued in the period. */
   whtWithheld: number;
+  /** WHT actually withheld, per the receipts issued in the period. */
+  whtActual: number;
   outstanding: number;
   vatCollected: number;
   docCount: number;
@@ -46,7 +49,6 @@ export interface ARByCustomer {
   oldestDue: string | null;
   daysOverdue: number;
 }
-
 
 export interface Transaction {
   id: string;
@@ -161,7 +163,8 @@ export function deltaCaptionForRange(from: string, to: string): string {
   if (isNaN(f.getTime()) || isNaN(t.getTime()) || t < f) return "vs ช่วงก่อน";
   const sameMonth = f.getFullYear() === t.getFullYear() && f.getMonth() === t.getMonth();
   if (sameMonth) return "vs เดือนก่อน";
-  const fullYear = f.getMonth() === 0 && f.getDate() === 1 && t.getMonth() === 11 && t.getDate() === 31;
+  const fullYear =
+    f.getMonth() === 0 && f.getDate() === 1 && t.getMonth() === 11 && t.getDate() === 31;
   if (fullYear) return "vs ปีก่อน";
   const spanDays = Math.round((t.getTime() - f.getTime()) / 86400000) + 1;
   if (spanDays >= 89 && spanDays <= 93) return "vs ไตรมาสก่อน";
@@ -178,14 +181,14 @@ function getMonthsBack(count: number) {
   return months;
 }
 
-function isRecognizedSalesDocument(doc: any, vatRegistered: boolean) {
-  if (vatRegistered) {
-    if (doc.doc_type === "invoice" && !["draft", "voided", "converted"].includes(doc.status)) {
-      return true;
-    }
-    return false;
-  }
-  return doc.doc_type === "receipt" && (doc.status === "generated" || doc.status === "paid" || doc.status === "issued");
+/**
+ * Revenue is recognized on the tax invoice for every workspace, VAT-registered
+ * or not (accrual basis). Receipts are a collection event, not a revenue event —
+ * recognizing revenue on them for non-VAT workspaces made the revenue KPI and
+ * the credit/debit-note adjustments describe different document sets.
+ */
+function isRecognizedSalesDocument(doc: any) {
+  return doc.doc_type === "invoice" && !["draft", "voided", "converted"].includes(doc.status);
 }
 
 function getRecognitionDate(doc: any) {
@@ -208,7 +211,11 @@ function getTransactionStatusLabel(doc: any) {
     overdue: "เกินกำหนด",
   };
 
-  return statusLabels[doc.status as string] || STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status;
+  return (
+    statusLabels[doc.status as string] ||
+    STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] ||
+    doc.status
+  );
 }
 
 export function useFinancialReport(userId: string | undefined, from: string, to: string) {
@@ -247,7 +254,9 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
 
       const { data: allDocs } = await supabase
         .from("documents")
-        .select("id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, wht_rate, wht_certificate_no, paid_at, issue_date, due_date, customer_id, customer:customer_id(name, tax_id, address)")
+        .select(
+          "id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, wht_rate, wht_certificate_no, paid_at, issue_date, due_date, customer_id, customer:customer_id(name, tax_id, address)",
+        )
         .eq("user_id", userId)
         .neq("doc_type", "delivery_note")
         .neq("status", "draft")
@@ -261,12 +270,10 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       const activeCreditNotes = docs.filter((d) => d.doc_type === "credit_note");
       const activeDebitNotes = docs.filter((d) => d.doc_type === "debit_note");
 
-      const { data: bnLinks } = await supabase
-        .from("billing_note_invoices")
-        .select("invoice_id");
+      const { data: bnLinks } = await supabase.from("billing_note_invoices").select("invoice_id");
       const invoiceIdsInBn = new Set((bnLinks || []).map((l: any) => l.invoice_id));
 
-      const recognizedSalesDocs = docs.filter((d) => isRecognizedSalesDocument(d, vatRegistered));
+      const recognizedSalesDocs = docs.filter((d) => isRecognizedSalesDocument(d));
 
       const paidThisPeriod = recognizedSalesDocs.filter((d) => {
         const recognitionDate = getRecognitionDate(d);
@@ -296,7 +303,8 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         allLineItems = (liData || []).map((li: any) => ({
           docNumber: paidThisPeriod.find((d: any) => d.id === li.document_id)?.doc_number || "-",
           date: getRecognitionDate(paidThisPeriod.find((d: any) => d.id === li.document_id) || {}),
-          customerName: paidThisPeriod.find((d: any) => d.id === li.document_id)?.customer?.name || "ไม่ระบุ",
+          customerName:
+            paidThisPeriod.find((d: any) => d.id === li.document_id)?.customer?.name || "ไม่ระบุ",
           dealNumber: (() => {
             const doc = paidThisPeriod.find((d: any) => d.id === li.document_id);
             if (!doc?.deal_id) return null;
@@ -317,7 +325,9 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       setLineItems(allLineItems);
 
       const dealNotesData: DealNoteRow[] = [];
-      const dealIdsWithActivity = new Set(paidThisPeriod.map((d: any) => d.deal_id).filter(Boolean));
+      const dealIdsWithActivity = new Set(
+        paidThisPeriod.map((d: any) => d.deal_id).filter(Boolean),
+      );
       for (const dealId of dealIdsWithActivity) {
         const deal = dealMap.get(dealId);
         if (!deal || deal.notes.length === 0) continue;
@@ -334,9 +344,32 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       dealNotesData.sort((a, b) => b.date.localeCompare(a.date));
       setDealNotes(dealNotesData);
 
-      const revenue = paidThisPeriod.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0);
-      const collected = paidThisPeriod.reduce((sum, d) => sum + (d.amount_received || d.net_payable || 0), 0);
+      const revenue = paidThisPeriod.reduce(
+        (sum, d) => sum + (d.total_amount || d.net_payable || 0),
+        0,
+      );
+      // Cash actually received against this period's invoicing. `amount_received`
+      // is NULL until a receipt is confirmed and only ever accumulates actual
+      // receipts, so it must coalesce to 0 — falling back to net_payable counted
+      // every unpaid invoice as fully collected.
+      const collected = paidThisPeriod.reduce((sum, d) => sum + (d.amount_received || 0), 0);
+      // Expected WHT stated on the period's invoices.
       const whtWithheld = paidThisPeriod.reduce((sum, d) => sum + (d.wht_amount || 0), 0);
+      // Actual WHT withheld, as recorded on the period's receipts. Kept separate
+      // from `whtWithheld` (expected) so the card, the WHT sheet and the summary
+      // export all state which basis they report.
+      const whtDocs = docs.filter((d: any) => {
+        if (
+          !(d.wht_amount > 0) ||
+          d.doc_type !== "receipt" ||
+          ["draft", "voided"].includes(d.status)
+        ) {
+          return false;
+        }
+        const whtDate = (d.issue_date || "").slice(0, 10);
+        return whtDate >= start && whtDate <= end;
+      });
+      const whtActual = whtDocs.reduce((sum, d) => sum + (d.wht_amount || 0), 0);
       const vatCollected = paidThisPeriod.reduce((sum, d) => sum + (d.vat_amount || 0), 0);
 
       // Adjustment notes issued this period: credits reduce, debits increase.
@@ -346,37 +379,105 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
           return adjDate >= start && adjDate <= end;
         });
       };
-      const periodCreditTotal = inPeriodAdjustment(activeCreditNotes).reduce((sum, d) => sum + (d.total_amount || 0), 0);
-      const periodCreditVat = inPeriodAdjustment(activeCreditNotes).reduce((sum, d) => sum + (d.vat_amount || 0), 0);
-      const periodDebitTotal = inPeriodAdjustment(activeDebitNotes).reduce((sum, d) => sum + (d.total_amount || 0), 0);
-      const periodDebitVat = inPeriodAdjustment(activeDebitNotes).reduce((sum, d) => sum + (d.vat_amount || 0), 0);
+      const periodCreditTotal = inPeriodAdjustment(activeCreditNotes).reduce(
+        (sum, d) => sum + (d.total_amount || 0),
+        0,
+      );
+      const periodCreditVat = inPeriodAdjustment(activeCreditNotes).reduce(
+        (sum, d) => sum + (d.vat_amount || 0),
+        0,
+      );
+      const periodDebitTotal = inPeriodAdjustment(activeDebitNotes).reduce(
+        (sum, d) => sum + (d.total_amount || 0),
+        0,
+      );
+      const periodDebitVat = inPeriodAdjustment(activeDebitNotes).reduce(
+        (sum, d) => sum + (d.vat_amount || 0),
+        0,
+      );
 
-      const adjustedRevenue = Math.max(0, revenue - periodCreditTotal + periodDebitTotal);
-      const adjustedVatCollected = Math.max(0, vatCollected - periodCreditVat + periodDebitVat);
+      // Reported unclamped: a period dominated by credit notes is genuinely
+      // negative, and clamping here made the KPI disagree with the transaction
+      // register, which sums the same rows without a floor.
+      const adjustedRevenue = revenue - periodCreditTotal + periodDebitTotal;
+      const adjustedVatCollected = vatCollected - periodCreditVat + periodDebitVat;
 
       const isArDoc = (d: any) =>
         d.status === "sent" || d.status === "overdue" || d.status === "partially_paid";
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // Invoices held inside a billing note are excluded — the note carries the
+      // receivable, so counting both would double the AR.
+      const overdueDocs = docs.filter(
+        (d) => isArDoc(d) && !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id)),
+      );
+      const arDocAmount = (d: any) =>
+        d.status === "partially_paid"
+          ? Math.max(0, (d.net_payable || 0) - (d.amount_received || 0))
+          : d.net_payable || 0;
 
-      const grossOutstanding = docs
-        .filter(
-          (d) =>
-            isArDoc(d) &&
-            !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id)),
-        )
-        .reduce((sum, d) => {
-          if (d.status === "partially_paid") {
-            return sum + Math.max(0, (d.net_payable || 0) - (d.amount_received || 0));
+      // Allocate each customer's NET adjustment against their AR documents,
+      // oldest due first, so the aging buckets and the customer AR list are
+      // derived from the same adjusted amounts as the outstanding total.
+      // Credit beyond a customer's open AR is dropped rather than carried as a
+      // customer credit balance (see session note — Phase 2).
+      const creditsByCustomer = new Map<string, number>();
+      for (const d of activeCreditNotes) {
+        const cid = d.customer_id as string;
+        if (!cid) continue;
+        creditsByCustomer.set(cid, (creditsByCustomer.get(cid) || 0) + (d.total_amount || 0));
+      }
+      for (const d of activeDebitNotes) {
+        const cid = d.customer_id as string;
+        if (!cid) continue;
+        creditsByCustomer.set(cid, (creditsByCustomer.get(cid) || 0) - (d.total_amount || 0));
+      }
+      const adjustedArAmount = new Map<string, number>();
+      const docsByCustomer = new Map<string, any[]>();
+      for (const d of overdueDocs) {
+        const cid = d.customer_id as string;
+        if (!cid) continue;
+        const list = docsByCustomer.get(cid) || [];
+        list.push(d);
+        docsByCustomer.set(cid, list);
+      }
+      for (const [cid, customerDocs] of docsByCustomer) {
+        let remainingCredit = creditsByCustomer.get(cid) || 0;
+        for (const d of [...customerDocs].sort((a, b) =>
+          (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31"),
+        )) {
+          let amount = arDocAmount(d);
+          if (remainingCredit > 0 && amount > 0) {
+            const applied = Math.min(remainingCredit, amount);
+            amount -= applied;
+            remainingCredit -= applied;
           }
-          return sum + (d.net_payable || 0);
-        }, 0);
-      const allCreditTotal = activeCreditNotes.reduce((sum, d) => sum + (d.total_amount || 0), 0);
-      const allDebitTotal = activeDebitNotes.reduce((sum, d) => sum + (d.total_amount || 0), 0);
-      const outstanding = Math.max(0, grossOutstanding - allCreditTotal + allDebitTotal);
+          adjustedArAmount.set(d.id, amount);
+        }
+      }
+      const arDocAdjustedAmount = (d: any) => adjustedArAmount.get(d.id) ?? arDocAmount(d);
+
+      // A customer whose debit notes outweigh their credit notes owes a net
+      // amount that no AR document absorbs (the allocation above only ever
+      // reduces). Carried explicitly so it reaches the outstanding total, the
+      // current aging bucket and the customer list instead of vanishing.
+      const netDebitByCustomer = new Map<string, number>();
+      for (const [cid, net] of creditsByCustomer) {
+        if (net < 0) netDebitByCustomer.set(cid, -net);
+      }
+      const netDebitTotal = [...netDebitByCustomer.values()].reduce((sum, v) => sum + v, 0);
+
+      // One definition, one number: outstanding is the sum of the same
+      // per-document adjusted amounts the customer list and aging buckets use,
+      // plus any net-debit receivable, so ค้างเก็บ can never disagree with them.
+      const outstanding =
+        overdueDocs.reduce((sum, d) => sum + arDocAdjustedAmount(d), 0) + netDebitTotal;
 
       setSummary({
         revenue: adjustedRevenue,
         collected,
         whtWithheld,
+        whtActual,
         outstanding,
         vatCollected: adjustedVatCollected,
         docCount: paidThisPeriod.length,
@@ -420,8 +521,13 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       }
       setByType(
         Array.from(typeMap.entries())
-          .map(([docType, { count, total }]) => ({ docType, label: docTypeLabels[docType] || docType, count, total }))
-          .sort((a, b) => b.total - a.total)
+          .map(([docType, { count, total }]) => ({
+            docType,
+            label: docTypeLabels[docType] || docType,
+            count,
+            total,
+          }))
+          .sort((a, b) => b.total - a.total),
       );
 
       const months = getMonthsBack(6);
@@ -444,12 +550,12 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         const row = {
           month: `${m.month}`.padStart(2, "0"),
           year: m.year,
-          total: Math.max(
-            0,
+          // Unclamped, so the bars sum to the same figure as the KPI and the
+          // register for the same window.
+          total:
             inMonth.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0) -
-              monthCredits.reduce((sum, d) => sum + (d.total_amount || 0), 0) +
-              monthDebits.reduce((sum, d) => sum + (d.total_amount || 0), 0),
-          ),
+            monthCredits.reduce((sum, d) => sum + (d.total_amount || 0), 0) +
+            monthDebits.reduce((sum, d) => sum + (d.total_amount || 0), 0),
         };
         monthlyTrendData.push(row);
       }
@@ -469,62 +575,11 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         Array.from(custMap.entries())
           .map(([customerId, { name, total, count }]) => ({ customerId, name, total, count }))
           .sort((a, b) => b.total - a.total)
-          .slice(0, 10)
+          .slice(0, 10),
       );
-
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const overdueDocs = docs.filter(
-        (d) =>
-          isArDoc(d) &&
-          !(d.doc_type === "invoice" && invoiceIdsInBn.has(d.id))
-      );
-      const arDocAmount = (d: any) =>
-        d.status === "partially_paid"
-          ? Math.max(0, (d.net_payable || 0) - (d.amount_received || 0))
-          : (d.net_payable || 0);
-
-      // Allocate each customer's NET adjustment against their AR documents,
-      // oldest due first — so aging buckets and customer AR reflect reality.
-      // Net debits (rare) are not allocated into buckets; they surface in the
-      // outstanding summary instead.
-      const creditsByCustomer = new Map<string, number>();
-      for (const d of activeCreditNotes) {
-        const cid = d.customer_id as string;
-        if (!cid) continue;
-        creditsByCustomer.set(cid, (creditsByCustomer.get(cid) || 0) + (d.total_amount || 0));
-      }
-      for (const d of activeDebitNotes) {
-        const cid = d.customer_id as string;
-        if (!cid) continue;
-        creditsByCustomer.set(cid, (creditsByCustomer.get(cid) || 0) - (d.total_amount || 0));
-      }
-      const adjustedArAmount = new Map<string, number>();
-      const docsByCustomer = new Map<string, any[]>();
-      for (const d of overdueDocs) {
-        const cid = d.customer_id as string;
-        if (!cid) continue;
-        const list = docsByCustomer.get(cid) || [];
-        list.push(d);
-        docsByCustomer.set(cid, list);
-      }
-      for (const [cid, customerDocs] of docsByCustomer) {
-        let remainingCredit = creditsByCustomer.get(cid) || 0;
-        for (const d of [...customerDocs].sort((a, b) =>
-          (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31"),
-        )) {
-          let amount = arDocAmount(d);
-          if (remainingCredit > 0 && amount > 0) {
-            const applied = Math.min(remainingCredit, amount);
-            amount -= applied;
-            remainingCredit -= applied;
-          }
-          adjustedArAmount.set(d.id, amount);
-        }
-      }
-      const arDocAdjustedAmount = (d: any) => adjustedArAmount.get(d.id) ?? arDocAmount(d);
 
       const buckets: ARAgingBucket[] = [
+        { label: "ยังไม่ถึงกำหนด", total: 0, count: 0 },
         { label: "1-30 วัน", total: 0, count: 0 },
         { label: "31-60 วัน", total: 0, count: 0 },
         { label: "61-90 วัน", total: 0, count: 0 },
@@ -533,27 +588,49 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       for (const d of overdueDocs) {
         const amount = arDocAdjustedAmount(d);
         if (amount <= 0) continue;
+        // A missing due date must never be reported as 90+ days overdue, and
+        // not-yet-due receivables must not vanish: both belong in the current
+        // bucket. That also keeps Σ(buckets) equal to `outstanding`.
         if (!d.due_date) {
-          buckets[buckets.length - 1].total += amount;
-          buckets[buckets.length - 1].count++;
+          buckets[0].total += amount;
+          buckets[0].count++;
           continue;
         }
         const due = new Date(d.due_date);
         const diffDays = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDays <= 0) continue;
-        const idx = diffDays <= 30 ? 0 : diffDays <= 60 ? 1 : diffDays <= 90 ? 2 : 3;
+        if (diffDays <= 0) {
+          buckets[0].total += amount;
+          buckets[0].count++;
+          continue;
+        }
+        const idx = diffDays <= 30 ? 1 : diffDays <= 60 ? 2 : diffDays <= 90 ? 3 : 4;
         buckets[idx].total += amount;
         buckets[idx].count++;
+      }
+      // Net-debit receivables have no document to age, so they sit in the
+      // current bucket — this keeps Σ(buckets) equal to `outstanding`.
+      if (netDebitTotal > 0) {
+        buckets[0].total += netDebitTotal;
+        buckets[0].count += netDebitByCustomer.size;
       }
       setArAging(buckets);
 
       // Customer-level AR
-      const arMap = new Map<string, { customerId: string; name: string; total: number; count: number; oldestDue: string | null }>();
+      const arMap = new Map<
+        string,
+        { customerId: string; name: string; total: number; count: number; oldestDue: string | null }
+      >();
       for (const d of overdueDocs) {
         if (!d.customer_id) continue;
         const cid = d.customer_id as string;
         const cname = d.customer?.name || "ไม่ระบุ";
-        const existing = arMap.get(cid) || { customerId: cid, name: cname, total: 0, count: 0, oldestDue: d.due_date || null };
+        const existing = arMap.get(cid) || {
+          customerId: cid,
+          name: cname,
+          total: 0,
+          count: 0,
+          oldestDue: d.due_date || null,
+        };
         existing.total += arDocAdjustedAmount(d);
         existing.count++;
         if (d.due_date && (!existing.oldestDue || d.due_date < existing.oldestDue)) {
@@ -561,16 +638,34 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         }
         arMap.set(cid, existing);
       }
+      // Fold the net-debit receivable into the customer list (counted as one
+      // line, not a bill) so the list total matches `outstanding`.
+      for (const [cid, amount] of netDebitByCustomer) {
+        const existing = arMap.get(cid);
+        if (existing) {
+          existing.total += amount;
+          continue;
+        }
+        arMap.set(cid, {
+          customerId: cid,
+          name: docs.find((d: any) => d.customer_id === cid)?.customer?.name || "ไม่ระบุ",
+          total: amount,
+          count: 0,
+          oldestDue: null,
+        });
+      }
       setArByCustomer(
         Array.from(arMap.values())
           .map((c) => {
             const daysOverdue = c.oldestDue
-              ? Math.floor((today.getTime() - new Date(c.oldestDue).getTime()) / (1000 * 60 * 60 * 24))
+              ? Math.floor(
+                  (today.getTime() - new Date(c.oldestDue).getTime()) / (1000 * 60 * 60 * 24),
+                )
               : 0;
             return { ...c, daysOverdue: daysOverdue > 0 ? daysOverdue : 0 };
           })
           .sort((a, b) => b.total - a.total)
-          .slice(0, 20)
+          .slice(0, 20),
       );
 
       const docTypeLabelsExport: Record<string, string> = {
@@ -582,28 +677,33 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         credit_note: "ใบลดหนี้",
         debit_note: "ใบเพิ่มหนี้",
       };
-      const arDetailsData: ARDetail[] = overdueDocs.map((d: any) => {
-        const dueDate = d.due_date || null;
-        const daysOverdue = dueDate
-          ? Math.max(0, Math.floor((today.getTime() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24)))
-          : 0;
-        return {
-          customerName: d.customer?.name || "ไม่ระบุ",
-          dealNumber: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
-          docNumber: d.doc_number || "-",
-          docType: docTypeLabelsExport[d.doc_type as string] || d.doc_type,
-          netPayable: arDocAdjustedAmount(d),
-          dueDate,
-          daysOverdue,
-        };
-      }).sort((a, b) => b.netPayable - a.netPayable);
+      const arDetailsData: ARDetail[] = overdueDocs
+        .map((d: any) => {
+          const dueDate = d.due_date || null;
+          const daysOverdue = dueDate
+            ? Math.max(
+                0,
+                Math.floor((today.getTime() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24)),
+              )
+            : 0;
+          return {
+            customerName: d.customer?.name || "ไม่ระบุ",
+            dealNumber: d.deal_id ? dealMap.get(d.deal_id)?.deal_number || null : null,
+            docNumber: d.doc_number || "-",
+            docType: docTypeLabelsExport[d.doc_type as string] || d.doc_type,
+            netPayable: arDocAdjustedAmount(d),
+            dueDate,
+            daysOverdue,
+          };
+        })
+        .sort((a, b) => b.netPayable - a.netPayable);
       setArDetails(arDetailsData);
 
       // Transaction-level detail table (reuses docTypeLabels above).
       const txns: Transaction[] = paidThisPeriod.map((d: any) => ({
         id: d.id,
         deal_id: d.deal_id || null,
-        deal_number: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
+        deal_number: d.deal_id ? dealMap.get(d.deal_id)?.deal_number || null : null,
         date: getRecognitionDate(d),
         doc_number: d.doc_number || "-",
         doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
@@ -637,7 +737,7 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
           return {
             id: d.id,
             deal_id: d.deal_id || null,
-            deal_number: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
+            deal_number: d.deal_id ? dealMap.get(d.deal_id)?.deal_number || null : null,
             date: (d.issue_date || "").slice(0, 10),
             doc_number: d.doc_number || "-",
             doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
@@ -661,16 +761,12 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       txns.sort((a, b) => a.date.localeCompare(b.date));
       setTransactions(txns);
 
-      const whtDocs = docs.filter((d: any) => {
-        if (!(d.wht_amount > 0) || d.doc_type !== "receipt" || ["draft", "voided"].includes(d.status)) return false;
-        // WHT sheet follows the selected period like every other export table.
-        const whtDate = ((d.issue_date || d.created_at) || "").slice(0, 10);
-        return whtDate >= start && whtDate <= end;
-      });
+      // WHT sheet follows the selected period like every other export table;
+      // the row set is shared with the `whtActual` summary figure.
       const whtTransactions: Transaction[] = whtDocs.map((d: any) => ({
         id: d.id,
         deal_id: d.deal_id || null,
-        deal_number: d.deal_id ? (dealMap.get(d.deal_id)?.deal_number || null) : null,
+        deal_number: d.deal_id ? dealMap.get(d.deal_id)?.deal_number || null : null,
         date: d.issue_date?.slice(0, 10) || d.created_at?.slice(0, 10) || "-",
         doc_number: d.doc_number || "-",
         doc_type: docTypeLabels[d.doc_type as string] || d.doc_type,
@@ -707,33 +803,38 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
           const debitDate = (d.issue_date || "").slice(0, 10);
           return debitDate >= prevWindow.start && debitDate <= prevWindow.end;
         });
-        const prevRevenue = Math.max(
-          0,
+        const prevRevenue =
           prevInWindow.reduce((sum, d) => sum + (d.total_amount || d.net_payable || 0), 0) -
-            prevCredits.reduce((sum, d) => sum + (d.total_amount || 0), 0) +
-            prevDebits.reduce((sum, d) => sum + (d.total_amount || 0), 0),
+          prevCredits.reduce((sum, d) => sum + (d.total_amount || 0), 0) +
+          prevDebits.reduce((sum, d) => sum + (d.total_amount || 0), 0);
+        // A percentage change from a zero or negative base is not meaningful.
+        setRevenueDelta(
+          prevRevenue > 0 ? ((adjustedRevenue - prevRevenue) / prevRevenue) * 100 : null,
         );
-        setRevenueDelta(prevRevenue > 0 ? ((adjustedRevenue - prevRevenue) / prevRevenue) * 100 : null);
       } else {
         setRevenueDelta(null);
       }
 
-      // COGS from stock auto_out
+      // COGS from stock auto_out. `created_at` is timestamptz, so the window is
+      // expressed in Bangkok time (+07:00) — a bare date would shift the first
+      // and last 7 hours of the period into the neighbouring month.
       const { data: cogsRows } = await supabase
         .from("stock_movements")
         .select("qty_base, unit_cost")
         .eq("user_id", userId)
         .eq("movement_type", "auto_out")
-        .gte("created_at", start)
-        .lte("created_at", end + "T23:59:59");
+        .gte("created_at", `${start}T00:00:00+07:00`)
+        .lte("created_at", `${end}T23:59:59.999+07:00`);
 
       const cogsTotal = (cogsRows || []).reduce((sum: number, row: any) => {
         return sum + Math.abs(row.qty_base || 0) * (row.unit_cost || 0);
       }, 0);
       setCogs(cogsTotal);
 
-      // Collection rate
-      const rate = collected + outstanding > 0 ? collected / (collected + outstanding) : 0;
+      // Share of this period's invoicing that has actually been collected.
+      // Previously this divided a period figure by today's outstanding, which
+      // mixed two different windows; both sides are now period-based.
+      const rate = adjustedRevenue > 0 ? collected / adjustedRevenue : 0;
       setCollectionRate(rate);
     } catch (err: any) {
       setError(err.message);
@@ -746,7 +847,26 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
     fetchData();
   }, [fetchData]);
 
-  return { summary, byType, monthly, monthlyTrend, topCustomers, arAging, arByCustomer, cogs, collectionRate, revenueDelta, transactions, whtTransactions, lineItems, arDetails, dealNotes, loading, error, refetch: fetchData };
+  return {
+    summary,
+    byType,
+    monthly,
+    monthlyTrend,
+    topCustomers,
+    arAging,
+    arByCustomer,
+    cogs,
+    collectionRate,
+    revenueDelta,
+    transactions,
+    whtTransactions,
+    lineItems,
+    arDetails,
+    dealNotes,
+    loading,
+    error,
+    refetch: fetchData,
+  };
 }
 
 export function useStockReport(userId: string | undefined, dateFrom: string, dateTo: string) {
@@ -771,7 +891,9 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
       const allItems = (items || []) as Item[];
       const activeItems = allItems.filter((i) => i.item_type === "product");
       const totalValue = activeItems.reduce((sum, i) => sum + (i.stock_value || 0), 0);
-      const lowStock = activeItems.filter((i) => i.stock_count > 0 && i.stock_count <= (i.low_stock_threshold || 5));
+      const lowStock = activeItems.filter(
+        (i) => i.stock_count > 0 && i.stock_count <= (i.low_stock_threshold || 5),
+      );
       const outOfStock = activeItems.filter((i) => i.stock_count <= 0);
 
       setSummary({
@@ -787,20 +909,23 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
         activeItems
           .filter((i) => (i.stock_count || 0) > 0 || (i.stock_value || 0) > 0)
           .sort((a, b) => (b.stock_value || 0) - (a.stock_value || 0))
-          .slice(0, 20)
+          .slice(0, 20),
       );
 
       const { data: movementsData } = await supabase
         .from("stock_movements")
         .select("*")
         .eq("user_id", userId)
-        .gte("created_at", dateFrom)
-        .lte("created_at", dateTo + "T23:59:59")
+        // Bangkok-time window (see the COGS note above) — `created_at` is UTC.
+        .gte("created_at", `${dateFrom}T00:00:00+07:00`)
+        .lte("created_at", `${dateTo}T23:59:59.999+07:00`)
         .order("created_at", { ascending: false })
         .limit(200);
 
       const itemMap = new Map(allItems.map((i) => [i.id, i]));
-      const docIds = [...new Set((movementsData || []).map((m: any) => m.document_id).filter(Boolean))];
+      const docIds = [
+        ...new Set((movementsData || []).map((m: any) => m.document_id).filter(Boolean)),
+      ];
       const docMap = new Map<string, string>();
       if (docIds.length > 0) {
         const { data: docs } = await supabase
@@ -841,7 +966,7 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
             cartonUnit: item?.carton_unit || null,
             qtyPerCarton: item?.qty_per_carton || null,
           };
-        })
+        }),
       );
     } catch (err: any) {
       setError(err.message);
@@ -886,7 +1011,9 @@ export async function fetchFullStockReport(
   const allItems = (items || []) as Item[];
   const activeItems = allItems.filter((i) => i.item_type === "product");
   const totalValue = activeItems.reduce((sum, i) => sum + (i.stock_value || 0), 0);
-  const lowStock = activeItems.filter((i) => i.stock_count > 0 && i.stock_count <= (i.low_stock_threshold || 5));
+  const lowStock = activeItems.filter(
+    (i) => i.stock_count > 0 && i.stock_count <= (i.low_stock_threshold || 5),
+  );
   const outOfStock = activeItems.filter((i) => i.stock_count <= 0);
 
   const summary: StockSummary = {
@@ -910,8 +1037,8 @@ export async function fetchFullStockReport(
       .from("stock_movements")
       .select("*")
       .eq("user_id", userId)
-      .gte("created_at", dateFrom)
-      .lte("created_at", dateTo + "T23:59:59")
+      .gte("created_at", `${dateFrom}T00:00:00+07:00`)
+      .lte("created_at", `${dateTo}T23:59:59.999+07:00`)
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw error;

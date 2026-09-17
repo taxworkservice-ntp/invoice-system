@@ -21,6 +21,7 @@ const PAGES: { name: string; path: string; wide?: boolean }[] = [
   { name: "deals", path: "/deals" },
   { name: "payroll", path: "/payroll" },
   { name: "wht", path: "/wht", wide: true },
+  { name: "reports", path: "/reports", wide: true },
   { name: "settings-documents", path: "/settings/documents" },
 ];
 
