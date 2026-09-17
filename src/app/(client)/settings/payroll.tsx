@@ -150,10 +150,10 @@ export default function SettingsPayrollPage() {
     setSaving(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > เงินเดือน"><SettingsPageSkeleton /></AppShell>;
+  if (loading) return <AppShell width="form" title="ตั้งค่า > เงินเดือน"><SettingsPageSkeleton /></AppShell>;
 
   return (
-    <AppShell title="ตั้งค่า > เงินเดือน">
+    <AppShell width="form" title="ตั้งค่า > เงินเดือน">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/payroll" />
 

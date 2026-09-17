@@ -1,21 +1,23 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { contentClass, type ContentProfile } from "../../design/tokens";
 
 interface TopBarProps {
   title: string;
   showBack?: boolean;
   onBack?: () => void;
   action?: React.ReactNode;
-  wide?: boolean;
+  /** Must match the `AppShell` width so the title aligns with the content. */
+  width?: ContentProfile;
 }
 
-export function TopBar({ title, showBack, onBack, action, wide = false }: TopBarProps) {
+export function TopBar({ title, showBack, onBack, action, width = "data" }: TopBarProps) {
   const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
-      <div className={`mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-5 lg:px-8 ${wide ? "max-w-screen-2xl" : "max-w-7xl"}`}>
+      <div className={`mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-5 lg:px-8 ${contentClass[width]}`}>
         <div className="flex items-center gap-2">
           {showBack && (
             <button

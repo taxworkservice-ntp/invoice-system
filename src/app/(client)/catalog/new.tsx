@@ -6,7 +6,7 @@ export default function CatalogNewPage() {
   const navigate = useNavigate();
 
   return (
-    <AppShell title="เพิ่มสินค้า/บริการ" showBack>
+    <AppShell width="form" title="เพิ่มสินค้า/บริการ" showBack>
       <ItemForm
         onSave={(itemId) => {
           if (itemId) {

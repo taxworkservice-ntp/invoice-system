@@ -5,6 +5,7 @@ import {
   fontFamily,
   fontSize,
   radius,
+  screens,
 } from "./src/design/tokens";
 
 /**
@@ -29,7 +30,10 @@ export default {
       },
       maxWidth: {
         page: contentWidth.page,
+        form: contentWidth.form,
+        row: contentWidth.row,
       },
+      screens,
     },
   },
   plugins: [],

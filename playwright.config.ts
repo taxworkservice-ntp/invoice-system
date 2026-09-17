@@ -47,5 +47,21 @@ export default defineConfig({
         toHaveScreenshot: { animations: "disabled", caret: "hide", maxDiffPixels: 250 },
       },
     },
+    {
+      // Wide-monitor baselines for the pages where the content container and
+      // the row caps actually bind (see DESIGN-SYSTEM.md §6). A 1280 viewport
+      // can never catch a width regression, so these exist to guard it.
+      name: "visual-wide",
+      dependencies: ["setup"],
+      testMatch: /visual\.spec\.ts/,
+      use: {
+        storageState: "e2e/.auth/state.json",
+        viewport: { width: 1920, height: 1080 },
+        colorScheme: "light",
+      },
+      expect: {
+        toHaveScreenshot: { animations: "disabled", caret: "hide", maxDiffPixels: 250 },
+      },
+    },
   ],
 });

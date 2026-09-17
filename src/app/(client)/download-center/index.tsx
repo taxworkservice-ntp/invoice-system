@@ -555,7 +555,7 @@ export default function DownloadCenterPage() {
               </div>
             </div>
             <div className="text-label text-ink-400">{selectedMonthLabel}</div>
-            <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 grid-cols-2 lg:grid-cols-3 3xl:grid-cols-4">
               {presetTypes.map((preset) => {
                 const count = counts[preset.key] ?? 0;
                 const empty = countsLoaded && count === 0;

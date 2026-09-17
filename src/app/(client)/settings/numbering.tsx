@@ -182,10 +182,10 @@ export default function SettingsNumberingPage() {
     }
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > เลขที่เอกสาร"><SettingsPageSkeleton /></AppShell>;
+  if (loading) return <AppShell width="form" title="ตั้งค่า > เลขที่เอกสาร"><SettingsPageSkeleton /></AppShell>;
 
   return (
-    <AppShell title="ตั้งค่า > เลขที่เอกสาร">
+    <AppShell width="form" title="ตั้งค่า > เลขที่เอกสาร">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/numbering" />
 

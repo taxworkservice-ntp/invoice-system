@@ -396,7 +396,7 @@ export default function SettingsTeamPage() {
   ];
 
   return (
-    <AppShell title="ตั้งค่า > ทีมงานและสิทธิ์">
+    <AppShell width="form" title="ตั้งค่า > ทีมงานและสิทธิ์">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/team" />
         <SectionCard

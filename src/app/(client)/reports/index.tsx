@@ -16,7 +16,7 @@ const TABS = [
 function ReportFallback() {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid max-w-row grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <Skeleton key={index} className="h-20 rounded-card" />
         ))}

@@ -103,7 +103,7 @@ export default function SettingsTaxPage() {
     setVatChangeConfirmed(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > ภาษี"><SettingsPageSkeleton /></AppShell>;
+  if (loading) return <AppShell width="form" title="ตั้งค่า > ภาษี"><SettingsPageSkeleton /></AppShell>;
 
   const isDirty =
     vatRegistered !== clientProfile?.vat_registered ||
@@ -113,7 +113,7 @@ export default function SettingsTaxPage() {
   const effectiveVatRate = vatRegistered ? vatRate || "0" : "0";
 
   return (
-    <AppShell title="ตั้งค่า > ภาษี">
+    <AppShell width="form" title="ตั้งค่า > ภาษี">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/tax" />
 

@@ -1184,7 +1184,7 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <AppShell title="หน้างานขาย" wide>
+      <AppShell title="หน้างานขาย">
         <div className="space-y-4">
           <div className="space-y-1 px-1">
             <Skeleton className="h-5 w-40 rounded-control" />
@@ -1211,7 +1211,7 @@ export default function HomePage() {
   }
 
   return (
-    <AppShell title="หน้างานขาย" wide>
+    <AppShell title="หน้างานขาย">
       <div
         className="space-y-4"
         onTouchStart={handleTouchStart}

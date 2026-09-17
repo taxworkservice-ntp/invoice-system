@@ -77,7 +77,7 @@ export default function SettingsAccountPage() {
   }
 
   return (
-    <AppShell title="ตั้งค่า > บัญชี">
+    <AppShell width="form" title="ตั้งค่า > บัญชี">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/account" />
 

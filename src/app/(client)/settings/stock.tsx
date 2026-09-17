@@ -46,10 +46,10 @@ export default function SettingsStockPage() {
     setSaving(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > สต็อก"><SettingsPageSkeleton /></AppShell>;
+  if (loading) return <AppShell width="form" title="ตั้งค่า > สต็อก"><SettingsPageSkeleton /></AppShell>;
 
   return (
-    <AppShell title="ตั้งค่า > สต็อก">
+    <AppShell width="form" title="ตั้งค่า > สต็อก">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/stock" />
 

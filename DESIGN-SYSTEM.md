@@ -101,11 +101,36 @@ Prefer a component over a hand-built equivalent.
 | `Money` / `AmountRow` | money is always `tabular-nums` |
 | `TABLE` (`src/lib/tableStyles.ts`) | one table style: body cells 13px, headers 11px |
 
-## 6. Spacing
+## 6. Spacing and content width
 
 - Card padding: `p-4` (16px) / `p-5` (20px)
 - Gaps between elements: `gap-2` (8px) / `gap-3` (12px)
-- Page content width: `max-w-page` (data pages) or `max-w-4xl` (forms)
+
+**The shell owns width.** Pages never set their own container — `AppShell`
+takes a content profile and applies it to the top bar, breadcrumbs and content,
+so they can never disagree.
+
+| Profile             | Token          | Width             | Use for                          |
+| ------------------- | -------------- | ----------------- | -------------------------------- |
+| `data` (default)  | `max-w-page` | fluid, cap 2048   | list, detail and report pages    |
+| `form`            | `max-w-form` | 896, fixed        | settings and simple create/edit forms |
+
+Data pages are **fluid**: on laptops and 1920 desktops the cap never binds, so
+tables get the full width beside the sidebar. It engages only on ultrawide/4K,
+where an unbounded row hurts readability. Form pages are capped because long
+label/control rows stop being readable when stretched.
+
+**Rows inside a page.** Monitor width must arrive as more content, never as
+stretched content:
+
+| Row kind                                               | Rule                                                                                                 |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Fixed item count (KPI cards, stat strips, filter bars) | cap with `max-w-row` (1280) — they never gain items, so stretching only yields sparse 500px cards |
+| Item count can grow (card lists, preset grids)         | add a `3xl:` (1792px) column step to the grid                                                      |
+| Tables                                                 | fill the container; never cap, never add columns                                                     |
+
+Do not reintroduce `max-w-7xl` / `max-w-screen-2xl` containers, and do not use
+`max-w-page` / `max-w-form` outside `AppShell` — `lint:design` fails on both.
 
 ## 7. Print layer is exempt
 
@@ -118,8 +143,12 @@ lint rules, and their geometry is frozen (`--print-font-size`,
 
 - `npm run lint:design` — `scripts/check-design-system.mjs` fails the build on
   arbitrary px sizes, arbitrary hex colours, retired neutrals, retired shadows,
-  retired type sizes and `font-bold`.
+  retired type sizes, `font-bold`, retired page containers
+  (`max-w-7xl` / `max-w-screen-2xl`) and per-page container widths
+  (`max-w-page` / `max-w-form` outside the shell).
 - `npm run lint` — ESLint (TypeScript + React hooks) **plus** the design check.
-- `npm run test:ui-snapshots` — Playwright visual baselines for key pages.
+- `npm run test:ui-snapshots` — Playwright visual baselines for key pages, at
+  1280px (`visual`) and 1920px (`visual-wide`). Width changes are invisible at
+  1280, so the wide project is what actually guards the container.
 
 Do not add an exception to the checker to land a page. Add a token instead.

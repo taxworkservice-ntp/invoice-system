@@ -225,7 +225,7 @@ export default function SettingsCompanyPage() {
     setSaving(false);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > ข้อมูลบริษัท"><SettingsPageSkeleton /></AppShell>;
+  if (loading) return <AppShell width="form" title="ตั้งค่า > ข้อมูลบริษัท"><SettingsPageSkeleton /></AppShell>;
 
   const isDirty =
     companyNameTh !== (clientProfile?.company_name_th || "") ||
@@ -236,7 +236,7 @@ export default function SettingsCompanyPage() {
     contactName !== (clientProfile?.contact_name || "");
 
   return (
-    <AppShell title="ตั้งค่า > ข้อมูลบริษัท">
+    <AppShell width="form" title="ตั้งค่า > ข้อมูลบริษัท">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/company" />
 

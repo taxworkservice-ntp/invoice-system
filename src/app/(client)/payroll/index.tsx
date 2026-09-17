@@ -1773,7 +1773,7 @@ export default function PayrollPage() {
               );
             })()}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid max-w-row grid-cols-2 sm:grid-cols-4 gap-3">
               <SummaryCard icon={<Users className="w-4 h-4" />} label="พนักงาน" value={`${employees.length} คน`} />
               <SummaryCard icon={<Wallet className="w-4 h-4" />} label="ค่าแรงรวม" value={`฿${formatCurrency(totals.gross)}`} />
               <SummaryCard icon={<Receipt className="w-4 h-4" />} label="หักรวม" value={`฿${formatCurrency(totals.sso + totals.wht)}`} sub={`นายจ้างสมทบ ฿${formatCurrency(totals.ssoEmp)}`} />

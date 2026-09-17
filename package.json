@@ -23,8 +23,8 @@
     "lint": "eslint . && node scripts/check-design-system.mjs",
     "lint:design": "node scripts/check-design-system.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "test:ui-snapshots": "playwright test --project=visual",
-    "test:ui-snapshots:update": "playwright test --project=visual --update-snapshots"
+    "test:ui-snapshots": "playwright test --project=visual --project=visual-wide",
+    "test:ui-snapshots:update": "playwright test --project=visual --project=visual-wide --update-snapshots"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",

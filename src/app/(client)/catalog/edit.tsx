@@ -52,19 +52,20 @@ export default function CatalogEditPage() {
 
   if (loading)
     return (
-      <AppShell title="" showBack>
+      <AppShell width="form" title="" showBack>
         <Spinner />
       </AppShell>
     );
   if (error || !item)
     return (
-      <AppShell title="ไม่พบสินค้า" showBack>
+      <AppShell width="form" title="ไม่พบสินค้า" showBack>
         <p className="text-body text-ink-500">ไม่พบข้อมูลสินค้า</p>
       </AppShell>
     );
 
   return (
     <AppShell
+      width="form"
       title="แก้ไขสินค้า"
       showBack
       action={

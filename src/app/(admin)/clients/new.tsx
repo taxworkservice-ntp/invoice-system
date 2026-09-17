@@ -92,7 +92,7 @@ export default function AdminClientNewPage() {
           </div>
         </header>
 
-        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
           <Card>
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -174,7 +174,7 @@ export default function AdminClientNewPage() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-4 py-6">
         <form onSubmit={handleCreate}>
           <Card>
             <div className="space-y-4">

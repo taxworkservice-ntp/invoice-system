@@ -18,7 +18,7 @@ interface SummaryRowProps {
 
 export function SummaryRow({ items, onCardTap }: SummaryRowProps) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="grid max-w-row grid-cols-2 sm:grid-cols-4 gap-2">
       {items.map((item) => (
         <Card
           key={item.label}

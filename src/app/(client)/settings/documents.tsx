@@ -463,7 +463,7 @@ export default function SettingsDocumentsPage() {
     } as ClientProfile);
   }
 
-  if (loading) return <AppShell title="ตั้งค่า > รูปแบบเอกสาร"><SettingsPageSkeleton /></AppShell>;
+  if (loading) return <AppShell width="form" title="ตั้งค่า > รูปแบบเอกสาร"><SettingsPageSkeleton /></AppShell>;
 
   const isDirty =
     pdfTemplate !== (clientProfile?.pdf_template || "modern") ||
@@ -541,7 +541,7 @@ export default function SettingsDocumentsPage() {
   const termsInheritLabel = `ตามลายเซ็น/ท้ายเอกสาร (${multToPtLabel(specimenMult("footer"))})`;
 
   return (
-    <AppShell title="ตั้งค่า > รูปแบบเอกสาร">
+    <AppShell width="form" title="ตั้งค่า > รูปแบบเอกสาร">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/documents" />
 

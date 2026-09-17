@@ -780,7 +780,7 @@ export default function WhtPage() {
         {tab === TAB_RECORDS ? (
           <>
             {records.length > 0 && !recordsLoading && (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="grid max-w-row grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatCard
                   icon={<FileText className="h-4 w-4" />}
                   label="รายการ"

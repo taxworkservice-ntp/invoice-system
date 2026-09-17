@@ -740,7 +740,7 @@ export default function DocumentsPage() {
 
         <section className="rounded-card border border-card-border bg-white">
           <div className="space-y-3 border-b border-line-faint p-4">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid max-w-row grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               <Select
                 label="ประเภท"
                 value={typeFilter}

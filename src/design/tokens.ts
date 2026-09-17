@@ -145,8 +145,43 @@ export const fontFamily = {
   sans: ["Inter", "system-ui", "sans-serif"],
 } as const;
 
-/** Page content widths — two shapes only: data pages and forms. */
+/**
+ * Extra viewports beyond Tailwind's defaults (which stop at `2xl` = 1536px).
+ * Used by grid reflows so extra monitor width becomes more columns instead of
+ * wider cards.
+ */
+export const screens = {
+  "3xl": "1792px",
+} as const;
+
+/**
+ * Content widths — owned solely by `AppShell` (page containers) and used as an
+ * explicit cap for fixed-count rows. Pages must never invent their own width.
+ *
+ * - `page` (data pages): fluid, filling the space beside the sidebar. The cap
+ *   is deliberately generous (2048px) so it only engages on ultrawide/4K
+ *   monitors, where an unbounded row hurts readability. On laptops and 1920
+ *   desktops it never binds, so tables get the full available width.
+ * - `form` (settings and simple create/edit forms): fixed, never scales.
+ *   Readability-bound — long label/control rows are unreadable when stretched.
+ * - `row` (fixed-count rows inside a page): KPI/metric card strips and filter
+ *   bars whose item count never grows. Letting these stretch just produces
+ *   sparse 500px-wide cards, so they cap instead. Rows whose item count *can*
+ *   grow must reflow with a `3xl:` column step instead of capping.
+ */
 export const contentWidth = {
-  page: "max-w-screen-2xl",
-  form: "max-w-4xl",
+  page: "2048px",
+  form: "896px",
+  row: "1280px",
+} as const;
+
+/**
+ * Content profiles → container utility. `AppShell` is the only consumer; pages
+ * pass a profile instead of a width class so no page can invent its own.
+ */
+export type ContentProfile = "data" | "form";
+
+export const contentClass: Record<ContentProfile, string> = {
+  data: "max-w-page",
+  form: "max-w-form",
 } as const;

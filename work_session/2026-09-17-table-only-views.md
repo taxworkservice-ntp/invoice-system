@@ -3,7 +3,8 @@
 ## Rollback
 
 - Backup branch: `backup/table-only-before` + tag `backup-table-only-before`
-- Rollback: `git reset --hard backup-table-only-before` (changes left uncommitted on `main`)
+- Rollback: `git reset --hard backup-table-only-before`
+- Landed in commit `d4adfee` (table-only work).
 - No Supabase migration pending.
 
 ## What changed
@@ -35,8 +36,10 @@
 
 ## Verification
 
-- `tsc --noEmit`: clean. `lint`: 0 errors (remaining warnings pre-existing;
-  confirmed `Badge`/`ArrowRight` in `[id].tsx` pre-date this change).
+- `tsc -b` (the real project check — `tsc --noEmit` is a no-op here because
+  `tsconfig.json` is solution-style with `"files": []`): clean.
+  `lint`: 0 errors (remaining warnings pre-existing; confirmed
+  `Badge`/`ArrowRight` in `[id].tsx` pre-date this change).
   `lint:design`: passed. Prettier: touched files are prettier-clean.
 - NOT run: `test:ui-snapshots` (no Playwright browsers in this env) —
   baselines WILL need `npm run test:ui-snapshots:update` (toggles/cards gone).

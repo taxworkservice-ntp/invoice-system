@@ -11,6 +11,7 @@ import { getProxiedImageUrl } from "../../lib/r2";
 import { supabase } from "../../lib/supabase";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
+import { contentClass, type ContentProfile } from "../../design/tokens";
 import type { ClientMemberRole, ClientProfile } from "../../types";
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -36,7 +37,12 @@ interface AppShellProps {
   onBack?: () => void;
   action?: React.ReactNode;
   breadcrumbs?: BreadcrumbItem[];
-  wide?: boolean;
+  /**
+   * Content profile — the shell owns the container width so pages never set
+   * their own. `data` (default) is fluid with an ultrawide cap; `form` is
+   * capped narrow for readability. See `contentWidth` in design tokens.
+   */
+  width?: ContentProfile;
   children: React.ReactNode;
 }
 
@@ -65,7 +71,8 @@ function WorkspaceMark({ profile }: { profile: ClientProfile | null }) {
   return null;
 }
 
-export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = false, children }: AppShellProps) {
+export function AppShell({ title, showBack, onBack, action, breadcrumbs, width = "data", children }: AppShellProps) {
+  const containerClass = contentClass[width];
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
@@ -200,9 +207,9 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
             </span>
           </div>
         )}
-        <TopBar title={title} showBack={showBack} onBack={onBack} action={action} wide={wide} />
+        <TopBar title={title} showBack={showBack} onBack={onBack} action={action} width={width} />
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <div className="mx-auto w-full max-w-7xl px-4 pt-2 sm:px-5 lg:px-8">
+          <div className={`mx-auto w-full px-4 pt-2 sm:px-5 lg:px-8 ${containerClass}`}>
             <nav className="flex items-center gap-1 text-label text-ink-500">
               {breadcrumbs.map((item, i) => (
                 <React.Fragment key={i}>
@@ -217,7 +224,7 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, wide = 
             </nav>
           </div>
         )}
-        <main className={`mx-auto w-full px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8 ${wide ? "max-w-screen-2xl" : "max-w-7xl"}`}>
+        <main className={`mx-auto w-full px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8 ${containerClass}`}>
           {children}
         </main>
       </div>
