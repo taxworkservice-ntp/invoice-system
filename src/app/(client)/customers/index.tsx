@@ -3,12 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Star, Briefcase } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { SearchInput } from "../../../components/ui/SearchInput";
 import { Input } from "../../../components/ui/Input";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { ViewToggle } from "../../../components/ui/ViewToggle";
-import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
@@ -22,7 +19,13 @@ import type { Customer, DocumentStatus, DocumentType } from "../../../types";
 
 type FilterMode = "all" | "favorites" | "hasDeals";
 const SALES_JOB_DOCUMENT_TYPES = ["quotation", "invoice", "delivery_note"];
-const RESOLVED_DEAL_STATUSES = new Set<DocumentStatus>(["paid", "converted", "generated", "issued", "voided"]);
+const RESOLVED_DEAL_STATUSES = new Set<DocumentStatus>([
+  "paid",
+  "converted",
+  "generated",
+  "issued",
+  "voided",
+]);
 const EMPTY_DEAL_STATS = { active: 0, done: 0, total: 0 };
 
 type CustomerDealStats = typeof EMPTY_DEAL_STATS;
@@ -46,27 +49,21 @@ export default function CustomersPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { workspaceRole, workspacePermissions } = useWorkspaceRole();
-  const canManageCustomers = getWorkspacePermissions(workspaceRole, workspacePermissions).canManageCustomers;
+  const canManageCustomers = getWorkspacePermissions(
+    workspaceRole,
+    workspacePermissions,
+  ).canManageCustomers;
   const toast = useToast();
   const { customers, loading, refetch, updateCustomerLocal } = useCustomers(profile?.id);
   const [search, setSearch] = useState("");
   const [dealStats, setDealStats] = useState<Record<string, CustomerDealStats>>({});
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "table";
-    const stored = window.localStorage.getItem("customersViewMode");
-    return stored === "grid" || stored === "list" || stored === "table" ? stored : "table";
-  });
   const [filterMode, setFilterMode] = useState<FilterMode>(() => {
     if (typeof window === "undefined") return "all";
     const stored = window.localStorage.getItem("customersFilterMode");
     return stored === "all" || stored === "favorites" || stored === "hasDeals" ? stored : "all";
   });
-
-  useEffect(() => {
-    window.localStorage.setItem("customersViewMode", viewMode);
-  }, [viewMode]);
 
   useEffect(() => {
     window.localStorage.setItem("customersFilterMode", filterMode);
@@ -83,10 +80,7 @@ export default function CustomersPage() {
     e.preventDefault();
     const next = !c.is_favorite;
     updateCustomerLocal(c.id, { is_favorite: next });
-    const { error } = await supabase
-      .from("customers")
-      .update({ is_favorite: next })
-      .eq("id", c.id);
+    const { error } = await supabase.from("customers").update({ is_favorite: next }).eq("id", c.id);
     if (error) {
       updateCustomerLocal(c.id, { is_favorite: !next });
       toast.error(error.message);
@@ -128,7 +122,9 @@ export default function CustomersPage() {
             }
 
             current.hasSalesJobDocument = current.hasSalesJobDocument || isSalesJobDoc;
-            if (new Date(doc.created_at).getTime() > new Date(current.latestDoc.created_at).getTime()) {
+            if (
+              new Date(doc.created_at).getTime() > new Date(current.latestDoc.created_at).getTime()
+            ) {
               current.latestDoc = doc;
             }
           }
@@ -175,8 +171,12 @@ export default function CustomersPage() {
       }),
     [filtered, dealStats],
   );
-  type CustomerSortKey = "name" | "tax_id" | "phone" | "dealActive" | "dealDone" | "dealTotal" | "is_active";
-  const customerSort = useTableSort<(typeof customerRows)[number], CustomerSortKey>(customerRows, { key: "name", dir: "asc" });
+  type CustomerSortKey =
+    "name" | "tax_id" | "phone" | "dealActive" | "dealDone" | "dealTotal" | "is_active";
+  const customerSort = useTableSort<(typeof customerRows)[number], CustomerSortKey>(customerRows, {
+    key: "name",
+    dir: "asc",
+  });
 
   const favoriteCount = useMemo(() => customers.filter((c) => c.is_favorite).length, [customers]);
   const hasDealsCount = useMemo(
@@ -236,10 +236,18 @@ export default function CustomersPage() {
     <AppShell title="ลูกค้า">
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี..." className="flex-1" />
-          <ViewToggle value={viewMode} onChange={setViewMode} />
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="ค้นหาชื่อ รหัส เลขผู้เสียภาษี..."
+            className="flex-1"
+          />
           {canManageCustomers && (
-            <Button size="sm" onClick={() => setShowAddSheet(true)} className="!rounded-control shrink-0">
+            <Button
+              size="sm"
+              onClick={() => setShowAddSheet(true)}
+              className="!rounded-control shrink-0"
+            >
               + เพิ่ม
             </Button>
           )}
@@ -249,22 +257,24 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => setFilterMode("all")}
-            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors ${ filterMode === "all" ? "bg-ink-900 text-white" : "bg-page-bg text-ink-300 hover:bg-line" }`}
+            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors ${filterMode === "all" ? "bg-ink-900 text-white" : "bg-page-bg text-ink-300 hover:bg-line"}`}
           >
-            ทั้งหมด {customers.length > 0 && <span className="ml-1 opacity-70">{customers.length}</span>}
+            ทั้งหมด{" "}
+            {customers.length > 0 && <span className="ml-1 opacity-70">{customers.length}</span>}
           </button>
           <button
             type="button"
             onClick={() => setFilterMode((prev) => (prev === "favorites" ? "all" : "favorites"))}
-            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${ filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border" }`}
+            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border"}`}
           >
             <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
-            รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
+            รายการโปรด{" "}
+            {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
           </button>
           <button
             type="button"
             onClick={() => setFilterMode((prev) => (prev === "hasDeals" ? "all" : "hasDeals"))}
-            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${ filterMode === "hasDeals" ? "bg-success text-white" : "bg-paid-bg text-paid-text hover:bg-success-border" }`}
+            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "hasDeals" ? "bg-success text-white" : "bg-paid-bg text-paid-text hover:bg-success-border"}`}
           >
             <Briefcase size={12} />
             มีงานขาย {hasDealsCount > 0 && <span className="ml-1 opacity-70">{hasDealsCount}</span>}
@@ -278,33 +288,23 @@ export default function CustomersPage() {
         )}
 
         {loading ? (
-          <div className={viewMode === "grid"
-            ? "grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-            : viewMode === "table"
-            ? "bg-white border border-card-border rounded-card overflow-hidden"
-            : "space-y-2"
-          }>
-            {viewMode === "table" ? (
-              <div className="p-4 space-y-2">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-8 bg-line-faint rounded animate-pulse" />
-                ))}
-              </div>
-            ) : (
-              [...Array(viewMode === "grid" ? 6 : 4)].map((_, i) => (
-                <div key={i} className="bg-white border border-card-border rounded-[10px] p-4 animate-pulse min-h-[120px]">
-                  <div className="h-4 bg-line-faint rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-line-faint rounded w-1/2" />
-                </div>
-              ))
-            )}
+          <div className={TABLE.cardWrapper}>
+            <div className="p-4 space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-8 bg-line-faint rounded animate-pulse" />
+              ))}
+            </div>
           </div>
         ) : filtered.length === 0 ? (
           customers.length === 0 ? (
             <EmptyState
               title="ยังไม่มีลูกค้า"
               description="ลูกค้าจะปรากฏที่นี่เมื่อคุณเริ่มงานขายแรก หรือเพิ่มลูกค้าได้เลย"
-              action={canManageCustomers ? <Button onClick={() => setShowAddSheet(true)}>+ เพิ่มลูกค้า</Button> : undefined}
+              action={
+                canManageCustomers ? (
+                  <Button onClick={() => setShowAddSheet(true)}>+ เพิ่มลูกค้า</Button>
+                ) : undefined
+              }
             />
           ) : (
             <div className="text-center py-12 text-body text-ink-300">
@@ -338,84 +338,10 @@ export default function CustomersPage() {
               )}
             </div>
           )
-        ) : viewMode === "grid" ? (
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((c) => {
-              const stats = dealStats[c.id] || EMPTY_DEAL_STATS;
-              const incomplete = isIncomplete(c);
-              return (
-                <Card key={c.id} onClick={() => navigate(`/customers/${c.id}`)} className="!p-3.5 flex flex-col gap-2.5 min-h-[120px] relative">
-                  <button
-                    type="button"
-                    onClick={(e) => toggleFavorite(c, e)}
-                    aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
-                    aria-pressed={c.is_favorite}
-                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors"
-                  >
-                    <Star
-                      size={16}
-                      className={c.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
-                    />
-                  </button>
-                  <div className="flex items-start gap-2.5 pr-7">
-                    <CustomerAvatar customer={c} size="md" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-body font-semibold text-ink-900 line-clamp-2 leading-tight">
-                        {c.name}
-                      </div>
-                      {c.code && (
-                        <div className="text-label text-primary font-mono font-medium mt-0.5">
-                          {c.code}
-                        </div>
-                      )}
-                      {c.tax_id ? (
-                        <div className="text-label text-ink-300 mt-1 font-mono truncate">
-                          {c.tax_id}
-                        </div>
-                      ) : (
-                        <div className="text-label text-ink-200 mt-1 italic">
-                          ไม่มีเลขผู้เสียภาษี
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 mt-auto border-t border-line-faint">
-                    {incomplete ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-label font-medium bg-pending-bg text-pending-text">
-                        <AlertTriangle size={10} />
-                        ข้อมูลไม่ครบ
-                      </span>
-                    ) : (
-                      <span className="text-label text-ink-200">ข้อมูลครบ</span>
-                    )}
-                    {stats.total > 0 ? (
-                      <span className="text-right text-label leading-4">
-                        <span className="font-semibold text-primary">งานขาย {stats.total} →</span>
-                        <span className="block text-ink-300">กำลังทำ {stats.active} · เสร็จแล้ว {stats.done}</span>
-                      </span>
-                    ) : (
-                      <span className="text-label text-ink-200">ยังไม่มีงานขาย</span>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        ) : viewMode === "table" ? (
-          <div className="bg-white border border-card-border rounded-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className={`${TABLE.table} table-fixed min-w-[1050px]`}>
-                <colgroup>
-                  <col className="w-[42px]" />
-                  <col className="w-auto" />
-                  <col className="w-[110px]" />
-                  <col className="w-[145px]" />
-                  <col className="w-[125px]" />
-                  <col className="w-[68px]" />
-                  <col className="w-[68px]" />
-                  <col className="w-[68px]" />
-                  <col className="w-[90px]" />
-                </colgroup>
+        ) : (
+          <div className={TABLE.cardWrapper}>
+            <div className={TABLE.scrollBody}>
+              <table className={`${TABLE.table} min-w-[820px]`}>
                 <thead>
                   <tr className={TABLE.theadTr}>
                     <th className="px-3 py-2"></th>
@@ -425,9 +351,9 @@ export default function CustomersPage() {
                       active={customerSort.sort.key === "name"}
                       dir={customerSort.sort.dir}
                       onClick={() => customerSort.handleSort("name")}
-                      className={TABLE.thSortable}
+                      className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[180px]`}
                     />
-                    <th className="px-3 py-2 text-left text-label font-medium text-ink-500 whitespace-nowrap">รหัส</th>
+                    <th className={`${TABLE.thStatic} whitespace-nowrap`}>รหัส</th>
                     <SortableTh
                       label="เลขผู้เสียภาษี"
                       align="left"
@@ -468,14 +394,14 @@ export default function CustomersPage() {
                       onClick={() => customerSort.handleSort("dealTotal")}
                       className={TABLE.thSortable}
                     />
-                      <SortableTh
-                        label="สถานะ"
-                        align="left"
-                        active={customerSort.sort.key === "is_active"}
-                        dir={customerSort.sort.dir}
-                        onClick={() => customerSort.handleSort("is_active")}
-                        className={`${TABLE.thSortable} whitespace-nowrap`}
-                      />
+                    <SortableTh
+                      label="สถานะ"
+                      align="left"
+                      active={customerSort.sort.key === "is_active"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("is_active")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -485,26 +411,32 @@ export default function CustomersPage() {
                       <tr
                         key={c.id}
                         onClick={() => navigate(`/customers/${c.id}`)}
-                        className={TABLE.tbodyTr}
+                        className={`${TABLE.tbodyTr} group`}
                       >
-                        <td className="px-3 py-2 w-[44px]">
+                        <td className="px-3 py-3 md:py-2 w-[44px]">
                           <button
                             type="button"
                             onClick={(e) => toggleFavorite(c, e)}
                             aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
                             aria-pressed={c.is_favorite}
-                            className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-line-faint transition-colors"
+                            className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-control hover:bg-line-faint transition-colors"
                           >
                             <Star
                               size={14}
-                              className={c.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
+                              className={
+                                c.is_favorite
+                                  ? "fill-warning text-warning"
+                                  : "text-ink-200 hover:text-warning"
+                              }
                             />
                           </button>
                         </td>
-                        <td className="px-3 py-2 min-w-0">
+                        <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2 min-w-0`}>
                           <div className="flex items-center gap-2 min-w-0">
                             <CustomerAvatar customer={c} size="sm" />
-                            <span className="text-ink-900 truncate">{c.name}</span>
+                            <span className="text-ink-900 truncate" title={c.name}>
+                              {c.name}
+                            </span>
                           </div>
                         </td>
                         <td className="px-3 py-2 font-mono text-label text-primary truncate">
@@ -539,7 +471,9 @@ export default function CustomersPage() {
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap align-middle">
                           {incomplete ? (
-                            <span className={`${TABLE.statusPill} inline-flex items-center gap-1 whitespace-nowrap bg-pending-bg text-pending-text`}>
+                            <span
+                              className={`${TABLE.statusPill} inline-flex items-center gap-1 whitespace-nowrap bg-pending-bg text-pending-text`}
+                            >
                               <AlertTriangle size={10} className="shrink-0" />
                               ไม่ครบ
                             </span>
@@ -553,69 +487,6 @@ export default function CustomersPage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map((c) => {
-              const stats = dealStats[c.id] || EMPTY_DEAL_STATS;
-              return (
-                <Card key={c.id} onClick={() => navigate(`/customers/${c.id}`)}>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={(e) => toggleFavorite(c, e)}
-                      aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
-                      aria-pressed={c.is_favorite}
-                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors"
-                    >
-                      <Star
-                        size={16}
-                        className={c.is_favorite ? "fill-warning text-warning" : "text-ink-200 hover:text-warning"}
-                      />
-                    </button>
-                    <CustomerAvatar customer={c} size="md" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="text-body font-semibold text-ink-900 truncate">
-                          {c.name}
-                        </div>
-                        {c.code && (
-                          <div className="text-label text-primary font-mono font-medium mt-0.5">
-                            {c.code}
-                          </div>
-                        )}
-                        {isIncomplete(c) && (
-                          <span className="inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded text-label font-medium bg-pending-bg text-pending-text">
-                            <AlertTriangle size={10} />
-                            ข้อมูลไม่ครบ
-                          </span>
-                        )}
-                      </div>
-                      {c.tax_id && (
-                        <div className="text-label text-ink-300 mt-0.5">
-                          เลขผู้เสียภาษี: {c.tax_id}
-                        </div>
-                      )}
-                      {c.phone && (
-                        <div className="text-label text-ink-300 mt-0.5">
-                          {c.phone}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      {stats.total > 0 ? (
-                        <div className="leading-4">
-                          <div className="text-label font-medium text-primary">{stats.total} งานขาย →</div>
-                          <div className="text-label text-ink-300">กำลังทำ {stats.active} · เสร็จแล้ว {stats.done}</div>
-                        </div>
-                      ) : (
-                        <span className="text-label text-ink-200">ยังไม่มีงานขาย</span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
           </div>
         )}
       </div>
@@ -674,10 +545,19 @@ export default function CustomersPage() {
               />
 
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleAddCustomer} disabled={!newName.trim() || !newCode.trim() || !newTaxId.trim() || saving} loading={saving} className="flex-1">
+                <Button
+                  onClick={handleAddCustomer}
+                  disabled={!newName.trim() || !newCode.trim() || !newTaxId.trim() || saving}
+                  loading={saving}
+                  className="flex-1"
+                >
                   บันทึก
                 </Button>
-                <Button variant="secondary" onClick={() => setShowAddSheet(false)} className="flex-1">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowAddSheet(false)}
+                  className="flex-1"
+                >
                   ยกเลิก
                 </Button>
               </div>

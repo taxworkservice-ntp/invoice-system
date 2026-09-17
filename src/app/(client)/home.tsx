@@ -16,20 +16,17 @@ import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { ViewToggle } from "../../components/ui/ViewToggle";
-import type { ViewMode } from "../../components/ui/ViewToggle";
 import { SortableTh } from "../../components/ui/SortableTh";
 import { useTableSort } from "../../components/ui/useTableSort";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
 import { SummaryRow } from "../../components/home/SummaryRow";
 import { isManualStage, MANUAL_STAGE_LABELS, type ManualStage } from "../../lib/dealStages";
-import { DealCard } from "../../components/home/DealCard";
 import { NewDealSheet } from "../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
 import { preloadDealDetail } from "../../lib/dealDetailCache";
 import { formatCurrency } from "../../lib/format";
-import { formatBuddhistDate, formatBuddhistDateTime, formatBuddhistDateTimeParts, formatBangkokTime } from "../../lib/dates";
+import { formatBuddhistDate, formatBuddhistDateTimeParts } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS, DOC_TYPE_SHORT, DOC_TYPE_COLORS } from "../../constants";
 import { TABLE } from "../../lib/tableStyles";
@@ -56,10 +53,7 @@ type DealDoc = Pick<
 >;
 
 type DealWithRelations = Deal & {
-  customers: Pick<
-    Customer,
-    "id" | "name" | "code" | "avatar_initials" | "avatar_color"
-  > | null;
+  customers: Pick<Customer, "id" | "name" | "code" | "avatar_initials" | "avatar_color"> | null;
   documents: DealDoc[];
   deal_number: string | null;
 };
@@ -84,10 +78,7 @@ type DashboardDeal = {
   dealNumber: string | null;
   customerName: string;
   customerCode: string | null;
-  customerAvatar: Pick<
-    Customer,
-    "name" | "avatar_initials" | "avatar_color"
-  > | null;
+  customerAvatar: Pick<Customer, "name" | "avatar_initials" | "avatar_color"> | null;
   itemSummary: string;
   itemNames: string[];
   amount: number;
@@ -129,13 +120,7 @@ type DashboardDeal = {
 };
 
 type HomeQueue =
-  | "wait_send"
-  | "wait_invoice"
-  | "wait_collect"
-  | "partial"
-  | "overdue"
-  | "progress"
-  | "done";
+  "wait_send" | "wait_invoice" | "wait_collect" | "partial" | "overdue" | "progress" | "done";
 type HomeFilter =
   | "all"
   | "wait_send"
@@ -145,10 +130,7 @@ type HomeFilter =
   | "partial"
   | "overdue";
 
-const QUEUE_COLORS: Record<
-  HomeQueue,
-  { bg: string; text: string; dot: string }
-> = {
+const QUEUE_COLORS: Record<HomeQueue, { bg: string; text: string; dot: string }> = {
   wait_send: {
     bg: "bg-warning-soft",
     text: "text-warning-text",
@@ -175,9 +157,7 @@ const QUEUE_COLORS: Record<
 };
 
 function isResolvedStatus(status: Document["status"]) {
-  return ["paid", "converted", "generated", "voided", "issued"].includes(
-    status,
-  );
+  return ["paid", "converted", "generated", "voided", "issued"].includes(status);
 }
 
 // A quotation whose pipeline has moved past it (a delivery note or invoice was
@@ -199,8 +179,7 @@ function getQuotationsWithDownstream(documents: DealDoc[]) {
 
 function isQuotationResolved(doc: DealDoc, downstreamQuotes: Set<string>) {
   return (
-    (doc.doc_type === "quotation" && downstreamQuotes.has(doc.id)) ||
-    isResolvedStatus(doc.status)
+    (doc.doc_type === "quotation" && downstreamQuotes.has(doc.id)) || isResolvedStatus(doc.status)
   );
 }
 
@@ -261,7 +240,10 @@ function getItemPreview(documents: DealDoc[]) {
   // real goods/services, and the loop falls through to the source document.
   for (const doc of withItems) {
     const names = (doc.line_items || [])
-      .filter((item) => !isRefSummaryLine(item) && !(item.source_document_id && !item.source_line_item_id))
+      .filter(
+        (item) =>
+          !isRefSummaryLine(item) && !(item.source_document_id && !item.source_line_item_id),
+      )
       .map((item) => item.item_name.trim())
       .filter(Boolean);
     if (names.length > 0) return names;
@@ -272,16 +254,25 @@ function getItemPreview(documents: DealDoc[]) {
 function getCompletionDoc(documents: DealDoc[]) {
   const nonVoided = sortDocuments(documents.filter((doc) => doc.status !== "voided"));
   return (
-    nonVoided.find((doc) => doc.doc_type === "receipt" && ["generated", "paid", "issued"].includes(doc.status)) ||
-    nonVoided.find((doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status)) ||
-    nonVoided.find((doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status)) ||
+    nonVoided.find(
+      (doc) => doc.doc_type === "receipt" && ["generated", "paid", "issued"].includes(doc.status),
+    ) ||
+    nonVoided.find(
+      (doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status),
+    ) ||
+    nonVoided.find(
+      (doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status),
+    ) ||
     null
   );
 }
 
 function getReceiptDocuments(documents: DealDoc[]) {
   return sortDocuments(documents).filter(
-    (doc) => doc.status !== "voided" && doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status),
+    (doc) =>
+      doc.status !== "voided" &&
+      doc.doc_type === "receipt" &&
+      ["generated", "issued", "paid"].includes(doc.status),
   );
 }
 
@@ -305,7 +296,8 @@ function isCombinedDeal(deal: DashboardDeal) {
   return Boolean(deal.billedIn);
 }
 
-function isDealDone(documents: DealDoc[], billingHeldIds?: Set<string>) {  const nonVoided = documents.filter((doc) => doc.status !== "voided");
+function isDealDone(documents: DealDoc[], billingHeldIds?: Set<string>) {
+  const nonVoided = documents.filter((doc) => doc.status !== "voided");
   if (nonVoided.length === 0) return true;
   const downstreamQuotes = getQuotationsWithDownstream(nonVoided);
   return nonVoided.every(
@@ -321,10 +313,14 @@ function isDealDone(documents: DealDoc[], billingHeldIds?: Set<string>) {  const
 
 function getDealReceivedAmount(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
-  const receipts = nonVoided.filter((doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status));
+  const receipts = nonVoided.filter(
+    (doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status),
+  );
   const receiptReceived = receipts.reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
   const billingReceived = nonVoided
-    .filter((doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status))
+    .filter(
+      (doc) => doc.doc_type === "billing_note" && ["paid", "partially_paid"].includes(doc.status),
+    )
     .reduce((sum, doc) => sum + (doc.amount_received || 0), 0);
   const invoiceReceived = nonVoided
     .filter((doc) => doc.doc_type === "invoice" && ["paid", "partially_paid"].includes(doc.status))
@@ -376,62 +372,42 @@ function compareActiveDeals(a: DashboardDeal, b: DashboardDeal) {
 function getNextActionLabel(doc: DealDoc | null) {
   if (!doc) return "";
   if (isOverdueDocument(doc)) return "เกินกำหนด — บันทึกรับเงิน →";
-  if (doc.doc_type === "receipt" && doc.status === "draft")
-    return "ยืนยันการรับเงิน →";
-  if (doc.doc_type === "quotation" && doc.status === "draft")
-    return "ส่งใบเสนอราคาให้ลูกค้า →";
-  if (doc.doc_type === "quotation" && doc.status === "sent")
-    return "ลูกค้าตกลงแล้ว? สร้างบิลต่อ →";
-  if (doc.doc_type === "invoice" && doc.status === "draft")
-    return "ส่งใบแจ้งหนี้ให้ลูกค้า →";
-  if (doc.doc_type === "invoice" && doc.status === "sent")
-    return "สร้างใบวางบิล →";
-  if (doc.doc_type === "delivery_note" && doc.status === "draft")
-    return "บันทึกว่าส่งของแล้ว →";
-  if (doc.doc_type === "delivery_note" && doc.status === "sent")
-    return "สร้างบิลจากใบส่งของ →";
-  if (doc.doc_type === "billing_note" && doc.status === "draft")
-    return "ส่งใบวางบิลให้ลูกค้า →";
-  if (doc.doc_type === "billing_note" && doc.status === "sent")
-    return "บันทึกรับเงิน →";
+  if (doc.doc_type === "receipt" && doc.status === "draft") return "ยืนยันการรับเงิน →";
+  if (doc.doc_type === "quotation" && doc.status === "draft") return "ส่งใบเสนอราคาให้ลูกค้า →";
+  if (doc.doc_type === "quotation" && doc.status === "sent") return "ลูกค้าตกลงแล้ว? สร้างบิลต่อ →";
+  if (doc.doc_type === "invoice" && doc.status === "draft") return "ส่งใบแจ้งหนี้ให้ลูกค้า →";
+  if (doc.doc_type === "invoice" && doc.status === "sent") return "สร้างใบวางบิล →";
+  if (doc.doc_type === "delivery_note" && doc.status === "draft") return "บันทึกว่าส่งของแล้ว →";
+  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "สร้างบิลจากใบส่งของ →";
+  if (doc.doc_type === "billing_note" && doc.status === "draft") return "ส่งใบวางบิลให้ลูกค้า →";
+  if (doc.doc_type === "billing_note" && doc.status === "sent") return "บันทึกรับเงิน →";
   return "";
 }
 
 function getDnWaitingForInvoice(documents: DealDoc[]) {
-  return documents.filter(
-    (doc) => doc.doc_type === "delivery_note" && doc.status === "sent",
-  );
+  return documents.filter((doc) => doc.doc_type === "delivery_note" && doc.status === "sent");
 }
 
 function getBillingWaitingForPayment(documents: DealDoc[]) {
   return documents.filter(
-    (doc) =>
-      doc.doc_type === "billing_note" &&
-      (doc.status === "sent" || doc.status === "overdue"),
+    (doc) => doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue"),
   );
 }
 
 function getQuotationDeliveryProgress(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
-  const quote = [...nonVoided]
-    .reverse()
-    .find((doc) => doc.doc_type === "quotation");
+  const quote = [...nonVoided].reverse().find((doc) => doc.doc_type === "quotation");
   if (!quote?.line_items?.length) return null;
 
   const deliveredByQuoteLine = new Map<string, number>();
   for (const doc of nonVoided) {
-    if (
-      doc.doc_type !== "delivery_note" ||
-      (doc.status !== "sent" && doc.status !== "converted")
-    )
+    if (doc.doc_type !== "delivery_note" || (doc.status !== "sent" && doc.status !== "converted"))
       continue;
     for (const line of doc.line_items || []) {
-      if (line.source_document_id !== quote.id || !line.source_line_item_id)
-        continue;
+      if (line.source_document_id !== quote.id || !line.source_line_item_id) continue;
       deliveredByQuoteLine.set(
         line.source_line_item_id,
-        (deliveredByQuoteLine.get(line.source_line_item_id) || 0) +
-          line.quantity,
+        (deliveredByQuoteLine.get(line.source_line_item_id) || 0) + line.quantity,
       );
     }
   }
@@ -510,10 +486,7 @@ function getStageInfo(
     const draftCount = documents.filter((doc) => doc.status === "draft").length;
     return {
       stageLabel: label,
-      stageHint:
-        draftCount > 1
-          ? `ฉบับร่าง • มี ${draftCount} ร่างค้าง`
-          : "ฉบับร่าง",
+      stageHint: draftCount > 1 ? `ฉบับร่าง • มี ${draftCount} ร่างค้าง` : "ฉบับร่าง",
       queue: "wait_send" as HomeQueue,
     };
   }
@@ -555,12 +528,7 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
   const paidAt = getCompletedAt(deal.documents || []);
   const isDone = isDealDone(deal.documents || [], billingHeldIds);
   const isOverdue = isOverdueDocument(latestDocument);
-  const stageInfo = getStageInfo(
-    deal.documents || [],
-    latestDocument,
-    isDone,
-    isOverdue,
-  );
+  const stageInfo = getStageInfo(deal.documents || [], latestDocument, isDone, isOverdue);
 
   // Officer-pinned stage wins over the derived stage, except completion which
   // is factual (derived from document state) and always takes precedence.
@@ -575,10 +543,8 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
     isStageManual = true;
   }
 
-  const latestNote =
-    (deal.notes || []).length > 0 ? deal.notes![0].content : "";
-  const latestNoteRole =
-    (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
+  const latestNote = (deal.notes || []).length > 0 ? deal.notes![0].content : "";
+  const latestNoteRole = (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
 
   const amountReceived = getDealReceivedAmount(deal.documents || []);
   const grossAmount = amountDocument?.total_amount ?? amountDocument?.net_payable ?? 0;
@@ -586,20 +552,21 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
   const expectedWhtAmount = amountDocument?.wht_amount ?? 0;
   // Adjustment notes reconcile on their NET amounts (gross incl. VAT minus the
   // WHT they release), same basis as the invoice — shared with the deal page.
-  const adjustmentSummary = computeDealFinancialSummary(deal.documents || [], amountDocument ?? null);
+  const adjustmentSummary = computeDealFinancialSummary(
+    deal.documents || [],
+    amountDocument ?? null,
+  );
   const outstandingAmount = adjustmentSummary.outstanding;
   const customerCredit = adjustmentSummary.customerCredit;
   const receiptCount = getReceiptDocuments(deal.documents || []).length;
   const partialReceived = amountReceived;
   const isPartiallyPaid = (deal.documents || []).some((d) => d.status === "partially_paid");
 
-  const taxDoc = (deal.documents || []).find(
-    (d) => d.doc_type === "invoice",
-  ) || null;
+  const taxDoc = (deal.documents || []).find((d) => d.doc_type === "invoice") || null;
   const taxDocNumber = taxDoc?.doc_number || null;
 
-  const isAllVoided = (deal.documents || []).length > 0 &&
-    (deal.documents || []).every((d) => d.status === "voided");
+  const isAllVoided =
+    (deal.documents || []).length > 0 && (deal.documents || []).every((d) => d.status === "voided");
 
   return {
     dealId: deal.id,
@@ -633,10 +600,8 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
     // Most recent activity across the deal itself and any of its documents, so
     // editing the deal (without touching documents) still surfaces it on top.
     updatedAt:
-      [deal.updated_at, latestDocument?.updated_at]
-        .filter(Boolean)
-        .sort()
-        .slice(-1)[0] || deal.updated_at,
+      [deal.updated_at, latestDocument?.updated_at].filter(Boolean).sort().slice(-1)[0] ||
+      deal.updated_at,
     dueDate: latestDocument?.due_date || null,
     paidAt,
     latestDocument,
@@ -648,7 +613,9 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
     nextActionLabel: getNextActionLabel(latestDocument),
     internalNote: latestNote,
     noteAuthorRole: latestNoteRole,
-    docTypeLabel: latestDocument?.doc_type ? (DOC_TYPE_LABELS[latestDocument.doc_type]?.th || latestDocument.doc_type) : "",
+    docTypeLabel: latestDocument?.doc_type
+      ? DOC_TYPE_LABELS[latestDocument.doc_type]?.th || latestDocument.doc_type
+      : "",
     partialReceived,
     isPartiallyPaid,
     taxDocNumber,
@@ -722,21 +689,8 @@ export default function HomePage() {
     window.localStorage.setItem("home.done.month", doneMonth);
     window.localStorage.setItem("home.done.hideCombined", hideCombinedDone ? "1" : "0");
   }, [doneSort, doneYear, doneMonth, hideCombinedDone]);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "table";
-    const stored = window.localStorage.getItem("homeViewMode");
-    return stored === "list" || stored === "grid" || stored === "table"
-      ? stored
-      : "table";
-  });
   const [pullDistance, setPullDistance] = useState(0);
-
-  useEffect(() => {
-    window.localStorage.setItem("homeViewMode", viewMode);
-  }, [viewMode]);
-  const [showNudge, setShowNudge] = useState<
-    "profile" | "customer" | "items" | null
-  >(null);
+  const [showNudge, setShowNudge] = useState<"profile" | "customer" | "items" | null>(null);
   const [nudgesLoaded, setNudgesLoaded] = useState(false);
 
   const touchStartY = useRef<number | null>(null);
@@ -770,10 +724,16 @@ export default function HomePage() {
     const docIdToSource = new Map<string, { dealId: string; dealNumber: string | null }>();
     for (const deal of dealsWithRelations) {
       for (const doc of deal.documents || []) {
-        docIdToSource.set(doc.id, { dealId: deal.id, dealNumber: (deal as any).deal_number ?? null });
+        docIdToSource.set(doc.id, {
+          dealId: deal.id,
+          dealNumber: (deal as any).deal_number ?? null,
+        });
       }
     }
-    const sourceDealsByRunDeal = new Map<string, Array<{ dealId: string; dealNumber: string | null }>>();
+    const sourceDealsByRunDeal = new Map<
+      string,
+      Array<{ dealId: string; dealNumber: string | null }>
+    >();
     for (const [docId, ref] of billingRefs) {
       const source = docIdToSource.get(docId);
       if (!source || source.dealId === ref.dealId) continue;
@@ -864,14 +824,13 @@ export default function HomePage() {
                 .in("document_id", docIds)
                 .order("sort_order", { ascending: true })
             : Promise.resolve({ data: [] as DocumentLineItem[] }),
-          fetchWorkspaceBillingRefs(userId).catch(
-            () => new Map<string, BillingRef>(),
-          ),
+          fetchWorkspaceBillingRefs(userId).catch(() => new Map<string, BillingRef>()),
         ]);
         if (dashboardRequestId.current !== requestId) return;
 
         const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
-        for (const item of ((lineItemsRes as { data?: DocumentLineItem[] }).data || []) as DocumentLineItem[]) {
+        for (const item of ((lineItemsRes as { data?: DocumentLineItem[] }).data ||
+          []) as DocumentLineItem[]) {
           const current = lineItemsByDoc.get(item.document_id) || [];
           current.push(item);
           lineItemsByDoc.set(item.document_id, current);
@@ -902,14 +861,14 @@ export default function HomePage() {
     let cancelled = false;
     const run = async () => {
       try {
-        const dismissed = JSON.parse(
-          localStorage.getItem("nudges_dismissed") || "{}",
-        ) as Record<string, boolean>;
+        const dismissed = JSON.parse(localStorage.getItem("nudges_dismissed") || "{}") as Record<
+          string,
+          boolean
+        >;
 
         if (clientProfile.company_name_th && !dismissed.profile) {
           const missingProfile =
-            !clientProfile.address ||
-            (clientProfile.vat_registered && !clientProfile.tax_id);
+            !clientProfile.address || (clientProfile.vat_registered && !clientProfile.tax_id);
           if (missingProfile) {
             if (!cancelled) {
               setShowNudge("profile");
@@ -944,7 +903,7 @@ export default function HomePage() {
         if (cancelled) return;
         if (needCustomers && (customersRes.count ?? 0) === 0) {
           setShowNudge("customer");
-        } else if (needItems && ((itemsRes.count ?? 0) < 3)) {
+        } else if (needItems && (itemsRes.count ?? 0) < 3) {
           const accountAge = clientProfile.created_at
             ? Date.now() - new Date(clientProfile.created_at).getTime()
             : 0;
@@ -957,17 +916,17 @@ export default function HomePage() {
     };
     const schedule =
       typeof window !== "undefined" && "requestIdleCallback" in window
-        ? (window as Window & { requestIdleCallback: (cb: () => void) => number })
-            .requestIdleCallback(run)
+        ? (
+            window as Window & { requestIdleCallback: (cb: () => void) => number }
+          ).requestIdleCallback(run)
         : setTimeout(run, 0);
     return () => {
       cancelled = true;
       if (typeof schedule === "number") {
-        if (
-          typeof window !== "undefined" &&
-          "cancelIdleCallback" in window
-        ) {
-          (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(schedule);
+        if (typeof window !== "undefined" && "cancelIdleCallback" in window) {
+          (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(
+            schedule,
+          );
         } else {
           clearTimeout(schedule);
         }
@@ -976,9 +935,10 @@ export default function HomePage() {
   }, [userId, clientProfile, loading, nudgesLoaded]);
 
   function handleDismissNudge(type: string) {
-    const dismissed = JSON.parse(
-      localStorage.getItem("nudges_dismissed") || "{}",
-    ) as Record<string, boolean>;
+    const dismissed = JSON.parse(localStorage.getItem("nudges_dismissed") || "{}") as Record<
+      string,
+      boolean
+    >;
     dismissed[type] = true;
     localStorage.setItem("nudges_dismissed", JSON.stringify(dismissed));
     setShowNudge(null);
@@ -1005,8 +965,7 @@ export default function HomePage() {
         }
         if (deal.queue === "wait_send") {
           acc.waitSendCount += 1;
-          if (deal.latestDocument?.doc_type === "invoice")
-            acc.waitSendInvoiceCount += 1;
+          if (deal.latestDocument?.doc_type === "invoice") acc.waitSendInvoiceCount += 1;
         }
         return acc;
       },
@@ -1026,10 +985,7 @@ export default function HomePage() {
   }, [deals]);
 
   const activeDealsAll = useMemo(
-    () =>
-      deals
-        .filter((deal) => !deal.isDone)
-        .sort(compareActiveDeals),
+    () => deals.filter((deal) => !deal.isDone).sort(compareActiveDeals),
     [deals],
   );
 
@@ -1039,10 +995,7 @@ export default function HomePage() {
         .filter((deal) => {
           if (homeFilter === "all") return true;
           if (homeFilter === "wait_send_invoice") {
-            return (
-              deal.queue === "wait_send" &&
-              deal.latestDocument?.doc_type === "invoice"
-            );
+            return deal.queue === "wait_send" && deal.latestDocument?.doc_type === "invoice";
           }
           return deal.queue === homeFilter;
         })
@@ -1058,21 +1011,23 @@ export default function HomePage() {
     [activeDealsAll, homeFilter, debouncedSearch],
   );
 
-  type DealSortKey = "customerName" | "stageLabel" | "createdAt" | "updatedAt" | "grossAmount" | "netPayable" | "whtAmount";
+  type DealSortKey =
+    | "customerName"
+    | "stageLabel"
+    | "createdAt"
+    | "updatedAt"
+    | "grossAmount"
+    | "netPayable"
+    | "whtAmount";
   const dealSort = useTableSort<DashboardDeal, DealSortKey>(activeDeals, {
     key: "updatedAt",
     dir: "desc",
   });
 
-  // Visible slice of the (sorted) active queue — table slices after sort,
-  // list/grid slice before map. Keeps the DOM to ~30 heavy rows.
-  const visibleActiveDeals = useMemo(
-    () => activeDeals.slice(0, activeVisibleCount),
-    [activeDeals, activeVisibleCount],
-  );
+  // Visible slice of the sorted active queue — keeps the DOM to ~30 heavy rows.
   const visibleSortedActiveDeals = useMemo(
     () => dealSort.sorted.slice(0, activeVisibleCount),
-     
+
     [dealSort.sorted, activeVisibleCount],
   );
 
@@ -1098,9 +1053,7 @@ export default function HomePage() {
         if (doneMonth !== "all" && d.slice(5, 7) !== doneMonth) return false;
         return true;
       })
-      .sort((a, b) =>
-        (b[sortKey] || "").localeCompare(a[sortKey] || ""),
-      );
+      .sort((a, b) => (b[sortKey] || "").localeCompare(a[sortKey] || ""));
   }, [deals, debouncedSearch, doneSort, doneYear, doneMonth, hideCombinedDone]);
 
   const doneYearOptions = useMemo(() => {
@@ -1117,7 +1070,10 @@ export default function HomePage() {
   }, [deals, hideCombinedDone]);
 
   const hasAnyDone = useMemo(
-    () => deals.some((deal) => deal.isDone && !deal.isEmpty && !(hideCombinedDone && isCombinedDeal(deal))),
+    () =>
+      deals.some(
+        (deal) => deal.isDone && !deal.isEmpty && !(hideCombinedDone && isCombinedDeal(deal)),
+      ),
     [deals, hideCombinedDone],
   );
 
@@ -1151,8 +1107,7 @@ export default function HomePage() {
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
     if (!pulling.current || touchStartY.current === null) return;
     const distance = event.touches[0].clientY - touchStartY.current;
-    if (distance > 0 && window.scrollY === 0)
-      setPullDistance(Math.min(distance, 80));
+    if (distance > 0 && window.scrollY === 0) setPullDistance(Math.min(distance, 80));
   };
 
   const handleTouchEnd = async () => {
@@ -1237,10 +1192,7 @@ export default function HomePage() {
           </div>
           <div className="grid grid-cols-3 gap-2">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div
-                key={index}
-                className="rounded-card border border-card-border bg-white p-3"
-              >
+              <div key={index} className="rounded-card border border-card-border bg-white p-3">
                 <Skeleton className="mb-2 h-5 w-16 rounded-control" />
                 <Skeleton className="h-3 w-14 rounded-control" />
               </div>
@@ -1248,7 +1200,7 @@ export default function HomePage() {
           </div>
           <div className="space-y-3">
             {Array.from({
-              length: viewMode === "grid" ? 6 : viewMode === "table" ? 5 : 3,
+              length: 5,
             }).map((_, index) => (
               <Skeleton key={index} className="h-20 rounded-card bg-draft-bg" />
             ))}
@@ -1270,45 +1222,30 @@ export default function HomePage() {
           className="overflow-hidden transition-all"
           style={{
             height:
-              pullDistance > 0 || refreshing
-                ? Math.max(pullDistance, refreshing ? 40 : 0)
-                : 0,
+              pullDistance > 0 || refreshing ? Math.max(pullDistance, refreshing ? 40 : 0) : 0,
           }}
         >
           <div className="flex h-10 items-center justify-center text-ink-500">
-            <RefreshCw
-              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           </div>
         </div>
 
         <HomeTopBar
           greeting={homeTitle}
           subtitle={
-            actionCount === 0
-              ? "ไม่มีงานค้างในวันนี้"
-              : `วันนี้มี ${actionCount} รายการรอดำเนินการ`
+            actionCount === 0 ? "ไม่มีงานค้างในวันนี้" : `วันนี้มี ${actionCount} รายการรอดำเนินการ`
           }
           isAllClear={actionCount === 0}
           onNewDeal={() => setNewSheetOpen(true)}
         />
 
-        <div className="flex justify-end">
-          <ViewToggle value={viewMode} onChange={setViewMode} />
-        </div>
-
         {showNudge && (
-          <HomeNudgeBanner
-            type={showNudge}
-            onDismiss={() => handleDismissNudge(showNudge)}
-          />
+          <HomeNudgeBanner type={showNudge} onDismiss={() => handleDismissNudge(showNudge)} />
         )}
 
         {error ? (
           <Card className="py-10 text-center">
-            <div className="text-body font-medium text-ink-700">
-              โหลดข้อมูลไม่สำเร็จ
-            </div>
+            <div className="text-body font-medium text-ink-700">โหลดข้อมูลไม่สำเร็จ</div>
             <button
               className="mt-3 text-body text-primary hover:underline"
               onClick={() => fetchDashboard()}
@@ -1320,11 +1257,7 @@ export default function HomePage() {
           <EmptyState
             title="เริ่มต้นใช้งาน"
             description="เริ่มต้นด้วยงานขายแรกของคุณ"
-            action={
-              <Button onClick={() => setNewSheetOpen(true)}>
-                เริ่มงานขายแรก
-              </Button>
-            }
+            action={<Button onClick={() => setNewSheetOpen(true)}>เริ่มงานขายแรก</Button>}
           />
         ) : (
           <>
@@ -1340,7 +1273,10 @@ export default function HomePage() {
                   type="text"
                   placeholder="ค้นหาตามชื่อลูกค้า เลขที่ หรือรหัส..."
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setDonePage(1); }}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setDonePage(1);
+                  }}
                   className="w-full rounded-control border border-card-border bg-white pl-9 pr-3 py-2 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
@@ -1353,13 +1289,9 @@ export default function HomePage() {
                   <div className="text-label font-semibold text-ink-500">
                     {homeFilter === "all"
                       ? "กำลังดำเนินการ"
-                      : quickFilters.find(
-                          (filter) => filter.value === homeFilter,
-                        )?.label}
+                      : quickFilters.find((filter) => filter.value === homeFilter)?.label}
                   </div>
-                  <div className="ml-auto text-label text-ink-400">
-                    {activeDeals.length} รายการ
-                  </div>
+                  <div className="ml-auto text-label text-ink-400">{activeDeals.length} รายการ</div>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {quickFilters.map((filter) => (
@@ -1367,12 +1299,10 @@ export default function HomePage() {
                       key={filter.value}
                       type="button"
                       onClick={() => setHomeFilter(filter.value)}
-                      className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${ homeFilter === filter.value ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field" }`}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${homeFilter === filter.value ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
                     >
                       {filter.label}
-                      <span className="ml-1 text-label opacity-70">
-                        {filter.count}
-                      </span>
+                      <span className="ml-1 text-label opacity-70">{filter.count}</span>
                     </button>
                   ))}
                 </div>
@@ -1383,78 +1313,22 @@ export default function HomePage() {
                   title="ยังไม่มีรายการในคิวนี้"
                   description="ลองเปลี่ยนตัวกรอง หรือกด “สร้างงานขายใหม่” เพื่อเริ่มงาน"
                 />
-              ) : viewMode === "grid" ? (
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {visibleActiveDeals.map((deal) => {
-                    const gridAvatar = deal.customerAvatar ?? {
-                      name: deal.customerName,
-                      avatar_initials: null,
-                      avatar_color: null,
-                    };
-                    return (
-                      <Card
-                        key={deal.dealId}
-                        className={`rounded-card border-[0.5px] p-3.5 cursor-pointer flex flex-col gap-2.5 min-h-[130px] ${deal.isOverdue ? "border-l-4 border-l-danger" : ""}`}
-                        onClick={() => navigate(`/deals/${deal.dealId}`)}
-                        onMouseEnter={() => preloadDealDetail(supabase, deal.dealId)}
-                      >
-                        <div className="flex items-start justify-between gap-2.5">
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <CustomerAvatar
-                              customer={gridAvatar}
-                              size="md"
-                              className="mt-0.5"
-                            />
-                            <div className="min-w-0">
-                              <div className="text-body font-semibold text-ink-900 line-clamp-2 leading-tight">
-                                {deal.customerName}
-                              </div>
-                              <div className="mt-0.5 text-label text-ink-300 tabular-nums">
-                                แก้ไข {formatBuddhistDateTime(deal.updatedAt)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-body font-semibold text-ink-900">
-                              ฿ {formatCurrency(deal.netPayable)}
-                            </div>
-                            <span
-                              className={`mt-1 inline-flex rounded-control px-2 py-0.5 text-label font-medium ${QUEUE_COLORS[deal.queue].bg} ${QUEUE_COLORS[deal.queue].text}`}
-                            >
-                              {deal.stageLabel}
-                            </span>
-                            {deal.docTypeLabel && (
-                              <div className="mt-1 text-label text-ink-300">{deal.docTypeLabel}</div>
-                            )}
-                          </div>
-                        </div>
-                        {deal.internalNote ? (
-                          <div className="mt-auto pt-2 border-t border-line-faint text-label text-ink-300 leading-4">
-                            {deal.internalNote}
-                          </div>
-                        ) : null}
-                      </Card>
-                    );
-                  })}
-                </div>
-              ) : viewMode === "table" ? (
-                <div className="bg-white border border-card-border rounded-card overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className={TABLE.table}>
+              ) : (
+                <div className={TABLE.cardWrapper}>
+                  <div className={TABLE.scrollBody}>
+                    <table className={`${TABLE.table} min-w-[760px]`}>
                       <thead>
                         <tr className={TABLE.theadTr}>
-                          <th className={`${TABLE.thStatic} w-[80px]`}>
-                            เลขที่ดีล
-                          </th>
                           <SortableTh
                             label="ลูกค้า"
                             align="left"
                             active={dealSort.sort.key === "customerName"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("customerName")}
-                            className={TABLE.thSortable}
+                            className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[180px]`}
                           />
-                          <th className="px-3 py-2 text-left text-label font-medium text-ink-500 whitespace-nowrap">เอกสารล่าสุด</th>
+                          <th className={`${TABLE.thStatic} w-[84px]`}>เลขที่ดีล</th>
+                          <th className={`${TABLE.thStatic} whitespace-nowrap`}>เอกสารล่าสุด</th>
                           <SortableTh
                             label="สถานะ"
                             align="left"
@@ -1471,18 +1345,14 @@ export default function HomePage() {
                             onClick={() => dealSort.handleSort("updatedAt")}
                             className={TABLE.thSortable}
                           />
-                          <th
-                            className={`${TABLE.thStatic} hidden sm:table-cell`}
-                          >
-                            รายการ
-                          </th>
+                          <th className={TABLE.thStatic}>รายการ</th>
                           <SortableTh
                             label="ยอดรวม"
                             align="right"
                             active={dealSort.sort.key === "grossAmount"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("grossAmount")}
-                            className={`${TABLE.thSortable} hidden md:table-cell min-w-[110px]`}
+                            className={`${TABLE.thSortable} min-w-[110px]`}
                           />
                           <SortableTh
                             label="หัก ณ ที่จ่าย"
@@ -1490,7 +1360,7 @@ export default function HomePage() {
                             active={dealSort.sort.key === "whtAmount"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("whtAmount")}
-                            className={`${TABLE.thSortable} hidden lg:table-cell min-w-[120px]`}
+                            className={`${TABLE.thSortable} min-w-[120px]`}
                           />
                           <SortableTh
                             label="รับสุทธิ"
@@ -1515,44 +1385,44 @@ export default function HomePage() {
                               key={deal.dealId}
                               onClick={() => navigate(`/deals/${deal.dealId}`)}
                               onMouseEnter={() => preloadDealDetail(supabase, deal.dealId)}
-                              className={TABLE.tbodyTr}
+                              className={`${TABLE.tbodyTr} group`}
                             >
-                               <td className="px-3 py-2">
-                                  <div className="text-label text-ink-900 font-medium whitespace-nowrap">
-                                   {deal.dealNumber || "-"}
-                                 </div>
-                                 {deal.taxDocNumber ? (
-                                   <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
-                                     {deal.taxDocNumber}
-                                   </div>
-                                 ) : (
-                                   <div className="text-label text-ink-200 italic mt-0.5 whitespace-nowrap">
-                                     ยังไม่มีใบกำกับภาษี
-                                   </div>
-                                 )}
-                               </td>
-                               <td className="px-3 py-2">
-                                 <div className="flex items-center gap-2 min-w-0">
-                                   <CustomerAvatar
-                                     customer={rowAvatar}
-                                     size="sm"
-                                   />
-                                    <span className="text-ink-900 truncate">
-                                     {deal.customerName}
-                                   </span>
-                                 </div>
-                               </td>
-                               <td className="px-3 py-2 text-ink-500 max-w-[130px] truncate">
-                                 {deal.latestDocument?.doc_number || <span className="text-ink-200 italic">—</span>}
-                               </td>
-                                <td className="px-3 py-2 whitespace-nowrap">
-                                 <div className="flex items-center gap-1.5">
+                              <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <CustomerAvatar customer={rowAvatar} size="sm" />
+                                  <span className="text-ink-900 truncate" title={deal.customerName}>
+                                    {deal.customerName}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 md:py-2">
+                                <div className="text-label text-ink-900 font-medium whitespace-nowrap">
+                                  {deal.dealNumber || "-"}
+                                </div>
+                                {deal.taxDocNumber ? (
+                                  <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
+                                    {deal.taxDocNumber}
+                                  </div>
+                                ) : (
+                                  <div className="text-label text-ink-200 italic mt-0.5 whitespace-nowrap">
+                                    ยังไม่มีใบกำกับภาษี
+                                  </div>
+                                )}
+                              </td>
+                              <td
+                                className="px-3 py-3 md:py-2 text-ink-500 whitespace-nowrap tabular-nums"
+                                title={deal.latestDocument?.doc_number || ""}
+                              >
+                                {deal.latestDocument?.doc_number || (
+                                  <span className="text-ink-200 italic">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 md:py-2 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
                                   <span
                                     className={`w-2 h-2 rounded-full shrink-0 ${QUEUE_COLORS[deal.queue].dot}`}
                                   />
-                                  <span className="text-label text-ink-500">
-                                    {deal.stageLabel}
-                                  </span>
+                                  <span className="text-label text-ink-500">{deal.stageLabel}</span>
                                 </div>
                                 {deal.docTypeLabel && (
                                   <div className="mt-0.5 text-label text-ink-300">
@@ -1566,39 +1436,45 @@ export default function HomePage() {
                                   <div className="text-label">เวลา {updatedAtParts.time}</div>
                                 </div>
                               </td>
-                              <td
-                                className={`${TABLE.tdDimmed} hidden sm:table-cell`}
-                              >
-                                <span className="truncate block max-w-[200px]">
+                              <td className={TABLE.tdDimmed}>
+                                <span
+                                  className="truncate block max-w-[200px]"
+                                  title={
+                                    deal.itemNames?.length
+                                      ? deal.itemNames.slice(0, 2).join(", ")
+                                      : deal.itemSummary
+                                  }
+                                >
                                   {deal.itemNames?.length
                                     ? deal.itemNames.slice(0, 2).join(", ")
                                     : deal.itemSummary}
                                 </span>
                               </td>
-                              <td
-                                className="px-3 py-2 text-right hidden md:table-cell"
-                              >
-                                <span className="text-ink-500 min-w-[100px] inline-block text-right">
+                              <td className="px-3 py-3 md:py-2 text-right">
+                                <span className="text-ink-500 tabular-nums min-w-[100px] inline-block text-right">
                                   ฿ {formatCurrency(deal.grossAmount)}
                                   {deal.isPartiallyPaid && deal.partialReceived > 0 && (
-                                    <div className="text-label text-amber-700 font-medium leading-tight">
+                                    <span className="block text-label text-amber-700 font-medium leading-tight">
                                       รับแล้ว ฿{formatCurrency(deal.partialReceived)}
-                                    </div>
-                                  )}
-                                </span>
-                              </td>
-                              <td className="hidden px-3 py-2 text-right lg:table-cell">
-                                <span className={`inline-block min-w-[100px] text-right ${deal.expectedWhtAmount > 0 ? "text-danger" : "text-ink-300"}`}>
-                                  ฿ {formatCurrency(deal.expectedWhtAmount)}
-                                  {deal.whtAmount > 0 && deal.whtAmount !== deal.expectedWhtAmount && (
-                                    <span className="block text-label font-medium text-amber-700">
-                                      สะสม ฿{formatCurrency(deal.whtAmount)}
                                     </span>
                                   )}
                                 </span>
                               </td>
-                               <td className="px-3 py-2 text-right">
-                                <span className="text-ink-900 min-w-[100px] inline-block text-right">
+                              <td className="px-3 py-3 md:py-2 text-right">
+                                <span
+                                  className={`inline-block tabular-nums min-w-[100px] text-right ${deal.expectedWhtAmount > 0 ? "text-danger" : "text-ink-300"}`}
+                                >
+                                  ฿ {formatCurrency(deal.expectedWhtAmount)}
+                                  {deal.whtAmount > 0 &&
+                                    deal.whtAmount !== deal.expectedWhtAmount && (
+                                      <span className="block text-label font-medium text-amber-700">
+                                        สะสม ฿{formatCurrency(deal.whtAmount)}
+                                      </span>
+                                    )}
+                                </span>
+                              </td>
+                              <td className="px-3 py-3 md:py-2 text-right">
+                                <span className="text-ink-900 tabular-nums font-medium min-w-[100px] inline-block text-right">
                                   ฿ {formatCurrency(deal.netPayable)}
                                 </span>
                               </td>
@@ -1609,45 +1485,12 @@ export default function HomePage() {
                     </table>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {visibleActiveDeals.map((deal) => (
-                    <DealCard
-                      key={deal.dealId}
-                      customerName={deal.customerName}
-                      customerCode={deal.customerCode}
-                      customerAvatar={deal.customerAvatar}
-                      itemSummary={
-                        deal.itemSummary ||
-                        deal.latestDocument?.doc_number ||
-                        DOC_TYPE_LABELS[
-                          deal.latestDocument?.doc_type || "quotation"
-                        ].th
-                      }
-                      itemNames={deal.itemNames}
-                      amountText={`฿ ${formatCurrency(deal.amount)}`}
-                      stageLabel={deal.stageLabel}
-                      stageHint={deal.stageHint}
-                      docTypeLabel={deal.docTypeLabel}
-                      nextActionLabel={deal.nextActionLabel}
-                      internalNote={deal.internalNote}
-                      noteAuthorRole={deal.noteAuthorRole}
-                      isOverdue={deal.isOverdue}
-                      createdAt={deal.createdAt}
-                      updatedAt={deal.updatedAt}
-                      queue={deal.queue}
-                      onTap={() => navigate(`/deals/${deal.dealId}`)}
-                    />
-                  ))}
-                </div>
               )}
               {activeVisibleCount < activeDeals.length && (
                 <div className="mt-3 text-center">
                   <button
                     type="button"
-                    onClick={() =>
-                      setActiveVisibleCount((c) => c + ACTIVE_PAGE_SIZE)
-                    }
+                    onClick={() => setActiveVisibleCount((c) => c + ACTIVE_PAGE_SIZE)}
                     className="rounded-control border border-card-border bg-white px-4 py-2 text-label font-medium text-ink-600 hover:bg-paper-field"
                   >
                     แสดงเพิ่มเติม ({activeDeals.length - activeVisibleCount} รายการ)
@@ -1668,9 +1511,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-label text-ink-400">
-                        {recentlyDone.length} รายการ
-                      </span>
+                      <span className="text-label text-ink-400">{recentlyDone.length} รายการ</span>
                       <button
                         className="text-label text-ink-400 hover:text-ink-600"
                         onClick={() => navigate("/documents?preset=paid")}
@@ -1753,197 +1594,239 @@ export default function HomePage() {
                   </div>
                   {recentlyDone.length > 0 ? (
                     <>
-                      <div className="bg-white border border-card-border rounded-card overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className={`${TABLE.table} table-fixed min-w-[1100px]`}>
-                        <thead>
-                          <tr className={TABLE.theadTr}>
-                            <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ดีล</th>
-                            <th className={TABLE.thStatic}>ลูกค้า</th>
-                            <th className={`${TABLE.thStatic} w-[135px]`}>เลขที่ใบเสร็จ</th>
-                            <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
-                            <th className={`${TABLE.thStatic} w-[140px]`}>แก้ไขล่าสุด</th>
-                            <th className={`${TABLE.thStatic} w-[125px] text-right`}>ยอดรวม</th>
-                            <th className={`${TABLE.thStatic} w-[145px] text-right`}>หัก ณ ที่จ่ายสะสม</th>
-                            <th className={`${TABLE.thStatic} w-[125px] text-right`}>รับสุทธิ</th>
-                            <th className={`${TABLE.thStatic} hidden sm:table-cell`}>รายการ</th>
-                            <th className={`${TABLE.thStatic} w-[185px]`}>เอกสาร</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {paginatedDone.map((deal) => {
-                            const rowAvatar = deal.customerAvatar ?? {
-                              name: deal.customerName,
-                              avatar_initials: null,
-                              avatar_color: null,
-                            };
-                            return (
-                              <tr
-                                key={deal.dealId}
-                                onClick={() => navigate(`/deals/${deal.dealId}`)}
-                                className={TABLE.tbodyTr}
-                              >
-                                 <td className="px-3 py-2">
-                                     <div className="text-label font-mono tabular-nums text-green-500 whitespace-nowrap">
-                                       {deal.dealNumber || "-"}
-                                     </div>
-                                    {deal.taxDocNumber && (
-                                      <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
-                                        {deal.taxDocNumber}
-                                      </div>
-                                    )}
-                                  </td>
-                                <td className="px-3 py-2">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <CustomerAvatar customer={rowAvatar} size="sm" />
-                                    <div className="min-w-0">
-                                         <div className="truncate text-ink-900">
-                                        {deal.customerName}
-                                      </div>
-                                      {deal.customerCode && (
-                                        <div className="text-label font-mono text-primary">{deal.customerCode}</div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </td>
-                                 <td className="px-3 py-2 text-ink-500 whitespace-nowrap font-mono text-label">
-                                   {deal.completedDocNumber ? (
-                                     <>
-                                       <div>{deal.completedDocNumber}</div>
-                                       {deal.receiptCount > 1 && (
-                                         <div className="mt-0.5 font-sans text-label text-ink-400">
-                                           +{deal.receiptCount - 1} ใบเสร็จ
-                                         </div>
-                                       )}
-                                     </>
-                                   ) : (
-                                     <span className="text-ink-200 italic font-sans">—</span>
-                                   )}
-                                 </td>
-                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}>
-                                  {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
-                                </td>
-                                <td className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-label`}>
-                                  {deal.updatedAt
-                                    ? `${formatBuddhistDate(deal.updatedAt)} · ${formatBangkokTime(deal.updatedAt)} น.`
-                                    : "-"}
-                                </td>
-                                  <td className="px-3 py-2 text-right whitespace-nowrap text-ink-900">
-                                    ฿ {formatCurrency(deal.grossAmount)}
-                                 </td>
-                                 <td className="px-3 py-2 text-right whitespace-nowrap">
-                                   <span className={deal.whtAmount > 0 ? "text-danger" : "text-ink-300"}>
-                                     ฿ {formatCurrency(deal.whtAmount)}
-                                   </span>
-                                 </td>
-                                 <td className="px-3 py-2 text-right whitespace-nowrap text-ink-900">
-                                   ฿ {formatCurrency(deal.netPayable)}
-                                 </td>
-                                <td className={`${TABLE.tdDimmed} hidden sm:table-cell max-w-[200px]`}>
-                                  <span className="truncate block">
-                                    {deal.itemNames?.length
-                                      ? deal.itemNames.slice(0, 2).join(", ")
-                                      : deal.itemSummary || "-"}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2">
-                                  {deal.isAllVoided ? (
-                                    <span className="inline-flex rounded-control bg-ink-50 px-2 py-0.5 text-label font-semibold text-ink-500">
-                                      ยกเลิก
-                                    </span>
-                                  ) : (
-                                    <div className="space-y-1">
-                                      <div className="flex flex-wrap gap-1">
-                                        {getDoneDocBadges(deal.documents).map((docType) => (
-                                          <span
-                                            key={docType}
-                                            className={`rounded-control px-1.5 py-0.5 text-label font-semibold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
-                                            title={DOC_TYPE_LABELS[docType]?.th || docType}
-                                          >
-                                            {DOC_TYPE_SHORT[docType] || docType.slice(0, 3).toUpperCase()}
-                                          </span>
-                                        ))}
-                                      </div>
-                                      {deal.billedIn && (
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(`/deals/${deal.billedIn!.dealId}`);
-                                          }}
-                                          className={`inline-flex max-w-full items-center gap-1 rounded-control border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${ invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 hover:bg-amber-100" }`}
-                                          title={
-                                            deal.billedIn.kind === "billing_note"
-                                              ? `งานนี้ถูกวางบิลในใบวางบิลของงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
-                                              : `งานนี้ถูกรวมออกบิลเป็นใบแจ้งหนี้ในงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
-                                          }
-                                        >
-                                          <span
-                                            className={`truncate text-label font-semibold leading-4 ${ invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-emerald-700" : "text-amber-700" }`}
-                                          >
-                                            {deal.billedIn.kind === "billing_note" ? "วางบิลใน" : "ออกบิลใน"} {deal.billedIn.dealNumber || "—"}
-                                          </span>
-                                          <span
-                                            className={`shrink-0 text-label leading-4 ${ invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-emerald-600" : "text-amber-600" }`}
-                                          >
-                                            · {invoicePaymentLabel(deal.billedIn.invoiceStatus)}
-                                          </span>
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </td>
+                      <div className={TABLE.cardWrapper}>
+                        <div className={TABLE.scrollBody}>
+                          <table className={`${TABLE.table} min-w-[900px]`}>
+                            <thead>
+                              <tr className={TABLE.theadTr}>
+                                <th className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[180px]`}>
+                                  ลูกค้า
+                                </th>
+                                <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ดีล</th>
+                                <th className={`${TABLE.thStatic} w-[135px]`}>เลขที่ใบเสร็จ</th>
+                                <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
+                                <th className={`${TABLE.thStatic} w-[140px]`}>แก้ไขล่าสุด</th>
+                                <th className={`${TABLE.thStatic} w-[125px] text-right`}>ยอดรวม</th>
+                                <th className={`${TABLE.thStatic} w-[145px] text-right`}>
+                                  หัก ณ ที่จ่ายสะสม
+                                </th>
+                                <th className={`${TABLE.thStatic} w-[125px] text-right`}>
+                                  รับสุทธิ
+                                </th>
+                                <th className={TABLE.thStatic}>รายการ</th>
+                                <th className={`${TABLE.thStatic} w-[185px]`}>เอกสาร</th>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  {totalDonePages > 1 && (
-                    <div className="flex items-center justify-center gap-1 mt-3">
-                      <button
-                        className="px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30"
-                        disabled={donePage === 1}
-                        onClick={() => setDonePage((p) => Math.max(1, p - 1))}
-                      >
-                        ←
-                      </button>
-                      {Array.from({ length: totalDonePages }, (_, i) => i + 1)
-                        .filter((p) => {
-                          if (totalDonePages <= 7) return true;
-                          if (p === 1 || p === totalDonePages) return true;
-                          if (Math.abs(p - donePage) <= 1) return true;
-                          return false;
-                        })
-                        .reduce<(number | "...")[]>((acc, p, idx, arr) => {
-                          if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
-                          acc.push(p);
-                          return acc;
-                        }, [])
-                        .map((p, i) =>
-                          p === "..." ? (
-                            <span key={`dots-${i}`} className="px-1 text-label text-ink-300">…</span>
-                          ) : (
-                            <button
-                              key={p}
-                              className={`min-w-9 px-1 py-1.5 text-label rounded ${ donePage === p ? "bg-primary text-white font-medium" : "text-ink-500 hover:bg-ink-50" }`}
-                              onClick={() => setDonePage(p)}
-                            >
-                              {p}
-                            </button>
-                          ),
-                        )}
-                      <button
-                        className="px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30"
-                        disabled={donePage === totalDonePages}
-                        onClick={() => setDonePage((p) => Math.min(totalDonePages, p + 1))}
-                      >
-                        →
-                      </button>
-                    </div>
-                  )}
-                  </>
+                            </thead>
+                            <tbody>
+                              {paginatedDone.map((deal) => {
+                                const rowAvatar = deal.customerAvatar ?? {
+                                  name: deal.customerName,
+                                  avatar_initials: null,
+                                  avatar_color: null,
+                                };
+                                const doneUpdatedParts = deal.updatedAt
+                                  ? formatBuddhistDateTimeParts(deal.updatedAt)
+                                  : null;
+                                return (
+                                  <tr
+                                    key={deal.dealId}
+                                    onClick={() => navigate(`/deals/${deal.dealId}`)}
+                                    className={`${TABLE.tbodyTr} group`}
+                                  >
+                                    <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <CustomerAvatar customer={rowAvatar} size="sm" />
+                                        <div className="min-w-0">
+                                          <div
+                                            className="truncate text-ink-900"
+                                            title={deal.customerName}
+                                          >
+                                            {deal.customerName}
+                                          </div>
+                                          {deal.customerCode && (
+                                            <div className="text-label font-mono text-primary">
+                                              {deal.customerCode}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-3 md:py-2">
+                                      <div className="text-label text-ink-900 font-medium whitespace-nowrap">
+                                        {deal.dealNumber || "-"}
+                                      </div>
+                                      {deal.taxDocNumber && (
+                                        <div className="text-label text-ink-300 mt-0.5 whitespace-nowrap">
+                                          {deal.taxDocNumber}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-3 py-2 text-ink-500 whitespace-nowrap font-mono text-label">
+                                      {deal.completedDocNumber ? (
+                                        <>
+                                          <div>{deal.completedDocNumber}</div>
+                                          {deal.receiptCount > 1 && (
+                                            <div className="mt-0.5 font-sans text-label text-ink-400">
+                                              +{deal.receiptCount - 1} ใบเสร็จ
+                                            </div>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="text-ink-200 italic font-sans">—</span>
+                                      )}
+                                    </td>
+                                    <td
+                                      className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}
+                                    >
+                                      {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
+                                    </td>
+                                    <td
+                                      className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-label`}
+                                    >
+                                      {doneUpdatedParts ? (
+                                        <span className="tabular-nums leading-tight">
+                                          <span className="block">{doneUpdatedParts.date}</span>
+                                          <span className="block text-label">
+                                            เวลา {doneUpdatedParts.time}
+                                          </span>
+                                        </span>
+                                      ) : (
+                                        "-"
+                                      )}
+                                    </td>
+                                    <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums text-ink-500">
+                                      ฿ {formatCurrency(deal.grossAmount)}
+                                    </td>
+                                    <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums">
+                                      <span
+                                        className={
+                                          deal.whtAmount > 0 ? "text-danger" : "text-ink-300"
+                                        }
+                                      >
+                                        ฿ {formatCurrency(deal.whtAmount)}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-3 md:py-2 text-right whitespace-nowrap tabular-nums font-medium text-ink-900">
+                                      ฿ {formatCurrency(deal.netPayable)}
+                                    </td>
+                                    <td className={`${TABLE.tdDimmed} max-w-[200px]`}>
+                                      <span
+                                        className="truncate block"
+                                        title={
+                                          deal.itemNames?.length
+                                            ? deal.itemNames.slice(0, 2).join(", ")
+                                            : deal.itemSummary || "-"
+                                        }
+                                      >
+                                        {deal.itemNames?.length
+                                          ? deal.itemNames.slice(0, 2).join(", ")
+                                          : deal.itemSummary || "-"}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {deal.isAllVoided ? (
+                                        <span className="inline-flex rounded-control bg-ink-50 px-2 py-0.5 text-label font-semibold text-ink-500">
+                                          ยกเลิก
+                                        </span>
+                                      ) : (
+                                        <div className="space-y-1">
+                                          <div className="flex flex-wrap gap-1">
+                                            {getDoneDocBadges(deal.documents).map((docType) => (
+                                              <span
+                                                key={docType}
+                                                className={`rounded-control px-1.5 py-0.5 text-label font-semibold ${DOC_TYPE_COLORS[docType]?.bg} ${DOC_TYPE_COLORS[docType]?.text}`}
+                                                title={DOC_TYPE_LABELS[docType]?.th || docType}
+                                              >
+                                                {DOC_TYPE_SHORT[docType] ||
+                                                  docType.slice(0, 3).toUpperCase()}
+                                              </span>
+                                            ))}
+                                          </div>
+                                          {deal.billedIn && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/deals/${deal.billedIn!.dealId}`);
+                                              }}
+                                              className={`inline-flex max-w-full items-center gap-1 rounded-control border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 hover:bg-amber-100"}`}
+                                              title={
+                                                deal.billedIn.kind === "billing_note"
+                                                  ? `งานนี้ถูกวางบิลในใบวางบิลของงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
+                                                  : `งานนี้ถูกรวมออกบิลเป็นใบแจ้งหนี้ในงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
+                                              }
+                                            >
+                                              <span
+                                                className={`truncate text-label font-semibold leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-emerald-700" : "text-amber-700"}`}
+                                              >
+                                                {deal.billedIn.kind === "billing_note"
+                                                  ? "วางบิลใน"
+                                                  : "ออกบิลใน"}{" "}
+                                                {deal.billedIn.dealNumber || "—"}
+                                              </span>
+                                              <span
+                                                className={`shrink-0 text-label leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-emerald-600" : "text-amber-600"}`}
+                                              >
+                                                · {invoicePaymentLabel(deal.billedIn.invoiceStatus)}
+                                              </span>
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      {totalDonePages > 1 && (
+                        <div className="flex items-center justify-center gap-1 mt-3">
+                          <button
+                            className="px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30"
+                            disabled={donePage === 1}
+                            onClick={() => setDonePage((p) => Math.max(1, p - 1))}
+                          >
+                            ←
+                          </button>
+                          {Array.from({ length: totalDonePages }, (_, i) => i + 1)
+                            .filter((p) => {
+                              if (totalDonePages <= 7) return true;
+                              if (p === 1 || p === totalDonePages) return true;
+                              if (Math.abs(p - donePage) <= 1) return true;
+                              return false;
+                            })
+                            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                              acc.push(p);
+                              return acc;
+                            }, [])
+                            .map((p, i) =>
+                              p === "..." ? (
+                                <span key={`dots-${i}`} className="px-1 text-label text-ink-300">
+                                  …
+                                </span>
+                              ) : (
+                                <button
+                                  key={p}
+                                  className={`min-w-9 px-1 py-1.5 text-label rounded ${donePage === p ? "bg-primary text-white font-medium" : "text-ink-500 hover:bg-ink-50"}`}
+                                  onClick={() => setDonePage(p)}
+                                >
+                                  {p}
+                                </button>
+                              ),
+                            )}
+                          <button
+                            className="px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30"
+                            disabled={donePage === totalDonePages}
+                            onClick={() => setDonePage((p) => Math.min(totalDonePages, p + 1))}
+                          >
+                            →
+                          </button>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <div className="rounded-card border border-card-border bg-white p-8">
                       <EmptyState

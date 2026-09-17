@@ -1,14 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowRight, ChevronDown, MoreVertical, RotateCcw, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  ChevronDown,
+  MoreVertical,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Badge } from "../../../components/ui/Badge";
-import { ViewToggle } from "../../../components/ui/ViewToggle";
-import type { ViewMode } from "../../../components/ui/ViewToggle";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { NewDealSheet } from "../../../components/home/NewDealSheet";
@@ -24,10 +29,22 @@ import type { Customer, Deal, Document, DocumentLineItem } from "../../../types"
 import { getWorkspacePermissions } from "../../../lib/permissions";
 
 const AVATAR_PRESET_COLORS = [
-  "#378ADD", "#C2410C", "#1E7E34", "#B45309",
-  "#7C3AED", "#BE185D", "#0F766E", "#1565C0",
-  "#DC2626", "#EA580C", "#CA8A04", "#16A34A",
-  "#0891B2", "#9333EA", "#DB2777", "#475569",
+  "#378ADD",
+  "#C2410C",
+  "#1E7E34",
+  "#B45309",
+  "#7C3AED",
+  "#BE185D",
+  "#0F766E",
+  "#1565C0",
+  "#DC2626",
+  "#EA580C",
+  "#CA8A04",
+  "#16A34A",
+  "#0891B2",
+  "#9333EA",
+  "#DB2777",
+  "#475569",
   "#FFFFFF",
 ];
 
@@ -57,7 +74,8 @@ function getRangeBounds(preset: RangePreset, today: string): { from: string; to:
   return { from: addDaysString(today, -365), to };
 }
 
-type DealStage = "draft" | "waiting" | "pending_payment" | "partial" | "overdue" | "paid" | "voided";
+type DealStage =
+  "draft" | "waiting" | "pending_payment" | "partial" | "overdue" | "paid" | "voided";
 
 const STAGE_LABELS: Record<DealStage, string> = {
   draft: "ร่าง",
@@ -90,7 +108,6 @@ type DealHistoryItem = {
   latestDate: string;
 };
 
-const DEAL_HISTORY_VIEW_STORAGE_KEY = "customer_deal_history_view";
 const SALES_JOB_DOCUMENT_TYPES = new Set(["quotation", "invoice", "delivery_note"]);
 
 const REP_DOC_PRIORITY: Record<string, number> = {
@@ -109,7 +126,8 @@ function getDealStage(docs: Document[]): DealStage {
   if (nonVoided.some((d) => d.status === "partially_paid")) return "partial";
 
   // Converted source documents are resolved and must not keep a paid deal active.
-  if (nonVoided.every((d) => ["paid", "converted", "generated", "issued"].includes(d.status))) return "paid";
+  if (nonVoided.every((d) => ["paid", "converted", "generated", "issued"].includes(d.status)))
+    return "paid";
 
   const billingNotes = nonVoided.filter((d) => d.doc_type === "billing_note");
   const hasBillingNote = billingNotes.length > 0;
@@ -117,11 +135,13 @@ function getDealStage(docs: Document[]): DealStage {
   // Once invoices are bundled into a billing note, the billing note is the
   // collection source of truth rather than the original invoice status.
   if (hasBillingNote) {
-    if (billingNotes.every((d) => ["paid", "converted", "generated", "issued"].includes(d.status))) return "paid";
+    if (billingNotes.every((d) => ["paid", "converted", "generated", "issued"].includes(d.status)))
+      return "paid";
     if (billingNotes.some((d) => d.status === "sent")) return "pending_payment";
   }
 
-  const hasSentInvoice = !hasBillingNote && nonVoided.some((d) => d.doc_type === "invoice" && d.status === "sent");
+  const hasSentInvoice =
+    !hasBillingNote && nonVoided.some((d) => d.doc_type === "invoice" && d.status === "sent");
 
   if (hasSentInvoice) return "waiting";
 
@@ -131,7 +151,9 @@ function getDealStage(docs: Document[]): DealStage {
 function pickRepresentativeDoc(deal: DealWithDocs): Document | null {
   const docs = (deal.documents || []).filter((d) => d.status !== "voided");
   if (docs.length === 0) return null;
-  return [...docs].sort((a, b) => (REP_DOC_PRIORITY[b.doc_type] || 0) - (REP_DOC_PRIORITY[a.doc_type] || 0))[0];
+  return [...docs].sort(
+    (a, b) => (REP_DOC_PRIORITY[b.doc_type] || 0) - (REP_DOC_PRIORITY[a.doc_type] || 0),
+  )[0];
 }
 
 function isDealConsideredDone(docs: Document[]): boolean {
@@ -147,7 +169,9 @@ function getSortedDocs(deal: DealWithDocs) {
 
 function hasSalesJobDocument(deal: DealWithDocs) {
   return (deal.documents || []).some(
-    (doc) => SALES_JOB_DOCUMENT_TYPES.has(doc.doc_type) && !["voided", "draft", "converted"].includes(doc.status),
+    (doc) =>
+      SALES_JOB_DOCUMENT_TYPES.has(doc.doc_type) &&
+      !["voided", "draft", "converted"].includes(doc.status),
   );
 }
 
@@ -173,9 +197,8 @@ function getDealReceived(docs: Document[]) {
 function getDealOutstanding(docs: Document[]) {
   const nonVoided = docs.filter((doc) => doc.status !== "voided");
   const billingNotes = nonVoided.filter((doc) => doc.doc_type === "billing_note");
-  const collectionDocs = billingNotes.length > 0
-    ? billingNotes
-    : nonVoided.filter((doc) => doc.doc_type === "invoice");
+  const collectionDocs =
+    billingNotes.length > 0 ? billingNotes : nonVoided.filter((doc) => doc.doc_type === "invoice");
 
   const grossOutstanding = collectionDocs.reduce((sum, doc) => {
     if (!["sent", "overdue", "partially_paid"].includes(doc.status)) return sum;
@@ -199,7 +222,8 @@ function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
   const docs = deal.documents || [];
   const stage = getDealStage(docs);
 
-  const billingDoc = docs.find((d) => d.doc_type === "billing_note" && d.status !== "voided") || null;
+  const billingDoc =
+    docs.find((d) => d.doc_type === "billing_note" && d.status !== "voided") || null;
   const amountDoc = billingDoc || rep;
   const baseAmount = amountDoc?.net_payable || amountDoc?.total_amount || 0;
 
@@ -216,7 +240,10 @@ function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
   const credit = Math.max(0, -amount);
   if (credit > 0) amount = 0;
 
-  const dates = docs.map((d) => d.issue_date || d.updated_at).filter(Boolean).sort();
+  const dates = docs
+    .map((d) => d.issue_date || d.updated_at)
+    .filter(Boolean)
+    .sort();
   const latestDate = dates.length > 0 ? dates[dates.length - 1] : deal.updated_at;
 
   return {
@@ -280,27 +307,6 @@ export default function CustomerDetailPage() {
   }
   const [dealSearchQuery, setDealSearchQuery] = useState("");
   const [dealLineItems, setDealLineItems] = useState<Record<string, DocumentLineItem[]>>({});
-  const [dealHistoryView, setDealHistoryView] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "list";
-    const stored = localStorage.getItem(DEAL_HISTORY_VIEW_STORAGE_KEY);
-    return stored === "table" ? "table" : "list";
-  });
-  const [hasStoredDealHistoryView] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const stored = localStorage.getItem(DEAL_HISTORY_VIEW_STORAGE_KEY);
-    return stored === "list" || stored === "table";
-  });
-
-  useEffect(() => {
-    localStorage.setItem(DEAL_HISTORY_VIEW_STORAGE_KEY, dealHistoryView);
-  }, [dealHistoryView]);
-
-  useEffect(() => {
-    if (hasStoredDealHistoryView || deals.length < 8) return;
-    if (typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches) {
-      setDealHistoryView("table");
-    }
-  }, [deals.length, hasStoredDealHistoryView]);
 
   useEffect(() => {
     if (!id) return;
@@ -325,7 +331,9 @@ export default function CustomerDetailPage() {
         setEditEmail(custRes.data.email || "");
         setEditContact(custRes.data.contact_name || "");
         setEditCode(custRes.data.code || "");
-        setEditCreditTerm(custRes.data.credit_term_days != null ? String(custRes.data.credit_term_days) : "");
+        setEditCreditTerm(
+          custRes.data.credit_term_days != null ? String(custRes.data.credit_term_days) : "",
+        );
         setEditAvatarInitials(custRes.data.avatar_initials || "");
         setEditAvatarColor(custRes.data.avatar_color || "");
         setUseCustomAvatar(Boolean(custRes.data.avatar_initials || custRes.data.avatar_color));
@@ -364,11 +372,20 @@ export default function CustomerDetailPage() {
       return;
     }
     setSaving(true);
-    const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 3) : null;
-    const avatarColor = useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor) ? editAvatarColor : null;
+    const avatarInitials =
+      useCustomAvatar && editAvatarInitials.trim()
+        ? editAvatarInitials.trim().toUpperCase().slice(0, 3)
+        : null;
+    const avatarColor =
+      useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor)
+        ? editAvatarColor
+        : null;
     const creditTermTrimmed = editCreditTerm.trim();
     const creditTermValue = creditTermTrimmed === "" ? null : parseInt(creditTermTrimmed, 10);
-    if (creditTermValue != null && (!Number.isFinite(creditTermValue) || creditTermValue < 0 || creditTermValue > 365)) {
+    if (
+      creditTermValue != null &&
+      (!Number.isFinite(creditTermValue) || creditTermValue < 0 || creditTermValue > 365)
+    ) {
       toast.error("ระยะเวลาเครดิตต้องอยู่ระหว่าง 0 ถึง 365 วัน");
       setSaving(false);
       return;
@@ -413,8 +430,14 @@ export default function CustomerDetailPage() {
   async function saveAvatar() {
     if (!customer) return;
     setSavingAvatar(true);
-    const avatarInitials = useCustomAvatar && editAvatarInitials.trim() ? editAvatarInitials.trim().toUpperCase().slice(0, 3) : null;
-    const avatarColor = useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor) ? editAvatarColor : null;
+    const avatarInitials =
+      useCustomAvatar && editAvatarInitials.trim()
+        ? editAvatarInitials.trim().toUpperCase().slice(0, 3)
+        : null;
+    const avatarColor =
+      useCustomAvatar && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(editAvatarColor)
+        ? editAvatarColor
+        : null;
     const { error: err } = await supabase
       .from("customers")
       .update({ avatar_initials: avatarInitials, avatar_color: avatarColor })
@@ -484,14 +507,19 @@ export default function CustomerDetailPage() {
     return periodFilteredDealItems.filter((item) => {
       if (item.deal.title?.toLowerCase().includes(q)) return true;
       if (item.deal.deal_number?.toLowerCase().includes(q)) return true;
-      if (item.deal.documents?.some((doc) => doc.doc_number?.toLowerCase().includes(q))) return true;
-      if (item.deal.documents?.some((doc) => {
-        const items = dealLineItems[doc.id] || [];
-        return items.some((li) =>
-          li.item_name?.toLowerCase().includes(q) ||
-          (li.line_note || "").toLowerCase().includes(q),
-        );
-      })) return true;
+      if (item.deal.documents?.some((doc) => doc.doc_number?.toLowerCase().includes(q)))
+        return true;
+      if (
+        item.deal.documents?.some((doc) => {
+          const items = dealLineItems[doc.id] || [];
+          return items.some(
+            (li) =>
+              li.item_name?.toLowerCase().includes(q) ||
+              (li.line_note || "").toLowerCase().includes(q),
+          );
+        })
+      )
+        return true;
       return false;
     });
   }, [periodFilteredDealItems, dealSearchQuery, dealLineItems]);
@@ -528,7 +556,10 @@ export default function CustomerDetailPage() {
     [filteredDealItems],
   );
   type DealSortKey = "title" | "latestDate" | "status" | "amount";
-  const dealSort = useTableSort<(typeof dealRows)[number], DealSortKey>(dealRows, { key: "latestDate", dir: "desc" });
+  const dealSort = useTableSort<(typeof dealRows)[number], DealSortKey>(dealRows, {
+    key: "latestDate",
+    dir: "desc",
+  });
 
   const totalReceived = periodFilteredDealItems.reduce(
     (sum, item) => sum + getDealReceived(item.deal.documents || []),
@@ -599,13 +630,14 @@ export default function CustomerDetailPage() {
           <div className="flex items-start gap-3 mb-3">
             <CustomerAvatar customer={customer} size="lg" />
             <div className="flex-1 min-w-0">
-              <h2 className="text-title font-semibold text-ink-900 truncate">
-                {customer.name}
-              </h2>
+              <h2 className="text-title font-semibold text-ink-900 truncate">{customer.name}</h2>
               <div className="text-label text-ink-300 mt-0.5">
-                avatar: {customer.avatar_initials || customer.avatar_color
-                  ? <span className="text-primary">กำหนดเอง</span>
-                  : "อัตโนมัติ"}
+                avatar:{" "}
+                {customer.avatar_initials || customer.avatar_color ? (
+                  <span className="text-primary">กำหนดเอง</span>
+                ) : (
+                  "อัตโนมัติ"
+                )}
               </div>
             </div>
             {permissions.canManageCustomers && (
@@ -625,9 +657,7 @@ export default function CustomerDetailPage() {
               className="flex w-full items-center justify-between gap-2 text-left"
               aria-expanded={avatarSectionOpen}
             >
-              <div className="text-label font-semibold text-ink-300">
-                รูป avatar
-              </div>
+              <div className="text-label font-semibold text-ink-300">รูป avatar</div>
               <ChevronDown
                 size={14}
                 className={`text-ink-300 transition-transform ${avatarSectionOpen ? "" : "-rotate-90"}`}
@@ -648,21 +678,19 @@ export default function CustomerDetailPage() {
                 {useCustomAvatar && (
                   <>
                     <div>
-                      <div className="text-label text-ink-300 mb-1.5">
-                        ตัวอักษร (สูงสุด 3 ตัว)
-                      </div>
+                      <div className="text-label text-ink-300 mb-1.5">ตัวอักษร (สูงสุด 3 ตัว)</div>
                       <Input
                         value={editAvatarInitials}
-                        onChange={(e) => setEditAvatarInitials(e.target.value.toUpperCase().slice(0, 3))}
+                        onChange={(e) =>
+                          setEditAvatarInitials(e.target.value.toUpperCase().slice(0, 3))
+                        }
                         placeholder="เช่น BP"
                         maxLength={3}
                         className="!w-24 !text-center font-semibold"
                       />
                     </div>
                     <div>
-                      <div className="text-label text-ink-300 mb-1.5">
-                        สีพื้น
-                      </div>
+                      <div className="text-label text-ink-300 mb-1.5">สีพื้น</div>
                       <div className="flex flex-wrap gap-2">
                         {AVATAR_PRESET_COLORS.map((c) => (
                           <button
@@ -670,7 +698,7 @@ export default function CustomerDetailPage() {
                             type="button"
                             onClick={() => setEditAvatarColor(c)}
                             aria-label={`เลือกสี ${c}`}
-                            className={`w-7 h-7 rounded-full border-2 transition-transform ${ editAvatarColor.toLowerCase() === c.toLowerCase() ? "border-ink-900 scale-110" : c === "#FFFFFF" ? "border-ink-100 hover:scale-105" : "border-white hover:scale-105" }`}
+                            className={`w-7 h-7 rounded-full border-2 transition-transform ${editAvatarColor.toLowerCase() === c.toLowerCase() ? "border-ink-900 scale-110" : c === "#FFFFFF" ? "border-ink-100 hover:scale-105" : "border-white hover:scale-105"}`}
                             style={{ backgroundColor: c }}
                           />
                         ))}
@@ -690,7 +718,9 @@ export default function CustomerDetailPage() {
                         size="sm"
                         variant="ghost"
                         onClick={resetAvatar}
-                        disabled={savingAvatar || (!customer.avatar_initials && !customer.avatar_color)}
+                        disabled={
+                          savingAvatar || (!customer.avatar_initials && !customer.avatar_color)
+                        }
                         className="!text-label"
                       >
                         <RotateCcw size={12} className="mr-1" />
@@ -746,9 +776,7 @@ export default function CustomerDetailPage() {
                 placeholder="ชื่อคนที่ติดต่อด้วย"
               />
               <div>
-                <label className="block text-body text-ink-900 mb-1">
-                  ระยะเวลาเครดิต (วัน)
-                </label>
+                <label className="block text-body text-ink-900 mb-1">ระยะเวลาเครดิต (วัน)</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -768,7 +796,12 @@ export default function CustomerDetailPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={saving} loading={saving} className="!text-label">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  loading={saving}
+                  className="!text-label"
+                >
                   บันทึก
                 </Button>
                 <Button variant="ghost" onClick={() => setEditing(false)} className="!text-label">
@@ -782,7 +815,9 @@ export default function CustomerDetailPage() {
             <div className="space-y-2">
               <div>
                 <span className="text-label text-ink-300">รหัสลูกค้า: </span>
-                <span className="text-body text-primary font-mono font-medium">{customer.code || "—"}</span>
+                <span className="text-body text-primary font-mono font-medium">
+                  {customer.code || "—"}
+                </span>
               </div>
               {customer.tax_id && (
                 <div>
@@ -824,11 +859,15 @@ export default function CustomerDetailPage() {
                   </span>
                 )}
               </div>
-              {!customer.tax_id && !customer.address && !customer.phone && !customer.email && !customer.contact_name && (
-                <div className="text-label text-ink-200 italic">
-                  ยังไม่มีข้อมูลติดต่อ — กด แก้ไข เพื่อเพิ่ม
-                </div>
-              )}
+              {!customer.tax_id &&
+                !customer.address &&
+                !customer.phone &&
+                !customer.email &&
+                !customer.contact_name && (
+                  <div className="text-label text-ink-200 italic">
+                    ยังไม่มีข้อมูลติดต่อ — กด แก้ไข เพื่อเพิ่ม
+                  </div>
+                )}
             </div>
             {showIncomplete && (
               <div className="mt-3 flex items-start gap-2 bg-pending-bg text-pending-text text-label rounded-control px-2.5 py-2">
@@ -852,7 +891,7 @@ export default function CustomerDetailPage() {
                     key={range.key}
                     type="button"
                     onClick={() => applyRangePreset(range.key)}
-                    className={`shrink-0 rounded-control border px-3 py-1.5 text-label font-medium transition-colors ${ rangePreset === range.key ? "border-primary bg-primary text-white " : "border-line bg-white text-ink-600 hover:border-primary/40 hover:bg-blue-50/40" }`}
+                    className={`shrink-0 rounded-control border px-3 py-1.5 text-label font-medium transition-colors ${rangePreset === range.key ? "border-primary bg-primary text-white " : "border-line bg-white text-ink-600 hover:border-primary/40 hover:bg-blue-50/40"}`}
                   >
                     {range.label}
                   </button>
@@ -864,7 +903,10 @@ export default function CustomerDetailPage() {
                     type="date"
                     value={dateFrom}
                     max={dateTo || undefined}
-                    onChange={(e) => { setDateFrom(e.target.value); setRangePreset("custom"); }}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value);
+                      setRangePreset("custom");
+                    }}
                     className="rounded-control border border-card-border bg-white px-2 py-1 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                   <span className="text-label text-ink-400">ถึง</span>
@@ -872,7 +914,10 @@ export default function CustomerDetailPage() {
                     type="date"
                     value={dateTo}
                     min={dateFrom || undefined}
-                    onChange={(e) => { setDateTo(e.target.value); setRangePreset("custom"); }}
+                    onChange={(e) => {
+                      setDateTo(e.target.value);
+                      setRangePreset("custom");
+                    }}
                     className="rounded-control border border-card-border bg-white px-2 py-1 text-label focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
@@ -884,16 +929,24 @@ export default function CustomerDetailPage() {
         <Card>
           <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3 sm:gap-3">
             <div>
-              <div className="text-subtitle font-semibold leading-none tabular-nums text-ink-900 sm:text-display">{periodFilteredDealItems.length}</div>
+              <div className="text-subtitle font-semibold leading-none tabular-nums text-ink-900 sm:text-display">
+                {periodFilteredDealItems.length}
+              </div>
               <div className="mt-1 text-label text-ink-300">งานขายทั้งหมด</div>
-              <div className="mt-0.5 text-label text-ink-200">กำลังทำ {activeDealItems.length} · เสร็จแล้ว {doneDealItems.length}</div>
+              <div className="mt-0.5 text-label text-ink-200">
+                กำลังทำ {activeDealItems.length} · เสร็จแล้ว {doneDealItems.length}
+              </div>
             </div>
             <div>
-              <div className="text-subtitle font-semibold leading-none tabular-nums text-ink-900 sm:text-display">฿ {formatCurrency(totalReceived)}</div>
+              <div className="text-subtitle font-semibold leading-none tabular-nums text-ink-900 sm:text-display">
+                ฿ {formatCurrency(totalReceived)}
+              </div>
               <div className="mt-1 text-label text-ink-300">รับแล้วทั้งหมด</div>
             </div>
             <div>
-              <div className={`text-subtitle font-semibold leading-none tabular-nums sm:text-display ${unpaid > 0 ? "text-danger" : "text-ink-900"}`}>
+              <div
+                className={`text-subtitle font-semibold leading-none tabular-nums sm:text-display ${unpaid > 0 ? "text-danger" : "text-ink-900"}`}
+              >
                 ฿ {formatCurrency(unpaid)}
               </div>
               <div className="mt-1 text-label text-ink-300">ค้างชำระ</div>
@@ -902,7 +955,6 @@ export default function CustomerDetailPage() {
         </Card>
 
         <div>
-
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
             <input
@@ -916,32 +968,38 @@ export default function CustomerDetailPage() {
 
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-label font-semibold text-ink-300">
-                ประวัติงานขาย
-              </div>
+              <div className="text-label font-semibold text-ink-300">ประวัติงานขาย</div>
               <div className="mt-0.5 text-label text-ink-200">
                 กำลังดำเนินการ {activeDealItems.length} · เสร็จสิ้น {doneDealItems.length}
               </div>
             </div>
-            <ViewToggle
-              value={dealHistoryView}
-              onChange={setDealHistoryView}
-              variants={["list", "table"]}
-              className="hidden sm:flex"
-            />
           </div>
 
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {(["all", "active", "partial", "done"] as const).map((tab) => {
-              const count = tab === "all" ? dealHistoryItems.length : tab === "active" ? activeDealItems.length : tab === "partial" ? partialDealItems.length : doneDealItems.length;
+              const count =
+                tab === "all"
+                  ? dealHistoryItems.length
+                  : tab === "active"
+                    ? activeDealItems.length
+                    : tab === "partial"
+                      ? partialDealItems.length
+                      : doneDealItems.length;
               return (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setDealFilter(tab)}
-                  className={`shrink-0 px-3 py-1.5 text-label rounded-control font-medium transition-colors ${ dealFilter === tab ? "bg-primary text-white" : "bg-page-bg text-ink-300 hover:bg-line" }`}
+                  className={`shrink-0 px-3 py-1.5 text-label rounded-control font-medium transition-colors ${dealFilter === tab ? "bg-primary text-white" : "bg-page-bg text-ink-300 hover:bg-line"}`}
                 >
-                  {tab === "all" ? "ทั้งหมด" : tab === "active" ? "กำลังดำเนินการ" : tab === "partial" ? "ชำระบางส่วน" : "เสร็จสิ้น"} {count}
+                  {tab === "all"
+                    ? "ทั้งหมด"
+                    : tab === "active"
+                      ? "กำลังดำเนินการ"
+                      : tab === "partial"
+                        ? "ชำระบางส่วน"
+                        : "เสร็จสิ้น"}{" "}
+                  {count}
                 </button>
               );
             })}
@@ -951,44 +1009,10 @@ export default function CustomerDetailPage() {
             <div className="text-center py-8 text-body text-ink-300">
               ยังไม่มีงานขาย — กด + สร้างงานขาย ด้านบนเพื่อเริ่ม
             </div>
-          ) : dealHistoryView === "table" ? (
-            <>
-              <div className="space-y-2 sm:hidden">
-                {filteredDealItems.map((item) => (
-                  <Card
-                    key={item.deal.id}
-                    onClick={() => navigate(`/deals/${item.deal.id}`)}
-                    className={item.isDone ? "!bg-paper-field !border-line-faint !shadow-none" : ""}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="min-w-0 flex-1">
-                          <div className={`truncate text-body font-semibold ${item.isDone ? "text-ink-500" : "text-ink-900"}`}>
-                            {item.deal.title || item.deal.deal_number || "งานขาย"}
-                          </div>
-                          <div className="mt-0.5 text-label text-ink-300">
-                            {item.representativeDoc?.doc_number || "ยังไม่มีเลขเอกสาร"}
-                            {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
-                          </div>
-                        </div>
-                      <div className="ml-3 shrink-0 text-right">
-                        <div className={`font-semibold ${item.isDone ? "text-label text-ink-400" : "text-body text-ink-900"}`}>
-                          ฿ {formatCurrency(item.amount)}
-                        </div>
-                        {item.credit > 0 && (
-                          <div className="text-label font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
-                        )}
-                        <div className="mt-1">
-                          <span className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${STAGE_COLORS[item.stage]}`}>
-                            {STAGE_LABELS[item.stage]}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-              <div className="hidden overflow-hidden rounded-card border border-card-border bg-white sm:block">
-                <table className={TABLE.table}>
+          ) : (
+            <div className={TABLE.cardWrapper}>
+              <div className={TABLE.scrollBody}>
+                <table className={`${TABLE.table} min-w-[520px]`}>
                   <thead>
                     <tr className={TABLE.theadTr}>
                       <SortableTh
@@ -997,7 +1021,7 @@ export default function CustomerDetailPage() {
                         active={dealSort.sort.key === "title"}
                         dir={dealSort.sort.dir}
                         onClick={() => dealSort.handleSort("title")}
-                        className={TABLE.thSortable}
+                        className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[200px]`}
                       />
                       <SortableTh
                         label="สถานะ"
@@ -1021,97 +1045,54 @@ export default function CustomerDetailPage() {
                     {dealSort.sorted.map((item) => {
                       const rep = item.representativeDoc;
                       const isPartial = item.stage === "partial";
-                      const partialReceived = isPartial && rep
-                        ? rep.amount_received || 0
-                        : 0;
+                      const partialReceived = isPartial && rep ? rep.amount_received || 0 : 0;
                       return (
-                      <tr
-                        key={item.deal.id}
-                        onClick={() => navigate(`/deals/${item.deal.id}`)}
-                        className={`cursor-pointer transition-colors hover:bg-paper-field ${ item.isDone ? "bg-paper-field text-ink-400" : "bg-white" }`}
-                      >
-                        <td className="px-3 py-2">
-                          <div className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-ink-400" : "text-ink-900"}`}>
-                            {item.deal.title || item.deal.deal_number || "งานขาย"}
-                          </div>
-                          <div className="mt-0.5 truncate text-label text-ink-400">
-                            {rep?.doc_number || "ยังไม่มีเลขเอกสาร"}
-                            {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${STAGE_COLORS[item.stage]}`}>
-                            {STAGE_LABELS[item.stage]}
-                          </span>
-                        </td>
-                        <td className={`px-3 py-2 text-right ${item.isDone ? "text-label text-ink-400" : "text-ink-900"}`}>
-                          <div className="font-semibold">฿ {formatCurrency(item.amount)}</div>
-                          {item.credit > 0 && (
-                            <div className="text-label font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
-                          )}
-                          {isPartial && partialReceived > 0 && (
-                            <div className="text-label text-ink-400">
-                              รับแล้ว ฿{formatCurrency(partialReceived)}
+                        <tr
+                          key={item.deal.id}
+                          onClick={() => navigate(`/deals/${item.deal.id}`)}
+                          className={`${TABLE.tbodyTr} group ${item.isDone ? "!bg-paper-field text-ink-400" : ""}`}
+                        >
+                          <td
+                            className={`${TABLE.tdSticky} px-3 py-3 md:py-2 ${item.isDone ? "!bg-paper-field" : ""}`}
+                          >
+                            <div
+                              className={`max-w-[280px] truncate font-medium ${item.isDone ? "text-ink-400" : "text-ink-900"}`}
+                            >
+                              {item.deal.title || item.deal.deal_number || "งานขาย"}
                             </div>
-                          )}
-                        </td>
-                      </tr>
+                            <div className="mt-0.5 truncate text-label text-ink-400">
+                              {rep?.doc_number || "ยังไม่มีเลขเอกสาร"}
+                              {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 md:py-2">
+                            <span
+                              className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${STAGE_COLORS[item.stage]}`}
+                            >
+                              {STAGE_LABELS[item.stage]}
+                            </span>
+                          </td>
+                          <td
+                            className={`px-3 py-3 md:py-2 text-right tabular-nums ${item.isDone ? "text-label text-ink-400" : "text-ink-900"}`}
+                          >
+                            <div className="font-semibold">฿ {formatCurrency(item.amount)}</div>
+                            {item.credit > 0 && (
+                              <div className="text-label font-medium text-blue-600">
+                                เครดิต ฿{formatCurrency(item.credit)}
+                              </div>
+                            )}
+                            {isPartial && partialReceived > 0 && (
+                              <div className="text-label text-ink-400">
+                                รับแล้ว ฿{formatCurrency(partialReceived)}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-            </>
-          ) : (
-            <div className="space-y-4">
-              {(dealFilter === "all" ? [
-                { key: "active", title: "กำลังดำเนินการ", items: activeDealItems },
-                { key: "done", title: "เสร็จสิ้นแล้ว", items: doneDealItems },
-              ] : [{ key: dealFilter, title: dealFilter === "active" ? "กำลังดำเนินการ" : dealFilter === "partial" ? "ชำระบางส่วน" : "เสร็จสิ้นแล้ว", items: filteredDealItems }])
-                .filter((section) => section.items.length > 0)
-                .map((section) => (
-                  <div key={section.key} className="space-y-2">
-                    {dealFilter === "all" && (
-                      <div className={`text-label font-semibold ${section.key === "done" ? "text-ink-200" : "text-ink-300"}`}>
-                        {section.title} ({section.items.length})
-                      </div>
-                    )}
-                    {section.items.map((item) => (
-                      <Card
-                        key={item.deal.id}
-                        onClick={() => navigate(`/deals/${item.deal.id}`)}
-                        className={item.isDone ? "!bg-paper-field !border-line-faint !shadow-none" : ""}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0 flex-1">
-                            <div className={`truncate text-body font-semibold ${item.isDone ? "text-ink-500" : "text-ink-900"}`}>
-                              {item.deal.title || item.deal.deal_number || "งานขาย"}
-                            </div>
-                            {item.representativeDoc && (
-                              <div className="text-label text-ink-300 mt-0.5">
-                                {item.representativeDoc.doc_number || "ยังไม่มีเลขเอกสาร"}
-                                {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0 ml-3">
-                            <div className={`font-semibold ${item.isDone ? "text-label text-ink-400" : "text-body text-ink-900"}`}>
-                              ฿ {formatCurrency(item.amount)}
-                            </div>
-                            {item.credit > 0 && (
-                              <div className="text-label font-medium text-blue-600">เครดิต ฿{formatCurrency(item.credit)}</div>
-                            )}
-                            <div className="mt-1">
-                              <span className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${STAGE_COLORS[item.stage]}`}>
-                                {STAGE_LABELS[item.stage]}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ))}
             </div>
           )}
         </div>
@@ -1124,10 +1105,20 @@ export default function CustomerDetailPage() {
             <h3 className="text-title font-semibold mb-1">ลบ {customer.name}?</h3>
             <p className="text-body text-ink-300 mb-4">ข้อมูลงานขายและเอกสารทั้งหมดจะยังคงอยู่</p>
             <div className="flex gap-2">
-              <Button variant="danger" onClick={handleDeactivate} disabled={deleting} loading={deleting} className="flex-1">
+              <Button
+                variant="danger"
+                onClick={handleDeactivate}
+                disabled={deleting}
+                loading={deleting}
+                className="flex-1"
+              >
                 ลบลูกค้า
               </Button>
-              <Button variant="secondary" onClick={() => setDeleteConfirm(false)} className="flex-1">
+              <Button
+                variant="secondary"
+                onClick={() => setDeleteConfirm(false)}
+                className="flex-1"
+              >
                 ยกเลิก
               </Button>
             </div>

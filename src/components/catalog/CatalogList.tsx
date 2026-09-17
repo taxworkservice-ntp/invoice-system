@@ -1,13 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { SearchInput } from "../ui/SearchInput";
 import { CatalogTypeTabs } from "./CatalogTypeTabs";
-import { ItemCard } from "./ItemCard";
 import { StockReportTable } from "./StockReportTable";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
-import { ViewToggle } from "../ui/ViewToggle";
-import type { ViewMode } from "../ui/ViewToggle";
 import { isLowStock, isOutOfStock, baseToCartons } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS } from "./constants";
 import { supabase } from "../../lib/supabase";
@@ -27,8 +23,14 @@ interface Props {
   canManage?: boolean;
 }
 
-export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, canManage = true }: Props) {
-  const navigate = useNavigate();
+export function CatalogList({
+  items,
+  loading,
+  onAdd,
+  userId,
+  onToggleFavorite,
+  canManage = true,
+}: Props) {
   const toast = useToast();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -38,15 +40,6 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
     return stored === "all" || stored === "favorites" ? stored : "all";
   });
   const [exportingMovements, setExportingMovements] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "table";
-    const stored = window.localStorage.getItem("catalogViewMode");
-    return stored === "list" || stored === "grid" || stored === "table" ? stored : "table";
-  });
-
-  useEffect(() => {
-    window.localStorage.setItem("catalogViewMode", viewMode);
-  }, [viewMode]);
 
   useEffect(() => {
     window.localStorage.setItem("catalogFilterMode", filterMode);
@@ -64,9 +57,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
-        (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.sku?.toLowerCase().includes(q),
+        (i) => i.name.toLowerCase().includes(q) || i.sku?.toLowerCase().includes(q),
       );
     }
     if (activeTab !== "all") {
@@ -79,14 +70,8 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
   const isFiltering = search.trim() !== "" || activeTab !== "all" || filterMode !== "all";
   const showCount = isFiltering && items.length > 0;
 
-  const productItems = useMemo(
-    () => filtered.filter((i) => i.item_type === "product"),
-    [filtered],
-  );
-  const services = useMemo(
-    () => filtered.filter((i) => i.item_type === "service"),
-    [filtered],
-  );
+  const productItems = useMemo(() => filtered.filter((i) => i.item_type === "product"), [filtered]);
+  const services = useMemo(() => filtered.filter((i) => i.item_type === "service"), [filtered]);
 
   function handleExportCSV() {
     if (productItems.length === 0) return;
@@ -104,9 +89,10 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
       if (isOutOfStock(item.stock_count)) status = "หมด";
       else if (isLowStock(item.stock_count, item.low_stock_threshold)) status = "ใกล้หมด";
 
-      const cartonCount = item.carton_unit && item.qty_per_carton
-        ? baseToCartons(item.stock_count, item.qty_per_carton)
-        : null;
+      const cartonCount =
+        item.carton_unit && item.qty_per_carton
+          ? baseToCartons(item.stock_count, item.qty_per_carton)
+          : null;
 
       const row: string[] = [
         item.name,
@@ -118,20 +104,16 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
         row.push(cartonCount != null ? cartonCount.toString() : "");
         row.push(item.carton_unit || "");
       }
-        row.push(
-        item.low_stock_threshold.toString(),
-        status,
-      );
+      row.push(item.low_stock_threshold.toString(), status);
       if (showCosts) {
-        row.push(
-          item.avg_cost.toFixed(2),
-          item.stock_value.toFixed(2),
-        );
+        row.push(item.avg_cost.toFixed(2), item.stock_value.toFixed(2));
       }
       return row;
     });
 
-    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join(
+      "\n",
+    );
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -180,7 +162,19 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
 
       const showCosts = canManage;
       const headers = showCosts
-        ? ["วันที่", "รายการ", "ประเภท", "ปริมาณ", "หน่วย", "ต้นทุน/หน่วย", "มูลค่ารายการ", "คงเหลือ", "มูลค่าคงเหลือ", "หมายเหตุ", "เอกสาร"]
+        ? [
+            "วันที่",
+            "รายการ",
+            "ประเภท",
+            "ปริมาณ",
+            "หน่วย",
+            "ต้นทุน/หน่วย",
+            "มูลค่ารายการ",
+            "คงเหลือ",
+            "มูลค่าคงเหลือ",
+            "หมายเหตุ",
+            "เอกสาร",
+          ]
         : ["วันที่", "รายการ", "ประเภท", "ปริมาณ", "หน่วย", "คงเหลือ", "หมายเหตุ", "เอกสาร"];
       const rows = movements.map((m: any) => {
         const item = itemMap.get(m.item_id);
@@ -195,25 +189,19 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
           unit,
         ];
         if (showCosts) {
-          row.push(
-            (m.unit_cost ?? "").toString(),
-            (m.movement_value ?? "").toString(),
-          );
+          row.push((m.unit_cost ?? "").toString(), (m.movement_value ?? "").toString());
         }
-        row.push(
-          m.balance_after.toString(),
-        );
+        row.push(m.balance_after.toString());
         if (showCosts) {
           row.push((m.balance_value_after ?? "").toString());
         }
-        row.push(
-          m.reason || "",
-          docMap.get(m.document_id) || "",
-        );
+        row.push(m.reason || "", docMap.get(m.document_id) || "");
         return row;
       });
 
-      const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+      const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join(
+        "\n",
+      );
       const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -229,18 +217,6 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
     } finally {
       setExportingMovements(false);
     }
-  }
-
-  function renderItemCard(item: Item, variant: "list" | "grid") {
-    return (
-      <ItemCard
-        key={item.id}
-        item={item}
-        variant={variant}
-        onTap={(it) => navigate(`/catalog/${it.id}`)}
-        onToggleFavorite={onToggleFavorite}
-      />
-    );
   }
 
   if (loading) {
@@ -269,8 +245,13 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <SearchInput value={search} onChange={setSearch} debounceMs={200} placeholder="ค้นหาชื่อสินค้า, SKU..." className="flex-1" />
-        <ViewToggle value={viewMode} onChange={setViewMode} />
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          debounceMs={200}
+          placeholder="ค้นหาชื่อสินค้า, SKU..."
+          className="flex-1"
+        />
         <Button
           variant="secondary"
           size="sm"
@@ -304,7 +285,7 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
         <button
           type="button"
           onClick={() => setFilterMode((prev) => (prev === "favorites" ? "all" : "favorites"))}
-          className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${ filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border" }`}
+          className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border"}`}
         >
           <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
           รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}
@@ -336,82 +317,24 @@ export function CatalogList({ items, loading, onAdd, userId, onToggleFavorite, c
             <p className="mt-1">ลองค้นหาด้วยคำอื่น</p>
           </div>
         )
-      ) : viewMode === "table" ? (
-        isFiltering ? (
-          <StockReportTable items={filtered} onToggleFavorite={onToggleFavorite} />
-        ) : (
-          <div className="space-y-4">
-            {productItems.length > 0 && (
-              <div>
-                <div className="text-label font-semibold text-ink-300 py-2">
-                  สินค้า
-                </div>
-                <StockReportTable items={productItems} onToggleFavorite={onToggleFavorite} />
-              </div>
-            )}
-            {services.length > 0 && (
-              <div>
-                <div className="text-label font-semibold text-ink-300 py-2 mt-4">
-                  บริการ
-                </div>
-                <StockReportTable items={services} startIndex={productItems.length} onToggleFavorite={onToggleFavorite} />
-              </div>
-            )}
-          </div>
-        )
-      ) : viewMode === "grid" ? (
-        isFiltering ? (
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((item) => renderItemCard(item, "grid"))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {productItems.length > 0 && (
-              <div>
-                <div className="text-label font-semibold text-ink-300 py-2">
-                  สินค้า
-                </div>
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {productItems.map((item) => renderItemCard(item, "grid"))}
-                </div>
-              </div>
-            )}
-            {services.length > 0 && (
-              <div>
-                <div className="text-label font-semibold text-ink-300 py-2">
-                  บริการ
-                </div>
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {services.map((item) => renderItemCard(item, "grid"))}
-                </div>
-              </div>
-            )}
-          </div>
-        )
       ) : isFiltering ? (
-        <div className="space-y-2">
-          {filtered.map((item) => renderItemCard(item, "list"))}
-        </div>
+        <StockReportTable items={filtered} onToggleFavorite={onToggleFavorite} />
       ) : (
         <div className="space-y-4">
           {productItems.length > 0 && (
             <div>
-              <div className="text-label font-semibold text-ink-300 py-2">
-                สินค้า
-              </div>
-              <div className="space-y-2">
-                {productItems.map((item) => renderItemCard(item, "list"))}
-              </div>
+              <div className="text-label font-semibold text-ink-300 py-2">สินค้า</div>
+              <StockReportTable items={productItems} onToggleFavorite={onToggleFavorite} />
             </div>
           )}
           {services.length > 0 && (
             <div>
-              <div className="text-label font-semibold text-ink-300 py-2">
-                บริการ
-              </div>
-              <div className="space-y-2">
-                {services.map((item) => renderItemCard(item, "list"))}
-              </div>
+              <div className="text-label font-semibold text-ink-300 py-2 mt-4">บริการ</div>
+              <StockReportTable
+                items={services}
+                startIndex={productItems.length}
+                onToggleFavorite={onToggleFavorite}
+              />
             </div>
           )}
         </div>
