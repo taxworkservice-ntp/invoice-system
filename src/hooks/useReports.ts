@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
+import { fetchAllRows } from "../lib/fetchAllRows";
 import type { Item } from "../types";
 import {
   computeWorkspaceFinancials,
@@ -141,26 +142,36 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
         .maybeSingle();
       const vatRegistered = Boolean(clientProfile?.vat_registered);
 
-      const { data: allDocs } = await supabase
-        .from("documents")
-        .select(
-          "id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, wht_rate, wht_certificate_no, paid_at, issue_date, due_date, customer_id, customer:customer_id(name, tax_id, address)",
-        )
-        .eq("user_id", userId)
-        .neq("doc_type", "delivery_note")
-        .neq("status", "draft")
-        .neq("status", "voided")
-        .neq("status", "converted");
+      // Paged: an unpaged select is capped at 1000 rows, which would silently
+      // turn the cumulative AR and the 12-month trend into partial sums.
+      const allDocs = await fetchAllRows<any>((from, to) =>
+        supabase
+          .from("documents")
+          .select(
+            "id, deal_id, doc_number, doc_type, status, subtotal, vat_amount, total_amount, net_payable, amount_received, wht_amount, wht_rate, wht_certificate_no, paid_at, issue_date, due_date, customer_id, customer:customer_id(name, tax_id, address)",
+          )
+          .eq("user_id", userId)
+          .neq("doc_type", "delivery_note")
+          .neq("status", "draft")
+          .neq("status", "voided")
+          .neq("status", "converted")
+          .order("id")
+          .range(from, to),
+      );
 
-      const docs = (allDocs || []) as any[];
+      const docs = allDocs as any[];
 
       // Adjustment notes change revenue/VAT/outstanding:
       // credit notes (ใบลดหนี้) are negative, debit notes (ใบเพิ่มหนี้) positive.
       const activeCreditNotes = docs.filter((d) => d.doc_type === "credit_note");
       const activeDebitNotes = docs.filter((d) => d.doc_type === "debit_note");
 
-      const { data: bnLinks } = await supabase.from("billing_note_invoices").select("invoice_id");
-      const invoiceIdsInBn = new Set((bnLinks || []).map((l: any) => l.invoice_id));
+      // Paged as well — a workspace with many billing notes would otherwise
+      // stop excluding the bundled invoices and double-count its AR.
+      const bnLinks = await fetchAllRows<{ invoice_id: string }>((from, to) =>
+        supabase.from("billing_note_invoices").select("invoice_id").order("id").range(from, to),
+      );
+      const invoiceIdsInBn = new Set(bnLinks.map((l) => l.invoice_id));
 
       const recognizedSalesDocs = docs.filter((d) => isRecognizedSalesDocument(d));
 
@@ -172,11 +183,15 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       const dealIds = [...new Set(docs.map((d: any) => d.deal_id).filter(Boolean))] as string[];
       const dealMap = new Map<string, { deal_number: string | null; notes: any[] }>();
       if (dealIds.length > 0) {
-        const { data: dealsData } = await supabase
-          .from("deals")
-          .select("id, deal_number, notes")
-          .in("id", dealIds);
-        for (const deal of (dealsData || []) as any[]) {
+        const dealsData = await fetchAllRows<any>((from, to) =>
+          supabase
+            .from("deals")
+            .select("id, deal_number, notes")
+            .in("id", dealIds)
+            .order("id")
+            .range(from, to),
+        );
+        for (const deal of dealsData) {
           dealMap.set(deal.id, { deal_number: deal.deal_number || null, notes: deal.notes || [] });
         }
       }
@@ -184,12 +199,16 @@ export function useFinancialReport(userId: string | undefined, from: string, to:
       const paidDocIds = paidThisPeriod.map((d: any) => d.id);
       let allLineItems: LineItemRow[] = [];
       if (paidDocIds.length > 0) {
-        const { data: liData } = await supabase
-          .from("document_line_items")
-          .select("*")
-          .in("document_id", paidDocIds)
-          .order("sort_order", { ascending: true });
-        allLineItems = (liData || []).map((li: any) => ({
+        const liData = await fetchAllRows<any>((from, to) =>
+          supabase
+            .from("document_line_items")
+            .select("*")
+            .in("document_id", paidDocIds)
+            .order("sort_order", { ascending: true })
+            .order("id")
+            .range(from, to),
+        );
+        allLineItems = liData.map((li: any) => ({
           docNumber: paidThisPeriod.find((d: any) => d.id === li.document_id)?.doc_number || "-",
           date: getRecognitionDate(paidThisPeriod.find((d: any) => d.id === li.document_id) || {}),
           customerName:
@@ -415,13 +434,17 @@ export function useStockReport(userId: string | undefined, dateFrom: string, dat
     setLoading(true);
     setError(null);
     try {
-      const { data: items } = await supabase
-        .from("items")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("is_active", true);
+      const items = await fetchAllRows<any>((from, to) =>
+        supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("is_active", true)
+          .order("id")
+          .range(from, to),
+      );
 
-      const allItems = (items || []) as Item[];
+      const allItems = items as Item[];
       const activeItems = allItems.filter((i) => i.item_type === "product");
       const totalValue = activeItems.reduce((sum, i) => sum + (i.stock_value || 0), 0);
       const lowStock = activeItems.filter(
@@ -535,13 +558,17 @@ export async function fetchFullStockReport(
   dateFrom: string,
   dateTo: string,
 ): Promise<FullStockReport> {
-  const { data: items } = await supabase
-    .from("items")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("is_active", true);
+  const items = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from("items")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("id")
+      .range(from, to),
+  );
 
-  const allItems = (items || []) as Item[];
+  const allItems = items as Item[];
   const activeItems = allItems.filter((i) => i.item_type === "product");
   const totalValue = activeItems.reduce((sum, i) => sum + (i.stock_value || 0), 0);
   const lowStock = activeItems.filter(
@@ -562,34 +589,31 @@ export async function fetchFullStockReport(
     .filter((i) => (i.stock_count || 0) > 0 || (i.stock_value || 0) > 0)
     .sort((a, b) => (b.stock_value || 0) - (a.stock_value || 0));
 
-  let movementsData: any[] = [];
-  let from = 0;
-  const pageSize = 1000;
-  for (;;) {
-    const { data, error } = await supabase
+  const movementsData = await fetchAllRows<any>((from, to) =>
+    supabase
       .from("stock_movements")
       .select("*")
       .eq("user_id", userId)
       .gte("created_at", `${dateFrom}T00:00:00+07:00`)
       .lte("created_at", `${dateTo}T23:59:59.999+07:00`)
       .order("created_at", { ascending: false })
-      .range(from, from + pageSize - 1);
-    if (error) throw error;
-    const batch = data || [];
-    movementsData = movementsData.concat(batch);
-    if (batch.length < pageSize) break;
-    from += pageSize;
-  }
+      .order("id")
+      .range(from, to),
+  );
 
   const itemMap = new Map(allItems.map((i) => [i.id, i]));
   const docIds = [...new Set(movementsData.map((m: any) => m.document_id).filter(Boolean))];
   const docMap = new Map<string, string>();
   if (docIds.length > 0) {
-    const { data: docs } = await supabase
-      .from("documents")
-      .select("id, doc_number")
-      .in("id", docIds);
-    for (const d of (docs || []) as any[]) {
+    const docs = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from("documents")
+        .select("id, doc_number")
+        .in("id", docIds)
+        .order("id")
+        .range(from, to),
+    );
+    for (const d of docs) {
       docMap.set(d.id, d.doc_number || "-");
     }
   }

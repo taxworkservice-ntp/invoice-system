@@ -20,11 +20,10 @@
  */
 
 import { STATUS_LABELS } from "../../constants";
+import { isActiveAdjustmentNote, isReceivableDoc, receivableAmount } from "../receivable";
 
 /** Statuses excluded from every report figure. */
 const EXCLUDED_STATUSES = ["draft", "voided", "converted"];
-/** Statuses that represent money the customer still owes. */
-const RECEIVABLE_STATUSES = ["sent", "overdue", "partially_paid"];
 
 /**
  * Structural subset of a `documents` row. The reports query selects exactly
@@ -204,28 +203,22 @@ export function deltaCaptionForRange(from: string, to: string): string {
 // Document predicates
 // ---------------------------------------------------------------------------
 
-/** Revenue is recognized on the tax invoice, for every workspace. */
+/**
+ * Revenue is recognized on the tax invoice, for every workspace (accrual).
+ * `tax_invoice_receipt` is the combined invoice+receipt variant and counts too.
+ */
 export function isRecognizedSalesDocument(doc: FinancialDocLike): boolean {
-  return doc.doc_type === "invoice" && !EXCLUDED_STATUSES.includes(doc.status);
+  return (
+    (doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") &&
+    !EXCLUDED_STATUSES.includes(doc.status)
+  );
 }
 
 export function getRecognitionDate(doc: FinancialDocLike): string {
-  if (doc.doc_type === "invoice") {
+  if (doc.doc_type === "invoice" || doc.doc_type === "tax_invoice_receipt") {
     return (doc.issue_date || doc.paid_at || "").slice(0, 10);
   }
   return (doc.paid_at || doc.issue_date || "").slice(0, 10);
-}
-
-export function isReceivableDoc(doc: FinancialDocLike): boolean {
-  return RECEIVABLE_STATUSES.includes(doc.status);
-}
-
-/** What the customer still owes on this document, in cash (after WHT). */
-export function receivableAmount(doc: FinancialDocLike): number {
-  if (doc.status === "partially_paid") {
-    return Math.max(0, (doc.net_payable || 0) - (doc.amount_received || 0));
-  }
-  return doc.net_payable || 0;
 }
 
 export function getTransactionStatusLabel(doc: FinancialDocLike): string {
@@ -250,6 +243,7 @@ export function docTypeLabels(vatRegistered: boolean): Record<string, string> {
   return {
     quotation: "ใบเสนอราคา",
     invoice: vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้",
+    tax_invoice_receipt: vatRegistered ? "ใบกำกับภาษี/ใบเสร็จรับเงิน" : "ใบแจ้งหนี้/ใบเสร็จรับเงิน",
     billing_note: "ใบวางบิล",
     receipt: "ใบเสร็จรับเงิน",
     delivery_note: "ใบส่งของ",
@@ -324,7 +318,7 @@ function allocateAdjustments(
 } {
   const netByCustomer = new Map<string, number>();
   for (const d of docs) {
-    if (d.doc_type !== "credit_note" && d.doc_type !== "debit_note") continue;
+    if (!isActiveAdjustmentNote(d)) continue;
     const cid = d.customer_id;
     if (!cid) continue;
     const sign = d.doc_type === "credit_note" ? 1 : -1;
@@ -410,8 +404,8 @@ export function computeWorkspaceFinancials(input: WorkspaceFinancialsInput): Wor
   const now = input.today ?? new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const creditNotes = docs.filter((d) => d.doc_type === "credit_note");
-  const debitNotes = docs.filter((d) => d.doc_type === "debit_note");
+  const creditNotes = docs.filter((d) => d.doc_type === "credit_note" && isActiveAdjustmentNote(d));
+  const debitNotes = docs.filter((d) => d.doc_type === "debit_note" && isActiveAdjustmentNote(d));
   const recognized = docs.filter(isRecognizedSalesDocument);
   const inPeriod = (d: FinancialDocLike) => inRange(getRecognitionDate(d), start, end);
   const adjustmentsIn = (list: FinancialDocLike[]) =>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import type { Deal, Customer, Document, SummaryMetrics, DealCardData, DocumentStatus } from "../types";
+import { isReceivableDoc, receivableAmount } from "../lib/receivable";
+import { fetchAllRows } from "../lib/fetchAllRows";
+import type { Document, SummaryMetrics, DealCardData } from "../types";
 
 export function useDeals(userId: string | undefined) {
   const [meta, setMeta] = useState<SummaryMetrics>({ unpaid: 0, receivedThisMonth: 0, overdue: 0 });
@@ -13,36 +15,58 @@ export function useDeals(userId: string | undefined) {
     setLoading(true);
 
     // Bangkok-time month boundary for "received this month".
-    const nowStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+    const nowStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(
+      new Date(),
+    );
     const monthStart = `${nowStr.slice(0, 7)}-01`;
 
-    const [{ data: docs, error }, { data: paidMonth }] = await Promise.all([
-      supabase
-        .from("documents")
-        .select("id, deal_id, doc_type, doc_number, status, total_amount, net_payable, customer_id, created_at, updated_at, customer:customer_id(name)")
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("documents")
-        .select("net_payable")
-        .eq("user_id", userId)
-        .eq("status", "paid")
-        .neq("doc_type", "credit_note")
-        .gte("updated_at", monthStart),
-    ]);
-
-    if (error) {
+    // Every document of the workspace, paged — an unpaged select would be
+    // silently capped at 1000 rows and quietly drop deals.
+    let docs: Array<Record<string, unknown>> = [];
+    let paidMonth: Array<{ net_payable: number }> = [];
+    try {
+      const [fetchedDocs, paidResult] = await Promise.all([
+        fetchAllRows<Record<string, unknown>>((from, to) =>
+          supabase
+            .from("documents")
+            .select(
+              "id, deal_id, doc_type, doc_number, status, total_amount, net_payable, amount_received, customer_id, created_at, updated_at, customer:customer_id(name)",
+            )
+            .eq("user_id", userId)
+            .order("updated_at", { ascending: false })
+            .order("id")
+            .range(from, to),
+        ),
+        supabase
+          .from("documents")
+          .select("net_payable")
+          .eq("user_id", userId)
+          .eq("status", "paid")
+          .neq("doc_type", "credit_note")
+          .gte("updated_at", monthStart),
+      ]);
+      if (paidResult.error) throw new Error(paidResult.error.message);
+      docs = fetchedDocs;
+      paidMonth = (paidResult.data || []) as Array<{ net_payable: number }>;
+    } catch {
       setLoading(false);
       return;
     }
 
-    const docsWithCustomers = (docs || []) as unknown as Array<Document & { customer: { name: string } }>;
+    const docsWithCustomers = docs as unknown as Array<Document & { customer: { name: string } }>;
 
+    // Outstanding AR: open invoices / billing notes net of what has been
+    // received, plus their adjustment notes. Previously this only counted
+    // status `sent` and ignored receipts, so overdue and partially-paid
+    // invoices were missing from the figure.
     const unpaid = docsWithCustomers
-      .filter((d) => d.status === "sent")
-      .reduce((s, d) => s + d.net_payable, 0);
+      .filter(isReceivableDoc)
+      .reduce((sum, d) => sum + receivableAmount(d), 0);
 
-    const received = (paidMonth || []).reduce((s: number, d: { net_payable: number }) => s + (d.net_payable || 0), 0);
+    const received = paidMonth.reduce(
+      (s: number, d: { net_payable: number }) => s + (d.net_payable || 0),
+      0,
+    );
 
     const overdueCount = docsWithCustomers.filter((d) => d.status === "overdue").length;
 
@@ -74,7 +98,7 @@ export function useDeals(userId: string | undefined) {
     }
 
     const dealGroups = Array.from(dealMap.values()).map((value) =>
-      [...value.docs].sort((a, b) => a.updated_at.localeCompare(b.updated_at))
+      [...value.docs].sort((a, b) => a.updated_at.localeCompare(b.updated_at)),
     );
 
     const active = dealGroups
@@ -109,7 +133,8 @@ function getStage(docType: string, status: string): "quote" | "invoice" | "colle
   if (docType === "quotation") return "quote";
   if (docType === "credit_note") return status === "draft" ? "collect" : "done";
   if (docType === "invoice" && status !== "paid" && status !== "partially_paid") return "invoice";
-  if (docType === "billing_note" && status !== "paid" && status !== "partially_paid") return "collect";
+  if (docType === "billing_note" && status !== "paid" && status !== "partially_paid")
+    return "collect";
   if (status === "paid" || status === "generated") return "done";
   if (status === "partially_paid") return "collect";
   if (docType === "receipt") return status === "draft" ? "collect" : "done";
@@ -127,7 +152,9 @@ function getCompletionDoc(docs: DealCardData[]) {
 
   const receipt = [...nonVoided]
     .reverse()
-    .find((doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status));
+    .find(
+      (doc) => doc.doc_type === "receipt" && ["generated", "issued", "paid"].includes(doc.status),
+    );
   if (receipt && !isPartial) return receipt;
 
   const paidBilling = [...nonVoided]

@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import type { Document, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice } from "../types";
+import { fetchAllRows } from "../lib/fetchAllRows";
+import type {
+  Document,
+  DocumentLineItem,
+  BillingNoteInvoice,
+  InvoiceDeliveryNote,
+  ReceiptInvoice,
+} from "../types";
 
 export function useDocuments(userId: string | undefined) {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -11,21 +18,28 @@ export function useDocuments(userId: string | undefined) {
     if (!userId) return;
     setLoading(true);
     setError(null);
-    const { data, error } = await supabase
-      .from("documents")
-      .select("*, customer:customer_id(name)")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
 
-    if (error) {
-      setError(error.message || "โหลดเอกสารไม่สำเร็จ");
+    // Paged: an unpaged select stops at 1000 rows, so a busy workspace would
+    // silently lose the tail of its document list.
+    let docs: Document[];
+    try {
+      docs = (await fetchAllRows<Record<string, unknown>>((from, to) =>
+        supabase
+          .from("documents")
+          .select("*, customer:customer_id(name)")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      )) as unknown as Document[];
+    } catch (err) {
+      setError((err as Error).message || "โหลดเอกสารไม่สำเร็จ");
       setDocuments([]);
       setLoading(false);
       return;
     }
 
-    if (data) {
-      const docs = data as unknown as Document[];
+    {
       const docIds = docs.map((doc) => doc.id).filter(Boolean);
 
       if (docIds.length === 0) {
@@ -34,14 +48,18 @@ export function useDocuments(userId: string | undefined) {
         return;
       }
 
-      const { data: lineItems } = await supabase
-        .from("document_line_items")
-        .select("*")
-        .in("document_id", docIds)
-        .order("sort_order", { ascending: true });
+      const lineItems = await fetchAllRows<Record<string, unknown>>((from, to) =>
+        supabase
+          .from("document_line_items")
+          .select("*")
+          .in("document_id", docIds)
+          .order("sort_order", { ascending: true })
+          .order("id")
+          .range(from, to),
+      );
 
       const lineItemsByDoc = new Map<string, DocumentLineItem[]>();
-      for (const item of (lineItems || []) as DocumentLineItem[]) {
+      for (const item of lineItems as unknown as DocumentLineItem[]) {
         const existing = lineItemsByDoc.get(item.document_id) || [];
         existing.push(item);
         lineItemsByDoc.set(item.document_id, existing);
@@ -166,6 +184,9 @@ export async function saveLineItems(items: Partial<DocumentLineItem>[]) {
 }
 
 export async function deleteLineItems(documentId: string) {
-  const { error } = await supabase.from("document_line_items").delete().eq("document_id", documentId);
+  const { error } = await supabase
+    .from("document_line_items")
+    .delete()
+    .eq("document_id", documentId);
   if (error) throw error;
 }

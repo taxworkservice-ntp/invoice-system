@@ -1,3 +1,4 @@
+import { COLLECTION_DOC_TYPES } from "./receivable";
 
 /**
  * Structural subset used by the money math — full Document rows and
@@ -53,7 +54,6 @@ export interface DealFinancialSummary {
   receiptCount: number;
 }
 
-const COLLECTION_TYPES = ["billing_note", "invoice"];
 const RECEIPT_STATUSES = ["generated", "issued", "paid"];
 const ADJUSTMENT_STATUSES_EXCLUDED = ["draft"];
 
@@ -80,7 +80,7 @@ export function computeDealFinancialSummary(
   const active = documents.filter((doc) => doc.status !== "voided");
 
   const collectionDocs = active.filter((doc) =>
-    COLLECTION_TYPES.includes(doc.doc_type),
+    (COLLECTION_DOC_TYPES as readonly string[]).includes(doc.doc_type),
   );
   const creditNoteDocs = active.filter(
     (doc) => doc.doc_type === "credit_note" && !ADJUSTMENT_STATUSES_EXCLUDED.includes(doc.status),

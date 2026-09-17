@@ -24,6 +24,7 @@ import { useToast } from "../../../hooks/useToast";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { formatCurrency } from "../../../lib/format";
 import { businessTodayString, addDaysString, monthStartString } from "../../../lib/devDate";
+import { dealOutstanding } from "../../../lib/receivable";
 import { TABLE } from "../../../lib/tableStyles";
 import type { Customer, Deal, Document, DocumentLineItem } from "../../../types";
 import { getWorkspacePermissions } from "../../../lib/permissions";
@@ -195,26 +196,7 @@ function getDealReceived(docs: Document[]) {
 }
 
 function getDealOutstanding(docs: Document[]) {
-  const nonVoided = docs.filter((doc) => doc.status !== "voided");
-  const billingNotes = nonVoided.filter((doc) => doc.doc_type === "billing_note");
-  const collectionDocs =
-    billingNotes.length > 0 ? billingNotes : nonVoided.filter((doc) => doc.doc_type === "invoice");
-
-  const grossOutstanding = collectionDocs.reduce((sum, doc) => {
-    if (!["sent", "overdue", "partially_paid"].includes(doc.status)) return sum;
-    return sum + Math.max(0, (doc.net_payable || 0) - (doc.amount_received || 0));
-  }, 0);
-
-  // Active adjustment notes change the outstanding balance:
-  // credit notes (ใบลดหนี้) reduce it, debit notes (ใบเพิ่มหนี้) increase it.
-  const netAdjustment = nonVoided.reduce((sum, doc) => {
-    if (["draft", "voided"].includes(doc.status)) return sum;
-    if (doc.doc_type === "credit_note") return sum - (doc.total_amount || 0);
-    if (doc.doc_type === "debit_note") return sum + (doc.total_amount || 0);
-    return sum;
-  }, 0);
-
-  return Math.max(0, grossOutstanding + netAdjustment);
+  return dealOutstanding(docs);
 }
 
 function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {

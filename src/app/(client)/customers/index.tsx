@@ -13,6 +13,7 @@ import { useCustomers } from "../../../hooks/useCustomers";
 import { useAuth, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
+import { fetchAllRows } from "../../../lib/fetchAllRows";
 import { getWorkspacePermissions } from "../../../lib/permissions";
 import { TABLE } from "../../../lib/tableStyles";
 import type { Customer, DocumentStatus, DocumentType } from "../../../types";
@@ -98,48 +99,53 @@ export default function CustomersPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!profile?.id) return;
-      supabase
-        .from("documents")
-        .select("customer_id, deal_id, doc_type, status, created_at")
-        .eq("user_id", profile.id)
-        .neq("status", "voided")
-        .not("deal_id", "is", null)
-        .then(({ data }) => {
-          if (!data) return;
-          const dealDocsByCustomer: Record<string, Record<string, DealDocumentAccumulator>> = {};
-          for (const doc of data as SalesJobDocumentRow[]) {
-            if (!doc.customer_id || !doc.deal_id) continue;
-            if (!dealDocsByCustomer[doc.customer_id]) dealDocsByCustomer[doc.customer_id] = {};
+      // Paged: this aggregates every deal document for the workspace, so an
+      // unpaged select would silently under-count the per-customer sales jobs.
+      fetchAllRows<SalesJobDocumentRow>((from, to) =>
+        supabase
+          .from("documents")
+          .select("customer_id, deal_id, doc_type, status, created_at")
+          .eq("user_id", profile.id)
+          .neq("status", "voided")
+          .not("deal_id", "is", null)
+          .order("created_at", { ascending: true })
+          .order("id")
+          .range(from, to),
+      ).then((data) => {
+        const dealDocsByCustomer: Record<string, Record<string, DealDocumentAccumulator>> = {};
+        for (const doc of data) {
+          if (!doc.customer_id || !doc.deal_id) continue;
+          if (!dealDocsByCustomer[doc.customer_id]) dealDocsByCustomer[doc.customer_id] = {};
 
-            const current = dealDocsByCustomer[doc.customer_id][doc.deal_id];
-            const isSalesJobDoc = SALES_JOB_DOCUMENT_TYPES.includes(doc.doc_type);
-            if (!current) {
-              dealDocsByCustomer[doc.customer_id][doc.deal_id] = {
-                hasSalesJobDocument: isSalesJobDoc,
-                latestDoc: doc,
-              };
-              continue;
-            }
-
-            current.hasSalesJobDocument = current.hasSalesJobDocument || isSalesJobDoc;
-            if (
-              new Date(doc.created_at).getTime() > new Date(current.latestDoc.created_at).getTime()
-            ) {
-              current.latestDoc = doc;
-            }
-          }
-          const nextStats: Record<string, CustomerDealStats> = {};
-          for (const [customerId, dealDocs] of Object.entries(dealDocsByCustomer)) {
-            const jobs = Object.values(dealDocs).filter((deal) => deal.hasSalesJobDocument);
-            const done = jobs.filter((deal) => isResolvedDealStatus(deal.latestDoc.status)).length;
-            nextStats[customerId] = {
-              active: jobs.length - done,
-              done,
-              total: jobs.length,
+          const current = dealDocsByCustomer[doc.customer_id][doc.deal_id];
+          const isSalesJobDoc = SALES_JOB_DOCUMENT_TYPES.includes(doc.doc_type);
+          if (!current) {
+            dealDocsByCustomer[doc.customer_id][doc.deal_id] = {
+              hasSalesJobDocument: isSalesJobDoc,
+              latestDoc: doc,
             };
+            continue;
           }
-          setDealStats(nextStats);
-        });
+
+          current.hasSalesJobDocument = current.hasSalesJobDocument || isSalesJobDoc;
+          if (
+            new Date(doc.created_at).getTime() > new Date(current.latestDoc.created_at).getTime()
+          ) {
+            current.latestDoc = doc;
+          }
+        }
+        const nextStats: Record<string, CustomerDealStats> = {};
+        for (const [customerId, dealDocs] of Object.entries(dealDocsByCustomer)) {
+          const jobs = Object.values(dealDocs).filter((deal) => deal.hasSalesJobDocument);
+          const done = jobs.filter((deal) => isResolvedDealStatus(deal.latestDoc.status)).length;
+          nextStats[customerId] = {
+            active: jobs.length - done,
+            done,
+            total: jobs.length,
+          };
+        }
+        setDealStats(nextStats);
+      });
     }, 100);
     return () => clearTimeout(timer);
   }, [profile?.id, customers]);
@@ -196,7 +202,7 @@ export default function CustomersPage() {
     }
     setSaving(true);
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("customers")
         .insert({
           user_id: profile.id,
