@@ -709,7 +709,7 @@ export default function DocumentsPage() {
             )}
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             {stats.map((stat) => {
               const active = isStatActive(stat);
               const tones = {
@@ -945,7 +945,7 @@ export default function DocumentsPage() {
         </section>
 
         {selectedDocIds.size > 0 && (
-          <div className="sticky bottom-20 z-30 mx-auto flex w-full max-w-lg items-center justify-between gap-3 rounded-card border border-primary/30 bg-white px-5 py-3 md:hidden">
+          <div className="sticky-action z-30 mx-auto flex w-full max-w-lg items-center justify-between gap-3 rounded-card border border-primary/30 bg-white px-5 py-3 md:hidden">
             <span className="text-body font-medium text-primary">เลือก {selectedDocIds.size} รายการ</span>
             <div className="flex items-center gap-2">
               <Button variant="secondary" size="sm" onClick={clearSelection}>

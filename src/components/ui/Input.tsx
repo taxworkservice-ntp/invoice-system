@@ -21,7 +21,7 @@ export function Input({ label, className = "", id, error, ...props }: InputProps
         id={fieldId}
         aria-invalid={error ? true : undefined}
         aria-describedby={errorId}
-        className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${error ? "border-danger" : "border-card-border"} ${className}`}
+        className={`w-full min-h-11 md:min-h-0 px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${error ? "border-danger" : "border-card-border"} ${className}`}
         {...props}
       />
       {error && (
@@ -51,7 +51,7 @@ export function Select({ label, className = "", id, children, ...props }: Select
       )}
       <select
         id={fieldId}
-        className={`w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${className}`}
+        className={`w-full min-h-11 md:min-h-0 px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${className}`}
         {...props}
       >
         {children}

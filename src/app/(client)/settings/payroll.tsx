@@ -3,7 +3,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { SettingRow } from "../../../components/ui/SettingRow";
 import { Switch } from "../../../components/ui/Switch";
-import { Button } from "../../../components/ui/Button";
+import { SaveBar } from "../../../components/ui/SaveBar";
 import { Input, Select } from "../../../components/ui/Input";
 import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
@@ -348,22 +348,12 @@ export default function SettingsPayrollPage() {
           </div>
         </SectionCard>
 
-        <div className="sticky bottom-3 z-10">
-          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-label">
-                {saved ? (
-                  <span className="text-green-600">บันทึกแล้ว</span>
-                ) : (
-                  <span className="text-ink-400">การตั้งค่าใช้กับระบบจัดการเงินเดือน</span>
-                )}
-              </div>
-              <Button onClick={handleSave} disabled={saving} className="shrink-0">
-                {saving ? "กำลังบันทึก..." : "บันทึก"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <SaveBar
+          tone={saved ? "success" : "muted"}
+          label={saved ? "บันทึกแล้ว" : "การตั้งค่าใช้กับระบบจัดการเงินเดือน"}
+          onSave={handleSave}
+          saving={saving}
+        />
       </div>
     </AppShell>
   );

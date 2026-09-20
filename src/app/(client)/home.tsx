@@ -1503,7 +1503,7 @@ export default function HomePage() {
               <>
                 <div className="border-t border-card-border pt-1" />
                 <section>
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-emerald-500" />
                       <div className="text-label font-semibold text-emerald-700">
@@ -1782,9 +1782,9 @@ export default function HomePage() {
                         </div>
                       </div>
                       {totalDonePages > 1 && (
-                        <div className="flex items-center justify-center gap-1 mt-3">
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-1">
                           <button
-                            className="px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30"
+                            className="inline-flex min-h-11 items-center px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30 md:min-h-0"
                             disabled={donePage === 1}
                             onClick={() => setDonePage((p) => Math.max(1, p - 1))}
                           >
@@ -1810,7 +1810,7 @@ export default function HomePage() {
                               ) : (
                                 <button
                                   key={p}
-                                  className={`min-w-9 px-1 py-1.5 text-label rounded ${donePage === p ? "bg-primary text-white font-medium" : "text-ink-500 hover:bg-ink-50"}`}
+                                  className={`inline-flex min-h-11 min-w-9 items-center justify-center rounded px-1 py-1.5 text-label md:min-h-0 ${donePage === p ? "bg-primary text-white font-medium" : "text-ink-500 hover:bg-ink-50"}`}
                                   onClick={() => setDonePage(p)}
                                 >
                                   {p}
@@ -1818,7 +1818,7 @@ export default function HomePage() {
                               ),
                             )}
                           <button
-                            className="px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30"
+                            className="inline-flex min-h-11 items-center px-2 py-1 text-label text-ink-400 hover:text-ink-600 disabled:opacity-30 md:min-h-0"
                             disabled={donePage === totalDonePages}
                             onClick={() => setDonePage((p) => Math.min(totalDonePages, p + 1))}
                           >

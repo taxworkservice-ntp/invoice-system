@@ -36,6 +36,8 @@ const SOLID_TONES: Record<ButtonTone, string> = {
 export function Button({ variant = "primary", size = "md", tone, solid = false, className = "", loading, children, disabled, ...props }: ButtonProps) {
   const base = "inline-flex items-center justify-center font-medium rounded-control transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-[1px]";
   const sizes = size === "sm" ? "px-3 py-1.5 text-label" : "px-4 py-2 text-body";
+  // Mobile: enforce a 44px tap target without changing desktop density.
+  const tapTarget = "min-h-11 md:min-h-0";
   const variants = {
     primary: "bg-primary text-white hover:bg-primary-deep",
     secondary: "bg-white border border-card-border text-ink-700 hover:bg-paper-field hover:border-line-strong",
@@ -45,7 +47,7 @@ export function Button({ variant = "primary", size = "md", tone, solid = false, 
   const colors = tone ? (solid ? SOLID_TONES[tone] : TONES[tone]) : variants[variant];
   const borderForTone = tone && !solid ? "border" : "";
   return (
-    <button className={`${base} ${sizes} ${colors} ${borderForTone} ${className}`} disabled={disabled || loading} {...props}>
+    <button className={`${base} ${sizes} ${tapTarget} ${colors} ${borderForTone} ${className}`} disabled={disabled || loading} {...props}>
       {loading && <Spinner inline className="w-4 h-4 mr-1.5 border-line-strong" />}
       {children}
     </button>

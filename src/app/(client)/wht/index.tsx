@@ -949,7 +949,7 @@ export default function WhtPage() {
                     type="button"
                     onClick={() => setShowSig(!showSig)}
                     title={`ลายเซ็น: ${showSig ? "แสดง" : "ซ่อน"}`}
-                    className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${showSig ? "border-blue-200 bg-blue-50 text-blue-600" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500"}`}
+                    className={`inline-flex min-h-11 items-center gap-1 rounded border px-2 py-0.5 transition-colors md:min-h-0 ${showSig ? "border-blue-200 bg-blue-50 text-blue-600" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500"}`}
                   >
                     {showSig ? <Eye size={12} /> : <EyeOff size={12} />}
                     <span className="text-label">ลายเซ็น</span>
@@ -958,7 +958,7 @@ export default function WhtPage() {
                     type="button"
                     onClick={() => setShowStp(!showStp)}
                     title={`ตราประทับ: ${showStp ? "แสดง" : "ซ่อน"}`}
-                    className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${showStp ? "border-orange-200 bg-orange-50 text-orange-600" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500"}`}
+                    className={`inline-flex min-h-11 items-center gap-1 rounded border px-2 py-0.5 transition-colors md:min-h-0 ${showStp ? "border-orange-200 bg-orange-50 text-orange-600" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500"}`}
                   >
                     {showStp ? <Eye size={12} /> : <EyeOff size={12} />}
                     <span className="text-label">ตรา</span>
@@ -1079,7 +1079,7 @@ export default function WhtPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleUnmarkDone(r.id)}
-                                  className="text-green-500 hover:text-green-600 transition-colors"
+                                  className="inline-flex h-11 w-11 items-center justify-center text-green-500 transition-colors hover:text-green-600 md:h-auto md:w-auto"
                                   title="เรียบร้อยแล้ว — คลิกเพื่อย้อนกลับ"
                                 >
                                   <CheckCircle size={16} />
@@ -1088,7 +1088,7 @@ export default function WhtPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleMarkDone(r.id)}
-                                  className="text-ink-200 hover:text-green-500 transition-colors"
+                                  className="inline-flex h-11 w-11 items-center justify-center text-ink-200 transition-colors hover:text-green-500 md:h-auto md:w-auto"
                                   title="รอจัดการ — คลิกเมื่อเรียบร้อย"
                                 >
                                   <Circle size={16} />
@@ -1152,7 +1152,7 @@ export default function WhtPage() {
                                   type="button"
                                   onClick={() => handleGenerateSingle(r)}
                                   disabled={generating}
-                                  className="p-1.5 rounded-control hover:bg-primary-soft text-primary transition-colors"
+                                  className="p-2.5 rounded-control hover:bg-primary-soft text-primary transition-colors md:p-1.5"
                                   title={r.certificate_no ? "ดู / พิมพ์ซ้ำ" : "ดาวน์โหลด PDF"}
                                 >
                                   <Download size={15} />
@@ -1161,7 +1161,7 @@ export default function WhtPage() {
                                   <button
                                     type="button"
                                     onClick={() => openEditRecord(r)}
-                                    className="p-1.5 rounded-control hover:bg-page-bg text-ink-300 hover:text-ink-900 transition-colors"
+                                    className="p-2.5 rounded-control hover:bg-page-bg text-ink-300 hover:text-ink-900 transition-colors md:p-1.5"
                                     title={r.certificate_no ? "แก้ไข (ใบรับรองออกแล้ว)" : "แก้ไข"}
                                   >
                                     <Pencil size={15} />
@@ -1171,7 +1171,7 @@ export default function WhtPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteRecord(r.id)}
-                                    className="p-1.5 rounded-control hover:bg-red-50 text-ink-200 hover:text-red-500 transition-colors"
+                                    className="p-2.5 rounded-control hover:bg-red-50 text-ink-200 hover:text-red-500 transition-colors md:p-1.5"
                                     title="ลบ"
                                   >
                                     <Trash2 size={15} />
@@ -1181,7 +1181,7 @@ export default function WhtPage() {
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/payroll?run=${r.payroll_run_id}`)}
-                                    className="p-1.5 rounded-control hover:bg-teal-50 text-ink-200 hover:text-teal-700 transition-colors"
+                                    className="p-2.5 rounded-control hover:bg-teal-50 text-ink-200 hover:text-teal-700 transition-colors md:p-1.5"
                                     title="แก้ไขที่รอบเงินเดือน"
                                   >
                                     <ExternalLink size={15} />

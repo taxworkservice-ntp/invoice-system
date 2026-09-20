@@ -59,7 +59,7 @@ export default function ReportsPage() {
               role="tab"
               aria-selected={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors ${activeTab === tab.key ? "bg-white text-ink-900 " : "text-ink-300 hover:bg-white/60 hover:text-ink-500"}`}
+              className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors md:min-h-0 ${activeTab === tab.key ? "bg-white text-ink-900 " : "text-ink-300 hover:bg-white/60 hover:text-ink-500"}`}
             >
               {tab.icon}
               {tab.label}

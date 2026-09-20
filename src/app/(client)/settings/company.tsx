@@ -6,6 +6,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { SettingRow } from "../../../components/ui/SettingRow";
 import { Button } from "../../../components/ui/Button";
+import { SaveBar } from "../../../components/ui/SaveBar";
 import { Input } from "../../../components/ui/Input";
 import { SettingsPageSkeleton, SettingsRowsSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
@@ -394,38 +395,13 @@ export default function SettingsCompanyPage() {
           )}
         </SectionCard>
 
-        <div className="sticky bottom-3 z-10">
-          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-label">
-                {error ? (
-                  <span className="text-red-500">{error}</span>
-                ) : saved ? (
-                  <span className="text-green-600">บันทึกแล้ว</span>
-                ) : isDirty ? (
-                  <span className="flex items-center gap-1.5 text-ink-300">
-                    <span className="w-[6px] h-[6px] rounded-full bg-primary inline-block" />
-                    ยังไม่ได้บันทึก
-                  </span>
-                ) : (
-                  <span className="text-ink-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
-                )}
-              </div>
-              {isDirty && !saving && (
-                <button
-                  type="button"
-                  onClick={hydrateFromProfile}
-                  className="text-label text-ink-500 hover:text-ink-700 underline underline-offset-2"
-                >
-                  ยกเลิกการแก้ไข
-                </button>
-              )}
-              <Button onClick={handleSave} disabled={saving} className="shrink-0">
-                {saving ? "กำลังบันทึก..." : "บันทึก"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <SaveBar
+          tone={error ? "error" : saved ? "success" : isDirty ? "dirty" : "muted"}
+          label={error || (saved ? "บันทึกแล้ว" : isDirty ? "ยังไม่ได้บันทึก" : "การตั้งค่าทั้งหมดถูกบันทึกแล้ว")}
+          onSave={handleSave}
+          saving={saving}
+          onDiscard={isDirty && !saving ? hydrateFromProfile : undefined}
+        />
       </div>
     </AppShell>
   );

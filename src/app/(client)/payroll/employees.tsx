@@ -517,7 +517,7 @@ export default function EmployeesPage() {
                           {emp.status === "active" && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setOffboardingEmployee(emp); setOffboardingDate(new Date().toISOString().split("T")[0]); }}
-                              className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-amber-50 text-ink-300 hover:text-amber-600 transition-colors"
+                              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-amber-50 text-ink-300 hover:text-amber-600 transition-colors md:h-7 md:w-7"
                               title="จบการจ้างงาน"
                             >
                               <UserRoundX className="w-3.5 h-3.5" />
@@ -525,14 +525,14 @@ export default function EmployeesPage() {
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); openEdit(emp); }}
-                            className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors"
+                            className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
                             title="แก้ไข"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeletingEmployee(emp); }}
-                            className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors"
+                            className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors md:h-7 md:w-7"
                             title="ลบ"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -946,8 +946,8 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
           เช่น ค่างวดรถ/บ้าน, เงินกู้สหกรณ์, ค่าอาหาร — รายการจะถูกเติมให้พนักงานคนนี้อัตโนมัติในทุกรอบใหม่
         </p>
       ) : (
-        <div className="space-y-2">
-          <div className="grid grid-cols-[92px_1fr_96px_46px_32px] gap-2 text-label text-ink-400 font-medium px-1">
+        <div className="space-y-2 overflow-x-auto">
+          <div className="grid min-w-max grid-cols-[92px_1fr_96px_46px_32px] gap-2 text-label text-ink-400 font-medium px-1">
             <span>ประเภท</span>
             <span>รายการ</span>
             <span className="text-right">จำนวน (฿)</span>
@@ -955,7 +955,7 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
             <span></span>
           </div>
           {items.map((item) => (
-            <div key={item.id} className="grid grid-cols-[92px_1fr_96px_46px_32px] gap-2 items-center">
+            <div key={item.id} className="grid min-w-max grid-cols-[92px_1fr_96px_46px_32px] gap-2 items-center">
               <Select
                 value={item.direction}
                 onChange={(e) => patchItem(item.id, { direction: e.target.value as "addition" | "deduction" })}
@@ -984,7 +984,7 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
               <button
                 onClick={() => patchItem(item.id, { active: !item.active })}
                 aria-label={item.active ? "ปิดการใช้งาน" : "เปิดการใช้งาน"}
-                className={`w-7 h-7 flex items-center justify-center rounded-control transition-colors ${item.active ? "bg-green-50 text-green-600 hover:bg-green-100" : "bg-paper-field text-ink-300 hover:text-ink-500"}`}
+                className={`flex h-11 w-11 items-center justify-center rounded-control transition-colors md:h-7 md:w-7 ${item.active ? "bg-green-50 text-green-600 hover:bg-green-100" : "bg-paper-field text-ink-300 hover:text-ink-500"}`}
                 title={item.active ? "กำลังใช้งาน" : "ปิดไว้"}
               >
                 {item.active ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
@@ -992,7 +992,7 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
               <button
                 onClick={() => removeItem(item.id)}
                 disabled={busy}
-                className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
+                className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors md:h-7 md:w-7"
                 aria-label="ลบรายการ"
               >
                 <Trash2 className="w-3.5 h-3.5" />

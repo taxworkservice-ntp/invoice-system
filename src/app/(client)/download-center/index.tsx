@@ -643,11 +643,11 @@ export default function DownloadCenterPage() {
 
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="flex cursor-pointer items-center gap-2 rounded-control border border-card-border bg-paper-field px-3 py-2 text-label text-ink-700">
-                <input type="checkbox" checked={zipGrouping} onChange={(e) => setZipGrouping(e.target.checked)} className="h-3.5 w-3.5 rounded border-line text-primary focus:ring-primary" />
+                <input type="checkbox" checked={zipGrouping} onChange={(e) => setZipGrouping(e.target.checked)} className="h-4 w-4 rounded border-line text-primary focus:ring-primary" />
                 จัดโฟลเดอร์ใน ZIP ตามประเภทเอกสาร
               </label>
               <label className={`flex cursor-pointer items-center gap-2 rounded-control border border-card-border px-3 py-2 text-label ${copyType === "both" ? "bg-paper-field text-ink-400" : "bg-paper-field text-ink-700"}`}>
-                <input type="checkbox" checked={mergePdf} disabled={copyType === "both"} onChange={(e) => setMergePdf(e.target.checked)} className="h-3.5 w-3.5 rounded border-line text-primary focus:ring-primary disabled:opacity-50" />
+                <input type="checkbox" checked={mergePdf} disabled={copyType === "both"} onChange={(e) => setMergePdf(e.target.checked)} className="h-4 w-4 rounded border-line text-primary focus:ring-primary disabled:opacity-50" />
                 รวมเป็น PDF ไฟล์เดียว {copyType === "both" && "(ไม่ใช้กับต้นฉบับ+สำเนา)"}
               </label>
             </div>

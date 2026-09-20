@@ -259,11 +259,11 @@ export default function CustomersPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setFilterMode("all")}
-            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors ${filterMode === "all" ? "bg-ink-900 text-white" : "bg-page-bg text-ink-300 hover:bg-line"}`}
+            className={`inline-flex min-h-11 items-center px-3 py-1.5 text-label rounded-control font-medium transition-colors md:min-h-0 ${filterMode === "all" ? "bg-ink-900 text-white" : "bg-page-bg text-ink-300 hover:bg-line"}`}
           >
             ทั้งหมด{" "}
             {customers.length > 0 && <span className="ml-1 opacity-70">{customers.length}</span>}
@@ -271,7 +271,7 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => setFilterMode((prev) => (prev === "favorites" ? "all" : "favorites"))}
-            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border"}`}
+            className={`inline-flex min-h-11 items-center gap-1 px-3 py-1.5 text-label rounded-control font-medium transition-colors md:min-h-0 ${filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border"}`}
           >
             <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
             รายการโปรด{" "}
@@ -280,7 +280,7 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => setFilterMode((prev) => (prev === "hasDeals" ? "all" : "hasDeals"))}
-            className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "hasDeals" ? "bg-success text-white" : "bg-paid-bg text-paid-text hover:bg-success-border"}`}
+            className={`inline-flex min-h-11 items-center gap-1 px-3 py-1.5 text-label rounded-control font-medium transition-colors md:min-h-0 ${filterMode === "hasDeals" ? "bg-success text-white" : "bg-paid-bg text-paid-text hover:bg-success-border"}`}
           >
             <Briefcase size={12} />
             มีงานขาย {hasDealsCount > 0 && <span className="ml-1 opacity-70">{hasDealsCount}</span>}
@@ -425,7 +425,7 @@ export default function CustomersPage() {
                             onClick={(e) => toggleFavorite(c, e)}
                             aria-label={c.is_favorite ? "เลิกรายการโปรด" : "เพิ่มเป็นรายการโปรด"}
                             aria-pressed={c.is_favorite}
-                            className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-control hover:bg-line-faint transition-colors"
+                            className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-line-faint transition-colors md:h-7 md:w-7"
                           >
                             <Star
                               size={14}

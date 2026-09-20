@@ -19,7 +19,7 @@ export function CatalogTypeTabs({ activeTab, onChange }: Props) {
           key={tab.key}
           type="button"
           onClick={() => onChange(tab.key)}
-          className={`pb-2 text-body font-medium transition-colors border-b-2 -mb-[1px] ${ activeTab === tab.key ? "text-primary border-primary" : "text-ink-300 border-transparent hover:text-ink-700" }`}
+          className={`inline-flex min-h-11 items-center pb-2 text-body font-medium transition-colors border-b-2 -mb-[1px] md:min-h-0 ${ activeTab === tab.key ? "text-primary border-primary" : "text-ink-300 border-transparent hover:text-ink-700" }`}
         >
           {tab.label}
         </button>

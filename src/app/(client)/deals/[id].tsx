@@ -1669,7 +1669,7 @@ export default function DealDetailPage() {
                         e.stopPropagation();
                         navigate(`/customers/${customer.id}`);
                       }}
-                      className="shrink-0 rounded-control p-1 text-ink-400 hover:text-primary hover:bg-primary-soft transition-colors"
+                      className="shrink-0 rounded-control p-2.5 text-ink-400 md:p-1 hover:text-primary hover:bg-primary-soft transition-colors"
                       title="เปิดหน้าลูกค้า"
                       aria-label="เปิดหน้าลูกค้า"
                     >
@@ -1684,7 +1684,7 @@ export default function DealDetailPage() {
                         e.stopPropagation();
                         void openCustomerPicker();
                       }}
-                      className="shrink-0 rounded-control p-1 text-ink-400 hover:text-primary hover:bg-primary-soft transition-colors disabled:opacity-40"
+                      className="shrink-0 rounded-control p-2.5 text-ink-400 md:p-1 hover:text-primary hover:bg-primary-soft transition-colors disabled:opacity-40"
                       title="เปลี่ยนลูกค้าของงานนี้"
                       aria-label="เปลี่ยนลูกค้าของงานนี้"
                     >
@@ -1694,7 +1694,7 @@ export default function DealDetailPage() {
                   {customer?.phone && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopyText(customer.phone!); }}
-                      className="shrink-0 rounded-control p-1 text-ink-400 hover:text-ink-600 hover:bg-ink-50"
+                      className="shrink-0 rounded-control p-2.5 text-ink-400 md:p-1 hover:text-ink-600 hover:bg-ink-50"
                       title="คัดลอกเบอร์โทร"
                     >
                       <Phone className="h-3.5 w-3.5" />
@@ -1703,7 +1703,7 @@ export default function DealDetailPage() {
                   {customer?.tax_id && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopyText(customer.tax_id!); }}
-                      className="shrink-0 rounded-control p-1 text-ink-400 hover:text-ink-600 hover:bg-ink-50"
+                      className="shrink-0 rounded-control p-2.5 text-ink-400 md:p-1 hover:text-ink-600 hover:bg-ink-50"
                       title="คัดลอกเลขที่ผู้เสียภาษี"
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -2494,7 +2494,7 @@ export default function DealDetailPage() {
                               event.stopPropagation();
                               handleOpenPreview(doc);
                             }}
-                            className="mt-0.5 inline-flex items-center justify-center rounded-control border border-primary bg-white px-2.5 py-1 text-label font-medium text-primary transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                            className="mt-0.5 inline-flex min-h-11 items-center justify-center rounded-control border border-primary bg-white px-2.5 py-1 text-label font-medium text-primary transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:min-h-0"
                           >
                             พิมพ์ / PDF
                           </button>

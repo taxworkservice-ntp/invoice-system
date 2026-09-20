@@ -40,9 +40,34 @@
   --ink-900: #1a1a18;
   --ui-font-size: 13px;
   --ui-line-height: 20px;
+  /* Height of the fixed mobile bottom nav (see BottomNav.tsx). Sticky action
+     bars offset by this so they never sit behind the nav. */
+  --bottom-nav-height: 3.875rem;
   /* Frozen print base — the print layer is exempt from the UI type scale. */
   --print-font-size: 14px;
   --print-line-height: 1.6;
+}
+
+/* Hidden-scrollbar affordance for horizontal tab rows on mobile. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Sticky save/action bar: sits 12px above the safe area on desktop, and
+   clears the fixed bottom nav on mobile so the primary action stays tappable
+   while scrolling. */
+.sticky-action {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom) + var(--bottom-nav-height) + 0.75rem);
+}
+@media (min-width: 768px) {
+  .sticky-action {
+    bottom: 0.75rem;
+  }
 }
 
 body {

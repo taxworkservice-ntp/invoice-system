@@ -35,7 +35,7 @@ export function SectionCard({
   return (
     <section className={`rounded-card border ${TONES[tone]} ${padding === "none" ? "overflow-hidden" : "p-4 sm:p-5"} ${className}`}>
       {hasHeader && (
-        <div className={`flex items-center gap-2 ${padding === "none" ? "p-4 pb-0 sm:p-5 sm:pb-0" : "mb-4"}`}>
+        <div className={`flex flex-wrap items-center gap-x-2 gap-y-2 ${padding === "none" ? "p-4 pb-0 sm:p-5 sm:pb-0" : "mb-4"}`}>
           {icon ? <span className="text-ink-400">{icon}</span> : null}
           <div className="min-w-0">
             <h3 className="text-title font-semibold text-ink-900">{title}</h3>

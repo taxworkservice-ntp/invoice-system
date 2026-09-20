@@ -25,7 +25,7 @@ export function LineMoveButtons({
         disabled={!canMoveUp}
         aria-label="เลื่อนขึ้น"
         title="เลื่อนขึ้น"
-        className="flex h-4 w-7 items-center justify-center text-ink-400 transition-colors hover:bg-paper-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-400"
+        className="flex h-7 w-9 items-center justify-center text-ink-400 transition-colors hover:bg-paper-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-400 md:h-4 md:w-7"
       >
         <ChevronUp className="h-3.5 w-3.5" />
       </button>
@@ -35,7 +35,7 @@ export function LineMoveButtons({
         disabled={!canMoveDown}
         aria-label="เลื่อนลง"
         title="เลื่อนลง"
-        className="-mt-px flex h-4 w-7 items-center justify-center border-t border-card-border text-ink-400 transition-colors hover:bg-paper-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-400"
+        className="-mt-px flex h-7 w-9 items-center justify-center border-t border-card-border text-ink-400 transition-colors hover:bg-paper-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-400 md:h-4 md:w-7"
       >
         <ChevronDown className="h-3.5 w-3.5" />
       </button>

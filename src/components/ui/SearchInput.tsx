@@ -78,7 +78,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
         <input
           ref={inputRef}
           type="text"
-          className="w-full bg-white border-[0.5px] border-card-border rounded-control pl-9 pr-9 py-2.5 text-body placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+          className="w-full min-h-11 md:min-h-0 bg-white border-[0.5px] border-card-border rounded-control pl-9 pr-11 md:pr-9 py-2.5 text-body placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
           placeholder={placeholder}
           value={inputValue}
           onChange={handleChange}
@@ -88,7 +88,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             type="button"
             onClick={handleClear}
             aria-label="ล้างการค้นหา"
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-control text-ink-300 hover:text-ink-900 hover:bg-ink-50 transition-colors"
+            className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-control text-ink-300 hover:text-ink-900 hover:bg-ink-50 transition-colors md:right-2 md:h-6 md:w-6"
           >
             <X size={14} />
           </button>

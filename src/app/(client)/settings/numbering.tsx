@@ -6,6 +6,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
+import { SaveBar } from "../../../components/ui/SaveBar";
 import { Input } from "../../../components/ui/Input";
 import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
@@ -279,24 +280,13 @@ export default function SettingsNumberingPage() {
           </div>
         </SectionCard>
 
-        <div className="sticky bottom-3 z-10">
-          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-label">
-                {error ? (
-                  <span className="text-red-500">{error}</span>
-                ) : success ? (
-                  <span className="text-green-600">{success}</span>
-                ) : (
-                  <span className="text-ink-400">บันทึกครั้งเดียวใช้ได้กับทุกประเภทเอกสาร</span>
-                )}
-              </div>
-              <Button onClick={handleSave} disabled={saving} className="shrink-0">
-                {saving ? "กำลังบันทึก..." : "บันทึกทั้งหมด"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <SaveBar
+          tone={error ? "error" : success ? "success" : "muted"}
+          label={error || success || "บันทึกครั้งเดียวใช้ได้กับทุกประเภทเอกสาร"}
+          onSave={handleSave}
+          saving={saving}
+          saveLabel="บันทึกทั้งหมด"
+        />
       </div>
     </AppShell>
   );

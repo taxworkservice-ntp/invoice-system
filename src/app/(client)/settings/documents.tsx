@@ -8,6 +8,7 @@ import { SectionCard } from "../../../components/ui/SectionCard";
 import { SettingRow } from "../../../components/ui/SettingRow";
 import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
+import { SaveBar } from "../../../components/ui/SaveBar";
 import { Select } from "../../../components/ui/Input";
 import { LogoUpload } from "../../../components/ui/LogoUpload";
 import { ImageUpload } from "../../../components/ui/ImageUpload";
@@ -45,9 +46,9 @@ function ScaleRow({
   inheritOptionLabel?: string;
 }) {
   return (
-    <div className={`flex items-center justify-between gap-4 py-1.5 ${indent ? "sm:pl-6" : ""}`}>
+    <div className={`flex flex-col gap-2 py-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${indent ? "sm:pl-6" : ""}`}>
       <span className={`text-label ${indent ? "text-ink-500" : "text-ink-600"}`}>{label}</span>
-      <div className="w-[280px] shrink-0">
+      <div className="w-full sm:w-[280px] sm:shrink-0">
         <FontScaleControl value={value} onChange={onSet} allowInherit inheritOptionLabel={inheritOptionLabel} />
       </div>
     </div>
@@ -866,7 +867,7 @@ export default function SettingsDocumentsPage() {
                 />
                 {signatureKey && (
                   <>
-                    <SettingRow label="ขนาดลายเซ็น" controlWidthClass="w-[140px]">
+                    <SettingRow label="ขนาดลายเซ็น" controlWidthClass="sm:w-[140px]">
                       <Select value={signatureScale} onChange={(e) => { setSignatureScale(e.target.value); setSaved(false); }}>
                         {ASSET_SCALE_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>{option.label}</option>
@@ -888,9 +889,9 @@ export default function SettingsDocumentsPage() {
                       />
                     </div>
                     {showSignatureMaster && (
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:pl-4">
+                      <div className="grid grid-cols-1 gap-x-3 gap-y-0.5 sm:grid-cols-2 sm:gap-y-1 sm:pl-4">
                         {DOC_VISIBILITY_TYPES.map((t) => (
-                          <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
+                          <label key={t.key} className="flex min-h-9 items-center gap-2 cursor-pointer py-0.5">
                             <input
                               type="checkbox"
                               checked={showSignatureOnDocs[t.key] !== false}
@@ -899,7 +900,7 @@ export default function SettingsDocumentsPage() {
                                 if (t.key === "wht") setShowSignatureOnWht(e.target.checked);
                                 setSaved(false);
                               }}
-                              className="w-3 h-3 accent-primary rounded"
+                              className="h-4 w-4 shrink-0 accent-primary rounded"
                             />
                             <span className="text-label text-ink-500 select-none">{t.label}</span>
                           </label>
@@ -922,7 +923,7 @@ export default function SettingsDocumentsPage() {
                 />
                 {stampKey && (
                   <>
-                    <SettingRow label="ขนาดตราประทับ" controlWidthClass="w-[140px]">
+                    <SettingRow label="ขนาดตราประทับ" controlWidthClass="sm:w-[140px]">
                       <Select value={stampScale} onChange={(e) => { setStampScale(e.target.value); setSaved(false); }}>
                         {ASSET_SCALE_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>{option.label}</option>
@@ -944,9 +945,9 @@ export default function SettingsDocumentsPage() {
                       />
                     </div>
                     {showStampMaster && (
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:pl-4">
+                      <div className="grid grid-cols-1 gap-x-3 gap-y-0.5 sm:grid-cols-2 sm:gap-y-1 sm:pl-4">
                         {DOC_VISIBILITY_TYPES.map((t) => (
-                          <label key={t.key} className="flex items-center gap-1.5 cursor-pointer">
+                          <label key={t.key} className="flex min-h-9 items-center gap-2 cursor-pointer py-0.5">
                             <input
                               type="checkbox"
                               checked={showStampOnDocs[t.key] !== false}
@@ -955,7 +956,7 @@ export default function SettingsDocumentsPage() {
                                 if (t.key === "wht") setShowStampOnWht(e.target.checked);
                                 setSaved(false);
                               }}
-                              className="w-3 h-3 accent-primary rounded"
+                              className="h-4 w-4 shrink-0 accent-primary rounded"
                             />
                             <span className="text-label text-ink-500 select-none">{t.label}</span>
                           </label>
@@ -1008,38 +1009,13 @@ export default function SettingsDocumentsPage() {
           </SettingRow>
         </SectionCard>
 
-        <div className="sticky bottom-3 z-10">
-          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-label">
-                {error ? (
-                  <span className="text-red-500">{error}</span>
-                ) : saved ? (
-                  <span className="text-green-600">บันทึกแล้ว</span>
-                ) : isDirty ? (
-                  <span className="flex items-center gap-1.5 text-ink-300">
-                    <span className="w-[6px] h-[6px] rounded-full bg-primary inline-block" />
-                    ยังไม่ได้บันทึก
-                  </span>
-                ) : (
-                  <span className="text-ink-400">การตั้งค่าทั้งหมดถูกบันทึกแล้ว</span>
-                )}
-              </div>
-              {isDirty && !saving && (
-                <button
-                  type="button"
-                  onClick={hydrateFromProfile}
-                  className="text-label text-ink-500 hover:text-ink-700 underline underline-offset-2"
-                >
-                  ยกเลิกการแก้ไข
-                </button>
-              )}
-              <Button onClick={handleSave} disabled={saving} className="shrink-0">
-                {saving ? "กำลังบันทึก..." : "บันทึก"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <SaveBar
+          tone={error ? "error" : saved ? "success" : isDirty ? "dirty" : "muted"}
+          label={error || (saved ? "บันทึกแล้ว" : isDirty ? "ยังไม่ได้บันทึก" : "การตั้งค่าทั้งหมดถูกบันทึกแล้ว")}
+          onSave={handleSave}
+          saving={saving}
+          onDiscard={isDirty && !saving ? hydrateFromProfile : undefined}
+        />
       </div>
     </AppShell>
   );

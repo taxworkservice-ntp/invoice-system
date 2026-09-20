@@ -128,7 +128,8 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
 
           {parsed.length > 0 && (
             <div className="rounded-control border border-card-border overflow-hidden">
-              <table className="w-full text-label">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-label">
                 <thead>
                   <tr className="bg-paper-field text-ink-500">
                     <th className="px-2.5 py-1.5 text-left font-medium">รหัส</th>
@@ -161,6 +162,7 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 

@@ -73,14 +73,14 @@ export function ActiveFilterChips({
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="inline-flex items-center gap-1 rounded-full border border-primary-border bg-primary-soft py-0.5 pl-2.5 pr-1 text-label text-primary-deep"
+          className="inline-flex items-center gap-1 rounded-full border border-primary-border bg-primary-soft py-1 pl-2.5 pr-1 text-label text-primary-deep md:py-0.5"
         >
           {chip.label}
           <button
             type="button"
             aria-label={`ลบตัวกรอง ${chip.label}`}
             onClick={() => onRemove(chip.clear)}
-            className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/15"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/15 md:h-4 md:w-4"
           >
             <X className="h-3 w-3" />
           </button>
@@ -89,7 +89,7 @@ export function ActiveFilterChips({
       <button
         type="button"
         onClick={onClearAll}
-        className="ml-1 text-label font-medium text-primary hover:underline"
+        className="ml-1 inline-flex min-h-11 items-center text-label font-medium text-primary hover:underline md:min-h-0"
       >
         ล้างทั้งหมด
       </button>

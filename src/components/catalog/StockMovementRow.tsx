@@ -96,7 +96,7 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
             <button
               type="button"
               onClick={() => navigate(`/documents/${movement.document_id}`)}
-              className="mt-0.5 text-label text-primary hover:underline"
+              className="mt-0.5 inline-flex min-h-11 items-center text-label text-primary hover:underline md:min-h-0"
             >
               เอกสาร: {movement.document_id.slice(0, 8)}...
             </button>
@@ -124,7 +124,7 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
                       e.stopPropagation();
                       onEdit(movement);
                     }}
-                    className="text-label text-primary hover:underline"
+                    className="inline-flex min-h-11 items-center text-label text-primary hover:underline md:min-h-0"
                   >
                     แก้ไข
                   </button>
@@ -136,7 +136,7 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
                       e.stopPropagation();
                       onRevert(movement);
                     }}
-                    className="text-label text-danger hover:underline"
+                    className="inline-flex min-h-11 items-center text-label text-danger hover:underline md:min-h-0"
                   >
                     ยกเลิกรายการนี้
                   </button>

@@ -63,5 +63,23 @@ export default defineConfig({
         toHaveScreenshot: { animations: "disabled", caret: "hide", maxDiffPixels: 250 },
       },
     },
+    {
+      // Narrow-viewport baselines: guards the mobile shell (bottom nav, tab
+      // rows, sticky save bars) which the 1280 desktop projects never render.
+      // Generate/refresh with `npm run test:ui-snapshots:mobile:update`.
+      name: "visual-mobile",
+      dependencies: ["setup"],
+      testMatch: /visual\.mobile\.spec\.ts/,
+      use: {
+        storageState: "e2e/.auth/state.json",
+        viewport: { width: 390, height: 844 },
+        colorScheme: "light",
+        isMobile: true,
+        hasTouch: true,
+      },
+      expect: {
+        toHaveScreenshot: { animations: "disabled", caret: "hide", maxDiffPixels: 250 },
+      },
+    },
   ],
 });

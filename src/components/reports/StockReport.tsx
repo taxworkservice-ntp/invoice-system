@@ -225,13 +225,13 @@ export function StockReport({ userId }: StockReportProps) {
             </h3>
               <div className="space-y-2">
                 {lowStockItems.slice(0, 5).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between text-body cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${item.stock_count <= 0 ? "bg-danger" : "bg-amber-500"}`} />
-                      <span className="text-ink-500">{item.name}</span>
-                      {item.sku && <span className="text-label text-ink-400">({item.sku})</span>}
+                  <div key={item.id} className="flex items-center justify-between gap-3 text-body cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className={`h-2 w-2 shrink-0 rounded-full ${item.stock_count <= 0 ? "bg-danger" : "bg-amber-500"}`} />
+                      <span className="truncate text-ink-500">{item.name}</span>
+                      {item.sku && <span className="shrink-0 text-label text-ink-400">({item.sku})</span>}
                     </div>
-                    <div className="text-right tabular-nums">
+                    <div className="shrink-0 text-right tabular-nums">
                       <span className={`font-medium ${item.stock_count <= 0 ? "text-danger" : "text-amber-700"}`}>
                         เหลือ {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
                       </span>
@@ -334,13 +334,13 @@ export function StockReport({ userId }: StockReportProps) {
             <h3 className="mb-3 text-label font-semibold text-danger">สินค้าที่ต้องเติมสต็อก</h3>
             <div className="space-y-2">
               {lowStockItems.slice(0, 10).map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-body cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${item.stock_count <= 0 ? "bg-danger" : "bg-amber-500"}`} />
-                    <span className="text-ink-500">{item.name}</span>
-                    {item.sku && <span className="text-label text-ink-400">({item.sku})</span>}
+                <div key={item.id} className="flex items-center justify-between gap-3 text-body cursor-pointer hover:bg-red-100/50 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => navigate(`/catalog/${item.id}`)}>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className={`h-2 w-2 shrink-0 rounded-full ${item.stock_count <= 0 ? "bg-danger" : "bg-amber-500"}`} />
+                    <span className="truncate text-ink-500">{item.name}</span>
+                    {item.sku && <span className="shrink-0 text-label text-ink-400">({item.sku})</span>}
                   </div>
-                  <div className="text-right tabular-nums">
+                  <div className="shrink-0 text-right tabular-nums">
                     <span className={`font-medium ${item.stock_count <= 0 ? "text-danger" : "text-amber-700"}`}>
                       เหลือ {formatMixedStock(item.stock_count, item.base_unit, item.carton_unit, item.qty_per_carton)}
                     </span>

@@ -3,7 +3,7 @@ import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
-import { Button } from "../../../components/ui/Button";
+import { SaveBar } from "../../../components/ui/SaveBar";
 import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { SettingsTabs } from "./_components/SettingsTabs";
@@ -91,22 +91,12 @@ export default function SettingsStockPage() {
           </div>
         </SectionCard>
 
-        <div className="sticky bottom-3 z-10">
-          <div className="rounded-card border border-card-border bg-white/95 p-3 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1 text-label">
-                {error ? (
-                  <span className="text-red-500">{error}</span>
-                ) : (
-                  <span className="text-ink-400">เลือกจุดตัดสต็อกแล้วกดบันทึก</span>
-                )}
-              </div>
-              <Button onClick={handleSave} disabled={saving} className="shrink-0">
-                {saving ? "กำลังบันทึก..." : "บันทึก"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <SaveBar
+          tone={error ? "error" : "muted"}
+          label={error || "เลือกจุดตัดสต็อกแล้วกดบันทึก"}
+          onSave={handleSave}
+          saving={saving}
+        />
       </div>
     </AppShell>
   );

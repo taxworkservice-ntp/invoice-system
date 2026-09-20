@@ -25,7 +25,7 @@ export function FormActionBar({
   secondary?: FormActionButton;
 }) {
   return (
-    <div className="sticky bottom-3 z-10 rounded-card border border-card-border bg-page-bg/95 p-3 backdrop-blur">
+    <div className="sticky-action z-10 rounded-card border border-card-border bg-page-bg/95 p-3 backdrop-blur">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           {contextLabel ? (

@@ -583,7 +583,7 @@ export default function CustomerDetailPage() {
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="w-8 h-8 flex items-center justify-center rounded-control hover:bg-page-bg transition-colors"
+              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-page-bg transition-colors md:h-8 md:w-8"
             >
               <MoreVertical className="w-4 h-4 text-ink-300" />
             </button>
@@ -680,7 +680,7 @@ export default function CustomerDetailPage() {
                             type="button"
                             onClick={() => setEditAvatarColor(c)}
                             aria-label={`เลือกสี ${c}`}
-                            className={`w-7 h-7 rounded-full border-2 transition-transform ${editAvatarColor.toLowerCase() === c.toLowerCase() ? "border-ink-900 scale-110" : c === "#FFFFFF" ? "border-ink-100 hover:scale-105" : "border-white hover:scale-105"}`}
+                            className={`h-10 w-10 rounded-full border-2 transition-transform md:h-7 md:w-7 ${editAvatarColor.toLowerCase() === c.toLowerCase() ? "border-ink-900 scale-110" : c === "#FFFFFF" ? "border-ink-100 hover:scale-105" : "border-white hover:scale-105"}`}
                             style={{ backgroundColor: c }}
                           />
                         ))}
@@ -873,14 +873,14 @@ export default function CustomerDetailPage() {
                     key={range.key}
                     type="button"
                     onClick={() => applyRangePreset(range.key)}
-                    className={`shrink-0 rounded-control border px-3 py-1.5 text-label font-medium transition-colors ${rangePreset === range.key ? "border-primary bg-primary text-white " : "border-line bg-white text-ink-600 hover:border-primary/40 hover:bg-blue-50/40"}`}
+                    className={`inline-flex min-h-11 shrink-0 items-center rounded-control border px-3 py-1.5 text-label font-medium transition-colors md:min-h-0 ${rangePreset === range.key ? "border-primary bg-primary text-white " : "border-line bg-white text-ink-600 hover:border-primary/40 hover:bg-blue-50/40"}`}
                   >
                     {range.label}
                   </button>
                 ))}
               </div>
               {rangePreset === "custom" && (
-                <div className="flex items-center gap-2 rounded-control border border-line bg-paper-field px-2 py-1">
+                <div className="flex flex-wrap items-center gap-2 rounded-control border border-line bg-paper-field px-2 py-1">
                   <input
                     type="date"
                     value={dateFrom}
@@ -972,7 +972,7 @@ export default function CustomerDetailPage() {
                   key={tab}
                   type="button"
                   onClick={() => setDealFilter(tab)}
-                  className={`shrink-0 px-3 py-1.5 text-label rounded-control font-medium transition-colors ${dealFilter === tab ? "bg-primary text-white" : "bg-page-bg text-ink-300 hover:bg-line"}`}
+                  className={`inline-flex min-h-11 shrink-0 items-center px-3 py-1.5 text-label rounded-control font-medium transition-colors md:min-h-0 ${dealFilter === tab ? "bg-primary text-white" : "bg-page-bg text-ink-300 hover:bg-line"}`}
                 >
                   {tab === "all"
                     ? "ทั้งหมด"

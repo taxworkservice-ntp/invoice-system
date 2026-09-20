@@ -244,13 +244,13 @@ export function CatalogList({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <SearchInput
           value={search}
           onChange={setSearch}
           debounceMs={200}
           placeholder="ค้นหาชื่อสินค้า, SKU..."
-          className="flex-1"
+          className="w-full min-w-0 sm:w-auto sm:flex-1"
         />
         <Button
           variant="secondary"
@@ -285,7 +285,7 @@ export function CatalogList({
         <button
           type="button"
           onClick={() => setFilterMode((prev) => (prev === "favorites" ? "all" : "favorites"))}
-          className={`px-3 py-1.5 text-label rounded-control font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border"}`}
+          className={`inline-flex min-h-11 items-center gap-1 px-3 py-1.5 text-label rounded-control font-medium transition-colors md:min-h-0 ${filterMode === "favorites" ? "bg-warning text-white" : "bg-warning-soft text-warning-text hover:bg-warning-border"}`}
         >
           <Star size={12} className={filterMode === "favorites" ? "fill-current" : ""} />
           รายการโปรด {favoriteCount > 0 && <span className="ml-1 opacity-70">{favoriteCount}</span>}

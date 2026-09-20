@@ -127,7 +127,7 @@ export default function SettingsAccountPage() {
                 onClick={() => {
                   if (window.confirm("ออกจากระบบ?")) handleLogout();
                 }}
-                className="text-red-500 text-body font-medium hover:underline"
+                className="inline-flex min-h-11 items-center text-red-500 text-body font-medium hover:underline md:min-h-0"
               >
                 ออกจากระบบ
               </button>

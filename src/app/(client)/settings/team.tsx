@@ -409,7 +409,7 @@ export default function SettingsTeamPage() {
                   key={item.key}
                   type="button"
                   onClick={() => switchTab(item.key)}
-                  className={`rounded-control px-3 py-1.5 text-label font-medium transition-colors ${tab === item.key ? "bg-white text-primary " : "text-ink-500 hover:text-ink-700"}`}
+                  className={`inline-flex min-h-11 items-center rounded-control px-3 py-1.5 text-label font-medium transition-colors md:min-h-0 ${tab === item.key ? "bg-white text-primary " : "text-ink-500 hover:text-ink-700"}`}
                 >
                   {item.label}
                 </button>

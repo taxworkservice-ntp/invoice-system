@@ -60,7 +60,7 @@ export function Modal({ open, onClose, title, children, className = "", size = "
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-title font-semibold text-ink-900">{title}</h2>
-            <button onClick={onClose} aria-label="ปิด" className="text-ink-400 hover:text-ink-600 text-title leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-ink-50 transition-colors">&times;</button>
+            <button onClick={onClose} aria-label="ปิด" className="flex h-11 w-11 items-center justify-center rounded-full text-title leading-none text-ink-400 transition-colors hover:bg-ink-50 hover:text-ink-600 md:h-8 md:w-8">&times;</button>
           </div>
         )}
         {children}

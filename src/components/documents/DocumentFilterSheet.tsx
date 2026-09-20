@@ -97,7 +97,7 @@ export function DocumentFilterSheet({
             type="button"
             onClick={onClose}
             aria-label="ปิด"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink-50 hover:text-ink-600"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink-50 hover:text-ink-600 md:h-8 md:w-8"
           >
             <X className="h-4.5 w-4.5" />
           </button>

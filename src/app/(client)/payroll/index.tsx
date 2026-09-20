@@ -1460,7 +1460,7 @@ export default function PayrollPage() {
                   <>
                     <button
                       onClick={openEditRunModal}
-                      className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors"
+                      className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
                       title="แก้ไขข้อมูลรอบ"
                       aria-label="แก้ไขข้อมูลรอบ"
                     >
@@ -1468,7 +1468,7 @@ export default function PayrollPage() {
                     </button>
                     <button
                       onClick={() => setShowDeleteRunModal(true)}
-                      className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors"
+                      className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors md:h-7 md:w-7"
                       title="ลบรอบ"
                       aria-label="ลบรอบ"
                     >
@@ -2652,7 +2652,7 @@ function PayrollRow({ employee, calc, status, rowStatus, highlighted, daysColumn
             <span className="shrink-0" title={statusLabels[rowStatus]}>{statusIcons[rowStatus]}</span>
             <button
               onClick={(e) => { e.stopPropagation(); onOpenDetails(); }}
-              className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors"
+              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
               aria-label={`แก้ไขเงินเดือน ${employee.full_name}`}
             >
               <Pencil className="w-3.5 h-3.5" />
@@ -2755,7 +2755,7 @@ function PayrollRow({ employee, calc, status, rowStatus, highlighted, daysColumn
           {status === "finalized" && (
             <button
               onClick={(e) => { e.stopPropagation(); onPrint(); }}
-              className="w-7 h-7 flex items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors"
+              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
               title="พิมพ์สลิป"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -3154,8 +3154,8 @@ function PayrollEditableSections({
           )}
         </div>
         {hasOT && (
-          <div className="space-y-2">
-            <div className="grid grid-cols-[80px_100px_70px_80px_auto] gap-2 text-label text-ink-400 font-medium px-1">
+          <div className="space-y-2 overflow-x-auto">
+            <div className="grid min-w-max grid-cols-[80px_100px_70px_80px_auto] gap-2 text-label text-ink-400 font-medium px-1">
               <span>ชั่วโมง</span>
               <span>ประเภท</span>
               <span>อัตราคูณ</span>
@@ -3165,7 +3165,7 @@ function PayrollEditableSections({
             {localItem.ot_entries.map((ot, i) => {
               const otPay = Number(ot.hours) * hourlyRate * Number(ot.multiplier);
               return (
-                <div key={i} className="grid grid-cols-[80px_100px_70px_80px_auto] gap-2 items-center">
+                <div key={i} className="grid min-w-max grid-cols-[80px_100px_70px_80px_auto] gap-2 items-center">
                   <Input
                     type="number"
                     min="0"
@@ -3198,7 +3198,7 @@ function PayrollEditableSections({
                   {!readOnly && (
                     <button
                       onClick={() => removeOT(i)}
-                      className="w-8 h-8 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
+                      className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors md:h-8 md:w-8"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -3260,7 +3260,7 @@ function PayrollEditableSections({
                   {!readOnly && (
                     <button
                       onClick={() => removeAddition(i)}
-                      className="w-8 h-8 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
+                      className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors md:h-8 md:w-8"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -3319,7 +3319,7 @@ function PayrollEditableSections({
                   {!readOnly && (
                     <button
                       onClick={() => removeDeduction(i)}
-                      className="w-8 h-8 flex items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
+                      className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors md:h-8 md:w-8"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>

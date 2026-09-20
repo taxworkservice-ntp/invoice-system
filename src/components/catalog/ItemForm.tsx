@@ -692,7 +692,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                           type="button"
                           onClick={() => moveJobDetailField(field.field_key, -1)}
                           disabled={index === 0}
-                          className="flex h-8 w-8 items-center justify-center rounded-l-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white"
+                          className="flex h-11 w-11 items-center justify-center rounded-l-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white md:h-8 md:w-8"
                           aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ขึ้น`}
                           title="เลื่อนขึ้น"
                         >
@@ -703,7 +703,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                           type="button"
                           onClick={() => moveJobDetailField(field.field_key, 1)}
                           disabled={index === jobDetailFields.length - 1}
-                          className="flex h-8 w-8 items-center justify-center rounded-r-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white"
+                          className="flex h-11 w-11 items-center justify-center rounded-r-control text-ink-600 transition-colors hover:bg-paper-field disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-white md:h-8 md:w-8"
                           aria-label={`เลื่อน ${field.label || "ช่องรายละเอียด"} ลง`}
                           title="เลื่อนลง"
                         >
@@ -721,7 +721,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                               return next;
                             });
                           }}
-                          className="rounded-control border border-red-100 px-2.5 py-1.5 text-label font-medium text-red-600 transition-colors hover:bg-red-50"
+                          className="inline-flex min-h-11 items-center rounded-control border border-red-100 px-2.5 py-1.5 text-label font-medium text-red-600 transition-colors hover:bg-red-50 md:min-h-0"
                         >
                           ลบช่อง
                         </button>
@@ -747,7 +747,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                             <button
                               type="button"
                               onClick={() => removePreset(field.field_key, value)}
-                              className="text-ink-400 transition-colors hover:text-red-500"
+                              className="-m-2.5 flex h-4 w-4 items-center justify-center p-2.5 text-ink-400 transition-colors hover:text-red-500"
                               aria-label={`ลบ ${value}`}
                             >
                               ×
@@ -770,12 +770,12 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                           }
                         }}
                         placeholder={field.placeholder}
-                        className="min-w-0 flex-1 rounded-control border border-card-border bg-white px-3 py-2 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className="min-h-11 min-w-0 flex-1 rounded-control border border-card-border bg-white px-3 py-2 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 md:min-h-0"
                       />
                       <button
                         type="button"
                         onClick={() => addPreset(field.field_key)}
-                        className="shrink-0 rounded-control border border-card-border bg-white px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:bg-paper-field"
+                        className="inline-flex min-h-11 shrink-0 items-center rounded-control border border-card-border bg-white px-3 py-2 text-label font-medium text-ink-700 transition-colors hover:bg-paper-field md:min-h-0"
                       >
                         เพิ่ม
                       </button>
@@ -784,7 +784,7 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                     )}
                   </div>
                 ))}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <button
                     type="button"
                     onClick={() =>

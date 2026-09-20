@@ -210,7 +210,7 @@ export function DocumentRow({
                   onAction(quickAction.id);
                 }}
                 disabled={menuLoading}
-                className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-label font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                className="inline-flex min-h-11 items-center rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-label font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50 md:min-h-0"
               >
                 {quickAction.label}
               </button>
@@ -226,7 +226,7 @@ export function DocumentRow({
                   onToggleMenu();
                 }}
                 disabled={menuLoading}
-                className="rounded-control p-1.5 text-ink-300 transition-colors hover:bg-ink-50 hover:text-ink-700 disabled:opacity-50"
+                className="rounded-control p-2.5 text-ink-300 transition-colors hover:bg-ink-50 hover:text-ink-700 disabled:opacity-50 md:p-1.5"
               >
                 <MoreHorizontal size={16} />
               </button>

@@ -1988,12 +1988,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             </div>
 
             <div className="mt-4 rounded-card border border-line-soft bg-paper-field px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-label text-ink-500">วันที่ที่ใช้บนเอกสาร</div>
                     <div className="mt-1 text-body font-semibold text-ink-900">{formatBuddhistDate(issueDate)}</div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {!isIssueDateToday && (
                       <button
                         type="button"
@@ -2001,7 +2001,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                           setIssueDate(todayString());
                           setShowIssueDatePicker(false);
                         }}
-                        className="rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white"
+                        className="inline-flex min-h-11 items-center rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white md:min-h-0"
                       >
                         ใช้วันนี้
                       </button>
@@ -2009,14 +2009,14 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     <button
                       type="button"
                       onClick={() => setIssueDate(addDaysString(issueDate, 1))}
-                      className="rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white"
+                      className="inline-flex min-h-11 items-center rounded-control border border-line px-3 py-2 text-label font-medium text-ink-500 transition-colors hover:bg-white md:min-h-0"
                     >
                       เลือกวันถัดไป
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowIssueDatePicker((prev) => !prev)}
-                      className="rounded-control border border-line bg-white px-3 py-2 text-label font-medium text-ink-900 transition-colors hover:bg-paper-field"
+                      className="inline-flex min-h-11 items-center rounded-control border border-line bg-white px-3 py-2 text-label font-medium text-ink-900 transition-colors hover:bg-paper-field md:min-h-0"
                     >
                       {showIssueDatePicker || !isIssueDateToday ? "เปลี่ยนวันที่" : "ออกย้อนหลัง"}
                     </button>
@@ -2375,7 +2375,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                           onClick={() => removeLineItem(item.id)}
                           aria-label="ลบรายการ"
                           title="ลบรายการ"
-                          className="flex-shrink-0 mt-0.5 text-ink-400 transition-colors hover:text-red-600"
+                          className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-red-600 md:h-auto md:w-auto"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -2544,7 +2544,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                             type="checkbox"
                             checked={item.price_confirmed}
                             onChange={(e) => updateLineItem(item.id, "price_confirmed", e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-line text-primary focus:ring-primary"
+                            className="h-4 w-4 rounded border-line text-primary focus:ring-primary"
                           />
                           <span className={`text-label font-medium ${item.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
                             {item.price_confirmed ? "ยืนยันราคาแล้ว" : "กรุณายืนยันราคา"}
@@ -2854,7 +2854,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           </DocumentOptionsCard>
         )}
 
-        <div className="sticky bottom-3 z-10 rounded-card bg-page-bg/95 pb-2 pt-1 backdrop-blur">
+        <div className="sticky-action z-10 rounded-card bg-page-bg/95 pb-2 pt-1 backdrop-blur">
           <div className="mb-2 flex items-end justify-between gap-3 px-1">
             <div>
               <div className="text-body font-medium text-ink-900">5. ตรวจสอบและบันทึก</div>

@@ -78,7 +78,7 @@ export function SavedViewsMenu({ views, onApply, onSave, onDelete }: SavedViewsM
                     type="button"
                     aria-label={`ลบมุมมอง ${view.name}`}
                     onClick={() => onDelete(view.id)}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-ink-400 hover:bg-red-50 hover:text-red-600"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-ink-400 hover:bg-red-50 hover:text-red-600 md:h-7 md:w-7"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

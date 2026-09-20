@@ -95,7 +95,7 @@ export function BottomNav() {
                 className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${ isLogout ? "text-red-500 hover:text-red-600" : active ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700" }`}
               >
                 {iconMap[item.path] || <Home className="w-5 h-5" />}
-                <span className="text-label whitespace-nowrap leading-tight">{item.label}</span>
+                <span className="w-full truncate text-center text-label leading-tight">{item.label}</span>
               </button>
             );
           })}
