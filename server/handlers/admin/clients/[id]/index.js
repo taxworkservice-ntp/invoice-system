@@ -107,11 +107,25 @@ async function deleteR2ObjectsBestEffort(keys) {
   );
 }
 
-async function handleResetDocuments(id, actorId) {
+async function handlePreviewResetDocuments(id) {
   await requireClientTarget(id);
+  const { data, error } = await supabaseAdmin.rpc("admin_preview_reset_client_documents", {
+    p_target_user_id: id,
+  });
+  if (error) {
+    if (error.code === "42501") throw new ApiError(403, "Admin access required");
+    throw error;
+  }
+  return { success: true, preview: data };
+}
+
+async function handleResetDocuments(id, actorId, reason) {
+  await requireClientTarget(id);
+  const cleanReason = typeof reason === "string" ? reason.trim().slice(0, 200) : "";
   const { data, error } = await supabaseAdmin.rpc("admin_reset_client_documents", {
     p_target_user_id: id,
     p_actor_user_id: actorId,
+    p_reason: cleanReason || null,
   });
   if (error) {
     if (error.code === "42501") throw new ApiError(403, "Admin access required");
@@ -205,8 +219,10 @@ export default async function handler(req, res) {
           return sendJson(res, 200, await handleUpdateStatus(id, body, actorId));
         case "reset-workspace":
           return sendJson(res, 200, await handleResetWorkspace(id, actorId));
+        case "reset-documents-preview":
+          return sendJson(res, 200, await handlePreviewResetDocuments(id));
         case "reset-documents":
-          return sendJson(res, 200, await handleResetDocuments(id, actorId));
+          return sendJson(res, 200, await handleResetDocuments(id, actorId, body?.reason));
         case "reset-all":
           return sendJson(res, 200, await handleResetAll(id, actorId));
         default:

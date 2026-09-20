@@ -1,4 +1,4 @@
-import { apiFetch } from "./api";
+import { apiFetch, apiFetchBlob } from "./api";
 import type { WorkspaceCustomRole, WorkspacePermissions } from "./permissions";
 
 export interface AdminAuthUserSummary {
@@ -77,17 +77,69 @@ export interface ResetDocumentsSummary {
   line_items_deleted: number;
   stock_movements_deleted: number;
   wht_records_deleted: number;
+  files_deleted?: number;
   items_stock_restored: number;
   doc_sequences_reset: number;
   deal_sequences_reset: number;
   r2_keys: string[];
+  backup_id?: string;
+  reason?: string | null;
 }
 
-export async function resetClientDocuments(id: string): Promise<{ success: boolean; summary: ResetDocumentsSummary }> {
+export interface ResetDocumentItemPreview {
+  id: string;
+  name: string;
+  stock_before: number;
+  stock_after: number;
+  avg_cost: number;
+}
+
+export interface ResetDocumentsPreview {
+  documents: number;
+  document_line_items: number;
+  deals: number;
+  stock_movements: number;
+  wht_records: number;
+  files: number;
+  items: ResetDocumentItemPreview[];
+  items_affected: number;
+  customers_preserved: number;
+  items_preserved: number;
+}
+
+export interface AdminResetBackup {
+  id: string;
+  action: string;
+  reason: string | null;
+  summary: ResetDocumentsSummary | null;
+  created_at: string;
+  downloaded_at: string | null;
+}
+
+export async function previewClientDocumentReset(id: string): Promise<{ success: boolean; preview: ResetDocumentsPreview }> {
   return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
-    body: JSON.stringify({ action: "reset-documents" }),
+    body: JSON.stringify({ action: "reset-documents-preview" }),
   });
+}
+
+export async function resetClientDocuments(
+  id: string,
+  reason?: string,
+): Promise<{ success: boolean; summary: ResetDocumentsSummary }> {
+  return apiFetch(`/api/admin/clients/${id}`, {
+    method: "POST",
+    body: JSON.stringify({ action: "reset-documents", reason }),
+  });
+}
+
+export async function listAdminResetBackups(id: string): Promise<AdminResetBackup[]> {
+  const result = await apiFetch<{ backups: AdminResetBackup[] }>(`/api/admin/clients/${id}/reset-backups`);
+  return result.backups;
+}
+
+export async function fetchAdminResetBackupBlob(id: string, backupId: string): Promise<Blob> {
+  return apiFetchBlob(`/api/admin/clients/${id}/reset-backups?backupId=${encodeURIComponent(backupId)}`);
 }
 
 export async function deleteAdminClient(id: string) {

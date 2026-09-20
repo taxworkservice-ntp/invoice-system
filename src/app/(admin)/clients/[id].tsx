@@ -5,10 +5,13 @@ import {
   createAdminClientMember,
   deleteAdminClient,
   deleteAdminClientMember,
+  fetchAdminResetBackupBlob,
   getAdminClientUser,
   listAdminClientAudit,
   listAdminClientMembers,
   listAdminClientRoles,
+  listAdminResetBackups,
+  previewClientDocumentReset,
   resetAdminClientWorkspace,
   resetAllClientData,
   resetClientDocuments,
@@ -18,7 +21,10 @@ import {
   updateAdminClientStatus,
   type AdminAuditEntry,
   type AdminClientMember,
+  type AdminResetBackup,
+  type ResetDocumentsPreview,
 } from "../../../lib/adminApi";
+import { downloadBlob, sanitizeFilenamePart } from "../../../lib/download/download";
 import type { WorkspaceCustomRole } from "../../../lib/permissions";
 import { supabase } from "../../../lib/supabase";
 import { Card } from "../../../components/ui/Card";import { Button } from "../../../components/ui/Button";
@@ -100,6 +106,12 @@ export default function AdminClientDetailPage() {
   const [resettingAll, setResettingAll] = useState(false);
   const [showResetDocsModal, setShowResetDocsModal] = useState(false);
   const [resetDocsConfirm, setResetDocsConfirm] = useState("");
+  const [resetDocsReason, setResetDocsReason] = useState("");
+  const [resetDocsPreview, setResetDocsPreview] = useState<ResetDocumentsPreview | null>(null);
+  const [loadingResetPreview, setLoadingResetPreview] = useState(false);
+  const [resetBackups, setResetBackups] = useState<AdminResetBackup[]>([]);
+  const [downloadingBackupId, setDownloadingBackupId] = useState<string | null>(null);
+  const [lastResetBackupId, setLastResetBackupId] = useState<string | null>(null);
   const [resettingDocs, setResettingDocs] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [memberEmail, setMemberEmail] = useState("");
@@ -136,7 +148,7 @@ export default function AdminClientDetailPage() {
     // failing call can never blank the whole page — the rest renders
     // partially with an inline notice instead.
     let accountFailure = "";
-    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes, memberRes, roleRes, auditRes] = await Promise.all([
+    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes, memberRes, roleRes, auditRes, backupRes] = await Promise.all([
       supabase.from("client_profiles").select("*").eq("user_id", id).single(),
       supabase
         .from("documents")
@@ -156,6 +168,7 @@ export default function AdminClientDetailPage() {
       listAdminClientMembers(id).catch(() => []),
       listAdminClientRoles(id).catch(() => []),
       listAdminClientAudit(id).catch(() => []),
+      listAdminResetBackups(id).catch(() => []),
     ]);
 
     if (!cpRes.error && cpRes.data) {
@@ -182,6 +195,7 @@ export default function AdminClientDetailPage() {
     setMembers(memberRes);
     setCustomRoles(roleRes);
     setAuditEntries(auditRes);
+    setResetBackups(backupRes);
 
     if (userRes) {
       setEmail(userRes.email || "");
@@ -488,6 +502,42 @@ export default function AdminClientDetailPage() {
     }
   }
 
+  async function openResetDocsModal() {
+    setResetDocsConfirm("");
+    setResetDocsReason("");
+    setResetDocsPreview(null);
+    setShowResetDocsModal(true);
+    if (!id) return;
+
+    setLoadingResetPreview(true);
+    try {
+      const result = await previewClientDocumentReset(id);
+      setResetDocsPreview(result.preview);
+    } catch (error: any) {
+      toast.error(error.message || "Unable to load reset preview");
+    } finally {
+      setLoadingResetPreview(false);
+    }
+  }
+
+  async function handleDownloadBackup(backupId: string) {
+    if (!id || downloadingBackupId) return;
+    setDownloadingBackupId(backupId);
+    try {
+      const blob = await fetchAdminResetBackupBlob(id, backupId);
+      const company = sanitizeFilenamePart(clientProfile?.company_name_th?.trim() || email || "client");
+      downloadBlob(blob, `reset-backup_${company}_${backupId.slice(0, 8)}.json`);
+      setResetBackups((prev) =>
+        prev.map((backup) => (backup.id === backupId ? { ...backup, downloaded_at: new Date().toISOString() } : backup)),
+      );
+      toast.success("ดาวน์โหลด backup แล้ว");
+    } catch (error: any) {
+      toast.error(error.message || "Unable to download backup");
+    } finally {
+      setDownloadingBackupId(null);
+    }
+  }
+
   async function handleResetDocuments() {
     if (!id || !clientProfile) return;
 
@@ -497,16 +547,25 @@ export default function AdminClientDetailPage() {
       return;
     }
 
+    const reason = resetDocsReason.trim();
+    if (reason.length < 3) {
+      toast.error("กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
+      return;
+    }
+
     setResettingDocs(true);
     try {
-      const result = await resetClientDocuments(id);
-      setShowResetDocsModal(false);
-      setResetDocsConfirm("");
+      const result = await resetClientDocuments(id, reason);
       const summary = result?.summary;
+      setLastResetBackupId(summary?.backup_id || null);
       const summaryText = summary
         ? ` (เอกสาร ${summary.documents_deleted} · งานขาย ${summary.deals_deleted} · คืนสต็อก ${summary.items_stock_restored} รายการ)`
         : "";
-      toast.success("ล้างเอกสารและตั้งเลขใหม่เรียบร้อยแล้ว" + summaryText);
+      toast.success("ล้างเอกสารและตั้งเลขใหม่เรียบร้อยแล้ว" + summaryText + " · บันทึก backup แล้ว");
+      setShowResetDocsModal(false);
+      setResetDocsConfirm("");
+      setResetDocsReason("");
+      setResetDocsPreview(null);
       await fetchData();
     } catch (error: any) {
       toast.error(error.message || "Reset documents failed");
@@ -896,6 +955,53 @@ export default function AdminClientDetailPage() {
           )}
         </Card>
 
+        <div className={CARD_LABEL}>ประวัติการล้างข้อมูล (Reset backups)</div>
+
+        <Card>
+          {resetBackups.length === 0 ? (
+            <p className="text-body text-ink-300">ยังไม่มีประวัติการล้างข้อมูล</p>
+          ) : (
+            <div className="divide-y divide-line-faint">
+              {resetBackups.map((backup) => (
+                <div key={backup.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-label">
+                      <span className="font-semibold text-ink-900">
+                        {AUDIT_ACTION_LABELS[backup.action] || backup.action}
+                      </span>
+                      <span className="text-ink-100">
+                        {new Date(backup.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                      </span>
+                      {backup.id === lastResetBackupId && (
+                        <span className="rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">ใหม่</span>
+                      )}
+                      {backup.downloaded_at && (
+                        <span className="text-ink-300">ดาวน์โหลดแล้ว</span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-label leading-5 text-ink-500">
+                      {backup.summary
+                        ? `เอกสาร ${backup.summary.documents_deleted} · งานขาย ${backup.summary.deals_deleted} · คืนสต็อก ${backup.summary.items_stock_restored} รายการ`
+                        : "ไม่มีข้อมูลสรุป"}
+                      {backup.reason ? ` · เหตุผล: ${backup.reason}` : ""}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="shrink-0"
+                    loading={downloadingBackupId === backup.id}
+                    disabled={Boolean(downloadingBackupId) && downloadingBackupId !== backup.id}
+                    onClick={() => handleDownloadBackup(backup.id)}
+                  >
+                    ดาวน์โหลด backup
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         <div className={CARD_LABEL}>การจัดการ</div>
 
         <Card>
@@ -974,15 +1080,13 @@ export default function AdminClientDetailPage() {
                 End-of-trial cleanup: delete all documents, deals, stock movements, and WHT records for this client.
                 Document numbering restarts at 1 and deal numbering (DL-) restarts at 00001.
                 Item stock counts are restored to their pre-trial levels. Customers, catalog items, and
-                profile settings are preserved. This action cannot be undone.
+                profile settings are preserved. A full JSON backup is saved before deleting and can be
+                downloaded from below.
               </p>
               <Button
                 variant="danger"
                 className="mt-3 w-full justify-center"
-                onClick={() => {
-                  setResetDocsConfirm("");
-                  setShowResetDocsModal(true);
-                }}
+                onClick={openResetDocsModal}
               >
                 Clear all documents and numbering
               </Button>
@@ -1276,6 +1380,8 @@ export default function AdminClientDetailPage() {
           if (!resettingDocs) {
             setShowResetDocsModal(false);
             setResetDocsConfirm("");
+            setResetDocsReason("");
+            setResetDocsPreview(null);
           }
         }}
         title="Clear documents and numbering"
@@ -1286,6 +1392,42 @@ export default function AdminClientDetailPage() {
             Document numbering will restart from 1 and deal numbering (DL-) from 00001. Item stock counts will be
             restored to their pre-trial levels (document-driven movements are reversed; manual stock-ins stay counted).
           </p>
+
+          <div className="rounded-control border border-line bg-paper-field p-3">
+            <div className="text-body font-medium text-ink-900">What will be deleted</div>
+            {loadingResetPreview ? (
+              <div className="mt-2 flex items-center gap-2 text-body text-ink-300">
+                <Spinner inline className="w-4 h-4 border-line-strong" />
+                Loading preview…
+              </div>
+            ) : resetDocsPreview ? (
+              <div className="mt-2 space-y-2">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-label text-ink-700">
+                  <div>Documents: {resetDocsPreview.documents}</div>
+                  <div>Document line items: {resetDocsPreview.document_line_items}</div>
+                  <div>Deals: {resetDocsPreview.deals}</div>
+                  <div>Stock movements: {resetDocsPreview.stock_movements}</div>
+                  <div>WHT records: {resetDocsPreview.wht_records}</div>
+                  <div>Attachments: {resetDocsPreview.files}</div>
+                </div>
+                {resetDocsPreview.items.length > 0 && (
+                  <div>
+                    <div className="text-label text-ink-500">Stock to be restored:</div>
+                    <ul className="list-disc pl-5 text-label text-ink-700">
+                      {resetDocsPreview.items.map((item) => (
+                        <li key={item.id}>
+                          {item.name}: {item.stock_before} → {item.stock_after}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-label text-ink-300">Preview unavailable.</p>
+            )}
+          </div>
+
           <p className="text-body leading-6 text-ink-700 font-medium">
             The following will be preserved:
           </p>
@@ -1295,7 +1437,18 @@ export default function AdminClientDetailPage() {
             <li>WHT vendors (master data)</li>
             <li>Profile settings (company name, tax ID, logo, etc.)</li>
           </ul>
-          <p className="text-body font-semibold text-amber-700">This action cannot be undone. The documents will be permanently deleted.</p>
+          <p className="text-body leading-6 text-ink-700">
+            A full JSON backup of everything deleted is saved automatically. You can download it below or later
+            from the reset history. The live data itself cannot be restored from the UI.
+          </p>
+          <Input
+            id="reset-docs-reason"
+            label="Reason for this reset"
+            value={resetDocsReason}
+            onChange={(event) => setResetDocsReason(event.target.value)}
+            placeholder="e.g. Trial period ended"
+            maxLength={200}
+          />
           <Input
             id="reset-docs-confirm"
             label={`Type "${confirmName}" to confirm`}
@@ -1309,12 +1462,19 @@ export default function AdminClientDetailPage() {
               onClick={() => {
                 setShowResetDocsModal(false);
                 setResetDocsConfirm("");
+                setResetDocsReason("");
+                setResetDocsPreview(null);
               }}
               disabled={resettingDocs}
             >
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleResetDocuments} loading={resettingDocs} disabled={resetDocsConfirm.trim() !== confirmName}>
+            <Button
+              variant="danger"
+              onClick={handleResetDocuments}
+              loading={resettingDocs}
+              disabled={resetDocsConfirm.trim() !== confirmName || resetDocsReason.trim().length < 3}
+            >
               Clear all documents
             </Button>
           </div>

@@ -4,9 +4,11 @@
 //   1. Baseline-clean the workspace
 //   2. Seed mock trial data (real customer/catalog + mock deals/documents/stock/WHT)
 //   3. Verify generate_deal_number is collision-safe (counter reset while deals exist)
+//   3b. Preview RPC returns what would be deleted (counts + stock deltas)
 //   4. Run admin_reset_client_documents (the exact RPC the admin panel calls)
 //   5. Assert: trial data gone, setup data preserved, stock restored, counters
-//      zeroed, audit row written, numbering restarts, RPC idempotent
+//      zeroed, audit row (before + reason) written, full backup persisted,
+//      numbering restarts, RPC idempotent
 //
 // Usage: node scripts/test-admin-reset.mjs
 // Credentials: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY env, supabase_key.md, or .env.local
@@ -109,6 +111,12 @@ for (const table of [
     throw new Error(`baseline ${table}: ${error.message}`);
   }
 }
+{
+  const { error } = await admin.from("admin_reset_backups").delete().eq("workspace_user_id", userId);
+  if (error && !/Could not find the table|does not exist|schema cache/i.test(error.message)) {
+    throw new Error(`baseline admin_reset_backups: ${error.message}`);
+  }
+}
 const SEQ_TYPES = [
   ["quotation", "QT"], ["invoice", "INV"], ["delivery_note", "DN"],
   ["billing_note", "BN"], ["receipt", "RC"], ["tax_invoice_receipt", "IVR"],
@@ -209,18 +217,44 @@ console.log("\n[3] generate_deal_number collision safety");
 }
 
 // ---------------------------------------------------------------------------
+// 3b. Preview RPC (dry run) — must describe exactly what the reset will remove
+// ---------------------------------------------------------------------------
+console.log("\n[3b] admin_preview_reset_client_documents");
+{
+  const { data: preview, error: previewErr } = await admin.rpc("admin_preview_reset_client_documents", {
+    p_target_user_id: userId,
+  });
+  if (previewErr) throw previewErr;
+  check("preview.documents", preview.documents, 1);
+  check("preview.document_line_items", preview.document_line_items, 1);
+  check("preview.deals", preview.deals, 2);
+  check("preview.stock_movements", preview.stock_movements, 2);
+  check("preview.wht_records", preview.wht_records, 1);
+  check("preview.files", preview.files, 0);
+  check("preview.items_affected", preview.items_affected, 1);
+  check("preview item A stock_before", Number(preview.items[0]?.stock_before), 95);
+  check("preview item A stock_after", Number(preview.items[0]?.stock_after), 105);
+  check("preview.customers_preserved", preview.customers_preserved, 1);
+  check("preview.items_preserved", preview.items_preserved, 2);
+}
+
+// ---------------------------------------------------------------------------
 // 4. Run the reset RPC (exact function the admin panel calls)
 // ---------------------------------------------------------------------------
 console.log("\n[4] admin_reset_client_documents");
 const { data: actor } = await admin.from("profiles").select("id").eq("role", "admin").limit(1).maybeSingle();
 const actorId = actor?.id || userId;
+const RESET_REASON = "trial ended test";
 const { data: summary, error: resetErr } = await admin.rpc("admin_reset_client_documents", {
   p_target_user_id: userId,
   p_actor_user_id: actorId,
+  p_reason: RESET_REASON,
 });
 if (resetErr) throw resetErr;
 console.log("  summary:", JSON.stringify(summary, null, 2));
 
+check("summary.reason", summary.reason, RESET_REASON);
+checkTrue("summary.backup_id is a uuid", /^[0-9a-f-]{36}$/.test(String(summary.backup_id)), summary.backup_id);
 check("summary.documents_deleted", summary.documents_deleted, 1);
 check("summary.deals_deleted", summary.deals_deleted, 2);
 check("summary.line_items_deleted", summary.line_items_deleted, 1);
@@ -259,6 +293,35 @@ checkTrue("sequence config preserved (prefix/reset_yearly/start)", (seqs || []).
 
 const { count: auditCount } = await admin.from("client_permission_audit").select("id", { count: "exact", head: true }).eq("workspace_user_id", userId).eq("action", "reset-documents");
 checkTrue("audit row written", (auditCount || 0) >= 1, `${auditCount} entries`);
+
+const { data: auditRow } = await admin
+  .from("client_permission_audit")
+  .select("before, after")
+  .eq("workspace_user_id", userId)
+  .eq("action", "reset-documents")
+  .order("created_at", { ascending: false })
+  .limit(1)
+  .maybeSingle();
+check("audit.before.documents", Number(auditRow?.before?.documents), 1);
+check("audit.before.deals", Number(auditRow?.before?.deals), 2);
+check("audit.after.reason", auditRow?.after?.reason, RESET_REASON);
+check("audit.after.backup_id", auditRow?.after?.backup_id, summary.backup_id);
+
+const { data: backupRow } = await admin
+  .from("admin_reset_backups")
+  .select("id, action, reason, summary, payload")
+  .eq("workspace_user_id", userId)
+  .eq("id", summary.backup_id)
+  .maybeSingle();
+checkTrue("backup row persisted", Boolean(backupRow), backupRow?.id || "missing");
+check("backup.action", backupRow?.action, "reset-documents");
+check("backup.reason", backupRow?.reason, RESET_REASON);
+check("backup.payload.documents length", backupRow?.payload?.documents?.length, 1);
+check("backup.payload.deals length", backupRow?.payload?.deals?.length, 2);
+check("backup.payload.stock_movements length", backupRow?.payload?.stock_movements?.length, 2);
+check("backup.payload.wht_records length", backupRow?.payload?.wht_records?.length, 1);
+check("backup.payload.document_line_items length", backupRow?.payload?.document_line_items?.length, 1);
+check("backup.payload captured invoice number", backupRow?.payload?.documents?.[0]?.doc_number, document.doc_number);
 
 // ---------------------------------------------------------------------------
 // 6. Numbering restarts + idempotency + negative case
