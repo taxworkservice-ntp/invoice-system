@@ -83,23 +83,25 @@ export function useDocuments(userId: string | undefined) {
 }
 
 export async function getDocumentDetail(documentId: string) {
-  const { data, error } = await supabase
-    .from("documents")
-    .select("*, customer:customer_id(*)")
-    .eq("id", documentId)
-    .single();
+  // Both reads depend only on documentId, so fetch them together instead of
+  // serially — the document row gates nothing the line items need. Error
+  // semantics are unchanged: a document error throws, a line-item error is
+  // ignored (falls back to an empty list).
+  const [documentResult, lineItemsResult] = await Promise.all([
+    supabase.from("documents").select("*, customer:customer_id(*)").eq("id", documentId).single(),
+    supabase
+      .from("document_line_items")
+      .select("*")
+      .eq("document_id", documentId)
+      .order("sort_order", { ascending: true }),
+  ]);
 
+  const { data, error } = documentResult;
   if (error) throw error;
 
   const doc = data as unknown as Document;
 
-  const { data: lineItems } = await supabase
-    .from("document_line_items")
-    .select("*")
-    .eq("document_id", documentId)
-    .order("sort_order", { ascending: true });
-
-  doc.line_items = (lineItems || []) as DocumentLineItem[];
+  doc.line_items = (lineItemsResult.data || []) as DocumentLineItem[];
 
   if (doc.doc_type === "receipt") {
     const { data: receiptInvoices } = await supabase

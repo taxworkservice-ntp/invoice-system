@@ -291,29 +291,34 @@ export async function getPrintableDocumentDataBase(
     throw new Error("Customer data is missing for this document.");
   }
 
-  const { data: clientProfileData, error: clientProfileError } = await supabase
+  // These reads depend only on fields already on `document`, so start them now
+  // and await them where they are consumed below — overlapping them with the
+  // reference / deal-note resolution instead of paying for each round trip
+  // serially. (Awaiting later cannot change results: none of them read state
+  // that the intervening reads mutate.)
+  const clientProfilePromise = supabase
     .from("client_profiles")
     .select("*")
     .eq("user_id", document.user_id)
     .single();
 
-  if (clientProfileError || !clientProfileData) {
-    throw clientProfileError || new Error("Client profile not found.");
-  }
+  const bankAccountPromise = document.bank_account_id
+    ? supabase
+        .from("bank_accounts")
+        .select("*")
+        .eq("id", document.bank_account_id)
+        .single()
+    : null;
 
-  const clientProfile = clientProfileData as ClientProfile;
-
-  let bankAccount: BankAccount | undefined;
-  if (document.bank_account_id) {
-    const { data: bankAccountData } = await supabase
-      .from("bank_accounts")
-      .select("*")
-      .eq("id", document.bank_account_id)
-      .single();
-    if (bankAccountData) {
-      bankAccount = bankAccountData as BankAccount;
-    }
-  }
+  const invoiceDeliveryNotesPromise =
+    document.doc_type === "invoice" &&
+    (document.invoice_delivery_notes || []).length === 0
+      ? supabase
+          .from("invoice_delivery_notes")
+          .select("*")
+          .eq("invoice_id", documentId)
+          .order("issue_date", { ascending: true })
+      : null;
 
   let referenceDoc: Document | undefined;
   let receiptOutstanding: number | undefined;
@@ -451,13 +456,24 @@ export async function getPrintableDocumentDataBase(
     document.subtotal + (document.discount_amount || 0) + lineDiscountTotal;
   let invoiceDeliveryNotes = document.invoice_delivery_notes || [];
 
-  if (document.doc_type === "invoice" && invoiceDeliveryNotes.length === 0) {
-    const { data: deliveryNotes } = await supabase
-      .from("invoice_delivery_notes")
-      .select("*")
-      .eq("invoice_id", documentId)
-      .order("issue_date", { ascending: true });
+  if (invoiceDeliveryNotesPromise) {
+    const { data: deliveryNotes } = await invoiceDeliveryNotesPromise;
     invoiceDeliveryNotes = (deliveryNotes || []) as InvoiceDeliveryNote[];
+  }
+
+  const { data: clientProfileData, error: clientProfileError } =
+    await clientProfilePromise;
+  if (clientProfileError || !clientProfileData) {
+    throw clientProfileError || new Error("Client profile not found.");
+  }
+  const clientProfile = clientProfileData as ClientProfile;
+
+  let bankAccount: BankAccount | undefined;
+  if (bankAccountPromise) {
+    const { data: bankAccountData } = await bankAccountPromise;
+    if (bankAccountData) {
+      bankAccount = bankAccountData as BankAccount;
+    }
   }
 
   if (clientProfile.logo_url) {
