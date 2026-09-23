@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import { localTodayString } from "../../../lib/devDate";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
@@ -23,6 +24,8 @@ import { isDnMarkerLine } from "../../../lib/print";
 import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, DN_GROUP_SPACER_COMPACT_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
 import { buildZipBlob, safeZipSegment } from "../../../lib/download/zip";
+import { warmPdfCache } from "../../../lib/pdfWarm";
+import { useToast } from "../../../hooks/useToast";
 import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_COMPACT_DN_BONUS_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { PRINT_TITLE_PRESETS, writeLastPrintTitleVariant } from "../../../lib/docLabels";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
@@ -369,6 +372,12 @@ export default function DocumentPrintPreviewPage() {
   const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
   const [savingMode, setSavingMode] = useState<SaveMode | null>(null);
   const savingPdf = savingMode !== null;
+  // Progress for the visible download status (total > 1 → determinate bar).
+  const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [showSlowHint, setShowSlowHint] = useState(false);
+  const [lastFailedMode, setLastFailedMode] = useState<SaveMode | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const toast = useToast();
   const [dnAppendix, setDnAppendix] = useState(
     data?.document.dn_appendix === true && (data?.invoiceDeliveryNotes.length ?? 0) > 0,
   );
@@ -392,6 +401,24 @@ export default function DocumentPrintPreviewPage() {
     setRefCollapse(value);
     window.localStorage.setItem("invoice-system.ref-collapse", value ? "1" : "0");
   };
+
+  // Expectation-setting line if the render takes a while (cold renders run
+  // 10–30s; cached ones are instant).
+  useEffect(() => {
+    if (!savingPdf) {
+      setShowSlowHint(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowSlowHint(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, [savingPdf]);
+
+  // Pre-warm the single-copy PDF while the user reviews the document so the
+  // common "บันทึกเป็น PDF" click is usually a cache hit. Fire-and-forget.
+  useEffect(() => {
+    if (!id || exportMode) return;
+    warmPdfCache(id);
+  }, [id, exportMode]);
   const hasDnMarkers = !!data?.lineItems?.some(
     (l) => l.quantity === 0 && l.source_document_id && !l.source_line_item_id,
   );
@@ -571,61 +598,104 @@ export default function DocumentPrintPreviewPage() {
     return `${parts.join("_")}.pdf`;
   }
 
-  async function getServerPdfBlob(copyTypes: Array<"original" | "copy">) {
+  async function getServerPdfBlob(copyTypes: Array<"original" | "copy">, signal?: AbortSignal) {
     if (!id) throw new Error("Missing document id");
     // apiFetchBlob refreshes near-expiry sessions and retries 401s — a raw
     // getSession() fetch sends stale tokens after an idle tab and fails.
     return apiFetchBlob(`/api/documents/${encodeURIComponent(id)}/pdf`, {
       method: "POST",
+      signal,
       body: JSON.stringify({ copyTypes, refCollapse: refCollapse ? 1 : 0, interleave: interleaveCopies ? 1 : 0 }),
     });
   }
 
-  async function handleSavePdf() {
-    if (savingPdf || !data) return;
-    setSavingMode("single");
+  function cancelDownload() {
+    abortRef.current?.abort();
+  }
+
+  function retryLastDownload() {
+    if (lastFailedMode === "single") void handleSavePdf();
+    else if (lastFailedMode === "combined") void handleSaveBothPdf();
+    else if (lastFailedMode === "separate") void handleSaveBothSeparatePdf();
+  }
+
+  // Shared download runner: visible status, cancel, and honest success/error.
+  async function runDownload(
+    mode: SaveMode,
+    total: number,
+    task: (ctx: { signal: AbortSignal; bump: () => void }) => Promise<void>,
+  ) {
+    if (savingPdf) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let current = 0;
+    const bump = () => {
+      current += 1;
+      setDownloadProgress({ current, total });
+    };
+    setSavingMode(mode);
     setPdfError("");
+    setLastFailedMode(null);
+    setDownloadProgress({ current: 0, total });
     try {
-      // Honor the ประเภท toggle: "สำเนา" downloads the copy variant.
-      const suffix = copyType === "copy" ? "สำเนา" : undefined;
-      await triggerDownload(await getServerPdfBlob([copyType]), pdfFilename(data, suffix));
+      await task({ signal: controller.signal, bump });
+      toast.success("ดาวน์โหลดแล้ว");
     } catch (err) {
-      console.error("Failed to save PDF:", err);
-      setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // User canceled — not an error.
+      } else {
+        console.error("Failed to save PDF:", err);
+        setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        setLastFailedMode(mode);
+        toast.error("บันทึก PDF ไม่สำเร็จ");
+      }
     } finally {
+      abortRef.current = null;
       setSavingMode(null);
+      setDownloadProgress(null);
     }
   }
 
+  async function handleSavePdf() {
+    const doc = data;
+    if (!doc || savingPdf) return;
+    // Honor the ประเภท toggle: "สำเนา" downloads the copy variant.
+    const suffix = copyType === "copy" ? "สำเนา" : undefined;
+    await runDownload("single", 1, async ({ signal }) => {
+      const blob = await getServerPdfBlob([copyType], signal);
+      await triggerDownload(blob, pdfFilename(doc, suffix));
+    });
+  }
+
   async function handleSaveBothPdf() {
-    if (savingPdf || !data) return;
-    setSavingMode("combined");
-    setPdfError("");
-    try {
-      const copyTypes: Array<"original" | "copy"> = copyOrder === "copy-first"
-        ? ["copy", "original"]
-        : ["original", "copy"];
-      await triggerDownload(await getServerPdfBlob(copyTypes), pdfFilename(data, "2ฉบับ"));
-    } catch (err) {
-      console.error("Failed to save PDF:", err);
-      setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-    } finally {
-      setSavingMode(null);
-    }
+    const doc = data;
+    if (!doc || savingPdf) return;
+    const copyTypes: Array<"original" | "copy"> = copyOrder === "copy-first"
+      ? ["copy", "original"]
+      : ["original", "copy"];
+    await runDownload("combined", 1, async ({ signal }) => {
+      const blob = await getServerPdfBlob(copyTypes, signal);
+      await triggerDownload(blob, pdfFilename(doc, "2ฉบับ"));
+    });
   }
 
   // Two separate PDF files (ต้นฉบับ + สำเนา) packaged as one ZIP. Each copy is
   // its own cached server variant, so repeats are cache hits.
   async function handleSaveBothSeparatePdf() {
-    if (savingPdf || !data) return;
-    setSavingMode("separate");
-    setPdfError("");
-    try {
+    const doc = data;
+    if (!doc || savingPdf) return;
+    await runDownload("separate", 2, async ({ signal, bump }) => {
       const [originalBlob, copyBlob] = await Promise.all([
-        getServerPdfBlob(["original"]),
-        getServerPdfBlob(["copy"]),
+        getServerPdfBlob(["original"], signal).then((blob) => {
+          bump();
+          return blob;
+        }),
+        getServerPdfBlob(["copy"], signal).then((blob) => {
+          bump();
+          return blob;
+        }),
       ]);
-      const base = pdfBaseName(data);
+      const base = pdfBaseName(doc);
       const entries = copyOrder === "copy-first"
         ? [
             { path: `${base}_สำเนา.pdf`, blob: copyBlob },
@@ -639,12 +709,7 @@ export default function DocumentPrintPreviewPage() {
         entries.map((entry) => ({ path: safeZipSegment(entry.path), blob: entry.blob })),
       );
       await triggerDownload(zip, `${base}_ต้นฉบับ+สำเนา.zip`);
-    } catch (err) {
-      console.error("Failed to save PDFs:", err);
-      setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-    } finally {
-      setSavingMode(null);
-    }
+    });
   }
 
   // Tax-invoice printed-title preset (print only — doc_type stays "invoice").
@@ -829,6 +894,7 @@ return (
               <Button
                 onClick={handleSavePdf}
                 loading={savingMode === "single"}
+                disabled={savingPdf}
                 size="sm"
                 className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
               >
@@ -850,6 +916,7 @@ return (
               <Button
                 onClick={handleSaveBothPdf}
                 loading={savingMode === "combined"}
+                disabled={savingPdf}
                 variant="secondary"
                 size="sm"
                 className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
@@ -884,6 +951,7 @@ return (
               <Button
                 onClick={handleSaveBothSeparatePdf}
                 loading={savingMode === "separate"}
+                disabled={savingPdf}
                 variant="secondary"
                 size="sm"
                 className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
@@ -893,7 +961,57 @@ return (
               <span className="text-label text-ink-300 sm:order-1">ZIP · 2 ไฟล์</span>
             </div>
 
-            {pdfError ? <div className="text-label text-danger-text">{pdfError}</div> : null}
+            {savingPdf ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex flex-col gap-2 rounded-control border border-line bg-paper-field px-3 py-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                  <span className="text-label font-medium text-ink-900">
+                    {downloadProgress && downloadProgress.total > 1
+                      ? `กำลังสร้างไฟล์ ${downloadProgress.current}/${downloadProgress.total}`
+                      : "กำลังสร้างไฟล์ PDF…"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={cancelDownload}
+                    className="ml-auto text-label font-medium text-ink-500 hover:text-ink-700"
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+                  {downloadProgress && downloadProgress.total > 1 ? (
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      style={{ width: `${Math.round((downloadProgress.current / downloadProgress.total) * 100)}%` }}
+                    />
+                  ) : (
+                    <div className="h-full w-1/3 animate-progress-indeterminate rounded-full bg-primary" />
+                  )}
+                </div>
+                {showSlowHint ? (
+                  <p className="text-label text-ink-400">ครั้งแรกอาจใช้เวลาสักครู่ ครั้งต่อไปจะเร็วขึ้น</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {pdfError ? (
+              <div className="flex items-center gap-2 text-label text-danger-text">
+                <span>{pdfError}</span>
+                {lastFailedMode ? (
+                  <button
+                    type="button"
+                    onClick={retryLastDownload}
+                    className="font-medium underline underline-offset-2 hover:text-danger-strong"
+                  >
+                    ลองใหม่
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </SectionCard>
       </div>

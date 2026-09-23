@@ -111,6 +111,26 @@ body {
   animation: toast-in 0.2s ease-out;
 }
 
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.animate-progress-indeterminate {
+  animation: progress-indeterminate 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-progress-indeterminate {
+    animation: none;
+    width: 100%;
+  }
+}
+
 .animate-toast-out {
   animation: toast-out 0.15s ease-in forwards;
 }
