@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { localTodayString } from "../../../lib/devDate";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
+import { SectionCard } from "../../../components/ui/SectionCard";
+import { Select } from "../../../components/ui/Input";
+import { Switch } from "../../../components/ui/Switch";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { PrintDocument } from "../../../components/print/PrintDocument";
 import type { CopyType } from "../../../components/print/PrintDocument";
 import { PrintDocumentClassicV2 } from "../../../components/print/PrintDocumentClassicV2";
@@ -18,6 +22,7 @@ import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
 import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, DN_GROUP_SPACER_COMPACT_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
+import { buildZipBlob, safeZipSegment } from "../../../lib/download/zip";
 import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_COMPACT_DN_BONUS_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { PRINT_TITLE_PRESETS, writeLastPrintTitleVariant } from "../../../lib/docLabels";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
@@ -37,6 +42,53 @@ import type {
 import { supabase } from "../../../lib/supabase";
 
 type CopyOrder = "original-first" | "copy-first";
+
+type SaveMode = "single" | "combined" | "separate";
+
+/** Small segmented toggle (rounded-control + line + primary tokens). */
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: Array<{ value: T; label: string; title?: string }>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="inline-flex items-center rounded-control border border-line bg-ink-50 p-0.5">
+      {options.map((option) => {
+        const active = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            title={option.title}
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+            className={`rounded-[6px] px-2.5 py-1 text-label font-medium transition-colors ${
+              active
+                ? "border border-line-strong bg-white text-ink-900"
+                : "border border-transparent text-ink-500 hover:text-ink-700"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Inline "label + control" group for the compact download toolbar. */
+function InlineControl({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2" title={title}>
+      <span className="text-label font-medium text-ink-500">{label}</span>
+      {children}
+    </div>
+  );
+}
 
 type PrintBatch =
   | { kind: "line_items"; batch: GenericPageBatch<DocumentLineItem> }
@@ -307,7 +359,8 @@ export default function DocumentPrintPreviewPage() {
   const [previewHeight, setPreviewHeight] = useState<number | null>(null);
   const [previewViewportWidth, setPreviewViewportWidth] = useState<number | null>(null);
   const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
-  const [savingPdf, setSavingPdf] = useState(false);
+  const [savingMode, setSavingMode] = useState<SaveMode | null>(null);
+  const savingPdf = savingMode !== null;
   const [dnAppendix, setDnAppendix] = useState(
     data?.document.dn_appendix === true && (data?.invoiceDeliveryNotes.length ?? 0) > 0,
   );
@@ -355,6 +408,10 @@ export default function DocumentPrintPreviewPage() {
   const toggleInterleaveCopies = (value: boolean) => {
     setInterleaveCopies(value);
     window.localStorage.setItem("invoice-system.interleave-copies", value ? "1" : "0");
+  };
+  const handleCopyOrderChange = (value: CopyOrder) => {
+    setCopyOrder(value);
+    window.localStorage.setItem("invoice-system.copy-order", value);
   };
 
   useEffect(() => {
@@ -483,7 +540,7 @@ export default function DocumentPrintPreviewPage() {
     }
   }
 
-  function pdfFilename(data: PrintDocumentData) {
+  function pdfBaseName(data: PrintDocumentData) {
     const safeName = (data.clientProfile?.company_name_th || "")
       .replace(/\s+/g, "-")
       .replace(/[^a-zA-Z0-9\u0E00-\u0E7F\-_]/g, "")
@@ -497,6 +554,12 @@ export default function DocumentPrintPreviewPage() {
     const parts = [docNumber];
     if (safeName) parts.push(safeName);
     parts.push(datePart);
+    return parts.join("_");
+  }
+
+  function pdfFilename(data: PrintDocumentData, suffix?: string) {
+    const parts = [pdfBaseName(data)];
+    if (suffix) parts.push(suffix);
     return `${parts.join("_")}.pdf`;
   }
 
@@ -512,32 +575,67 @@ export default function DocumentPrintPreviewPage() {
 
   async function handleSavePdf() {
     if (savingPdf || !data) return;
-    setSavingPdf(true);
+    setSavingMode("single");
     setPdfError("");
     try {
-      await triggerDownload(await getServerPdfBlob(["original"]), pdfFilename(data));
+      // Honor the ประเภท toggle: "สำเนา" downloads the copy variant.
+      const suffix = copyType === "copy" ? "สำเนา" : undefined;
+      await triggerDownload(await getServerPdfBlob([copyType]), pdfFilename(data, suffix));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
-      setSavingPdf(false);
+      setSavingMode(null);
     }
   }
 
   async function handleSaveBothPdf() {
     if (savingPdf || !data) return;
-    setSavingPdf(true);
+    setSavingMode("combined");
     setPdfError("");
     try {
       const copyTypes: Array<"original" | "copy"> = copyOrder === "copy-first"
         ? ["copy", "original"]
         : ["original", "copy"];
-      await triggerDownload(await getServerPdfBlob(copyTypes), pdfFilename(data));
+      await triggerDownload(await getServerPdfBlob(copyTypes), pdfFilename(data, "2ฉบับ"));
     } catch (err) {
       console.error("Failed to save PDF:", err);
       setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
-      setSavingPdf(false);
+      setSavingMode(null);
+    }
+  }
+
+  // Two separate PDF files (ต้นฉบับ + สำเนา) packaged as one ZIP. Each copy is
+  // its own cached server variant, so repeats are cache hits.
+  async function handleSaveBothSeparatePdf() {
+    if (savingPdf || !data) return;
+    setSavingMode("separate");
+    setPdfError("");
+    try {
+      const [originalBlob, copyBlob] = await Promise.all([
+        getServerPdfBlob(["original"]),
+        getServerPdfBlob(["copy"]),
+      ]);
+      const base = pdfBaseName(data);
+      const entries = copyOrder === "copy-first"
+        ? [
+            { path: `${base}_สำเนา.pdf`, blob: copyBlob },
+            { path: `${base}_ต้นฉบับ.pdf`, blob: originalBlob },
+          ]
+        : [
+            { path: `${base}_ต้นฉบับ.pdf`, blob: originalBlob },
+            { path: `${base}_สำเนา.pdf`, blob: copyBlob },
+          ];
+      const zip = await buildZipBlob(
+        entries.map((entry) => ({ path: safeZipSegment(entry.path), blob: entry.blob })),
+      );
+      await triggerDownload(zip, `${base}_ต้นฉบับ+สำเนา.zip`);
+    } catch (err) {
+      console.error("Failed to save PDFs:", err);
+      setPdfError("บันทึก PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setSavingMode(null);
     }
   }
 
@@ -653,151 +751,126 @@ export default function DocumentPrintPreviewPage() {
     );
   }
 
+  const showPrintTitle = data.document.doc_type === "invoice" && data.document.vat_registered;
+  const showDnAppendixOption = dnAppendixFeatureEnabled && data.invoiceDeliveryNotes.length > 0;
+  const hasDocumentOptions = showPrintTitle || showRefModeToggle || showDnAppendixOption;
+  const headerDescription = blankForm
+    ? `${data.document.doc_number || "เอกสาร"} · ฟอร์มเปล่า — ให้พนักงานกรอกจำนวนและราคาด้วยมือ`
+    : data.document.doc_number || "เอกสาร";
+
 return (
     <div className="print-preview-shell min-h-screen bg-cool-75 px-2 py-3 sm:px-4 sm:py-6">
       <div
-        className="print-toolbar mx-auto mb-3 flex w-full max-w-[230mm] flex-col gap-3 rounded-xl border border-cool-200 bg-white px-3 py-3 shadow-sm sm:mb-4 sm:flex-row sm:items-start sm:justify-between sm:px-4"
+        className="print-toolbar mx-auto mb-3 w-full max-w-[230mm] sm:mb-4"
         style={previewViewportWidth ? { maxWidth: `${previewViewportWidth}px` } : undefined}
       >
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.16em] text-cool-400">ดาวน์โหลดเอกสาร</div>
-          <div className="text-[15px] font-semibold text-ink-900">{data.document.doc_number || "เอกสาร"}</div>
-          <div className="mt-2 flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
-              <span>ประเภท:</span>
-              <div className="inline-flex overflow-hidden rounded-md border border-cool-200">
-                <button
-                  type="button"
-                  onClick={() => setCopyType("original")}
-                  className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${copyType === "original" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
-                >
-                  ต้นฉบับ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCopyType("copy")}
-                  className={`border-l border-cool-200 px-2.5 py-0.5 text-[10px] font-medium transition-colors ${copyType === "copy" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
-                >
-                  สำเนา
-                </button>
-              </div>
+        <SectionCard
+          title="ดาวน์โหลดเอกสาร"
+          description={headerDescription}
+          titleRight={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <StatusBadge docType={data.document.doc_type} vatRegistered={data.document.vat_registered === true} />
+              <StatusBadge status={data.document.status} />
+              {blankForm ? <StatusBadge tone="amber" label="ฟอร์มเปล่า" /> : null}
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
-              <span>ลำดับเมื่อดาวน์โหลด 2 ฉบับ:</span>
-              <div className="inline-flex overflow-hidden rounded-md border border-cool-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCopyOrder("original-first");
-                    window.localStorage.setItem("invoice-system.copy-order", "original-first");
-                  }}
-                  className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "original-first" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
-                >
-                  ต้นฉบับ → สำเนา
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCopyOrder("copy-first");
-                    window.localStorage.setItem("invoice-system.copy-order", "copy-first");
-                  }}
-                  className={`border-l border-cool-200 px-2.5 py-1 text-[10px] font-medium transition-colors ${copyOrder === "copy-first" ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
-                >
-                  สำเนา → ต้นฉบับ
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
-              <span>การเรียงหน้าเมื่อดาวน์โหลด 2 ฉบับ:</span>
-              <div className="inline-flex overflow-hidden rounded-md border border-cool-200">
-                <button
-                  type="button"
-                  onClick={() => toggleInterleaveCopies(true)}
-                  className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${interleaveCopies ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
-                >
-                  สลับทีละหน้า
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleInterleaveCopies(false)}
-                  className={`border-l border-cool-200 px-2.5 py-1 text-[10px] font-medium transition-colors ${!interleaveCopies ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
-                >
-                  ต้นฉบับครบก่อน
-                </button>
-              </div>
-            </div>
-            {data?.document.doc_type === "invoice" && data.document.vat_registered ? (
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
-                <span>ชื่อเรื่องบนหัวเอกสาร:</span>
-                <select
-                  value={data.document.print_title_variant || ""}
-                  onChange={(event) => void handlePrintTitleChange(event.target.value)}
-                  disabled={savingPrintTitle}
-                  className="rounded-md border border-cool-200 bg-white px-2 py-1 text-[10px] font-medium text-cool-500 focus:outline-none disabled:opacity-60"
-                >
-                  <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
-                  {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
-                    <option key={value} value={value}>{preset.thai}</option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-           {data?.document.doc_type === "delivery_note" && data.document.is_blank_form ? (
-             <div className="flex items-center gap-1.5 text-[11px] text-cool-400">
-               <span className="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">ฟอร์มเปล่า</span>
-               <span>พิมพ์แล้วให้พนักงานกรอกจำนวนและราคาด้วยมือ</span>
-             </div>
-               ) : null}
-            {showRefModeToggle ? (
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-cool-400">
-                <span>รูปแบบรายการ:</span>
-                <div className="inline-flex overflow-hidden rounded-md border border-cool-200">
-                  <button
-                    type="button"
-                    onClick={() => toggleRefCollapse(true)}
-                    className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${refCollapse ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
-                  >
-                    แบบอ้างอิง (ตารางใบส่งของ)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleRefCollapse(false)}
-                    className={`border-l border-cool-200 px-2.5 py-0.5 text-[10px] font-medium transition-colors ${!refCollapse ? "bg-primary text-white" : "bg-white text-cool-500 hover:bg-cool-25"}`}
-                  >
-                    รายการเต็ม
-                  </button>
-                </div>
-              </div>
-            ) : null}
+          }
+        >
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <InlineControl label="ประเภท" title="ใช้กับปุ่ม 'บันทึกเป็น PDF'">
+              <Segmented
+                value={copyType}
+                onChange={setCopyType}
+                options={[
+                  { value: "original", label: "ต้นฉบับ" },
+                  { value: "copy", label: "สำเนา" },
+                ]}
+              />
+            </InlineControl>
+            <InlineControl label="ลำดับ" title="ใช้กับปุ่ม '2 ฉบับ รวมไฟล์เดียว'">
+              <Segmented
+                value={copyOrder}
+                onChange={handleCopyOrderChange}
+                options={[
+                  { value: "original-first", label: "ต้นฉบับ → สำเนา" },
+                  { value: "copy-first", label: "สำเนา → ต้นฉบับ" },
+                ]}
+              />
+            </InlineControl>
+            <InlineControl label="การเรียงหน้า" title="ใช้กับปุ่ม '2 ฉบับ รวมไฟล์เดียว'">
+              <Segmented
+                value={interleaveCopies ? "interleave" : "grouped"}
+                onChange={(value) => toggleInterleaveCopies(value === "interleave")}
+                options={[
+                  { value: "interleave", label: "สลับทีละหน้า", title: "ต้นฉบับและสำเนาสลับกันทีละหน้า" },
+                  { value: "grouped", label: "แยกชุดละฉบับ", title: "พิมพ์ให้จบทีละชุดตามลำดับที่เลือก" },
+                ]}
+              />
+            </InlineControl>
           </div>
-        </div>
-        {dnAppendixFeatureEnabled && data && data.invoiceDeliveryNotes.length > 0 && (
-          <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
-            <input
-              type="checkbox"
-              id="print-dn-appendix"
-              checked={dnAppendix}
-              onChange={(event) => setDnAppendix(event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label htmlFor="print-dn-appendix" className="cursor-pointer">
-              แนบภาคผนวกรายละเอียดการส่งของ (ส่งแล้ว vs เรียกเก็บ)
-            </label>
-          </div>
-        )}
-        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
-          <Button onClick={handleSavePdf} disabled={savingPdf} className="flex-1 sm:flex-none">
-            {savingPdf ? "กำลังบันทึก..." : "บันทึกเป็น PDF"}
-          </Button>
-          <Button onClick={handleSaveBothPdf} disabled={savingPdf} variant="secondary" className="flex-1 sm:flex-none">
-            {savingPdf ? "กำลังบันทึก..." : "ดาวน์โหลด 2 ฉบับ"}
-          </Button>
-          {pdfError ? (
-            <div className="w-full text-right text-[11px] text-red-600">
-              {pdfError}
+
+          {hasDocumentOptions ? (
+            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-3">
+              {showPrintTitle ? (
+                <InlineControl label="ชื่อเรื่องบนหัวเอกสาร">
+                  <div className="w-[220px]">
+                    <Select
+                      value={data.document.print_title_variant || ""}
+                      onChange={(event) => void handlePrintTitleChange(event.target.value)}
+                      disabled={savingPrintTitle}
+                    >
+                      <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
+                      {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
+                        <option key={value} value={value}>{preset.thai}</option>
+                      ))}
+                    </Select>
+                  </div>
+                </InlineControl>
+              ) : null}
+              {showRefModeToggle ? (
+                <InlineControl label="รูปแบบรายการ">
+                  <Segmented
+                    value={refCollapse ? "ref" : "full"}
+                    onChange={(value) => toggleRefCollapse(value === "ref")}
+                    options={[
+                      { value: "ref", label: "แบบอ้างอิง", title: "แบบอ้างอิง (ตารางใบส่งของ)" },
+                      { value: "full", label: "รายการเต็ม", title: "แสดงรายการสินค้าเต็ม" },
+                    ]}
+                  />
+                </InlineControl>
+              ) : null}
+              {showDnAppendixOption ? (
+                <InlineControl label="แนบภาคผนวกการส่งของ">
+                  <Switch checked={dnAppendix} onChange={setDnAppendix} />
+                </InlineControl>
+              ) : null}
             </div>
           ) : null}
-        </div>
+
+          <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-label text-danger-text">{pdfError}</div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+              <Button onClick={handleSavePdf} loading={savingMode === "single"} className="w-full sm:w-auto">
+                บันทึกเป็น PDF
+              </Button>
+              <Button
+                onClick={handleSaveBothPdf}
+                loading={savingMode === "combined"}
+                variant="secondary"
+                className="w-full sm:w-auto"
+              >
+                2 ฉบับ รวมไฟล์เดียว
+              </Button>
+              <Button
+                onClick={handleSaveBothSeparatePdf}
+                loading={savingMode === "separate"}
+                variant="secondary"
+                className="w-full sm:w-auto"
+              >
+                2 ฉบับ แยกไฟล์
+              </Button>
+            </div>
+          </div>
+        </SectionCard>
       </div>
 
       <div
