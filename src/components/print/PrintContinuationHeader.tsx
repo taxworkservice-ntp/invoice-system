@@ -27,22 +27,22 @@ export function PrintContinuationHeader({
     <header className="print-continuation-header flex items-center justify-between border-b-[0.5px] border-[#D3DAE6] pb-1.5">
       <div className="flex items-center gap-3 min-w-0">
         <div>
-          <div className="text-[11px] font-semibold text-[#243043] leading-tight">
+          <div className="text-[calc(11px*var(--modern-fs-header-company))] font-semibold text-[#243043] leading-tight">
             {clientProfile.company_name_th}
           </div>
-          <div className="text-[7.5px] text-[#6B7280]">
+          <div className="text-[calc(7.5px*var(--modern-fs-header-title))] text-[#6B7280]">
             {label.thai}{" │ "}
             {document.doc_number || "-"}
           </div>
         </div>
-        <div className="text-[8px] text-[#667085] leading-tight min-w-0 truncate border-l-[0.5px] border-[#D3DAE6] pl-3">
+        <div className="text-[calc(8px*var(--modern-fs-header-info))] text-[#667085] leading-tight min-w-0 truncate border-l-[0.5px] border-[#D3DAE6] pl-3">
           <span className="text-[#94a3b8]">BILL TO </span>
           {customer.name}
         </div>
       </div>
-      <div className="flex items-center gap-3 shrink-0 text-[8px] text-[#667085]">
+      <div className="flex items-center gap-3 shrink-0 text-[calc(8px*var(--modern-fs-header-info))] text-[#667085]">
         <div className="text-[#94a3b8]">
-          <span className="text-[9px] font-semibold text-[#378ADD]">หน้า {pageIndex}</span>
+          <span className="text-[calc(9px*var(--modern-fs-header-info))] font-semibold text-[#378ADD]">หน้า {pageIndex}</span>
           {" / "}{totalPages}
         </div>
       </div>

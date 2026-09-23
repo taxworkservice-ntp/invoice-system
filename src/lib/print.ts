@@ -1016,7 +1016,7 @@ async function renderClassicV2PrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
-  const typeFontScales = data.clientProfile.classic_v2_type_font_scales?.[data.document.doc_type];
+  const typeFontScales = (data.clientProfile.pdf_type_font_scales ?? data.clientProfile.classic_v2_type_font_scales)?.[data.document.doc_type];
   // An explicit per-document override applies to the whole document (all
   // sections) — it beats type and workspace scales.
   const docOverrideMult =
@@ -1026,9 +1026,9 @@ async function renderClassicV2PrintPages(
   const globalScale = docOverrideMult ?? getClassicV2EffectiveFontScaleMult(
     data.document.print_font_scale,
     typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
-    data.clientProfile.classic_v2_font_scale,
+    data.clientProfile.pdf_font_scale ?? data.clientProfile.classic_v2_font_scale,
   );
-  const sectionScales = data.clientProfile.classic_v2_section_font_scales;
+  const sectionScales = data.clientProfile.pdf_section_font_scales ?? data.clientProfile.classic_v2_section_font_scales;
   const itemsScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, globalScale);
   const numScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, globalScale);
   const budgetScales = docOverrideMult ?? {

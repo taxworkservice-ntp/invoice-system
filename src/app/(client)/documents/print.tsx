@@ -47,8 +47,8 @@ type PrintBatch =
 function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix = data.document.dn_appendix, refMode = false): PrintBatch[] {
   const { filteredLineItems } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
   const isClassicV2 = data.template === "classic_v2";
-  const sectionScales = data.clientProfile.classic_v2_section_font_scales;
-  const typeFontScales = data.clientProfile.classic_v2_type_font_scales?.[data.document.doc_type];
+  const sectionScales = data.clientProfile.pdf_section_font_scales ?? data.clientProfile.classic_v2_section_font_scales;
+  const typeFontScales = (data.clientProfile.pdf_type_font_scales ?? data.clientProfile.classic_v2_type_font_scales)?.[data.document.doc_type];
   // An explicit per-document override applies to the whole document (all
   // sections) — it beats type and workspace scales.
   const docOverrideMult =
@@ -59,7 +59,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     ? getClassicV2EffectiveFontScaleMult(
         data.document.print_font_scale,
         typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
-        data.clientProfile.classic_v2_font_scale,
+        data.clientProfile.pdf_font_scale ?? data.clientProfile.classic_v2_font_scale,
       )
     : 1);
   const itemsScale = docOverrideMult ?? (isClassicV2

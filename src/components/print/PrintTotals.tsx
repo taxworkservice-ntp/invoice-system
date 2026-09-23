@@ -47,14 +47,14 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
         {hasNote ? (
           <>
             <div>
-              <div className="text-[9px] tracking-[0.12em] text-[#667085]">
+              <div className="text-[calc(9px*var(--modern-fs-totals))] tracking-[0.12em] text-[#667085]">
                 {isDeliveryNote ? "หมายเหตุการส่งของ" : "หมายเหตุ"}
               </div>
-              <div className="text-[6.5px] text-[#94a3b8]">
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">
                 {isDeliveryNote ? "DELIVERY REMARKS" : "NOTE"}
               </div>
             </div>
-            <div className="mt-1 min-h-[10mm] whitespace-pre-line text-[9.5px] leading-[14px] text-[#475467]">
+            <div className="mt-1 min-h-[10mm] whitespace-pre-line text-[calc(9.5px*var(--modern-fs-totals))] leading-[14px] text-[#475467]">
               {document.note?.trim()}
             </div>
           </>
@@ -71,10 +71,10 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
         {hasNote ? (
           <div>
             <div>
-              <div className="text-[9px] tracking-[0.12em] text-[#667085]">หมายเหตุ</div>
-              <div className="text-[6.5px] text-[#94a3b8]">NOTE</div>
+              <div className="text-[calc(9px*var(--modern-fs-totals))] tracking-[0.12em] text-[#667085]">หมายเหตุ</div>
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">NOTE</div>
             </div>
-            <div className="mt-1 whitespace-pre-line text-[9.5px] leading-[14px] text-[#475467]">
+            <div className="mt-1 whitespace-pre-line text-[calc(9.5px*var(--modern-fs-totals))] leading-[14px] text-[#475467]">
               {document.note?.trim()}
             </div>
           </div>
@@ -83,35 +83,35 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
           <div className="mt-3">
             <div className="mb-1 flex items-center justify-between gap-2">
               <div>
-                <div className="text-[9px] tracking-[0.12em] text-[#667085]">สถานะการชำระเงิน</div>
-                <div className="text-[6.5px] text-[#94a3b8]">SETTLEMENT</div>
+                <div className="text-[calc(9px*var(--modern-fs-payment))] tracking-[0.12em] text-[#667085]">สถานะการชำระเงิน</div>
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">SETTLEMENT</div>
               </div>
               {receiptPaidInFull ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#9CA3AF] bg-[#F1F3F5] px-2 py-0.5 text-[9px] font-semibold text-[#1F2937]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#9CA3AF] bg-[#F1F3F5] px-2 py-0.5 text-[calc(9px*var(--modern-fs-payment))] font-semibold text-[#1F2937]">
                   <span>ชำระครบถ้วน</span>
-                  <span className="text-[7px] font-medium tracking-[0.08em] text-[#4B5563]">PAID IN FULL</span>
+                  <span className="text-[calc(7px*var(--modern-fs-en))] font-medium tracking-[0.08em] text-[#4B5563]">PAID IN FULL</span>
                 </span>
               ) : null}
             </div>
-            <div className="space-y-1 text-[10px] text-[#344054]">
+            <div className="space-y-1 text-[calc(10px*var(--modern-fs-payment))] text-[#344054]">
               <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2">
                 <div className="flex flex-col">
                   <span>ยอดตามเอกสารอ้างอิง</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">REFERENCE AMOUNT</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">REFERENCE AMOUNT</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptReferenceAmount)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
                   <span>ยอดชำระสะสมก่อนหักภาษี ณ ที่จ่าย</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">TOTAL SETTLED (GROSS)</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">TOTAL SETTLED (GROSS)</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptCumulativePaid ?? 0)}</span>
               </div>
-              <div className="flex justify-between gap-4 text-[10px] text-[#344054]">
+              <div className="flex justify-between gap-4 text-[calc(10px*var(--modern-fs-payment))] text-[#344054]">
                 <div className="flex flex-col">
                   <span>ยอดคงเหลือค้างชำระ</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">BALANCE DUE</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">BALANCE DUE</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptOutstanding ?? 0)}</span>
               </div>
@@ -120,43 +120,43 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
         ) : null}
         {isAdjustmentNote && referenceDoc ? (
           <div className="mt-3">
-            <div className="text-[9px] tracking-[0.12em] text-[#667085]">
+            <div className="text-[calc(9px*var(--modern-fs-totals))] tracking-[0.12em] text-[#667085]">
               อ้างอิงใบกำกับภาษีเดิม {referenceDoc.doc_number || ""}
             </div>
-            <div className="text-[6.5px] text-[#94a3b8]">ORIGINAL TAX INVOICE</div>
-            <div className="mt-1 space-y-1 text-[10px] text-[#344054]">
+            <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">ORIGINAL TAX INVOICE</div>
+            <div className="mt-1 space-y-1 text-[calc(10px*var(--modern-fs-totals))] text-[#344054]">
               <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2">
                 <div className="flex flex-col">
                   <span>มูลค่าตามใบกำกับเดิม (ก่อน VAT)</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">ORIGINAL (BEFORE VAT)</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">ORIGINAL (BEFORE VAT)</span>
                 </div>
                 <span className="self-center">{formatCurrency(referenceDoc.subtotal || 0)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
                   <span>มูลค่าตามใบกำกับเดิม (รวม VAT)</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">ORIGINAL (INCL. VAT)</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">ORIGINAL (INCL. VAT)</span>
                 </div>
                 <span className="self-center">{formatCurrency(referenceDoc.total_amount || 0)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
                   <span>มูลค่าที่ถูกต้องหลังปรับปรุง (ก่อน VAT)</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">CORRECTED (BEFORE VAT)</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">CORRECTED (BEFORE VAT)</span>
                 </div>
                 <span className="self-center">{formatCurrency(adjustmentCorrectAmount(referenceDoc.subtotal || 0, document.subtotal || 0, isCreditNote))}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
                   <span>มูลค่าที่ถูกต้องหลังปรับปรุง (รวม VAT)</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">CORRECTED (INCL. VAT)</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">CORRECTED (INCL. VAT)</span>
                 </div>
                 <span className="self-center">{formatCurrency(adjustmentCorrectAmount(referenceDoc.total_amount || 0, document.total_amount || 0, isCreditNote))}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
                   <span>ผลต่าง = ยอดตามเอกสารฉบับนี้</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">DIFFERENCE = THIS DOCUMENT</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">DIFFERENCE = THIS DOCUMENT</span>
                 </div>
                 <span className="self-center">{formatCurrency(document.total_amount || 0)}</span>
               </div>
@@ -166,20 +166,20 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
       </div>
 
       <div className="border-t-[0.5px] border-[#C9D5E3] pt-2">
-        <div className="space-y-1 text-[10px] text-[#344054]">
+        <div className="space-y-1 text-[calc(10px*var(--modern-fs-totals))] text-[#344054]">
           {lineDiscountTotal > 0 ? (
             <>
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
                   <span>ยอดก่อนส่วนลด</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">GROSS SUBTOTAL</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">GROSS SUBTOTAL</span>
                 </div>
                 <span className="self-center">{formatCurrency(grossSubtotal)}</span>
               </div>
               <div className="flex justify-between gap-4 text-[#B54708]">
                 <div className="flex flex-col">
                   <span>ส่วนลดรายรายการ</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">LINE DISCOUNT</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">LINE DISCOUNT</span>
                 </div>
                 <span className="self-center">-{formatCurrency(lineDiscountTotal)}</span>
               </div>
@@ -190,17 +190,17 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
             <div className="flex justify-between gap-4 text-[#B54708]">
               <div className="flex flex-col">
                 <span>ส่วนลดท้ายบิล {document.discount_percent ? `(${document.discount_percent}%)` : ""}</span>
-                <span className="text-[6.5px] text-[#94a3b8]">DISCOUNT</span>
+                <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">DISCOUNT</span>
               </div>
               <span className="self-center">-{formatCurrency(document.discount_amount)}</span>
             </div>
           ) : null}
 
           {isDeliveryNote && !showFullTotals ? (
-            <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
+            <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[calc(12px*var(--modern-fs-totals-net))] text-[#111827]">
               <div className="flex flex-col">
                 <span>มูลค่ารวม</span>
-                <span className="text-[6.5px] font-normal text-[#94a3b8]">TOTAL VALUE</span>
+                <span className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">TOTAL VALUE</span>
               </div>
               <span className="self-center">{formatCurrency(document.subtotal)}</span>
             </div>
@@ -211,24 +211,24 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                   <div className="flex justify-between gap-4">
                     <div className="flex flex-col">
                       <span>ยอดก่อนภาษี</span>
-                      <span className="text-[6.5px] text-[#94a3b8]">AMOUNT BEFORE TAX</span>
+                      <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">AMOUNT BEFORE TAX</span>
                     </div>
                     <span className="self-center">{formatCurrency(receiptPreTax)}</span>
                   </div>
                   <div className="flex justify-between gap-4">
                     <div className="flex flex-col">
                       <span>ภาษีมูลค่าเพิ่ม {document.vat_rate}%</span>
-                      <span className="text-[6.5px] text-[#94a3b8]">VAT {document.vat_rate}%</span>
+                      <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">VAT {document.vat_rate}%</span>
                     </div>
                     <span className="self-center">{formatCurrency(receiptVatAmount)}</span>
                   </div>
                 </>
               ) : null}
 
-              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[12px] text-[#111827]">
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#C9D5E3] pt-2 font-semibold text-[calc(12px*var(--modern-fs-totals-net))] text-[#111827]">
                 <div className="flex flex-col">
                   <span>รับชำระครั้งนี้</span>
-                  <span className="text-[6.5px] font-normal text-[#94a3b8]">AMOUNT RECEIVED</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">AMOUNT RECEIVED</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptAmount)}</span>
               </div>
@@ -237,16 +237,16 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                 <div className="flex justify-between gap-4 text-[#B54708]">
                   <div className="flex flex-col">
                     <span>หัก ณ ที่จ่าย {document.wht_rate}%</span>
-                    <span className="text-[6.5px] text-[#94a3b8]">หัก ณ ที่จ่าย {document.wht_rate}%</span>
+                    <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">หัก ณ ที่จ่าย {document.wht_rate}%</span>
                   </div>
                   <span className="self-center">-{formatCurrency(document.wht_amount)}</span>
                 </div>
               ) : null}
 
-              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[12px] font-semibold text-[#111827]">
+              <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[calc(12px*var(--modern-fs-totals-net))] font-semibold text-[#111827]">
                 <div className="flex flex-col">
                   <span>ยอดรับสุทธิ</span>
-                  <span className="text-[6.5px] font-normal text-[#94a3b8]">NET RECEIVED</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">NET RECEIVED</span>
                 </div>
                 <span className="self-center">{formatCurrency(receiptAmount - receiptWhtTotal)}</span>
               </div>
@@ -256,7 +256,7 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
               <div className="flex justify-between gap-4">
                 <div className="flex flex-col">
                   <span>{adjustmentLabels ? adjustmentLabels.subtotal : "รวมก่อนภาษี"}</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">{adjustmentLabels ? adjustmentLabels.subtotalEn : "SUBTOTAL"}</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">{adjustmentLabels ? adjustmentLabels.subtotalEn : "SUBTOTAL"}</span>
                 </div>
                 <span className="self-center">
                   {formatCurrency(document.subtotal)}
@@ -271,7 +271,7 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                         ? adjustmentLabels.vat
                         : `ภาษีมูลค่าเพิ่ม ${document.vat_rate}%`}
                     </span>
-                    <span className="text-[6.5px] text-[#94a3b8]">
+                    <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">
                       {adjustmentLabels ? adjustmentLabels.vatEn : `VAT ${document.vat_rate}%`}
                     </span>
                   </div>
@@ -281,10 +281,10 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                 </div>
               ) : null}
 
-              <div className={`flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]`}>
+              <div className={`flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[calc(13px*var(--modern-fs-totals-net))] font-semibold text-[#111827]`}>
                 <div className="flex flex-col">
                   <span>{adjustmentLabels ? adjustmentLabels.total : "รวมทั้งสิ้น"}</span>
-                  <span className="text-[6.5px] font-normal text-[#94a3b8]">{adjustmentLabels ? adjustmentLabels.totalEn : "GRAND TOTAL"}</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">{adjustmentLabels ? adjustmentLabels.totalEn : "GRAND TOTAL"}</span>
                 </div>
                 <span className="self-center">
                   {formatCurrency(document.total_amount)}
@@ -295,17 +295,17 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
                 <div className="flex justify-between gap-4 text-[#B54708]">
                   <div className="flex flex-col">
                     <span>หัก ณ ที่จ่าย {document.wht_rate}%</span>
-                    <span className="text-[6.5px] text-[#94a3b8]">หัก ณ ที่จ่าย {document.wht_rate}%</span>
+                    <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">หัก ณ ที่จ่าย {document.wht_rate}%</span>
                   </div>
                   <span className="self-center">-{formatCurrency(document.wht_amount)}</span>
                 </div>
               ) : null}
 
               {!isAdjustmentNote && !isQuotation ? (
-                <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[13px] font-semibold text-[#111827]">
+                <div className="flex justify-between gap-4 border-t-[0.5px] border-[#111827] pt-2 text-[calc(13px*var(--modern-fs-totals-net))] font-semibold text-[#111827]">
                   <div className="flex flex-col">
                     <span>ยอดชำระสุทธิ</span>
-                    <span className="text-[6.5px] font-normal text-[#94a3b8]">NET PAYABLE</span>
+                    <span className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">NET PAYABLE</span>
                   </div>
                   <span className="self-center">
                     {formatCurrency(document.wht_amount > 0 ? document.net_payable : document.total_amount)}
@@ -314,9 +314,9 @@ export function PrintTotals({ data, blankForm = false }: { data: PrintDocumentDa
               ) : null}
 
               {isQuotation && document.wht_rate > 0 ? (
-                <div className="mt-1 text-[9px] leading-[14px] text-[#667085]">
+                <div className="mt-1 text-[calc(9px*var(--modern-fs-totals))] leading-[14px] text-[#667085]">
                   ราคานี้ไม่รวมภาษีหัก ณ ที่จ่าย (ถ้ามี)
-                  <span className="block text-[6.5px] text-[#94a3b8]">
+                  <span className="block text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">
                     Excluding withholding tax, if any.
                   </span>
                 </div>

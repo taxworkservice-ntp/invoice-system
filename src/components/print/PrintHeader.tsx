@@ -32,33 +32,33 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
               modern
             />
           ) : null}
-          <h1 className="text-[15px] font-semibold tracking-tight text-[#243043] leading-tight">
+          <h1 className="text-[calc(15px*var(--modern-fs-header-company))] font-semibold tracking-tight text-[#243043] leading-tight">
             {clientProfile.company_name_th}
           </h1>
           {clientProfile.company_name_en ? (
-            <div className="text-[8.5px] font-semibold text-[#6B7280] tracking-wide">
+            <div className="text-[calc(8.5px*var(--modern-fs-header-company))] font-semibold text-[#6B7280] tracking-wide">
               {clientProfile.company_name_en.toUpperCase()}
             </div>
           ) : null}
 
           {clientProfile.address ? (
-            <p className="mt-1 max-w-full whitespace-pre-line text-[10px] leading-[15px] text-[#4F5B6E]">
+            <p className="mt-1 max-w-full whitespace-pre-line text-[calc(10px*var(--modern-fs-header-company))] leading-[15px] text-[#4F5B6E]">
               {clientProfile.address}
             </p>
           ) : null}
 
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0 text-[9.5px] text-[#475467]">
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0 text-[calc(9.5px*var(--modern-fs-header-company))] text-[#475467]">
             {clientProfile.tax_id ? <div>เลขที่ผู้เสียภาษี: {clientProfile.tax_id}</div> : null}
             {clientProfile.phone ? <div>ติดต่อ: {clientProfile.phone}</div> : null}
           </div>
 
           <div className="mt-5 border-l-2 pl-3" style={{ borderColor: "var(--doc-accent, #2f6fed)" }}>
             <div>
-              <div className="text-[9px] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
-              <div className="text-[6.5px] text-[#94a3b8]">BILL TO</div>
+              <div className="text-[calc(9px*var(--modern-fs-header-info))] tracking-[0.12em] text-[#6B7280]">ลูกค้า</div>
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">BILL TO</div>
             </div>
-            <div className="mt-0.5 font-semibold text-[12px]">{customer.name}</div>
-            <div className="mt-0.5 space-y-0.5 text-[9.5px] text-[#475467]">
+            <div className="mt-0.5 font-semibold text-[calc(12px*var(--modern-fs-header-info))]">{customer.name}</div>
+            <div className="mt-0.5 space-y-0.5 text-[calc(9.5px*var(--modern-fs-header-info))] text-[#475467]">
               {customer.tax_id ? <div>เลขที่ผู้เสียภาษี: {customer.tax_id}</div> : null}
               {customer.address ? <div className="whitespace-pre-line leading-[15px]">{customer.address}</div> : null}
               {customer.phone ? <div>โทร: {customer.phone}</div> : null}
@@ -78,24 +78,24 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
             <div className="flex justify-between gap-2">
               <div className="flex flex-col">
                 <span className="text-[#6B7280]">ชำระครั้งที่</span>
-                <span className="text-[6.5px] text-[#94a3b8]">PAYMENT NO.</span>
+                <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">PAYMENT NO.</span>
               </div>
               <span className="text-right font-medium text-[#111827] self-center">{receiptPaymentNumber}</span>
             </div>
           ) : null}
 
-          <div className="mt-2 space-y-1 text-[10px] text-left">
+          <div className="mt-2 space-y-1 text-[calc(10px*var(--modern-fs-header-info))] text-left">
             <div className="flex justify-between gap-2">
               <div className="flex flex-col">
                 <span className="text-[#6B7280]">เลขที่เอกสาร</span>
-                <span className="text-[6.5px] text-[#94a3b8]">DOCUMENT NO.</span>
+                <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">DOCUMENT NO.</span>
               </div>
               <span className="text-right font-medium text-[#111827] self-center">{document.doc_number || "-"}</span>
             </div>
             <div className="flex justify-between gap-2">
               <div className="flex flex-col">
                 <span className="text-[#6B7280]">วันที่</span>
-                <span className="text-[6.5px] text-[#94a3b8]">DATE</span>
+                <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">DATE</span>
               </div>
               <span className="text-right text-[#111827] self-center">{formatDate(document.issue_date)}</span>
             </div>
@@ -103,7 +103,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
               <div className="flex justify-between gap-2">
                 <div className="flex flex-col">
                   <span className="text-[#6B7280]">ครบกำหนด</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">DUE DATE</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">DUE DATE</span>
                 </div>
                 <span className="text-right text-[#111827] self-center">{formatDate(document.due_date)}</span>
               </div>
@@ -122,7 +122,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
                     }
                     return "เอกสารอ้างอิง";
                   })()}</span>
-                  <span className="text-[6.5px] text-[#94a3b8]">REFERENCE</span>
+                  <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">REFERENCE</span>
                 </div>
                 <span className="text-right text-[#111827] self-center">{referenceDoc.doc_number}</span>
               </div>

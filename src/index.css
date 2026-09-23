@@ -350,6 +350,24 @@ body.print-export-document #root {
   box-shadow: none;
   background: #ffffff;
   position: relative;
+  /* Modern font-scale slots (default 1 = today's look). Per-section overrides
+     are injected inline on the <article> by PrintDocument; these defaults keep
+     every calc() valid when a slot is unset. Same 14-slot model as Classic V2
+     (Modern's 10px item base equals 7.5pt). */
+  --modern-fs-header: 1;
+  --modern-fs-header-company: var(--modern-fs-header);
+  --modern-fs-header-title: var(--modern-fs-header);
+  --modern-fs-header-info: var(--modern-fs-header);
+  --modern-fs-items: 1;
+  --modern-fs-num: var(--modern-fs-items);
+  --modern-fs-num-unit: var(--modern-fs-num);
+  --modern-fs-thead: var(--modern-fs-items);
+  --modern-fs-totals: 1;
+  --modern-fs-totals-net: var(--modern-fs-totals);
+  --modern-fs-payment: var(--modern-fs-totals);
+  --modern-fs-terms: var(--modern-fs-totals);
+  --modern-fs-footer: 1;
+  --modern-fs-en: 1;
 }
 
 /*

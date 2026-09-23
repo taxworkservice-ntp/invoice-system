@@ -292,12 +292,14 @@ export default function SettingsDocumentsPage() {
     setShowCompanyName(clientProfile.show_company_name !== false);
     setLogoLayout(clientProfile.logo_layout === "above" ? "above" : "left");
     setPdfTemplate((["modern", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
-    setClassicV2FontScale(clientProfile.classic_v2_font_scale || "normal");
+    // Shared pdf_* columns are canonical; classic_v2_* is the pre-migration
+    // fallback so the page still hydrates before the migration is applied.
+    setClassicV2FontScale(clientProfile.pdf_font_scale ?? clientProfile.classic_v2_font_scale ?? "normal");
     setClassicV2SectionScales({
       ...CLASSIC_V2_DEFAULT_SECTION_SCALES,
-      ...(clientProfile.classic_v2_section_font_scales || {}),
+      ...(clientProfile.pdf_section_font_scales ?? clientProfile.classic_v2_section_font_scales ?? {}),
     });
-    setClassicV2TypeScales(clientProfile.classic_v2_type_font_scales || {});
+    setClassicV2TypeScales(clientProfile.pdf_type_font_scales ?? clientProfile.classic_v2_type_font_scales ?? {});
     setTermsByType({ ...(clientProfile.classic_terms_by_type || {}) });
     setClassicV2FullPageHeader(clientProfile.classic_v2_full_page_header === true);
     setClassicV2HideEnglishLabels(clientProfile.classic_v2_hide_english_labels === true);
@@ -360,6 +362,14 @@ export default function SettingsDocumentsPage() {
       return;
     }
 
+    // Drop 'inherit' entries so only explicit overrides persist.
+    const classicV2TypeFontScalesPayload = Object.fromEntries(
+      Object.entries(classicV2TypeScales).map(([typeKey, scales]) => [
+        typeKey,
+        Object.fromEntries(Object.entries(scales).filter(([, v]) => v && v !== CLASSIC_V2_SECTION_INHERIT)),
+      ]),
+    );
+
     const payload: Record<string, unknown> = {
       price_deviation_warn_pct: parsedWarnPct,
       require_dn_price_review: requireDnPriceReview,
@@ -375,14 +385,14 @@ export default function SettingsDocumentsPage() {
       classic_v2_sign_every_page: classicV2SignEveryPage,
       classic_v2_regular_item_font: classicV2RegularItemFont,
       classic_v2_compact_dn: classicV2CompactDn,
+      // Shared pdf_* (canonical) + classic_v2_* (kept in sync so a rollback to
+      // the previous build, which reads classic_v2_*, loses nothing).
+      pdf_font_scale: classicV2FontScale,
+      pdf_section_font_scales: classicV2SectionScales,
+      pdf_type_font_scales: classicV2TypeFontScalesPayload,
       classic_v2_font_scale: classicV2FontScale,
       classic_v2_section_font_scales: classicV2SectionScales,
-      classic_v2_type_font_scales: Object.fromEntries(
-        Object.entries(classicV2TypeScales).map(([typeKey, scales]) => [
-          typeKey,
-          Object.fromEntries(Object.entries(scales).filter(([, v]) => v && v !== CLASSIC_V2_SECTION_INHERIT)),
-        ]),
-      ),
+      classic_v2_type_font_scales: classicV2TypeFontScalesPayload,
       classic_terms_by_type: termsByType,
       signature_url: signatureKey,
       stamp_url: stampKey,
@@ -404,12 +414,21 @@ export default function SettingsDocumentsPage() {
       .update(payload)
       .eq("user_id", profile.id);
 
-    if (err && (err.message.includes("price_deviation_warn_pct") || err.message.includes("classic_v2_regular_item_font") || err.message.includes("classic_terms_by_type"))) {
-      // Migration sql/add_price_deviation_warn_pct.sql,
-      // sql/add_classic_v2_regular_item_font.sql or
-      // sql/add_classic_terms_by_type.sql not applied yet — save
-      // everything else so the page never breaks on schema lag.
-      const { price_deviation_warn_pct: _pending, classic_v2_regular_item_font: _pendingFont, classic_terms_by_type: _pendingTerms, ...fallbackPayload } = payload;
+    if (err && (err.message.includes("price_deviation_warn_pct") || err.message.includes("classic_v2_regular_item_font") || err.message.includes("classic_terms_by_type") || err.message.includes("pdf_font_scale") || err.message.includes("pdf_section_font_scales") || err.message.includes("pdf_type_font_scales"))) {
+      // One of the pending migrations (add_price_deviation_warn_pct,
+      // add_classic_v2_regular_item_font, add_classic_terms_by_type,
+      // add_pdf_font_scale) not applied yet — save everything else so the
+      // page never breaks on schema lag. classic_v2_* stays in the fallback
+      // payload, so pre-migration saves still persist the font settings.
+      const {
+        price_deviation_warn_pct: _pending,
+        classic_v2_regular_item_font: _pendingFont,
+        classic_terms_by_type: _pendingTerms,
+        pdf_font_scale: _pendingPdfScale,
+        pdf_section_font_scales: _pendingPdfSections,
+        pdf_type_font_scales: _pendingPdfTypes,
+        ...fallbackPayload
+      } = payload;
       ({ error: err } = await supabase
         .from("client_profiles")
         .update(fallbackPayload)
@@ -474,10 +493,10 @@ export default function SettingsDocumentsPage() {
     classicV2SignEveryPage !== (clientProfile?.classic_v2_sign_every_page === true) ||
     classicV2RegularItemFont !== (clientProfile?.classic_v2_regular_item_font === true) ||
     classicV2CompactDn !== (clientProfile?.classic_v2_compact_dn === true) ||
-    classicV2FontScale !== (clientProfile?.classic_v2_font_scale || "normal") ||
-    JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.classic_v2_type_font_scales || {}) ||
+    classicV2FontScale !== (clientProfile?.pdf_font_scale ?? clientProfile?.classic_v2_font_scale ?? "normal") ||
+    JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.pdf_type_font_scales ?? clientProfile?.classic_v2_type_font_scales ?? {}) ||
     CLASSIC_V2_SECTION_FONT_KEYS.some(
-      (key) => (classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT) !== (clientProfile?.classic_v2_section_font_scales?.[key] || CLASSIC_V2_SECTION_INHERIT),
+      (key) => (classicV2SectionScales[key] || CLASSIC_V2_SECTION_INHERIT) !== ((clientProfile?.pdf_section_font_scales ?? clientProfile?.classic_v2_section_font_scales)?.[key] || CLASSIC_V2_SECTION_INHERIT),
     ) ||
     JSON.stringify(termsByType) !== JSON.stringify(clientProfile?.classic_terms_by_type || {}) ||
     logoKey !== (clientProfile?.logo_url ?? null) ||

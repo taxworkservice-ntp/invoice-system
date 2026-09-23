@@ -121,9 +121,18 @@ export interface ClientProfile {
   stamp_url: string | null;
   signature_scale?: string | null;
   stamp_scale?: string | null;
+  /** @deprecated superseded by pdf_font_scale (shared by Modern + Classic V2). */
   classic_v2_font_scale?: string | null;
+  /** @deprecated superseded by pdf_section_font_scales. */
   classic_v2_section_font_scales?: Record<string, string> | null;
+  /** @deprecated superseded by pdf_type_font_scales. */
   classic_v2_type_font_scales?: Record<string, Record<string, string>> | null;
+  /** Shared document font-size preset for the active HTML template (Modern + Classic V2). */
+  pdf_font_scale?: string | null;
+  /** Shared per-section font-size overrides (jsonb: slot -> preset or 'inherit'). */
+  pdf_section_font_scales?: Record<string, string> | null;
+  /** Shared per-document-type font-size overrides (jsonb: doc_type -> { slot -> preset }). */
+  pdf_type_font_scales?: Record<string, Record<string, string>> | null;
   /** Classic V2: repeat the full header + customer info on every page. */
   classic_v2_full_page_header?: boolean;
   /** Classic V2: hide English sub-labels (thead, meta, totals, signatures) to save vertical space. */

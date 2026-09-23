@@ -308,7 +308,7 @@ export function PrintDocumentClassicV2({
   const stampUrl = clientProfile.stamp_url;
   const signatureScaleMult = ASSET_SCALE_MULT[clientProfile.signature_scale ?? "medium"] ?? 1;
   const stampScaleMult = ASSET_SCALE_MULT[clientProfile.stamp_scale ?? "medium"] ?? 1;
-  const typeFontScales = clientProfile.classic_v2_type_font_scales?.[document.doc_type];
+  const typeFontScales = (clientProfile.pdf_type_font_scales ?? clientProfile.classic_v2_type_font_scales)?.[document.doc_type];
   // An explicit per-document override applies to the whole document (all
   // sections) — it beats type and workspace scales.
   const docOverrideMult =
@@ -318,9 +318,9 @@ export function PrintDocumentClassicV2({
   const fontScaleMult = docOverrideMult ?? getClassicV2EffectiveFontScaleMult(
     document.print_font_scale,
     typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
-    clientProfile.classic_v2_font_scale,
+    clientProfile.pdf_font_scale ?? clientProfile.classic_v2_font_scale,
   );
-  const sectionScales = clientProfile.classic_v2_section_font_scales;
+  const sectionScales = clientProfile.pdf_section_font_scales ?? clientProfile.classic_v2_section_font_scales;
   const headerScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, fontScaleMult);
   const companyScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header_company", typeFontScales, sectionScales, fontScaleMult);
   const titleScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header_title", typeFontScales, sectionScales, fontScaleMult);

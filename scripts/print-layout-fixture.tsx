@@ -638,7 +638,7 @@ const activeBaseData = collapsedLineItems
 if (fontScalePreset) {
   activeBaseData.clientProfile = {
     ...activeBaseData.clientProfile,
-    classic_v2_font_scale: fontScalePreset,
+    pdf_font_scale: fontScalePreset,
   };
 }
 if (params.get("noCompanyName") === "1") {
@@ -666,7 +666,7 @@ if (typeDoc) {
   if (typeItems || typeNum || typeThead) {
     activeBaseData.clientProfile = {
       ...activeBaseData.clientProfile,
-      classic_v2_type_font_scales: {
+      pdf_type_font_scales: {
         [typeDoc]: {
           ...(typeItems ? { items: typeItems } : {}),
           ...(typeNum ? { num: typeNum } : {}),
