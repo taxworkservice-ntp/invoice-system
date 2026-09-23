@@ -2,7 +2,7 @@
  * Design tokens — the single source of truth for the app's visual language.
  *
  * Authority: `invoice-system-master-prompt.md` §"UI Style" (warm minimalism):
- *   - 13px body, 15px card titles, 11px labels/badges
+ *   - 14px body, 17px card titles, 12px labels/badges
  *   - cards: white, 0.5px #E8E6DF border, 10px radius
  *   - primary #378ADD, no gradients, no drop shadows
  *
@@ -17,14 +17,14 @@
  */
 export const fontSize = {
   // Canonical roles -----------------------------------------------------------
-  label: ["11px", { lineHeight: "16px" }],
-  body: ["13px", { lineHeight: "20px" }],
-  title: ["15px", { lineHeight: "22px" }],
-  subtitle: ["18px", { lineHeight: "26px" }],
-  display: ["20px", { lineHeight: "28px" }],
-  page: ["24px", { lineHeight: "32px" }],
+  label: ["12px", { lineHeight: "18px" }],
+  body: ["14px", { lineHeight: "22px" }],
+  title: ["17px", { lineHeight: "24px" }],
+  subtitle: ["20px", { lineHeight: "29px" }],
+  display: ["22px", { lineHeight: "31px" }],
+  page: ["26px", { lineHeight: "35px" }],
   /** Large stat numbers (dashboard KPIs). */
-  hero: ["30px", { lineHeight: "36px" }],
+  hero: ["33px", { lineHeight: "40px" }],
 } as const;
 
 /** Warm neutral text ramp — the ONLY neutral for UI text and chrome. */

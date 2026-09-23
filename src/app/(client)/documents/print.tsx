@@ -80,11 +80,24 @@ function Segmented<T extends string>({
   );
 }
 
-/** Inline "label + control" group for the compact download toolbar. */
-function InlineControl({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
+/** Inline "label · hint + control" group for the compact download toolbar. */
+function InlineControl({
+  label,
+  hint,
+  title,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  title?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-2" title={title}>
-      <span className="text-label font-medium text-ink-500">{label}</span>
+    <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2" title={title}>
+      <span className="text-label font-medium text-ink-500">
+        {label}
+        {hint ? <span className="font-normal text-ink-300"> · {hint}</span> : null}
+      </span>
       {children}
     </div>
   );
@@ -776,7 +789,7 @@ return (
           }
         >
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <InlineControl label="ประเภท" title="ใช้กับปุ่ม 'บันทึกเป็น PDF'">
+            <InlineControl label="ประเภท" hint="ใช้กับ 'บันทึกเป็น PDF'">
               <Segmented
                 value={copyType}
                 onChange={setCopyType}
@@ -786,7 +799,7 @@ return (
                 ]}
               />
             </InlineControl>
-            <InlineControl label="ลำดับ" title="ใช้กับปุ่ม '2 ฉบับ รวมไฟล์เดียว'">
+            <InlineControl label="ลำดับ" hint="ใช้กับ '2 ฉบับ รวมไฟล์เดียว'">
               <Segmented
                 value={copyOrder}
                 onChange={handleCopyOrderChange}
@@ -796,7 +809,7 @@ return (
                 ]}
               />
             </InlineControl>
-            <InlineControl label="การเรียงหน้า" title="ใช้กับปุ่ม '2 ฉบับ รวมไฟล์เดียว'">
+            <InlineControl label="การเรียงหน้า" hint="สลับหน้า หรือจบทีละชุด">
               <Segmented
                 value={interleaveCopies ? "interleave" : "grouped"}
                 onChange={(value) => toggleInterleaveCopies(value === "interleave")}
@@ -811,7 +824,7 @@ return (
           {hasDocumentOptions ? (
             <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-3">
               {showPrintTitle ? (
-                <InlineControl label="ชื่อเรื่องบนหัวเอกสาร">
+                <InlineControl label="ชื่อเรื่องบนหัวเอกสาร" hint="หัวเรื่องที่พิมพ์บนเอกสาร">
                   <div className="w-[220px]">
                     <Select
                       value={data.document.print_title_variant || ""}
@@ -827,7 +840,7 @@ return (
                 </InlineControl>
               ) : null}
               {showRefModeToggle ? (
-                <InlineControl label="รูปแบบรายการ">
+                <InlineControl label="รูปแบบรายการ" hint="ตารางสินค้า หรือตารางใบส่งของ">
                   <Segmented
                     value={refCollapse ? "ref" : "full"}
                     onChange={(value) => toggleRefCollapse(value === "ref")}
@@ -839,35 +852,44 @@ return (
                 </InlineControl>
               ) : null}
               {showDnAppendixOption ? (
-                <InlineControl label="แนบภาคผนวกการส่งของ">
+                <InlineControl label="แนบภาคผนวกการส่งของ" hint="ตาราง ส่งแล้ว vs เรียกเก็บ">
                   <Switch checked={dnAppendix} onChange={setDnAppendix} />
                 </InlineControl>
               ) : null}
             </div>
           ) : null}
 
-          <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="text-label text-danger-text">{pdfError}</div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-              <Button onClick={handleSavePdf} loading={savingMode === "single"} className="w-full sm:w-auto">
-                บันทึกเป็น PDF
-              </Button>
-              <Button
-                onClick={handleSaveBothPdf}
-                loading={savingMode === "combined"}
-                variant="secondary"
-                className="w-full sm:w-auto"
-              >
-                2 ฉบับ รวมไฟล์เดียว
-              </Button>
-              <Button
-                onClick={handleSaveBothSeparatePdf}
-                loading={savingMode === "separate"}
-                variant="secondary"
-                className="w-full sm:w-auto"
-              >
-                2 ฉบับ แยกไฟล์
-              </Button>
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-start sm:justify-end">
+              <div className="flex flex-col gap-1">
+                <Button onClick={handleSavePdf} loading={savingMode === "single"} className="w-full sm:w-auto">
+                  บันทึกเป็น PDF
+                </Button>
+                <span className="text-center text-label text-ink-300 sm:text-right">1 ไฟล์ ตามประเภทที่เลือก</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Button
+                  onClick={handleSaveBothPdf}
+                  loading={savingMode === "combined"}
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                >
+                  2 ฉบับ รวมไฟล์เดียว
+                </Button>
+                <span className="text-center text-label text-ink-300 sm:text-right">2 หน้า ในไฟล์เดียว</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Button
+                  onClick={handleSaveBothSeparatePdf}
+                  loading={savingMode === "separate"}
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                >
+                  2 ฉบับ แยกไฟล์
+                </Button>
+                <span className="text-center text-label text-ink-300 sm:text-right">ZIP · 2 ไฟล์</span>
+              </div>
             </div>
           </div>
         </SectionCard>

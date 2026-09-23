@@ -38,8 +38,8 @@
 :root {
   --page-bg: #f7f6f3;
   --ink-900: #1a1a18;
-  --ui-font-size: 13px;
-  --ui-line-height: 20px;
+  --ui-font-size: 14px;
+  --ui-line-height: 22px;
   /* Height of the fixed mobile bottom nav (see BottomNav.tsx). Sticky action
      bars offset by this so they never sit behind the nav. */
   --bottom-nav-height: 3.875rem;

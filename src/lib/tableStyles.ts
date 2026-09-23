@@ -1,7 +1,7 @@
 /**
  * Table tokens — the single table style for the whole app.
  *
- * Type roles (src/design/tokens.ts): body cells 13px, header labels 11px.
+ * Type roles (src/design/tokens.ts): body cells 14px, header labels 12px.
  * Thai headers are NOT uppercased and carry no letter-spacing —  is a
  * no-op for Thai and tracking reads wrong, so headers rely on weight + color.
  */

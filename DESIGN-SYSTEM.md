@@ -13,13 +13,13 @@ Roles, not sizes. Use the role that matches the content's job.
 
 | Token | Size / line | Use for |
 |---|---|---|
-| `text-label` | 11 / 16 | form labels, badges, table headers, helper text, meta |
-| `text-body` | 13 / 20 | body copy, table cells, inputs, buttons (`md`) |
-| `text-title` | 15 / 22 | card, section and modal titles |
-| `text-subtitle` | 18 / 26 | page subtitles, large section headers |
-| `text-display` | 20 / 28 | emphasized headings |
-| `text-page` | 24 / 32 | page titles |
-| `text-hero` | 30 / 36 | dashboard KPI numbers |
+| `text-label` | 12 / 18 | form labels, badges, table headers, helper text, meta |
+| `text-body` | 14 / 22 | body copy, table cells, inputs, buttons (`md`) |
+| `text-title` | 17 / 24 | card, section and modal titles |
+| `text-subtitle` | 20 / 29 | page subtitles, large section headers |
+| `text-display` | 22 / 31 | emphasized headings |
+| `text-page` | 26 / 35 | page titles |
+| `text-hero` | 33 / 40 | dashboard KPI numbers |
 
 **Rules**
 
@@ -27,8 +27,8 @@ Roles, not sizes. Use the role that matches the content's job.
 - Labels/helper text are `font-medium`.
 - **No uppercase and no letter-spacing on Thai labels** — uppercase is a no-op
   for Thai and tracking reads wrong. Labels rely on weight + colour.
-- Never write `text-[13px]` or `text-xs`/`text-sm`. Those scales are removed.
-- Body copy is 13px (the base `body` size in `src/index.css`).
+- Never write `text-[14px]` or `text-xs`/`text-sm`. Those scales are removed.
+- Body copy is 14px (the base `body` size in `src/index.css`).
 
 ## 2. Colour
 
@@ -99,7 +99,7 @@ Prefer a component over a hand-built equivalent.
 | `Toast` | overlay elevation, `text-body` |
 | `Badge` / `StatusBadge` | status pills |
 | `Money` / `AmountRow` | money is always `tabular-nums` |
-| `TABLE` (`src/lib/tableStyles.ts`) | one table style: body cells 13px, headers 11px |
+| `TABLE` (`src/lib/tableStyles.ts`) | one table style: body cells 14px, headers 12px |
 
 ## 6. Spacing and content width
 

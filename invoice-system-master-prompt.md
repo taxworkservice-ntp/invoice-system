@@ -183,7 +183,7 @@ Warm minimalism — inspired by Notion's design language.
 - Cards: white #FFFFFF, 0.5px border #E8E6DF, border-radius 10px
 - Primary action color: blue #378ADD
 - Font: system-ui or Inter — clean, renders Thai naturally
-- Font sizes: 13px body, 15px card titles, 11px labels and badges
+- Font sizes: 14px body, 17px card titles, 12px labels and badges
 - Spacing: generous padding (16–20px on cards), 8–12px gaps between elements
 - No gradients, no drop shadows, no decorative effects
 - Fully responsive — same codebase for mobile and desktop
