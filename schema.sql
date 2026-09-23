@@ -261,7 +261,7 @@ create table client_profiles (
 
   -- PDF template preference
   pdf_template          text not null default 'modern'
-                         check (pdf_template in ('modern', 'classic')),
+                         check (pdf_template in ('modern', 'classic_v2')),
   classic_terms         text,
 
   -- Per-document-type closing-terms text (jsonb: doc_type -> text).
@@ -1437,10 +1437,11 @@ alter table client_profiles add column if not exists show_company_name boolean n
 -- Add default_unit to item_job_detail_fields
 alter table item_job_detail_fields add column if not exists default_unit text;
 
--- Add classic_v2_template to pdf_template check constraint
+-- pdf_template union: 'classic' (v1) retired — only modern + classic_v2 remain
+-- (see sql/20260923_remove_pdf_template_classic.sql)
 alter table client_profiles drop constraint if exists client_profiles_pdf_template_check;
 alter table client_profiles add constraint client_profiles_pdf_template_check
-  check (pdf_template in ('modern', 'classic', 'classic_v2'));
+  check (pdf_template in ('modern', 'classic_v2'));
 
 -- Add classic_v2_template to feature_key check
 alter table client_features drop constraint if exists client_features_feature_key_check;

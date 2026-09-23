@@ -6,7 +6,7 @@ export function PrintAppendix({
   template,
 }: {
   data: PrintAppendixData;
-  template: "modern" | "classic" | "classic_v2";
+  template: "modern" | "classic_v2";
 }) {
   if (!data.enabled || data.groups.length === 0) return null;
 

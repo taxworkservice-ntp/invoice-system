@@ -2,7 +2,6 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import "../src/index.css";
 import { PrintDocument } from "../src/components/print/PrintDocument";
-import { PrintDocumentClassic } from "../src/components/print/PrintDocumentClassic";
 import { PrintDocumentClassicV2 } from "../src/components/print/PrintDocumentClassicV2";
 import { PrintAppendix } from "../src/components/print/PrintAppendix";
 import { applyAppendixToData, collapseDeliveryNoteGroups } from "../src/lib/print";
@@ -592,8 +591,7 @@ const deliveryData = (template: HtmlPrintTemplate): PrintDocumentData => ({
 const params = new URLSearchParams(window.location.search);
 const rawTemplate = params.get("template");
 const template: HtmlPrintTemplate =
-  rawTemplate === "classic" ? "classic"
-  : rawTemplate === "classic_v2" ? "classic_v2"
+  rawTemplate === "classic_v2" ? "classic_v2"
   : "modern";
 const copyType: CopyType =
   params.get("copyType") === "copy" ? "copy" : "original";
@@ -728,9 +726,7 @@ createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <div className="print-export-stack">
       <div className="print-export-page">
-        {template === "classic" ? (
-          <PrintDocumentClassic data={activeData} copyType={copyType} />
-        ) : template === "classic_v2" ? (
+        {template === "classic_v2" ? (
           <PrintDocumentClassicV2 data={activeData} copyType={copyType} pageMode={pageMode} refCollapse={refCollapseProp} />
         ) : (
           <PrintDocument data={activeData} copyType={copyType} />

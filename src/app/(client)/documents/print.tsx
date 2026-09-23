@@ -5,7 +5,6 @@ import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { PrintDocument } from "../../../components/print/PrintDocument";
 import type { CopyType } from "../../../components/print/PrintDocument";
-import { PrintDocumentClassic } from "../../../components/print/PrintDocumentClassic";
 import { PrintDocumentClassicV2 } from "../../../components/print/PrintDocumentClassicV2";
 import { PrintErrorBoundary } from "../../../components/print/PrintErrorBoundary";
 import { PrintAppendix } from "../../../components/print/PrintAppendix";
@@ -619,20 +618,7 @@ export default function DocumentPrintPreviewPage() {
             const { kind, batch } = batches[i];
             return (
               <div className="print-export-page" key={`${type}-p${i}`}>
-                {data.template === "classic" ? (
-                  <PrintDocumentClassic
-                    data={data}
-                    copyType={type}
-                    pageMode={batch.mode}
-                    pageIndex={i + 1}
-                    totalPages={batches.length}
-                    batchLineItems={kind === "line_items" ? batch.items : undefined}
-                    batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
-                    batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
-                    summaryStartIndex={batch.startIndex}
-                    blankForm={blankForm}
-                  />
-                ) : data.template === "classic_v2" ? (
+                {data.template === "classic_v2" ? (
                   <PrintDocumentClassicV2
                     data={data}
                     copyType={type}
@@ -856,9 +842,7 @@ return (
                       summaryStartIndex: batch.startIndex,
                       blankForm,
                     };
-                    return data.template === "classic" ? (
-                      <PrintDocumentClassic key={`p${i}`} {...props} />
-                    ) : data.template === "classic_v2" ? (
+                    return data.template === "classic_v2" ? (
                       <PrintDocumentClassicV2
                         key={`p${i}`}
                         {...props}

@@ -252,7 +252,7 @@ export default function SettingsDocumentsPage() {
   const [showLogo, setShowLogo] = useState(true);
   const [showCompanyName, setShowCompanyName] = useState(true);
   const [logoLayout, setLogoLayout] = useState<"left" | "above">("left");
-  const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic" | "classic_v2">("modern");
+  const [pdfTemplate, setPdfTemplate] = useState<"modern" | "classic_v2">("modern");
   const [classicV2FontScale, setClassicV2FontScale] = useState("normal");
   const [classicV2FullPageHeader, setClassicV2FullPageHeader] = useState(false);
   const [classicV2HideEnglishLabels, setClassicV2HideEnglishLabels] = useState(false);
@@ -291,7 +291,7 @@ export default function SettingsDocumentsPage() {
     setShowLogo(clientProfile.show_logo !== false);
     setShowCompanyName(clientProfile.show_company_name !== false);
     setLogoLayout(clientProfile.logo_layout === "above" ? "above" : "left");
-    setPdfTemplate((["modern", "classic", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
+    setPdfTemplate((["modern", "classic_v2"] as const).includes(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern");
     setClassicV2FontScale(clientProfile.classic_v2_font_scale || "normal");
     setClassicV2SectionScales({
       ...CLASSIC_V2_DEFAULT_SECTION_SCALES,
@@ -645,10 +645,9 @@ export default function SettingsDocumentsPage() {
             >
               <Select
                 value={pdfTemplate}
-                onChange={(e) => { setPdfTemplate(e.target.value as "modern" | "classic" | "classic_v2"); setSaved(false); }}
+                onChange={(e) => { setPdfTemplate(e.target.value as "modern" | "classic_v2"); setSaved(false); }}
               >
                 <option value="modern">โมเดิร์น (Modern)</option>
-                <option value="classic">คลาสสิก (Thai Classic)</option>
                 {hasClassicV2 && <option value="classic_v2">คลาสสิก V2</option>}
               </Select>
             </SettingRow>

@@ -1053,15 +1053,6 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   border-radius: 1mm;
 }
 
-.print-classic-dn-header-row td {
-  border-right: 0;
-}
-
-.print-classic-dn-header-label {
-  font-size: calc(11pt * var(--classic-fs-items));
-  padding-left: 2mm;
-}
-
 /* classic V2: hierarchical DN group header (detail mode) — a numbered
    outline row above each DN group's lines. No fill (reads as structure, not
    decoration); padding matches the old band rows so the 6.5mm
@@ -1359,7 +1350,6 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2 .print-classic-bottom-band,
 .print-theme-classic-v2 .print-classic-sig-cell,
 .print-theme-classic-v2 .print-classic-sig-line,
-.print-theme-classic-v2 .print-classic-sig-date-line,
 .print-theme-classic-v2 .print-classic-logo-fallback {
   border-color: #6b7280;
 }
@@ -1718,12 +1708,6 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   font-size: calc(6.5pt * var(--classic-fs-footer));
   color: #6b7280;
   text-align: center;
-}
-.print-classic-sig-date-line {
-  width: 60%;
-  border-bottom: 0.5pt dotted #9ca3af;
-  height: 5mm;
-  margin: 1mm auto 0;
 }
 /* V2 segmented hand-fill date: [DD] / [MM] / [YYYY] */
 .print-classic-sig-date-fill {

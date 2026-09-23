@@ -110,7 +110,7 @@ export interface ClientProfile {
   default_wht_rate: WhtRate;
   credit_term_days: number;
   stock_deduct_trigger: string;
-  pdf_template: "modern" | "classic" | "classic_v2";
+  pdf_template: "modern" | "classic_v2";
   classic_terms: string | null;
   /** Per-document-type closing-terms text (null = fall back to classic_terms).
    * Keys: quotation/invoice/billing_note/receipt/credit_note/debit_note. */

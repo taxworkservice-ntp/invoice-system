@@ -15,12 +15,9 @@ const pixelThreshold = Number(process.env.PRINT_LAYOUT_PIXEL_THRESHOLD || 12);
 const variants = [
   { template: "modern", copyType: "original" },
   { template: "modern", copyType: "copy" },
-  { template: "classic", copyType: "original" },
-  { template: "classic", copyType: "copy" },
   { template: "classic_v2", copyType: "original" },
   { template: "classic_v2", copyType: "copy" },
   { template: "modern", copyType: "original", doc: "many" },
-  { template: "classic", copyType: "original", doc: "many" },
   { template: "classic_v2", copyType: "original", doc: "many" },
   { template: "classic_v2", copyType: "original", doc: "many", fontScale: "xlarge" },
   { template: "classic_v2", copyType: "original", doc: "many", fontScale: "xxlarge" },
@@ -29,7 +26,6 @@ const variants = [
   { template: "classic_v2", copyType: "original", printTitle: "tax_invoice_delivery_invoice" },
   { template: "modern", copyType: "original", printTitle: "tax_invoice_delivery_invoice" },
   { template: "classic_v2", copyType: "original", doc: "qt", wht: true },
-  { template: "classic", copyType: "original", doc: "qt", wht: true },
   { template: "modern", copyType: "original", doc: "qt", wht: true },
   { template: "modern", copyType: "original", doc: "many", appendix: true },
 ];
