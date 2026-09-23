@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 export type DownloadJobStatus = "idle" | "running" | "done" | "error";
 
 export interface DownloadJobFailure {
+  id?: string;
   label: string;
   error?: string;
 }

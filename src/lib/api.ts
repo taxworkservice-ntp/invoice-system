@@ -76,7 +76,9 @@ export async function apiFetchBlob(input: string, init: RequestInit = {}): Promi
       const parsed = JSON.parse(rawText);
       if (parsed && typeof parsed === "object" && typeof parsed.error === "string") message = parsed.error;
     } catch {
-      if (rawText) message = rawText;
+      // Platform-level errors (e.g. a 504 gateway timeout) return an HTML page;
+      // never surface raw markup — keep the status-based message instead.
+      if (rawText && !rawText.trimStart().startsWith("<")) message = rawText;
     }
     throw new ApiRequestError(response.status, message);
   }

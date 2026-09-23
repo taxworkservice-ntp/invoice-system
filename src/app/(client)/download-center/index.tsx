@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useId } from "react";
+import { useState, useMemo, useCallback, useEffect, useId, useRef } from "react";
 import { useAuth, useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Card } from "../../../components/ui/Card";
@@ -129,6 +129,12 @@ export default function DownloadCenterPage() {
   const docsJob = useDownloadJob();
   const reportJob = useDownloadJob();
   const actorUserId = profile?.auth_user_id ?? userId;
+  // Remembers the last document job so "ลองใหม่" can re-render only the files
+  // that failed, instead of the whole selection.
+  const lastDocsJobRef = useRef<{
+    docs: BuilderDoc[];
+    meta: { kind: string; params: Record<string, unknown>; artifactLabel: string };
+  } | null>(null);
 
   const [copyType, setCopyType] = useState<CopyType>("original");
   const [zipGrouping, setZipGrouping] = useState(true);
@@ -312,6 +318,7 @@ export default function DownloadCenterPage() {
     if (!userId || !clientProfile) return;
     const copyTypes: Array<"original" | "copy"> = copyType === "both" ? ["original", "copy"] : ["original"];
     const docTypeById = new Map(docs.map((d) => [d.id, d.doc_type]));
+    lastDocsJobRef.current = { docs, meta };
     await docsJob.run(async ({ signal, onProgress }) => {
       const results = await fetchDocumentPdfs(docs, {
         copyTypes,
@@ -357,9 +364,20 @@ export default function DownloadCenterPage() {
         succeeded: ok.length,
         failed: failed.length,
         artifact,
-        failures: failed.map((r) => ({ label: r.filename, error: r.error })),
+        failures: failed.map((r) => ({ id: r.id, label: r.filename, error: r.error })),
       };
     });
+  };
+
+  // Re-run only the files that failed in the last document job.
+  const retryFailedDocuments = () => {
+    const last = lastDocsJobRef.current;
+    const failed = docsJob.result?.failures ?? [];
+    if (!last || failed.length === 0) return;
+    const failedIds = new Set(failed.map((failure) => failure.id).filter((id): id is string => Boolean(id)));
+    const retryDocs = last.docs.filter((doc) => failedIds.has(doc.id));
+    if (retryDocs.length === 0) return;
+    void runDocumentsJob(retryDocs, last.meta);
   };
 
   const handlePresetDownload = async (presetKey: string) => {
@@ -582,7 +600,12 @@ export default function DownloadCenterPage() {
           </div>
         </Card>
 
-        <DownloadJobBar state={docsJob} onCancel={docsJob.cancel} onDismiss={docsJob.reset} />
+        <DownloadJobBar
+          state={docsJob}
+          onCancel={docsJob.cancel}
+          onRetry={retryFailedDocuments}
+          onDismiss={docsJob.reset}
+        />
         <DownloadJobBar state={reportJob} onCancel={reportJob.cancel} onDismiss={reportJob.reset} />
 
         {/* Documents builder */}

@@ -149,8 +149,59 @@ async function backfillPdfCache({ key, documentId, userId, filename, buffer, exp
   }
 }
 
-async function renderPdfBuffer({ origin, storageKey, session, id, normalizedCopyTypes, interleave, refCollapse }) {
+// Stage budgets for the headless render. Kept here (not inline) so the timing
+// log and the actual waits can never drift apart. RENDER_BUDGET_MS keeps the
+// whole render under the 60s serverless cap, so a slow document fails fast
+// with a clear message instead of an opaque platform 504.
+const RENDER_BUDGET_MS = 55000;
+const RENDER_TIMEOUTS = { gotoMs: 25000, selectorMs: 30000, assetsMs: 5000 };
+
+// A stage never waits past the render deadline: min(stage budget, time left).
+function boundedTimeout(stageMs, deadline) {
+  return Math.max(1000, Math.min(stageMs, deadline - Date.now()));
+}
+
+function truncateText(value, max = 240) {
+  if (typeof value !== "string") return "";
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > max ? `${normalized.slice(0, max)}…` : normalized;
+}
+
+// Snapshot of what the headless page actually showed when a stage failed. The
+// difference between the error card, the spinner, and a login redirect is the
+// difference between a data bug and a slow/expired render — without it every
+// failure is an opaque "Internal server error".
+async function describeRenderPage(page) {
+  try {
+    return await page.evaluate(() => ({
+      path: `${window.location.pathname}${window.location.search}`,
+      title: document.title,
+      sheets: document.querySelectorAll(".print-sheet").length,
+      text: (document.body?.innerText || "").replace(/\s+/g, " ").trim().slice(0, 200),
+    }));
+  } catch {
+    return null;
+  }
+}
+
+async function renderPdfBuffer({
+  origin,
+  storageKey,
+  session,
+  id,
+  normalizedCopyTypes,
+  interleave,
+  refCollapse,
+}) {
   let browser;
+  let page;
+  let succeeded = false;
+  let stage = "launch";
+  const startedAt = Date.now();
+  const deadline = startedAt + RENDER_BUDGET_MS;
+  const timings = { launch: 0, goto: 0, selector: 0, assets: 0, pdf: 0, total: 0 };
+  const pageErrors = [];
+  const consoleErrors = [];
 
   try {
     const exportUrl = new URL(`/documents/${encodeURIComponent(id)}/print`, origin);
@@ -161,10 +212,21 @@ async function renderPdfBuffer({ origin, storageKey, session, id, normalizedCopy
     exportUrl.searchParams.set("interleave", interleave);
 
     browser = await playwright.chromium.launch(await getChromiumLaunchOptions());
+    timings.launch = Date.now() - startedAt;
 
-    const page = await browser.newPage({
+    page = await browser.newPage({
       viewport: { width: 794, height: 1123 },
       deviceScaleFactor: 1,
+    });
+    // The print SPA runs its own auth/data bootstrap inside this page; surface
+    // its errors so a blank render is diagnosable instead of an opaque timeout.
+    page.on("pageerror", (error) => {
+      if (pageErrors.length < 5) pageErrors.push(truncateText(error?.message || String(error), 160));
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error" && consoleErrors.length < 5) {
+        consoleErrors.push(truncateText(message.text(), 160));
+      }
     });
     await page.emulateMedia({ media: "screen" });
 
@@ -175,14 +237,29 @@ async function renderPdfBuffer({ origin, storageKey, session, id, normalizedCopy
       {
         key: storageKey,
         sess: session,
-      }
+      },
     );
 
     // domcontentloaded + explicit readiness beats networkidle: idle never
     // fires while any connection lingers and always costs the full tail.
-    await page.goto(exportUrl.toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForSelector(".print-sheet", { timeout: 15000 });
-    await page.evaluate(async () => {
+    stage = "goto";
+    const gotoStart = Date.now();
+    await page.goto(exportUrl.toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: boundedTimeout(RENDER_TIMEOUTS.gotoMs, deadline),
+    });
+    timings.goto = Date.now() - gotoStart;
+
+    stage = "selector";
+    const selectorStart = Date.now();
+    await page.waitForSelector(".print-sheet", {
+      timeout: boundedTimeout(RENDER_TIMEOUTS.selectorMs, deadline),
+    });
+    timings.selector = Date.now() - selectorStart;
+
+    stage = "assets";
+    const assetsStart = Date.now();
+    await page.evaluate(async (capMs) => {
       if (document.fonts?.ready) await document.fonts.ready;
       // Logos load via the image proxy — never freeze them out of a cached
       // PDF, but cap the wait so one slow asset can't stall the render.
@@ -195,14 +272,15 @@ async function renderPdfBuffer({ origin, storageKey, session, id, normalizedCopy
                 new Promise((resolve) => {
                   img.addEventListener("load", resolve, { once: true });
                   img.addEventListener("error", resolve, { once: true });
-                })
-            )
+                }),
+            ),
           ),
-          new Promise((resolve) => setTimeout(resolve, 6000)),
+          new Promise((resolve) => setTimeout(resolve, capMs)),
         ]);
       }
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    });
+    }, boundedTimeout(RENDER_TIMEOUTS.assetsMs, deadline));
+    timings.assets = Date.now() - assetsStart;
 
     await page.addStyleTag({ content: "@page { margin: 0 !important; }" });
 
@@ -218,8 +296,54 @@ async function renderPdfBuffer({ origin, storageKey, session, id, normalizedCopy
     } else {
       pdfOptions.format = "A4";
     }
-    return await page.pdf(pdfOptions);
+
+    stage = "pdf";
+    const pdfStart = Date.now();
+    const buffer = await page.pdf(pdfOptions);
+    timings.pdf = Date.now() - pdfStart;
+    succeeded = true;
+    return buffer;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+
+    const pageState = page ? await describeRenderPage(page) : null;
+    const parts = [
+      `stage=${stage}`,
+      `elapsed=${Date.now() - startedAt}ms`,
+      `reason=${truncateText(error?.message || String(error), 200)}`,
+    ];
+    if (pageState) {
+      parts.push(`url=${pageState.path}`, `sheets=${pageState.sheets}`);
+      if (pageState.text) parts.push(`text="${truncateText(pageState.text, 160)}"`);
+    }
+    if (pageErrors.length > 0) parts.push(`pageerror="${pageErrors[0]}"`);
+    if (consoleErrors.length > 0) parts.push(`console="${consoleErrors[0]}"`);
+
+    console.error("[pdf-render] failed", {
+      id,
+      stage,
+      timings,
+      pageState,
+      pageErrors,
+      consoleErrors,
+      error: error?.stack || String(error),
+    });
+    // 502 (not 500): the render is an upstream/render failure and the message
+    // is safe to surface — it is the only way to see why a document fails.
+    throw new ApiError(502, `PDF render failed (${parts.join(" ")})`);
   } finally {
+    timings.total = Date.now() - startedAt;
+    console.log(
+      "[pdf-render]",
+      JSON.stringify({
+        id,
+        ok: succeeded,
+        stage,
+        timings,
+        pageErrors: pageErrors.length,
+        consoleErrors: consoleErrors.length,
+      }),
+    );
     if (browser) {
       await browser.close().catch(() => undefined);
     }
