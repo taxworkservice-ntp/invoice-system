@@ -66,7 +66,7 @@ function Segmented<T extends string>({
             title={option.title}
             aria-pressed={active}
             onClick={() => onChange(option.value)}
-            className={`rounded-[6px] px-2.5 py-1 text-label font-medium transition-colors ${
+            className={`rounded-[6px] px-2 py-0.5 text-label font-medium transition-colors ${
               active
                 ? "border border-line-strong bg-white text-ink-900"
                 : "border border-transparent text-ink-500 hover:text-ink-700"
@@ -81,9 +81,17 @@ function Segmented<T extends string>({
 }
 
 /** Inline "label + control" group for the download toolbar. */
-function InlineControl({ label, children }: { label: string; children: ReactNode }) {
+function InlineControl({
+  label,
+  className = "",
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+    <div className={`flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2 ${className}`}>
       <span className="text-label font-medium text-ink-500">{label}</span>
       {children}
     </div>
@@ -817,11 +825,16 @@ return (
           ) : null}
 
           <div className={`flex flex-col gap-3 ${hasDocumentOptions ? "pt-3" : ""}`}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-              <Button onClick={handleSavePdf} loading={savingMode === "single"} className="w-full sm:w-[180px]">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <Button
+                onClick={handleSavePdf}
+                loading={savingMode === "single"}
+                size="sm"
+                className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
+              >
                 บันทึกเป็น PDF
               </Button>
-              <InlineControl label="ประเภท">
+              <InlineControl label="ประเภท" className="sm:order-1">
                 <Segmented
                   value={copyType}
                   onChange={setCopyType}
@@ -833,16 +846,17 @@ return (
               </InlineControl>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <Button
                 onClick={handleSaveBothPdf}
                 loading={savingMode === "combined"}
                 variant="secondary"
-                className="w-full sm:w-[180px]"
+                size="sm"
+                className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
               >
                 2 ฉบับ รวมไฟล์เดียว
               </Button>
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:order-1">
                 <InlineControl label="ลำดับ">
                   <Segmented
                     value={copyOrder}
@@ -866,16 +880,17 @@ return (
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <Button
                 onClick={handleSaveBothSeparatePdf}
                 loading={savingMode === "separate"}
                 variant="secondary"
-                className="w-full sm:w-[180px]"
+                size="sm"
+                className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
               >
                 2 ฉบับ แยกไฟล์
               </Button>
-              <span className="text-label text-ink-300">ZIP · 2 ไฟล์</span>
+              <span className="text-label text-ink-300 sm:order-1">ZIP · 2 ไฟล์</span>
             </div>
 
             {pdfError ? <div className="text-label text-danger-text">{pdfError}</div> : null}
