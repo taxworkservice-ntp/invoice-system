@@ -1,6 +1,5 @@
-import playwright from "playwright-core";
 import { requireUser } from "../../_lib/auth.js";
-import { getChromiumLaunchOptions } from "../../_lib/chromium.js";
+import { launchChromium } from "../../_lib/chromium.js";
 import { ApiError, readJsonBody, sendError, sendJson } from "../../_lib/http.js";
 import { getR2ObjectBytes, putR2Object } from "../../_lib/r2.js";
 import { supabaseAdmin } from "../../_lib/supabase.js";
@@ -211,7 +210,7 @@ async function renderPdfBuffer({
     if (refCollapse) exportUrl.searchParams.set("refCollapse", "1");
     exportUrl.searchParams.set("interleave", interleave);
 
-    browser = await playwright.chromium.launch(await getChromiumLaunchOptions());
+    browser = await launchChromium();
     timings.launch = Date.now() - startedAt;
 
     page = await browser.newPage({

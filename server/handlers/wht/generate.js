@@ -1,6 +1,5 @@
-import playwright from "playwright-core";
 import { requireUser } from "../_lib/auth.js";
-import { getChromiumLaunchOptions } from "../_lib/chromium.js";
+import { launchChromium } from "../_lib/chromium.js";
 import { ApiError, readJsonBody, sendError } from "../_lib/http.js";
 import { supabaseAdmin } from "../_lib/supabase.js";
 import { getEnv } from "../_lib/env.js";
@@ -123,7 +122,7 @@ export default async function handler(req, res) {
     if (body.hideSignature) exportUrl.searchParams.set("hideSignature", "1");
     if (body.hideStamp) exportUrl.searchParams.set("hideStamp", "1");
 
-    browser = await playwright.chromium.launch(await getChromiumLaunchOptions());
+    browser = await launchChromium();
 
     const isPnd = layout === "pnd";
     const viewport = isPnd
