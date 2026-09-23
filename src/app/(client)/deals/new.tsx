@@ -32,9 +32,10 @@ import { LineImageUpload } from "../../../components/documents/LineImageUpload";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 import { useCustomerReferenceHistory } from "../../../hooks/useCustomerReferenceHistory";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../../constants";
-import { AlertTriangle, ChevronDown, History, Plus, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Plus, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
 import { fetchPriceHistory } from "../../../lib/priceHistory";
 import { PriceHistorySheet } from "../../../components/documents/PriceHistorySheet";
+import { PriceReviewControl } from "../../../components/documents/PriceReviewControl";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type { Document, DocumentLineItem, DocumentType, DocumentStatus, Customer, WhtRate, Item, ItemJobDetailField, ItemJobDetailPreset, JobDetailPresetField } from "../../../types";
 
@@ -566,6 +567,21 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
   });
   const [isBlankForm, setIsBlankForm] = useState(false);
+  // Mandatory DN price review (workspace setting) — real delivery notes only.
+  const dnPriceReviewRequired = isDeliveryNote && requireDnPriceReview && !isBlankForm;
+  const pendingPriceReviewCount = dnPriceReviewRequired
+    ? lineItems.filter((l) => !l.isSectionMarker && !l.price_confirmed).length
+    : 0;
+
+  function goToNextUnconfirmedPrice() {
+    const target = lineItems.find((l) => !l.isSectionMarker && !l.price_confirmed);
+    if (!target) return;
+    const el = document.getElementById(`dn-line-${target.id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("rounded-control", "ring-2", "ring-warning-border");
+    window.setTimeout(() => el.classList.remove("rounded-control", "ring-2", "ring-warning-border"), 1600);
+  }
   // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
   // New invoices default to the last selection (per browser); editing an
   // existing draft overrides this from its stored value below.
@@ -2231,6 +2247,28 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 )}
               </div>
             )}
+            {dnPriceReviewRequired ? (
+              pendingPriceReviewCount > 0 ? (
+                <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-warning-border bg-warning-soft px-3 py-2">
+                  <span className="inline-flex items-center gap-1.5 text-label font-medium text-warning-text">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    ต้องยืนยันราคา {pendingPriceReviewCount} รายการ ก่อนบันทึกใบส่งของ
+                  </span>
+                  <button
+                    type="button"
+                    onClick={goToNextUnconfirmedPrice}
+                    className="ml-auto text-label font-medium text-warning-text underline underline-offset-2 transition-opacity hover:opacity-80"
+                  >
+                    ไปยังรายการถัดไป
+                  </button>
+                </div>
+              ) : (
+                <div className="mb-2 inline-flex items-center gap-1.5 rounded-control border border-success-border bg-success-soft px-3 py-2 text-label font-medium text-success-text">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  ยืนยันราคาครบทุกรายการแล้ว
+                </div>
+              )
+            ) : null}
             <div className="space-y-2">
               {!isUtilityBill && lineItems.length === 0 && (
                 <div className="rounded-control border border-dashed border-line bg-paper-field px-4 py-4 text-center text-label text-ink-400 space-y-2">
@@ -2290,7 +2328,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 const priceDeviation = !isBlankForm ? getPriceDeviation(item, priceWarnPct) : null;
                 // Mandatory price review applies to DN lines only, and never
                 // to blank-form DNs (no prices on the document at all).
-                const needsPriceReview = isDeliveryNote && requireDnPriceReview && !isBlankForm;
+                const needsPriceReview = dnPriceReviewRequired;
                 // Last-price hint ("ราคาที่เคยขาย") for catalog lines.
                 const hintKey = item.item_id ? `${item.item_id}|${selectedCustomer?.id ?? "-"}` : null;
                 const priceHint = hintKey ? (priceHints[hintKey] ?? null) : null;
@@ -2332,7 +2370,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 }
 
                 return (
-                <div key={item.id} className="pb-3 border-b border-line-faint last:border-0">
+                <div
+                  key={item.id}
+                  id={`dn-line-${item.id}`}
+                  className="pb-3 border-b border-line-faint last:border-0"
+                >
                   <div className="flex gap-2">
                     <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-label font-semibold text-primary leading-none">
                       {lineNumbers?.get(item.id) ?? idx + 1}
@@ -2498,59 +2540,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       />
                     </label>
                     <div className="col-span-1 block sm:w-[160px]">
-                      <span className="text-label text-ink-400 block mb-0.5">
-                        ราคา/หน่วย
-                        {needsPriceReview && !item.price_confirmed && (
-                          <span className="ml-1 rounded bg-amber-100 px-1 py-px text-label font-semibold text-amber-700">รอตรวจ</span>
-                        )}
-                      </span>
+                      <span className="text-label text-ink-400 block mb-0.5">ราคา/หน่วย</span>
                       <CommaInput
                         value={item.unit_price}
                         onChange={(v) => updateLineItem(item.id, "unit_price", v)}
                         placeholder="0"
                       />
-                      {priceDeviation != null && (
-                        <span className="mt-0.5 block text-label font-medium leading-4 text-amber-600">
-                          ⚠ ต่างจากแค็ตตาล็อก ฿{priceDeviation.toLocaleString(undefined, { minimumFractionDigits: 2 })}/{item.unit}
-                        </span>
-                      )}
-                      {priceHint && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            updateLineItem(item.id, "unit_price", priceHint.price);
-                          }}
-                          className="mt-0.5 block text-left text-label leading-4 text-primary hover:underline"
-                        >
-                          {priceHint.scope === "customer"
-                            ? `เคยขายลูกค้านี้ ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })} — แตะเพื่อใช้`
-                            : `เคยขายล่าสุด ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}${priceHint.customerName ? ` · ${priceHint.customerName}` : ""} — แตะเพื่อใช้`}
-                        </button>
-                      )}
-                      {item.item_id && (
-                        <button
-                          type="button"
-                          onClick={() => setPriceHistoryLineId(item.id)}
-                          className="mt-1 inline-flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-label font-medium text-primary transition-colors hover:border-primary hover:bg-primary-soft"
-                        >
-                          <History className="h-3 w-3" />
-                          ประวัติราคาขาย
-                        </button>
-                      )}
-                      {needsPriceReview && (
-                        <label className="mt-1 flex cursor-pointer items-center gap-1.5">
-                          <input
-                            type="checkbox"
-                            checked={item.price_confirmed}
-                            onChange={(e) => updateLineItem(item.id, "price_confirmed", e.target.checked)}
-                            className="h-4 w-4 rounded border-line text-primary focus:ring-primary"
-                          />
-                          <span className={`text-label font-medium ${item.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
-                            {item.price_confirmed ? "ยืนยันราคาแล้ว" : "กรุณายืนยันราคา"}
-                          </span>
-                        </label>
-                      )}
                     </div>
                     <label className="col-span-1 block sm:w-[68px]">
                       <span className="text-label text-ink-400 block mb-0.5">ส่วนลด %</span>
@@ -2573,6 +2568,45 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       )}
                     </div>
                   </div>
+
+                  {(priceDeviation != null || priceHint || needsPriceReview) && (
+                    <div className="mt-2 flex flex-col gap-2 rounded-control border border-line bg-paper-field px-3 py-2">
+                      {(priceDeviation != null || priceHint) && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {priceDeviation != null && (
+                            <span className="inline-flex items-center gap-1 text-label font-medium text-warning-text">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                              ต่างจากแค็ตตาล็อก ฿{priceDeviation.toLocaleString(undefined, { minimumFractionDigits: 2 })}/{item.unit}
+                            </span>
+                          )}
+                          {priceHint && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                updateLineItem(item.id, "unit_price", priceHint.price);
+                              }}
+                              className="inline-flex flex-wrap items-center gap-1 text-label font-medium text-primary hover:underline"
+                            >
+                              {priceHint.scope === "customer"
+                                ? `เคยขายลูกค้านี้ ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                                : `เคยขายล่าสุด ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}${priceHint.customerName ? ` · ${priceHint.customerName}` : ""}`}
+                              <span className="underline underline-offset-2">ใช้ราคานี้</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {needsPriceReview && (
+                        <PriceReviewControl
+                          confirmed={item.price_confirmed}
+                          onConfirm={() => updateLineItem(item.id, "price_confirmed", true)}
+                          onUnconfirm={() => updateLineItem(item.id, "price_confirmed", false)}
+                          onOpenHistory={item.item_id ? () => setPriceHistoryLineId(item.id) : undefined}
+                        />
+                      )}
+                    </div>
+                  )}
+
                   {hasCartonOption(item) && (
                     <div className="mt-2 rounded-control border border-line-faint bg-paper-field px-3 py-2 text-label text-ink-600">
                       <div className="flex flex-wrap items-center gap-2">

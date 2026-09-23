@@ -9,6 +9,7 @@ import { Input } from "../ui/Input";
 import { DateInput } from "../ui/DateInput";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
+import { PriceReviewControl } from "./PriceReviewControl";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomerReferenceHistory } from "../../hooks/useCustomerReferenceHistory";
 import { useToast } from "../../hooks/useToast";
@@ -970,20 +971,12 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                   </div>
 
                   {requirePriceReview && (
-                    <label className="mt-2 flex cursor-pointer items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={line.price_confirmed}
-                        onChange={(event) => updateLine(line.id, { price_confirmed: event.target.checked })}
-                        className="h-3.5 w-3.5 rounded border-line text-primary focus:ring-primary"
-                      />
-                      <span className={`text-label font-medium ${line.price_confirmed ? "text-emerald-700" : "text-amber-700"}`}>
-                        {line.price_confirmed ? "ยืนยันราคาแล้ว" : "กรุณายืนยันราคา"}
-                      </span>
-                      {!line.price_confirmed && (
-                        <span className="rounded bg-amber-100 px-1 py-px text-label font-semibold text-amber-700">รอตรวจ</span>
-                      )}
-                    </label>
+                    <PriceReviewControl
+                      className="mt-2 rounded-control border border-line bg-paper-field px-3 py-2"
+                      confirmed={line.price_confirmed}
+                      onConfirm={() => updateLine(line.id, { price_confirmed: true })}
+                      onUnconfirm={() => updateLine(line.id, { price_confirmed: false })}
+                    />
                   )}
 
                   <div className="mt-2 flex items-end justify-between gap-2">
