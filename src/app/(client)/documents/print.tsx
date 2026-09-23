@@ -80,24 +80,11 @@ function Segmented<T extends string>({
   );
 }
 
-/** Inline "label · hint + control" group for the compact download toolbar. */
-function InlineControl({
-  label,
-  hint,
-  title,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  title?: string;
-  children: ReactNode;
-}) {
+/** Inline "label + control" group for the download toolbar. */
+function InlineControl({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2" title={title}>
-      <span className="text-label font-medium text-ink-500">
-        {label}
-        {hint ? <span className="font-normal text-ink-300"> · {hint}</span> : null}
-      </span>
+    <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+      <span className="text-label font-medium text-ink-500">{label}</span>
       {children}
     </div>
   );
@@ -788,109 +775,110 @@ return (
             </div>
           }
         >
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <InlineControl label="ประเภท" hint="ใช้กับ 'บันทึกเป็น PDF'">
-              <Segmented
-                value={copyType}
-                onChange={setCopyType}
-                options={[
-                  { value: "original", label: "ต้นฉบับ" },
-                  { value: "copy", label: "สำเนา" },
-                ]}
-              />
-            </InlineControl>
-            <InlineControl label="ลำดับ" hint="ใช้กับ '2 ฉบับ รวมไฟล์เดียว'">
-              <Segmented
-                value={copyOrder}
-                onChange={handleCopyOrderChange}
-                options={[
-                  { value: "original-first", label: "ต้นฉบับ → สำเนา" },
-                  { value: "copy-first", label: "สำเนา → ต้นฉบับ" },
-                ]}
-              />
-            </InlineControl>
-            <InlineControl label="การเรียงหน้า" hint="สลับหน้า หรือจบทีละชุด">
-              <Segmented
-                value={interleaveCopies ? "interleave" : "grouped"}
-                onChange={(value) => toggleInterleaveCopies(value === "interleave")}
-                options={[
-                  { value: "interleave", label: "สลับทีละหน้า", title: "ต้นฉบับและสำเนาสลับกันทีละหน้า" },
-                  { value: "grouped", label: "แยกชุดละฉบับ", title: "พิมพ์ให้จบทีละชุดตามลำดับที่เลือก" },
-                ]}
-              />
-            </InlineControl>
-          </div>
-
           {hasDocumentOptions ? (
-            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-3">
-              {showPrintTitle ? (
-                <InlineControl label="ชื่อเรื่องบนหัวเอกสาร" hint="หัวเรื่องที่พิมพ์บนเอกสาร">
-                  <div className="w-[220px]">
-                    <Select
-                      value={data.document.print_title_variant || ""}
-                      onChange={(event) => void handlePrintTitleChange(event.target.value)}
-                      disabled={savingPrintTitle}
-                    >
-                      <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
-                      {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
-                        <option key={value} value={value}>{preset.thai}</option>
-                      ))}
-                    </Select>
-                  </div>
-                </InlineControl>
-              ) : null}
-              {showRefModeToggle ? (
-                <InlineControl label="รูปแบบรายการ" hint="ตารางสินค้า หรือตารางใบส่งของ">
-                  <Segmented
-                    value={refCollapse ? "ref" : "full"}
-                    onChange={(value) => toggleRefCollapse(value === "ref")}
-                    options={[
-                      { value: "ref", label: "แบบอ้างอิง", title: "แบบอ้างอิง (ตารางใบส่งของ)" },
-                      { value: "full", label: "รายการเต็ม", title: "แสดงรายการสินค้าเต็ม" },
-                    ]}
-                  />
-                </InlineControl>
-              ) : null}
-              {showDnAppendixOption ? (
-                <InlineControl label="แนบภาคผนวกการส่งของ" hint="ตาราง ส่งแล้ว vs เรียกเก็บ">
-                  <Switch checked={dnAppendix} onChange={setDnAppendix} />
-                </InlineControl>
-              ) : null}
+            <div className="flex flex-col gap-2 border-b border-line pb-3 sm:flex-row sm:items-center sm:gap-4">
+              <span className="shrink-0 text-label font-medium text-ink-400 sm:w-[180px]">เนื้อหาเอกสาร</span>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                {showPrintTitle ? (
+                  <InlineControl label="ชื่อเรื่องบนหัวเอกสาร">
+                    <div className="w-[220px]">
+                      <Select
+                        value={data.document.print_title_variant || ""}
+                        onChange={(event) => void handlePrintTitleChange(event.target.value)}
+                        disabled={savingPrintTitle}
+                      >
+                        <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
+                        {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
+                          <option key={value} value={value}>{preset.thai}</option>
+                        ))}
+                      </Select>
+                    </div>
+                  </InlineControl>
+                ) : null}
+                {showRefModeToggle ? (
+                  <InlineControl label="รูปแบบรายการ">
+                    <Segmented
+                      value={refCollapse ? "ref" : "full"}
+                      onChange={(value) => toggleRefCollapse(value === "ref")}
+                      options={[
+                        { value: "ref", label: "แบบอ้างอิง", title: "แบบอ้างอิง (ตารางใบส่งของ)" },
+                        { value: "full", label: "รายการเต็ม", title: "แสดงรายการสินค้าเต็ม" },
+                      ]}
+                    />
+                  </InlineControl>
+                ) : null}
+                {showDnAppendixOption ? (
+                  <InlineControl label="แนบภาคผนวกการส่งของ">
+                    <Switch checked={dnAppendix} onChange={setDnAppendix} />
+                  </InlineControl>
+                ) : null}
+              </div>
             </div>
           ) : null}
 
-          <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="text-label text-danger-text">{pdfError}</div>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-start sm:justify-end">
-              <div className="flex flex-col gap-1">
-                <Button onClick={handleSavePdf} loading={savingMode === "single"} className="w-full sm:w-auto">
-                  บันทึกเป็น PDF
-                </Button>
-                <span className="text-center text-label text-ink-300 sm:text-right">1 ไฟล์ ตามประเภทที่เลือก</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Button
-                  onClick={handleSaveBothPdf}
-                  loading={savingMode === "combined"}
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                >
-                  2 ฉบับ รวมไฟล์เดียว
-                </Button>
-                <span className="text-center text-label text-ink-300 sm:text-right">2 หน้า ในไฟล์เดียว</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Button
-                  onClick={handleSaveBothSeparatePdf}
-                  loading={savingMode === "separate"}
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                >
-                  2 ฉบับ แยกไฟล์
-                </Button>
-                <span className="text-center text-label text-ink-300 sm:text-right">ZIP · 2 ไฟล์</span>
+          <div className={`flex flex-col gap-3 ${hasDocumentOptions ? "pt-3" : ""}`}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <Button onClick={handleSavePdf} loading={savingMode === "single"} className="w-full sm:w-[180px]">
+                บันทึกเป็น PDF
+              </Button>
+              <InlineControl label="ประเภท">
+                <Segmented
+                  value={copyType}
+                  onChange={setCopyType}
+                  options={[
+                    { value: "original", label: "ต้นฉบับ" },
+                    { value: "copy", label: "สำเนา" },
+                  ]}
+                />
+              </InlineControl>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <Button
+                onClick={handleSaveBothPdf}
+                loading={savingMode === "combined"}
+                variant="secondary"
+                className="w-full sm:w-[180px]"
+              >
+                2 ฉบับ รวมไฟล์เดียว
+              </Button>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <InlineControl label="ลำดับ">
+                  <Segmented
+                    value={copyOrder}
+                    onChange={handleCopyOrderChange}
+                    options={[
+                      { value: "original-first", label: "ต้นฉบับ → สำเนา" },
+                      { value: "copy-first", label: "สำเนา → ต้นฉบับ" },
+                    ]}
+                  />
+                </InlineControl>
+                <InlineControl label="การเรียงหน้า">
+                  <Segmented
+                    value={interleaveCopies ? "interleave" : "grouped"}
+                    onChange={(value) => toggleInterleaveCopies(value === "interleave")}
+                    options={[
+                      { value: "interleave", label: "สลับทีละหน้า", title: "ต้นฉบับและสำเนาสลับกันทีละหน้า" },
+                      { value: "grouped", label: "แยกชุดละฉบับ", title: "พิมพ์ให้จบทีละชุดตามลำดับที่เลือก" },
+                    ]}
+                  />
+                </InlineControl>
               </div>
             </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <Button
+                onClick={handleSaveBothSeparatePdf}
+                loading={savingMode === "separate"}
+                variant="secondary"
+                className="w-full sm:w-[180px]"
+              >
+                2 ฉบับ แยกไฟล์
+              </Button>
+              <span className="text-label text-ink-300">ZIP · 2 ไฟล์</span>
+            </div>
+
+            {pdfError ? <div className="text-label text-danger-text">{pdfError}</div> : null}
           </div>
         </SectionCard>
       </div>
