@@ -55,44 +55,36 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     data.document.print_font_scale && data.document.print_font_scale !== DOCUMENT_FONT_SCALE_DEFAULT
       ? getClassicV2FontScaleMult(data.document.print_font_scale)
       : null;
-  const globalScale = docOverrideMult ?? (isClassicV2
-    ? getClassicV2EffectiveFontScaleMult(
-        data.document.print_font_scale,
-        typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
-        data.clientProfile.pdf_font_scale ?? data.clientProfile.classic_v2_font_scale,
-      )
-    : 1);
-  const itemsScale = docOverrideMult ?? (isClassicV2
-    ? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, globalScale)
-    : 1);
-  const numScale = docOverrideMult ?? (isClassicV2
-    ? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, globalScale)
-    : 1);
-  const headerScale = docOverrideMult ?? (isClassicV2
-    ? getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale)
-    : 1);
-  const termsScale = docOverrideMult ?? (isClassicV2
-    ? getClassicV2EffectiveSectionScaleMult("terms", typeFontScales, sectionScales, globalScale)
-    : 1);  // Budgets account for every fixed page block; row-text estimates use the
+  // Shared font scales apply to both HTML templates (Modern + Classic V2); the
+  // Modern-only extras below (space bonus, cheque strip, per-page strip,
+  // continuation-full-header) stay gated on isClassicV2.
+  const globalScale = docOverrideMult ?? getClassicV2EffectiveFontScaleMult(
+    data.document.print_font_scale,
+    typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
+    data.clientProfile.pdf_font_scale ?? data.clientProfile.classic_v2_font_scale,
+  );
+  const itemsScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, globalScale);
+  const numScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, globalScale);
+  const headerScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale);
+  const termsScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("terms", typeFontScales, sectionScales, globalScale);
+  // Budgets account for every fixed page block; row-text estimates use the
   // description (items) + numeric column scales. Sub-slots (company/title/
   // info/net/payment) ride along so the paginator can reserve using the
   // tallest sub-scale of each fixed block.
-  const budgetScales: number | ClassicV2FontScales = docOverrideMult ?? (isClassicV2
-    ? {
-        header: headerScale,
-        header_company: getClassicV2EffectiveSectionScaleMult("header_company", typeFontScales, sectionScales, globalScale),
-        header_title: getClassicV2EffectiveSectionScaleMult("header_title", typeFontScales, sectionScales, globalScale),
-        header_info: getClassicV2EffectiveSectionScaleMult("header_info", typeFontScales, sectionScales, globalScale),
-        items: itemsScale,
-        num: numScale,
-        thead: getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, globalScale),
-        totals: getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale),
-        totals_net: getClassicV2EffectiveSectionScaleMult("totals_net", typeFontScales, sectionScales, globalScale),
-        payment: getClassicV2EffectiveSectionScaleMult("payment", typeFontScales, sectionScales, globalScale),
-        terms: termsScale,
-        footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
-      }
-    : 1);
+  const budgetScales: number | ClassicV2FontScales = docOverrideMult ?? {
+    header: headerScale,
+    header_company: getClassicV2EffectiveSectionScaleMult("header_company", typeFontScales, sectionScales, globalScale),
+    header_title: getClassicV2EffectiveSectionScaleMult("header_title", typeFontScales, sectionScales, globalScale),
+    header_info: getClassicV2EffectiveSectionScaleMult("header_info", typeFontScales, sectionScales, globalScale),
+    items: itemsScale,
+    num: numScale,
+    thead: getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, globalScale),
+    totals: getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale),
+    totals_net: getClassicV2EffectiveSectionScaleMult("totals_net", typeFontScales, sectionScales, globalScale),
+    payment: getClassicV2EffectiveSectionScaleMult("payment", typeFontScales, sectionScales, globalScale),
+    terms: termsScale,
+    footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
+  };
   // Billing notes carry the slim cheque-date row (CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM) — reserved
   // from every page budget so rows never clip under it. Optional meta rows
   // (ชื่อโครงการ / PO NO.) grow the info band the same way — reserve their

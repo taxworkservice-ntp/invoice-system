@@ -7,7 +7,16 @@ import type {
   DocumentLineItem,
   ReceiptInvoice,
 } from "../../types";
-import { PAYMENT_METHOD_LABELS, ASSET_SCALE_MULT } from "../../constants";
+import {
+  PAYMENT_METHOD_LABELS,
+  ASSET_SCALE_MULT,
+  CLASSIC_V2_TYPE_GLOBAL_KEY,
+  DOCUMENT_FONT_SCALE_DEFAULT,
+  getClassicV2FontScaleMult,
+  getClassicV2EffectiveFontScaleMult,
+  getClassicV2EffectiveSectionScaleMult,
+} from "../../constants";
+import type { ClassicV2SectionFontKey } from "../../constants";
 import { PrintHeader } from "./PrintHeader";
 import { PrintLineItemsTable } from "./PrintLineItemsTable";
 import { PrintTotals } from "./PrintTotals";
@@ -82,6 +91,40 @@ export function PrintDocument({
   const stampUrl = data.clientProfile.stamp_url;
   const signatureScaleMult = ASSET_SCALE_MULT[data.clientProfile.signature_scale ?? "medium"] ?? 1;
   const stampScaleMult = ASSET_SCALE_MULT[data.clientProfile.stamp_scale ?? "medium"] ?? 1;
+
+  // Shared font-scale model (same 14 slots as Classic V2), resolved from the
+  // shared pdf_* columns. All multipliers are 1 by default, so the default
+  // Modern look is unchanged; each --modern-fs-* var feeds the calc() sizes in
+  // the print components and the paginator's row/block budgets.
+  const typeFontScales = (data.clientProfile.pdf_type_font_scales ?? data.clientProfile.classic_v2_type_font_scales)?.[data.document.doc_type];
+  const docOverrideMult =
+    data.document.print_font_scale && data.document.print_font_scale !== DOCUMENT_FONT_SCALE_DEFAULT
+      ? getClassicV2FontScaleMult(data.document.print_font_scale)
+      : null;
+  const globalScaleMult = docOverrideMult ?? getClassicV2EffectiveFontScaleMult(
+    data.document.print_font_scale,
+    typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
+    data.clientProfile.pdf_font_scale ?? data.clientProfile.classic_v2_font_scale,
+  );
+  const sectionScales = data.clientProfile.pdf_section_font_scales ?? data.clientProfile.classic_v2_section_font_scales;
+  const slotMult = (slot: ClassicV2SectionFontKey): number =>
+    docOverrideMult ?? getClassicV2EffectiveSectionScaleMult(slot, typeFontScales, sectionScales, globalScaleMult);
+  const fontScaleVars: Record<string, number> = {
+    "--modern-fs-header": slotMult("header"),
+    "--modern-fs-header-company": slotMult("header_company"),
+    "--modern-fs-header-title": slotMult("header_title"),
+    "--modern-fs-header-info": slotMult("header_info"),
+    "--modern-fs-items": slotMult("items"),
+    "--modern-fs-num": slotMult("num"),
+    "--modern-fs-num-unit": slotMult("num_unit"),
+    "--modern-fs-thead": slotMult("thead"),
+    "--modern-fs-totals": slotMult("totals"),
+    "--modern-fs-totals-net": slotMult("totals_net"),
+    "--modern-fs-payment": slotMult("payment"),
+    "--modern-fs-terms": slotMult("terms"),
+    "--modern-fs-footer": slotMult("footer"),
+    "--modern-fs-en": slotMult("en"),
+  };
   const accentColor = DOC_ACCENT_COLORS[data.document.doc_type];
   const isCopy = copyType === "copy";
   const isDeliveryNote = data.document.doc_type === "delivery_note";
@@ -100,7 +143,7 @@ export function PrintDocument({
   return (
     <article
       className={isCopy ? `print-sheet print-theme-modern print-copy${documentClass}` : `print-sheet print-theme-modern${documentClass}`}
-      style={{ "--doc-accent": accentColor } as React.CSSProperties}
+      style={{ "--doc-accent": accentColor, ...fontScaleVars } as React.CSSProperties}
       data-accent-element="true"
     >
       <div className="print-theme-modern-accent" aria-hidden="true" />

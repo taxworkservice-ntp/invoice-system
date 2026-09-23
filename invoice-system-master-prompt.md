@@ -24,7 +24,7 @@ Thai SME workflows.
 | Backend / DB | Supabase (PostgreSQL + Auth + Storage) |
 | Hosting | Vercel |
 | Styling | Tailwind CSS |
-| PDF generation | jsPDF (classic) + HTML print to jsPDF (modern), client-side |
+| PDF generation | HTML print → html2canvas → jsPDF, client-side (Modern + Classic V2) |
 | Language | TypeScript |
 
 **Supabase Auth** handles all authentication — email and password only.
@@ -579,9 +579,9 @@ Date | Type | Qty entered | Converted to base | Reason | Balance
 
 ## PDF Generation
 
-Use two client-side PDF paths:
-- `jsPDF` with embedded Thai font support for the classic renderer
-- styled HTML rendered into a fixed A4 off-screen sheet, then captured and inserted into `jsPDF` for the modern renderer
+One client-side PDF path for both HTML templates (Modern and Classic V2):
+styled HTML rendered into a fixed A4 off-screen sheet, then captured and inserted into `jsPDF`.
+(The Classic v1 `jsPDF`-with-embedded-Thai-font renderer was retired — see the Modern font system section.)
 
 Do not use `@react-pdf/renderer` here. Generate client-side only — no server needed.
 
@@ -608,9 +608,9 @@ but it must never capture the visible mobile preview itself. Always render a sep
 A4 sheet off-screen in a hidden container, then capture that hidden sheet so mobile and desktop
 export match the same layout.
 
-Users select their template in Settings (classic / modern / bold / perforated).
-Bulk ZIP downloads respect the chosen template — documents using the modern template
-are rendered off-screen in a hidden container before capture.
+Users select their template in Settings — **Modern** or **Classic V2** (Classic v1 retired).
+Bulk ZIP downloads respect the chosen template — every template renders off-screen in a
+hidden container before capture.
 
 **Modern save/download behavior:**
 - Desktop: clicking save should trigger a normal file download
@@ -642,7 +642,7 @@ are rendered off-screen in a hidden container before capture.
 Available in the Documents screen:
 
 - **CSV export:** all documents, one row per document, columns: doc_number, doc_type, status, customer_name, issue_date, due_date, subtotal, vat, wht, net_payable, paid_at
-- **Bulk PDF ZIP download:** multi-select documents via checkboxes, then download all selected as a ZIP of PDFs. Shows progress (e.g. "กำลังสร้าง 3/12"). Respects the client's chosen PDF template (classic jsPDF or modern html2canvas). Uses JSZip for packaging. Mobile: floating selection bar at bottom with count and download button.
+- **Bulk PDF ZIP download:** multi-select documents via checkboxes, then download all selected as a ZIP of PDFs. Shows progress (e.g. "กำลังสร้าง 3/12"). Respects the client's chosen PDF template (Modern or Classic V2, both html2canvas). Uses JSZip for packaging. Mobile: floating selection bar at bottom with count and download button.
 
 ---
 
@@ -760,8 +760,9 @@ Do not build these in v1. They can be added without redesigning the system:
 
 The classic V2 template has its own typography and pagination engine, fully pt-based
 and workspace-configurable. All sizing flows through CSS variables
-(`--classic-font-scale` + per-slot `--classic-fs-*`), so V1 and modern templates are
-never affected.
+(`--classic-font-scale` + per-slot `--classic-fs-*`). The font-scale **storage and
+resolution** are shared with Modern (see the Modern font system section); the two
+templates render through their own CSS variables.
 
 **Font system (Settings > รูปแบบเอกสาร):**
 - pt-only presets — 6 / 7.5 / 9 / 10.5 / 12 / 13pt (main reading text = item body, base 7.5pt)
@@ -806,6 +807,39 @@ signature band; reserved from first/last page budgets. Signature boxes use segme
 hand-fill dates `[DD] / [MM] / [YYYY]` and per-type wording (e.g. billing note:
 ได้รับใบวางบิลถูกต้อง / BILLING ACKNOWLEDGED; quotation: ยืนยันคำสั่งซื้อ / ORDER CONFIRMED;
 delivery note: ผู้รับของ / ผู้ส่งของ; money documents: ผู้รับเงิน / ผู้จ่ายเงิน).
+
+---
+
+## Modern Template — Font System & Classic v1 Retirement (2026-09)
+
+The Modern template shares the Classic V2 font-scale model (same 14 slots, same pt
+presets, same resolution chain), so one Settings section drives whichever HTML
+template is active. Sizing flows through `--modern-fs-*` CSS variables on the Modern
+sheet; at the default scale every slot is 1, so the Modern look is byte-identical to
+before the feature.
+
+- **Storage:** shared `client_profiles.pdf_font_scale` / `pdf_section_font_scales` /
+  `pdf_type_font_scales` (generalized from `classic_v2_*` via
+  `sql/20260923_add_pdf_font_scale.sql`; the old columns are backfilled and retained
+  for rollback). Classic V2 reads the same columns; its UI is unchanged.
+- **Slots (14):** header, header_company, header_title, header_info, items, num,
+  num_unit, thead, totals, totals_net, payment, terms, footer, en. Modern's 10px item
+  base equals 7.5pt, so the pt ladder maps 1:1.
+- **Resolution (most specific wins):** per-document override (`documents.print_font_scale`)
+  → per-doc-type → workspace per-section → workspace global → 1.
+- **Rendering:** every Modern text size is `calc(Npx * var(--modern-fs-<slot>))`;
+  `PrintDocument` injects the resolved multipliers inline on the `<article>`.
+- **Pagination:** `printRowHeight.ts` scales the Modern text line (fixed padding stays);
+  `pagination.ts` subtracts Modern fixed-block reserves
+  (`MODERN_FONT_SCALE_SECTION_RESERVE_MM`) from the row budgets so scaled fixed blocks
+  never clip. Both render paths (client html2canvas + server Playwright) are DOM-based,
+  so the vars apply to both.
+- **Settings:** "ขนาดตัวอักษร (โมเดิร์น)" appears when the Modern template is selected;
+  the Classic V2 card is unchanged.
+- **Classic v1 retired** (`sql/20260923_remove_pdf_template_classic.sql`): only Modern
+  and Classic V2 remain. Existing `classic` workspaces remap to `classic_v2` where the
+  `classic_v2_template` feature is enabled, else `modern`. The shared classic-family
+  pagination key is retained because Classic V2 depends on it.
 
 ---
 

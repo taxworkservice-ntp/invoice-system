@@ -727,8 +727,11 @@ export default function SettingsDocumentsPage() {
           </div>
         </SectionCard>
 
-        {pdfTemplate === "classic_v2" && (
-          <SectionCard title="ขนาดตัวอักษร (คลาสสิก V2)" description="ปรับให้ผู้สูงอายุอ่านได้ชัดขึ้น — ระบบคำนวณจำนวนรายการต่อหน้าให้อัตโนมัติ">
+        {(pdfTemplate === "classic_v2" || pdfTemplate === "modern") && (
+          <SectionCard
+            title={pdfTemplate === "modern" ? "ขนาดตัวอักษร (โมเดิร์น)" : "ขนาดตัวอักษร (คลาสสิก V2)"}
+            description="ปรับให้ผู้สูงอายุอ่านได้ชัดขึ้น — ระบบคำนวณจำนวนรายการต่อหน้าให้อัตโนมัติ"
+          >
             <div className="mb-3 flex flex-wrap gap-1.5">
               <button
                 type="button"

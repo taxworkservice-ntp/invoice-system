@@ -68,6 +68,9 @@ const NAME_CHARS_PER_LINE = {
 const CLASSIC_ROW_FIXED_MM = 3.1;
 // DN header text portion: DN_HEADER_MM.classic - CLASSIC_ROW_FIXED_MM.
 const CLASSIC_DN_HEADER_TEXT_MM = 5.0;
+// Modern equivalent: the fixed py-1.5 padding stays constant while the text
+// line (10px item base) grows with --modern-fs-items.
+const MODERN_ROW_FIXED_MM = BASE_ROW_MM.modern - TEXT_LINE_MM.modern;
 
 /**
  * Estimated base row height in mm. `fontScale` is the --classic-font-scale
@@ -75,10 +78,15 @@ const CLASSIC_DN_HEADER_TEXT_MM = 5.0;
  * portion does — the mm padding stays constant, matching the CSS.
  */
 export function getBaseRowMm(template: PrintTemplate, fontScale = 1): number {
-  if (template !== "modern" && fontScale !== 1) {
+  if (template === "modern") {
+    return fontScale === 1
+      ? BASE_ROW_MM.modern
+      : MODERN_ROW_FIXED_MM + TEXT_LINE_MM.modern * fontScale;
+  }
+  if (fontScale !== 1) {
     return CLASSIC_ROW_FIXED_MM + TEXT_LINE_MM.classic * fontScale;
   }
-  return template === "modern" ? BASE_ROW_MM.modern : BASE_ROW_MM.classic;
+  return BASE_ROW_MM.classic;
 }
 
 function countLines(text: string, charsPerLine: number): number {
@@ -129,8 +137,13 @@ export function estimateLineItemHeight(
 ): number {
   const isClassic = template !== "modern";
   const key = isClassic ? "classic" : "modern";
-  const fontScale = isClassic && opts.fontScale ? opts.fontScale : 1;
-  const base = isClassic ? getBaseRowMm(template, fontScale) : BASE_ROW_MM[key];
+  // Both templates scale now; modern's first line is the taller of the
+  // description (items) and numeric-column scales.
+  const fontScale = opts.fontScale ?? 1;
+  const numScaleEarly = opts.numScale ?? fontScale;
+  const base = isClassic
+    ? getBaseRowMm(template, fontScale)
+    : getBaseRowMm(template, Math.max(fontScale, numScaleEarly));
 
   const isDnHeader =
     !!(item.source_document_id && !item.source_line_item_id) &&

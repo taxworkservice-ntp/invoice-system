@@ -806,8 +806,32 @@ async function renderModernPrintPages(
   data: PrintableDocumentDataBase,
   copyType: "original" | "copy" = "original",
 ): Promise<HTMLCanvasElement[]> {
+  // Same shared font-scale resolution as Classic V2 (shared pdf_* columns),
+  // fed to both the row estimator and the paginator's fixed-block reserves.
+  const typeFontScales = (data.clientProfile.pdf_type_font_scales ?? data.clientProfile.classic_v2_type_font_scales)?.[data.document.doc_type];
+  const docOverrideMult =
+    data.document.print_font_scale && data.document.print_font_scale !== DOCUMENT_FONT_SCALE_DEFAULT
+      ? getClassicV2FontScaleMult(data.document.print_font_scale)
+      : null;
+  const globalScale = docOverrideMult ?? getClassicV2EffectiveFontScaleMult(
+    data.document.print_font_scale,
+    typeFontScales?.[CLASSIC_V2_TYPE_GLOBAL_KEY],
+    data.clientProfile.pdf_font_scale ?? data.clientProfile.classic_v2_font_scale,
+  );
+  const sectionScales = data.clientProfile.pdf_section_font_scales ?? data.clientProfile.classic_v2_section_font_scales;
+  const itemsScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("items", typeFontScales, sectionScales, globalScale);
+  const numScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("num", typeFontScales, sectionScales, globalScale);
+  const budgetScales = docOverrideMult ?? {
+    header: getClassicV2EffectiveSectionScaleMult("header", typeFontScales, sectionScales, globalScale),
+    items: itemsScale,
+    num: numScale,
+    thead: getClassicV2EffectiveSectionScaleMult("thead", typeFontScales, sectionScales, globalScale),
+    totals: getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale),
+    footer: getClassicV2EffectiveSectionScaleMult("footer", typeFontScales, sectionScales, globalScale),
+  };
   const batches = paginateLineItems(data.lineItems, "modern", {
-    estimateHeight: makeLineItemEstimate(data, "modern"),
+    estimateHeight: makeLineItemEstimate(data, "modern", itemsScale, numScale),
+    fontScale: budgetScales,
   });
   if (batches.length <= 1) {
     return [await renderModernPrintCanvas(data, copyType)];

@@ -418,7 +418,7 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 
 .print-modern-copy-label {
   min-height: 4mm;
-  font-size: 9px;
+  font-size: calc(9px * var(--modern-fs-header-title, 1));
   line-height: 1;
   letter-spacing: 0;
 }
@@ -428,14 +428,14 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 
 .print-modern-doc-title-th {
-  font-size: 22px;
+  font-size: calc(22px * var(--modern-fs-header-title, 1));
   line-height: 1.12;
   letter-spacing: 0;
 }
 
 .print-modern-doc-title-en {
   margin-top: 0.8mm;
-  font-size: 7px;
+  font-size: calc(7px * var(--modern-fs-en, 1));
   line-height: 1.1;
   letter-spacing: 0;
 }

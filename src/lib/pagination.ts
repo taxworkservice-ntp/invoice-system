@@ -69,6 +69,38 @@ const FONT_SCALE_PAGE_SECTIONS = {
   },
 } as const;
 
+// Modern fixed-block growth (mm per unit of the block's font scale). The Modern
+// layout shares the 14-slot model, so headerBlock/totalsBlock are the block
+// maxima from normalizeFontScales. Coefficients are calibrated conservatively
+// against the Modern print CSS (header = accent + title panel + company/customer
+// band; totals block; terms/signature footer) and the compact continuation
+// header strip (contHeader). Over-reserving only breaks a page earlier; it can
+// never clip, which is the safe direction at unmeasured scales.
+const MODERN_FONT_SCALE_SECTION_RESERVE_MM = {
+  headerBlock: 55,
+  thead: 5,
+  totalsBlock: 45,
+  footer: 20,
+  contHeader: 12,
+} as const;
+
+const MODERN_FONT_SCALE_PAGE_SECTIONS = {
+  line_items: {
+    first: ["headerBlock", "thead", "totalsBlock", "footer"],
+    first_multi: ["headerBlock", "thead"],
+    continuation: ["contHeader", "thead"],
+    continuation_full_header: ["headerBlock", "thead"],
+    last: ["contHeader", "thead", "totalsBlock", "footer"],
+  },
+  summary_rows: {
+    first: ["headerBlock", "thead", "totalsBlock", "footer"],
+    first_multi: ["headerBlock", "thead"],
+    continuation: ["contHeader", "thead", "totalsBlock", "footer"],
+    continuation_full_header: ["headerBlock", "thead"],
+    last: ["contHeader", "thead", "totalsBlock", "footer"],
+  },
+} as const;
+
 export type ClassicV2FontScales = {
   header: number;
   /** Company block (name/address/meta) scale — falls back to `header`. */
@@ -181,22 +213,32 @@ export function getRowBudgets(
     : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"];
   const scales = normalizeFontScales(fontScale);
   const reserve = (mode: "first" | "first_multi" | "continuation" | "continuation_full_header" | "last") => {
-    if (template === "modern") return 0;
-    const sections =
+    const isModern = template === "modern";
+    const table: Record<string, number> = isModern
+      ? MODERN_FONT_SCALE_SECTION_RESERVE_MM
+      : FONT_SCALE_SECTION_RESERVE_MM;
+    const sections: readonly string[] = (isModern
+      ? MODERN_FONT_SCALE_PAGE_SECTIONS
+      : FONT_SCALE_PAGE_SECTIONS)[kind][mode];
+    const active =
       opts.reserveTotalsBlock === false
-        ? FONT_SCALE_PAGE_SECTIONS[kind][mode].filter(
-            (section) => section !== "totalsBlock",
-          )
-        : FONT_SCALE_PAGE_SECTIONS[kind][mode];
-    return sections.reduce((sum, section) => {
+        ? sections.filter((section) => section !== "totalsBlock")
+        : sections;
+    return active.reduce((sum, section) => {
       // Never grow budgets below scale 1: if a user's fixed content doesn't
       // actually shrink, under-filled pages are harmless but overflow is not.
       // The footer reserve covers the signature band AND the closing-terms
       // list, which scales independently now — reserve against the taller of
-      // the two. Unset terms fall back to the footer scale, so existing
-      // budgets are byte-identical.
-      const scale = section === "footer" ? Math.max(scales.footer, scales.terms) : scales[section];
-      return sum + FONT_SCALE_SECTION_RESERVE_MM[section] * Math.max(0, scale - 1);
+      // the two. The Modern compact continuation header rides the header block
+      // scale. Unset terms fall back to the footer scale, so existing budgets
+      // are byte-identical.
+      const scale =
+        section === "footer"
+          ? Math.max(scales.footer, scales.terms)
+          : section === "contHeader"
+            ? scales.headerBlock
+            : scales[section as "headerBlock" | "thead" | "totalsBlock"];
+      return sum + table[section] * Math.max(0, scale - 1);
     }, 0);
   };
   // At extreme scales a single estimated row can exceed the reserve-shrunk
