@@ -9,7 +9,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
-import { DocumentOptionsCard, DocumentOptionRow } from "../../../components/documents/DocumentOptions";
+import { DocumentOptionsCard, DocumentOptionSegmented } from "../../../components/documents/DocumentOptions";
 import { StepHeading } from "../../../components/documents/FormStep";
 import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
@@ -374,6 +374,15 @@ function getPriceDeviation(lineItem: LineItemForm, warnPct: number): number | nu
   return deviationPct > warnPct ? expected : null;
 }
 
+/** Delivery-note print modes — how much money the PDF shows. */
+type AmountDisplay = "full" | "hidden" | "blank";
+
+const AMOUNT_DISPLAY_DESCRIPTIONS: Record<AmountDisplay, string> = {
+  full: "PDF แสดงราคาต่อหน่วย ส่วนลด และยอดรวมตามปกติ",
+  hidden: "PDF แสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม",
+  blank: "เว้นช่องจำนวนและราคาใน PDF ให้พนักงานเขียนด้วยมือ แล้วนำตัวเลขมาบันทึกในระบบอีกครั้ง",
+};
+
 function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item, jobDetailsFeatureEnabled: boolean): LineItemForm {
   const unit = catalogItem.base_unit;
   const hasJobDetails = jobDetailsFeatureEnabled && catalogItem.item_type === "service" && catalogItem.has_job_details;
@@ -562,11 +571,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [utilityRate, setUtilityRate] = useState("");
   const [utilityLastHint, setUtilityLastHint] = useState<string | null>(null);
   const [loadingUtilityLast, setLoadingUtilityLast] = useState(false);
-  const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
-  });
-  const [isBlankForm, setIsBlankForm] = useState(false);
+  // Required DN amount-display mode; null = not chosen yet (workspace default unset).
+  const [amountDisplay, setAmountDisplay] = useState<AmountDisplay | null>(null);
+  const amountDisplayTouched = useRef(false);
+  const hideAmountsOnPrint = amountDisplay === "hidden";
+  const isBlankForm = amountDisplay === "blank";
   // Mandatory DN price review (workspace setting) — real delivery notes only.
   const dnPriceReviewRequired = isDeliveryNote && requireDnPriceReview && !isBlankForm;
   const pendingPriceReviewCount = dnPriceReviewRequired
@@ -763,11 +772,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         setCustomerPo(draftDoc.customer_po_number || "");
         setTaskName(draftDoc.task_name || "");
         setDocNumberOverride(draftDoc.doc_number || "");
-        if (draftDoc.doc_type === "delivery_note" && draftDoc.hide_amounts_on_print != null) {
-          setHideAmountsOnPrint(draftDoc.hide_amounts_on_print);
-        }
-        if (draftDoc.doc_type === "delivery_note" && draftDoc.is_blank_form != null) {
-          setIsBlankForm(draftDoc.is_blank_form);
+        if (draftDoc.doc_type === "delivery_note") {
+          setAmountDisplay(
+            draftDoc.is_blank_form ? "blank" : draftDoc.hide_amounts_on_print === false ? "full" : "hidden",
+          );
+          amountDisplayTouched.current = true;
         }
         if (draftDoc.doc_type === "delivery_note" && draftDoc.show_full_totals != null) {
           frozenShowFullTotals.current = draftDoc.show_full_totals;
@@ -1544,6 +1553,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           return;
         }
       }
+      // Required print mode: the owner can leave the workspace default unset
+      // to force a deliberate choice on every delivery note.
+      if (isDeliveryNote && amountDisplay == null) {
+        setError("กรุณาเลือกการแสดงจำนวนเงินใน PDF ก่อนบันทึก");
+        return;
+      }
       // Mandatory DN price review (opt-in): block save until every line
       // price is confirmed. Blank-form DNs carry no prices — exempt.
       // Section markers carry no price — exempt.
@@ -1861,9 +1876,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const canSave = selectedCustomer && (isBillingNote ? selectedInvoiceIds.size > 0 : lineItems.some((lineItem) => lineItem.item_name.trim()));
   const isIssueDateToday = issueDate === todayString();
 
+  // Seed the mode from the workspace default once the profile loads — skipped
+  // when editing (the draft load sets the saved mode) or once the user picks.
   useEffect(() => {
-    window.localStorage.setItem("invoice-system.hideAmountsOnPrint", String(hideAmountsOnPrint));
-  }, [hideAmountsOnPrint]);
+    if (amountDisplayTouched.current || documentId || !clientProfile) return;
+    setAmountDisplay(clientProfile.delivery_note_amount_display ?? null);
+  }, [clientProfile, documentId]);
 
   useEffect(() => {
     const hasUnsavedInput = Boolean(
@@ -2838,30 +2856,26 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
         {isDeliveryNote && (
           <DocumentOptionsCard>
-            {(!isBlankForm || hideAmountsOnPrint) && (
-            <DocumentOptionRow
-              label="ซ่อนจำนวนเงินใน PDF"
-              badge="ซ่อนยอดเงินเมื่อพิมพ์"
-              description="เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม"
-              checked={hideAmountsOnPrint}
-              onChange={(checked) => {
-                if (!checked) {
+            <DocumentOptionSegmented
+              label="การแสดงจำนวนเงินใน PDF"
+              required
+              value={amountDisplay}
+              options={[
+                { value: "full", label: "แสดงจำนวนเงิน" },
+                { value: "hidden", label: "ซ่อนจำนวนเงิน" },
+                { value: "blank", label: "ฟอร์มเปล่า" },
+              ]}
+              description={amountDisplay ? AMOUNT_DISPLAY_DESCRIPTIONS[amountDisplay] : undefined}
+              error={amountDisplay == null ? "กรุณาเลือกการแสดงจำนวนเงินใน PDF ก่อนบันทึก" : undefined}
+              onChange={(value) => {
+                if (amountDisplay === "hidden" && value === "full") {
                   const ok = window.confirm("การแสดงจำนวนเงินใน PDF ใบส่งของจะทำให้ผู้รับเห็นราคาและยอดรวม คุณแน่ใจหรือไม่?");
                   if (!ok) return;
                 }
-                setHideAmountsOnPrint(checked);
+                amountDisplayTouched.current = true;
+                setAmountDisplay(value);
               }}
             />
-            )}
-            {(!hideAmountsOnPrint || isBlankForm) && (
-            <DocumentOptionRow
-              label="ออกเป็นฟอร์มเปล่า (กรอกด้วยมือ)"
-              badge="พิมพ์แล้วส่งพนักงานไปกรอก"
-              description="เมื่อเปิดใช้งาน ช่องจำนวนและราคาใน PDF ใบส่งของจะเว้นว่างไว้ให้พนักงานส่งของเขียนด้วยมือ จากนั้นให้คุณนำตัวเลขมาบันทึกในระบบอีกครั้งเมื่อได้รับใบส่งของคืน"
-              checked={isBlankForm}
-              onChange={setIsBlankForm}
-            />
-            )}
           </DocumentOptionsCard>
         )}
 

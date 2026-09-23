@@ -150,6 +150,8 @@ export interface ClientProfile {
   show_signature_on_docs?: Record<string, boolean> | null;
   show_stamp_on_docs?: Record<string, boolean> | null;
   delivery_note_show_full_totals?: boolean;
+  /** Default amount-display mode for new delivery notes; null = user must choose each time. */
+  delivery_note_amount_display?: "full" | "hidden" | "blank" | null;
   /** Catalog-price deviation warning threshold in % (0 = off, null = default 10). */
   price_deviation_warn_pct?: number | null;
   /** Mandatory per-line price review before a DN can be saved (opt-in, default off). */

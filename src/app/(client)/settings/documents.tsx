@@ -278,6 +278,7 @@ export default function SettingsDocumentsPage() {
   const [showSignatureOnDocs, setShowSignatureOnDocs] = useState<Record<string, boolean>>({});
   const [showStampOnDocs, setShowStampOnDocs] = useState<Record<string, boolean>>({});
   const [dnShowFullTotals, setDnShowFullTotals] = useState(false);
+  const [dnAmountDisplay, setDnAmountDisplay] = useState<"full" | "hidden" | "blank" | null>("hidden");
   const [requireDnPriceReview, setRequireDnPriceReview] = useState(false);
   const [priceWarnPct, setPriceWarnPct] = useState("10");
   const [saving, setSaving] = useState(false);
@@ -336,6 +337,7 @@ export default function SettingsDocumentsPage() {
       return acc;
     }, {} as Record<string, boolean>));
     setDnShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
+    setDnAmountDisplay(clientProfile.delivery_note_amount_display ?? null);
     setRequireDnPriceReview(clientProfile.require_dn_price_review === true);
     setPriceWarnPct(
       clientProfile.price_deviation_warn_pct != null
@@ -401,6 +403,7 @@ export default function SettingsDocumentsPage() {
       show_signature_on_wht: showSignatureOnWht,
       show_stamp_on_wht: showStampOnWht,
       delivery_note_show_full_totals: dnShowFullTotals,
+      delivery_note_amount_display: dnAmountDisplay,
       show_signature_on_docs: !showSignatureMaster
         ? DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: false }), {})
         : (DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").every(t => showSignatureOnDocs[t.key] !== false) ? null : DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: showSignatureOnDocs[t.key] !== false }), {} as Record<string, boolean>)),
@@ -509,6 +512,7 @@ export default function SettingsDocumentsPage() {
     signatureScale !== (clientProfile?.signature_scale || "medium") ||
     stampScale !== (clientProfile?.stamp_scale || "medium") ||
     dnShowFullTotals !== (clientProfile?.delivery_note_show_full_totals === true) ||
+    dnAmountDisplay !== (clientProfile?.delivery_note_amount_display ?? null) ||
     requireDnPriceReview !== (clientProfile?.require_dn_price_review === true) ||
     priceWarnPct !== (clientProfile?.price_deviation_warn_pct != null
       ? String(clientProfile.price_deviation_warn_pct)
@@ -992,6 +996,24 @@ export default function SettingsDocumentsPage() {
         </SectionCard>
 
         <SectionCard title="ใบส่งของ" description="ค่าเริ่มต้นสำหรับใบส่งของใหม่ — มีผลกับเอกสารใหม่เท่านั้น เอกสารเดิมคงค่าที่บันทึกไว้">
+          <SettingRow
+            label="การแสดงจำนวนเงินใน PDF (ค่าเริ่มต้น)"
+            description="ค่าเริ่มต้นเมื่อออกใบส่งของใหม่ · เลือก “ไม่กำหนด” เพื่อให้ผู้ใช้เลือกเองทุกครั้ง"
+          >
+            <Select
+              value={dnAmountDisplay ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDnAmountDisplay(v === "" ? null : (v as "full" | "hidden" | "blank"));
+                setSaved(false);
+              }}
+            >
+              <option value="">ไม่กำหนด (ต้องเลือกทุกครั้ง)</option>
+              <option value="full">แสดงจำนวนเงิน</option>
+              <option value="hidden">ซ่อนจำนวนเงิน</option>
+              <option value="blank">ฟอร์มเปล่า</option>
+            </Select>
+          </SettingRow>
           <SettingRow
             label="แสดงยอดรวมแบบใบแจ้งหนี้"
             description="แสดง VAT / หัก ณ ที่จ่าย / ยอดสุทธิแบบใบแจ้งหนี้ หากปิดจะแสดงเฉพาะมูลค่ารวม"

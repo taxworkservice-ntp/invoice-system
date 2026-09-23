@@ -81,3 +81,57 @@ export function DocumentOptionRow({
     </label>
   );
 }
+
+/**
+ * Required single-choice row (e.g. the delivery-note amount-display mode).
+ * Renders as a neutral segmented control — never hides or disables an option,
+ * so every choice stays visible.
+ */
+export function DocumentOptionSegmented<T extends string>({
+  label,
+  required = false,
+  value,
+  options,
+  description,
+  error,
+  onChange,
+}: {
+  label: string;
+  required?: boolean;
+  value: T | null;
+  options: Array<{ value: T; label: string }>;
+  description?: string;
+  error?: string;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="py-3 first:pt-0 last:pb-0">
+      <div className="text-body font-medium text-ink-800">
+        {label}
+        {required ? <span className="ml-0.5 text-danger">*</span> : null}
+      </div>
+      <div className="mt-2 inline-flex flex-wrap items-center rounded-control border border-line bg-ink-50 p-0.5">
+        {options.map((option) => {
+          const active = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(option.value)}
+              className={`rounded-[6px] px-2.5 py-1 text-label font-medium transition-colors ${
+                active
+                  ? "border border-line-strong bg-white text-ink-900"
+                  : "border border-transparent text-ink-500 hover:text-ink-700"
+              }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      {description ? <p className="mt-1.5 text-label leading-5 text-ink-500">{description}</p> : null}
+      {error ? <p className="mt-1 text-label text-danger-text">{error}</p> : null}
+    </div>
+  );
+}
