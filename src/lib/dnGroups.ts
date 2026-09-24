@@ -517,6 +517,54 @@ export function getDnSectionMarkersWithoutChildren<
 }
 
 /**
+ * Form insertion helpers for section markers (insert-anywhere UX).
+ * Pure index math — shared by the DN forms so both compute identical
+ * insertion points. Print output is unaffected: only the order of lines in
+ * the array changes, which the row plan already derives from.
+ */
+
+/** Index at which a new marker goes to sit directly above `lineId`. */
+export function findInsertIndexAboveLine<T extends { id: string }>(
+  lines: T[],
+  lineId: string,
+): number {
+  const index = lines.findIndex((line) => line.id === lineId);
+  return index < 0 ? lines.length : index;
+}
+
+/**
+ * Index at which a new item goes to land at the end of the section led by
+ * `markerId` (just before the next marker, or the end of the list).
+ * Falls back to the end when the marker is unknown.
+ */
+export function findSectionEndIndex<
+  T extends { id: string; isSectionMarker: boolean },
+>(lines: T[], markerId: string): number {
+  const markerIndex = lines.findIndex((line) => line.id === markerId);
+  if (markerIndex < 0) return lines.length;
+  let end = markerIndex + 1;
+  while (end < lines.length && !lines[end].isSectionMarker) end += 1;
+  return end;
+}
+
+/**
+ * Count of named item lines under the section led by `markerId` (stops at
+ * the next marker). Powers the section band's "N รายการ" label — unnamed
+ * placeholder rows are not items yet.
+ */
+export function countSectionItems<
+  T extends { id: string; isSectionMarker: boolean; item_name: string },
+>(lines: T[], markerId: string): number {
+  const markerIndex = lines.findIndex((line) => line.id === markerId);
+  if (markerIndex < 0) return 0;
+  let count = 0;
+  for (let i = markerIndex + 1; i < lines.length && !lines[i].isSectionMarker; i += 1) {
+    if (lines[i].item_name.trim()) count += 1;
+  }
+  return count;
+}
+
+/**
  * Legacy single-header conversion (form unification): the old whole-doc
  * `dn_so_header` field and marker lines are the same concept, so forms
  * offer only markers. When an old draft carries header text but no markers,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, PackageCheck, Plus, Trash2, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, Heading, PackageCheck, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -16,14 +16,14 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
-import { DN_SECTION_TAG, getDnSectionDisplayNumbers, getDnSectionMarkersWithoutChildren, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../lib/dnGroups";
+import { DN_SECTION_TAG, countSectionItems, findInsertIndexAboveLine, findSectionEndIndex, getDnSectionDisplayNumbers, getDnSectionMarkersWithoutChildren, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../lib/dnGroups";
 import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { formatBuddhistDate } from "../../lib/dates";
 import { formatCurrency } from "../../lib/format";
 import type { Customer, Document, DocumentLineItem, DocumentStatus } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
-import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
+import { DocumentOptionsCard, DnAmountDisplayPicker, type DnAmountDisplay } from "./DocumentOptions";
 import { FormStep } from "./FormStep";
 import { PoTaskFields } from "./PoTaskFields";
 import { DnSectionMarkerRow, LineMoveButtons } from "./DnSectionMarkerRow";
@@ -71,6 +71,57 @@ function formatQty(value: number) {
   });
 }
 
+/**
+ * Focus the first input of a freshly inserted line row (insert-anywhere UX).
+ * No-op when the row was not inserted (guard rejected) or not yet painted.
+ */
+function focusLineInput(id: string) {
+  window.setTimeout(() => {
+    const input = document.querySelector(`#dn-line-${id} input`);
+    if (input instanceof HTMLElement) {
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+      input.focus({ preventScroll: true });
+    }
+  }, 30);
+}
+
+function blankDeliveryLine(): DeliveryLine {
+  return {
+    id: crypto.randomUUID(),
+    source: null,
+    quantity: 1,
+    delivered: 0,
+    pending: 0,
+    item_name: "",
+    item_sku: null,
+    item_type: "product",
+    unit: "ชิ้น",
+    unit_price: 0,
+    price_confirmed: false,
+    discount_percent: 0,
+    line_note: "",
+    base_quantity: null,
+    qty_carton: null,
+    carton_unit: null,
+    hide_amounts_on_print: false,
+    isSectionMarker: false,
+  };
+}
+
+function deliverySectionMarker(): DeliveryLine {
+  return {
+    ...blankDeliveryLine(),
+    quantity: 0,
+    item_name: "",
+    unit: "",
+    unit_price: 0,
+    price_confirmed: true,
+    line_note: DN_SECTION_TAG,
+    hide_amounts_on_print: false,
+    isSectionMarker: true,
+  };
+}
+
 function getBaseQuantity(source: DocumentLineItem, quantity: number) {
   if (!source.base_quantity || !source.quantity) return quantity;
   return round3((source.base_quantity / source.quantity) * quantity);
@@ -110,23 +161,45 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState("");
-  const [hideAmountsOnPrint, setHideAmountsOnPrint] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem("invoice-system.hideAmountsOnPrint") !== "false";
+  // Required amount-display mode shared with deals/new.tsx; null = not chosen
+  // yet (workspace default unset). Legacy browsers may hold the old boolean
+  // preference — an explicit one counts as a choice, absence means choose now.
+  const [amountDisplay, setAmountDisplay] = useState<DnAmountDisplay | null>(() => {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem("invoice-system.hideAmountsOnPrint");
+    if (raw == null) return null;
+    return raw === "false" ? "full" : "hidden";
   });
+  const amountDisplayTouched = useRef(false);
+  // Turns the picker's hint red only after a save was attempted with no choice.
+  const [amountDisplaySubmitAttempted, setAmountDisplaySubmitAttempted] = useState(false);
+  const hideAmountsOnPrint = amountDisplay === "hidden";
+  const isBlankForm = amountDisplay === "blank";
   // DN full-totals is settings-only (ตั้งค่า › ใบส่งของ): new docs follow the
   // workspace setting, draft edits keep their saved value frozen at hydrate.
   const frozenShowFullTotals = useRef<boolean | null>(null);
 
-  // Remember the last hide-amounts choice for the next delivery note
-  // (shared with deals/new.tsx).
+  // Remember the last amount-display choice for the next delivery note
+  // (shared with deals/new.tsx; legacy boolean key kept for old browsers).
   useEffect(() => {
-    window.localStorage.setItem("invoice-system.hideAmountsOnPrint", String(hideAmountsOnPrint));
-  }, [hideAmountsOnPrint]);
+    if (amountDisplay == null) return;
+    window.localStorage.setItem("invoice-system.hideAmountsOnPrint", String(amountDisplay !== "full"));
+  }, [amountDisplay]);
 
   const isEditing = Boolean(documentId);
   // Mandatory per-line price review before a DN can be saved (opt-in).
-  const requirePriceReview = clientProfile?.require_dn_price_review === true;
+  // Blank-form DNs carry no prices on the document — exempt, like deals/new.tsx.
+  const requirePriceReview = clientProfile?.require_dn_price_review === true && !isBlankForm;
+
+  // Seed the mode from the workspace default once the profile loads — skipped
+  // when editing (the draft load sets the saved mode) or once the user picks.
+  useEffect(() => {
+    if (amountDisplayTouched.current || documentId || !clientProfile) return;
+    const def = (clientProfile as { delivery_note_amount_display?: DnAmountDisplay | null }).delivery_note_amount_display ?? null;
+    if (def == null) return;
+    amountDisplayTouched.current = true;
+    setAmountDisplay(def);
+  }, [clientProfile, documentId]);
 
   useEffect(() => {
     if (documentId) return;
@@ -219,7 +292,12 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           setCustomerPo((existingDoc as Document).customer_po_number || "");
           setTaskName((existingDoc as Document).task_name || "");
           setDocNumberOverride((existingDoc as Document).doc_number || "");
-          setHideAmountsOnPrint((existingDoc as Document).hide_amounts_on_print ?? true);
+          setAmountDisplay(
+            (existingDoc as Document & { is_blank_form?: boolean }).is_blank_form
+              ? "blank"
+              : (existingDoc as Document).hide_amounts_on_print === false ? "full" : "hidden",
+          );
+          amountDisplayTouched.current = true;
           frozenShowFullTotals.current = (existingDoc as Document).show_full_totals ?? null;
         } else {
           // Flow-down: carry the quotation's PO/task onto the new DN.
@@ -456,6 +534,21 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
     () => (groupingEnabled ? getDnSectionMarkersWithoutChildren(lines) : new Set<string>()),
     [groupingEnabled, lines],
   );
+  // Item ids nested under a non-blank marker — indented as a visual section.
+  // Mirrors getDnSectionDisplayNumbers: a blank marker ends the run.
+  const inSectionIds = useMemo(() => {
+    if (!groupingEnabled) return new Set<string>();
+    const ids = new Set<string>();
+    let inSection = false;
+    for (const line of lines) {
+      if (line.isSectionMarker) {
+        inSection = line.item_name.trim() !== "";
+        continue;
+      }
+      if (inSection) ids.add(line.id);
+    }
+    return ids;
+  }, [groupingEnabled, lines]);
 
   const moveLine = (lineId: string, direction: "up" | "down") => {
     setLines((current) => {
@@ -484,60 +577,43 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
   };
 
   const addCustomLine = () => {
-    setLines((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        source: null,
-        quantity: 1,
-        delivered: 0,
-        pending: 0,
-        item_name: "",
-        item_sku: null,
-        item_type: "product",
-        unit: "ชิ้น",
-        unit_price: 0,
-        price_confirmed: false,
-        discount_percent: 0,
-        line_note: "",
-        base_quantity: null,
-        qty_carton: null,
-        carton_unit: null,
-        hide_amounts_on_print: false,
-        isSectionMarker: false,
-      },
-    ]);
+    const line = blankDeliveryLine();
+    setLines((current) => [...current, line]);
+    focusLineInput(line.id);
   };
 
   const addSectionMarker = () => {
+    const marker = deliverySectionMarker();
     setLines((current) => {
       // Don't stack empty headers — finish the current one first.
       const last = current[current.length - 1];
       if (last && last.isSectionMarker && !last.item_name.trim()) return current;
-      return [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          source: null,
-          quantity: 0,
-          delivered: 0,
-          pending: 0,
-          item_name: "",
-          item_sku: null,
-          item_type: "product",
-          unit: "",
-          unit_price: 0,
-          price_confirmed: true,
-          discount_percent: 0,
-          line_note: DN_SECTION_TAG,
-          base_quantity: null,
-          qty_carton: null,
-          carton_unit: null,
-          hide_amounts_on_print: false,
-          isSectionMarker: true,
-        },
-      ];
+      return [...current, marker];
     });
+    focusLineInput(marker.id);
+  };
+
+  /** Insert a blank header directly above a line — no append-then-shuffle. */
+  const insertSectionMarkerAbove = (lineId: string) => {
+    const marker = deliverySectionMarker();
+    setLines((current) => {
+      const index = findInsertIndexAboveLine(current, lineId);
+      // Don't stack two blank headers — finish the current one first.
+      const prevLine = current[index - 1];
+      if (prevLine && prevLine.isSectionMarker && !prevLine.item_name.trim()) return current;
+      return [...current.slice(0, index), marker, ...current.slice(index)];
+    });
+    focusLineInput(marker.id);
+  };
+
+  /** Append a blank item at the end of a marker's section. */
+  const addItemToSection = (markerId: string) => {
+    const line = blankDeliveryLine();
+    setLines((current) => {
+      const index = findSectionEndIndex(current, markerId);
+      return [...current.slice(0, index), line, ...current.slice(index)];
+    });
+    focusLineInput(line.id);
   };
 
   const removeLine = (lineId: string) => {
@@ -548,7 +624,8 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
     // Turning off deletes the headers (with confirmation) — hidden markers
     // that still affect the printout would be worse than asking once.
     if (!on && lines.some((line) => line.isSectionMarker)) {
-      const ok = window.confirm("ปิดการจัดกลุ่มจะลบหัวข้อกลุ่มทั้งหมด รายการจะเรียงต่อเนื่องแบบปกติ ยืนยันหรือไม่?");
+      const count = lines.filter((line) => line.isSectionMarker).length;
+      const ok = window.confirm(`ปิดการจัดกลุ่มจะลบหัวข้อกลุ่มทั้ง ${count} หัวข้อ — รายการสินค้าคงอยู่ครบและเรียงต่อเนื่องแบบปกติ ยืนยันหรือไม่?`);
       if (!ok) return;
       setLines((current) => current.filter((line) => !line.isSectionMarker));
     }
@@ -567,9 +644,16 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
       setError("กรุณาเพิ่มอย่างน้อย 1 รายการสินค้า");
       return;
     }
+    // Required print mode: the owner can leave the workspace default unset
+    // to force a deliberate choice on every delivery note.
+    if (amountDisplay == null) {
+      setAmountDisplaySubmitAttempted(true);
+      setError("กรุณาเลือกการแสดงจำนวนเงินใน PDF ก่อนบันทึก");
+      return;
+    }
     // Mandatory price review (opt-in): block save until every line price
-    // is confirmed. Prices saved here flow to the invoice — no blank-form
-    // concept on this path, so the gate always applies when enabled.
+    // is confirmed. Blank-form DNs carry no prices — exempt.
+    // Section markers carry no price — exempt.
     if (requirePriceReview) {
       const pending = selectedLines.filter((line) => !line.isSectionMarker && !line.price_confirmed).length;
       if (pending > 0) {
@@ -609,6 +693,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           // legacy single header (kept in the column for old reprints only).
           dn_so_header: null,
           hide_amounts_on_print: hideAmountsOnPrint,
+          is_blank_form: isBlankForm,
           show_full_totals: documentId && frozenShowFullTotals.current != null ? frozenShowFullTotals.current : clientProfile?.delivery_note_show_full_totals === true,
           converted_from_id: quotation.id,
         };
@@ -819,13 +904,13 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               onChange={toggleGrouping}
               label={
                 <>
-                  จัดกลุ่มด้วยหัวข้ออ้างอิง{" "}
-                  <span className="font-normal text-ink-400">(เช่น แยกตาม SO ของลูกค้า)</span>
+                  ส่งของหลาย SO ในใบเดียว{" "}
+                  <span className="font-normal text-ink-400">(เพิ่มหัวข้อกลุ่มเหนือรายการ)</span>
                 </>
               }
             />
             <p className="mt-1 text-label leading-4 text-ink-400">
-              เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ
+              เปิดเพื่อเพิ่มหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ ปิดจะลบหัวข้อทั้งหมด (รายการสินค้าไม่หาย)
             </p>
             {legacyHeaderConverted && groupingEnabled && (
               <p className="mt-1 text-label leading-4 text-ink-500">
@@ -838,7 +923,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               if (line.isSectionMarker && groupingEnabled) {
                 const markerNumber = lineNumbers?.get(line.id);
                 return (
-                  <div key={line.id} className="flex gap-2">
+                  <div key={line.id} id={`dn-line-${line.id}`} className="flex gap-2">
                     {markerNumber ? (
                       <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-label font-semibold text-primary leading-none">
                         {markerNumber}
@@ -856,6 +941,9 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                         canMoveUp={index > 0}
                         canMoveDown={index < lines.length - 1}
                         warnEmpty={emptySectionIds.has(line.id)}
+                        sectionNumber={markerNumber ?? undefined}
+                        itemCount={countSectionItems(lines, line.id)}
+                        onAddItem={() => addItemToSection(line.id)}
                       />
                     </div>
                   </div>
@@ -873,7 +961,7 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
               });
 
               return (
-                <div key={line.id} className="flex gap-2">
+                <div key={line.id} id={`dn-line-${line.id}`} className={`flex gap-2 ${inSectionIds.has(line.id) ? "ml-7" : ""}`}>
                   <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-label font-semibold text-primary leading-none">
                     {lineNumbers?.get(line.id) ?? index + 1}
                   </div>
@@ -890,6 +978,17 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                       />
                       {line.source?.item_sku && <div className="mt-0.5 text-label text-ink-500">SKU: {line.source.item_sku}</div>}
                     </div>
+                    {groupingEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => insertSectionMarkerAbove(line.id)}
+                        aria-label="เพิ่มหัวข้อกลุ่มเหนือรายการนี้"
+                        title="เพิ่มหัวข้อกลุ่มเหนือรายการนี้"
+                        className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-primary hover:text-primary"
+                      >
+                        <Heading className="h-4 w-4" />
+                      </button>
+                    )}
                     <LineMoveButtons
                       className="mt-5"
                       onMoveUp={() => moveLine(line.id, "up")}
@@ -1038,13 +1137,23 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
           </div>
         </FormStep>
 
-        <DocumentOptionsCard number={2}>
-          <DocumentOptionRow
-            label="ซ่อนจำนวนเงินใน PDF"
-            badge="ซ่อนยอดเงินเมื่อพิมพ์"
-            description="เมื่อเปิดใช้งาน PDF ใบส่งของจะแสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม"
-            checked={hideAmountsOnPrint}
-            onChange={(checked) => setHideAmountsOnPrint(checked)}
+        <DocumentOptionsCard
+          number={2}
+          title="การแสดงจำนวนเงินใน PDF"
+          description="บังคับเลือก 1 แบบก่อนบันทึก — มีผลกับ PDF เท่านั้น ยอดในระบบยังอยู่ครบ"
+        >
+          <DnAmountDisplayPicker
+            value={amountDisplay}
+            showError={amountDisplaySubmitAttempted}
+            onChange={(value) => {
+              if (amountDisplay === "hidden" && value === "full") {
+                const ok = window.confirm("PDF ใบส่งของจะแสดงราคาและยอดรวมให้ผู้รับเห็น คุณแน่ใจหรือไม่?");
+                if (!ok) return;
+              }
+              amountDisplayTouched.current = true;
+              setAmountDisplaySubmitAttempted(false);
+              setAmountDisplay(value);
+            }}
           />
         </DocumentOptionsCard>
 
@@ -1082,10 +1191,14 @@ export function DeliveryNoteFromQuotationForm({ quotationId, documentId }: Deliv
                 <span>มูลค่าอ้างอิง</span>
                 <span>฿{formatCurrency(tax.total)}</span>
               </div>
-              {hideAmountsOnPrint ? (
+              {amountDisplay === "full" ? (
+                <p className="mt-2 text-label leading-5 text-blue-600">PDF ใบส่งของจะแสดงราคาและยอดรวมด้วย</p>
+              ) : amountDisplay === "blank" ? (
+                <p className="mt-2 text-label leading-5 text-ink-500">มูลค่านี้ใช้สำหรับรวมออกใบแจ้งหนี้ภายหลัง แต่ PDF ใบส่งของจะเว้นช่องให้กรอกด้วยมือ</p>
+              ) : amountDisplay === "hidden" ? (
                 <p className="mt-2 text-label leading-5 text-ink-500">มูลค่านี้ใช้สำหรับรวมออกใบแจ้งหนี้ภายหลัง แต่ PDF ใบส่งของจะไม่แสดงราคา</p>
               ) : (
-                <p className="mt-2 text-label leading-5 text-blue-600">PDF ใบส่งของจะแสดงราคาและยอดรวมด้วย</p>
+                <p className="mt-2 text-label leading-5 text-ink-400">เลือกการแสดงจำนวนเงินใน PDF ที่ขั้นตอนที่ 2 ก่อนบันทึก</p>
               )}
             </div>
             <EditableDocNumber

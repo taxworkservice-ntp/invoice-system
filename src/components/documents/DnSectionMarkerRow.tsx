@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { Input } from "../ui/Input";
 
 interface LineMoveButtonsProps {
@@ -53,6 +53,12 @@ interface DnSectionMarkerRowProps {
   canMoveDown?: boolean;
   /** Heading has no item lines under it — it will be omitted from the printout. */
   warnEmpty?: boolean;
+  /** Printed section number (e.g. "1") — shown as a chip when provided. */
+  sectionNumber?: string;
+  /** Named item lines under this heading — shown as "N รายการ". */
+  itemCount?: number;
+  /** When provided, renders "เพิ่มรายการในกลุ่มนี้" (insert at section end). */
+  onAddItem?: () => void;
 }
 
 /**
@@ -69,6 +75,9 @@ export function DnSectionMarkerRow({
   canMoveUp,
   canMoveDown,
   warnEmpty,
+  sectionNumber,
+  itemCount,
+  onAddItem,
 }: DnSectionMarkerRowProps) {
   // A blank heading is not a section yet (no number, no printout), so it needs
   // its own prompt rather than the "no children" warning.
@@ -81,6 +90,11 @@ export function DnSectionMarkerRow({
   return (
     <div className={`rounded-card border border-dashed p-3 ${warning ? "border-amber-300 bg-amber-50/60" : "border-card-border bg-paper-soft/60"}`}>
       <div className="flex items-start gap-2">
+        {sectionNumber ? (
+          <span className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-label font-semibold text-primary">
+            {sectionNumber}
+          </span>
+        ) : null}
         <div className="min-w-0 flex-1">
           <Input
             label="หัวข้อกลุ่ม / SECTION"
@@ -110,8 +124,19 @@ export function DnSectionMarkerRow({
       ) : (
         <p className="mt-1 text-label leading-4 text-ink-400">
           บรรทัดนี้ไม่คิดมูลค่า — จะพิมพ์เป็นหัวข้อกลุ่มเหนือรายการในใบส่งของ และติดไปกับใบกำกับภาษีที่ออกต่อจากใบนี้
+          {itemCount != null && itemCount > 0 ? ` · กลุ่มนี้มี ${itemCount} รายการแล้ว` : ""}
         </p>
       )}
+      {onAddItem ? (
+        <button
+          type="button"
+          onClick={onAddItem}
+          className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-control border border-dashed border-card-border bg-white px-2 py-1.5 text-label font-medium text-ink-600 transition-colors hover:border-primary hover:text-primary-deep"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          เพิ่มรายการในกลุ่มนี้
+        </button>
+      ) : null}
     </div>
   );
 }

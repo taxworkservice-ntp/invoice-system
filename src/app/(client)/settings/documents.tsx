@@ -1009,9 +1009,9 @@ export default function SettingsDocumentsPage() {
               }}
             >
               <option value="">ไม่กำหนด (ต้องเลือกทุกครั้ง)</option>
-              <option value="full">แสดงจำนวนเงิน</option>
-              <option value="hidden">ซ่อนจำนวนเงิน</option>
-              <option value="blank">ฟอร์มเปล่า</option>
+              <option value="full">แสดงจำนวนเงิน — PDF แสดงราคาปกติ</option>
+              <option value="hidden">ซ่อนจำนวนเงิน — แสดงเฉพาะรายการและจำนวน</option>
+              <option value="blank">ฟอร์มเปล่า — เขียนมือหน้างาน</option>
             </Select>
           </SettingRow>
           <SettingRow

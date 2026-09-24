@@ -3,9 +3,12 @@ import {
   buildDnBlocks,
   buildDnSectionPlan,
   buildDnSoHeaderPlan,
+  countSectionItems,
   DN_SECTION_TAG,
   filterDnRefMarkers,
   filterDnRenderLines,
+  findInsertIndexAboveLine,
+  findSectionEndIndex,
   getDnLineSectionMap,
   getDnSectionDisplayNumbers,
   getDnSectionHeaders,
@@ -387,5 +390,50 @@ describe("headings without children", () => {
   it("ignores blank headings (blank text is handled by save validation)", () => {
     const empty = getDnSectionMarkersWithoutChildren([formLine("m", true, "")]);
     expect(empty.size).toBe(0);
+  });
+});
+
+describe("section insertion helpers", () => {
+  const formLine = (id: string, isSectionMarker = false, item_name = id) => ({
+    id,
+    isSectionMarker,
+    item_name,
+  });
+
+  it("inserts a marker directly above the target line", () => {
+    const lines = [formLine("a"), formLine("b"), formLine("c")];
+    expect(findInsertIndexAboveLine(lines, "a")).toBe(0);
+    expect(findInsertIndexAboveLine(lines, "b")).toBe(1);
+    expect(findInsertIndexAboveLine(lines, "c")).toBe(2);
+  });
+
+  it("falls back to the end for unknown ids and empty lists", () => {
+    expect(findInsertIndexAboveLine([formLine("a")], "nope")).toBe(1);
+    expect(findInsertIndexAboveLine([], "nope")).toBe(0);
+  });
+
+  it("ends a new item before the next marker (or the end of the list)", () => {
+    const lines = [
+      formLine("m1", true, "SO1"),
+      formLine("a"),
+      formLine("b"),
+      formLine("m2", true, "SO2"),
+      formLine("c"),
+    ];
+    expect(findSectionEndIndex(lines, "m1")).toBe(3);
+    expect(findSectionEndIndex(lines, "m2")).toBe(5);
+    expect(findSectionEndIndex(lines, "nope")).toBe(5);
+  });
+
+  it("counts only named items under a marker", () => {
+    const lines = [
+      formLine("m1", true, "SO1"),
+      formLine("a"),
+      formLine("blank", false, "   "),
+      formLine("m2", true, "SO2"),
+    ];
+    expect(countSectionItems(lines, "m1")).toBe(1);
+    expect(countSectionItems(lines, "m2")).toBe(0);
+    expect(countSectionItems(lines, "nope")).toBe(0);
   });
 });

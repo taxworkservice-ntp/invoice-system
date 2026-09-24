@@ -9,7 +9,7 @@ import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
-import { DocumentOptionsCard, DocumentOptionSegmented } from "../../../components/documents/DocumentOptions";
+import { DocumentOptionsCard, DnAmountDisplayPicker, type DnAmountDisplay } from "../../../components/documents/DocumentOptions";
 import { StepHeading } from "../../../components/documents/FormStep";
 import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
@@ -17,7 +17,7 @@ import { ItemCreateModal } from "../../../components/catalog/ItemCreateModal";
 import { PoTaskFields } from "../../../components/documents/PoTaskFields";
 import { Switch } from "../../../components/ui/Switch";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
-import { DN_SECTION_TAG, getDnSectionDisplayNumbers, getDnSectionMarkersWithoutChildren, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../../lib/dnGroups";
+import { DN_SECTION_TAG, countSectionItems, findInsertIndexAboveLine, findSectionEndIndex, getDnSectionDisplayNumbers, getDnSectionMarkersWithoutChildren, getLegacyDnHeaderForConversion, isDnSectionMarker } from "../../../lib/dnGroups";
 import { PRINT_TITLE_PRESETS, readLastPrintTitleVariant, writeLastPrintTitleVariant } from "../../../lib/docLabels";
 import { DnSectionMarkerRow, LineMoveButtons } from "../../../components/documents/DnSectionMarkerRow";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
@@ -32,7 +32,7 @@ import { LineImageUpload } from "../../../components/documents/LineImageUpload";
 import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
 import { useCustomerReferenceHistory } from "../../../hooks/useCustomerReferenceHistory";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../../constants";
-import { AlertTriangle, CheckCircle2, ChevronDown, Plus, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Heading, Plus, PlusCircle, X, SlidersHorizontal, Trash2 } from "lucide-react";
 import { fetchPriceHistory } from "../../../lib/priceHistory";
 import { PriceHistorySheet } from "../../../components/documents/PriceHistorySheet";
 import { PriceReviewControl } from "../../../components/documents/PriceReviewControl";
@@ -270,6 +270,21 @@ function createSectionMarker(header: string): LineItemForm {
   };
 }
 
+/**
+ * Focus the first input of a freshly inserted line-item row (insert-anywhere
+ * UX). Line ids are UUIDs, so the selector is always safe. No-op when the
+ * row was not inserted (guard rejected) or not yet painted.
+ */
+function focusLineInput(id: string) {
+  window.setTimeout(() => {
+    const input = document.querySelector(`#dn-line-${id} input`);
+    if (input instanceof HTMLElement) {
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+      input.focus({ preventScroll: true });
+    }
+  }, 30);
+}
+
 interface UnpaidInvoice {
   id: string;
   doc_number: string;
@@ -374,14 +389,8 @@ function getPriceDeviation(lineItem: LineItemForm, warnPct: number): number | nu
   return deviationPct > warnPct ? expected : null;
 }
 
-/** Delivery-note print modes — how much money the PDF shows. */
-type AmountDisplay = "full" | "hidden" | "blank";
-
-const AMOUNT_DISPLAY_DESCRIPTIONS: Record<AmountDisplay, string> = {
-  full: "PDF แสดงราคาต่อหน่วย ส่วนลด และยอดรวมตามปกติ",
-  hidden: "PDF แสดงเฉพาะชื่อสินค้า จำนวน และหน่วย โดยไม่แสดงราคา ส่วนลด และยอดรวม",
-  blank: "เว้นช่องจำนวนและราคาใน PDF ให้พนักงานเขียนด้วยมือ แล้วนำตัวเลขมาบันทึกในระบบอีกครั้ง",
-};
+/** Delivery-note print modes — how much money the PDF shows. Copy lives in DocumentOptions. */
+type AmountDisplay = DnAmountDisplay;
 
 function applyCatalogItemToLine(lineItem: LineItemForm, catalogItem: Item, jobDetailsFeatureEnabled: boolean): LineItemForm {
   const unit = catalogItem.base_unit;
@@ -574,16 +583,23 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   // Required DN amount-display mode; null = not chosen yet (workspace default unset).
   const [amountDisplay, setAmountDisplay] = useState<AmountDisplay | null>(null);
   const amountDisplayTouched = useRef(false);
+  // Turns the picker's hint red only after a save was attempted with no choice.
+  const [amountDisplaySubmitAttempted, setAmountDisplaySubmitAttempted] = useState(false);
   const hideAmountsOnPrint = amountDisplay === "hidden";
   const isBlankForm = amountDisplay === "blank";
   // Mandatory DN price review (workspace setting) — real delivery notes only.
   const dnPriceReviewRequired = isDeliveryNote && requireDnPriceReview && !isBlankForm;
+  // Only named product lines count — section markers carry no price, and
+  // unnamed placeholder rows are not reviewable yet (matches the save gate).
+  const priceReviewableCount = dnPriceReviewRequired
+    ? lineItems.filter((l) => !l.isSectionMarker && l.item_name.trim()).length
+    : 0;
   const pendingPriceReviewCount = dnPriceReviewRequired
-    ? lineItems.filter((l) => !l.isSectionMarker && !l.price_confirmed).length
+    ? lineItems.filter((l) => !l.isSectionMarker && l.item_name.trim() && !l.price_confirmed).length
     : 0;
 
   function goToNextUnconfirmedPrice() {
-    const target = lineItems.find((l) => !l.isSectionMarker && !l.price_confirmed);
+    const target = lineItems.find((l) => !l.isSectionMarker && l.item_name.trim() && !l.price_confirmed);
     if (!target) return;
     const el = document.getElementById(`dn-line-${target.id}`);
     if (!el) return;
@@ -1362,12 +1378,28 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     () => (isDeliveryNote && groupingEnabled ? getDnSectionMarkersWithoutChildren(lineItems) : new Set<string>()),
     [isDeliveryNote, groupingEnabled, lineItems],
   );
+  // Item ids nested under a non-blank marker — indented as a visual section.
+  // Mirrors getDnSectionDisplayNumbers: a blank marker ends the run.
+  const inSectionIds = useMemo(() => {
+    if (!isDeliveryNote || !groupingEnabled) return new Set<string>();
+    const ids = new Set<string>();
+    let inSection = false;
+    for (const lineItem of lineItems) {
+      if (lineItem.isSectionMarker) {
+        inSection = lineItem.item_name.trim() !== "";
+        continue;
+      }
+      if (inSection) ids.add(lineItem.id);
+    }
+    return ids;
+  }, [isDeliveryNote, groupingEnabled, lineItems]);
 
   const toggleGrouping = (on: boolean) => {
     // Turning off deletes the headers (with confirmation) — hidden markers
     // that still affect the printout would be worse than asking once.
     if (!on && lineItems.some((lineItem) => lineItem.isSectionMarker)) {
-      const ok = window.confirm("ปิดการจัดกลุ่มจะลบหัวข้อกลุ่มทั้งหมด รายการจะเรียงต่อเนื่องแบบปกติ ยืนยันหรือไม่?");
+      const count = lineItems.filter((lineItem) => lineItem.isSectionMarker).length;
+      const ok = window.confirm(`ปิดการจัดกลุ่มจะลบหัวข้อกลุ่มทั้ง ${count} หัวข้อ — รายการสินค้าคงอยู่ครบและเรียงต่อเนื่องแบบปกติ ยืนยันหรือไม่?`);
       if (!ok) return;
       setLineItems((prev) => prev.filter((lineItem) => !lineItem.isSectionMarker));
     }
@@ -1375,12 +1407,37 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   };
 
   const addSectionMarker = () => {
+    const marker = createSectionMarker("");
     setLineItems((prev) => {
       // Don't stack empty headers — finish the current one first.
       const last = prev[prev.length - 1];
       if (last && last.isSectionMarker && !last.item_name.trim()) return prev;
-      return [...prev, createSectionMarker("")];
+      return [...prev, marker];
     });
+    focusLineInput(marker.id);
+  };
+
+  /** Insert a blank header directly above a line — no append-then-shuffle. */
+  const insertSectionMarkerAbove = (lineId: string) => {
+    const marker = createSectionMarker("");
+    setLineItems((prev) => {
+      const index = findInsertIndexAboveLine(prev, lineId);
+      // Don't stack two blank headers — finish the current one first.
+      const prevLine = prev[index - 1];
+      if (prevLine && prevLine.isSectionMarker && !prevLine.item_name.trim()) return prev;
+      return [...prev.slice(0, index), marker, ...prev.slice(index)];
+    });
+    focusLineInput(marker.id);
+  };
+
+  /** Append a blank item at the end of a marker's section. */
+  const addItemToSection = (markerId: string) => {
+    const line = createEmptyLine();
+    setLineItems((prev) => {
+      const index = findSectionEndIndex(prev, markerId);
+      return [...prev.slice(0, index), line, ...prev.slice(index)];
+    });
+    focusLineInput(line.id);
   };
 
   const updateJobDetail = (
@@ -1556,6 +1613,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       // Required print mode: the owner can leave the workspace default unset
       // to force a deliberate choice on every delivery note.
       if (isDeliveryNote && amountDisplay == null) {
+        setAmountDisplaySubmitAttempted(true);
         setError("กรุณาเลือกการแสดงจำนวนเงินใน PDF ก่อนบันทึก");
         return;
       }
@@ -1920,9 +1978,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           <div className="mt-4 flex flex-wrap gap-2 text-label text-ink-500">
             <span className="rounded-full bg-page-bg px-2.5 py-1">1 ลูกค้า</span>
             <span className="rounded-full bg-page-bg px-2.5 py-1">2 วันที่</span>
-            <span className="rounded-full bg-page-bg px-2.5 py-1">3 รายการ</span>
-            <span className="rounded-full bg-page-bg px-2.5 py-1">4 รายละเอียด</span>
-            <span className="rounded-full bg-page-bg px-2.5 py-1">5 ตรวจสอบและบันทึก</span>
+            {isDeliveryNote && <span className="rounded-full bg-page-bg px-2.5 py-1">3 จำนวนเงินใน PDF</span>}
+            <span className="rounded-full bg-page-bg px-2.5 py-1">{isDeliveryNote ? "4 รายการ" : "3 รายการ"}</span>
+            <span className="rounded-full bg-page-bg px-2.5 py-1">{isDeliveryNote ? "5 รายละเอียด" : "4 รายละเอียด"}</span>
+            <span className="rounded-full bg-page-bg px-2.5 py-1">{isDeliveryNote ? "6 ตรวจสอบและบันทึก" : "5 ตรวจสอบและบันทึก"}</span>
           </div>
         </div>
       )}
@@ -2088,6 +2147,28 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           />
         </Card>
 
+        {isDeliveryNote && (
+          <DocumentOptionsCard
+            number={3}
+            title="การแสดงจำนวนเงินใน PDF"
+            description="บังคับเลือก 1 แบบก่อนบันทึก — มีผลกับ PDF เท่านั้น ยอดในระบบยังอยู่ครบ"
+          >
+            <DnAmountDisplayPicker
+              value={amountDisplay}
+              showError={amountDisplaySubmitAttempted}
+              onChange={(value) => {
+                if (amountDisplay === "hidden" && value === "full") {
+                  const ok = window.confirm("PDF ใบส่งของจะแสดงราคาและยอดรวมให้ผู้รับเห็น คุณแน่ใจหรือไม่?");
+                  if (!ok) return;
+                }
+                amountDisplayTouched.current = true;
+                setAmountDisplaySubmitAttempted(false);
+                setAmountDisplay(value);
+              }}
+            />
+          </DocumentOptionsCard>
+        )}
+
         {isUtilityBill && (
           <Card>
             <div className="flex items-start justify-between gap-3">
@@ -2227,7 +2308,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         {isLineItemDocument && (
           <Card>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <StepHeading number={3} title={isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการสินค้าและบริการ"} />
+              <StepHeading number={isDeliveryNote ? 4 : 3} title={isUtilityBill ? "รายการบนใบแจ้งหนี้" : "รายการสินค้าและบริการ"} />
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">จำเป็น</span>
                 {permissions.canManageCatalog && (
@@ -2250,13 +2331,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   onChange={toggleGrouping}
                   label={
                     <>
-                      จัดกลุ่มด้วยหัวข้ออ้างอิง{" "}
-                      <span className="font-normal text-ink-400">(เช่น แยกตาม SO ของลูกค้า)</span>
+                      ส่งของหลาย SO ในใบเดียว{" "}
+                      <span className="font-normal text-ink-400">(เพิ่มหัวข้อกลุ่มเหนือรายการ)</span>
                     </>
                   }
                 />
                 <p className="mt-1 text-label leading-4 text-ink-400">
-                  เปิดเพื่อเพิ่มบรรทัดหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ
+                  เปิดเพื่อเพิ่มหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ ปิดจะลบหัวข้อทั้งหมด (รายการสินค้าไม่หาย)
                 </p>
                 {legacyHeaderConverted && groupingEnabled && (
                   <p className="mt-1 text-label leading-4 text-ink-500">
@@ -2265,7 +2346,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 )}
               </div>
             )}
-            {dnPriceReviewRequired ? (
+            {dnPriceReviewRequired && priceReviewableCount > 0 ? (
               pendingPriceReviewCount > 0 ? (
                 <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-warning-border bg-warning-soft px-3 py-2">
                   <span className="inline-flex items-center gap-1.5 text-label font-medium text-warning-text">
@@ -2326,6 +2407,9 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                             canMoveUp={idx > 0}
                             canMoveDown={idx < lineItems.length - 1}
                             warnEmpty={emptySectionIds.has(item.id)}
+                            sectionNumber={markerNumber ?? undefined}
+                            itemCount={countSectionItems(lineItems, item.id)}
+                            onAddItem={() => addItemToSection(item.id)}
                           />
                         </div>
                       </div>
@@ -2391,7 +2475,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                 <div
                   key={item.id}
                   id={`dn-line-${item.id}`}
-                  className="pb-3 border-b border-line-faint last:border-0"
+                  className={`pb-3 border-b border-line-faint last:border-0 ${inSectionIds.has(item.id) ? "ml-7" : ""}`}
                 >
                   <div className="flex gap-2">
                     <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary-soft border border-primary-border flex items-center justify-center text-label font-semibold text-primary leading-none">
@@ -2422,6 +2506,17 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         }
                       />
                       </div>
+                      {isDeliveryNote && groupingEnabled && (
+                        <button
+                          type="button"
+                          onClick={() => insertSectionMarkerAbove(item.id)}
+                          aria-label="เพิ่มหัวข้อกลุ่มเหนือรายการนี้"
+                          title="เพิ่มหัวข้อกลุ่มเหนือรายการนี้"
+                          className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-primary md:h-auto md:w-auto md:px-1"
+                        >
+                          <Heading className="h-4 w-4" />
+                        </button>
+                      )}
                       <LineMoveButtons
                         className="mt-0.5"
                         onMoveUp={() => moveLineItem(item.id, "up")}
@@ -2429,17 +2524,15 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         canMoveUp={idx > 0}
                         canMoveDown={idx < lineItems.length - 1}
                       />
-                      {lineItems.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeLineItem(item.id)}
-                          aria-label="ลบรายการ"
-                          title="ลบรายการ"
-                          className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-red-600 md:h-auto md:w-auto"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(item.id)}
+                        aria-label="ลบรายการ"
+                        title="ลบรายการ"
+                        className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-red-600 md:h-auto md:w-auto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   {isUtilityBill && item.line_note.includes("[USAGE_BILL]") ? (
                     <div className="mb-2 whitespace-pre-line rounded-control border border-card-border bg-paper-field px-3 py-2 text-label leading-5 text-ink-600">
@@ -2729,6 +2822,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               <p className="font-semibold text-title mt-1">
                 ยอดที่ต้องชำระ: ฿{tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </p>
+              {isDeliveryNote && amountDisplay != null && amountDisplay !== "full" ? (
+                <p className="text-label text-ink-400">
+                  ยอดนี้เก็บในระบบไว้ออกบิลต่อ — ไม่แสดงใน PDF
+                </p>
+              ) : null}
             </div>
           </Card>
         )}
@@ -2804,7 +2902,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             className="flex w-full items-center justify-between gap-3 text-left"
           >
             <span>
-              <span className="block text-body font-medium">4. รายละเอียดเพิ่มเติม (VAT, หัก ณ ที่จ่าย และหมายเหตุ)</span>
+              <span className="block text-body font-medium">{isDeliveryNote ? "5." : "4."} รายละเอียดเพิ่มเติม (VAT, หัก ณ ที่จ่าย และหมายเหตุ)</span>
               {!showAdditionalDetails && (
                 <span className="mt-0.5 block text-label text-ink-500">
                   VAT {vatRate}% · หัก ณ ที่จ่าย {WHT_RATE_OPTIONS.find((o) => o.value === whtRate)?.label ?? whtRate} · {note.trim() ? "มีหมายเหตุ" : "ไม่มีหมายเหตุ"}
@@ -2854,31 +2952,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           </div>}
         </Card>
 
-        {isDeliveryNote && (
-          <DocumentOptionsCard>
-            <DocumentOptionSegmented
-              label="การแสดงจำนวนเงินใน PDF"
-              required
-              value={amountDisplay}
-              options={[
-                { value: "full", label: "แสดงจำนวนเงิน" },
-                { value: "hidden", label: "ซ่อนจำนวนเงิน" },
-                { value: "blank", label: "ฟอร์มเปล่า" },
-              ]}
-              description={amountDisplay ? AMOUNT_DISPLAY_DESCRIPTIONS[amountDisplay] : undefined}
-              error={amountDisplay == null ? "กรุณาเลือกการแสดงจำนวนเงินใน PDF ก่อนบันทึก" : undefined}
-              onChange={(value) => {
-                if (amountDisplay === "hidden" && value === "full") {
-                  const ok = window.confirm("การแสดงจำนวนเงินใน PDF ใบส่งของจะทำให้ผู้รับเห็นราคาและยอดรวม คุณแน่ใจหรือไม่?");
-                  if (!ok) return;
-                }
-                amountDisplayTouched.current = true;
-                setAmountDisplay(value);
-              }}
-            />
-          </DocumentOptionsCard>
-        )}
-
         {type === "invoice" && vatRegistered && (
           <DocumentOptionsCard>
             <div className="py-3 first:pt-0 last:pb-0">
@@ -2905,9 +2978,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         <div className="sticky-action z-10 rounded-card bg-page-bg/95 pb-2 pt-1 backdrop-blur">
           <div className="mb-2 flex items-end justify-between gap-3 px-1">
             <div>
-              <div className="text-body font-medium text-ink-900">5. ตรวจสอบและบันทึก</div>
+              <div className="text-body font-medium text-ink-900">{isDeliveryNote ? "6." : "5."} ตรวจสอบและบันทึก</div>
               <div className="mt-0.5 text-label text-ink-500">
                 {selectedCustomer?.name || "ยังไม่ได้เลือกลูกค้า"} · {isBillingNote ? `${selectedInvoiceIds.size} ใบแจ้งหนี้` : `${lineItems.filter((line) => line.item_name.trim()).length} รายการ`}
+                {isDeliveryNote && amountDisplay != null && amountDisplay !== "full" ? " · ไม่แสดงราคาใน PDF" : ""}
               </div>
             </div>
             <div className="shrink-0 text-right">
