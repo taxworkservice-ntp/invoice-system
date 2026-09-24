@@ -1,6 +1,18 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, BarChart3, Package, Users, Settings, Download, Percent, MoreHorizontal, LogOut } from "lucide-react";
+import {
+  Home,
+  FileText,
+  BarChart3,
+  Package,
+  Users,
+  Settings,
+  Download,
+  Percent,
+  MoreHorizontal,
+  LogOut,
+  Eye,
+} from "lucide-react";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
 import { useWorkspaceRole, useWorkspaceFeatures } from "../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../lib/permissions";
@@ -14,6 +26,7 @@ const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
   "/documents": <FileText className="w-5 h-5" />,
   "/download-center": <Download className="w-5 h-5" />,
+  "/monitoring": <Eye className="w-5 h-5" />,
   "/reports": <BarChart3 className="w-5 h-5" />,
   "/wht": <Percent className="w-5 h-5" />,
   "/catalog": <Package className="w-5 h-5" />,
@@ -34,7 +47,9 @@ export function BottomNav() {
   const workspaceFeatures = useWorkspaceFeatures(profile?.workspace_user_id ?? profile?.id);
 
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
-    if (item.path === "/payroll") return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
+    if (item.path === "/payroll")
+      return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
+    if (item.path === "/monitoring") return workspaceRole === "owner";
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canManageWht;
     if (item.path === "/download-center") return permissions.canExportReports;
@@ -92,10 +107,12 @@ export function BottomNav() {
                 key={item.path}
                 onClick={() => handleClick(item)}
                 aria-label={item.label}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${ isLogout ? "text-red-500 hover:text-red-600" : active ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700" }`}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${isLogout ? "text-red-500 hover:text-red-600" : active ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700"}`}
               >
                 {iconMap[item.path] || <Home className="w-5 h-5" />}
-                <span className="w-full truncate text-center text-label leading-tight">{item.label}</span>
+                <span className="w-full truncate text-center text-label leading-tight">
+                  {item.label}
+                </span>
               </button>
             );
           })}
@@ -103,7 +120,7 @@ export function BottomNav() {
             <button
               onClick={() => setOverflowOpen(true)}
               aria-label="เพิ่มเติม"
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${ overflowActive ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700" }`}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${overflowActive ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700"}`}
             >
               <MoreHorizontal className="w-5 h-5" />
               <span className="text-label whitespace-nowrap leading-tight">เพิ่มเติม</span>
@@ -121,7 +138,7 @@ export function BottomNav() {
                 <button
                   key={item.path}
                   onClick={() => handleOverflowClick(item)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-control text-body transition-colors ${ isLogout ? "text-red-500 hover:bg-red-50" : isActive(item.path) ? "bg-primary-soft text-primary font-medium" : "text-ink-700 hover:bg-paper-field" }`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-control text-body transition-colors ${isLogout ? "text-red-500 hover:bg-red-50" : isActive(item.path) ? "bg-primary-soft text-primary font-medium" : "text-ink-700 hover:bg-paper-field"}`}
                 >
                   {iconMap[item.path]}
                   <span>{item.label}</span>
@@ -134,9 +151,7 @@ export function BottomNav() {
 
       <Modal open={logoutOpen} onClose={() => setLogoutOpen(false)} title="ออกจากระบบ">
         <div className="space-y-4">
-          <p className="text-body text-ink-600">
-            คุณแน่ใจว่าต้องการออกจากระบบใช่หรือไม่?
-          </p>
+          <p className="text-body text-ink-600">คุณแน่ใจว่าต้องการออกจากระบบใช่หรือไม่?</p>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setLogoutOpen(false)}>
               ยกเลิก

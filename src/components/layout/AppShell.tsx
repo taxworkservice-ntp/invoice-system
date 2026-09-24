@@ -1,6 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, BarChart3, Package, Settings, Users, Download, ChevronRight, ArrowLeft, Percent, LogOut, Menu, PanelLeftClose, Wallet } from "lucide-react";
+import {
+  Home,
+  FileText,
+  BarChart3,
+  Package,
+  Settings,
+  Users,
+  Download,
+  ChevronRight,
+  ArrowLeft,
+  Percent,
+  LogOut,
+  Menu,
+  PanelLeftClose,
+  Wallet,
+  Eye,
+} from "lucide-react";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
@@ -18,6 +34,7 @@ const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
   "/documents": <FileText className="w-5 h-5" />,
   "/download-center": <Download className="w-5 h-5" />,
+  "/monitoring": <Eye className="w-5 h-5" />,
   "/reports": <BarChart3 className="w-5 h-5" />,
   "/wht": <Percent className="w-5 h-5" />,
   "/catalog": <Package className="w-5 h-5" />,
@@ -63,7 +80,13 @@ function WorkspaceMark({ profile }: { profile: ClientProfile | null }) {
   if (logoUrl) {
     return (
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-card-border bg-white overflow-hidden">
-        <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" loading="lazy" onError={() => setLogoFailed(true)} />
+        <img
+          src={logoUrl}
+          alt=""
+          className="h-full w-full object-contain p-1"
+          loading="lazy"
+          onError={() => setLogoFailed(true)}
+        />
       </div>
     );
   }
@@ -71,7 +94,15 @@ function WorkspaceMark({ profile }: { profile: ClientProfile | null }) {
   return null;
 }
 
-export function AppShell({ title, showBack, onBack, action, breadcrumbs, width = "data", children }: AppShellProps) {
+export function AppShell({
+  title,
+  showBack,
+  onBack,
+  action,
+  breadcrumbs,
+  width = "data",
+  children,
+}: AppShellProps) {
   const containerClass = contentClass[width];
   const location = useLocation();
   const navigate = useNavigate();
@@ -84,7 +115,9 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, width =
     return window.localStorage.getItem("invoice-system.sidebar-expanded") !== "false";
   });
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
-    if (item.path === "/payroll") return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
+    if (item.path === "/payroll")
+      return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
+    if (item.path === "/monitoring") return workspaceRole === "owner";
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canManageWht;
     if (item.path === "/download-center") return permissions.canExportReports;
@@ -126,12 +159,16 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, width =
   }
 
   const roleLabel = workspaceRole ? WORKSPACE_ROLE_LABELS[workspaceRole] : "Workspace";
-  const vatLabel = clientProfile?.vat_registered ? `VAT ${clientProfile.vat_rate || 7}%` : "Non-VAT";
+  const vatLabel = clientProfile?.vat_registered
+    ? `VAT ${clientProfile.vat_rate || 7}%`
+    : "Non-VAT";
   const workspaceMeta = `${roleLabel} · ${vatLabel}`;
 
   return (
     <div className="md:flex min-h-screen bg-page-bg">
-      <aside className={`hidden md:flex md:flex-col md:h-screen md:sticky md:top-0 bg-white border-r border-card-border shrink-0 transition-[width] duration-200 ${sidebarExpanded ? "md:w-64" : "md:w-16"}`}>
+      <aside
+        className={`hidden md:flex md:flex-col md:h-screen md:sticky md:top-0 bg-white border-r border-card-border shrink-0 transition-[width] duration-200 ${sidebarExpanded ? "md:w-64" : "md:w-16"}`}
+      >
         <div className="border-b border-card-border p-3">
           <div className={`flex items-center gap-2 ${sidebarExpanded ? "" : "flex-col"}`}>
             <button
@@ -144,12 +181,17 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, width =
               {sidebarExpanded ? (
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center">
-                    <h1 className="truncate text-body font-semibold text-ink-900" title={companyName}>
+                    <h1
+                      className="truncate text-body font-semibold text-ink-900"
+                      title={companyName}
+                    >
                       {companyName}
                     </h1>
                     <DevBadge />
                   </div>
-                  <p className="mt-0.5 truncate text-label font-medium text-ink-400">{workspaceMeta}</p>
+                  <p className="mt-0.5 truncate text-label font-medium text-ink-400">
+                    {workspaceMeta}
+                  </p>
                 </div>
               ) : null}
             </button>
@@ -160,7 +202,11 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, width =
               title={sidebarExpanded ? "ย่อเมนู" : "ขยายเมนู"}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-ink-500 transition-colors hover:bg-page-bg hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
             >
-              {sidebarExpanded ? <PanelLeftClose className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {sidebarExpanded ? (
+                <PanelLeftClose className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </button>
           </div>
         </div>
@@ -170,7 +216,7 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, width =
               key={item.path}
               to={item.path}
               title={sidebarExpanded ? undefined : item.label}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-control text-body transition-colors ${ isActive(item.path) ? "bg-primary-soft font-medium text-primary" : "text-ink-600 hover:bg-page-bg hover:text-ink-900" } ${sidebarExpanded ? "" : "justify-center px-0"}`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-control text-body transition-colors ${isActive(item.path) ? "bg-primary-soft font-medium text-primary" : "text-ink-600 hover:bg-page-bg hover:text-ink-900"} ${sidebarExpanded ? "" : "justify-center px-0"}`}
             >
               {iconMap[item.path] || <Home className="w-5 h-5" />}
               {sidebarExpanded ? <span>{item.label}</span> : null}
@@ -215,7 +261,9 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, width =
                 <React.Fragment key={i}>
                   {i > 0 && <ChevronRight className="w-3 h-3 text-ink-400" />}
                   {item.path ? (
-                    <Link to={item.path} className="hover:text-primary transition-colors">{item.label}</Link>
+                    <Link to={item.path} className="hover:text-primary transition-colors">
+                      {item.label}
+                    </Link>
                   ) : (
                     <span className="text-ink-700 font-medium">{item.label}</span>
                   )}
@@ -224,7 +272,9 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, width =
             </nav>
           </div>
         )}
-        <main className={`mx-auto w-full px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8 ${containerClass}`}>
+        <main
+          className={`mx-auto w-full px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8 ${containerClass}`}
+        >
           {children}
         </main>
       </div>
@@ -233,9 +283,7 @@ export function AppShell({ title, showBack, onBack, action, breadcrumbs, width =
 
       <Modal open={logoutOpen} onClose={() => setLogoutOpen(false)} title="ออกจากระบบ">
         <div className="space-y-4">
-          <p className="text-body text-ink-600">
-            คุณแน่ใจว่าต้องการออกจากระบบใช่หรือไม่?
-          </p>
+          <p className="text-body text-ink-600">คุณแน่ใจว่าต้องการออกจากระบบใช่หรือไม่?</p>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setLogoutOpen(false)}>
               ยกเลิก

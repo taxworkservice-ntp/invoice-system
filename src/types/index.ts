@@ -29,35 +29,18 @@ export type ItemType = "product" | "service";
 export type JobDetailPresetField = string;
 export type JobDetailFieldType = "text" | "dimension";
 export type ClientFeatureKey =
-  | "service_job_details"
-  | "classic_v2_template"
-  | "dn_appendix"
-  | "payroll";
+  "service_job_details" | "classic_v2_template" | "dn_appendix" | "payroll";
 
-export type StockMovementType =
-  "manual_in" | "manual_out" | "auto_out" | "auto_in" | "return_in";
+export type StockMovementType = "manual_in" | "manual_out" | "auto_out" | "auto_in" | "return_in";
 
 export type PaymentMethod = "cash" | "bank_transfer" | "cheque";
 
 export type WhtRate = "0" | "1" | "2" | "3" | "5";
 
 export type StoragePurpose =
-  | "logos"
-  | "signatures"
-  | "stamps"
-  | "pdfs"
-  | "exports"
-  | "attachments"
-  | "line-images";
+  "logos" | "signatures" | "stamps" | "pdfs" | "exports" | "attachments" | "line-images";
 
-export type WhtFormType =
-  | "pnd1"
-  | "pnd1_special"
-  | "pnd2"
-  | "pnd3"
-  | "pnd2a"
-  | "pnd3a"
-  | "pnd53";
+export type WhtFormType = "pnd1" | "pnd1_special" | "pnd2" | "pnd3" | "pnd2a" | "pnd3a" | "pnd53";
 
 export interface Profile {
   id: string;
@@ -332,6 +315,9 @@ export interface DealActivity {
     doc_number?: string | null;
     status?: string;
     amount?: number | null;
+    old_status?: string | null;
+    amount_before?: number | null;
+    voided_reason?: string | null;
   };
   created_at: string;
 }

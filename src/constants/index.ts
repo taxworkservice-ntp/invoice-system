@@ -83,9 +83,21 @@ export const PDF_TEMPLATE_OPTIONS: { value: string; label: string; desc: string 
   { value: "modern", label: "โมเดิร์น", desc: "ดีไซน์บางเบา เส้นสีอ่อน ดูทันสมัย" },
 ];
 
-export const LOGO_SIZE_OPTIONS: { value: string; label: string; px: number; mm: string; desc: string }[] = [
+export const LOGO_SIZE_OPTIONS: {
+  value: string;
+  label: string;
+  px: number;
+  mm: string;
+  desc: string;
+}[] = [
   { value: "small", label: "เล็ก", px: 48, mm: "~13มม.", desc: "ตราสัญลักษณ์สี่เหลี่ยม" },
-  { value: "square", label: "มาตรฐาน", px: 64, mm: "~17มม.", desc: "ค่าเริ่มต้น — สมดุลกับชื่อบริษัท" },
+  {
+    value: "square",
+    label: "มาตรฐาน",
+    px: 64,
+    mm: "~17มม.",
+    desc: "ค่าเริ่มต้น — สมดุลกับชื่อบริษัท",
+  },
   { value: "medium", label: "กลาง", px: 96, mm: "~25มม.", desc: "โลโก้ตัวอักษรแนวนอนให้อ่านชัด" },
   { value: "rectangle", label: "ใหญ่", px: 128, mm: "~34มม.", desc: "โลโก้ตัวอักษรกว้าง" },
   { value: "large", label: "แบนเนอร์", px: 312, mm: "~83มม.", desc: "ใช้ร่วมกับการปิดชื่อบริษัท" },
@@ -198,7 +210,9 @@ export const CLASSIC_V2_SECTION_FONT_KEYS: ClassicV2SectionFontKey[] = [
  * resolves to the global scale — so keys absent from stored jsonb render
  * exactly as before this refinement shipped.
  */
-export const CLASSIC_V2_SUB_SLOT_PARENT: Partial<Record<ClassicV2SectionFontKey, ClassicV2SectionFontKey>> = {
+export const CLASSIC_V2_SUB_SLOT_PARENT: Partial<
+  Record<ClassicV2SectionFontKey, ClassicV2SectionFontKey>
+> = {
   header_company: "header",
   header_title: "header",
   header_info: "header",
@@ -213,10 +227,9 @@ export const CLASSIC_V2_SUB_SLOT_PARENT: Partial<Record<ClassicV2SectionFontKey,
 
 /** Default workspace section-scale state — every slot follows its parent. */
 export const CLASSIC_V2_DEFAULT_SECTION_SCALES: Record<ClassicV2SectionFontKey, string> =
-  Object.fromEntries(CLASSIC_V2_SECTION_FONT_KEYS.map((key) => [key, CLASSIC_V2_SECTION_INHERIT])) as Record<
-    ClassicV2SectionFontKey,
-    string
-  >;
+  Object.fromEntries(
+    CLASSIC_V2_SECTION_FONT_KEYS.map((key) => [key, CLASSIC_V2_SECTION_INHERIT]),
+  ) as Record<ClassicV2SectionFontKey, string>;
 
 /** Keys of the ตารางรายการ (items table) sub-group. */
 export const CLASSIC_V2_ITEMS_TABLE_ROWS: { key: ClassicV2SectionFontKey; label: string }[] = [
@@ -245,10 +258,10 @@ export const CLASSIC_V2_SECTION_SUB_ROWS: Partial<
 };
 
 /** Short parent names used in sub-row inherit labels ("ตามส่วนหัว (9pt)"). */
-export const CLASSIC_V2_SECTION_PARENT_LABELS: Record<
-  "header" | "totals",
-  string
-> = { header: "ส่วนหัว", totals: "ยอดรวม" };
+export const CLASSIC_V2_SECTION_PARENT_LABELS: Record<"header" | "totals", string> = {
+  header: "ส่วนหัว",
+  totals: "ยอดรวม",
+};
 
 /**
  * Multiplier for one Classic V2 section: an explicit workspace preset wins,
@@ -298,7 +311,7 @@ export const CLASSIC_V2_TYPE_GLOBAL_KEY = "global";
 export const CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM = 7;
 
 /**
-  * Height (mm) of one optional document-meta row (ชื่อโครงการ / PROJECT,
+ * Height (mm) of one optional document-meta row (ชื่อโครงการ / PROJECT,
  * เลขที่ใบสั่งซื้อ / PO NO.) in the classic V2 info band — measured 6.35mm at
  * ปกติ, rounded up; scales with the header section. Reserved from first/last
  * page budgets when the field is filled so dense pages never overflow A4.
@@ -425,6 +438,7 @@ export const BOTTOM_NAV_ITEMS = [
   { label: "ลูกค้า", path: "/customers" },
   { label: "เงินเดือน", path: "/payroll" },
   { label: "รายงาน", path: "/reports" },
+  { label: "ติดตามงาน", path: "/monitoring" },
   { label: "หัก ณ ที่จ่าย", path: "/wht" },
   { label: "ดาวน์โหลด", path: "/download-center" },
   { label: "ตั้งค่า", path: "/settings" },

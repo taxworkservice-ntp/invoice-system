@@ -31,6 +31,7 @@ const SettingsAccountPage = lazy(() => import("./app/(client)/settings/account")
 const SettingsTeamPage = lazy(() => import("./app/(client)/settings/team"));
 const SettingsPayrollPage = lazy(() => import("./app/(client)/settings/payroll"));
 const ReportsPage = lazy(() => import("./app/(client)/reports/index"));
+const MonitoringPage = lazy(() => import("./app/(client)/monitoring/index"));
 const DownloadCenterPage = lazy(() => import("./app/(client)/download-center/index"));
 const WhtPage = lazy(() => import("./app/(client)/wht/index"));
 const WhtPrintPage = lazy(() => import("./app/(client)/wht/print"));
@@ -72,59 +73,217 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-    <Suspense fallback={<RouteFallback />}>
-      <Routes>
-        <Route path="/login" element={!role ? <LoginPage /> : <Navigate to={isAdmin ? "/admin/clients" : "/home"} replace />} />
-        <Route path="/setup" element={<SetupPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/set-password" element={<SetPasswordPage />} />
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              !role ? <LoginPage /> : <Navigate to={isAdmin ? "/admin/clients" : "/home"} replace />
+            }
+          />
+          <Route path="/setup" element={<SetupPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/set-password" element={<SetPasswordPage />} />
 
-        {role === "client" ? (
-          <>
-            <Route path="/home" element={<HomePage />} />
-            <Route path="/deals/new" element={<NewDealPage />} />
-            <Route path="/deals/:id" element={<DealDetailPage />} />
-            <Route path="/documents" element={<DocumentsPage />} />
-            <Route path="/documents/new" element={<NewDocumentPage />} />
-            <Route path="/documents/:id/edit" element={<EditDocumentPage />} />
-            <Route path="/documents/:id/edit-utility" element={<EditUtilityBillPage />} />
-            <Route path="/documents/:id/print" element={<DocumentPrintPreviewPage />} />
-            <Route path="/documents/:id" element={<DocumentDetailPage />} />
-            <Route path="/catalog" element={permissions.canViewCatalog ? <CatalogPage /> : <Navigate to="/home" replace />} />
-            <Route path="/catalog/new" element={permissions.canManageCatalog ? <CatalogNewPage /> : <Navigate to="/catalog" replace />} />
-            <Route path="/catalog/:id/edit" element={permissions.canManageCatalog ? <CatalogEditPage /> : <Navigate to="/catalog" replace />} />
-            <Route path="/catalog/:id" element={permissions.canViewCatalog ? <CatalogItemPage /> : <Navigate to="/home" replace />} />
-            <Route path="/customers" element={permissions.canViewCustomers ? <CustomersPage /> : <Navigate to="/home" replace />} />
-            <Route path="/customers/:id" element={permissions.canViewCustomers ? <CustomerDetailPage /> : <Navigate to="/home" replace />} />
-            <Route path="/payroll" element={canManagePayroll ? <PayrollPage /> : <Navigate to="/home" replace />} />
-            <Route path="/payroll/employees" element={canManagePayroll ? <EmployeesPage /> : <Navigate to="/home" replace />} />
-            <Route path="/reports" element={permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />} />
-            <Route path="/download-center" element={permissions.canExportReports ? <DownloadCenterPage /> : <Navigate to="/home" replace />} />
-            <Route path="/wht" element={permissions.canManageWht ? <WhtPage /> : <Navigate to="/home" replace />} />
-            <Route path="/wht/print" element={permissions.canManageWht ? <WhtPrintPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings/company" element={permissions.canManageSettings ? <SettingsCompanyPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings/documents" element={permissions.canManageSettings ? <SettingsDocumentsPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings/tax" element={permissions.canManageSettings ? <SettingsTaxPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings/numbering" element={permissions.canManageSettings ? <SettingsNumberingPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings/stock" element={permissions.canManageSettings ? <SettingsStockPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings/account" element={permissions.canManageSettings ? <SettingsAccountPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings/team" element={workspaceRole === "owner" ? <SettingsTeamPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings/payroll" element={permissions.canManageSettings ? <SettingsPayrollPage /> : <Navigate to="/home" replace />} />
-            <Route path="/settings" element={permissions.canManageSettings ? <Navigate to="/settings/company" replace /> : <Navigate to="/home" replace />} />
-            <Route path="*" element={<Navigate to="/home" replace />} />
-          </>
-        ) : role === "admin" ? (
-          <>
-            <Route path="/admin/clients" element={<AdminClients />} />
-            <Route path="/admin/clients/new" element={<AdminClientNew />} />
-            <Route path="/admin/clients/:id" element={<AdminClientDetail />} />
-            <Route path="*" element={<Navigate to="/admin/clients" replace />} />
-          </>
-        ) : null}
+          {role === "client" ? (
+            <>
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/deals/new" element={<NewDealPage />} />
+              <Route path="/deals/:id" element={<DealDetailPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/documents/new" element={<NewDocumentPage />} />
+              <Route path="/documents/:id/edit" element={<EditDocumentPage />} />
+              <Route path="/documents/:id/edit-utility" element={<EditUtilityBillPage />} />
+              <Route path="/documents/:id/print" element={<DocumentPrintPreviewPage />} />
+              <Route path="/documents/:id" element={<DocumentDetailPage />} />
+              <Route
+                path="/catalog"
+                element={
+                  permissions.canViewCatalog ? <CatalogPage /> : <Navigate to="/home" replace />
+                }
+              />
+              <Route
+                path="/catalog/new"
+                element={
+                  permissions.canManageCatalog ? (
+                    <CatalogNewPage />
+                  ) : (
+                    <Navigate to="/catalog" replace />
+                  )
+                }
+              />
+              <Route
+                path="/catalog/:id/edit"
+                element={
+                  permissions.canManageCatalog ? (
+                    <CatalogEditPage />
+                  ) : (
+                    <Navigate to="/catalog" replace />
+                  )
+                }
+              />
+              <Route
+                path="/catalog/:id"
+                element={
+                  permissions.canViewCatalog ? <CatalogItemPage /> : <Navigate to="/home" replace />
+                }
+              />
+              <Route
+                path="/customers"
+                element={
+                  permissions.canViewCustomers ? <CustomersPage /> : <Navigate to="/home" replace />
+                }
+              />
+              <Route
+                path="/customers/:id"
+                element={
+                  permissions.canViewCustomers ? (
+                    <CustomerDetailPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/payroll"
+                element={canManagePayroll ? <PayrollPage /> : <Navigate to="/home" replace />}
+              />
+              <Route
+                path="/payroll/employees"
+                element={canManagePayroll ? <EmployeesPage /> : <Navigate to="/home" replace />}
+              />
+              <Route
+                path="/reports"
+                element={
+                  permissions.canViewReports ? <ReportsPage /> : <Navigate to="/home" replace />
+                }
+              />
+              <Route
+                path="/monitoring"
+                element={
+                  workspaceRole === "owner" ? <MonitoringPage /> : <Navigate to="/home" replace />
+                }
+              />
+              <Route
+                path="/download-center"
+                element={
+                  permissions.canExportReports ? (
+                    <DownloadCenterPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/wht"
+                element={permissions.canManageWht ? <WhtPage /> : <Navigate to="/home" replace />}
+              />
+              <Route
+                path="/wht/print"
+                element={
+                  permissions.canManageWht ? <WhtPrintPage /> : <Navigate to="/home" replace />
+                }
+              />
+              <Route
+                path="/settings/company"
+                element={
+                  permissions.canManageSettings ? (
+                    <SettingsCompanyPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/settings/documents"
+                element={
+                  permissions.canManageSettings ? (
+                    <SettingsDocumentsPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/settings/tax"
+                element={
+                  permissions.canManageSettings ? (
+                    <SettingsTaxPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/settings/numbering"
+                element={
+                  permissions.canManageSettings ? (
+                    <SettingsNumberingPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/settings/stock"
+                element={
+                  permissions.canManageSettings ? (
+                    <SettingsStockPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/settings/account"
+                element={
+                  permissions.canManageSettings ? (
+                    <SettingsAccountPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/settings/team"
+                element={
+                  workspaceRole === "owner" ? <SettingsTeamPage /> : <Navigate to="/home" replace />
+                }
+              />
+              <Route
+                path="/settings/payroll"
+                element={
+                  permissions.canManageSettings ? (
+                    <SettingsPayrollPage />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  permissions.canManageSettings ? (
+                    <Navigate to="/settings/company" replace />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
+              <Route path="*" element={<Navigate to="/home" replace />} />
+            </>
+          ) : role === "admin" ? (
+            <>
+              <Route path="/admin/clients" element={<AdminClients />} />
+              <Route path="/admin/clients/new" element={<AdminClientNew />} />
+              <Route path="/admin/clients/:id" element={<AdminClientDetail />} />
+              <Route path="*" element={<Navigate to="/admin/clients" replace />} />
+            </>
+          ) : null}
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </Suspense>
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
     </ErrorBoundary>
   );
 }
