@@ -19,17 +19,15 @@ export function PayrollTabs() {
     : "/payroll";
 
   return (
-    <div
+    <nav
       className="inline-flex rounded-control border border-card-border bg-paper-field p-0.5"
-      role="tablist"
       aria-label="ส่วนเงินเดือน"
     >
       {TABS.map((tab) => (
         <button
           key={tab.value}
           type="button"
-          role="tab"
-          aria-selected={active === tab.value}
+          aria-current={active === tab.value ? "page" : undefined}
           onClick={() => {
             if (active !== tab.value) navigate(tab.value);
           }}
@@ -38,6 +36,6 @@ export function PayrollTabs() {
           {tab.label}
         </button>
       ))}
-    </div>
+    </nav>
   );
 }

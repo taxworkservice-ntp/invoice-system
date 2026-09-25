@@ -44,6 +44,7 @@ import { getWorkspacePermissions } from "../../../lib/permissions";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { getProxiedImageUrl } from "../../../lib/r2";
 import { thaiNumberToWords } from "../../../lib/thaiNumberToWords";
+import { formatBuddhistDate } from "../../../lib/dates";
 import { useToast } from "../../../hooks/useToast";
 import {
   calculateBreakdown,
@@ -69,9 +70,11 @@ import { slipNodeToPdfBlob, sanitizePdfFilename } from "../../../lib/payroll/pay
 import {
   formatPayRangeLabel,
   suggestNextWindow,
+  suggestMonthPlan,
   BATCH_TYPE_LABELS,
   expectedSalaryBatches,
   type BatchType,
+  type MonthPlanSlot,
 } from "../../../lib/payroll/schedule";
 import { AttendancePanel } from "../../../components/payroll/AttendancePanel";
 import { PayrollTabs } from "../../../components/payroll/PayrollTabs";
@@ -300,6 +303,48 @@ export default function PayrollPage() {
     holiday_ot_multiplier: 3.0,
   });
   const [loading, setLoading] = useState(true);
+  // True after the first successful load: refetches keep stale content
+  // visible with a small indicator instead of flashing a full-page spinner.
+  const [booted, setBooted] = useState(false);
+  // Guided month plan: salary halves + evenly sliced OT windows from
+  // settings. Slots match existing runs by type + exact range; anything
+  // else (adjustments, custom ranges) stays in the fallback chip row.
+  const monthPlan = useMemo(
+    () =>
+      suggestMonthPlan(year, month, {
+        frequency: settings.pay_frequency ?? "semimonthly",
+        anchorDay: settings.pay_anchor_day ?? 15,
+        otPerMonth: settings.ot_batches_per_month ?? 0,
+      }),
+    [year, month, settings.pay_frequency, settings.pay_anchor_day, settings.ot_batches_per_month],
+  );
+  const monthPlanViews = useMemo(
+    () =>
+      monthPlan.map((slot) => ({
+        slot,
+        run:
+          runs.find(
+            (r) =>
+              batchTypeOf(r) === slot.batchType &&
+              r.period_start === slot.start &&
+              r.period_end === slot.end,
+          ) ?? null,
+      })),
+    [monthPlan, runs],
+  );
+  const unplannedRuns = useMemo(
+    () =>
+      runs.filter(
+        (r) =>
+          !monthPlan.some(
+            (slot) =>
+              batchTypeOf(r) === slot.batchType &&
+              r.period_start === slot.start &&
+              r.period_end === slot.end,
+          ),
+      ),
+    [monthPlan, runs],
+  );
   const [printEmployee, setPrintEmployee] = useState<Employee | null>(null);
   const [detailEmployee, setDetailEmployee] = useState<Employee | null>(null);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
@@ -328,6 +373,7 @@ export default function PayrollPage() {
     ot_end: "",
   });
   const [creating, setCreating] = useState(false);
+  const [creatingSlotKey, setCreatingSlotKey] = useState<string | null>(null);
   const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
   const [deletingRun, setDeletingRun] = useState(false);
   const [showEditRunModal, setShowEditRunModal] = useState(false);
@@ -422,6 +468,7 @@ export default function PayrollPage() {
     if (!userId) return;
     if (schemaOutdated) {
       setLoading(false);
+      setBooted(true);
       return;
     }
     setLoading(true);
@@ -475,6 +522,7 @@ export default function PayrollPage() {
     setHistoryRuns((historyData ?? []) as PayrollRun[]);
 
     setLoading(false);
+    setBooted(true);
   }, [userId, month, year, schemaOutdated]);
 
   useEffect(() => {
@@ -576,6 +624,7 @@ export default function PayrollPage() {
     }
 
     setLoading(false);
+    setBooted(true);
   }, [userId, run?.id]);
 
   useEffect(() => {
@@ -593,7 +642,7 @@ export default function PayrollPage() {
     if (!run || !userId) return;
     if (value < run.period_end) {
       setPayDate(run.pay_date);
-      toast.error(`วันจ่ายต้องไม่ก่อนวันสิ้นสุดรอบ (${run.period_end})`);
+      toast.error(`วันจ่ายต้องไม่ก่อนวันสิ้นสุดรอบ (${formatBuddhistDate(run.period_end)})`);
       return;
     }
     const { error } = await supabase
@@ -795,6 +844,69 @@ export default function PayrollPage() {
     setCreating(false);
   }
 
+  /**
+   * One-tap planned-slot creation from the month plan strip: dates, label,
+   * pay date, and type prefilled — no form. Same-type collisions (still
+   * forbidden) name the colliding run instead of a bare overlap error.
+   */
+  async function handleCreatePlannedSlot(slot: MonthPlanSlot) {
+    if (!userId || creatingSlotKey) return;
+    const key = `${slot.batchType}:${slot.start}:${slot.end}`;
+    const clash = runs.find(
+      (r) =>
+        batchTypeOf(r) === slot.batchType &&
+        slot.start <= r.period_end &&
+        slot.end >= r.period_start,
+    );
+    if (clash) {
+      toast.error(
+        `มี${BATCH_TYPE_LABELS[slot.batchType]}ช่วงนี้แล้ว (${clash.label || formatPayRangeLabel({ start: clash.period_start, end: clash.period_end })})`,
+      );
+      setSelectedRunId(clash.id);
+      return;
+    }
+    setCreatingSlotKey(key);
+    const endMonth = Number(slot.end.slice(5, 7));
+    const endYear = Number(slot.end.slice(0, 4));
+    const { data, error } = await supabase
+      .from("payroll_runs")
+      .insert({
+        user_id: userId,
+        period_month: endMonth,
+        period_year: endYear,
+        period_start: slot.start,
+        period_end: slot.end,
+        label: slot.label,
+        pay_date: slot.end,
+        status: "draft",
+        ...(supportsBatchType ? { batch_type: slot.batchType } : {}),
+      })
+      .select("*")
+      .single();
+    setCreatingSlotKey(null);
+    if (error || !data) {
+      toast.error(
+        error?.code === "23P01" ? "ช่วงรอบนี้ทับซ้อนกับรอบอื่นแล้ว" : "ไม่สามารถสร้างรอบได้",
+      );
+      return;
+    }
+    setSelectedRunId((data as PayrollRun).id);
+    toast.success(`สร้าง${slot.label}แล้ว`);
+    await fetchData();
+    await logAuditEvent({
+      action: AUDIT_ACTIONS.PAYROLL_RUN_CREATED,
+      entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
+      entity_id: (data as PayrollRun).id,
+      details: {
+        period_start: slot.start,
+        period_end: slot.end,
+        label: slot.label,
+        batch_type: slot.batchType,
+        from_plan: true,
+      },
+    });
+  }
+
   function openEditRunModal() {
     if (!run || run.status !== "draft") return;
     const rr = run as PayrollRun & { ot_start?: string | null; ot_end?: string | null };
@@ -890,6 +1002,18 @@ export default function PayrollPage() {
       employee_count: run.employee_count,
     };
     setDeletingRun(true);
+    // Clean synced tax rows first: otherwise the FK (SET NULL) orphans them
+    // and re-syncing a recreated period would file twice. Certified (done)
+    // rows are kept by design and disclosed below.
+    let keptDoneWht = 0;
+    try {
+      const cleanup = await cleanupRunWht(run.id);
+      keptDoneWht = cleanup.keptDone;
+    } catch {
+      toast.error("ลบข้อมูลภาษีของรอบไม่สำเร็จ จึงยังไม่ลบรอบ");
+      setDeletingRun(false);
+      return;
+    }
     const { error } = await supabase
       .from("payroll_runs")
       .delete()
@@ -900,13 +1024,17 @@ export default function PayrollPage() {
     } else {
       setShowDeleteRunModal(false);
       setSelectedRunId(null);
-      toast.success("ลบรอบเงินเดือนแล้ว");
+      toast.success(
+        keptDoneWht > 0
+          ? `ลบรอบเงินเดือนแล้ว (เก็บภาษีที่ออกใบรับรองแล้ว ${keptDoneWht} รายการไว้ — ลบที่หน้าภาษีหากต้องการ)`
+          : "ลบรอบเงินเดือนแล้ว",
+      );
       await fetchData();
       await logAuditEvent({
         action: AUDIT_ACTIONS.PAYROLL_RUN_DELETED,
         entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
         entity_id: run.id,
-        details: snapshot,
+        details: { ...snapshot, wht_kept_done: keptDoneWht },
       });
     }
     setDeletingRun(false);
@@ -1042,6 +1170,17 @@ export default function PayrollPage() {
       toast.error(`กรุณาตรวจสอบข้อมูลพนักงาน ${incompleteEmployees.length} คนก่อนปิดรอบ`);
       setShowFinalizeModal(false);
       return;
+    }
+
+    // Force-save every line first: the screen, exports, and WHT sync must all
+    // read the same stored rows. Abort on the first failure — never lock in
+    // partially saved numbers.
+    for (const employee of employees) {
+      const saved = await handleSaveLineItem(employee.id, getEffectiveItem(employee.id));
+      if (!saved) {
+        toast.error(`บันทึกข้อมูล${employee.full_name}ไม่สำเร็จ จึงยังไม่ปิดรอบ`);
+        return;
+      }
     }
 
     const { data: authData } = await supabase.auth.getUser();
@@ -1689,16 +1828,23 @@ export default function PayrollPage() {
                   setPayDateInvalid(true);
                   setTimeout(() => setPayDateInvalid(false), 3000);
                   toast.error(
-                    `วันจ่ายตอนนี้คือ ${payDate} — ต้องเป็น ${run.period_end} ขึ้นไป แก้ไขได้ที่ช่อง "วันจ่าย" ด้านบน`,
+                    `วันจ่ายตอนนี้คือ ${formatBuddhistDate(payDate)} — ต้องเป็น ${formatBuddhistDate(run.period_end)} ขึ้นไป แก้ไขได้ที่ช่อง "วันจ่าย" ด้านบน`,
                   );
                   return;
                 }
-                setWhtPickIds(defaultWhtPick());
+                setWhtPickIds((prev) => prev ?? defaultWhtPick());
                 setWhtDescOverrides({});
                 setShowFinalizeModal(true);
               }}
               className="!rounded-control"
               disabled={employees.length === 0 || incompleteEmployees.length > 0}
+              title={
+                incompleteEmployees.length > 0
+                  ? `ต้องตรวจสอบข้อมูล ${incompleteEmployees.length} คนก่อนปิดรอบ`
+                  : employees.length === 0
+                    ? "ยังไม่มีพนักงานในรอบนี้"
+                    : "ปิดรอบเงินเดือน"
+              }
             >
               ปิดรอบ
             </Button>
@@ -1707,55 +1853,58 @@ export default function PayrollPage() {
       }
     >
       <div className="space-y-4">
-        <PayrollTabs />
-
-        <Card>
-          <div className="flex flex-wrap items-end gap-3">
-            <Select
-              label="เดือน"
-              value={month}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              className="w-[140px]"
-            >
-              {MONTHS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              label="ปี"
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              className="w-[100px]"
-            >
-              {[year - 1, year, year + 1].map((y) => (
-                <option key={y} value={y}>
-                  {y + 543}
-                </option>
-              ))}
-            </Select>
-            <div
-              className={`relative ${payDateInvalid ? "[&_input]:border-red-400 [&_input]:ring-2 [&_input]:ring-red-200" : ""}`}
-            >
-              <Input
-                label="วันจ่าย"
-                type="date"
-                value={payDate}
-                onChange={(e) => handlePayDateChange(e.target.value)}
-                disabled={run?.status === "finalized"}
-                title={
-                  run?.status === "finalized"
-                    ? "รอบปิดแล้ว — เปิดรอบใหม่เพื่อแก้ไข"
-                    : "วันที่จ่ายเงินพนักงาน (ต้องไม่ก่อนวันสิ้นสุดรอบ)"
-                }
-                className="w-[160px]"
-              />
-              {payDateSaved && (
-                <span className="absolute right-2 top-[2px] flex items-center gap-0.5 text-label text-green-600 pointer-events-none">
-                  <Check className="w-3 h-3" /> บันทึกแล้ว
-                </span>
-              )}
+        <Card className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <PayrollTabs />
+            <div className="flex items-center gap-2">
+              <Select
+                aria-label="เดือน"
+                title="เดือน"
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="w-[118px]"
+              >
+                {MONTHS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                aria-label="ปี"
+                title="ปี (พ.ศ.)"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="w-[88px]"
+              >
+                {[year - 1, year, year + 1].map((y) => (
+                  <option key={y} value={y}>
+                    {y + 543}
+                  </option>
+                ))}
+              </Select>
+              <div
+                className={`relative ${payDateInvalid ? "[&_input]:border-red-400 [&_input]:ring-2 [&_input]:ring-red-200" : ""}`}
+              >
+                <Input
+                  aria-label="วันจ่าย"
+                  title={
+                    run?.status === "finalized"
+                      ? "รอบปิดแล้ว — เปิดรอบใหม่เพื่อแก้ไข"
+                      : "วันที่จ่ายเงินพนักงาน (ต้องไม่ก่อนวันสิ้นสุดรอบ)"
+                  }
+                  type="date"
+                  value={payDate}
+                  onChange={(e) => handlePayDateChange(e.target.value)}
+                  disabled={run?.status === "finalized"}
+                  className="w-[132px]"
+                />
+                {payDateSaved && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-label text-green-600 pointer-events-none">
+                    <Check className="w-3 h-3" />
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex-1" />
             {run && (
@@ -1795,52 +1944,65 @@ export default function PayrollPage() {
             )}
           </div>
 
-          {runs.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-card-border flex flex-wrap gap-2 items-center">
-              {runs.map((r) => {
-                const isCurrent = r.id === selectedRunId;
-                const rangeLabel =
-                  r.label || formatPayRangeLabel({ start: r.period_start, end: r.period_end });
-                return (
-                  <button
-                    key={r.id}
-                    onClick={() => setSelectedRunId(r.id)}
-                    disabled={isCurrent}
-                    title={`${r.period_start} → ${r.period_end}`}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border text-label font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep cursor-default" : "bg-white border-card-border text-ink-600 hover:border-primary/30 hover:text-primary"}`}
-                  >
-                    <span>{rangeLabel}</span>
-                    {supportsBatchType && (
+          {monthPlan.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-card-border">
+              <MonthPlanStrip
+                views={monthPlanViews}
+                selectedRunId={selectedRunId}
+                creatingKey={creatingSlotKey}
+                onSelectRun={setSelectedRunId}
+                onCreateSlot={handleCreatePlannedSlot}
+                onCustomRange={openCreateCustomModal}
+              />
+            </div>
+          )}
+          {unplannedRuns.length > 0 && (
+            <div className="mt-2">
+              <div className="mb-1 text-label font-semibold text-ink-500">รอบอื่น ๆ</div>
+              <div className="flex gap-2 items-center overflow-x-auto">
+                {unplannedRuns.map((r) => {
+                  const isCurrent = r.id === selectedRunId;
+                  const rangeLabel =
+                    r.label || formatPayRangeLabel({ start: r.period_start, end: r.period_end });
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => setSelectedRunId(r.id)}
+                      disabled={isCurrent}
+                      title={`${r.period_start} → ${r.period_end}`}
+                      className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control border text-label font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep cursor-default" : "bg-white border-card-border text-ink-600 hover:border-primary/30 hover:text-primary"}`}
+                    >
+                      <span className="whitespace-nowrap">{rangeLabel}</span>
+                      {supportsBatchType && (
+                        <span
+                          className={`shrink-0 rounded px-1 py-px text-label font-semibold ${BATCH_BADGE[batchTypeOf(r)]}`}
+                        >
+                          {BATCH_TYPE_LABELS[batchTypeOf(r)]}
+                        </span>
+                      )}
                       <span
-                        className={`shrink-0 rounded px-1 py-px text-label font-semibold ${BATCH_BADGE[batchTypeOf(r)]}`}
-                      >
-                        {BATCH_TYPE_LABELS[batchTypeOf(r)]}
-                      </span>
-                    )}
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${r.status === "finalized" ? "bg-green-500" : "bg-amber-400"}`}
-                      aria-label={r.status === "finalized" ? "ปิดรอบ" : "ร่าง"}
-                    />
-                  </button>
-                );
-              })}
-              <button
-                onClick={openCreateCustomModal}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-control border border-dashed border-line-strong text-ink-500 hover:text-primary hover:border-primary/40 text-label font-medium transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" /> ช่วงรอบ
-              </button>
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${r.status === "finalized" ? "bg-green-500" : "bg-amber-400"}`}
+                        aria-label={r.status === "finalized" ? "ปิดรอบ" : "ร่าง"}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </Card>
 
-        {runs.length > 1 &&
+        {runs.length >= 1 &&
           (() => {
             const finalized = runs.filter((r) => r.status === "finalized");
             const draftCount = runs.filter((r) => r.status === "draft").length;
             const sumGross = finalized.reduce((s, r) => s + (Number(r.total_gross) || 0), 0);
             const sumNet = finalized.reduce((s, r) => s + (Number(r.total_net) || 0), 0);
-            const empMax = finalized.reduce((s, r) => s + (r.employee_count || 0), 0);
+            // Payment instances, not unique people: one employee paid twice
+            // counts twice. Labeled honestly instead of pretending otherwise.
+            const payInstances = finalized.reduce((s, r) => s + (r.employee_count || 0), 0);
+            // Planned slots with no run yet — the actionable missing list.
+            const missingSlots = monthPlanViews.filter((v) => v.run === null);
             const byType = (["salary", "ot", "adjustment"] as const)
               .map((t) => {
                 const list = runs.filter((r) => batchTypeOf(r) === t);
@@ -1889,9 +2051,11 @@ export default function PayrollPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-label text-green-600 font-medium">จำนวนคน (รวมช่วง)</div>
+                      <div className="text-label text-green-600 font-medium">
+                        ครั้งการจ่าย (รวมช่วง)
+                      </div>
                       <div className="text-body font-semibold text-green-900 tabular-nums">
-                        {empMax} คน
+                        {payInstances} ครั้ง
                       </div>
                     </div>
                   </div>
@@ -1920,6 +2084,26 @@ export default function PayrollPage() {
                       )}
                       {expOt !== null && (
                         <ChecklistLine label="OT" have={otCount} expected={expOt} />
+                      )}
+                      {monthPlanViews.length > 0 && missingSlots.length > 0 && (
+                        <div className="pt-1">
+                          <div className="mb-1.5 text-label text-ink-500">
+                            ยังไม่สร้าง {missingSlots.length} ช่วง — แตะเพื่อสร้าง:
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {missingSlots.map(({ slot }) => (
+                              <button
+                                key={`${slot.batchType}:${slot.start}:${slot.end}`}
+                                type="button"
+                                disabled={creatingSlotKey !== null}
+                                onClick={() => handleCreatePlannedSlot(slot)}
+                                className="rounded-control border border-dashed border-line-strong px-2 py-1 text-label font-medium text-ink-600 transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                              >
+                                {slot.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1950,7 +2134,7 @@ export default function PayrollPage() {
               supabase/migrations/20260827*_payroll_*.sql
             </code>
           </div>
-        ) : loading ? (
+        ) : loading && !booted ? (
           <div className="flex items-center justify-center py-12">
             <Spinner />
           </div>
@@ -1978,6 +2162,12 @@ export default function PayrollPage() {
           </div>
         ) : (
           <>
+            {loading && booted && (
+              <div className="flex items-center gap-2 text-label text-ink-400" aria-live="polite">
+                <Spinner inline className="w-3.5 h-3.5" />
+                กำลังอัปเดตข้อมูล…
+              </div>
+            )}
             {run.status === "finalized" && (
               <div className="bg-green-50 border border-green-200 rounded-card p-4 transition-all duration-300">
                 <div className="flex items-center gap-2 text-green-800">
@@ -2261,119 +2451,137 @@ export default function PayrollPage() {
               </div>
             )}
 
-            <div
-              className="bg-white border border-card-border rounded-card overflow-hidden"
-              ref={tableRef}
-            >
-              <div className="max-h-[70vh] overflow-auto">
-                <table className={TABLE.table}>
-                  <thead>
-                    <tr className={TABLE.theadTr}>
-                      {run.status === "draft" && (
-                        <th className={`${TABLE.thStatic} ${TH_STICKY} w-8`}></th>
-                      )}
-                      <th className={`${TABLE.thStatic} ${TH_STICKY}`}>พนักงาน</th>
-                      {run.status === "draft" ? (
-                        <>
-                          {employees.some((e) => e.salary_type === "daily") && (
-                            <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
-                              วันทำงาน
-                            </th>
-                          )}
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
-                            ฐานเงินเดือน
-                          </th>
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>OT</th>
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>เงินเพิ่ม</th>
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>เงินหัก</th>
-                        </>
-                      ) : (
-                        <>
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ค่าแรงรวม</th>
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
-                            SSO (พนักงาน)
-                          </th>
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
-                            SSO (นายจ้าง)
-                          </th>
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ภาษี</th>
-                        </>
-                      )}
-                      <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>สุทธิ</th>
-                      <th className={`${TABLE.thStatic} ${TH_STICKY} w-20`}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEmployees.map((emp) => {
-                      const item = getEffectiveItem(emp.id);
-                      const calc = calcLineItem(emp, item);
-                      const rowStatus = getRowStatus(emp, item);
-                      return (
-                        <PayrollRow
-                          key={emp.id}
-                          employee={emp}
-                          calc={calc}
-                          status={run.status}
-                          rowStatus={rowStatus}
-                          highlighted={highlightedEmployeeId === emp.id}
-                          daysColumn={
-                            run.status === "draft" &&
-                            employees.some((e) => e.salary_type === "daily")
-                          }
-                          daysWorked={item.days_worked}
-                          inlineEditing={inlineEditingId === emp.id}
-                          onToggleInlineEdit={() =>
-                            setInlineEditingId(inlineEditingId === emp.id ? null : emp.id)
-                          }
-                          onSaveDaysWorked={async (days) => {
-                            // Save against the RAW stored row — never the recurring-merged
-                            // preview, or template rows would be persisted as ordinary values.
-                            const updated = { ...getLineItem(emp.id), days_worked: days };
-                            const ok = await handleSaveLineItem(emp.id, updated);
-                            if (ok) setInlineEditingId(null);
-                            return ok;
-                          }}
-                          onOpenDetails={() => setDetailEmployee(emp)}
-                          onPrint={() => setPrintEmployee(emp)}
-                        />
-                      );
-                    })}
-                    {filteredEmployees.length === 0 && search.trim() && (
-                      <tr>
-                        <td
-                          colSpan={
-                            run.status === "draft"
-                              ? employees.some((e) => e.salary_type === "daily")
-                                ? 9
-                                : 8
-                              : 8
-                          }
-                          className="py-10 text-center text-label text-ink-400"
-                        >
-                          ไม่พบพนักงานที่ตรงกับ "{search.trim()}"
-                        </td>
-                      </tr>
+            <div className="bg-white border border-card-border rounded-card" ref={tableRef}>
+              <table className={`${TABLE.table} min-w-[880px]`}>
+                <thead>
+                  <tr className={TABLE.theadTr}>
+                    {run.status === "draft" && (
+                      <th className={`${TABLE.thStatic} ${TH_STICKY} w-8`}></th>
                     )}
-                  </tbody>
-                  {run.status === "draft" ? (
+                    <th className={`${TABLE.thStatic} ${TH_STICKY}`}>พนักงาน</th>
+                    {run.status === "draft" ? (
+                      <>
+                        {employees.some((e) => e.salary_type === "daily") && (
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>วันทำงาน</th>
+                        )}
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
+                          ฐานเงินเดือน
+                        </th>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>OT</th>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>เงินเพิ่ม</th>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>เงินหัก</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ค่าแรงรวม</th>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
+                          SSO (พนักงาน)
+                        </th>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
+                          SSO (นายจ้าง)
+                        </th>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ภาษี</th>
+                      </>
+                    )}
+                    <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>สุทธิ</th>
+                    <th className={`${TABLE.thStatic} ${TH_STICKY} w-20`}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEmployees.map((emp) => {
+                    const item = getEffectiveItem(emp.id);
+                    const calc = calcLineItem(emp, item);
+                    const rowStatus = getRowStatus(emp, item);
+                    return (
+                      <PayrollRow
+                        key={emp.id}
+                        employee={emp}
+                        calc={calc}
+                        status={run.status}
+                        rowStatus={rowStatus}
+                        highlighted={highlightedEmployeeId === emp.id}
+                        daysColumn={
+                          run.status === "draft" && employees.some((e) => e.salary_type === "daily")
+                        }
+                        daysWorked={item.days_worked}
+                        inlineEditing={inlineEditingId === emp.id}
+                        onToggleInlineEdit={() =>
+                          setInlineEditingId(inlineEditingId === emp.id ? null : emp.id)
+                        }
+                        onSaveDaysWorked={async (days) => {
+                          // Save against the RAW stored row — never the recurring-merged
+                          // preview, or template rows would be persisted as ordinary values.
+                          const updated = { ...getLineItem(emp.id), days_worked: days };
+                          const ok = await handleSaveLineItem(emp.id, updated);
+                          if (ok) setInlineEditingId(null);
+                          return ok;
+                        }}
+                        onOpenDetails={() => setDetailEmployee(emp)}
+                        onPrint={() => setPrintEmployee(emp)}
+                      />
+                    );
+                  })}
+                  {filteredEmployees.length === 0 && search.trim() && (
+                    <tr>
+                      <td
+                        colSpan={
+                          run.status === "draft"
+                            ? employees.some((e) => e.salary_type === "daily")
+                              ? 9
+                              : 8
+                            : 8
+                        }
+                        className="py-10 text-center text-label text-ink-400"
+                      >
+                        ไม่พบพนักงานที่ตรงกับ "{search.trim()}"
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {run.status === "draft" ? (
+                  <tfoot>
+                    <tr className={TABLE.tfootTr}>
+                      <td className={TF_STICKY}></td>
+                      <td className={TF_STICKY}>รวมโดยประมาณ</td>
+                      {employees.some((e) => e.salary_type === "daily") && (
+                        <td className={TF_STICKY}></td>
+                      )}
+                      <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                        ฿{formatCurrency(totals.base)}
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                        ฿{formatCurrency(totals.ot)}
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                        ฿{formatCurrency(totals.additions)}
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                        ฿{formatCurrency(totals.deductions)}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right font-semibold tabular-nums ${TF_STICKY}`}
+                      >
+                        ฿{formatCurrency(totals.net)}
+                      </td>
+                      <td className={TF_STICKY}></td>
+                    </tr>
+                  </tfoot>
+                ) : (
+                  run.status === "finalized" && (
                     <tfoot>
                       <tr className={TABLE.tfootTr}>
-                        <td className={TF_STICKY}></td>
-                        <td className={TF_STICKY}>รวมโดยประมาณ</td>
-                        {employees.some((e) => e.salary_type === "daily") && (
-                          <td className={TF_STICKY}></td>
-                        )}
+                        <td className={TF_STICKY}>รวม</td>
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                          ฿{formatCurrency(totals.base)}
+                          ฿{formatCurrency(totals.gross)}
                         </td>
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                          ฿{formatCurrency(totals.ot)}
+                          ฿{formatCurrency(totals.sso)}
                         </td>
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                          ฿{formatCurrency(totals.additions)}
+                          ฿{formatCurrency(totals.ssoEmp)}
                         </td>
                         <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                          ฿{formatCurrency(totals.deductions)}
+                          ฿{formatCurrency(totals.wht)}
                         </td>
                         <td
                           className={`px-3 py-2 text-right font-semibold tabular-nums ${TF_STICKY}`}
@@ -2383,35 +2591,9 @@ export default function PayrollPage() {
                         <td className={TF_STICKY}></td>
                       </tr>
                     </tfoot>
-                  ) : (
-                    run.status === "finalized" && (
-                      <tfoot>
-                        <tr className={TABLE.tfootTr}>
-                          <td className={TF_STICKY}>รวม</td>
-                          <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                            ฿{formatCurrency(totals.gross)}
-                          </td>
-                          <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                            ฿{formatCurrency(totals.sso)}
-                          </td>
-                          <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                            ฿{formatCurrency(totals.ssoEmp)}
-                          </td>
-                          <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                            ฿{formatCurrency(totals.wht)}
-                          </td>
-                          <td
-                            className={`px-3 py-2 text-right font-semibold tabular-nums ${TF_STICKY}`}
-                          >
-                            ฿{formatCurrency(totals.net)}
-                          </td>
-                          <td className={TF_STICKY}></td>
-                        </tr>
-                      </tfoot>
-                    )
-                  )}
-                </table>
-              </div>
+                  )
+                )}
+              </table>
             </div>
 
             {run.status === "finalized" && (
@@ -2728,6 +2910,11 @@ export default function PayrollPage() {
                     onClick={() => {
                       setHighlightedEmployeeId(employee.id);
                       setShowFinalizeModal(false);
+                      requestAnimationFrame(() => {
+                        document
+                          .querySelector(`[data-emp-row="${employee.id}"]`)
+                          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      });
                     }}
                     className="text-label px-2 py-0.5 rounded-control bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
                   >
@@ -3115,6 +3302,101 @@ function ChecklistLine({
   );
 }
 
+interface MonthPlanSlotView {
+  slot: MonthPlanSlot;
+  run: PayrollRun | null;
+}
+
+/**
+ * Guided month plan: every planned disbursement as one tappable slot.
+ * Existing slot → opens that run. Empty slot → creates it with dates and
+ * type prefilled (one confirmation, no date typing). Status is icon + text,
+ * never color-only.
+ */
+function MonthPlanStrip({
+  views,
+  selectedRunId,
+  creatingKey,
+  onSelectRun,
+  onCreateSlot,
+  onCustomRange,
+}: {
+  views: MonthPlanSlotView[];
+  selectedRunId: string | null;
+  creatingKey: string | null;
+  onSelectRun: (id: string) => void;
+  onCreateSlot: (slot: MonthPlanSlot) => void;
+  onCustomRange: () => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-label font-semibold text-ink-500">แผนการจ่ายประจำเดือน</span>
+        <button
+          type="button"
+          onClick={onCustomRange}
+          className="ml-auto shrink-0 text-label font-medium text-primary hover:underline"
+        >
+          ＋ รอบพิเศษ
+        </button>
+      </div>
+      <p className="mb-2 text-label leading-5 text-ink-400">
+        จ่ายได้หลายครั้งตามจริง ภาษีหัก ณ ที่จ่ายกับประกันสังคมรวมเป็นรายเดือนเสมอ
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {views.map(({ slot, run }) => {
+          const key = `${slot.batchType}:${slot.start}:${slot.end}`;
+          const isCurrent = run !== null && run.id === selectedRunId;
+          const finalized = run !== null && run.status === "finalized";
+          const busy = creatingKey === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={busy || isCurrent}
+              onClick={() => {
+                if (run) onSelectRun(run.id);
+                else onCreateSlot(slot);
+              }}
+              title={
+                run
+                  ? `${slot.label} · ${slot.start} → ${slot.end} · ${finalized ? "ปิดรอบแล้ว" : "ร่าง"}`
+                  : `${slot.label} · ${slot.start} → ${slot.end} · แตะเพื่อสร้าง`
+              }
+              aria-label={
+                run
+                  ? `เปิด${slot.label} (${finalized ? "ปิดรอบแล้ว" : "ร่าง"})`
+                  : `สร้าง${slot.label}`
+              }
+              className={`flex min-w-0 items-center gap-1.5 rounded-control border px-2.5 py-2 text-left transition-colors ${isCurrent ? "border-primary/30 bg-primary-soft cursor-default" : "border-card-border bg-white hover:border-primary/30"} ${!run ? "border-dashed" : ""}`}
+            >
+              {busy ? (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+              ) : run ? (
+                finalized ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                ) : (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" aria-hidden="true" />
+                )
+              ) : (
+                <Plus className="h-3.5 w-3.5 shrink-0 text-ink-300" />
+              )}
+              <span className="min-w-0">
+                <span className="block truncate text-label font-semibold text-ink-900">
+                  {slot.label}
+                </span>
+                <span className="block text-label tabular-nums text-ink-400">
+                  {run ? (finalized ? "ปิดรอบแล้ว" : "ร่าง") : "ยังไม่สร้าง"}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SummaryCard({ icon, label, value, sub, highlight }: SummaryCardProps) {
   return (
     <div
@@ -3163,8 +3445,17 @@ function PayrollExportMenu({
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
-    if (open) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClick);
+      document.addEventListener("keydown", handleKey);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open]);
 
   async function run(key: string, fn: () => void | Promise<void>) {
@@ -3188,6 +3479,9 @@ function PayrollExportMenu({
         }}
         className="!rounded-control"
         disabled={busy !== null}
+        aria-label="ส่งออกรายงานเงินเดือน"
+        aria-expanded={open}
+        aria-haspopup="menu"
       >
         {busy !== null ? (
           <span className="flex items-center gap-1.5">
@@ -3316,13 +3610,6 @@ interface PayrollRowProps {
   onPrint: () => void;
 }
 
-const ROW_STATUS_LABELS: Record<RowStatus, string> = {
-  complete: "กรอกครบแล้ว",
-  warning: "มีข้อมูลที่ต้องตรวจสอบ",
-  incomplete: "ยังกรอกไม่ครบ",
-  untouched: "ยังไม่ได้กรอก",
-};
-
 function PayrollRow({
   employee,
   calc,
@@ -3362,9 +3649,11 @@ function PayrollRow({
     <tr
       tabIndex={0}
       role="button"
+      data-emp-row={employee.id}
       aria-label={`${employee.full_name}, ${statusLabels[rowStatus]}`}
       onClick={onOpenDetails}
       onKeyDown={(e) => {
+        if (e.target instanceof HTMLElement && e.target.closest("button,input,a,select")) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onOpenDetails();
@@ -3378,6 +3667,11 @@ function PayrollRow({
             <span className="shrink-0" title={statusLabels[rowStatus]}>
               {statusIcons[rowStatus]}
             </span>
+            {(rowStatus === "warning" || rowStatus === "incomplete") && (
+              <span className="whitespace-nowrap text-label font-medium text-ink-600">
+                {statusLabels[rowStatus]}
+              </span>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -3515,6 +3809,7 @@ function PayrollRow({
               }}
               className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
               title="พิมพ์สลิป"
+              aria-label={`พิมพ์สลิป ${employee.full_name || employee.employee_code}`}
             >
               <Printer className="w-3.5 h-3.5" />
             </button>
@@ -4537,7 +4832,7 @@ function PayslipView({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
               <div>
                 <h3 className="text-label font-semibold text-ink-700 mb-3 pb-2 border-b border-card-border">
                   รายได้

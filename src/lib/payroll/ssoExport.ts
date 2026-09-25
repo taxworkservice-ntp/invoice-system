@@ -119,16 +119,32 @@ export interface SsoBuildResult {
   skippedOver60: number;
 }
 
+export interface SsoRosterBuild {
+  rows: PayrollCalcRow[];
+  skippedDaily: Employee[];
+}
+
 /**
  * Roster-mode rows for the employee-page export: wage = master base salary
  * (no payroll run involved), contribution rounded to whole baht the way the
  * SSO form expects.
+ *
+ * Daily staff are EXCLUDED, never estimated: base_salary is their daily
+ * rate, so filing it as a monthly wage would under-report by an order of
+ * magnitude. They must use the payroll-run export, which prices actual
+ * days worked.
  */
-export function buildSsoRosterRows(employees: Employee[]): PayrollCalcRow[] {
-  return employees.map((emp) => {
+export function buildSsoRosterRows(employees: Employee[]): SsoRosterBuild {
+  const rows: PayrollCalcRow[] = [];
+  const skippedDaily: Employee[] = [];
+  for (const emp of employees) {
+    if (emp.salary_type === "daily") {
+      skippedDaily.push(emp);
+      continue;
+    }
     const gross = Number(emp.base_salary) || 0;
     const contribution = Math.round(calculateSSO(gross).employee);
-    return {
+    rows.push({
       employee: emp,
       lineItem: null,
       base_pay: gross,
@@ -140,8 +156,9 @@ export function buildSsoRosterRows(employees: Employee[]): PayrollCalcRow[] {
       sso_employer: contribution,
       withholding_tax: 0,
       net_pay: gross,
-    };
-  });
+    });
+  }
+  return { rows, skippedDaily };
 }
 
 /**
@@ -201,7 +218,8 @@ export function buildSsoRows(calcRows: PayrollCalcRow[]): SsoBuildResult {
       firstName: name.firstName,
       lastName: name.lastName,
       wage: row.gross_pay,
-      contribution: row.sso_employee,
+      // Whole baht only: e-filing cells must hold integers, not display-rounded floats.
+      contribution: Math.round(row.sso_employee),
     });
   }
 

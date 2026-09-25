@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { addDaysISO, expectedSalaryBatches, formatPayRangeLabel, suggestNextWindow } from "../../src/lib/payroll/schedule";
+import {
+  addDaysISO,
+  expectedSalaryBatches,
+  formatPayRangeLabel,
+  suggestMonthPlan,
+  suggestNextWindow,
+} from "../../src/lib/payroll/schedule";
 
 describe("pay schedule windows", () => {
   it("chains monthly windows after the previous run", () => {
-    expect(suggestNextWindow("monthly", {}, "2026-08-31")).toEqual({ start: "2026-09-01", end: "2026-09-30" });
-    expect(suggestNextWindow("monthly", {}, "2024-02-29")).toEqual({ start: "2024-03-01", end: "2024-03-31" });
+    expect(suggestNextWindow("monthly", {}, "2026-08-31")).toEqual({
+      start: "2026-09-01",
+      end: "2026-09-30",
+    });
+    expect(suggestNextWindow("monthly", {}, "2024-02-29")).toEqual({
+      start: "2024-03-01",
+      end: "2024-03-31",
+    });
   });
 
   it("semimonthly: after first window ends at anchor -> second window to month end", () => {
@@ -37,27 +49,37 @@ describe("pay schedule windows", () => {
 
   describe("with reference month (selected payroll month, not today)", () => {
     it("monthly falls on the full referenced month", () => {
-      expect(suggestNextWindow("monthly", {}, null, { year: 2026, month: 7 }))
-        .toEqual({ start: "2026-07-01", end: "2026-07-31" });
-      expect(suggestNextWindow("monthly", {}, null, { year: 2024, month: 2 }))
-        .toEqual({ start: "2024-02-01", end: "2024-02-29" });
+      expect(suggestNextWindow("monthly", {}, null, { year: 2026, month: 7 })).toEqual({
+        start: "2026-07-01",
+        end: "2026-07-31",
+      });
+      expect(suggestNextWindow("monthly", {}, null, { year: 2024, month: 2 })).toEqual({
+        start: "2024-02-01",
+        end: "2024-02-29",
+      });
     });
 
     it("semimonthly opens the first cut-off window of the referenced month", () => {
-      expect(suggestNextWindow("semimonthly", { anchorDay: 15 }, null, { year: 2026, month: 9 }))
-        .toEqual({ start: "2026-09-01", end: "2026-09-15" });
+      expect(
+        suggestNextWindow("semimonthly", { anchorDay: 15 }, null, { year: 2026, month: 9 }),
+      ).toEqual({ start: "2026-09-01", end: "2026-09-15" });
     });
 
     it("weekly/custom cycles walk from the 1st of the referenced month until covering its last day", () => {
-      expect(suggestNextWindow("custom", { cycleLenDays: 5 }, null, { year: 2026, month: 8 }))
-        .toEqual({ start: "2026-08-31", end: "2026-09-04" }); // final tile starts in Aug, ends past edge so the 31st is covered
-      expect(suggestNextWindow("weekly", {}, null, { year: 2024, month: 2 }))
-        .toEqual({ start: "2024-02-29", end: "2024-03-06" }); // leap-Feb covered, spillover by design
+      expect(
+        suggestNextWindow("custom", { cycleLenDays: 5 }, null, { year: 2026, month: 8 }),
+      ).toEqual({ start: "2026-08-31", end: "2026-09-04" }); // final tile starts in Aug, ends past edge so the 31st is covered
+      expect(suggestNextWindow("weekly", {}, null, { year: 2024, month: 2 })).toEqual({
+        start: "2024-02-29",
+        end: "2024-03-06",
+      }); // leap-Feb covered, spillover by design
     });
 
     it("chaining still wins over the reference when history exists", () => {
-      expect(suggestNextWindow("monthly", {}, "2026-07-31", { year: 2026, month: 7 }))
-        .toEqual({ start: "2026-08-01", end: "2026-08-31" });
+      expect(suggestNextWindow("monthly", {}, "2026-07-31", { year: 2026, month: 7 })).toEqual({
+        start: "2026-08-01",
+        end: "2026-08-31",
+      });
     });
   });
 
@@ -77,5 +99,57 @@ describe("pay schedule windows", () => {
     expect(expectedSalaryBatches("semimonthly")).toBe(2);
     expect(expectedSalaryBatches("weekly")).toBeNull();
     expect(expectedSalaryBatches("custom")).toBeNull();
+  });
+
+  it("plans semimonthly salary + 6 OT windows for a 30-day month", () => {
+    const plan = suggestMonthPlan(2026, 9, {
+      frequency: "semimonthly",
+      anchorDay: 15,
+      otPerMonth: 6,
+    });
+    expect(plan.map((s) => [s.batchType, s.start, s.end, s.label])).toEqual([
+      ["salary", "2026-09-01", "2026-09-15", "เงินเดือนต้นเดือน"],
+      ["salary", "2026-09-16", "2026-09-30", "เงินเดือนปลายเดือน"],
+      ["ot", "2026-09-01", "2026-09-05", "OT 1–5"],
+      ["ot", "2026-09-06", "2026-09-10", "OT 6–10"],
+      ["ot", "2026-09-11", "2026-09-15", "OT 11–15"],
+      ["ot", "2026-09-16", "2026-09-20", "OT 16–20"],
+      ["ot", "2026-09-21", "2026-09-25", "OT 21–25"],
+      ["ot", "2026-09-26", "2026-09-30", "OT 26–30"],
+    ]);
+  });
+
+  it("short months keep every slot inside the month", () => {
+    const feb = suggestMonthPlan(2026, 2, {
+      frequency: "semimonthly",
+      anchorDay: 15,
+      otPerMonth: 6,
+    });
+    expect(feb.filter((s) => s.batchType === "salary").map((s) => [s.start, s.end])).toEqual([
+      ["2026-02-01", "2026-02-15"],
+      ["2026-02-16", "2026-02-28"],
+    ]);
+    const ot = feb.filter((s) => s.batchType === "ot");
+    expect(ot).toHaveLength(6);
+    expect(ot[5]).toMatchObject({ start: "2026-02-26", end: "2026-02-28" });
+    expect(
+      ot.every((s) => s.start.slice(0, 7) === "2026-02" && s.end.slice(0, 7) === "2026-02"),
+    ).toBe(true);
+
+    const jan = suggestMonthPlan(2026, 1, {
+      frequency: "semimonthly",
+      anchorDay: 15,
+      otPerMonth: 6,
+    });
+    const janOt = jan.filter((s) => s.batchType === "ot");
+    expect(janOt).toHaveLength(6);
+    expect(janOt[5]).toMatchObject({ start: "2026-01-26", end: "2026-01-31" });
+  });
+
+  it("monthly frequency plans one salary run; zero OT means salary only", () => {
+    const plan = suggestMonthPlan(2026, 9, { frequency: "monthly", otPerMonth: 0 });
+    expect(plan).toEqual([
+      { batchType: "salary", start: "2026-09-01", end: "2026-09-30", label: "เงินเดือน" },
+    ]);
   });
 });

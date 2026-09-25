@@ -90,14 +90,113 @@ export function suggestNextWindow(
 
 /** Human-readable Thai range label, e.g. "11–20 ส.ค." or "30 ส.ค.–3 ก.ย." */
 export function formatPayRangeLabel(win: PayWindow): string {
-  const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const THAI_MONTHS = [
+    "ม.ค.",
+    "ก.พ.",
+    "มี.ค.",
+    "เม.ย.",
+    "พ.ค.",
+    "มิ.ย.",
+    "ก.ค.",
+    "ส.ค.",
+    "ก.ย.",
+    "ต.ค.",
+    "พ.ย.",
+    "ธ.ค.",
+  ];
   const s = parseISO(win.start);
   const e = parseISO(win.end);
-  const sameMonth = s.getUTCMonth() === e.getUTCMonth() && s.getUTCFullYear() === e.getUTCFullYear();
+  const sameMonth =
+    s.getUTCMonth() === e.getUTCMonth() && s.getUTCFullYear() === e.getUTCFullYear();
   if (sameMonth) {
     return `${s.getUTCDate()}–${e.getUTCDate()} ${THAI_MONTHS[s.getUTCMonth()]}`;
   }
   return `${s.getUTCDate()} ${THAI_MONTHS[s.getUTCMonth()]}–${e.getUTCDate()} ${THAI_MONTHS[e.getUTCMonth()]}`;
+}
+
+// ---------- Monthly disbursement plan ----------
+
+export interface MonthPlanSlot {
+  batchType: BatchType;
+  start: string;
+  end: string;
+  /** Plain-Thai label, e.g. "เงินเดือนต้นเดือน" or "OT 1–5". */
+  label: string;
+}
+
+/**
+ * The whole month's disbursement plan: salary halves + evenly sliced OT
+ * windows. Every slot stays inside the month, so the statutory-month rule
+ * (month of period_end) never surprises: planned slots always belong to
+ * the month being viewed.
+ *
+ * OT slicing: sliceLen = round(daysInMonth / otPerMonth), chunks from the
+ * 1st, last chunk runs to month end. 6/month in a 30-day month →
+ * 1–5, 6–10, 11–15, 16–20, 21–25, 26–30.
+ */
+export function suggestMonthPlan(
+  year: number,
+  month: number,
+  opts: { frequency?: PayFrequency; anchorDay?: number; otPerMonth?: number } = {},
+): MonthPlanSlot[] {
+  const frequency = opts.frequency ?? "semimonthly";
+  const anchor = clamp(Math.round(opts.anchorDay ?? 15), 1, 27);
+  const otPerMonth = Math.max(0, Math.round(opts.otPerMonth ?? 0));
+  const ym = `${year}-${pad(month)}`;
+  const dim = lastDayOfMonth(year, month);
+  const monthEnd = `${ym}-${pad(dim)}`;
+  const slots: MonthPlanSlot[] = [];
+
+  if (frequency === "monthly") {
+    slots.push({ batchType: "salary", start: `${ym}-01`, end: monthEnd, label: "เงินเดือน" });
+  } else if (frequency === "semimonthly") {
+    const firstEnd = `${ym}-${pad(Math.min(anchor, dim))}`;
+    slots.push({
+      batchType: "salary",
+      start: `${ym}-01`,
+      end: firstEnd,
+      label: "เงินเดือนต้นเดือน",
+    });
+    const secondStart = addDaysISO(firstEnd, 1);
+    if (secondStart <= monthEnd) {
+      slots.push({
+        batchType: "salary",
+        start: secondStart,
+        end: monthEnd,
+        label: "เงินเดือนปลายเดือน",
+      });
+    }
+  }
+  // weekly/custom stay ad-hoc: no fixed monthly salary slots.
+
+  if (otPerMonth > 0) {
+    const sliceLen = Math.max(1, Math.round(dim / otPerMonth));
+    const chunks: { startDay: number; endDay: number }[] = [];
+    let startDay = 1;
+    while (startDay <= dim) {
+      const endDay = Math.min(startDay + sliceLen - 1, dim);
+      chunks.push({ startDay, endDay });
+      startDay = endDay + 1;
+    }
+    // Merge a short tail stub backwards so the slot count equals the plan
+    // (31-day months at 6/month would otherwise sprout a 7th one-day slot).
+    while (chunks.length > otPerMonth && chunks.length > 1) {
+      const tail = chunks.pop()!;
+      chunks[chunks.length - 1].endDay = tail.endDay;
+    }
+    for (const chunk of chunks) {
+      const start = `${ym}-${pad(chunk.startDay)}`;
+      const end = `${ym}-${pad(chunk.endDay)}`;
+      slots.push({
+        batchType: "ot",
+        start,
+        end,
+        label: `OT ${chunk.startDay}–${chunk.endDay}`,
+      });
+    }
+  }
+
+  return slots;
 }
 
 // ---------- Batch types ----------

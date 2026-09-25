@@ -105,19 +105,29 @@ function calcRow(emp: Employee, grossPay: number, ssoEmployee: number): PayrollC
 
 describe("buildSsoRosterRows", () => {
   it("derives wage from base salary with a rounded capped contribution", () => {
-    const rows = buildSsoRosterRows([
+    const built = buildSsoRosterRows([
       employee(),
       employee({ id: "b", employee_code: "EMP002", base_salary: 15000 }),
       employee({ id: "c", employee_code: "EMP003", base_salary: 9000 }),
     ]);
-    expect(rows.map((r) => [r.gross_pay, r.sso_employee])).toEqual([
+    expect(built.skippedDaily).toEqual([]);
+    expect(built.rows.map((r) => [r.gross_pay, r.sso_employee])).toEqual([
       [28000, 875],
       [15000, 750],
       [9000, 450],
     ]);
-    const built = buildSsoRows(rows);
-    expect(built.errors).toEqual([]);
-    expect(built.rows).toHaveLength(3);
+    const filed = buildSsoRows(built.rows);
+    expect(filed.errors).toEqual([]);
+    expect(filed.rows).toHaveLength(3);
+  });
+
+  it("excludes daily staff instead of filing their daily rate", () => {
+    const built = buildSsoRosterRows([
+      employee(),
+      employee({ id: "d", employee_code: "EMP004", salary_type: "daily", base_salary: 400 }),
+    ]);
+    expect(built.rows).toHaveLength(1);
+    expect(built.skippedDaily.map((e) => e.employee_code)).toEqual(["EMP004"]);
   });
 });
 
@@ -149,6 +159,13 @@ describe("buildSsoRows", () => {
     expect(result.skippedContract).toBe(1);
     expect(result.skippedOver60).toBe(0);
     expect(result.errors.map((e) => e.employeeCode)).toEqual(["EMP003", "EMP004"]);
+  });
+
+  it("rounds fractional run-path contributions to whole baht", () => {
+    const result = buildSsoRows([calcRow(employee(), 10001, 500.05)]);
+    expect(result.errors).toEqual([]);
+    expect(result.rows[0].contribution).toBe(500);
+    expect(Number.isInteger(result.rows[0].contribution)).toBe(true);
   });
 
   it("skips hires already 60+ on their start date into their own bucket", () => {

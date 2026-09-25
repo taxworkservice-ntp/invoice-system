@@ -606,6 +606,16 @@ export default function EmployeesPage() {
   async function handleDelete() {
     if (!deletingEmployee || !userId) return;
     const emp = deletingEmployee;
+    // History protection: staff with saved payroll lines cannot be deleted
+    // (DB RESTRICTs it too) — offboard them so finalized runs stay intact.
+    const { count: lineCount } = await supabase
+      .from("payroll_line_items")
+      .select("id", { count: "exact", head: true })
+      .eq("employee_id", emp.id);
+    if ((lineCount ?? 0) > 0) {
+      toast.error("พนักงานมีประวัติในรอบเงินเดือน — ใช้ จบการจ้างงาน แทนการลบ");
+      return;
+    }
     const { error } = await supabase
       .from("employees")
       .delete()
@@ -636,7 +646,20 @@ export default function EmployeesPage() {
   }
 
   async function handleExportSsoRoster() {
-    const built = buildSsoRows(buildSsoRosterRows(employees));
+    const roster = buildSsoRosterRows(employees);
+    if (roster.skippedDaily.length > 0) {
+      const names = roster.skippedDaily
+        .slice(0, 3)
+        .map((e) => `${e.employee_code} ${e.full_name}`.trim())
+        .join(", ");
+      const more =
+        roster.skippedDaily.length > 3 ? ` และอีก ${roster.skippedDaily.length - 3} คน` : "";
+      toast.error(
+        `ส่งออกไม่ได้: พนักงานรายวัน ${names}${more} ต้องส่งออกจากรอบเงินเดือน (ค่าจ้างตามวันทำงานจริง)`,
+      );
+      return;
+    }
+    const built = buildSsoRows(roster.rows);
     if (built.errors.length > 0) {
       const names = built.errors
         .slice(0, 3)
@@ -701,11 +724,17 @@ export default function EmployeesPage() {
             variant="secondary"
             onClick={handleExportSsoRoster}
             className="!rounded-control"
+            aria-label="ส่งออกรายงานประกันสังคม"
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">ประกันสังคม</span>
           </Button>
-          <Button size="sm" onClick={openCreate} className="!rounded-control">
+          <Button
+            size="sm"
+            onClick={openCreate}
+            className="!rounded-control"
+            aria-label="เพิ่มพนักงาน"
+          >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">เพิ่ม</span>
           </Button>
@@ -857,219 +886,230 @@ export default function EmployeesPage() {
                 </button>
               ))}
             </div>
-            <div className="hidden sm:block bg-white border border-card-border rounded-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className={TABLE.table}>
-                  <thead>
-                    <tr className={TABLE.theadTr}>
-                      <th className={`${TABLE.thStatic} tabular-nums`}>#</th>
-                      <SortableTh
-                        label="รหัส"
-                        align="left"
-                        active={empSort.sort.key === "employee_code"}
-                        dir={empSort.sort.dir}
-                        onClick={() => empSort.handleSort("employee_code")}
-                        className={`${TABLE.thSortable} whitespace-nowrap`}
-                      />
-                      <SortableTh
-                        label="ชื่อ-นามสกุล"
-                        align="left"
-                        active={empSort.sort.key === "full_name"}
-                        dir={empSort.sort.dir}
-                        onClick={() => empSort.handleSort("full_name")}
-                        className={`${TABLE.thSortable} whitespace-nowrap`}
-                      />
-                      <SortableTh
-                        label="เริ่มงาน"
-                        align="left"
-                        active={empSort.sort.key === "start_date"}
-                        dir={empSort.sort.dir}
-                        onClick={() => empSort.handleSort("start_date")}
-                        className={`${TABLE.thSortable} whitespace-nowrap`}
-                      />
-                      <SortableTh
-                        label="จำนวนวัน"
-                        align="right"
-                        active={empSort.sort.key === "tenureDays"}
-                        dir={empSort.sort.dir}
-                        onClick={() => empSort.handleSort("tenureDays")}
-                        className={TABLE.thSortable}
-                      />
-                      <SortableTh
-                        label="ตำแหน่ง"
-                        align="left"
-                        active={empSort.sort.key === "position"}
-                        dir={empSort.sort.dir}
-                        onClick={() => empSort.handleSort("position")}
-                        className={`${TABLE.thSortable} whitespace-nowrap`}
-                      />
-                      <SortableTh
-                        label="ประเภท"
-                        align="left"
-                        active={empSort.sort.key === "salary_type"}
-                        dir={empSort.sort.dir}
-                        onClick={() => empSort.handleSort("salary_type")}
-                        className={`${TABLE.thSortable} whitespace-nowrap`}
-                      />
-                      <SortableTh
-                        label="เงินเดือน"
-                        align="right"
-                        active={empSort.sort.key === "base_salary"}
-                        dir={empSort.sort.dir}
-                        onClick={() => empSort.handleSort("base_salary")}
-                        className={TABLE.thSortable}
-                      />
-                      <SortableTh
-                        label="สถานะ"
-                        align="left"
-                        active={empSort.sort.key === "status"}
-                        dir={empSort.sort.dir}
-                        onClick={() => empSort.handleSort("status")}
-                        className={`${TABLE.thSortable} whitespace-nowrap`}
-                      />
-                      <th className={`${TABLE.thStatic} text-right`}>จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedEmployees.map((emp, index) => (
-                      <tr
-                        key={emp.id}
-                        onClick={() => openEdit(emp)}
-                        className={`${TABLE.tbodyTr} cursor-pointer group hover:bg-paper-field/50 transition-colors ${emp.status === "inactive" ? "opacity-60" : ""}`}
-                      >
-                        <td className="px-3 py-2">
-                          <span className="text-ink-400 tabular-nums text-label">{index + 1}</span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="text-ink-900 font-mono text-label">
-                            {emp.employee_code}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 min-w-[180px]">
-                          <div className="flex items-center gap-2.5">
-                            <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-label font-semibold ${emp.status === "inactive" ? "bg-ink-50 text-ink-400" : "bg-primary-soft text-primary-deep"}`}
-                            >
-                              {initialsOf(emp.full_name || emp.employee_code)}
-                            </span>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-ink-900 font-medium truncate">
-                                {emp.full_name || "—"}
-                              </span>
-                              <span className="text-ink-400 text-label">
-                                {(() => {
-                                  const tag = ssoAgeTag(emp);
-                                  const bits: ReactNode[] = [];
-                                  if (emp.department) bits.push(emp.department);
-                                  if (emp.sso_registered === false) {
-                                    bits.push(
-                                      <span key="pnd3" className="font-medium text-amber-700">
-                                        ภ.ง.ด.3
-                                      </span>,
-                                    );
-                                  }
-                                  if (tag) {
-                                    bits.push(
-                                      <span
-                                        key="age"
-                                        className={
-                                          tag.warn ? "font-medium text-amber-700" : undefined
-                                        }
-                                      >
-                                        {tag.text}
-                                      </span>,
-                                    );
-                                  }
-                                  return bits.length > 0
-                                    ? bits.map((bit, i) => (
-                                        <Fragment key={i}>
-                                          {i > 0 ? " · " : ""}
-                                          {bit}
-                                        </Fragment>
-                                      ))
-                                    : "";
-                                })()}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <span className="text-ink-700 tabular-nums">
-                            {emp.start_date ? formatNumericThaiDate(emp.start_date) : "—"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">
-                          <span className="text-ink-700 tabular-nums">
-                            {emp.tenureDays === null
-                              ? "—"
-                              : `${emp.tenureDays.toLocaleString("en-US")} วัน`}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 min-w-[120px]">
-                          <span className="text-ink-500">{emp.position || "—"}</span>
-                        </td>
-                        <td className="px-3 py-2">
+            <div className="hidden sm:block bg-white border border-card-border rounded-card">
+              <table className={`${TABLE.table} min-w-[880px]`}>
+                <thead>
+                  <tr className={TABLE.theadTr}>
+                    <th className={`${TABLE.thStatic} tabular-nums`}>#</th>
+                    <SortableTh
+                      label="รหัส"
+                      align="left"
+                      active={empSort.sort.key === "employee_code"}
+                      dir={empSort.sort.dir}
+                      onClick={() => empSort.handleSort("employee_code")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
+                    <SortableTh
+                      label="ชื่อ-นามสกุล"
+                      align="left"
+                      active={empSort.sort.key === "full_name"}
+                      dir={empSort.sort.dir}
+                      onClick={() => empSort.handleSort("full_name")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
+                    <SortableTh
+                      label="เริ่มงาน"
+                      align="left"
+                      active={empSort.sort.key === "start_date"}
+                      dir={empSort.sort.dir}
+                      onClick={() => empSort.handleSort("start_date")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
+                    <SortableTh
+                      label="จำนวนวัน"
+                      align="right"
+                      active={empSort.sort.key === "tenureDays"}
+                      dir={empSort.sort.dir}
+                      onClick={() => empSort.handleSort("tenureDays")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="ตำแหน่ง"
+                      align="left"
+                      active={empSort.sort.key === "position"}
+                      dir={empSort.sort.dir}
+                      onClick={() => empSort.handleSort("position")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
+                    <SortableTh
+                      label="ประเภท"
+                      align="left"
+                      active={empSort.sort.key === "salary_type"}
+                      dir={empSort.sort.dir}
+                      onClick={() => empSort.handleSort("salary_type")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
+                    <SortableTh
+                      label="เงินเดือน"
+                      align="right"
+                      active={empSort.sort.key === "base_salary"}
+                      dir={empSort.sort.dir}
+                      onClick={() => empSort.handleSort("base_salary")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="สถานะ"
+                      align="left"
+                      active={empSort.sort.key === "status"}
+                      dir={empSort.sort.dir}
+                      onClick={() => empSort.handleSort("status")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
+                    <th className={`${TABLE.thStatic} text-right`}>จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedEmployees.map((emp, index) => (
+                    <tr
+                      key={emp.id}
+                      onClick={() => openEdit(emp)}
+                      onKeyDown={(event) => {
+                        if (event.target instanceof HTMLElement && event.target.closest("button"))
+                          return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openEdit(emp);
+                        }
+                      }}
+                      tabIndex={0}
+                      aria-label={`แก้ไขพนักงาน ${emp.full_name || emp.employee_code}`}
+                      className={`${TABLE.tbodyTr} cursor-pointer group hover:bg-paper-field/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40 ${emp.status === "inactive" ? "opacity-60" : ""}`}
+                    >
+                      <td className="px-3 py-2">
+                        <span className="text-ink-400 tabular-nums text-label">{index + 1}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="text-ink-900 font-mono text-label">
+                          {emp.employee_code}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 min-w-[180px]">
+                        <div className="flex items-center gap-2.5">
                           <span
-                            className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${emp.salary_type === "monthly" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-label font-semibold ${emp.status === "inactive" ? "bg-ink-50 text-ink-400" : "bg-primary-soft text-primary-deep"}`}
                           >
-                            {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
+                            {initialsOf(emp.full_name || emp.employee_code)}
                           </span>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="text-ink-900 tabular-nums font-medium">
-                            {formatCurrency(emp.base_salary)}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <StatusBadge
-                            tone={emp.status === "active" ? "green" : "gray"}
-                            label={emp.status === "active" ? "ทำงาน" : "ลาออก"}
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {emp.status === "active" && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOffboardingEmployee(emp);
-                                  setOffboardingDate(new Date().toISOString().split("T")[0]);
-                                  setOffboardingReason("");
-                                  setOffboardingNote("");
-                                }}
-                                className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-amber-50 text-ink-300 hover:text-amber-600 transition-colors md:h-7 md:w-7"
-                                title="จบการจ้างงาน"
-                              >
-                                <UserRoundX className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openEdit(emp);
-                              }}
-                              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
-                              title="แก้ไข"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeletingEmployee(emp);
-                              }}
-                              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors md:h-7 md:w-7"
-                              title="ลบ"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-ink-900 font-medium truncate">
+                              {emp.full_name || "—"}
+                            </span>
+                            <span className="text-ink-400 text-label">
+                              {(() => {
+                                const tag = ssoAgeTag(emp);
+                                const bits: ReactNode[] = [];
+                                if (emp.department) bits.push(emp.department);
+                                if (emp.sso_registered === false) {
+                                  bits.push(
+                                    <span key="pnd3" className="font-medium text-amber-700">
+                                      ภ.ง.ด.3
+                                    </span>,
+                                  );
+                                }
+                                if (tag) {
+                                  bits.push(
+                                    <span
+                                      key="age"
+                                      className={
+                                        tag.warn ? "font-medium text-amber-700" : undefined
+                                      }
+                                    >
+                                      {tag.text}
+                                    </span>,
+                                  );
+                                }
+                                return bits.length > 0
+                                  ? bits.map((bit, i) => (
+                                      <Fragment key={i}>
+                                        {i > 0 ? " · " : ""}
+                                        {bit}
+                                      </Fragment>
+                                    ))
+                                  : "";
+                              })()}
+                            </span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className="text-ink-700 tabular-nums">
+                          {emp.start_date ? formatNumericThaiDate(emp.start_date) : "—"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        <span className="text-ink-700 tabular-nums">
+                          {emp.tenureDays === null
+                            ? "—"
+                            : `${emp.tenureDays.toLocaleString("en-US")} วัน`}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 min-w-[120px]">
+                        <span className="text-ink-500">{emp.position || "—"}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${emp.salary_type === "monthly" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}
+                        >
+                          {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <span className="text-ink-900 tabular-nums font-medium">
+                          {formatCurrency(emp.base_salary)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge
+                          tone={emp.status === "active" ? "green" : "gray"}
+                          label={emp.status === "active" ? "ทำงาน" : "ลาออก"}
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {emp.status === "active" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOffboardingEmployee(emp);
+                                setOffboardingDate(new Date().toISOString().split("T")[0]);
+                                setOffboardingReason("");
+                                setOffboardingNote("");
+                              }}
+                              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-amber-50 text-ink-300 hover:text-amber-600 transition-colors md:h-7 md:w-7"
+                              title="จบการจ้างงาน"
+                              aria-label={`จบการจ้างงาน ${emp.full_name || emp.employee_code}`}
+                            >
+                              <UserRoundX className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(emp);
+                            }}
+                            className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
+                            title="แก้ไข"
+                            aria-label={`แก้ไข ${emp.full_name || emp.employee_code}`}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeletingEmployee(emp);
+                            }}
+                            className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors md:h-7 md:w-7"
+                            title="ลบ"
+                            aria-label={`ลบ ${emp.full_name || emp.employee_code}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </>
         )}
@@ -1374,7 +1414,8 @@ export default function EmployeesPage() {
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <p className="text-body text-red-800">
                 ต้องการลบพนักงาน <strong>{deletingEmployee.full_name}</strong> ทั้งหมด?
-                การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                การดำเนินการนี้ไม่สามารถย้อนกลับได้ ถ้าพนักงานเคยมีประวัติในรอบเงินเดือน จะลบไม่ได้
+                — ให้ใช้ จบการจ้างงาน แทนเพื่อเก็บประวัติไว้
               </p>
             </div>
             <div className="flex gap-2 pt-1">
