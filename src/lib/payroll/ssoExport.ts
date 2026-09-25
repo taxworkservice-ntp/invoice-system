@@ -1,5 +1,7 @@
 import ExcelJS from "exceljs";
 import type { Employee } from "../../types";
+import { calculateSSO } from "./calculations";
+import { isSsoCovered } from "./ssoEligibility";
 import type { PayrollCalcRow } from "./reportXlsx";
 
 /**
@@ -9,10 +11,11 @@ import type { PayrollCalcRow } from "./reportXlsx";
  *   เลขประจำตัวประชาชน | คำนำหน้าชื่อ | ชื่อผู้ประกันตน |
  *   นามสกุลผู้ประกันตน | ค่าจ้าง | จำนวนเงินสมทบ
  *
- * Only active, SSO-registered staff are filed. Wages come from the payroll
- * run's actual gross (not master salary) so daily staff, OT, and additions
- * are correct. Contributions reuse the run's computed sso_employee, which
- * already applies calculateSSO (5% over a 17,500 ceiling) + rounding.
+ * Only active, SSO-registered staff are filed. Two wage modes: run mode
+ * uses the payroll run's actual gross (daily staff, OT, additions correct);
+ * roster mode (buildSsoRosterRows) uses master base salary for the
+ * employee-page export. Contributions always follow calculateSSO (5% over
+ * a 17,500 ceiling).
  */
 
 export const SSO_SHEET_NAME = "000000";
@@ -113,6 +116,32 @@ export interface SsoBuildResult {
   errors: SsoRowError[];
   skippedInactive: number;
   skippedContract: number;
+  skippedOver60: number;
+}
+
+/**
+ * Roster-mode rows for the employee-page export: wage = master base salary
+ * (no payroll run involved), contribution rounded to whole baht the way the
+ * SSO form expects.
+ */
+export function buildSsoRosterRows(employees: Employee[]): PayrollCalcRow[] {
+  return employees.map((emp) => {
+    const gross = Number(emp.base_salary) || 0;
+    const contribution = Math.round(calculateSSO(gross).employee);
+    return {
+      employee: emp,
+      lineItem: null,
+      base_pay: gross,
+      ot_pay: 0,
+      additions_total: 0,
+      deductions_total: 0,
+      gross_pay: gross,
+      sso_employee: contribution,
+      sso_employer: contribution,
+      withholding_tax: 0,
+      net_pay: gross,
+    };
+  });
 }
 
 /**
@@ -124,6 +153,7 @@ export function buildSsoRows(calcRows: PayrollCalcRow[]): SsoBuildResult {
   const errors: SsoRowError[] = [];
   let skippedInactive = 0;
   let skippedContract = 0;
+  let skippedOver60 = 0;
 
   for (const row of calcRows) {
     const emp: Employee = row.employee;
@@ -133,6 +163,11 @@ export function buildSsoRows(calcRows: PayrollCalcRow[]): SsoBuildResult {
     }
     if (emp.sso_registered === false) {
       skippedContract += 1;
+      continue;
+    }
+    // Thai SSO age-60 rule: already 60+ on the start date → never filed.
+    if (!isSsoCovered(emp)) {
+      skippedOver60 += 1;
       continue;
     }
     if (!isValidThaiId(emp.tax_id)) {
@@ -170,7 +205,7 @@ export function buildSsoRows(calcRows: PayrollCalcRow[]): SsoBuildResult {
     });
   }
 
-  return { rows, errors, skippedInactive, skippedContract };
+  return { rows, errors, skippedInactive, skippedContract, skippedOver60 };
 }
 
 /** Filing workbook in the SSO e-filing layout. IDs are text (keep leading zeros). */

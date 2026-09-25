@@ -38,33 +38,33 @@ export function formatBangkokTime(iso: string): string {
 }
 
 const THAI_MONTHS_ABBR = [
-  'ม.ค.',
-  'ก.พ.',
-  'มี.ค.',
-  'เม.ย.',
-  'พ.ค.',
-  'มิ.ย.',
-  'ก.ค.',
-  'ส.ค.',
-  'ก.ย.',
-  'ต.ค.',
-  'พ.ย.',
-  'ธ.ค.',
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
 ];
 
 const THAI_MONTHS_FULL = [
-  'มกราคม',
-  'กุมภาพันธ์',
-  'มีนาคม',
-  'เมษายน',
-  'พฤษภาคม',
-  'มิถุนายน',
-  'กรกฎาคม',
-  'สิงหาคม',
-  'กันยายน',
-  'ตุลาคม',
-  'พฤศจิกายน',
-  'ธันวาคม',
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
 ];
 
 const BUDDHIST_OFFSET = 543;
@@ -86,12 +86,36 @@ export function formatBuddhistDate(isoDate: string): string {
   return `${day} ${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`;
 }
 
+/** Numeric date with Common Era year: "2026-09-15" → "15/09/2026". */
+export function formatNumericThaiDate(isoDate: string): string {
+  const { day, month, year } = bangkokParts(isoDate);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(day)}/${pad(month)}/${year}`;
+}
+
+/**
+ * Whole days from a YYYY-MM-DD date until today (Bangkok), null when empty
+ * or invalid. Future dates clamp to 0.
+ */
+export function daysSinceDate(isoDate: string | null | undefined): number | null {
+  if (!isoDate) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate.trim());
+  if (!m) return null;
+  const start = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (!Number.isFinite(start)) return null;
+  const todayStr = bangkokTodayString();
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  const today = Date.UTC(ty, tm - 1, td);
+  return Math.max(0, Math.floor((today - start) / 86400000));
+}
+
 /** Month picker label: "2026-09" → "ก.ย. 2569". Falls back to input. */
 export function formatBuddhistMonth(yearMonth: string): string {
   const [y, m] = yearMonth.split("-");
   const month = parseInt(m, 10);
   const year = parseInt(y, 10);
-  if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12) return yearMonth;
+  if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12)
+    return yearMonth;
   return `${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`;
 }
 

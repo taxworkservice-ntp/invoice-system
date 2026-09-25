@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Plus,
   Trash2,
@@ -9,6 +9,9 @@ import {
   Repeat,
   Check,
   Circle,
+  Paperclip,
+  ExternalLink,
+  Download,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -20,9 +23,19 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { Modal } from "../../../components/ui/Modal";
 import { SummaryRow } from "../../../components/home/SummaryRow";
 import { PayrollTabs } from "../../../components/payroll/PayrollTabs";
+import { splitInsuredName } from "../../../lib/payroll/ssoExport";
+import { currentAgeYears, wasSixtyAtHire } from "../../../lib/payroll/ssoEligibility";
 import { TABLE } from "../../../lib/tableStyles";
 import { formatCurrency } from "../../../lib/format";
+import { formatNumericThaiDate, daysSinceDate } from "../../../lib/dates";
+import { useTableSort } from "../../../components/ui/useTableSort";
+import { SortableTh } from "../../../components/ui/SortableTh";
 import { supabase } from "../../../lib/supabase";
+import { deleteFromR2, getR2PresignedUrl } from "../../../lib/r2";
+import { ImageUpload, type UploadedFileMeta } from "../../../components/ui/ImageUpload";
+import { downloadBlob, datedFilename } from "../../../lib/download/download";
+import { buildSsoRows, buildSsoRosterRows, buildSsoWorkbook } from "../../../lib/payroll/ssoExport";
+import { workbookToBlob } from "../../../lib/payroll/reportXlsx";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../../lib/permissions";
 import { useToast } from "../../../hooks/useToast";
@@ -35,7 +48,7 @@ import {
   getActionIcon,
   type AuditLogEntry,
 } from "../../../lib/payroll/audit";
-import type { Employee } from "../../../types";
+import type { Employee, EmployeeDocument } from "../../../types";
 import type { RecurringTemplate } from "../../../lib/payroll/recurring";
 
 interface EmployeeForm {
@@ -52,8 +65,23 @@ interface EmployeeForm {
   bank_account: string;
   sso_registered: boolean;
   start_date: string;
+  date_of_birth: string;
   status: "active" | "inactive";
   end_date: string;
+  resign_reason: string;
+  resign_note: string;
+}
+
+const RESIGN_REASONS: { value: string; label: string }[] = [
+  { value: "resigned", label: "ลาออกเอง" },
+  { value: "contract_ended", label: "สิ้นสุดสัญญาจ้าง" },
+  { value: "terminated", label: "เลิกจ้าง" },
+  { value: "retired", label: "เกษียณอายุ" },
+  { value: "other", label: "อื่น ๆ" },
+];
+
+export function resignReasonLabel(reason: string | null | undefined): string {
+  return RESIGN_REASONS.find((r) => r.value === reason)?.label || "—";
 }
 
 type ModalState = { mode: "create"; form: EmployeeForm } | { mode: "edit"; form: EmployeeForm };
@@ -81,8 +109,11 @@ function emptyForm(): EmployeeForm {
     bank_account: "",
     sso_registered: true,
     start_date: new Date().toISOString().split("T")[0],
+    date_of_birth: "",
     status: "active",
     end_date: "",
+    resign_reason: "",
+    resign_note: "",
   };
 }
 
@@ -101,8 +132,11 @@ function employeeToForm(emp: Employee): EmployeeForm {
     bank_account: emp.bank_account ?? "",
     sso_registered: emp.sso_registered !== false,
     start_date: emp.start_date,
+    date_of_birth: emp.date_of_birth ?? "",
     status: emp.status,
     end_date: emp.end_date ?? "",
+    resign_reason: emp.resign_reason ?? "",
+    resign_note: emp.resign_note ?? "",
   };
 }
 
@@ -122,6 +156,8 @@ export default function EmployeesPage() {
   const [department, setDepartment] = useState("all");
   const [offboardingEmployee, setOffboardingEmployee] = useState<Employee | null>(null);
   const [offboardingDate, setOffboardingDate] = useState(new Date().toISOString().split("T")[0]);
+  const [offboardingReason, setOffboardingReason] = useState("");
+  const [offboardingNote, setOffboardingNote] = useState("");
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
 
   const userId = workspaceUserId;
@@ -169,6 +205,25 @@ export default function EmployeesPage() {
   const inactiveCount = employees.filter((e) => e.status === "inactive").length;
   const incompleteCount = employees.filter(isIncompleteProfile).length;
 
+  type EmployeeSortKey =
+    | "employee_code"
+    | "full_name"
+    | "start_date"
+    | "tenureDays"
+    | "position"
+    | "salary_type"
+    | "base_salary"
+    | "status";
+  const rowsWithTenure = filtered.map((emp) => ({
+    ...emp,
+    tenureDays: daysSinceDate(emp.start_date),
+  }));
+  const empSort = useTableSort<(typeof rowsWithTenure)[number], EmployeeSortKey>(rowsWithTenure, {
+    key: "employee_code",
+    dir: "asc",
+  });
+  const sortedEmployees = empSort.sorted;
+
   const hasActiveFilters = filter !== "active" || department !== "all" || search.trim() !== "";
 
   function clearEmployeeFilters() {
@@ -183,7 +238,9 @@ export default function EmployeesPage() {
       : `แก้ไขพนักงาน — ${modal.form.full_name || modal.form.employee_code}`
     : "";
 
-  const [modalTab, setModalTab] = useState<"info" | "job" | "recurring" | "history">("info");
+  const [modalTab, setModalTab] = useState<"info" | "job" | "documents" | "recurring" | "history">(
+    "info",
+  );
 
   function openCreate() {
     const form = emptyForm();
@@ -203,9 +260,23 @@ export default function EmployeesPage() {
     setModal({ mode: "edit", form: employeeToForm(emp) });
   }
 
+  function ssoAgeTag(emp: Employee): { text: string; warn: boolean } | null {
+    if (wasSixtyAtHire(emp)) return { text: "ไม่นำส่งประกันสังคม", warn: true };
+    const age = currentAgeYears(emp.date_of_birth);
+    if (age !== null && age >= 60) return { text: `อายุ ${age}`, warn: false };
+    return null;
+  }
+
   function initialsOf(name: string): string {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "–";
+    // Strip glued titles first (นายทดสอบ → ทดสอบ) so avatars never show them.
+    const { firstName, lastName } = splitInsuredName(name);
+    const parts = `${firstName} ${lastName}`.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      const fallback = name.trim().split(/\s+/).filter(Boolean);
+      if (fallback.length === 0) return "–";
+      if (fallback.length === 1) return fallback[0].slice(0, 2).toUpperCase();
+      return (fallback[0][0] + fallback[fallback.length - 1][0]).toUpperCase();
+    }
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
@@ -227,12 +298,17 @@ export default function EmployeesPage() {
     if (!form.full_name.trim()) errors.push("กรุณากรอกชื่อ-นามสกุล");
     if (!form.position.trim()) errors.push("กรุณากรอกตำแหน่ง");
     if (!form.start_date) errors.push("กรุณาเลือกวันที่เริ่มงาน");
+    if (!form.id && !form.date_of_birth)
+      errors.push("กรุณากรอกวันเกิด (ใช้ตรวจสิทธิประกันสังคมอายุ 60)");
     const salary = parseFloat(form.base_salary);
     if (Number.isNaN(salary) || salary < 0)
       errors.push("เงินเดือน/อัตรารายวันต้องเป็นตัวเลขที่ไม่ติดลบ");
     if (form.status === "inactive" && !form.end_date) errors.push("กรุณาเลือกวันที่ลาออก");
     if (form.status === "inactive" && form.end_date && form.end_date < form.start_date)
       errors.push("วันที่ลาออกต้องไม่ก่อนวันที่เริ่มงาน");
+    if (form.status === "inactive" && !form.resign_reason) errors.push("กรุณาเลือกเหตุผลการลาออก");
+    if (form.status === "inactive" && form.resign_reason === "other" && !form.resign_note.trim())
+      errors.push("กรุณาระบุรายละเอียดเหตุผลการลาออก");
     return errors;
   }
 
@@ -260,8 +336,11 @@ export default function EmployeesPage() {
       bank_account: form.bank_account.trim() || null,
       sso_registered: form.sso_registered,
       start_date: form.start_date,
+      date_of_birth: form.date_of_birth || null,
       status: form.status,
       end_date: form.status === "inactive" ? form.end_date || null : null,
+      resign_reason: form.status === "inactive" ? form.resign_reason || null : null,
+      resign_note: form.status === "inactive" ? form.resign_note.trim() || null : null,
     };
 
     const prevEmployee = employees.find((e) => e.id === form.id);
@@ -397,6 +476,18 @@ export default function EmployeesPage() {
         },
       });
     }
+    if ((prevEmployee.date_of_birth ?? "") !== form.date_of_birth) {
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
+        entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
+        entity_id: employeeId,
+        details: {
+          field: "date_of_birth",
+          old_value: prevEmployee.date_of_birth ?? "",
+          new_value: form.date_of_birth,
+        },
+      });
+    }
     if (prevEmployee.status !== form.status) {
       await logAuditEvent({
         action:
@@ -420,6 +511,36 @@ export default function EmployeesPage() {
         },
       });
     }
+    if (
+      (prevEmployee.resign_reason ?? "") !==
+      (form.status === "inactive" ? form.resign_reason || "" : "")
+    ) {
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.RESIGN_REASON_CHANGED,
+        entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
+        entity_id: employeeId,
+        details: {
+          field: "resign_reason",
+          old_value: resignReasonLabel(prevEmployee.resign_reason),
+          new_value: resignReasonLabel(form.status === "inactive" ? form.resign_reason || "" : ""),
+        },
+      });
+    }
+    if (
+      (prevEmployee.resign_note ?? "") !==
+      (form.status === "inactive" ? form.resign_note.trim() : "")
+    ) {
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
+        entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
+        entity_id: employeeId,
+        details: {
+          field: "resign_note",
+          old_value: prevEmployee.resign_note ?? "",
+          new_value: form.status === "inactive" ? form.resign_note.trim() : "",
+        },
+      });
+    }
   }
 
   async function handleOffboard() {
@@ -428,9 +549,24 @@ export default function EmployeesPage() {
       toast.error("วันที่ลาออกต้องไม่ก่อนวันที่เริ่มงาน");
       return;
     }
+    if (!offboardingReason) {
+      toast.error("กรุณาเลือกเหตุผลการลาออก");
+      return;
+    }
+    if (offboardingReason === "other" && !offboardingNote.trim()) {
+      toast.error("กรุณาระบุรายละเอียดเหตุผลการลาออก");
+      return;
+    }
+    const reason = offboardingReason;
+    const note = offboardingNote.trim() || null;
     const { error } = await supabase
       .from("employees")
-      .update({ status: "inactive", end_date: offboardingDate })
+      .update({
+        status: "inactive",
+        end_date: offboardingDate,
+        resign_reason: reason,
+        resign_note: note,
+      })
       .eq("id", offboardingEmployee.id)
       .eq("user_id", userId);
     if (error) {
@@ -439,7 +575,13 @@ export default function EmployeesPage() {
       setEmployees((prev) =>
         prev.map((e) =>
           e.id === offboardingEmployee.id
-            ? { ...e, status: "inactive", end_date: offboardingDate }
+            ? {
+                ...e,
+                status: "inactive",
+                end_date: offboardingDate,
+                resign_reason: reason,
+                resign_note: note,
+              }
             : e,
         ),
       );
@@ -448,9 +590,16 @@ export default function EmployeesPage() {
         action: AUDIT_ACTIONS.EMPLOYEE_TERMINATED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: offboardingEmployee.id,
-        details: { employee_code: offboardingEmployee.employee_code, end_date: offboardingDate },
+        details: {
+          employee_code: offboardingEmployee.employee_code,
+          end_date: offboardingDate,
+          resign_reason: resignReasonLabel(reason),
+          resign_note: note ?? "",
+        },
       });
       setOffboardingEmployee(null);
+      setOffboardingReason("");
+      setOffboardingNote("");
     }
   }
 
@@ -465,6 +614,15 @@ export default function EmployeesPage() {
     if (error) {
       toast.error("ไม่สามารถลบพนักงานได้");
     } else {
+      // Best-effort R2 cleanup for personal documents (rows cascade).
+      const { data: docs } = await supabase
+        .from("employee_documents")
+        .select("r2_key")
+        .eq("employee_id", emp.id)
+        .eq("user_id", userId);
+      for (const doc of docs || []) {
+        if (doc.r2_key) await deleteFromR2(doc.r2_key).catch(() => undefined);
+      }
       setEmployees((prev) => prev.filter((e) => e.id !== emp.id));
       toast.success("ลบพนักงานแล้ว");
       await logAuditEvent({
@@ -475,6 +633,32 @@ export default function EmployeesPage() {
       });
     }
     setDeletingEmployee(null);
+  }
+
+  async function handleExportSsoRoster() {
+    const built = buildSsoRows(buildSsoRosterRows(employees));
+    if (built.errors.length > 0) {
+      const names = built.errors
+        .slice(0, 3)
+        .map((e) => `${e.employeeCode} ${e.fullName}`.trim())
+        .join(", ");
+      const more = built.errors.length > 3 ? ` และอีก ${built.errors.length - 3} คน` : "";
+      toast.error(`ส่งออกไม่ได้: ${names}${more} — ${built.errors[0].reason}`);
+      return;
+    }
+    if (built.rows.length === 0) {
+      toast.error("ไม่มีพนักงานประกันสังคม");
+      return;
+    }
+    const wb = buildSsoWorkbook(built.rows);
+    const blob = await workbookToBlob(wb);
+    downloadBlob(blob, datedFilename("sso-employees", "xlsx"));
+    const skippedParts: string[] = [];
+    if (built.skippedInactive > 0) skippedParts.push(`ลาออก ${built.skippedInactive}`);
+    if (built.skippedContract > 0) skippedParts.push(`ภ.ง.ด.3 ${built.skippedContract}`);
+    if (built.skippedOver60 > 0) skippedParts.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
+    const skipped = skippedParts.length > 0 ? ` (ข้าม: ${skippedParts.join(" · ")})` : "";
+    toast.success(`ส่งออกประกันสังคม ${built.rows.length} คน${skipped}`);
   }
 
   function maskAccount(account: string): string {
@@ -511,10 +695,21 @@ export default function EmployeesPage() {
     <AppShell
       title="พนักงาน"
       action={
-        <Button size="sm" onClick={openCreate} className="!rounded-control">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">เพิ่ม</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleExportSsoRoster}
+            className="!rounded-control"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">ประกันสังคม</span>
+          </Button>
+          <Button size="sm" onClick={openCreate} className="!rounded-control">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">เพิ่ม</span>
+          </Button>
+        </div>
       }
     >
       <div className="space-y-4">
@@ -614,7 +809,7 @@ export default function EmployeesPage() {
         ) : (
           <>
             <div className="space-y-2 sm:hidden">
-              {filtered.map((emp) => (
+              {sortedEmployees.map((emp) => (
                 <button
                   key={emp.id}
                   type="button"
@@ -635,6 +830,10 @@ export default function EmployeesPage() {
                         {emp.employee_code}
                         {emp.department ? ` · ${emp.department}` : ""}
                         {emp.sso_registered === false ? " · ภ.ง.ด.3" : ""}
+                        {(() => {
+                          const tag = ssoAgeTag(emp);
+                          return tag ? ` · ${tag.text}` : "";
+                        })()}
                       </div>
                     </div>
                     <StatusBadge
@@ -646,6 +845,10 @@ export default function EmployeesPage() {
                     <span className="text-label text-ink-500">
                       {emp.position || "—"} ·{" "}
                       {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
+                      {emp.start_date ? ` · เริ่ม ${formatNumericThaiDate(emp.start_date)}` : ""}
+                      {emp.tenureDays !== null && emp.tenureDays !== undefined
+                        ? ` · ${emp.tenureDays.toLocaleString("en-US")} วัน`
+                        : ""}
                     </span>
                     <span className="text-body tabular-nums text-ink-900">
                       ฿{formatCurrency(emp.base_salary)}
@@ -659,22 +862,84 @@ export default function EmployeesPage() {
                 <table className={TABLE.table}>
                   <thead>
                     <tr className={TABLE.theadTr}>
-                      <th className={TABLE.thStatic}>รหัส</th>
-                      <th className={TABLE.thStatic}>ชื่อ-นามสกุล</th>
-                      <th className={TABLE.thStatic}>ตำแหน่ง</th>
-                      <th className={TABLE.thStatic}>ประเภท</th>
-                      <th className={`${TABLE.thStatic} text-right`}>เงินเดือน</th>
-                      <th className={TABLE.thStatic}>สถานะ</th>
+                      <th className={`${TABLE.thStatic} tabular-nums`}>#</th>
+                      <SortableTh
+                        label="รหัส"
+                        align="left"
+                        active={empSort.sort.key === "employee_code"}
+                        dir={empSort.sort.dir}
+                        onClick={() => empSort.handleSort("employee_code")}
+                        className={`${TABLE.thSortable} whitespace-nowrap`}
+                      />
+                      <SortableTh
+                        label="ชื่อ-นามสกุล"
+                        align="left"
+                        active={empSort.sort.key === "full_name"}
+                        dir={empSort.sort.dir}
+                        onClick={() => empSort.handleSort("full_name")}
+                        className={`${TABLE.thSortable} whitespace-nowrap`}
+                      />
+                      <SortableTh
+                        label="เริ่มงาน"
+                        align="left"
+                        active={empSort.sort.key === "start_date"}
+                        dir={empSort.sort.dir}
+                        onClick={() => empSort.handleSort("start_date")}
+                        className={`${TABLE.thSortable} whitespace-nowrap`}
+                      />
+                      <SortableTh
+                        label="จำนวนวัน"
+                        align="right"
+                        active={empSort.sort.key === "tenureDays"}
+                        dir={empSort.sort.dir}
+                        onClick={() => empSort.handleSort("tenureDays")}
+                        className={TABLE.thSortable}
+                      />
+                      <SortableTh
+                        label="ตำแหน่ง"
+                        align="left"
+                        active={empSort.sort.key === "position"}
+                        dir={empSort.sort.dir}
+                        onClick={() => empSort.handleSort("position")}
+                        className={`${TABLE.thSortable} whitespace-nowrap`}
+                      />
+                      <SortableTh
+                        label="ประเภท"
+                        align="left"
+                        active={empSort.sort.key === "salary_type"}
+                        dir={empSort.sort.dir}
+                        onClick={() => empSort.handleSort("salary_type")}
+                        className={`${TABLE.thSortable} whitespace-nowrap`}
+                      />
+                      <SortableTh
+                        label="เงินเดือน"
+                        align="right"
+                        active={empSort.sort.key === "base_salary"}
+                        dir={empSort.sort.dir}
+                        onClick={() => empSort.handleSort("base_salary")}
+                        className={TABLE.thSortable}
+                      />
+                      <SortableTh
+                        label="สถานะ"
+                        align="left"
+                        active={empSort.sort.key === "status"}
+                        dir={empSort.sort.dir}
+                        onClick={() => empSort.handleSort("status")}
+                        className={`${TABLE.thSortable} whitespace-nowrap`}
+                      />
                       <th className={`${TABLE.thStatic} text-right`}>จัดการ</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((emp) => (
+                    {sortedEmployees.map((emp, index) => (
                       <tr
                         key={emp.id}
                         onClick={() => openEdit(emp)}
                         className={`${TABLE.tbodyTr} cursor-pointer group hover:bg-paper-field/50 transition-colors ${emp.status === "inactive" ? "opacity-60" : ""}`}
                       >
+                        <td className="px-3 py-2">
+                          <span className="text-ink-400 tabular-nums text-label">{index + 1}</span>
+                        </td>
                         <td className="px-3 py-2">
                           <span className="text-ink-900 font-mono text-label">
                             {emp.employee_code}
@@ -692,14 +957,53 @@ export default function EmployeesPage() {
                                 {emp.full_name || "—"}
                               </span>
                               <span className="text-ink-400 text-label">
-                                {emp.department || ""}
-                                {emp.department && emp.sso_registered === false ? " · " : ""}
-                                {emp.sso_registered === false ? (
-                                  <span className="font-medium text-amber-700">ภ.ง.ด.3</span>
-                                ) : null}
+                                {(() => {
+                                  const tag = ssoAgeTag(emp);
+                                  const bits: ReactNode[] = [];
+                                  if (emp.department) bits.push(emp.department);
+                                  if (emp.sso_registered === false) {
+                                    bits.push(
+                                      <span key="pnd3" className="font-medium text-amber-700">
+                                        ภ.ง.ด.3
+                                      </span>,
+                                    );
+                                  }
+                                  if (tag) {
+                                    bits.push(
+                                      <span
+                                        key="age"
+                                        className={
+                                          tag.warn ? "font-medium text-amber-700" : undefined
+                                        }
+                                      >
+                                        {tag.text}
+                                      </span>,
+                                    );
+                                  }
+                                  return bits.length > 0
+                                    ? bits.map((bit, i) => (
+                                        <Fragment key={i}>
+                                          {i > 0 ? " · " : ""}
+                                          {bit}
+                                        </Fragment>
+                                      ))
+                                    : "";
+                                })()}
                               </span>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className="text-ink-700 tabular-nums">
+                            {emp.start_date ? formatNumericThaiDate(emp.start_date) : "—"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">
+                          <span className="text-ink-700 tabular-nums">
+                            {emp.tenureDays === null
+                              ? "—"
+                              : `${emp.tenureDays.toLocaleString("en-US")} วัน`}
+                          </span>
                         </td>
                         <td className="px-3 py-2 min-w-[120px]">
                           <span className="text-ink-500">{emp.position || "—"}</span>
@@ -730,6 +1034,8 @@ export default function EmployeesPage() {
                                   e.stopPropagation();
                                   setOffboardingEmployee(emp);
                                   setOffboardingDate(new Date().toISOString().split("T")[0]);
+                                  setOffboardingReason("");
+                                  setOffboardingNote("");
                                 }}
                                 className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-amber-50 text-ink-300 hover:text-amber-600 transition-colors md:h-7 md:w-7"
                                 title="จบการจ้างงาน"
@@ -777,6 +1083,7 @@ export default function EmployeesPage() {
                 [
                   ["info", "ข้อมูลทั่วไป"],
                   ["job", "การจ้างงาน"],
+                  ["documents", "เอกสาร"],
                   ["recurring", "รายการประจำ"],
                   ["history", "ประวัติ"],
                 ] as const
@@ -816,6 +1123,17 @@ export default function EmployeesPage() {
                   />
                   <p className="mt-1 text-label text-ink-400">
                     เว้นว่างได้ — พนักงานที่ไม่มีเลขฯ จะถูกข้ามเมื่อซิงก์ภาษีหัก ณ ที่จ่าย
+                  </p>
+                </div>
+                <div>
+                  <Input
+                    label="วันเกิด"
+                    type="date"
+                    value={modal.form.date_of_birth}
+                    onChange={(e) => updateField("date_of_birth", e.target.value)}
+                  />
+                  <p className="mt-1 text-label text-ink-400">
+                    ใช้ตรวจสิทธิประกันสังคม (เข้างานตอนอายุ 60 ขึ้นไปไม่ต้องนำส่ง)
                   </p>
                 </div>
                 <Input
@@ -909,8 +1227,46 @@ export default function EmployeesPage() {
                     onChange={(e) => updateField("end_date", e.target.value)}
                   />
                 )}
+                {modal.form.status === "inactive" && (
+                  <Select
+                    label="เหตุผลการลาออก"
+                    value={modal.form.resign_reason}
+                    onChange={(e) => updateField("resign_reason", e.target.value)}
+                  >
+                    <option value="">เลือกเหตุผล</option>
+                    {RESIGN_REASONS.map((reason) => (
+                      <option key={reason.value} value={reason.value}>
+                        {reason.label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+                {modal.form.status === "inactive" && (
+                  <div className="sm:col-span-2">
+                    <Input
+                      label={
+                        modal.form.resign_reason === "other"
+                          ? "รายละเอียดเหตุผล (บังคับ)"
+                          : "หมายเหตุการลาออก"
+                      }
+                      value={modal.form.resign_note}
+                      onChange={(e) => updateField("resign_note", e.target.value)}
+                      placeholder="รายละเอียดเพิ่มเติม"
+                    />
+                  </div>
+                )}
               </div>
             )}
+
+            {modalTab === "documents" &&
+              (modal.mode === "edit" ? (
+                <EmployeeDocumentsPanel userId={userId ?? ""} employeeId={modal.form.id} />
+              ) : (
+                <p className="text-label text-ink-400">
+                  บันทึกพนักงานก่อน แล้วค่อยอัปโหลดเอกสาร (บัตรประชาชน, ทะเบียนบ้าน, สมุดบัญชี)
+                  ในภายหลัง
+                </p>
+              ))}
 
             {modalTab === "recurring" &&
               (modal.mode === "edit" ? (
@@ -971,6 +1327,26 @@ export default function EmployeesPage() {
               value={offboardingDate}
               onChange={(e) => setOffboardingDate(e.target.value)}
             />
+            <Select
+              label="เหตุผลการลาออก"
+              value={offboardingReason}
+              onChange={(e) => setOffboardingReason(e.target.value)}
+            >
+              <option value="">เลือกเหตุผล</option>
+              {RESIGN_REASONS.map((reason) => (
+                <option key={reason.value} value={reason.value}>
+                  {reason.label}
+                </option>
+              ))}
+            </Select>
+            {offboardingReason === "other" && (
+              <Input
+                label="รายละเอียดเหตุผล (บังคับ)"
+                value={offboardingNote}
+                onChange={(e) => setOffboardingNote(e.target.value)}
+                placeholder="รายละเอียดเพิ่มเติม"
+              />
+            )}
             <div className="flex gap-2 pt-1">
               <Button
                 variant="secondary"
@@ -1286,6 +1662,272 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
               </button>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DOC_SLOTS = [
+  { type: "id_card", label: "บัตรประชาชน" },
+  { type: "house_registration", label: "ทะเบียนบ้าน" },
+  { type: "bank_book", label: "สมุดบัญชี" },
+] as const;
+
+type DocSlotType = (typeof DOC_SLOTS)[number]["type"] | "other";
+
+function EmployeeDocumentsPanel({ userId, employeeId }: { userId: string; employeeId: string }) {
+  const toast = useToast();
+  const [docs, setDocs] = useState<EmployeeDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [schemaMissing, setSchemaMissing] = useState(false);
+  const [otherLabel, setOtherLabel] = useState("");
+  const [addCount, setAddCount] = useState(0);
+  const [openingId, setOpeningId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    supabase
+      .from("employee_documents")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .order("uploaded_at", { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          setSchemaMissing(true);
+          setDocs([]);
+        } else {
+          setSchemaMissing(false);
+          setDocs((data ?? []) as EmployeeDocument[]);
+        }
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId]);
+
+  function slotKey(docType: string, ext: string): string {
+    return `employees/${employeeId}/${docType}-${Date.now()}.${ext}`;
+  }
+
+  async function auditDoc(action: string, docType: string, label: string, fileName: string) {
+    await logAuditEvent({
+      action: action as typeof AUDIT_ACTIONS.EMPLOYEE_DOCUMENT_ADDED,
+      entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
+      entity_id: employeeId,
+      details: { doc_type: docType, label, file_name: fileName },
+    });
+  }
+
+  async function handleSlotChange(
+    docType: DocSlotType,
+    label: string,
+    key: string | null,
+    file?: UploadedFileMeta | null,
+  ) {
+    if (!userId) return;
+    const previous = docs.filter((d) => d.doc_type === docType && (d.label ?? "") === label);
+    if (key === null) {
+      if (previous.length === 0) return;
+      const { error } = await supabase
+        .from("employee_documents")
+        .delete()
+        .in(
+          "id",
+          previous.map((d) => d.id),
+        );
+      if (error) {
+        toast.error("ลบเอกสารไม่สำเร็จ");
+        return;
+      }
+      setDocs((prev) => prev.filter((d) => !previous.some((p) => p.id === d.id)));
+      await auditDoc(
+        AUDIT_ACTIONS.EMPLOYEE_DOCUMENT_REMOVED,
+        docType,
+        label,
+        previous[0].file_name ?? "",
+      );
+      return;
+    }
+    const { data, error } = await supabase
+      .from("employee_documents")
+      .insert({
+        user_id: userId,
+        employee_id: employeeId,
+        doc_type: docType,
+        label: label || null,
+        r2_key: key,
+        file_name: file?.name ?? null,
+        mime_type: file?.type ?? null,
+        file_size: file?.size ?? null,
+      })
+      .select("*")
+      .single();
+    if (error || !data) {
+      toast.error("บันทึกเอกสารไม่สำเร็จ");
+      return;
+    }
+    setDocs((prev) => [
+      ...prev.filter((d) => !previous.some((p) => p.id === d.id)),
+      data as EmployeeDocument,
+    ]);
+    // Fixed slots hold one row: drop the replaced predecessor row (its R2
+    // object was already deleted by the uploader on replace).
+    if (docType !== "other" && previous.length > 0) {
+      await supabase
+        .from("employee_documents")
+        .delete()
+        .in(
+          "id",
+          previous.map((d) => d.id),
+        );
+      setDocs((prev) => [
+        ...prev.filter((d) => !previous.some((p) => p.id === d.id)),
+        data as EmployeeDocument,
+      ]);
+    }
+    await auditDoc(
+      previous.length > 0 ? AUDIT_ACTIONS.EMPLOYEE_UPDATED : AUDIT_ACTIONS.EMPLOYEE_DOCUMENT_ADDED,
+      docType,
+      label,
+      file?.name ?? "",
+    );
+    if (docType === "other") {
+      setOtherLabel("");
+      setAddCount((c) => c + 1);
+    }
+  }
+
+  async function removeOtherDoc(doc: EmployeeDocument) {
+    if (!userId) return;
+    await deleteFromR2(doc.r2_key).catch(() => undefined);
+    const { error } = await supabase.from("employee_documents").delete().eq("id", doc.id);
+    if (error) {
+      toast.error("ลบเอกสารไม่สำเร็จ");
+      return;
+    }
+    setDocs((prev) => prev.filter((d) => d.id !== doc.id));
+    await auditDoc(
+      AUDIT_ACTIONS.EMPLOYEE_DOCUMENT_REMOVED,
+      doc.doc_type,
+      doc.label ?? "",
+      doc.file_name ?? "",
+    );
+  }
+
+  async function openDoc(doc: EmployeeDocument) {
+    if (openingId) return;
+    setOpeningId(doc.id);
+    try {
+      const url = await getR2PresignedUrl(doc.r2_key);
+      window.open(url, "_blank", "noopener");
+    } catch {
+      toast.error("เปิดเอกสารไม่สำเร็จ");
+    } finally {
+      setOpeningId(null);
+    }
+  }
+
+  const otherDocs = docs.filter((d) => d.doc_type === "other");
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <Paperclip className="w-4 h-4 text-ink-500" />
+        <span className="text-label font-semibold text-ink-700">
+          เอกสารส่วนตัว (เก็บเป็นความลับ — แสดงเฉพาะในหน้านี้)
+        </span>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-ink-400">
+          <Spinner />
+          <span className="text-label">กำลังโหลด...</span>
+        </div>
+      ) : schemaMissing ? (
+        <p className="text-label text-amber-600 flex items-start gap-1">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          ฟีเจอร์นี้ต้องอัปเดตฐานข้อมูลก่อน (migration: employee_documents)
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {DOC_SLOTS.map((slot) => {
+              const existing = docs.find((d) => d.doc_type === slot.type);
+              return (
+                <ImageUpload
+                  key={slot.type}
+                  userId={userId}
+                  storageKeyFn={(_uid, ext) => slotKey(slot.type, ext)}
+                  currentKey={existing?.r2_key ?? null}
+                  onKeyChange={(key, file) => handleSlotChange(slot.type, "", key, file)}
+                  label={slot.label}
+                  accept="image/*,.pdf"
+                  loadPreview
+                />
+              );
+            })}
+          </div>
+
+          <div>
+            <div className="text-label font-semibold text-ink-700 mb-2">เอกสารอื่น ๆ</div>
+            {otherDocs.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {otherDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center gap-2 rounded-control border border-card-border bg-white px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-body font-medium text-ink-900">
+                        {doc.label || doc.file_name || "เอกสาร"}
+                      </div>
+                      {doc.file_name && doc.label && (
+                        <div className="truncate text-label text-ink-400">{doc.file_name}</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openDoc(doc)}
+                      disabled={openingId !== null}
+                      className="flex items-center gap-1 text-label font-medium text-primary hover:underline disabled:text-ink-300"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      เปิดดู
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeOtherDoc(doc)}
+                      aria-label="ลบเอกสาร"
+                      className="flex h-7 w-7 items-center justify-center rounded-control hover:bg-red-50 text-ink-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="ชื่อเอกสาร"
+                value={otherLabel}
+                onChange={(e) => setOtherLabel(e.target.value)}
+                placeholder="เช่น สัญญาจ้าง, วุฒิการศึกษา"
+              />
+              <ImageUpload
+                key={`other-${addCount}`}
+                userId={userId}
+                storageKeyFn={(_uid, ext) => slotKey("other", ext)}
+                currentKey={null}
+                onKeyChange={(key, file) => handleSlotChange("other", otherLabel.trim(), key, file)}
+                label="ไฟล์เอกสาร"
+                accept="image/*,.pdf"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -27,7 +27,8 @@ export async function logAuditEvent(input: AuditLogInput): Promise<void> {
     });
     if (error) {
       await supabase.from("payroll_audit_log").insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id ?? "00000000-0000-0000-0000-000000000000",
+        user_id:
+          (await supabase.auth.getUser()).data.user?.id ?? "00000000-0000-0000-0000-000000000000",
         action: input.action,
         entity_type: input.entity_type,
         entity_id: input.entity_id,
@@ -39,7 +40,10 @@ export async function logAuditEvent(input: AuditLogInput): Promise<void> {
   }
 }
 
-export async function getAuditLogForEntity(entityType: string, entityId: string): Promise<AuditLogEntry[]> {
+export async function getAuditLogForEntity(
+  entityType: string,
+  entityId: string,
+): Promise<AuditLogEntry[]> {
   try {
     const { data, error } = await supabase.rpc("get_audit_log", {
       p_entity_type: entityType,
@@ -80,6 +84,9 @@ export const AUDIT_ACTIONS = {
   EMPLOYEE_ACTIVATED: "employee_activated",
   EMPLOYEE_TERMINATED: "employee_terminated",
   EMPLOYEE_DELETED: "employee_deleted",
+  RESIGN_REASON_CHANGED: "resign_reason_changed",
+  EMPLOYEE_DOCUMENT_ADDED: "employee_document_added",
+  EMPLOYEE_DOCUMENT_REMOVED: "employee_document_removed",
   SALARY_CHANGED: "salary_changed",
   POSITION_CHANGED: "position_changed",
   PAYROLL_RUN_CREATED: "payroll_run_created",
@@ -106,6 +113,9 @@ export function getActionLabel(action: string): string {
     employee_activated: "เปิดใช้งานพนักงาน",
     employee_terminated: "สิ้นสุดการจ้างงาน",
     employee_deleted: "ลบพนักงาน",
+    resign_reason_changed: "เปลี่ยนเหตุผลการลาออก",
+    employee_document_added: "เพิ่มเอกสารพนักงาน",
+    employee_document_removed: "ลบเอกสารพนักงาน",
     salary_changed: "เปลี่ยนเงินเดือน",
     position_changed: "เปลี่ยนตำแหน่ง",
     payroll_run_created: "สร้างรอบเงินเดือน",
@@ -128,6 +138,9 @@ export function getActionIcon(action: string): string {
     employee_activated: "✅",
     employee_terminated: "🚪",
     employee_deleted: "🗑️",
+    resign_reason_changed: "🚪",
+    employee_document_added: "📎",
+    employee_document_removed: "🗑️",
     salary_changed: "💰",
     position_changed: "📋",
     payroll_run_created: "📝",

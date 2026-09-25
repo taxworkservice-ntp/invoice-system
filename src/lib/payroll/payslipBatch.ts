@@ -1,4 +1,5 @@
 import { calculateBreakdown, getEffectiveHourlyRate, resolveDivisorDays } from "./calculations";
+import { isSsoExemptByAge } from "./ssoEligibility";
 import { resolveEffectiveLineItem } from "./rows";
 import { buildPayslipSlipNode, type PayslipCompany } from "./payslipPdf";
 import { slipNodeToPdfBlob, sanitizePdfFilename } from "./payslipPdfRender";
@@ -40,16 +41,34 @@ export async function buildPayslipsZip(
           additions: item.additions,
           deductions: item.deductions,
           sso_registered: employee.sso_registered !== false,
+          sso_exempt: isSsoExemptByAge(employee),
         },
         settings,
         month,
         year,
       );
-      const hourlyRate = getEffectiveHourlyRate(employee.salary_type, employee.base_salary, resolveDivisorDays(settings, month, year));
-      const totalDeductions = item.deductions.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
-      const node = buildPayslipSlipNode(employee, run, item, { ...calc, totalDeductions }, hourlyRate, company);
+      const hourlyRate = getEffectiveHourlyRate(
+        employee.salary_type,
+        employee.base_salary,
+        resolveDivisorDays(settings, month, year),
+      );
+      const totalDeductions = item.deductions.reduce(
+        (sum, entry) => sum + (Number(entry.amount) || 0),
+        0,
+      );
+      const node = buildPayslipSlipNode(
+        employee,
+        run,
+        item,
+        { ...calc, totalDeductions },
+        hourlyRate,
+        company,
+      );
       const blob = await slipNodeToPdfBlob(node);
-      zip.file(`${sanitizePdfFilename(`${employee.employee_code}-${employee.full_name}`)}.pdf`, blob);
+      zip.file(
+        `${sanitizePdfFilename(`${employee.employee_code}-${employee.full_name}`)}.pdf`,
+        blob,
+      );
       succeeded += 1;
     } catch (error) {
       failures.push({

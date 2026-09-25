@@ -1,6 +1,7 @@
 import type { Employee, PayrollLineItem } from "../../types";
 import { calculateBreakdown, type PayrollSettings } from "./calculations";
 import { applyRecurringTemplates, type RecurringTemplate } from "./recurring";
+import { isSsoExemptByAge } from "./ssoEligibility";
 import type { PayrollCalcRow } from "./reportXlsx";
 
 /** Blank line item for an employee with no stored row yet. */
@@ -72,6 +73,9 @@ export function buildPayrollCalcRows(params: {
         additions: effective.additions,
         deductions: effective.deductions,
         sso_registered: employee.sso_registered !== false,
+        // Thai SSO age-60 rule: hires already 60+ on their start date keep
+        // progressive salary withholding but get zero SSO (see calculateNet).
+        sso_exempt: isSsoExemptByAge(employee),
       },
       settings,
       month,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSsoRosterRows,
   buildSsoRows,
   buildSsoWorkbook,
   isValidThaiId,
@@ -77,6 +78,9 @@ function employee(overrides: Partial<Employee> = {}): Employee {
     start_date: "2024-01-01",
     status: "active",
     end_date: null,
+    resign_reason: null,
+    resign_note: null,
+    date_of_birth: null,
     created_at: "",
     updated_at: "",
     ...overrides,
@@ -98,6 +102,24 @@ function calcRow(emp: Employee, grossPay: number, ssoEmployee: number): PayrollC
     net_pay: grossPay,
   };
 }
+
+describe("buildSsoRosterRows", () => {
+  it("derives wage from base salary with a rounded capped contribution", () => {
+    const rows = buildSsoRosterRows([
+      employee(),
+      employee({ id: "b", employee_code: "EMP002", base_salary: 15000 }),
+      employee({ id: "c", employee_code: "EMP003", base_salary: 9000 }),
+    ]);
+    expect(rows.map((r) => [r.gross_pay, r.sso_employee])).toEqual([
+      [28000, 875],
+      [15000, 750],
+      [9000, 450],
+    ]);
+    const built = buildSsoRows(rows);
+    expect(built.errors).toEqual([]);
+    expect(built.rows).toHaveLength(3);
+  });
+});
 
 describe("buildSsoRows", () => {
   it("builds a capped row the way the SSO sample expects", () => {
@@ -125,7 +147,27 @@ describe("buildSsoRows", () => {
     expect(result.rows).toEqual([]);
     expect(result.skippedInactive).toBe(1);
     expect(result.skippedContract).toBe(1);
+    expect(result.skippedOver60).toBe(0);
     expect(result.errors.map((e) => e.employeeCode)).toEqual(["EMP003", "EMP004"]);
+  });
+
+  it("skips hires already 60+ on their start date into their own bucket", () => {
+    const veteran = employee({
+      id: "v",
+      employee_code: "EMP060",
+      date_of_birth: "1960-01-15",
+      start_date: "1990-06-01",
+    });
+    const lateHire = employee({
+      id: "w",
+      employee_code: "EMP061",
+      date_of_birth: "1959-01-15",
+      start_date: "2020-01-15",
+    });
+    const result = buildSsoRows([calcRow(veteran, 20000, 875), calcRow(lateHire, 20000, 0)]);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].taxId).toBe("1100400439601");
+    expect(result.skippedOver60).toBe(1);
   });
 });
 

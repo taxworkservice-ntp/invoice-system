@@ -24,6 +24,11 @@ export interface PayrollLineInput {
   additions: { label: string; amount: number }[];
   deductions: { label: string; amount: number }[];
   sso_registered?: boolean;
+  /**
+   * Thai SSO age-60 exemption: zero SSO contributions, but progressive
+   * salary withholding (NOT the flat ภ.ง.ด.3 contract rate).
+   */
+  sso_exempt?: boolean;
 }
 
 export interface PayrollResult {
@@ -50,11 +55,11 @@ export const PND3_HIRE_RATE = 0.03;
 const PND1_BRACKETS = [
   { limit: 150000, rate: 0 },
   { limit: 300000, rate: 0.05 },
-  { limit: 500000, rate: 0.10 },
+  { limit: 500000, rate: 0.1 },
   { limit: 750000, rate: 0.15 },
-  { limit: 1000000, rate: 0.20 },
+  { limit: 1000000, rate: 0.2 },
   { limit: 2000000, rate: 0.25 },
-  { limit: 5000000, rate: 0.30 },
+  { limit: 5000000, rate: 0.3 },
   { limit: Infinity, rate: 0.35 },
 ];
 
@@ -76,7 +81,11 @@ export function getMonthDays(month: number, year?: number): number {
  * - fixed_30: uses the client's configured divisor (default 30) — stable year-round.
  * - actual_days: uses the real number of days in the statutory month (leap-aware when year is provided).
  */
-export function resolveDivisorDays(settings: PayrollSettings, month: number, year?: number): number {
+export function resolveDivisorDays(
+  settings: PayrollSettings,
+  month: number,
+  year?: number,
+): number {
   if (settings.prorate_mode === "actual_days") return getMonthDays(month, year);
   const divisor = Number(settings.ot_divisor) || 30;
   return divisor > 0 ? divisor : 30;
@@ -116,7 +125,10 @@ export function applyRounding(n: number, rule: PayrollRoundingRule | undefined):
  *   again would double-penalize the same day.
  */
 export function calculateAbsenceDeduction(
-  input: Pick<PayrollLineInput, "salary_type" | "base_salary" | "absent_days" | "absence_daily_rate">,
+  input: Pick<
+    PayrollLineInput,
+    "salary_type" | "base_salary" | "absent_days" | "absence_daily_rate"
+  >,
   settings: PayrollSettings,
   divisorDays: number,
 ): number {
@@ -125,9 +137,7 @@ export function calculateAbsenceDeduction(
   const absent = Number(input.absent_days) || 0;
   if (absent <= 0) return 0;
   const override = Number(input.absence_daily_rate) || 0;
-  const dailyRate = override > 0
-    ? override
-    : (Number(input.base_salary) || 0) / divisorDays;
+  const dailyRate = override > 0 ? override : (Number(input.base_salary) || 0) / divisorDays;
   const deduction = dailyRate * absent;
   return Math.max(0, deduction);
 }
@@ -187,12 +197,15 @@ export function calculateTotalOT(otEntries: OtEntry[], hourlyRate: number): numb
   return otEntries.reduce((sum, entry) => sum + calculateOT(entry, hourlyRate), 0);
 }
 
-export function calculateGross(input: PayrollLineInput, settings: PayrollSettings, month: number, year?: number): number {
+export function calculateGross(
+  input: PayrollLineInput,
+  settings: PayrollSettings,
+  month: number,
+  year?: number,
+): number {
   const baseSalary = Number(input.base_salary) || 0;
   const basePay =
-    input.salary_type === "daily"
-      ? baseSalary * (Number(input.days_worked) || 0)
-      : baseSalary;
+    input.salary_type === "daily" ? baseSalary * (Number(input.days_worked) || 0) : baseSalary;
 
   const totalAdditions = input.additions.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
 
@@ -205,8 +218,12 @@ export function calculateGross(input: PayrollLineInput, settings: PayrollSetting
   return Math.max(0, basePay - absenceDeduction + totalAdditions + totalOT);
 }
 
-export function calculateSSO(grossPay: number, ceilingOverride?: number | null): { employee: number; employer: number } {
-  const ceiling = ceilingOverride != null && Number(ceilingOverride) > 0 ? Number(ceilingOverride) : SSO_CEILING;
+export function calculateSSO(
+  grossPay: number,
+  ceilingOverride?: number | null,
+): { employee: number; employer: number } {
+  const ceiling =
+    ceilingOverride != null && Number(ceilingOverride) > 0 ? Number(ceilingOverride) : SSO_CEILING;
   const capped = Math.min(grossPay, ceiling);
   const contribution = capped * SSO_RATE;
   return {
@@ -228,7 +245,10 @@ export function calculateWithholdingTax(annualGross: number, ssoEmployeeAnnual =
     EMPLOYMENT_EXPENSE_MAX,
   );
   const ssoDeduction = Math.max(0, ssoEmployeeAnnual);
-  const taxableIncome = Math.max(0, income - employmentExpenses - PERSONAL_DEDUCTION - ssoDeduction);
+  const taxableIncome = Math.max(
+    0,
+    income - employmentExpenses - PERSONAL_DEDUCTION - ssoDeduction,
+  );
   let tax = 0;
   let previousLimit = 0;
 
@@ -250,13 +270,21 @@ export function calculateWithholdingTax(annualGross: number, ssoEmployeeAnnual =
  * tax on (monthly gross × 12) ÷ 12. Employee SSO contributions are deductible,
  * so the monthly employee contribution is annualized alongside the income.
  */
-export function calculateMonthlyWithholdingTax(monthlyGross: number, ssoEmployeeMonthly = 0): number {
+export function calculateMonthlyWithholdingTax(
+  monthlyGross: number,
+  ssoEmployeeMonthly = 0,
+): number {
   const annualGross = monthlyGross * 12;
   const annualTax = calculateWithholdingTax(annualGross, ssoEmployeeMonthly * 12);
   return Math.max(0, annualTax / 12);
 }
 
-export function calculateNet(input: PayrollLineInput, settings: PayrollSettings, month: number, year?: number): PayrollResult {
+export function calculateNet(
+  input: PayrollLineInput,
+  settings: PayrollSettings,
+  month: number,
+  year?: number,
+): PayrollResult {
   const gross = applyRounding(calculateGross(input, settings, month, year), settings.rounding_rule);
   const totalDeductions = applyRounding(
     input.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0),
@@ -269,6 +297,8 @@ export function calculateNet(input: PayrollLineInput, settings: PayrollSettings,
 
   if (input.sso_registered === false) {
     wht = gross * PND3_HIRE_RATE;
+  } else if (input.sso_exempt === true) {
+    wht = calculateMonthlyWithholdingTax(gross, 0);
   } else {
     const sso = calculateSSO(gross, settings.sso_ceiling_override);
     ssoEmployee = sso.employee;
@@ -281,7 +311,10 @@ export function calculateNet(input: PayrollLineInput, settings: PayrollSettings,
   const sso_employee = applyRounding(ssoEmployee, settings.rounding_rule);
   const sso_employer = applyRounding(ssoEmployer, settings.rounding_rule);
   const withholding_tax = applyRounding(wht, settings.rounding_rule);
-  const net_pay = applyRounding(gross - sso_employee - withholding_tax - totalDeductions, settings.rounding_rule);
+  const net_pay = applyRounding(
+    gross - sso_employee - withholding_tax - totalDeductions,
+    settings.rounding_rule,
+  );
 
   return { gross_pay: gross, sso_employee, sso_employer, withholding_tax, net_pay };
 }
@@ -293,15 +326,20 @@ export function calculateBreakdown(
   year?: number,
 ): PayrollBreakdown {
   const baseSalary = Number(input.base_salary) || 0;
-  const base_pay = input.salary_type === "daily"
-    ? baseSalary * (Number(input.days_worked) || 0)
-    : baseSalary;
+  const base_pay =
+    input.salary_type === "daily" ? baseSalary * (Number(input.days_worked) || 0) : baseSalary;
   const divisorDays = resolveDivisorDays(settings, month, year);
   const hourly_rate = getEffectiveHourlyRate(input.salary_type, baseSalary, divisorDays);
   const absence = calculateAbsenceDeduction(input, settings, divisorDays);
   const ot_pay = calculateTotalOT(input.ot_entries, hourly_rate);
-  const additions_total = input.additions.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  const deductions_total = input.deductions.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const additions_total = input.additions.reduce(
+    (sum, item) => sum + (Number(item.amount) || 0),
+    0,
+  );
+  const deductions_total = input.deductions.reduce(
+    (sum, item) => sum + (Number(item.amount) || 0),
+    0,
+  );
   const result = calculateNet(input, settings, month, year);
 
   return {

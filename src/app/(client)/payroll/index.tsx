@@ -54,6 +54,7 @@ import {
   suggestLeaveProrate,
   type PayrollSettings,
 } from "../../../lib/payroll/calculations";
+import { isSsoExemptByAge } from "../../../lib/payroll/ssoEligibility";
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from "../../../lib/payroll/audit";
 import {
   buildRunSummaryWorkbook,
@@ -1250,6 +1251,15 @@ export default function PayrollPage() {
     const wb = buildSsoWorkbook(built.rows);
     const blob = await workbookToBlob(wb);
     downloadBlob(blob, `sso-${run.period_year}-${String(run.period_month).padStart(2, "0")}.xlsx`);
+    const skippedParts: string[] = [];
+    if (built.skippedInactive > 0) skippedParts.push(`ลาออก ${built.skippedInactive}`);
+    if (built.skippedContract > 0) skippedParts.push(`ภ.ง.ด.3 ${built.skippedContract}`);
+    if (built.skippedOver60 > 0) skippedParts.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
+    if (skippedParts.length > 0) {
+      toast.success(
+        `ส่งออกประกันสังคม ${built.rows.length} คน (ข้าม: ${skippedParts.join(" · ")})`,
+      );
+    }
     await logAuditEvent({
       action: AUDIT_ACTIONS.PAYROLL_EXPORTED,
       entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
@@ -1529,6 +1539,7 @@ export default function PayrollPage() {
         additions: item.additions,
         deductions: item.deductions,
         sso_registered: employee.sso_registered !== false,
+        sso_exempt: isSsoExemptByAge(employee),
       },
       settings,
       calcMonth,
@@ -4277,6 +4288,7 @@ function CalculationBreakdown({
       additions: lineItem.additions,
       deductions: lineItem.deductions,
       sso_registered: employee.sso_registered !== false,
+      sso_exempt: isSsoExemptByAge(employee),
     },
     settings,
     month,
@@ -4422,6 +4434,7 @@ function PayslipView({
       additions: lineItem.additions,
       deductions: lineItem.deductions,
       sso_registered: employee.sso_registered !== false,
+      sso_exempt: isSsoExemptByAge(employee),
     },
     settings,
     run?.period_month ?? 1,

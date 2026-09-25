@@ -563,10 +563,29 @@ export interface Employee {
   bank_account: string | null;
   sso_registered: boolean;
   start_date: string;
+  date_of_birth: string | null;
   status: "active" | "inactive";
   end_date: string | null;
+  resign_reason: string | null;
+  resign_note: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type EmployeeResignReason =
+  "resigned" | "contract_ended" | "terminated" | "retired" | "other";
+
+export interface EmployeeDocument {
+  id: string;
+  user_id: string;
+  employee_id: string;
+  doc_type: "id_card" | "house_registration" | "bank_book" | "other";
+  label: string | null;
+  r2_key: string;
+  file_name: string | null;
+  mime_type: string | null;
+  file_size: number | null;
+  uploaded_at: string;
 }
 
 export interface PayrollRun {
