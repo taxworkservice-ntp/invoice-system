@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, History, Pencil, UserRoundX, AlertCircle, Repeat, Check, Circle } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  History,
+  Pencil,
+  UserRoundX,
+  AlertCircle,
+  Repeat,
+  Check,
+  Circle,
+} from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input, Select } from "../../../components/ui/Input";
@@ -8,13 +18,23 @@ import { SearchInput } from "../../../components/ui/SearchInput";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Modal } from "../../../components/ui/Modal";
+import { SummaryRow } from "../../../components/home/SummaryRow";
+import { PayrollTabs } from "../../../components/payroll/PayrollTabs";
 import { TABLE } from "../../../lib/tableStyles";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../../lib/permissions";
 import { useToast } from "../../../hooks/useToast";
-import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES, getAuditLogForEntity, getActionLabel, getActionIcon, type AuditLogEntry } from "../../../lib/payroll/audit";
+import {
+  logAuditEvent,
+  AUDIT_ACTIONS,
+  AUDIT_ENTITY_TYPES,
+  getAuditLogForEntity,
+  getActionLabel,
+  getActionIcon,
+  type AuditLogEntry,
+} from "../../../lib/payroll/audit";
 import type { Employee } from "../../../types";
 import type { RecurringTemplate } from "../../../lib/payroll/recurring";
 
@@ -36,11 +56,15 @@ interface EmployeeForm {
   end_date: string;
 }
 
-type ModalState =
-  | { mode: "create"; form: EmployeeForm }
-  | { mode: "edit"; form: EmployeeForm };
+type ModalState = { mode: "create"; form: EmployeeForm } | { mode: "edit"; form: EmployeeForm };
 
-type EmployeeFilter = "active" | "inactive" | "all";
+type EmployeeFilter = "active" | "inactive" | "incomplete" | "all";
+
+function isIncompleteProfile(emp: Employee): boolean {
+  return (
+    emp.status === "active" && (!(emp.tax_id ?? "").trim() || !(emp.bank_account ?? "").trim())
+  );
+}
 
 function emptyForm(): EmployeeForm {
   return {
@@ -85,13 +109,17 @@ function employeeToForm(emp: Employee): EmployeeForm {
 export default function EmployeesPage() {
   const toast = useToast();
   const { workspaceUserId, workspaceRole, workspacePermissions } = useWorkspaceRole();
-  const canManagePayroll = getWorkspacePermissions(workspaceRole, workspacePermissions).canManagePayroll;
+  const canManagePayroll = getWorkspacePermissions(
+    workspaceRole,
+    workspacePermissions,
+  ).canManagePayroll;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<ModalState | null>(null);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<EmployeeFilter>("active");
+  const [department, setDepartment] = useState("all");
   const [offboardingEmployee, setOffboardingEmployee] = useState<Employee | null>(null);
   const [offboardingDate, setOffboardingDate] = useState(new Date().toISOString().split("T")[0]);
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
@@ -118,9 +146,15 @@ export default function EmployeesPage() {
     fetchEmployees();
   }, [fetchEmployees]);
 
+  const departments = Array.from(
+    new Set(employees.map((emp) => (emp.department ?? "").trim()).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b, "th"));
+
   const filtered = employees.filter((emp) => {
     if (filter === "active" && emp.status !== "active") return false;
     if (filter === "inactive" && emp.status !== "inactive") return false;
+    if (filter === "incomplete" && !isIncompleteProfile(emp)) return false;
+    if (department !== "all" && (emp.department ?? "").trim() !== department) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -133,6 +167,15 @@ export default function EmployeesPage() {
 
   const activeCount = employees.filter((e) => e.status === "active").length;
   const inactiveCount = employees.filter((e) => e.status === "inactive").length;
+  const incompleteCount = employees.filter(isIncompleteProfile).length;
+
+  const hasActiveFilters = filter !== "active" || department !== "all" || search.trim() !== "";
+
+  function clearEmployeeFilters() {
+    setFilter("active");
+    setDepartment("all");
+    setSearch("");
+  }
 
   const title = modal
     ? modal.mode === "create"
@@ -185,9 +228,11 @@ export default function EmployeesPage() {
     if (!form.position.trim()) errors.push("กรุณากรอกตำแหน่ง");
     if (!form.start_date) errors.push("กรุณาเลือกวันที่เริ่มงาน");
     const salary = parseFloat(form.base_salary);
-    if (Number.isNaN(salary) || salary < 0) errors.push("เงินเดือน/อัตรารายวันต้องเป็นตัวเลขที่ไม่ติดลบ");
+    if (Number.isNaN(salary) || salary < 0)
+      errors.push("เงินเดือน/อัตรารายวันต้องเป็นตัวเลขที่ไม่ติดลบ");
     if (form.status === "inactive" && !form.end_date) errors.push("กรุณาเลือกวันที่ลาออก");
-    if (form.status === "inactive" && form.end_date && form.end_date < form.start_date) errors.push("วันที่ลาออกต้องไม่ก่อนวันที่เริ่มงาน");
+    if (form.status === "inactive" && form.end_date && form.end_date < form.start_date)
+      errors.push("วันที่ลาออกต้องไม่ก่อนวันที่เริ่มงาน");
     return errors;
   }
 
@@ -237,13 +282,19 @@ export default function EmployeesPage() {
       });
       toast.success("เพิ่มพนักงานแล้ว");
     } else {
-      const { error } = await supabase.from("employees").update(payload).eq("id", form.id).eq("user_id", userId);
+      const { error } = await supabase
+        .from("employees")
+        .update(payload)
+        .eq("id", form.id)
+        .eq("user_id", userId);
       if (error) {
         toast.error("บันทึกไม่สำเร็จ");
         setSaving(false);
         return;
       }
-      const updated = employees.map((e) => (e.id === form.id ? { ...e, ...payload } as Employee : e));
+      const updated = employees.map((e) =>
+        e.id === form.id ? ({ ...e, ...payload } as Employee) : e,
+      );
       setEmployees(updated);
 
       if (prevEmployee) {
@@ -267,7 +318,11 @@ export default function EmployeesPage() {
         action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
-        details: { field: "full_name", old_value: prevEmployee.full_name, new_value: form.full_name.trim() },
+        details: {
+          field: "full_name",
+          old_value: prevEmployee.full_name,
+          new_value: form.full_name.trim(),
+        },
       });
     }
     if (prevEmployee.position !== form.position.trim()) {
@@ -275,7 +330,11 @@ export default function EmployeesPage() {
         action: AUDIT_ACTIONS.POSITION_CHANGED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
-        details: { field: "position", old_value: prevEmployee.position, new_value: form.position.trim() },
+        details: {
+          field: "position",
+          old_value: prevEmployee.position,
+          new_value: form.position.trim(),
+        },
       });
     }
     if ((prevEmployee.department ?? "") !== form.department.trim()) {
@@ -283,7 +342,11 @@ export default function EmployeesPage() {
         action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
-        details: { field: "department", old_value: prevEmployee.department ?? "", new_value: form.department.trim() },
+        details: {
+          field: "department",
+          old_value: prevEmployee.department ?? "",
+          new_value: form.department.trim(),
+        },
       });
     }
     if (prevEmployee.base_salary !== (parseFloat(form.base_salary) || 0)) {
@@ -291,7 +354,11 @@ export default function EmployeesPage() {
         action: AUDIT_ACTIONS.SALARY_CHANGED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
-        details: { field: "base_salary", old_value: prevEmployee.base_salary, new_value: payload.base_salary },
+        details: {
+          field: "base_salary",
+          old_value: prevEmployee.base_salary,
+          new_value: payload.base_salary,
+        },
       });
     }
     if ((prevEmployee.address ?? "") !== form.address.trim()) {
@@ -299,7 +366,11 @@ export default function EmployeesPage() {
         action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
-        details: { field: "address", old_value: prevEmployee.address ?? "", new_value: form.address.trim() },
+        details: {
+          field: "address",
+          old_value: prevEmployee.address ?? "",
+          new_value: form.address.trim(),
+        },
       });
     }
     if ((prevEmployee.bank_name ?? "") !== form.bank_name.trim()) {
@@ -307,7 +378,11 @@ export default function EmployeesPage() {
         action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
-        details: { field: "bank_name", old_value: prevEmployee.bank_name ?? "", new_value: form.bank_name.trim() },
+        details: {
+          field: "bank_name",
+          old_value: prevEmployee.bank_name ?? "",
+          new_value: form.bank_name.trim(),
+        },
       });
     }
     if ((prevEmployee.bank_account ?? "") !== form.bank_account.trim()) {
@@ -315,12 +390,19 @@ export default function EmployeesPage() {
         action: AUDIT_ACTIONS.EMPLOYEE_UPDATED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
-        details: { field: "bank_account", old_value: maskAccount(prevEmployee.bank_account ?? ""), new_value: maskAccount(form.bank_account.trim()) },
+        details: {
+          field: "bank_account",
+          old_value: maskAccount(prevEmployee.bank_account ?? ""),
+          new_value: maskAccount(form.bank_account.trim()),
+        },
       });
     }
     if (prevEmployee.status !== form.status) {
       await logAuditEvent({
-        action: form.status === "active" ? AUDIT_ACTIONS.EMPLOYEE_ACTIVATED : AUDIT_ACTIONS.EMPLOYEE_TERMINATED,
+        action:
+          form.status === "active"
+            ? AUDIT_ACTIONS.EMPLOYEE_ACTIVATED
+            : AUDIT_ACTIONS.EMPLOYEE_TERMINATED,
         entity_type: AUDIT_ENTITY_TYPES.EMPLOYEE,
         entity_id: employeeId,
         details: { field: "status", old_value: prevEmployee.status, new_value: form.status },
@@ -354,7 +436,13 @@ export default function EmployeesPage() {
     if (error) {
       toast.error("ไม่สามารถบันทึกได้");
     } else {
-      setEmployees((prev) => prev.map((e) => (e.id === offboardingEmployee.id ? { ...e, status: "inactive", end_date: offboardingDate } : e)));
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.id === offboardingEmployee.id
+            ? { ...e, status: "inactive", end_date: offboardingDate }
+            : e,
+        ),
+      );
       toast.success(`จบการจ้างงาน ${offboardingEmployee.full_name} แล้ว`);
       await logAuditEvent({
         action: AUDIT_ACTIONS.EMPLOYEE_TERMINATED,
@@ -369,7 +457,11 @@ export default function EmployeesPage() {
   async function handleDelete() {
     if (!deletingEmployee || !userId) return;
     const emp = deletingEmployee;
-    const { error } = await supabase.from("employees").delete().eq("id", emp.id).eq("user_id", userId);
+    const { error } = await supabase
+      .from("employees")
+      .delete()
+      .eq("id", emp.id)
+      .eq("user_id", userId);
     if (error) {
       toast.error("ไม่สามารถลบพนักงานได้");
     } else {
@@ -390,11 +482,23 @@ export default function EmployeesPage() {
     return `•••-${account.slice(-4)}`;
   }
 
+  const emptyCopy =
+    employees.length === 0
+      ? { title: "ยังไม่มีพนักงาน", description: "เริ่มต้นด้วยการเพิ่มพนักงานคนแรก" }
+      : filter === "inactive"
+        ? { title: "ยังไม่มีพนักงานลาออก", description: "ดีแล้ว — ทุกคนยังอยู่ครบ" }
+        : filter === "incomplete"
+          ? {
+              title: "ข้อมูลครบทุกคน",
+              description: "ดีแล้ว — ไม่มีพนักงานที่ขาดเลขภาษีหรือบัญชีธนาคาร",
+            }
+          : { title: "ไม่พบพนักงาน", description: "ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง" };
+
   // Defense-in-depth: route guard in App.tsx is the first gate; this blocks
   // salary data even if the route check is ever bypassed.
   if (!canManagePayroll) {
     return (
-      <AppShell title="เงินเดือน > พนักงาน">
+      <AppShell title="พนักงาน">
         <EmptyState
           title="ไม่มีสิทธิ์เข้าถึง"
           description="หน้านี้สำหรับผู้ที่มีสิทธิ์จัดการเงินเดือนเท่านั้น กรุณาติดต่อเจ้าของกิจการ"
@@ -405,11 +509,7 @@ export default function EmployeesPage() {
 
   return (
     <AppShell
-      title="เงินเดือน > พนักงาน"
-      breadcrumbs={[
-        { label: "เงินเดือน", path: "/payroll" },
-        { label: "พนักงาน" },
-      ]}
+      title="พนักงาน"
       action={
         <Button size="sm" onClick={openCreate} className="!rounded-control">
           <Plus className="w-4 h-4" />
@@ -418,24 +518,77 @@ export default function EmployeesPage() {
       }
     >
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="ค้นหาพนักงาน..."
-            className="max-w-sm"
-          />
-          <div className="inline-flex rounded-control border border-card-border bg-paper-field p-0.5">
-            {([["active", `ทำงาน (${activeCount})`], ["inactive", `ลาออก (${inactiveCount})`], ["all", "ทั้งหมด"]] as [EmployeeFilter, string][]).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setFilter(key)}
-                className={`px-3 py-1.5 text-label font-medium rounded-control transition-colors ${filter === key ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-700"}`}
-              >
-                {label}
-              </button>
+        <PayrollTabs />
+
+        <SummaryRow
+          activePreset={filter}
+          items={[
+            {
+              label: "กำลังทำงาน",
+              value: activeCount,
+              count: activeCount,
+              primary: "count",
+              hint: "พนักงานปัจจุบัน",
+              preset: "active",
+            },
+            {
+              label: "ลาออกแล้ว",
+              value: inactiveCount,
+              count: inactiveCount,
+              primary: "count",
+              hint: "เก็บประวัติไว้",
+              preset: "inactive",
+            },
+            {
+              label: "ข้อมูลไม่ครบ",
+              value: incompleteCount,
+              count: incompleteCount,
+              primary: "count",
+              alert: incompleteCount > 0,
+              hint: "ขาดเลขภาษี/บัญชี",
+              preset: "incomplete",
+            },
+            {
+              label: "ทั้งหมด",
+              value: employees.length,
+              count: employees.length,
+              primary: "count",
+              hint: "ทุกคนในระบบ",
+              preset: "all",
+            },
+          ]}
+          onCardTap={(preset) =>
+            setFilter((current) => (current === preset ? "active" : (preset as EmployeeFilter)))
+          }
+        />
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาพนักงาน..." />
+          <Select
+            aria-label="กรองตามแผนก"
+            value={department}
+            onChange={(event) => setDepartment(event.target.value)}
+          >
+            <option value="all">ทุกแผนก</option>
+            {departments.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
             ))}
-          </div>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="text-label text-ink-500">{filtered.length} คน</div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearEmployeeFilters}
+              className="text-label font-medium text-primary hover:underline"
+            >
+              ล้างตัวกรอง
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -444,107 +597,175 @@ export default function EmployeesPage() {
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState
-            title="ยังไม่มีพนักงาน"
-            description="เริ่มต้นด้วยการเพิ่มพนักงานคนแรก"
+            title={emptyCopy.title}
+            description={emptyCopy.description}
             action={
-              <Button size="sm" onClick={openCreate}>
-                <Plus className="w-4 h-4" /> เพิ่มพนักงาน
-              </Button>
+              employees.length === 0 ? (
+                <Button size="sm" onClick={openCreate}>
+                  <Plus className="w-4 h-4" /> เพิ่มพนักงาน
+                </Button>
+              ) : hasActiveFilters ? (
+                <Button size="sm" variant="secondary" onClick={clearEmployeeFilters}>
+                  ล้างตัวกรอง
+                </Button>
+              ) : undefined
             }
           />
         ) : (
-          <div className="bg-white border border-card-border rounded-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className={TABLE.table}>
-                <thead>
-                  <tr className={TABLE.theadTr}>
-                    <th className={TABLE.thStatic}>รหัส</th>
-                    <th className={TABLE.thStatic}>ชื่อ-นามสกุล</th>
-                    <th className={TABLE.thStatic}>ตำแหน่ง</th>
-                    <th className={TABLE.thStatic}>ประเภท</th>
-                    <th className={`${TABLE.thStatic} text-right`}>เงินเดือน</th>
-                    <th className={TABLE.thStatic}>สถานะ</th>
-                    <th className={`${TABLE.thStatic} text-right`}>จัดการ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((emp) => (
-                    <tr
-                      key={emp.id}
-                      onClick={() => openEdit(emp)}
-                      className={`${TABLE.tbodyTr} cursor-pointer group hover:bg-paper-field/50 transition-colors ${emp.status === "inactive" ? "opacity-60" : ""}`}
+          <>
+            <div className="space-y-2 sm:hidden">
+              {filtered.map((emp) => (
+                <button
+                  key={emp.id}
+                  type="button"
+                  onClick={() => openEdit(emp)}
+                  className={`w-full rounded-card border-[0.5px] border-card-border bg-white p-3 text-left transition-colors active:bg-paper-field ${emp.status === "inactive" ? "opacity-60" : ""}`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-label font-semibold ${emp.status === "inactive" ? "bg-ink-50 text-ink-400" : "bg-primary-soft text-primary-deep"}`}
                     >
-                      <td className="px-3 py-2">
-                        <span className="text-ink-900 font-mono text-label">{emp.employee_code}</span>
-                      </td>
-                      <td className="px-3 py-2 min-w-[180px]">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-label font-semibold ${emp.status === "inactive" ? "bg-ink-50 text-ink-400" : "bg-primary-soft text-primary-deep"}`}>
-                            {initialsOf(emp.full_name || emp.employee_code)}
-                          </span>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-ink-900 font-medium truncate">{emp.full_name || "—"}</span>
-                            {emp.department && <span className="text-ink-400 text-label">{emp.department}</span>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 min-w-[120px]">
-                        <span className="text-ink-500">{emp.position || "—"}</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${ emp.salary_type === "monthly" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700" }`}
-                        >
-                          {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
-                        </span>
-                        {emp.sso_registered === false && (
-                          <span className="ml-1 inline-flex px-2 py-0.5 rounded-control text-label font-medium bg-yellow-100 text-yellow-700">
-                            ภ.ง.ด.3
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <span className="text-ink-900 tabular-nums font-medium">{formatCurrency(emp.base_salary)}</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <StatusBadge
-                          tone={emp.status === "active" ? "green" : "gray"}
-                          label={emp.status === "active" ? "ทำงาน" : "ลาออก"}
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {emp.status === "active" && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setOffboardingEmployee(emp); setOffboardingDate(new Date().toISOString().split("T")[0]); }}
-                              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-amber-50 text-ink-300 hover:text-amber-600 transition-colors md:h-7 md:w-7"
-                              title="จบการจ้างงาน"
-                            >
-                              <UserRoundX className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEdit(emp); }}
-                            className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
-                            title="แก้ไข"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDeletingEmployee(emp); }}
-                            className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors md:h-7 md:w-7"
-                            title="ลบ"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      {initialsOf(emp.full_name || emp.employee_code)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-body font-medium text-ink-900">
+                        {emp.full_name || "—"}
+                      </div>
+                      <div className="text-label tabular-nums text-ink-500">
+                        {emp.employee_code}
+                        {emp.department ? ` · ${emp.department}` : ""}
+                        {emp.sso_registered === false ? " · ภ.ง.ด.3" : ""}
+                      </div>
+                    </div>
+                    <StatusBadge
+                      tone={emp.status === "active" ? "green" : "gray"}
+                      label={emp.status === "active" ? "ทำงาน" : "ลาออก"}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-label text-ink-500">
+                      {emp.position || "—"} ·{" "}
+                      {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
+                    </span>
+                    <span className="text-body tabular-nums text-ink-900">
+                      ฿{formatCurrency(emp.base_salary)}
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
-          </div>
+            <div className="hidden sm:block bg-white border border-card-border rounded-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className={TABLE.table}>
+                  <thead>
+                    <tr className={TABLE.theadTr}>
+                      <th className={TABLE.thStatic}>รหัส</th>
+                      <th className={TABLE.thStatic}>ชื่อ-นามสกุล</th>
+                      <th className={TABLE.thStatic}>ตำแหน่ง</th>
+                      <th className={TABLE.thStatic}>ประเภท</th>
+                      <th className={`${TABLE.thStatic} text-right`}>เงินเดือน</th>
+                      <th className={TABLE.thStatic}>สถานะ</th>
+                      <th className={`${TABLE.thStatic} text-right`}>จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((emp) => (
+                      <tr
+                        key={emp.id}
+                        onClick={() => openEdit(emp)}
+                        className={`${TABLE.tbodyTr} cursor-pointer group hover:bg-paper-field/50 transition-colors ${emp.status === "inactive" ? "opacity-60" : ""}`}
+                      >
+                        <td className="px-3 py-2">
+                          <span className="text-ink-900 font-mono text-label">
+                            {emp.employee_code}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 min-w-[180px]">
+                          <div className="flex items-center gap-2.5">
+                            <span
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-label font-semibold ${emp.status === "inactive" ? "bg-ink-50 text-ink-400" : "bg-primary-soft text-primary-deep"}`}
+                            >
+                              {initialsOf(emp.full_name || emp.employee_code)}
+                            </span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-ink-900 font-medium truncate">
+                                {emp.full_name || "—"}
+                              </span>
+                              <span className="text-ink-400 text-label">
+                                {emp.department || ""}
+                                {emp.department && emp.sso_registered === false ? " · " : ""}
+                                {emp.sso_registered === false ? (
+                                  <span className="font-medium text-amber-700">ภ.ง.ด.3</span>
+                                ) : null}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 min-w-[120px]">
+                          <span className="text-ink-500">{emp.position || "—"}</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${emp.salary_type === "monthly" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}
+                          >
+                            {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="text-ink-900 tabular-nums font-medium">
+                            {formatCurrency(emp.base_salary)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <StatusBadge
+                            tone={emp.status === "active" ? "green" : "gray"}
+                            label={emp.status === "active" ? "ทำงาน" : "ลาออก"}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {emp.status === "active" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOffboardingEmployee(emp);
+                                  setOffboardingDate(new Date().toISOString().split("T")[0]);
+                                }}
+                                className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-amber-50 text-ink-300 hover:text-amber-600 transition-colors md:h-7 md:w-7"
+                                title="จบการจ้างงาน"
+                              >
+                                <UserRoundX className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEdit(emp);
+                              }}
+                              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-paper-field text-ink-400 hover:text-ink-700 transition-colors md:h-7 md:w-7"
+                              title="แก้ไข"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingEmployee(emp);
+                              }}
+                              className="flex h-11 w-11 items-center justify-center rounded-control hover:bg-red-50 text-ink-300 hover:text-red-500 transition-colors md:h-7 md:w-7"
+                              title="ลบ"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -552,12 +773,14 @@ export default function EmployeesPage() {
         {modal && (
           <div className="space-y-4">
             <div className="inline-flex rounded-control border border-card-border bg-paper-field p-0.5 max-w-full overflow-x-auto">
-              {([
-                ["info", "ข้อมูลทั่วไป"],
-                ["job", "การจ้างงาน"],
-                ["recurring", "รายการประจำ"],
-                ["history", "ประวัติ"],
-              ] as const).map(([key, label]) => (
+              {(
+                [
+                  ["info", "ข้อมูลทั่วไป"],
+                  ["job", "การจ้างงาน"],
+                  ["recurring", "รายการประจำ"],
+                  ["history", "ประวัติ"],
+                ] as const
+              ).map(([key, label]) => (
                 <button
                   key={key}
                   type="button"
@@ -591,7 +814,9 @@ export default function EmployeesPage() {
                     placeholder="0000000000000"
                     maxLength={13}
                   />
-                  <p className="mt-1 text-label text-ink-400">เว้นว่างได้ — พนักงานที่ไม่มีเลขฯ จะถูกข้ามเมื่อซิงก์ภาษีหัก ณ ที่จ่าย</p>
+                  <p className="mt-1 text-label text-ink-400">
+                    เว้นว่างได้ — พนักงานที่ไม่มีเลขฯ จะถูกข้ามเมื่อซิงก์ภาษีหัก ณ ที่จ่าย
+                  </p>
                 </div>
                 <Input
                   label="ตำแหน่ง"
@@ -612,7 +837,9 @@ export default function EmployeesPage() {
                     onChange={(e) => updateField("address", e.target.value)}
                     placeholder="บ้านเลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"
                   />
-                  <p className="mt-1 text-label text-ink-400">ใช้เป็นที่อยู่ผู้รับเงินบนใบรับรองหักภาษี ณ ที่จ่าย</p>
+                  <p className="mt-1 text-label text-ink-400">
+                    ใช้เป็นที่อยู่ผู้รับเงินบนใบรับรองหักภาษี ณ ที่จ่าย
+                  </p>
                 </div>
                 <Input
                   label="ธนาคาร"
@@ -636,13 +863,17 @@ export default function EmployeesPage() {
                 <Select
                   label="ประเภทเงินเดือน"
                   value={modal.form.salary_type}
-                  onChange={(e) => updateField("salary_type", e.target.value as "monthly" | "daily")}
+                  onChange={(e) =>
+                    updateField("salary_type", e.target.value as "monthly" | "daily")
+                  }
                 >
                   <option value="monthly">รายเดือน</option>
                   <option value="daily">รายวัน</option>
                 </Select>
                 <Input
-                  label={modal.form.salary_type === "monthly" ? "เงินเดือน (บาท)" : "อัตรารายวัน (บาท)"}
+                  label={
+                    modal.form.salary_type === "monthly" ? "เงินเดือน (บาท)" : "อัตรารายวัน (บาท)"
+                  }
                   type="number"
                   value={modal.form.base_salary}
                   onChange={(e) => updateField("base_salary", e.target.value)}
@@ -681,21 +912,30 @@ export default function EmployeesPage() {
               </div>
             )}
 
-            {modalTab === "recurring" && (
-              modal.mode === "edit"
-                ? <RecurringPanel employeeId={modal.form.id} />
-                : <p className="text-label text-ink-400">บันทึกรายการพนักงานก่อน แล้วค่อยเพิ่มรายการประจำ (เช่น เงินกู้, ค่างวด) ในภายหลัง</p>
-            )}
+            {modalTab === "recurring" &&
+              (modal.mode === "edit" ? (
+                <RecurringPanel employeeId={modal.form.id} />
+              ) : (
+                <p className="text-label text-ink-400">
+                  บันทึกรายการพนักงานก่อน แล้วค่อยเพิ่มรายการประจำ (เช่น เงินกู้, ค่างวด) ในภายหลัง
+                </p>
+              ))}
 
-            {modalTab === "history" && (
-              modal.mode === "edit"
-                ? <ActivityPanel entityType="employee" entityId={modal.form.id} />
-                : <p className="text-label text-ink-400">ประวัติจะแสดงหลังจากบันทึกพนักงานแล้ว</p>
-            )}
+            {modalTab === "history" &&
+              (modal.mode === "edit" ? (
+                <ActivityPanel entityType="employee" entityId={modal.form.id} />
+              ) : (
+                <p className="text-label text-ink-400">ประวัติจะแสดงหลังจากบันทึกพนักงานแล้ว</p>
+              ))}
 
             <div className="sticky bottom-0 -mx-1 bg-white/95 backdrop-blur pt-2 pb-1">
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={closeModal} className="flex-1" disabled={saving}>
+                <Button
+                  variant="secondary"
+                  onClick={closeModal}
+                  className="flex-1"
+                  disabled={saving}
+                >
                   ยกเลิก
                 </Button>
                 <Button onClick={handleSave} className="flex-1" disabled={saving}>
@@ -704,19 +944,25 @@ export default function EmployeesPage() {
               </div>
             </div>
           </div>
-         )}
+        )}
       </Modal>
 
-      <Modal open={offboardingEmployee !== null} onClose={() => setOffboardingEmployee(null)} title="จบการจ้างงาน">
+      <Modal
+        open={offboardingEmployee !== null}
+        onClose={() => setOffboardingEmployee(null)}
+        title="จบการจ้างงาน"
+      >
         {offboardingEmployee && (
           <div className="space-y-4">
             <p className="text-body text-ink-600">
-              ยืนยันการจบการจ้างงาน <strong>{offboardingEmployee.full_name}</strong> (รหัส {offboardingEmployee.employee_code})
+              ยืนยันการจบการจ้างงาน <strong>{offboardingEmployee.full_name}</strong> (รหัส{" "}
+              {offboardingEmployee.employee_code})
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-control p-3 flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <p className="text-label text-blue-800">
-                ข้อมูลในรอบเงินเดือนก่อนหน้าและสลิปเงินเดือนจะถูกเก็บไว้ตามเดิม พนักงานจะไม่แสดงในรอบเงินเดือนถัดไป
+                ข้อมูลในรอบเงินเดือนก่อนหน้าและสลิปเงินเดือนจะถูกเก็บไว้ตามเดิม
+                พนักงานจะไม่แสดงในรอบเงินเดือนถัดไป
               </p>
             </div>
             <Input
@@ -726,7 +972,11 @@ export default function EmployeesPage() {
               onChange={(e) => setOffboardingDate(e.target.value)}
             />
             <div className="flex gap-2 pt-1">
-              <Button variant="secondary" onClick={() => setOffboardingEmployee(null)} className="flex-1">
+              <Button
+                variant="secondary"
+                onClick={() => setOffboardingEmployee(null)}
+                className="flex-1"
+              >
                 ยกเลิก
               </Button>
               <Button variant="danger" onClick={handleOffboard} className="flex-1">
@@ -737,17 +987,26 @@ export default function EmployeesPage() {
         )}
       </Modal>
 
-      <Modal open={deletingEmployee !== null} onClose={() => setDeletingEmployee(null)} title="ลบพนักงาน">
+      <Modal
+        open={deletingEmployee !== null}
+        onClose={() => setDeletingEmployee(null)}
+        title="ลบพนักงาน"
+      >
         {deletingEmployee && (
           <div className="space-y-4">
             <div className="bg-red-50 border border-red-200 rounded-control p-3 flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <p className="text-body text-red-800">
-                ต้องการลบพนักงาน <strong>{deletingEmployee.full_name}</strong> ทั้งหมด? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                ต้องการลบพนักงาน <strong>{deletingEmployee.full_name}</strong> ทั้งหมด?
+                การดำเนินการนี้ไม่สามารถย้อนกลับได้
               </p>
             </div>
             <div className="flex gap-2 pt-1">
-              <Button variant="secondary" onClick={() => setDeletingEmployee(null)} className="flex-1">
+              <Button
+                variant="secondary"
+                onClick={() => setDeletingEmployee(null)}
+                className="flex-1"
+              >
                 ยกเลิก
               </Button>
               <Button variant="danger" onClick={handleDelete} className="flex-1">
@@ -881,7 +1140,9 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
         }
         setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [employeeId]);
 
   async function addItem() {
@@ -890,7 +1151,15 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
     const nextSort = items.reduce((m, i) => Math.max(m, i.sort_order), 0) + 1;
     const { data, error } = await supabase
       .from("payroll_recurring_items")
-      .insert({ user_id: workspaceUserId, employee_id: employeeId, direction: "deduction", label: "", amount: 0, active: true, sort_order: nextSort })
+      .insert({
+        user_id: workspaceUserId,
+        employee_id: employeeId,
+        direction: "deduction",
+        label: "",
+        amount: 0,
+        active: true,
+        sort_order: nextSort,
+      })
       .select("*")
       .single();
     if (error) {
@@ -924,9 +1193,17 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Repeat className="w-4 h-4 text-ink-500" />
-          <span className="text-label font-semibold text-ink-700">รายการประจำ (เติมอัตโนมัติในรอบใหม่)</span>
+          <span className="text-label font-semibold text-ink-700">
+            รายการประจำ (เติมอัตโนมัติในรอบใหม่)
+          </span>
         </div>
-        <Button size="sm" variant="ghost" onClick={addItem} disabled={busy} className="!px-2 !py-1 !h-7">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={addItem}
+          disabled={busy}
+          className="!px-2 !py-1 !h-7"
+        >
           <Plus className="w-3 h-3" /> เพิ่ม
         </Button>
       </div>
@@ -943,7 +1220,8 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
         </p>
       ) : items.length === 0 ? (
         <p className="text-label text-ink-400">
-          เช่น ค่างวดรถ/บ้าน, เงินกู้สหกรณ์, ค่าอาหาร — รายการจะถูกเติมให้พนักงานคนนี้อัตโนมัติในทุกรอบใหม่
+          เช่น ค่างวดรถ/บ้าน, เงินกู้สหกรณ์, ค่าอาหาร —
+          รายการจะถูกเติมให้พนักงานคนนี้อัตโนมัติในทุกรอบใหม่
         </p>
       ) : (
         <div className="space-y-2 overflow-x-auto">
@@ -955,10 +1233,15 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
             <span></span>
           </div>
           {items.map((item) => (
-            <div key={item.id} className="grid min-w-max grid-cols-[92px_1fr_96px_46px_32px] gap-2 items-center">
+            <div
+              key={item.id}
+              className="grid min-w-max grid-cols-[92px_1fr_96px_46px_32px] gap-2 items-center"
+            >
               <Select
                 value={item.direction}
-                onChange={(e) => patchItem(item.id, { direction: e.target.value as "addition" | "deduction" })}
+                onChange={(e) =>
+                  patchItem(item.id, { direction: e.target.value as "addition" | "deduction" })
+                }
                 className="!h-8 !text-label"
                 disabled={busy}
               >
@@ -987,7 +1270,11 @@ function RecurringPanel({ employeeId }: RecurringPanelProps) {
                 className={`flex h-11 w-11 items-center justify-center rounded-control transition-colors md:h-7 md:w-7 ${item.active ? "bg-green-50 text-green-600 hover:bg-green-100" : "bg-paper-field text-ink-300 hover:text-ink-500"}`}
                 title={item.active ? "กำลังใช้งาน" : "ปิดไว้"}
               >
-                {item.active ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                {item.active ? (
+                  <Check className="w-3.5 h-3.5" />
+                ) : (
+                  <Circle className="w-3.5 h-3.5" />
+                )}
               </button>
               <button
                 onClick={() => removeItem(item.id)}
