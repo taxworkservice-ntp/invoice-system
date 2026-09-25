@@ -28,7 +28,6 @@ import { preloadDealDetail } from "../../lib/dealDetailCache";
 import { formatCurrency } from "../../lib/format";
 import { formatBuddhistDate, formatBuddhistDateTimeParts } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
-import { OwnerMonitorBanner } from "../../components/home/OwnerMonitorBanner";
 import { DOC_TYPE_LABELS, DOC_TYPE_SHORT, DOC_TYPE_COLORS } from "../../constants";
 import { TABLE } from "../../lib/tableStyles";
 import type { Deal, Document, Customer, DocumentLineItem } from "../../types";
@@ -1242,10 +1241,6 @@ export default function HomePage() {
 
         {showNudge && (
           <HomeNudgeBanner type={showNudge} onDismiss={() => handleDismissNudge(showNudge)} />
-        )}
-
-        {workspaceRole === "owner" && !loading && !error && deals.length > 0 && (
-          <OwnerMonitorBanner deals={deals} />
         )}
 
         {error ? (

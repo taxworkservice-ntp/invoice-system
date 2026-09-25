@@ -22,6 +22,7 @@ import adminClientIdAudit from "./handlers/admin/clients/[id]/audit.js";
 import adminClientIdRoles from "./handlers/admin/clients/[id]/roles.js";
 import adminClientIdMembers from "./handlers/admin/clients/[id]/members.js";
 import adminClientIdResetBackups from "./handlers/admin/clients/[id]/reset-backups.js";
+import adminClientIdActivities from "./handlers/admin/clients/[id]/activities.js";
 import whtGenerate from "./handlers/wht/generate.js";
 
 export const routes = [
@@ -43,6 +44,7 @@ export const routes = [
   { segments: ["admin", "clients", "[id]", "roles"], handler: adminClientIdRoles },
   { segments: ["admin", "clients", "[id]", "members"], handler: adminClientIdMembers },
   { segments: ["admin", "clients", "[id]", "reset-backups"], handler: adminClientIdResetBackups },
+  { segments: ["admin", "clients", "[id]", "activities"], handler: adminClientIdActivities },
   // wht
   { segments: ["wht", "generate"], handler: whtGenerate },
 ];

@@ -11,7 +11,6 @@ import {
   Percent,
   MoreHorizontal,
   LogOut,
-  Eye,
 } from "lucide-react";
 import { BOTTOM_NAV_ITEMS } from "../../constants";
 import { useWorkspaceRole, useWorkspaceFeatures } from "../../hooks/useAuth";
@@ -26,7 +25,6 @@ const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
   "/documents": <FileText className="w-5 h-5" />,
   "/download-center": <Download className="w-5 h-5" />,
-  "/monitoring": <Eye className="w-5 h-5" />,
   "/reports": <BarChart3 className="w-5 h-5" />,
   "/wht": <Percent className="w-5 h-5" />,
   "/catalog": <Package className="w-5 h-5" />,
@@ -49,7 +47,6 @@ export function BottomNav() {
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
     if (item.path === "/payroll")
       return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
-    if (item.path === "/monitoring") return workspaceRole === "owner";
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canManageWht;
     if (item.path === "/download-center") return permissions.canExportReports;

@@ -3,21 +3,6 @@ import { ApiError, readJsonBody, sendError, sendJson } from "../../../_lib/http.
 import { deleteR2Object } from "../../../_lib/r2.js";
 import { supabaseAdmin } from "../../../_lib/supabase.js";
 
-const DOC_TYPES = ["quotation", "invoice", "tax_invoice_receipt", "billing_note", "receipt", "delivery_note", "credit_note"];
-
-function getDefaultPrefix(docType) {
-  const map = {
-    quotation: "QT",
-    invoice: "INV",
-    tax_invoice_receipt: "TAX",
-    billing_note: "BN",
-    receipt: "RC",
-    delivery_note: "DN",
-    credit_note: "CN",
-  };
-  return map[docType] || docType.toUpperCase().slice(0, 3);
-}
-
 async function handleGetClient(id) {
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(id);
   if (error) throw error;
@@ -44,7 +29,8 @@ async function requireClientTarget(id) {
 
 async function handleUpdatePassword(id, body, actorId) {
   const { password } = body;
-  if (!password || password.length < 6) throw new ApiError(400, "Password must be at least 6 characters");
+  if (!password || password.length < 6)
+    throw new ApiError(400, "Password must be at least 6 characters");
   await requireClientTarget(id);
   const { error } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
   if (error) throw error;
@@ -76,24 +62,75 @@ async function insertResetAudit(action, clientId, actorId, after = {}) {
   if (error) throw error;
 }
 
-async function handleResetWorkspace(id, actorId) {
-  await requireClientTarget(id);
-  const [dealUpdate, customerUpdate, itemUpdate, sequenceUpdate, dealSequenceUpdate] = await Promise.all([
-    supabaseAdmin.from("deals").update({ is_active: false }).eq("user_id", id).eq("is_active", true),
-    supabaseAdmin.from("customers").update({ is_active: false }).eq("user_id", id).eq("is_active", true),
-    supabaseAdmin.from("items").update({ is_active: false }).eq("user_id", id).eq("is_active", true),
-    supabaseAdmin.from("doc_number_sequences").update({ last_sequence: 0, last_year: null }).eq("user_id", id),
-    supabaseAdmin.from("deal_number_sequences").update({ last_sequence: 0, last_month: 0 }).eq("user_id", id),
-  ]);
+/**
+ * Server-enforced destructive-action guards. UI modals collect these, but a
+ * direct POST must never bypass them: reason (min 3 chars) + typed confirm
+ * name (company TH name or login email, compared server-side).
+ */
+async function requireDestructiveConfirm(id, body) {
+  const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 200) : "";
+  if (reason.length < 3) throw new ApiError(400, "กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
 
-  const firstError = dealUpdate.error || customerUpdate.error || itemUpdate.error || sequenceUpdate.error || dealSequenceUpdate.error;
+  const confirmName = typeof body?.confirmName === "string" ? body.confirmName.trim() : "";
+  if (!confirmName) throw new ApiError(400, "กรุณาพิมพ์ชื่อยืนยัน");
+
+  const [{ data: profile }, { data: authUser }] = await Promise.all([
+    supabaseAdmin.from("client_profiles").select("company_name_th").eq("user_id", id).single(),
+    supabaseAdmin.auth.admin.getUserById(id).catch(() => ({ data: null })),
+  ]);
+  const expected = profile?.company_name_th?.trim() || authUser?.user?.email?.trim() || "";
+  if (!expected || confirmName !== expected) throw new ApiError(400, "ชื่อยืนยันไม่ตรงกัน");
+
+  return reason;
+}
+
+async function handleResetWorkspace(id, actorId, body) {
+  await requireClientTarget(id);
+  const reason = await requireDestructiveConfirm(id, body);
+  const [dealUpdate, customerUpdate, itemUpdate, sequenceUpdate, dealSequenceUpdate] =
+    await Promise.all([
+      supabaseAdmin
+        .from("deals")
+        .update({ is_active: false }, { count: "exact" })
+        .eq("user_id", id)
+        .eq("is_active", true),
+      supabaseAdmin
+        .from("customers")
+        .update({ is_active: false }, { count: "exact" })
+        .eq("user_id", id)
+        .eq("is_active", true),
+      supabaseAdmin
+        .from("items")
+        .update({ is_active: false }, { count: "exact" })
+        .eq("user_id", id)
+        .eq("is_active", true),
+      supabaseAdmin
+        .from("doc_number_sequences")
+        .update({ last_sequence: 0, last_year: null })
+        .eq("user_id", id),
+      supabaseAdmin
+        .from("deal_number_sequences")
+        .update({ last_sequence: 0, last_month: 0 })
+        .eq("user_id", id),
+    ]);
+
+  const firstError =
+    dealUpdate.error ||
+    customerUpdate.error ||
+    itemUpdate.error ||
+    sequenceUpdate.error ||
+    dealSequenceUpdate.error;
   if (firstError) throw firstError;
 
-  await insertResetAudit("reset-workspace", id, actorId, {
-    archived: ["deals", "customers", "items"],
+  const summary = {
+    deals_archived: dealUpdate.count ?? 0,
+    customers_archived: customerUpdate.count ?? 0,
+    items_archived: itemUpdate.count ?? 0,
     numbering_reset: ["doc_number_sequences", "deal_number_sequences"],
-  });
-  return { success: true };
+    reason,
+  };
+  await insertResetAudit("reset-workspace", id, actorId, summary);
+  return { success: true, summary };
 }
 
 async function deleteR2ObjectsBestEffort(keys) {
@@ -101,7 +138,11 @@ async function deleteR2ObjectsBestEffort(keys) {
   await Promise.all(
     keys.map((key) =>
       deleteR2Object(key).catch((error) => {
-        console.warn("[admin reset-documents] Failed to delete R2 object", key, error?.message || error);
+        console.warn(
+          "[admin reset-documents] Failed to delete R2 object",
+          key,
+          error?.message || error,
+        );
       }),
     ),
   );
@@ -137,63 +178,70 @@ async function handleResetDocuments(id, actorId, reason) {
   return { success: true, summary: data };
 }
 
-async function handleResetAll(id, actorId) {
+async function handlePreviewResetAll(id) {
   await requireClientTarget(id);
-  await supabaseAdmin.from("receipt_invoices").delete().eq("user_id", id);
-  await supabaseAdmin.from("invoice_delivery_notes").delete().eq("user_id", id);
-  await supabaseAdmin.from("billing_note_invoices").delete().eq("user_id", id);
-  await supabaseAdmin.from("document_line_items").delete().eq("user_id", id);
-  await supabaseAdmin.from("stock_movements").delete().eq("user_id", id);
-  await supabaseAdmin.from("deals").delete().eq("user_id", id);
-  await supabaseAdmin.from("documents").delete().eq("user_id", id);
-  await supabaseAdmin.from("wht_records").delete().eq("user_id", id);
-  await supabaseAdmin.from("customers").delete().eq("user_id", id);
-  await supabaseAdmin.from("items").delete().eq("user_id", id);
-  await supabaseAdmin.from("doc_number_sequences").delete().eq("user_id", id);
-  await supabaseAdmin.from("deal_number_sequences").delete().eq("user_id", id);
-
-  const inserts = DOC_TYPES.map((docType) => ({
-    user_id: id,
-    doc_type: docType,
-    prefix: getDefaultPrefix(docType),
-    reset_yearly: false,
-    last_sequence: 0,
-    last_year: null,
-    last_month: null,
-  }));
-
-  const { error: seqErr } = await supabaseAdmin.from("doc_number_sequences").insert(inserts);
-  if (seqErr) throw seqErr;
-
-  await insertResetAudit("reset-all", id, actorId, {
-    deleted: ["documents", "deals", "customers", "items", "stock_movements", "wht_records"],
-    sequences_recreated: true,
+  const { data, error } = await supabaseAdmin.rpc("admin_preview_reset_client_all", {
+    p_target_user_id: id,
   });
-  return { success: true };
+  if (error) {
+    if (error.code === "42501") throw new ApiError(403, "Admin access required");
+    throw error;
+  }
+  return { success: true, preview: data };
 }
 
-async function handleDeleteClient(id, actorId) {
+async function handlePreviewResetWorkspace(id) {
   await requireClientTarget(id);
-  // Audit first: the workspace rows (and any FK-tied trail) disappear below.
-  await insertResetAudit("client.deleted", id, actorId, {}).catch((e) =>
-    console.warn("[admin delete-client] audit insert failed:", e?.message || e),
-  );
-  await supabaseAdmin.from("receipt_invoices").delete().eq("user_id", id);
-  await supabaseAdmin.from("invoice_delivery_notes").delete().eq("user_id", id);
-  await supabaseAdmin.from("billing_note_invoices").delete().eq("user_id", id);
-  await supabaseAdmin.from("document_line_items").delete().eq("user_id", id);
-  await supabaseAdmin.from("stock_movements").delete().eq("user_id", id);
-  await supabaseAdmin.from("deals").delete().eq("user_id", id);
-  await supabaseAdmin.from("documents").delete().eq("user_id", id);
-  await supabaseAdmin.from("customers").delete().eq("user_id", id);
-  await supabaseAdmin.from("doc_number_sequences").delete().eq("user_id", id);
-  await supabaseAdmin.from("items").delete().eq("user_id", id);
-  await supabaseAdmin.from("client_profiles").delete().eq("user_id", id);
-  await supabaseAdmin.from("profiles").delete().eq("id", id);
+  const { data, error } = await supabaseAdmin.rpc("admin_preview_reset_workspace", {
+    p_target_user_id: id,
+  });
+  if (error) {
+    if (error.code === "42501") throw new ApiError(403, "Admin access required");
+    throw error;
+  }
+  return { success: true, preview: data };
+}
+
+async function handleResetAll(id, actorId, body) {
+  await requireClientTarget(id);
+  const reason = await requireDestructiveConfirm(id, body);
+  // Atomic: snapshot + delete + reseed + backup + audit in one transaction.
+  const { data, error } = await supabaseAdmin.rpc("admin_reset_client_all", {
+    p_target_user_id: id,
+    p_actor_user_id: actorId,
+    p_reason: reason,
+  });
+  if (error) {
+    if (error.code === "42501") throw new ApiError(403, "Admin access required");
+    throw error;
+  }
+
+  await deleteR2ObjectsBestEffort(data?.r2_keys);
+
+  return { success: true, summary: data };
+}
+
+async function handleDeleteClient(id, actorId, body) {
+  await requireClientTarget(id);
+  const reason = await requireDestructiveConfirm(id, body);
+  // Atomic table wipe + snapshot + audit in one transaction (fail-closed:
+  // any failure rolls back, no silent partial wipe). Auth user is deleted
+  // afterwards — auth.admin is not reachable from SQL.
+  const { data, error } = await supabaseAdmin.rpc("admin_delete_client_workspace", {
+    p_target_user_id: id,
+    p_actor_user_id: actorId,
+    p_reason: reason,
+  });
+  if (error) {
+    if (error.code === "42501") throw new ApiError(403, "Admin access required");
+    throw error;
+  }
+
+  await deleteR2ObjectsBestEffort(data?.r2_keys);
 
   const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(id);
   if (authErr) throw authErr;
-  return { success: true };
+  return { success: true, summary: data };
 }
 
 export default async function handler(req, res) {
@@ -218,20 +266,25 @@ export default async function handler(req, res) {
         case "status":
           return sendJson(res, 200, await handleUpdateStatus(id, body, actorId));
         case "reset-workspace":
-          return sendJson(res, 200, await handleResetWorkspace(id, actorId));
+          return sendJson(res, 200, await handleResetWorkspace(id, actorId, body));
+        case "reset-workspace-preview":
+          return sendJson(res, 200, await handlePreviewResetWorkspace(id));
         case "reset-documents-preview":
           return sendJson(res, 200, await handlePreviewResetDocuments(id));
         case "reset-documents":
           return sendJson(res, 200, await handleResetDocuments(id, actorId, body?.reason));
+        case "reset-all-preview":
+          return sendJson(res, 200, await handlePreviewResetAll(id));
         case "reset-all":
-          return sendJson(res, 200, await handleResetAll(id, actorId));
+          return sendJson(res, 200, await handleResetAll(id, actorId, body));
         default:
           throw new ApiError(400, `Unknown action: ${action || "(none)"}`);
       }
     }
 
     if (req.method === "DELETE") {
-      return sendJson(res, 200, await handleDeleteClient(id, actorId));
+      const body = readJsonBody(req);
+      return sendJson(res, 200, await handleDeleteClient(id, actorId, body));
     }
 
     res.setHeader("Allow", "GET, POST, DELETE");

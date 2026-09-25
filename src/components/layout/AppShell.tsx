@@ -9,13 +9,11 @@ import {
   Users,
   Download,
   ChevronRight,
-  ArrowLeft,
   Percent,
   LogOut,
   Menu,
   PanelLeftClose,
   Wallet,
-  Eye,
 } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
@@ -34,7 +32,6 @@ const iconMap: Record<string, React.ReactNode> = {
   "/home": <Home className="w-5 h-5" />,
   "/documents": <FileText className="w-5 h-5" />,
   "/download-center": <Download className="w-5 h-5" />,
-  "/monitoring": <Eye className="w-5 h-5" />,
   "/reports": <BarChart3 className="w-5 h-5" />,
   "/wht": <Percent className="w-5 h-5" />,
   "/catalog": <Package className="w-5 h-5" />,
@@ -117,7 +114,6 @@ export function AppShell({
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
     if (item.path === "/payroll")
       return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
-    if (item.path === "/monitoring") return workspaceRole === "owner";
     if (item.path === "/reports") return permissions.canViewReports;
     if (item.path === "/wht") return permissions.canManageWht;
     if (item.path === "/download-center") return permissions.canExportReports;
@@ -136,18 +132,6 @@ export function AppShell({
   }
   const companyName = clientProfile?.company_name_th?.trim() || "Invoice System";
   const [logoutOpen, setLogoutOpen] = useState(false);
-
-  const impersonatedUserId = sessionStorage.getItem("impersonate_user_id");
-  const impersonatedName = sessionStorage.getItem("impersonate_name");
-  const impersonateReturn = sessionStorage.getItem("impersonate_return") || "/admin/clients";
-  const isImpersonating = !!impersonatedUserId && !!impersonatedName;
-
-  function handleStopImpersonate() {
-    sessionStorage.removeItem("impersonate_user_id");
-    sessionStorage.removeItem("impersonate_name");
-    sessionStorage.removeItem("impersonate_return");
-    navigate(impersonateReturn, { replace: true });
-  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -237,22 +221,6 @@ export function AppShell({
       </aside>
 
       <div className="flex-1 min-w-0">
-        {isImpersonating && (
-          <div className="bg-pending-bg border-b border-warning-border text-pending-text px-4 py-2 flex items-center justify-between sticky top-0 z-40">
-            <div className="flex items-center gap-2 min-w-0">
-              <button
-                onClick={handleStopImpersonate}
-                className="flex items-center gap-1 text-pending-text font-medium text-body hover:underline shrink-0"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                หยุดดูในฐานะลูกค้า
-              </button>
-            </div>
-            <span className="text-body text-pending-text/80 truncate ml-2">
-              กำลังดูในฐานะ: <strong>{impersonatedName}</strong>
-            </span>
-          </div>
-        )}
         <TopBar title={title} showBack={showBack} onBack={onBack} action={action} width={width} />
         {breadcrumbs && breadcrumbs.length > 0 && (
           <div className={`mx-auto w-full px-4 pt-2 sm:px-5 lg:px-8 ${containerClass}`}>

@@ -438,7 +438,6 @@ export const BOTTOM_NAV_ITEMS = [
   { label: "ลูกค้า", path: "/customers" },
   { label: "เงินเดือน", path: "/payroll" },
   { label: "รายงาน", path: "/reports" },
-  { label: "ติดตามงาน", path: "/monitoring" },
   { label: "หัก ณ ที่จ่าย", path: "/wht" },
   { label: "ดาวน์โหลด", path: "/download-center" },
   { label: "ตั้งค่า", path: "/settings" },

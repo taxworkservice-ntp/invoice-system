@@ -1,4 +1,5 @@
 import { apiFetch, apiFetchBlob } from "./api";
+import type { MonitorActivity, MonitorDealLike } from "./monitoring";
 import type { WorkspaceCustomRole, WorkspacePermissions } from "./permissions";
 
 export interface AdminAuthUserSummary {
@@ -57,17 +58,73 @@ export async function updateAdminClientStatus(id: string, active: boolean) {
   });
 }
 
-export async function resetAdminClientWorkspace(id: string) {
+export interface DestructiveConfirm {
+  reason: string;
+  confirmName: string;
+}
+
+export interface ResetWorkspaceSummary {
+  deals_archived: number;
+  customers_archived: number;
+  items_archived: number;
+  numbering_reset: string[];
+  reason?: string | null;
+}
+
+export interface ResetWorkspacePreview {
+  active_deals: number;
+  active_customers: number;
+  active_items: number;
+  doc_sequences: number;
+  deal_sequences: number;
+}
+
+export interface ResetAllPreview {
+  documents: number;
+  document_line_items: number;
+  deals: number;
+  stock_movements: number;
+  wht_records: number;
+  files: number;
+  customers: number;
+  items: number;
+}
+
+export async function previewResetWorkspace(
+  id: string,
+): Promise<{ success: boolean; preview: ResetWorkspacePreview }> {
   return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
-    body: JSON.stringify({ action: "reset-workspace" }),
+    body: JSON.stringify({ action: "reset-workspace-preview" }),
   });
 }
 
-export async function resetAllClientData(id: string) {
+export async function resetAdminClientWorkspace(
+  id: string,
+  confirm: DestructiveConfirm,
+): Promise<{ success: boolean; summary: ResetWorkspaceSummary }> {
   return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
-    body: JSON.stringify({ action: "reset-all" }),
+    body: JSON.stringify({ action: "reset-workspace", ...confirm }),
+  });
+}
+
+export async function previewResetAll(
+  id: string,
+): Promise<{ success: boolean; preview: ResetAllPreview }> {
+  return apiFetch(`/api/admin/clients/${id}`, {
+    method: "POST",
+    body: JSON.stringify({ action: "reset-all-preview" }),
+  });
+}
+
+export async function resetAllClientData(
+  id: string,
+  confirm: DestructiveConfirm,
+): Promise<{ success: boolean; summary: ResetDocumentsSummary & { reason?: string | null } }> {
+  return apiFetch(`/api/admin/clients/${id}`, {
+    method: "POST",
+    body: JSON.stringify({ action: "reset-all", ...confirm }),
   });
 }
 
@@ -116,7 +173,9 @@ export interface AdminResetBackup {
   downloaded_at: string | null;
 }
 
-export async function previewClientDocumentReset(id: string): Promise<{ success: boolean; preview: ResetDocumentsPreview }> {
+export async function previewClientDocumentReset(
+  id: string,
+): Promise<{ success: boolean; preview: ResetDocumentsPreview }> {
   return apiFetch(`/api/admin/clients/${id}`, {
     method: "POST",
     body: JSON.stringify({ action: "reset-documents-preview" }),
@@ -134,41 +193,95 @@ export async function resetClientDocuments(
 }
 
 export async function listAdminResetBackups(id: string): Promise<AdminResetBackup[]> {
-  const result = await apiFetch<{ backups: AdminResetBackup[] }>(`/api/admin/clients/${id}/reset-backups`);
+  const result = await apiFetch<{ backups: AdminResetBackup[] }>(
+    `/api/admin/clients/${id}/reset-backups`,
+  );
   return result.backups;
 }
 
 export async function fetchAdminResetBackupBlob(id: string, backupId: string): Promise<Blob> {
-  return apiFetchBlob(`/api/admin/clients/${id}/reset-backups?backupId=${encodeURIComponent(backupId)}`);
+  return apiFetchBlob(
+    `/api/admin/clients/${id}/reset-backups?backupId=${encodeURIComponent(backupId)}`,
+  );
 }
 
-export async function deleteAdminClient(id: string) {
-  return apiFetch(`/api/admin/clients/${id}`, {
-    method: "DELETE",
+export interface RestoreTableReport {
+  table: string;
+  payload: number;
+  current: number;
+}
+
+export interface RestoreDryRun {
+  dry_run: boolean;
+  backup_id: string;
+  action: string;
+  backup_created_at: string;
+  reason: string | null;
+  tables: RestoreTableReport[];
+  newer_data_warning: boolean;
+  files_without_bytes: number;
+  skipped: string[];
+}
+
+export async function restoreAdminBackup(
+  id: string,
+  payload: { backupId: string; dryRun?: boolean; acknowledgeDataLoss?: boolean },
+): Promise<{ success: boolean; restore: RestoreDryRun & Record<string, unknown> }> {
+  return apiFetch(`/api/admin/clients/${id}/reset-backups`, {
+    method: "POST",
+    body: JSON.stringify({ dryRun: true, acknowledgeDataLoss: false, ...payload }),
   });
 }
 
+export async function deleteAdminClient(id: string, confirm: DestructiveConfirm) {
+  return apiFetch(`/api/admin/clients/${id}`, {
+    method: "DELETE",
+    body: JSON.stringify(confirm),
+  });
+}
+
+export async function listAdminClientActivities(
+  clientId: string,
+  limit = 100,
+): Promise<{ activities: MonitorActivity[]; deals: MonitorDealLike[] }> {
+  const result = await apiFetch<{ activities: MonitorActivity[]; deals: MonitorDealLike[] }>(
+    `/api/admin/clients/${clientId}/activities?limit=${limit}`,
+  );
+  return { activities: result.activities || [], deals: result.deals || [] };
+}
+
 export async function listAdminClientMembers(clientId: string): Promise<AdminClientMember[]> {
-  const result = await apiFetch<{ members: AdminClientMember[] }>(`/api/admin/clients/${clientId}/members`);
+  const result = await apiFetch<{ members: AdminClientMember[] }>(
+    `/api/admin/clients/${clientId}/members`,
+  );
   return result.members;
 }
 
 export async function listAdminClientRoles(clientId: string): Promise<WorkspaceCustomRole[]> {
-  const result = await apiFetch<{ roles: WorkspaceCustomRole[] }>(`/api/admin/clients/${clientId}/roles`);
+  const result = await apiFetch<{ roles: WorkspaceCustomRole[] }>(
+    `/api/admin/clients/${clientId}/roles`,
+  );
   return result.roles;
 }
 
-export async function createAdminClientRole(clientId: string, payload: { name: string; permissions?: Partial<WorkspacePermissions> }) {
+export async function createAdminClientRole(
+  clientId: string,
+  payload: { name: string; permissions?: Partial<WorkspacePermissions> },
+) {
   return apiFetch<{ role: WorkspaceCustomRole }>(`/api/admin/clients/${clientId}/roles`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function updateAdminClientRole(clientId: string, roleId: string, payload: {
-  name?: string;
-  permissions?: Partial<WorkspacePermissions> | null;
-}) {
+export async function updateAdminClientRole(
+  clientId: string,
+  roleId: string,
+  payload: {
+    name?: string;
+    permissions?: Partial<WorkspacePermissions> | null;
+  },
+) {
   return apiFetch<{ role: WorkspaceCustomRole }>(`/api/admin/clients/${clientId}/roles`, {
     method: "PATCH",
     body: JSON.stringify({ roleId, ...payload }),
@@ -195,28 +308,37 @@ export interface AdminAuditEntry {
 }
 
 export async function listAdminClientAudit(clientId: string): Promise<AdminAuditEntry[]> {
-  const result = await apiFetch<{ entries: AdminAuditEntry[] }>(`/api/admin/clients/${clientId}/audit`);
+  const result = await apiFetch<{ entries: AdminAuditEntry[] }>(
+    `/api/admin/clients/${clientId}/audit`,
+  );
   return result.entries;
 }
 
-export async function createAdminClientMember(clientId: string, payload: {
-  email: string;
-  role: "manager" | "officer";
-  password?: string;
-  roleId?: string | null;
-}): Promise<{ member: AdminClientMember; tempPassword?: string }> {
+export async function createAdminClientMember(
+  clientId: string,
+  payload: {
+    email: string;
+    role: "manager" | "officer";
+    password?: string;
+    roleId?: string | null;
+  },
+): Promise<{ member: AdminClientMember; tempPassword?: string }> {
   return apiFetch(`/api/admin/clients/${clientId}/members`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function updateAdminClientMember(clientId: string, memberId: string, payload: {
-  role?: "manager" | "officer";
-  status?: "active" | "disabled";
-  permissions?: Partial<WorkspacePermissions> | null;
-  roleId?: string | null;
-}) {
+export async function updateAdminClientMember(
+  clientId: string,
+  memberId: string,
+  payload: {
+    role?: "manager" | "officer";
+    status?: "active" | "disabled";
+    permissions?: Partial<WorkspacePermissions> | null;
+    roleId?: string | null;
+  },
+) {
   return apiFetch(`/api/admin/clients/${clientId}/members`, {
     method: "PATCH",
     body: JSON.stringify({ memberId, ...payload }),

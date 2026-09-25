@@ -7,27 +7,35 @@ import {
   deleteAdminClientMember,
   fetchAdminResetBackupBlob,
   getAdminClientUser,
+  listAdminClientActivities,
   listAdminClientAudit,
   listAdminClientMembers,
   listAdminClientRoles,
   listAdminResetBackups,
   previewClientDocumentReset,
+  previewResetAll,
+  previewResetWorkspace,
   resetAdminClientWorkspace,
   resetAllClientData,
   resetClientDocuments,
   resetMemberPassword,
+  restoreAdminBackup,
   updateAdminClientMember,
   updateAdminClientPassword,
   updateAdminClientStatus,
   type AdminAuditEntry,
   type AdminClientMember,
   type AdminResetBackup,
+  type ResetAllPreview,
   type ResetDocumentsPreview,
+  type ResetWorkspacePreview,
+  type RestoreDryRun,
 } from "../../../lib/adminApi";
 import { downloadBlob, sanitizeFilenamePart } from "../../../lib/download/download";
 import type { WorkspaceCustomRole } from "../../../lib/permissions";
 import { supabase } from "../../../lib/supabase";
-import { Card } from "../../../components/ui/Card";import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
+import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { Modal } from "../../../components/ui/Modal";
 import { Input, Select } from "../../../components/ui/Input";
@@ -35,7 +43,20 @@ import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { TABLE } from "../../../lib/tableStyles";
 import { useToast } from "../../../hooks/useToast";
-import { formatBuddhistDate } from "../../../lib/dates";
+import {
+  formatBuddhistDate,
+  formatBuddhistDateTimeParts,
+  relativeTimeThai,
+} from "../../../lib/dates";
+import { formatCurrency } from "../../../lib/format";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
+import {
+  filterActivities,
+  groupActivitiesByDay,
+  monitorRoleLabel,
+  type MonitorActivity,
+  type MonitorDealLike,
+} from "../../../lib/monitoring";
 import { CLIENT_FEATURES } from "../../../lib/features";
 import {
   PERMISSION_GROUPS,
@@ -66,6 +87,9 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "reset-workspace": "เริ่ม workspace ใหม่",
   "reset-documents": "ล้างเอกสารและเลขที่",
   "reset-all": "ล้างข้อมูลทั้งหมด",
+  "client-deleted": "ลบลูกค้าถาวร",
+  "backup.downloaded": "ดาวน์โหลด backup",
+  "backup.restored": "กู้คืนข้อมูลจาก backup",
 };
 
 const PERMISSION_META = new Map(PERMISSION_GROUPS.map((group) => [group.key, group]));
@@ -94,8 +118,12 @@ export default function AdminClientDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [showWorkspaceResetModal, setShowWorkspaceResetModal] = useState(false);
   const [workspaceResetConfirm, setWorkspaceResetConfirm] = useState("");
+  const [workspaceResetReason, setWorkspaceResetReason] = useState("");
+  const [workspacePreview, setWorkspacePreview] = useState<ResetWorkspacePreview | null>(null);
+  const [loadingWorkspacePreview, setLoadingWorkspacePreview] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -104,6 +132,14 @@ export default function AdminClientDetailPage() {
   const [showResetAllModal, setShowResetAllModal] = useState(false);
   const [resetAllConfirm, setResetAllConfirm] = useState("");
   const [resettingAll, setResettingAll] = useState(false);
+  const [resetAllReason, setResetAllReason] = useState("");
+  const [resetAllPreview, setResetAllPreview] = useState<ResetAllPreview | null>(null);
+  const [loadingResetAllPreview, setLoadingResetAllPreview] = useState(false);
+  const [restoringBackup, setRestoringBackup] = useState<AdminResetBackup | null>(null);
+  const [restoreDryRun, setRestoreDryRun] = useState<RestoreDryRun | null>(null);
+  const [loadingRestoreDryRun, setLoadingRestoreDryRun] = useState(false);
+  const [restoreAcknowledge, setRestoreAcknowledge] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [showResetDocsModal, setShowResetDocsModal] = useState(false);
   const [resetDocsConfirm, setResetDocsConfirm] = useState("");
   const [resetDocsReason, setResetDocsReason] = useState("");
@@ -124,6 +160,11 @@ export default function AdminClientDetailPage() {
   const [savingPermissions, setSavingPermissions] = useState(false);
   const [customRoles, setCustomRoles] = useState<WorkspaceCustomRole[]>([]);
   const [auditEntries, setAuditEntries] = useState<AdminAuditEntry[]>([]);
+  const [activities, setActivities] = useState<MonitorActivity[]>([]);
+  const [activityDeals, setActivityDeals] = useState<MonitorDealLike[]>([]);
+  const [activityFilter, setActivityFilter] = useState<"all" | "money" | "overdue" | "voided">(
+    "all",
+  );
   const [showResetMemberPasswordModal, setShowResetMemberPasswordModal] = useState(false);
   const [resetMemberTarget, setResetMemberTarget] = useState<AdminClientMember | null>(null);
   const [resetMemberPasswordValue, setResetMemberPasswordValue] = useState("");
@@ -148,7 +189,21 @@ export default function AdminClientDetailPage() {
     // failing call can never blank the whole page — the rest renders
     // partially with an inline notice instead.
     let accountFailure = "";
-    const [cpRes, docRes, dealRes, userRes, activeCustomerRes, activeItemRes, activeDealRes, featureRes, memberRes, roleRes, auditRes, backupRes] = await Promise.all([
+    const [
+      cpRes,
+      docRes,
+      dealRes,
+      userRes,
+      activeCustomerRes,
+      activeItemRes,
+      activeDealRes,
+      featureRes,
+      memberRes,
+      roleRes,
+      auditRes,
+      backupRes,
+      activityRes,
+    ] = await Promise.all([
       supabase.from("client_profiles").select("*").eq("user_id", id).single(),
       supabase
         .from("documents")
@@ -158,17 +213,31 @@ export default function AdminClientDetailPage() {
         .limit(10),
       supabase.from("deals").select("*", { count: "exact", head: true }).eq("user_id", id),
       getAdminClientUser(id).catch((error: unknown) => {
-        accountFailure = error instanceof Error && error.message ? error.message : "โหลดข้อมูลบัญชีไม่สำเร็จ";
+        accountFailure =
+          error instanceof Error && error.message ? error.message : "โหลดข้อมูลบัญชีไม่สำเร็จ";
         return null;
       }),
-      supabase.from("customers").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
-      supabase.from("items").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
-      supabase.from("deals").select("*", { count: "exact", head: true }).eq("user_id", id).eq("is_active", true),
+      supabase
+        .from("customers")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", id)
+        .eq("is_active", true),
+      supabase
+        .from("items")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", id)
+        .eq("is_active", true),
+      supabase
+        .from("deals")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", id)
+        .eq("is_active", true),
       supabase.from("client_features").select("*").eq("user_id", id),
       listAdminClientMembers(id).catch(() => []),
       listAdminClientRoles(id).catch(() => []),
       listAdminClientAudit(id).catch(() => []),
       listAdminResetBackups(id).catch(() => []),
+      listAdminClientActivities(id).catch(() => ({ activities: [], deals: [] })),
     ]);
 
     if (!cpRes.error && cpRes.data) {
@@ -196,6 +265,8 @@ export default function AdminClientDetailPage() {
     setCustomRoles(roleRes);
     setAuditEntries(auditRes);
     setResetBackups(backupRes);
+    setActivities(activityRes.activities || []);
+    setActivityDeals(activityRes.deals || []);
 
     if (userRes) {
       setEmail(userRes.email || "");
@@ -205,20 +276,6 @@ export default function AdminClientDetailPage() {
       toast.error(accountFailure || "โหลดข้อมูลบัญชีไม่สำเร็จ");
     }
     setLoading(false);
-  }
-
-  function handleImpersonate() {
-    if (!id || !clientProfile) return;
-    sessionStorage.setItem("impersonate_user_id", id);
-    sessionStorage.setItem("impersonate_name", clientProfile.company_name_th);
-    sessionStorage.setItem("impersonate_return", `/admin/clients/${id}`);
-    navigate("/home", { replace: true });
-  }
-
-  function handleStopImpersonate() {
-    sessionStorage.removeItem("impersonate_user_id");
-    sessionStorage.removeItem("impersonate_name");
-    sessionStorage.removeItem("impersonate_return");
   }
 
   async function handleResetPassword() {
@@ -289,7 +346,7 @@ export default function AdminClientDetailPage() {
     try {
       const newValue = !clientProfile?.dev_mode_enabled;
       await supabase.rpc("toggle_dev_mode", { p_user_id: id, p_enabled: newValue });
-      setClientProfile((prev) => prev ? { ...prev, dev_mode_enabled: newValue } : prev);
+      setClientProfile((prev) => (prev ? { ...prev, dev_mode_enabled: newValue } : prev));
       toast.success(newValue ? "เปิด Dev Mode แล้ว" : "ปิด Dev Mode แล้ว");
     } catch (error: any) {
       toast.error(error.message || "Unable to toggle dev mode");
@@ -363,23 +420,35 @@ export default function AdminClientDetailPage() {
     }
   }
 
-  async function handleUpdateMember(member: AdminClientMember, patch: { role?: "manager" | "officer"; status?: "active" | "disabled"; permissions?: Partial<WorkspacePermissions> | null; roleId?: string | null }) {
+  async function handleUpdateMember(
+    member: AdminClientMember,
+    patch: {
+      role?: "manager" | "officer";
+      status?: "active" | "disabled";
+      permissions?: Partial<WorkspacePermissions> | null;
+      roleId?: string | null;
+    },
+  ) {
     if (!id) return;
     setMemberActionId(member.id);
     try {
       await updateAdminClientMember(id, member.id, patch);
-      setMembers((prev) => prev.map((item) => {
-        if (item.id !== member.id) return item;
-        const next = { ...item, ...patch };
-        if (patch.roleId !== undefined) {
-          next.customRoleId = patch.roleId;
-          next.customRoleName = patch.roleId ? customRoles.find((role) => role.id === patch.roleId)?.name ?? null : null;
-        }
-        if (patch.status) {
-          next.isActive = patch.status === "active";
-        }
-        return next;
-      }));
+      setMembers((prev) =>
+        prev.map((item) => {
+          if (item.id !== member.id) return item;
+          const next = { ...item, ...patch };
+          if (patch.roleId !== undefined) {
+            next.customRoleId = patch.roleId;
+            next.customRoleName = patch.roleId
+              ? (customRoles.find((role) => role.id === patch.roleId)?.name ?? null)
+              : null;
+          }
+          if (patch.status) {
+            next.isActive = patch.status === "active";
+          }
+          return next;
+        }),
+      );
       toast.success("อัปเดตทีมแล้ว");
     } catch (error: any) {
       toast.error(error.message || "Unable to update staff member");
@@ -397,7 +466,9 @@ export default function AdminClientDetailPage() {
     setResettingMemberPassword(true);
     try {
       await resetMemberPassword(id, resetMemberTarget.id, resetMemberPasswordValue);
-      toast.success("ตั้งรหัสผ่านใหม่ให้ " + (resetMemberTarget.email || "staff") + " เรียบร้อยแล้ว");
+      toast.success(
+        "ตั้งรหัสผ่านใหม่ให้ " + (resetMemberTarget.email || "staff") + " เรียบร้อยแล้ว",
+      );
       setShowResetMemberPasswordModal(false);
       setResetMemberTarget(null);
       setResetMemberPasswordValue("");
@@ -426,11 +497,16 @@ export default function AdminClientDetailPage() {
 
   function openPermissionEditor(member: AdminClientMember) {
     setPermissionMember(member);
-    setPermissionDraft(getWorkspacePermissions(member.role, member.permissions as Partial<WorkspacePermissions> | null));
+    setPermissionDraft(
+      getWorkspacePermissions(
+        member.role,
+        member.permissions as Partial<WorkspacePermissions> | null,
+      ),
+    );
   }
 
   function setPermissionValue(key: keyof WorkspacePermissions, value: boolean) {
-    setPermissionDraft((prev) => prev ? { ...prev, [key]: value } : prev);
+    setPermissionDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
   async function handleSavePermissions() {
@@ -438,9 +514,11 @@ export default function AdminClientDetailPage() {
     setSavingPermissions(true);
     try {
       await updateAdminClientMember(id, permissionMember.id, { permissions: permissionDraft });
-      setMembers((prev) => prev.map((member) => (
-        member.id === permissionMember.id ? { ...member, permissions: permissionDraft } : member
-      )));
+      setMembers((prev) =>
+        prev.map((member) =>
+          member.id === permissionMember.id ? { ...member, permissions: permissionDraft } : member,
+        ),
+      );
       setPermissionMember(null);
       setPermissionDraft(null);
       toast.success("อัปเดตสิทธิ์แล้ว");
@@ -465,17 +543,50 @@ export default function AdminClientDetailPage() {
       return;
     }
 
+    const reason = workspaceResetReason.trim();
+    if (reason.length < 3) {
+      toast.error("กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
+      return;
+    }
+
     setResetting(true);
     try {
-      await resetAdminClientWorkspace(id);
+      const result = await resetAdminClientWorkspace(id, {
+        reason,
+        confirmName: workspaceResetConfirm.trim(),
+      });
+      const summary = result?.summary;
+      const summaryText = summary
+        ? ` (งานขาย ${summary.deals_archived} · ลูกค้า ${summary.customers_archived} · สินค้า ${summary.items_archived})`
+        : "";
       setShowWorkspaceResetModal(false);
       setWorkspaceResetConfirm("");
-      toast.success("Archive workspace and reset numbering completed");
+      setWorkspaceResetReason("");
+      setWorkspacePreview(null);
+      toast.success("Archive workspace and reset numbering completed" + summaryText);
       await fetchData();
     } catch (error: any) {
       toast.error(error.message || "Reset workspace failed");
     } finally {
       setResetting(false);
+    }
+  }
+
+  async function openWorkspaceResetModal() {
+    setWorkspaceResetConfirm("");
+    setWorkspaceResetReason("");
+    setWorkspacePreview(null);
+    setShowWorkspaceResetModal(true);
+    if (!id) return;
+
+    setLoadingWorkspacePreview(true);
+    try {
+      const result = await previewResetWorkspace(id);
+      setWorkspacePreview(result.preview);
+    } catch (error: any) {
+      toast.error(error.message || "Unable to load reset preview");
+    } finally {
+      setLoadingWorkspacePreview(false);
     }
   }
 
@@ -488,17 +599,50 @@ export default function AdminClientDetailPage() {
       return;
     }
 
+    const reason = resetAllReason.trim();
+    if (reason.length < 3) {
+      toast.error("กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
+      return;
+    }
+
     setResettingAll(true);
     try {
-      await resetAllClientData(id);
+      const result = await resetAllClientData(id, {
+        reason,
+        confirmName: resetAllConfirm.trim(),
+      });
+      const summary = result?.summary;
+      const summaryText = summary
+        ? ` (เอกสาร ${summary.documents_deleted} · งานขาย ${summary.deals_deleted})`
+        : "";
       setShowResetAllModal(false);
       setResetAllConfirm("");
-      toast.success("ล้างข้อมูลทั้งหมดเรียบร้อยแล้ว");
+      setResetAllReason("");
+      setResetAllPreview(null);
+      toast.success("ล้างข้อมูลทั้งหมดเรียบร้อยแล้ว" + summaryText + " · บันทึก backup แล้ว");
       await fetchData();
     } catch (error: any) {
       toast.error(error.message || "Reset all data failed");
     } finally {
       setResettingAll(false);
+    }
+  }
+
+  async function openResetAllModal() {
+    setResetAllConfirm("");
+    setResetAllReason("");
+    setResetAllPreview(null);
+    setShowResetAllModal(true);
+    if (!id) return;
+
+    setLoadingResetAllPreview(true);
+    try {
+      const result = await previewResetAll(id);
+      setResetAllPreview(result.preview);
+    } catch (error: any) {
+      toast.error(error.message || "Unable to load reset preview");
+    } finally {
+      setLoadingResetAllPreview(false);
     }
   }
 
@@ -525,10 +669,14 @@ export default function AdminClientDetailPage() {
     setDownloadingBackupId(backupId);
     try {
       const blob = await fetchAdminResetBackupBlob(id, backupId);
-      const company = sanitizeFilenamePart(clientProfile?.company_name_th?.trim() || email || "client");
+      const company = sanitizeFilenamePart(
+        clientProfile?.company_name_th?.trim() || email || "client",
+      );
       downloadBlob(blob, `reset-backup_${company}_${backupId.slice(0, 8)}.json`);
       setResetBackups((prev) =>
-        prev.map((backup) => (backup.id === backupId ? { ...backup, downloaded_at: new Date().toISOString() } : backup)),
+        prev.map((backup) =>
+          backup.id === backupId ? { ...backup, downloaded_at: new Date().toISOString() } : backup,
+        ),
       );
       toast.success("ดาวน์โหลด backup แล้ว");
     } catch (error: any) {
@@ -561,7 +709,9 @@ export default function AdminClientDetailPage() {
       const summaryText = summary
         ? ` (เอกสาร ${summary.documents_deleted} · งานขาย ${summary.deals_deleted} · คืนสต็อก ${summary.items_stock_restored} รายการ)`
         : "";
-      toast.success("ล้างเอกสารและตั้งเลขใหม่เรียบร้อยแล้ว" + summaryText + " · บันทึก backup แล้ว");
+      toast.success(
+        "ล้างเอกสารและตั้งเลขใหม่เรียบร้อยแล้ว" + summaryText + " · บันทึก backup แล้ว",
+      );
       setShowResetDocsModal(false);
       setResetDocsConfirm("");
       setResetDocsReason("");
@@ -583,11 +733,17 @@ export default function AdminClientDetailPage() {
       return;
     }
 
+    const reason = deleteReason.trim();
+    if (reason.length < 3) {
+      toast.error("กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
+      return;
+    }
+
     setDeleting(true);
     try {
-      await deleteAdminClient(id);
+      await deleteAdminClient(id, { reason, confirmName: deleteConfirm.trim() });
       setShowDeleteModal(false);
-      toast.success("ลบข้อมูลลูกค้าทั้งหมดเรียบร้อยแล้ว");
+      toast.success("ลบข้อมูลลูกค้าทั้งหมดเรียบร้อยแล้ว · บันทึก backup แล้ว");
       navigate("/admin/clients", { replace: true });
     } catch (error: any) {
       toast.error(error.message || "ไม่สามารถลบข้อมูลลูกค้าได้");
@@ -596,15 +752,64 @@ export default function AdminClientDetailPage() {
     }
   }
 
+  async function openRestoreModal(backup: AdminResetBackup) {
+    setRestoringBackup(backup);
+    setRestoreDryRun(null);
+    setRestoreAcknowledge(false);
+    if (!id) return;
+
+    setLoadingRestoreDryRun(true);
+    try {
+      const result = await restoreAdminBackup(id, { backupId: backup.id, dryRun: true });
+      setRestoreDryRun(result.restore);
+    } catch (error: any) {
+      toast.error(error.message || "Unable to load restore preview");
+    } finally {
+      setLoadingRestoreDryRun(false);
+    }
+  }
+
+  async function handleRestoreExecute() {
+    if (!id || !restoringBackup || !restoreDryRun) return;
+    if (restoreDryRun.newer_data_warning && !restoreAcknowledge) {
+      toast.error("กรุณาติ๊กยืนยันการแทนที่ข้อมูลใหม่ก่อนกู้คืน");
+      return;
+    }
+
+    setRestoring(true);
+    try {
+      await restoreAdminBackup(id, {
+        backupId: restoringBackup.id,
+        dryRun: false,
+        acknowledgeDataLoss: restoreDryRun.newer_data_warning ? true : undefined,
+      });
+      setRestoringBackup(null);
+      setRestoreDryRun(null);
+      setRestoreAcknowledge(false);
+      toast.success("กู้คืนข้อมูลจาก backup เรียบร้อยแล้ว");
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error.message || "Restore failed");
+    } finally {
+      setRestoring(false);
+    }
+  }
+
   type AdminDocSortKey = "doc_number" | "doc_type" | "total_amount" | "status";
-  const adminDocSort = useTableSort<Document, AdminDocSortKey>(documents, { key: "doc_number", dir: "asc" });
+  const adminDocSort = useTableSort<Document, AdminDocSortKey>(documents, {
+    key: "doc_number",
+    dir: "asc",
+  });
 
   if (loading) {
     return (
       <div className="min-h-screen bg-page-bg">
         <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
           <div className="flex items-center px-4 h-14 max-w-4xl mx-auto">
-            <button onClick={() => navigate("/admin/clients")} className="text-ink-500 hover:text-ink-700 p-1">
+            <button
+              onClick={() => navigate("/admin/clients")}
+              className="text-ink-500 hover:text-ink-700 p-1"
+            >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-body font-semibold text-ink-800 ml-2">ข้อมูลลูกค้า</h1>
@@ -622,7 +827,10 @@ export default function AdminClientDetailPage() {
       <div className="min-h-screen bg-page-bg">
         <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
           <div className="flex items-center px-4 h-14 max-w-4xl mx-auto">
-            <button onClick={() => navigate("/admin/clients")} className="text-ink-500 hover:text-ink-700 p-1">
+            <button
+              onClick={() => navigate("/admin/clients")}
+              className="text-ink-500 hover:text-ink-700 p-1"
+            >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-body font-semibold text-ink-800 ml-2">ไม่พบข้อมูล</h1>
@@ -635,7 +843,6 @@ export default function AdminClientDetailPage() {
     );
   }
 
-  const isImpersonating = sessionStorage.getItem("impersonate_user_id") === id;
   const confirmName = clientProfile.company_name_th?.trim() || email.trim();
   const enabledFeatureKeys = new Set(
     features.filter((feature) => feature.enabled).map((feature) => feature.feature_key),
@@ -646,12 +853,22 @@ export default function AdminClientDetailPage() {
     officer: "Officer",
   };
 
+  const activityDealMap = new Map<string, MonitorDealLike>();
+  for (const deal of activityDeals) activityDealMap.set(deal.id, deal);
+  const visibleActivities = filterActivities(activities, activityFilter, "all");
+  const activityDayGroups = groupActivitiesByDay(visibleActivities, (iso) =>
+    formatBuddhistDate(iso),
+  );
+
   return (
     <div className="min-h-screen bg-page-bg">
       <header className="sticky top-0 z-30 border-b border-card-border bg-white/90 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 h-14 max-w-4xl mx-auto">
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate("/admin/clients")} className="text-ink-500 hover:text-ink-700 p-1">
+            <button
+              onClick={() => navigate("/admin/clients")}
+              className="text-ink-500 hover:text-ink-700 p-1"
+            >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-body font-semibold text-ink-900 truncate">
@@ -680,26 +897,6 @@ export default function AdminClientDetailPage() {
         </div>
       </header>
 
-      {isImpersonating && (
-        <div className="bg-pending-bg border-b border-warning-border text-pending-text px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={() => {
-                handleStopImpersonate();
-                window.location.reload();
-              }}
-              className="flex items-center gap-1 text-pending-text font-medium text-body hover:underline shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              หยุดดูในฐานะลูกค้า
-            </button>
-          </div>
-          <span className="text-body text-pending-text/80 truncate ml-2">
-            กำลังดูในฐานะ: <strong>{clientProfile.company_name_th}</strong>
-          </span>
-        </div>
-      )}
-
       <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
         <div className={CARD_LABEL}>ข้อมูลลูกค้า</div>
 
@@ -721,7 +918,9 @@ export default function AdminClientDetailPage() {
           <div className="space-y-2">
             <div>
               <span className="text-label text-ink-300">ชื่อบริษัท</span>
-              <p className="text-body text-ink-900 font-medium">{clientProfile.company_name_th || "-"}</p>
+              <p className="text-body text-ink-900 font-medium">
+                {clientProfile.company_name_th || "-"}
+              </p>
             </div>
             {clientProfile.company_name_en && (
               <div>
@@ -761,14 +960,16 @@ export default function AdminClientDetailPage() {
               <div>
                 <span className="text-label text-ink-300">หัก ณ ที่จ่าย เริ่มต้น</span>
                 <p className="text-body text-ink-900">
-                  {clientProfile.default_wht_rate === "0" ? "ไม่มี" : `${clientProfile.default_wht_rate}%`}
+                  {clientProfile.default_wht_rate === "0"
+                    ? "ไม่มี"
+                    : `${clientProfile.default_wht_rate}%`}
                 </p>
               </div>
               <div>
                 <span className="text-label text-ink-300">สถานะ</span>
                 <p className="text-body">
                   <span
-                    className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${ accountError ? "bg-draft-bg text-ink-300" : isActive ? "bg-paid-bg text-paid-text" : "bg-draft-bg text-ink-300" }`}
+                    className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${accountError ? "bg-draft-bg text-ink-300" : isActive ? "bg-paid-bg text-paid-text" : "bg-draft-bg text-ink-300"}`}
                   >
                     {accountError ? "ไม่ทราบสถานะ" : isActive ? "ใช้งานอยู่" : "ปิดการใช้งาน"}
                   </span>
@@ -776,8 +977,12 @@ export default function AdminClientDetailPage() {
               </div>
             </div>
             <div className="pt-1">
-              <span className="text-label text-ink-300">สร้างบัญชีเมื่อ: {formatBuddhistDate(clientProfile.created_at)}</span>
-              <span className="text-label text-ink-300 ml-4">เอกสารทั้งหมด: {documents.length >= 10 ? "10+" : documents.length}</span>
+              <span className="text-label text-ink-300">
+                สร้างบัญชีเมื่อ: {formatBuddhistDate(clientProfile.created_at)}
+              </span>
+              <span className="text-label text-ink-300 ml-4">
+                เอกสารทั้งหมด: {documents.length >= 10 ? "10+" : documents.length}
+              </span>
               <span className="text-label text-ink-300 ml-4">งานขาย: {dealCount}</span>
             </div>
           </div>
@@ -790,17 +995,22 @@ export default function AdminClientDetailPage() {
             {CLIENT_FEATURES.map((feature) => {
               const enabled = enabledFeatureKeys.has(feature.key);
               return (
-                <div key={feature.key} className="rounded-control border border-card-border bg-paper-tint p-3">
+                <div
+                  key={feature.key}
+                  className="rounded-control border border-card-border bg-paper-tint p-3"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-body font-medium text-ink-900">{feature.label}</div>
-                      <p className="mt-1 text-label leading-5 text-ink-300">{feature.description}</p>
+                      <p className="mt-1 text-label leading-5 text-ink-300">
+                        {feature.description}
+                      </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleToggleFeature(feature.key)}
                       disabled={togglingFeature === feature.key}
-                      className={`shrink-0 rounded-full px-3 py-1 text-label font-medium transition-colors ${ enabled ? "bg-success-border text-success-text hover:bg-success-border" : "bg-line-faint text-ink-600 hover:bg-line" } disabled:cursor-not-allowed disabled:opacity-60`}
+                      className={`shrink-0 rounded-full px-3 py-1 text-label font-medium transition-colors ${enabled ? "bg-success-border text-success-text hover:bg-success-border" : "bg-line-faint text-ink-600 hover:bg-line"} disabled:cursor-not-allowed disabled:opacity-60`}
                     >
                       {togglingFeature === feature.key ? "..." : enabled ? "ON" : "OFF"}
                     </button>
@@ -819,7 +1029,8 @@ export default function AdminClientDetailPage() {
               <div>
                 <div className="text-body font-medium text-ink-900">Owner, manager, officer</div>
                 <p className="mt-1 text-label leading-5 text-ink-300">
-                  Admin-managed staff access for this client workspace. Owner keeps settings control; managers operate documents; officers prepare drafts.
+                  Admin-managed staff access for this client workspace. Owner keeps settings
+                  control; managers operate documents; officers prepare drafts.
                 </p>
               </div>
               <Button
@@ -843,13 +1054,18 @@ export default function AdminClientDetailPage() {
                 members.map((member) => {
                   const isOwner = member.memberUserId === id || member.role === "owner";
                   return (
-                    <div key={member.id} className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div
+                      key={member.id}
+                      className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
                       <div className="min-w-0">
-                        <div className="truncate text-body font-medium text-ink-900">{member.email || "-"}</div>
+                        <div className="truncate text-body font-medium text-ink-900">
+                          {member.email || "-"}
+                        </div>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-label text-ink-300">
                           <span>{member.customRoleName || roleLabels[member.role]}</span>
                           <span
-                            className={`rounded-full px-2 py-0.5 text-label font-medium ${ member.status === "active" ? "bg-paid-bg text-paid-text" : "bg-draft-bg text-ink-500" }`}
+                            className={`rounded-full px-2 py-0.5 text-label font-medium ${member.status === "active" ? "bg-paid-bg text-paid-text" : "bg-draft-bg text-ink-500"}`}
                           >
                             {member.status === "active" ? "Active" : "Disabled"}
                           </span>
@@ -862,7 +1078,10 @@ export default function AdminClientDetailPage() {
                           onChange={(event) => {
                             const value = event.target.value;
                             if (value.startsWith("base:")) {
-                              handleUpdateMember(member, { role: value.slice(5) as "manager" | "officer", roleId: null });
+                              handleUpdateMember(member, {
+                                role: value.slice(5) as "manager" | "officer",
+                                roleId: null,
+                              });
                             } else {
                               handleUpdateMember(member, { roleId: value });
                             }
@@ -876,7 +1095,9 @@ export default function AdminClientDetailPage() {
                           {customRoles.length > 0 && (
                             <optgroup label="บทบาทกำหนดเอง">
                               {customRoles.map((role) => (
-                                <option key={role.id} value={role.id}>{role.name}</option>
+                                <option key={role.id} value={role.id}>
+                                  {role.name}
+                                </option>
                               ))}
                             </optgroup>
                           )}
@@ -905,7 +1126,11 @@ export default function AdminClientDetailPage() {
                               size="sm"
                               variant={member.status === "active" ? "danger" : "secondary"}
                               loading={memberActionId === member.id}
-                              onClick={() => handleUpdateMember(member, { status: member.status === "active" ? "disabled" : "active" })}
+                              onClick={() =>
+                                handleUpdateMember(member, {
+                                  status: member.status === "active" ? "disabled" : "active",
+                                })
+                              }
                             >
                               {member.status === "active" ? "Disable" : "Enable"}
                             </Button>
@@ -940,13 +1165,18 @@ export default function AdminClientDetailPage() {
               {auditEntries.slice(0, 20).map((entry) => (
                 <div key={entry.id} className="py-2.5">
                   <div className="flex flex-wrap items-center gap-2 text-label">
-                    <span className="font-semibold text-ink-900">{AUDIT_ACTION_LABELS[entry.action] || entry.action}</span>
+                    <span className="font-semibold text-ink-900">
+                      {AUDIT_ACTION_LABELS[entry.action] || entry.action}
+                    </span>
                     <span className="text-ink-300">{entry.actor_email || "ระบบ"}</span>
                     {entry.target_email && entry.target_email !== entry.actor_email && (
                       <span className="text-ink-300">→ {entry.target_email}</span>
                     )}
                     <span className="ml-auto text-ink-100">
-                      {new Date(entry.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                      {new Date(entry.created_at).toLocaleString("th-TH", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
                     </span>
                   </div>
                 </div>
@@ -963,21 +1193,27 @@ export default function AdminClientDetailPage() {
           ) : (
             <div className="divide-y divide-line-faint">
               {resetBackups.map((backup) => (
-                <div key={backup.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div
+                  key={backup.id}
+                  className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 text-label">
                       <span className="font-semibold text-ink-900">
                         {AUDIT_ACTION_LABELS[backup.action] || backup.action}
                       </span>
                       <span className="text-ink-100">
-                        {new Date(backup.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                        {new Date(backup.created_at).toLocaleString("th-TH", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
                       </span>
                       {backup.id === lastResetBackupId && (
-                        <span className="rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">ใหม่</span>
+                        <span className="rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
+                          ใหม่
+                        </span>
                       )}
-                      {backup.downloaded_at && (
-                        <span className="text-ink-300">ดาวน์โหลดแล้ว</span>
-                      )}
+                      {backup.downloaded_at && <span className="text-ink-300">ดาวน์โหลดแล้ว</span>}
                     </div>
                     <p className="mt-1 text-label leading-5 text-ink-500">
                       {backup.summary
@@ -986,16 +1222,25 @@ export default function AdminClientDetailPage() {
                       {backup.reason ? ` · เหตุผล: ${backup.reason}` : ""}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="shrink-0"
-                    loading={downloadingBackupId === backup.id}
-                    disabled={Boolean(downloadingBackupId) && downloadingBackupId !== backup.id}
-                    onClick={() => handleDownloadBackup(backup.id)}
-                  >
-                    ดาวน์โหลด backup
-                  </Button>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={downloadingBackupId === backup.id}
+                      disabled={Boolean(downloadingBackupId) && downloadingBackupId !== backup.id}
+                      onClick={() => handleDownloadBackup(backup.id)}
+                    >
+                      ดาวน์โหลด backup
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={Boolean(restoringBackup)}
+                      onClick={() => openRestoreModal(backup)}
+                    >
+                      กู้คืน
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1007,14 +1252,11 @@ export default function AdminClientDetailPage() {
         <Card>
           <div className="space-y-2">
             <Button
-              onClick={handleImpersonate}
+              variant="secondary"
               className="w-full"
-              style={{ backgroundColor: "#E6F1FB", color: "#0C447C", border: "0.5px solid #378ADD" }}
+              onClick={handleResetPassword}
+              disabled={resetting || !email}
             >
-              ดูในฐานะลูกค้า
-            </Button>
-
-            <Button variant="secondary" className="w-full" onClick={handleResetPassword} disabled={resetting || !email}>
               {resetting ? "กำลังส่งอีเมล..." : "รีเซ็ตรหัสผ่าน (ส่งอีเมล)"}
             </Button>
 
@@ -1031,7 +1273,12 @@ export default function AdminClientDetailPage() {
               เปลี่ยนรหัสผ่าน (กำหนดเอง)
             </Button>
 
-            <Button variant="secondary" className="w-full text-danger border-danger/20 hover:bg-red-50" onClick={handleToggleActive} disabled={toggling}>
+            <Button
+              variant="secondary"
+              className="w-full text-danger border-danger/20 hover:bg-red-50"
+              onClick={handleToggleActive}
+              disabled={toggling}
+            >
               {toggling ? "กำลังดำเนินการ..." : isActive ? "ปิดการใช้งานบัญชี" : "เปิดใช้งานบัญชี"}
             </Button>
 
@@ -1047,15 +1294,20 @@ export default function AdminClientDetailPage() {
                 onClick={handleToggleDevMode}
                 disabled={togglingDev}
               >
-                {togglingDev ? "..." : clientProfile?.dev_mode_enabled ? "Disable Dev Mode" : "Enable Dev Mode"}
+                {togglingDev
+                  ? "..."
+                  : clientProfile?.dev_mode_enabled
+                    ? "Disable Dev Mode"
+                    : "Enable Dev Mode"}
               </Button>
             </div>
 
             <div className="rounded-control border border-amber-200 bg-amber-50 p-3">
               <div className="text-label font-semibold text-amber-800">Start New Workspace</div>
               <p className="mt-1 text-body leading-6 text-amber-900">
-                Archive active deals, customers, and catalog items for this client, then reset document numbering.
-                Old documents remain available as history, and deal numbers (DL-) continue after the highest archived number.
+                Archive active deals, customers, and catalog items for this client, then reset
+                document numbering. Old documents remain available as history, and deal numbers
+                (DL-) continue after the highest archived number.
               </p>
               <div className="mt-2 grid grid-cols-3 gap-2 text-label text-amber-900/80">
                 <div>Active deals: {activeDealCount}</div>
@@ -1065,23 +1317,22 @@ export default function AdminClientDetailPage() {
               <Button
                 variant="danger"
                 className="mt-3 w-full justify-center"
-                onClick={() => {
-                  setWorkspaceResetConfirm("");
-                  setShowWorkspaceResetModal(true);
-                }}
+                onClick={openWorkspaceResetModal}
               >
                 Archive workspace and reset numbering
               </Button>
             </div>
 
             <div className="rounded-control border border-orange-200 bg-orange-50 p-3">
-              <div className="text-label font-semibold text-orange-800">Clear Documents &amp; Numbering</div>
+              <div className="text-label font-semibold text-orange-800">
+                Clear Documents &amp; Numbering
+              </div>
               <p className="mt-1 text-body leading-6 text-orange-900">
-                End-of-trial cleanup: delete all documents, deals, stock movements, and WHT records for this client.
-                Document numbering restarts at 1 and deal numbering (DL-) restarts at 00001.
-                Item stock counts are restored to their pre-trial levels. Customers, catalog items, and
-                profile settings are preserved. A full JSON backup is saved before deleting and can be
-                downloaded from below.
+                End-of-trial cleanup: delete all documents, deals, stock movements, and WHT records
+                for this client. Document numbering restarts at 1 and deal numbering (DL-) restarts
+                at 00001. Item stock counts are restored to their pre-trial levels. Customers,
+                catalog items, and profile settings are preserved. A full JSON backup is saved
+                before deleting and can be downloaded from below.
               </p>
               <Button
                 variant="danger"
@@ -1095,17 +1346,14 @@ export default function AdminClientDetailPage() {
             <div className="rounded-control border border-orange-200 bg-orange-50 p-3">
               <div className="text-label font-semibold text-orange-800">Reset All Data</div>
               <p className="mt-1 text-body leading-6 text-orange-900">
-                Permanently delete all documents, deals, customers, catalog items, stock history, and WHT records.
-                Number sequences (documents and deals) will be reset. The client account and profile settings are preserved.
-                This action cannot be undone.
+                Permanently delete all documents, deals, customers, catalog items, stock history,
+                and WHT records. Number sequences (documents and deals) will be reset. The client
+                account and profile settings are preserved. This action cannot be undone.
               </p>
               <Button
                 variant="danger"
                 className="mt-3 w-full justify-center"
-                onClick={() => {
-                  setResetAllConfirm("");
-                  setShowResetAllModal(true);
-                }}
+                onClick={openResetAllModal}
               >
                 Reset all data to empty
               </Button>
@@ -1114,14 +1362,15 @@ export default function AdminClientDetailPage() {
             <div className="rounded-control border border-red-200 bg-red-50 p-3">
               <div className="text-label font-semibold text-red-800">Delete Client</div>
               <p className="mt-1 text-body leading-6 text-red-900">
-                Permanently delete this client, all their documents, customers, items, and account data.
-                This action cannot be undone.
+                Permanently delete this client, all their documents, customers, items, and account
+                data. This action cannot be undone.
               </p>
               <Button
                 variant="danger"
                 className="mt-3 w-full justify-center"
                 onClick={() => {
                   setDeleteConfirm("");
+                  setDeleteReason("");
                   setShowDeleteModal(true);
                 }}
               >
@@ -1131,7 +1380,9 @@ export default function AdminClientDetailPage() {
           </div>
         </Card>
 
-        <div className={CARD_LABEL}>เอกสารล่าสุด ({documents.length >= 10 ? "10+" : documents.length} รายการ)</div>
+        <div className={CARD_LABEL}>
+          เอกสารล่าสุด ({documents.length >= 10 ? "10+" : documents.length} รายการ)
+        </div>
 
         <Card>
           {documents.length === 0 ? (
@@ -1179,13 +1430,24 @@ export default function AdminClientDetailPage() {
                 <tbody>
                   {adminDocSort.sorted.map((document) => (
                     <tr key={document.id} className={`${TABLE.tbodyTr}`}>
-                      <td className="py-2 pr-2 font-medium text-ink-900">{document.doc_number || "-"}</td>
-                      <td className="py-2 pr-2 text-ink-500">{DOC_TYPE_LABELS[document.doc_type]?.th || document.doc_type}</td>
-                      <td className="py-2 pr-2 text-ink-400">{(document as any).customer?.name || "-"}</td>
-                      <td className="py-2 pr-2 text-right">฿ {document.total_amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2 pr-2 font-medium text-ink-900">
+                        {document.doc_number || "-"}
+                      </td>
+                      <td className="py-2 pr-2 text-ink-500">
+                        {DOC_TYPE_LABELS[document.doc_type]?.th || document.doc_type}
+                      </td>
+                      <td className="py-2 pr-2 text-ink-400">
+                        {(document as any).customer?.name || "-"}
+                      </td>
+                      <td className="py-2 pr-2 text-right">
+                        ฿{" "}
+                        {document.total_amount.toLocaleString("th-TH", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
                       <td className="py-2">
                         <span
-                          className={`inline-flex px-1.5 py-0.5 rounded text-label font-medium ${ STATUS_COLORS[document.status]?.bg || "bg-draft-bg" } ${STATUS_COLORS[document.status]?.text || "text-ink-700"}`}
+                          className={`inline-flex px-1.5 py-0.5 rounded text-label font-medium ${STATUS_COLORS[document.status]?.bg || "bg-draft-bg"} ${STATUS_COLORS[document.status]?.text || "text-ink-700"}`}
                         >
                           {STATUS_LABELS[document.status] || document.status}
                         </span>
@@ -1195,6 +1457,95 @@ export default function AdminClientDetailPage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </Card>
+
+        <div className={CARD_LABEL}>กิจกรรมล่าสุดของทีม ({activities.length} รายการ)</div>
+
+        <Card>
+          {activities.length === 0 ? (
+            <p className="text-body text-ink-400 text-center py-4">ยังไม่มีกิจกรรม</p>
+          ) : (
+            <>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {(
+                  [
+                    { value: "all", label: "ทั้งหมด" },
+                    { value: "money", label: "เงินเข้า" },
+                    { value: "overdue", label: "เกินกำหนด" },
+                    { value: "voided", label: "ยกเลิก" },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    aria-pressed={activityFilter === item.value}
+                    onClick={() => setActivityFilter(item.value)}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${activityFilter === item.value ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              {visibleActivities.length === 0 ? (
+                <p className="text-body text-ink-400 text-center py-4">ไม่มีกิจกรรมในมุมนี้</p>
+              ) : (
+                activityDayGroups.map((group) => (
+                  <div key={group.key} className="mt-3 first:mt-1">
+                    <div className="mb-1 text-label font-semibold text-ink-500">{group.label}</div>
+                    <div className="divide-y divide-line-faint">
+                      {group.items.map((activity) => {
+                        const deal = activityDealMap.get(activity.deal_id);
+                        const amount = activity.metadata?.amount;
+                        const voidReason = (activity.metadata?.voided_reason || "").trim();
+                        const { time } = formatBuddhistDateTimeParts(activity.created_at);
+                        return (
+                          <div key={activity.id} className="py-2">
+                            <div className="text-body font-medium text-ink-900">
+                              {activity.description}
+                            </div>
+                            <div className="mt-0.5 text-label text-ink-500">
+                              {deal?.customer_name || deal?.title || deal?.deal_number || "งานขาย"}
+                            </div>
+                            {activity.metadata?.status === "voided" && voidReason ? (
+                              <div className="mt-0.5 text-label text-danger-text">
+                                เหตุผล: {voidReason}
+                              </div>
+                            ) : null}
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              {activity.metadata?.doc_type ? (
+                                <StatusBadge
+                                  docType={
+                                    activity.metadata.doc_type as Parameters<
+                                      typeof StatusBadge
+                                    >[0]["docType"]
+                                  }
+                                />
+                              ) : null}
+                              <span className="text-label tabular-nums text-ink-600">
+                                {activity.metadata?.doc_number || ""}
+                              </span>
+                              <StatusBadge
+                                tone={activity.actor_role === "owner" ? "primary" : "gray"}
+                                label={`${activity.actor_name} · ${monitorRoleLabel(activity.actor_role)}`}
+                              />
+                              <span className="ml-auto text-label tabular-nums text-ink-400">
+                                {time} · {relativeTimeThai(activity.created_at)}
+                              </span>
+                              {typeof amount === "number" ? (
+                                <span className="text-body tabular-nums text-ink-900">
+                                  ฿{formatCurrency(amount)}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </>
           )}
         </Card>
       </div>
@@ -1230,10 +1581,15 @@ export default function AdminClientDetailPage() {
             placeholder="Leave blank to use invite email"
           />
           <div className="rounded-control border border-card-border bg-paper-tint p-3 text-label leading-5 text-ink-500">
-            Staff users share this client's customers, catalog, documents, and numbering. They do not get their own company profile.
+            Staff users share this client's customers, catalog, documents, and numbering. They do
+            not get their own company profile.
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setShowAddMemberModal(false)} disabled={creatingMember}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowAddMemberModal(false)}
+              disabled={creatingMember}
+            >
               Cancel
             </Button>
             <Button onClick={handleCreateMember} loading={creatingMember}>
@@ -1258,15 +1614,14 @@ export default function AdminClientDetailPage() {
             <div className="rounded-control border border-card-border bg-paper-tint p-3">
               <div className="text-body font-medium text-ink-900">{permissionMember.email}</div>
               <p className="mt-1 text-label leading-5 text-ink-300">
-                Role: {permissionMember.customRoleName || roleLabels[permissionMember.role]}. These toggles override the default access for this staff member only.
+                Role: {permissionMember.customRoleName || roleLabels[permissionMember.role]}. These
+                toggles override the default access for this staff member only.
               </p>
             </div>
 
             {PERMISSION_SECTIONS.map((section) => (
               <div key={section.title}>
-                <div className="mb-2 text-label font-semibold text-ink-300">
-                  {section.title}
-                </div>
+                <div className="mb-2 text-label font-semibold text-ink-300">{section.title}</div>
                 <div className="space-y-2">
                   {section.keys.map((permissionKey) => {
                     const checked = Boolean(permissionDraft[permissionKey]);
@@ -1277,20 +1632,26 @@ export default function AdminClientDetailPage() {
                         className="flex cursor-pointer items-start justify-between gap-3 rounded-control border border-card-border bg-white p-3 hover:bg-paper-tint"
                       >
                         <span className="min-w-0">
-                          <span className="block text-body font-medium text-ink-900">{meta?.label ?? permissionKey}</span>
-                          <span className="mt-1 block text-label leading-5 text-ink-300">{meta?.description ?? ""}</span>
+                          <span className="block text-body font-medium text-ink-900">
+                            {meta?.label ?? permissionKey}
+                          </span>
+                          <span className="mt-1 block text-label leading-5 text-ink-300">
+                            {meta?.description ?? ""}
+                          </span>
                         </span>
                         <span
-                          className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${ checked ? "bg-primary" : "bg-ink-100" }`}
+                          className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${checked ? "bg-primary" : "bg-ink-100"}`}
                         >
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={(event) => setPermissionValue(permissionKey, event.target.checked)}
+                            onChange={(event) =>
+                              setPermissionValue(permissionKey, event.target.checked)
+                            }
                             className="sr-only"
                           />
                           <span
-                            className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${ checked ? "translate-x-5" : "translate-x-0.5" }`}
+                            className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`}
                           />
                         </span>
                       </label>
@@ -1334,21 +1695,44 @@ export default function AdminClientDetailPage() {
           if (!resetting) {
             setShowWorkspaceResetModal(false);
             setWorkspaceResetConfirm("");
+            setWorkspaceResetReason("");
+            setWorkspacePreview(null);
           }
         }}
         title="Archive workspace and reset numbering"
       >
         <div className="space-y-4">
           <p className="text-body leading-6 text-ink-700">
-            This will hide the client&apos;s active workspace from normal day-to-day screens by archiving active deals, customers, and items.
-            It will also reset document numbering. Existing documents remain in the database as history, and deal numbers
-            (DL-) continue after the highest archived number.
+            This will hide the client&apos;s active workspace from normal day-to-day screens by
+            archiving active deals, customers, and items. It will also reset document numbering.
+            Existing documents remain in the database as history, and deal numbers (DL-) continue
+            after the highest archived number.
           </p>
-          <div className="rounded-control border border-line bg-paper-field p-3 text-body text-ink-700">
-            <div>Active deals to archive: {activeDealCount}</div>
-            <div>Active customers to archive: {activeCustomerCount}</div>
-            <div>Active items to archive: {activeItemCount}</div>
+          <div className="rounded-control border border-line bg-paper-field p-3">
+            <div className="text-body font-medium text-ink-900">What will be archived</div>
+            {loadingWorkspacePreview ? (
+              <div className="mt-2 flex items-center gap-2 text-body text-ink-300">
+                <Spinner inline className="w-4 h-4 border-line-strong" />
+                Loading preview…
+              </div>
+            ) : workspacePreview ? (
+              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-label text-ink-700">
+                <div>Active deals: {workspacePreview.active_deals}</div>
+                <div>Active customers: {workspacePreview.active_customers}</div>
+                <div>Active items: {workspacePreview.active_items}</div>
+              </div>
+            ) : (
+              <p className="mt-2 text-label text-ink-300">Preview unavailable.</p>
+            )}
           </div>
+          <Input
+            id="workspace-reset-reason"
+            label="Reason for this reset"
+            value={workspaceResetReason}
+            onChange={(event) => setWorkspaceResetReason(event.target.value)}
+            placeholder="e.g. New fiscal year"
+            maxLength={200}
+          />
           <Input
             id="workspace-reset-confirm"
             label={`Type "${confirmName}" to confirm`}
@@ -1362,12 +1746,22 @@ export default function AdminClientDetailPage() {
               onClick={() => {
                 setShowWorkspaceResetModal(false);
                 setWorkspaceResetConfirm("");
+                setWorkspaceResetReason("");
+                setWorkspacePreview(null);
               }}
               disabled={resetting}
             >
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleArchiveAndResetWorkspace} loading={resetting} disabled={workspaceResetConfirm.trim() !== confirmName}>
+            <Button
+              variant="danger"
+              onClick={handleArchiveAndResetWorkspace}
+              loading={resetting}
+              disabled={
+                workspaceResetConfirm.trim() !== confirmName ||
+                workspaceResetReason.trim().length < 3
+              }
+            >
               Confirm reset
             </Button>
           </div>
@@ -1388,9 +1782,10 @@ export default function AdminClientDetailPage() {
       >
         <div className="space-y-4">
           <p className="text-body leading-6 text-ink-700">
-            This will permanently delete all documents, deals, stock movements, and WHT records for this client.
-            Document numbering will restart from 1 and deal numbering (DL-) from 00001. Item stock counts will be
-            restored to their pre-trial levels (document-driven movements are reversed; manual stock-ins stay counted).
+            This will permanently delete all documents, deals, stock movements, and WHT records for
+            this client. Document numbering will restart from 1 and deal numbering (DL-) from 00001.
+            Item stock counts will be restored to their pre-trial levels (document-driven movements
+            are reversed; manual stock-ins stay counted).
           </p>
 
           <div className="rounded-control border border-line bg-paper-field p-3">
@@ -1438,8 +1833,8 @@ export default function AdminClientDetailPage() {
             <li>Profile settings (company name, tax ID, logo, etc.)</li>
           </ul>
           <p className="text-body leading-6 text-ink-700">
-            A full JSON backup of everything deleted is saved automatically. You can download it below or later
-            from the reset history. The live data itself cannot be restored from the UI.
+            A full JSON backup of everything deleted is saved automatically. You can download or
+            restore it below or later from the reset history.
           </p>
           <Input
             id="reset-docs-reason"
@@ -1473,9 +1868,105 @@ export default function AdminClientDetailPage() {
               variant="danger"
               onClick={handleResetDocuments}
               loading={resettingDocs}
-              disabled={resetDocsConfirm.trim() !== confirmName || resetDocsReason.trim().length < 3}
+              disabled={
+                resetDocsConfirm.trim() !== confirmName || resetDocsReason.trim().length < 3
+              }
             >
               Clear all documents
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!restoringBackup}
+        onClose={() => {
+          if (!restoring && !loadingRestoreDryRun) {
+            setRestoringBackup(null);
+            setRestoreDryRun(null);
+            setRestoreAcknowledge(false);
+          }
+        }}
+        title="กู้คืนข้อมูลจาก backup"
+      >
+        <div className="space-y-4">
+          <p className="text-body leading-6 text-ink-700">
+            Restore replaces the current data in the tables captured by this backup (
+            {restoringBackup
+              ? AUDIT_ACTION_LABELS[restoringBackup.action] || restoringBackup.action
+              : ""}
+            {restoringBackup?.reason ? ` · เหตุผลเดิม: ${restoringBackup.reason}` : ""}). Account
+            rows are never restored. Attachment files come back as metadata only — the file bytes
+            are not recoverable.
+          </p>
+          {loadingRestoreDryRun ? (
+            <div className="flex items-center gap-2 text-body text-ink-300">
+              <Spinner inline className="w-4 h-4 border-line-strong" />
+              กำลังตรวจสอบ…
+            </div>
+          ) : restoreDryRun ? (
+            <>
+              <div className="rounded-control border border-line bg-paper-field p-3">
+                <div className="text-body font-medium text-ink-900">Backup vs ปัจจุบัน</div>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-label text-ink-700">
+                  {restoreDryRun.tables.map((row) => (
+                    <div key={row.table}>
+                      {row.table}: {row.payload} ← {row.current}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {restoreDryRun.newer_data_warning && (
+                <div className="rounded-control border border-red-200 bg-red-50 p-3 text-body leading-6 text-red-800">
+                  มีข้อมูลใหม่กว่าจะถูกแทนที่ (
+                  {restoreDryRun.tables.filter((row) => row.current > 0).length} ตาราง).
+                  ติ๊กยืนยันด้านล่างเพื่อดำเนินการต่อ
+                </div>
+              )}
+              {restoreDryRun.files_without_bytes > 0 && (
+                <p className="text-label leading-5 text-ink-500">
+                  ไฟล์แนบ {restoreDryRun.files_without_bytes} รายการจะกลับมาเฉพาะข้อมูล —
+                  ตัวไฟล์กู้คืนไม่ได้
+                </p>
+              )}
+              {restoreDryRun.newer_data_warning && (
+                <label className="flex items-start gap-2 text-body text-ink-700">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={restoreAcknowledge}
+                    onChange={(event) => setRestoreAcknowledge(event.target.checked)}
+                  />
+                  ยอมรับการแทนที่ข้อมูลใหม่กว่า
+                </label>
+              )}
+            </>
+          ) : (
+            <p className="text-label text-ink-300">โหลดข้อมูลตรวจสอบไม่สำเร็จ</p>
+          )}
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRestoringBackup(null);
+                setRestoreDryRun(null);
+                setRestoreAcknowledge(false);
+              }}
+              disabled={restoring || loadingRestoreDryRun}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleRestoreExecute}
+              loading={restoring}
+              disabled={
+                !restoreDryRun ||
+                loadingRestoreDryRun ||
+                (restoreDryRun.newer_data_warning && !restoreAcknowledge)
+              }
+            >
+              กู้คืนข้อมูล
             </Button>
           </div>
         </div>
@@ -1487,17 +1978,53 @@ export default function AdminClientDetailPage() {
           if (!resettingAll) {
             setShowResetAllModal(false);
             setResetAllConfirm("");
+            setResetAllReason("");
+            setResetAllPreview(null);
           }
         }}
         title="Reset all client data"
       >
         <div className="space-y-4">
           <p className="text-body leading-6 text-ink-700">
-            This will permanently delete all documents, deals, customers, catalog items,
-            stock history, and WHT records for this client. Number sequences for documents
-            and deals will be reset to defaults. The client account and profile settings
-            (company name, tax ID, logo, PDF template, etc.) will be preserved. This action cannot be undone.
+            This will permanently delete all documents, deals, customers, catalog items, stock
+            history, and WHT records for this client. Number sequences for documents and deals will
+            be reset to defaults. The client account and profile settings (company name, tax ID,
+            logo, PDF template, etc.) will be preserved.
           </p>
+          <div className="rounded-control border border-line bg-paper-field p-3">
+            <div className="text-body font-medium text-ink-900">What will be deleted</div>
+            {loadingResetAllPreview ? (
+              <div className="mt-2 flex items-center gap-2 text-body text-ink-300">
+                <Spinner inline className="w-4 h-4 border-line-strong" />
+                Loading preview…
+              </div>
+            ) : resetAllPreview ? (
+              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-label text-ink-700">
+                <div>Documents: {resetAllPreview.documents}</div>
+                <div>Document line items: {resetAllPreview.document_line_items}</div>
+                <div>Deals: {resetAllPreview.deals}</div>
+                <div>Stock movements: {resetAllPreview.stock_movements}</div>
+                <div>WHT records: {resetAllPreview.wht_records}</div>
+                <div>Attachments: {resetAllPreview.files}</div>
+                <div>Customers: {resetAllPreview.customers}</div>
+                <div>Catalog items: {resetAllPreview.items}</div>
+              </div>
+            ) : (
+              <p className="mt-2 text-label text-ink-300">Preview unavailable.</p>
+            )}
+          </div>
+          <p className="text-body leading-6 text-ink-700">
+            A full JSON backup is saved automatically before deleting — you can download or restore
+            it from the reset history below.
+          </p>
+          <Input
+            id="reset-all-reason"
+            label="Reason for this reset"
+            value={resetAllReason}
+            onChange={(event) => setResetAllReason(event.target.value)}
+            placeholder="e.g. Fresh start requested"
+            maxLength={200}
+          />
           <Input
             id="reset-all-confirm"
             label={`Type "${confirmName}" to confirm`}
@@ -1511,12 +2038,19 @@ export default function AdminClientDetailPage() {
               onClick={() => {
                 setShowResetAllModal(false);
                 setResetAllConfirm("");
+                setResetAllReason("");
+                setResetAllPreview(null);
               }}
               disabled={resettingAll}
             >
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleResetAllData} loading={resettingAll} disabled={resetAllConfirm.trim() !== confirmName}>
+            <Button
+              variant="danger"
+              onClick={handleResetAllData}
+              loading={resettingAll}
+              disabled={resetAllConfirm.trim() !== confirmName || resetAllReason.trim().length < 3}
+            >
               Delete all data
             </Button>
           </div>
@@ -1529,6 +2063,7 @@ export default function AdminClientDetailPage() {
           if (!deleting) {
             setShowDeleteModal(false);
             setDeleteConfirm("");
+            setDeleteReason("");
           }
         }}
         title="Delete client permanently"
@@ -1539,13 +2074,26 @@ export default function AdminClientDetailPage() {
             <strong>{clientProfile.company_name_th || email}</strong>, including:
           </p>
           <ul className="text-body text-ink-600 list-disc pl-5 space-y-1">
-            <li>All documents ({dealCount} deals, {documents.length} recent docs)</li>
+            <li>
+              All documents ({dealCount} deals, {documents.length} recent docs)
+            </li>
             <li>All customers ({activeCustomerCount} active)</li>
             <li>All catalog items ({activeItemCount} active)</li>
             <li>Company profile, settings, and numbering</li>
             <li>Login account ({email})</li>
           </ul>
-          <p className="text-body font-semibold text-red-600">This action is irreversible. The data cannot be recovered.</p>
+          <p className="text-body font-semibold text-red-600">
+            The login account is deleted permanently. A backup of the workspace tables is saved
+            first and stays available in the reset history below.
+          </p>
+          <Input
+            id="delete-reason"
+            label="Reason for deletion"
+            value={deleteReason}
+            onChange={(event) => setDeleteReason(event.target.value)}
+            placeholder="e.g. Duplicate account"
+            maxLength={200}
+          />
           <Input
             id="delete-confirm"
             label={`Type "${confirmName}" to confirm deletion`}
@@ -1559,12 +2107,18 @@ export default function AdminClientDetailPage() {
               onClick={() => {
                 setShowDeleteModal(false);
                 setDeleteConfirm("");
+                setDeleteReason("");
               }}
               disabled={deleting}
             >
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleDeleteClient} loading={deleting} disabled={deleteConfirm.trim() !== confirmName}>
+            <Button
+              variant="danger"
+              onClick={handleDeleteClient}
+              loading={deleting}
+              disabled={deleteConfirm.trim() !== confirmName || deleteReason.trim().length < 3}
+            >
               Delete permanently
             </Button>
           </div>
@@ -1614,17 +2168,26 @@ export default function AdminClientDetailPage() {
             >
               ยกเลิก
             </Button>
-            <Button onClick={handleChangePassword} loading={changingPassword} disabled={!newPassword || !newPasswordConfirm}>
+            <Button
+              onClick={handleChangePassword}
+              loading={changingPassword}
+              disabled={!newPassword || !newPasswordConfirm}
+            >
               เปลี่ยนรหัสผ่าน
             </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={showResetMemberPasswordModal} onClose={() => setShowResetMemberPasswordModal(false)} title="รีเซ็ตรหัสผ่านสมาชิก">
+      <Modal
+        open={showResetMemberPasswordModal}
+        onClose={() => setShowResetMemberPasswordModal(false)}
+        title="รีเซ็ตรหัสผ่านสมาชิก"
+      >
         <div className="space-y-4">
           <p className="text-body text-ink-600">
-            ตั้งรหัสผ่านชั่วคราวให้ <strong>{resetMemberTarget?.email || ""}</strong> สมาชิกจะถูกขอให้เปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งถัดไป
+            ตั้งรหัสผ่านชั่วคราวให้ <strong>{resetMemberTarget?.email || ""}</strong>{" "}
+            สมาชิกจะถูกขอให้เปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งถัดไป
           </p>
           <Input
             id="reset-member-password"
@@ -1635,7 +2198,9 @@ export default function AdminClientDetailPage() {
             minLength={6}
           />
           <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setShowResetMemberPasswordModal(false)}>ยกเลิก</Button>
+            <Button variant="secondary" onClick={() => setShowResetMemberPasswordModal(false)}>
+              ยกเลิก
+            </Button>
             <Button
               onClick={handleResetMemberPassword}
               loading={resettingMemberPassword}
@@ -1647,13 +2212,20 @@ export default function AdminClientDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={showDeleteMemberModal} onClose={() => setShowDeleteMemberModal(false)} title="ลบสมาชิก">
+      <Modal
+        open={showDeleteMemberModal}
+        onClose={() => setShowDeleteMemberModal(false)}
+        title="ลบสมาชิก"
+      >
         <div className="space-y-4">
           <p className="text-body text-ink-600">
-            คุณแน่ใจว่าต้องการลบ <strong>{deleteMemberTarget?.email || ""}</strong> ออกจากทีมใช่หรือไม่? การลบจะยกเลิกบัญชีผู้ใช้ทั้งหมดและไม่สามารถเรียกคืนได้
+            คุณแน่ใจว่าต้องการลบ <strong>{deleteMemberTarget?.email || ""}</strong>{" "}
+            ออกจากทีมใช่หรือไม่? การลบจะยกเลิกบัญชีผู้ใช้ทั้งหมดและไม่สามารถเรียกคืนได้
           </p>
           <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setShowDeleteMemberModal(false)}>ยกเลิก</Button>
+            <Button variant="secondary" onClick={() => setShowDeleteMemberModal(false)}>
+              ยกเลิก
+            </Button>
             <Button variant="danger" onClick={handleDeleteMember} loading={deletingMember}>
               ลบสมาชิก
             </Button>
