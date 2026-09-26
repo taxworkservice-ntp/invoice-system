@@ -65,7 +65,12 @@ import {
   workbookToBlob,
   type PayrollCalcRow,
 } from "../../../lib/payroll/reportXlsx";
-import { buildSsoRows, buildSsoWorkbook } from "../../../lib/payroll/ssoExport";
+import {
+  buildSso110Rows,
+  buildSso110Workbook,
+  buildSsoRows,
+  buildSsoWorkbook,
+} from "../../../lib/payroll/ssoExport";
 import { buildPayslipSlipNode, type PayslipCompany } from "../../../lib/payroll/payslipPdf";
 import { slipNodeToPdfBlob, sanitizePdfFilename } from "../../../lib/payroll/payslipPdfRender";
 import {
@@ -1471,6 +1476,53 @@ export default function PayrollPage() {
     });
   }
 
+  async function handleExportSso110() {
+    if (!run || !monthClose) return;
+    const built = buildSso110Rows(employees, monthClose.owed);
+    if (built.errors.length > 0) {
+      const names = built.errors
+        .slice(0, 3)
+        .map((e) => `${e.employeeCode} ${e.fullName}`.trim())
+        .join(", ");
+      const more = built.errors.length > 3 ? ` และอีก ${built.errors.length - 3} คน` : "";
+      toast.error(`ส่งออกไม่ได้: ${names}${more} — ${built.errors[0].reason}`);
+      return;
+    }
+    if (built.rows.length === 0) {
+      toast.error("เดือนนี้ไม่มีพนักงานที่ต้องยื่นประกันสังคม");
+      return;
+    }
+    const wb = buildSso110Workbook(built.rows, {
+      companyName: clientProfile?.company_name_th ?? null,
+      ssoAccountNo: clientProfile?.sso_account_no ?? null,
+      ssoBranchNo: clientProfile?.sso_branch_no ?? null,
+      year: calcYear,
+      month: calcMonth,
+    });
+    const blob = await workbookToBlob(wb);
+    downloadBlob(blob, `sso-1-10-${calcYear}-${String(calcMonth).padStart(2, "0")}.xlsx`);
+    const skippedParts: string[] = [];
+    if (built.skippedContract > 0) skippedParts.push(`ภ.ง.ด.3 ${built.skippedContract}`);
+    if (built.skippedOver60 > 0) skippedParts.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
+    if (built.skippedZeroWage > 0) skippedParts.push(`ไม่มีค่าจ้าง ${built.skippedZeroWage}`);
+    if (skippedParts.length > 0 || !clientProfile?.sso_account_no) {
+      const notes = [...skippedParts];
+      if (!clientProfile?.sso_account_no)
+        notes.push("ยังไม่กรอกเลขที่บัญชีนายจ้าง (ตั้งค่า > ข้อมูลบริษัท)");
+      toast.success(
+        `ส่งออก สปส.1-10 ${built.rows.length} คน${notes.length > 0 ? ` (${notes.join(" · ")})` : ""}`,
+      );
+    } else {
+      toast.success(`ส่งออก สปส.1-10 ${built.rows.length} คน`);
+    }
+    await logAuditEvent({
+      action: AUDIT_ACTIONS.PAYROLL_EXPORTED,
+      entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
+      entity_id: run.id,
+      details: { report: "sso110", count: built.rows.length },
+    });
+  }
+
   async function handleExportBulkPayslips() {
     if (!run) return;
     const { default: JSZip } = await import("jszip");
@@ -2039,6 +2091,7 @@ export default function PayrollPage() {
               onExportBank={handleExportBankPayment}
               onExportWht={handleExportWht}
               onExportSso={handleExportSso}
+              onExportSso110={handleExportSso110}
               onExportPayslips={handleExportBulkPayslips}
               onSyncWht={handleSyncWht}
               syncingWht={syncingWht}
@@ -3949,6 +4002,7 @@ interface PayrollExportMenuProps {
   onExportBank: () => void | Promise<void>;
   onExportWht: () => void | Promise<void>;
   onExportSso: () => void | Promise<void>;
+  onExportSso110: () => void | Promise<void>;
   onExportPayslips: () => void | Promise<void>;
   onSyncWht: () => void | Promise<void>;
   syncingWht?: boolean;
@@ -3960,6 +4014,7 @@ function PayrollExportMenu({
   onExportBank,
   onExportWht,
   onExportSso,
+  onExportSso110,
   onExportPayslips,
   onSyncWht,
   syncingWht,
@@ -4064,6 +4119,18 @@ function PayrollExportMenu({
               <FileSpreadsheet className="w-4 h-4 text-orange-600" />
             )}{" "}
             ประกันสังคม (Excel)
+          </button>
+          <button
+            disabled={busy !== null}
+            onClick={() => run("sso110", onExportSso110)}
+            className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50"
+          >
+            {busy === "sso110" ? (
+              <Loader2 className="w-4 h-4 animate-spin text-orange-600" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-orange-600" />
+            )}{" "}
+            สปส.1-10 รายเดือน (Excel)
           </button>
           {status === "finalized" && (
             <>

@@ -31,6 +31,8 @@ export default function SettingsCompanyPage() {
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [contactName, setContactName] = useState("");
+  const [ssoAccountNo, setSsoAccountNo] = useState("");
+  const [ssoBranchNo, setSsoBranchNo] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -49,6 +51,8 @@ export default function SettingsCompanyPage() {
     setAddress(clientProfile.address || "");
     setPhone(clientProfile.phone || "");
     setContactName(clientProfile.contact_name || "");
+    setSsoAccountNo(clientProfile.sso_account_no || "");
+    setSsoBranchNo(clientProfile.sso_branch_no || "000000");
   }, [clientProfile]);
 
   useEffect(() => {
@@ -174,10 +178,7 @@ export default function SettingsCompanyPage() {
       toast.error("ไม่สามารถลบบัญชีหลักได้ ตั้งบัญชีอื่นเป็นหลักก่อน");
       return;
     }
-    const { error: err } = await supabase
-      .from("bank_accounts")
-      .delete()
-      .eq("id", account.id);
+    const { error: err } = await supabase.from("bank_accounts").delete().eq("id", account.id);
     if (err) {
       toast.error(err.message);
       return;
@@ -205,12 +206,31 @@ export default function SettingsCompanyPage() {
       address: address || null,
       phone: phone || null,
       contact_name: contactName.trim() || null,
+      sso_account_no: ssoAccountNo.trim() || null,
+      sso_branch_no: ssoBranchNo.trim() || "000000",
     };
 
-    const { error: err } = await supabase
+    let { error: err } = await supabase
       .from("client_profiles")
       .update(payload)
       .eq("user_id", profile.id);
+
+    // Pre-migration fallback: SSO identifier columns missing.
+    if (err?.code === "42703") {
+      const { sso_account_no: _a, sso_branch_no: _b, ...legacy } = payload;
+      ({ error: err } = await supabase
+        .from("client_profiles")
+        .update(legacy)
+        .eq("user_id", profile.id));
+      if (!err) {
+        setClientProfile({ ...clientProfile, ...legacy } as ClientProfile);
+        setSaved(true);
+        toast.success("บันทึกแล้ว");
+        toast.error("เลขประกันสังคมยังไม่ถูกบันทึก — ให้ผู้ดูแลระบบรัน migration ก่อน");
+        setSaving(false);
+        return;
+      }
+    }
 
     if (err) {
       setError(err.message);
@@ -226,7 +246,12 @@ export default function SettingsCompanyPage() {
     setSaving(false);
   }
 
-  if (loading) return <AppShell width="form" title="ตั้งค่า > ข้อมูลบริษัท"><SettingsPageSkeleton /></AppShell>;
+  if (loading)
+    return (
+      <AppShell width="form" title="ตั้งค่า > ข้อมูลบริษัท">
+        <SettingsPageSkeleton />
+      </AppShell>
+    );
 
   const isDirty =
     companyNameTh !== (clientProfile?.company_name_th || "") ||
@@ -234,7 +259,9 @@ export default function SettingsCompanyPage() {
     taxId !== (clientProfile?.tax_id || "") ||
     address !== (clientProfile?.address || "") ||
     phone !== (clientProfile?.phone || "") ||
-    contactName !== (clientProfile?.contact_name || "");
+    contactName !== (clientProfile?.contact_name || "") ||
+    ssoAccountNo !== (clientProfile?.sso_account_no || "") ||
+    ssoBranchNo !== (clientProfile?.sso_branch_no || "000000");
 
   return (
     <AppShell width="form" title="ตั้งค่า > ข้อมูลบริษัท">
@@ -246,14 +273,20 @@ export default function SettingsCompanyPage() {
             <SettingRow label="ชื่อบริษัท (ภาษาไทย) *" controlWidthClass="sm:flex-1 sm:max-w-none">
               <Input
                 value={companyNameTh}
-                onChange={(e) => { setCompanyNameTh(e.target.value); setSaved(false); }}
+                onChange={(e) => {
+                  setCompanyNameTh(e.target.value);
+                  setSaved(false);
+                }}
                 placeholder="บริษัท มาลี จำกัด"
               />
             </SettingRow>
             <SettingRow label="ชื่อบริษัท (ภาษาอังกฤษ)" controlWidthClass="sm:flex-1 sm:max-w-none">
               <Input
                 value={companyNameEn}
-                onChange={(e) => { setCompanyNameEn(e.target.value); setSaved(false); }}
+                onChange={(e) => {
+                  setCompanyNameEn(e.target.value);
+                  setSaved(false);
+                }}
                 placeholder="Malee Co., Ltd. (ไม่บังคับ)"
               />
             </SettingRow>
@@ -270,12 +303,13 @@ export default function SettingsCompanyPage() {
               />
             </SettingRow>
             <div className="py-2.5">
-              <label className="block text-label font-medium text-ink-700 mb-1">
-                ที่อยู่
-              </label>
+              <label className="block text-label font-medium text-ink-700 mb-1">ที่อยู่</label>
               <textarea
                 value={address}
-                onChange={(e) => { setAddress(e.target.value); setSaved(false); }}
+                onChange={(e) => {
+                  setAddress(e.target.value);
+                  setSaved(false);
+                }}
                 placeholder="ที่อยู่สำหรับพิมพ์บนเอกสาร"
                 rows={3}
                 className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-ink-400 resize-none"
@@ -284,7 +318,10 @@ export default function SettingsCompanyPage() {
             <SettingRow label="เบอร์โทรศัพท์" controlWidthClass="sm:w-[240px]">
               <Input
                 value={phone}
-                onChange={(e) => { setPhone(e.target.value); setSaved(false); }}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setSaved(false);
+                }}
               />
             </SettingRow>
             <SettingRow
@@ -294,14 +331,59 @@ export default function SettingsCompanyPage() {
             >
               <Input
                 value={contactName}
-                onChange={(e) => { setContactName(e.target.value); setSaved(false); }}
+                onChange={(e) => {
+                  setContactName(e.target.value);
+                  setSaved(false);
+                }}
                 placeholder="ชื่อที่ใช้แสดงในการทักทาย"
               />
             </SettingRow>
           </div>
         </SectionCard>
 
-        <SectionCard title="บัญชีธนาคาร" description="เพิ่มได้หลายบัญชี เลือกตอนรับชำระเงินแบบโอนและแสดงบนเอกสาร">
+        <SectionCard
+          title="ประกันสังคม (นายจ้าง)"
+          description="เลขที่บัญชีและสาขาที่ใช้บนรายงาน สปส.1-10"
+        >
+          <div className="divide-y divide-line-faint">
+            <SettingRow
+              label="เลขที่บัญชีนายจ้าง"
+              description="เลขที่บัญชีประกันสังคมของสถานประกอบการ"
+              controlWidthClass="sm:w-[240px]"
+            >
+              <Input
+                value={ssoAccountNo}
+                onChange={(e) => {
+                  setSsoAccountNo(e.target.value.replace(/\D/g, "").slice(0, 20));
+                  setSaved(false);
+                }}
+                placeholder="เช่น 1000001234"
+                inputMode="numeric"
+              />
+            </SettingRow>
+            <SettingRow
+              label="ลำดับที่สาขา"
+              description="สำนักงานใหญ่ใช้ 000000"
+              controlWidthClass="sm:w-[240px]"
+            >
+              <Input
+                value={ssoBranchNo}
+                onChange={(e) => {
+                  setSsoBranchNo(e.target.value.replace(/\D/g, "").slice(0, 6));
+                  setSaved(false);
+                }}
+                placeholder="000000"
+                inputMode="numeric"
+                maxLength={6}
+              />
+            </SettingRow>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="บัญชีธนาคาร"
+          description="เพิ่มได้หลายบัญชี เลือกตอนรับชำระเงินแบบโอนและแสดงบนเอกสาร"
+        >
           {bankLoading ? (
             <SettingsRowsSkeleton rows={2} />
           ) : (
@@ -330,9 +412,7 @@ export default function SettingsCompanyPage() {
                         </div>
                         <p className="text-label text-ink-500 truncate">
                           {account.account_number}
-                          {account.account_holder_name
-                            ? ` · ${account.account_holder_name}`
-                            : ""}
+                          {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
@@ -364,25 +444,38 @@ export default function SettingsCompanyPage() {
                   <Input
                     label="ชื่อธนาคาร"
                     value={bankName}
-                    onChange={(e) => { setBankName(e.target.value); setSaved(false); }}
+                    onChange={(e) => {
+                      setBankName(e.target.value);
+                      setSaved(false);
+                    }}
                     placeholder="ธนาคารกสิกรไทย"
                   />
                   <Input
                     label="เลขที่บัญชี"
                     value={bankAccount}
-                    onChange={(e) => { setBankAccount(e.target.value); setSaved(false); }}
+                    onChange={(e) => {
+                      setBankAccount(e.target.value);
+                      setSaved(false);
+                    }}
                     placeholder="XXX-X-XXXXX-X"
                   />
                   <Input
                     label="ชื่อบัญชี"
                     value={accountHolder}
-                    onChange={(e) => { setAccountHolder(e.target.value); setSaved(false); }}
+                    onChange={(e) => {
+                      setAccountHolder(e.target.value);
+                      setSaved(false);
+                    }}
                     placeholder="บจก. ... (ไม่บังคับ)"
                   />
                 </div>
                 <div className="mt-3 flex gap-2">
                   <Button onClick={handleSaveBank} disabled={savingBank}>
-                    {savingBank ? "กำลังบันทึก..." : editingBankId ? "บันทึกบัญชีธนาคาร" : "เพิ่มบัญชีธนาคาร"}
+                    {savingBank
+                      ? "กำลังบันทึก..."
+                      : editingBankId
+                        ? "บันทึกบัญชีธนาคาร"
+                        : "เพิ่มบัญชีธนาคาร"}
                   </Button>
                   {editingBankId && (
                     <Button onClick={startAddBank} variant="ghost" size="sm">
@@ -397,7 +490,10 @@ export default function SettingsCompanyPage() {
 
         <SaveBar
           tone={error ? "error" : saved ? "success" : isDirty ? "dirty" : "muted"}
-          label={error || (saved ? "บันทึกแล้ว" : isDirty ? "ยังไม่ได้บันทึก" : "การตั้งค่าทั้งหมดถูกบันทึกแล้ว")}
+          label={
+            error ||
+            (saved ? "บันทึกแล้ว" : isDirty ? "ยังไม่ได้บันทึก" : "การตั้งค่าทั้งหมดถูกบันทึกแล้ว")
+          }
           onSave={handleSave}
           saving={saving}
           onDiscard={isDirty && !saving ? hydrateFromProfile : undefined}

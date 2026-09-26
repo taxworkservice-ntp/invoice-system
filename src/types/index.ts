@@ -105,6 +105,9 @@ export interface ClientProfile {
   classic_terms_by_type?: Record<string, string> | null;
   bank_name: string | null;
   bank_account: string | null;
+  /** SSO employer identifiers for สปส.1-10 filing (branch defaults to head office). */
+  sso_account_no: string | null;
+  sso_branch_no: string | null;
   signature_url: string | null;
   stamp_url: string | null;
   signature_scale?: string | null;

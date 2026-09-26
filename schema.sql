@@ -1686,3 +1686,10 @@ alter table payroll_line_items add column if not exists full_name_snapshot text;
 alter table payroll_line_items add column if not exists position_snapshot text;
 alter table payroll_line_items add column if not exists salary_type_snapshot text;
 alter table payroll_line_items add column if not exists base_salary_snapshot numeric(12,2);
+
+-- SSO employer identifiers for the สปส.1-10 filing header (head office = 000000).
+alter table public.client_profiles
+  add column if not exists sso_account_no text;
+
+alter table public.client_profiles
+  add column if not exists sso_branch_no text not null default '000000';

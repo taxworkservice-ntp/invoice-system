@@ -446,6 +446,157 @@ export function buildSsoMovementWorkbook(
   return wb;
 }
 
+export interface Sso110Row extends SsoFilingRow {
+  employeeCode: string;
+  employerContribution: number;
+}
+
+export interface Sso110Build {
+  rows: Sso110Row[];
+  errors: SsoRowError[];
+  skippedContract: number;
+  skippedOver60: number;
+  skippedZeroWage: number;
+}
+
+export const SSO110_HEADERS = ["ลำดับที่", ...SSO_HEADERS];
+
+/**
+ * สปส.1-10 Part 2 rows on the roster template layout: everyone with
+ * month-aggregated insurable wage — including mid-month leavers and daily
+ * staff. Only contractors and over-60-at-hire are excluded (never insured).
+ * Blocking errors mirror the roster (bad ID / empty name halt the file).
+ * Sorted by employee code.
+ */
+export function buildSso110Rows(
+  employees: Employee[],
+  obligations: Map<string, { insurable: number; sso_employee: number; sso_employer: number }>,
+): Sso110Build {
+  const rows: Sso110Row[] = [];
+  const errors: SsoRowError[] = [];
+  let skippedContract = 0;
+  let skippedOver60 = 0;
+  let skippedZeroWage = 0;
+
+  for (const emp of employees) {
+    if (emp.sso_registered === false) {
+      skippedContract += 1;
+      continue;
+    }
+    if (!isSsoCovered(emp)) {
+      skippedOver60 += 1;
+      continue;
+    }
+    const obligation = obligations.get(emp.id);
+    const insurable = Math.max(0, Number(obligation?.insurable) || 0);
+    if (insurable <= 0) {
+      skippedZeroWage += 1;
+      continue;
+    }
+    if (!isValidThaiId(emp.tax_id)) {
+      errors.push({
+        employeeCode: emp.employee_code,
+        fullName: emp.full_name,
+        reason: "เลขประจำตัวประชาชนไม่ถูกต้อง (ต้องมี 13 หลัก)",
+      });
+      continue;
+    }
+    const name = splitInsuredName(emp.full_name);
+    if (!name.firstName) {
+      errors.push({
+        employeeCode: emp.employee_code,
+        fullName: emp.full_name,
+        reason: "ชื่อผู้ประกันตนว่างเปล่า",
+      });
+      continue;
+    }
+    rows.push({
+      employeeCode: emp.employee_code,
+      taxId: (emp.tax_id || "").replace(/\D/g, ""),
+      title: name.title,
+      firstName: name.firstName,
+      lastName: name.lastName,
+      wage: Math.round(insurable),
+      // Whole baht only: e-filing cells must hold integers.
+      contribution: Math.round(Number(obligation?.sso_employee) || 0),
+      employerContribution: Math.round(Number(obligation?.sso_employer) || 0),
+    });
+  }
+
+  rows.sort((a, b) => a.taxId.localeCompare(b.taxId));
+  return { rows, errors, skippedContract, skippedOver60, skippedZeroWage };
+}
+
+export interface Sso110Meta {
+  companyName?: string | null;
+  ssoAccountNo?: string | null;
+  ssoBranchNo?: string | null;
+  year: number;
+  month: number;
+}
+
+/**
+ * สปส.1-10 handover workbook on the roster template: title block (form
+ * reference + employer + contribution month), the familiar 6-column table
+ * with a ลำดับที่ column, and a รวม footer (headcount, wages, both
+ * contributions). Single sheet named by branch (head office 000000).
+ */
+export function buildSso110Workbook(rows: Sso110Row[], meta: Sso110Meta): ExcelJS.Workbook {
+  const branch = (meta.ssoBranchNo ?? "").trim() || "000000";
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(branch);
+  ws.columns = [8, 18, 12, 20, 20, 14, 16].map((width) => ({ width }));
+
+  const titleRow = ws.addRow(["แบบรายการแสดงการส่งเงินสมทบ สปส.1-10 (ส่วนที่ 2)"]);
+  titleRow.font = { bold: true, size: 12 };
+  const account = (meta.ssoAccountNo ?? "").trim();
+  ws.addRow([
+    `${meta.companyName?.trim() ? `${meta.companyName.trim()} · ` : ""}เลขที่บัญชี ${account || "—"} · ลำดับที่สาขา ${branch}`,
+  ]).font = { size: 10, color: { argb: "FF6B6B6B" } };
+  ws.addRow([
+    `สำหรับค่าจ้างเดือน ${meta.month}/${meta.year + 543} · จำนวน ${rows.length} คน`,
+  ]).font = {
+    size: 10,
+    color: { argb: "FF6B6B6B" },
+  };
+  ws.addRow([]);
+
+  const headerRow = ws.addRow(SSO110_HEADERS);
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, size: 10 };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+  });
+
+  let totalWage = 0;
+  let totalEmployee = 0;
+  let totalEmployer = 0;
+  rows.forEach((row, i) => {
+    const excelRow = ws.addRow([i + 1, "", "", "", "", 0, 0]);
+    excelRow.getCell(2).value = { richText: [{ text: row.taxId }] };
+    excelRow.getCell(3).value = row.title;
+    excelRow.getCell(4).value = row.firstName;
+    excelRow.getCell(5).value = row.lastName;
+    excelRow.getCell(6).value = row.wage;
+    excelRow.getCell(6).numFmt = "#,##0";
+    excelRow.getCell(7).value = row.contribution;
+    excelRow.getCell(7).numFmt = "#,##0";
+    totalWage += row.wage;
+    totalEmployee += row.contribution;
+    totalEmployer += row.employerContribution;
+  });
+
+  const totalRow = ws.addRow(["", "", "", "", "รวม", totalWage, totalEmployee]);
+  totalRow.font = { bold: true, size: 10 };
+  totalRow.getCell(6).numFmt = "#,##0";
+  totalRow.getCell(7).numFmt = "#,##0";
+  ws.addRow(["", "", "", "", "เงินสมทบนายจ้าง", totalEmployer, ""]).font = {
+    size: 10,
+    color: { argb: "FF6B6B6B" },
+  };
+
+  return wb;
+}
+
 /** Filing workbook in the SSO e-filing layout. IDs are text (keep leading zeros). */
 export function buildSsoWorkbook(rows: SsoFilingRow[]): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
