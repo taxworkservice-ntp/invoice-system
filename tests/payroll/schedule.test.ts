@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   addDaysISO,
+  describeHistoryRun,
   expectedSalaryBatches,
+  formatHistoryMonthLabel,
   formatPayRangeLabel,
+  historyMonthKey,
   suggestMonthPlan,
   suggestNextWindow,
 } from "../../src/lib/payroll/schedule";
@@ -151,5 +154,35 @@ describe("pay schedule windows", () => {
     expect(plan).toEqual([
       { batchType: "salary", start: "2026-09-01", end: "2026-09-30", label: "เงินเดือน" },
     ]);
+  });
+
+  it("describes history runs so same labels across months stay distinct", () => {
+    const aug = describeHistoryRun({
+      label: "OT 1–5",
+      period_start: "2026-08-01",
+      period_end: "2026-08-05",
+    });
+    const jul = describeHistoryRun({
+      label: "OT 1–5",
+      period_start: "2026-07-01",
+      period_end: "2026-07-05",
+    });
+    expect(aug.title).toBe("OT 1–5");
+    expect(jul.title).toBe("OT 1–5");
+    expect(aug.detail).not.toBe(jul.detail);
+    expect(aug.detail).toContain("ส.ค.");
+    expect(jul.detail).toContain("ก.ค.");
+
+    const bare = describeHistoryRun({
+      label: null,
+      period_start: "2026-08-01",
+      period_end: "2026-08-31",
+    });
+    expect(bare.title).toBe("1–31 ส.ค.");
+    expect(bare.detail).toBe("2026-08-01 → 2026-08-31");
+
+    expect(historyMonthKey("2026-08-05")).toBe("2026-08");
+    expect(formatHistoryMonthLabel(2026, 8)).toBe("ส.ค. 2569");
+    expect(formatHistoryMonthLabel(2026, 7)).toBe("ก.ค. 2569");
   });
 });

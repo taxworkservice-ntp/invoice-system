@@ -88,22 +88,24 @@ export function suggestNextWindow(
   return win;
 }
 
+const THAI_MONTHS_SHORT = [
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
+];
+
 /** Human-readable Thai range label, e.g. "11–20 ส.ค." or "30 ส.ค.–3 ก.ย." */
 export function formatPayRangeLabel(win: PayWindow): string {
-  const THAI_MONTHS = [
-    "ม.ค.",
-    "ก.พ.",
-    "มี.ค.",
-    "เม.ย.",
-    "พ.ค.",
-    "มิ.ย.",
-    "ก.ค.",
-    "ส.ค.",
-    "ก.ย.",
-    "ต.ค.",
-    "พ.ย.",
-    "ธ.ค.",
-  ];
+  const THAI_MONTHS = THAI_MONTHS_SHORT;
   const s = parseISO(win.start);
   const e = parseISO(win.end);
   const sameMonth =
@@ -112,6 +114,47 @@ export function formatPayRangeLabel(win: PayWindow): string {
     return `${s.getUTCDate()}–${e.getUTCDate()} ${THAI_MONTHS[s.getUTCMonth()]}`;
   }
   return `${s.getUTCDate()} ${THAI_MONTHS[s.getUTCMonth()]}–${e.getUTCDate()} ${THAI_MONTHS[e.getUTCMonth()]}`;
+}
+
+// ---------- Payroll history list ----------
+
+export interface HistoryRunRef {
+  label?: string | null;
+  period_start: string;
+  period_end: string;
+}
+
+/** Statutory-month key ("YYYY-MM") derived from period_end. */
+export function historyMonthKey(periodEnd: string): string {
+  return periodEnd.slice(0, 7);
+}
+
+/**
+ * Month-group heading with Buddhist year, e.g. "ส.ค. 2569".
+ * Month is 1-based.
+ */
+export function formatHistoryMonthLabel(year: number, month: number): string {
+  const short = THAI_MONTHS_SHORT[month - 1] ?? "";
+  return `${short} ${year + 543}`.trim();
+}
+
+export interface DescribedHistoryRun {
+  /** Primary line — stored label, or the date-range label when unnamed. */
+  title: string;
+  /**
+   * Secondary line that always carries the date range, so identically
+   * labelled runs from different months (e.g. two "OT 1–5") render
+   * distinctly: "1–5 ส.ค. · 2026-08-01 → 2026-08-05".
+   */
+  detail: string;
+}
+
+export function describeHistoryRun(run: HistoryRunRef): DescribedHistoryRun {
+  const rangeLabel = formatPayRangeLabel({ start: run.period_start, end: run.period_end });
+  const title = run.label?.trim() || rangeLabel;
+  const isoRange = `${run.period_start} → ${run.period_end}`;
+  const detail = title === rangeLabel ? isoRange : `${rangeLabel} · ${isoRange}`;
+  return { title, detail };
 }
 
 // ---------- Monthly disbursement plan ----------

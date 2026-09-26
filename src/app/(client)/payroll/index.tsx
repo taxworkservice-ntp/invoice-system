@@ -27,6 +27,7 @@ import {
   Trash2,
   Loader2,
   RefreshCw,
+  ChevronRight,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -71,6 +72,9 @@ import {
   formatPayRangeLabel,
   suggestNextWindow,
   suggestMonthPlan,
+  describeHistoryRun,
+  formatHistoryMonthLabel,
+  historyMonthKey,
   BATCH_TYPE_LABELS,
   expectedSalaryBatches,
   type BatchType,
@@ -2361,50 +2365,15 @@ export default function PayrollPage() {
             </div>
 
             {historyRuns.length > 1 && (
-              <div className="bg-white border border-card-border rounded-card p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-ink-400" />
-                  <span className="text-label font-medium text-ink-600">รอบเงินนี้ย้อนหลัง</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {historyRuns.map((hRun) => {
-                    const isCurrent = hRun.id === selectedRunId;
-                    const fallbackLabel = formatPayRangeLabel({
-                      start:
-                        hRun.period_start ??
-                        getPayrollPeriod(
-                          hRun.period_month ?? 1,
-                          hRun.period_year ?? now.getFullYear(),
-                        ).periodStart,
-                      end:
-                        hRun.period_end ??
-                        `${hRun.period_year}-${String(hRun.period_month).padStart(2, "0")}-28`,
-                    });
-                    return (
-                      <button
-                        key={hRun.id}
-                        disabled={isCurrent}
-                        onClick={() => {
-                          setMonth(Number(hRun.period_end.slice(5, 7)));
-                          setYear(Number(hRun.period_end.slice(0, 4)));
-                          setSelectedRunId(hRun.id);
-                        }}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-control border text-label font-medium transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 text-primary-deep" : "bg-white border-card-border text-ink-600 hover:border-primary/30 hover:text-primary"}`}
-                      >
-                        <span>{hRun.label || fallbackLabel}</span>
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${hRun.status === "finalized" ? "bg-green-500" : "bg-amber-400"}`}
-                        />
-                        {!isCurrent && (
-                          <span className="tabular-nums text-ink-400">
-                            ฿{formatCurrency(hRun.total_net)}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <PayrollHistoryPanel
+                runs={historyRuns}
+                selectedRunId={selectedRunId}
+                onOpenRun={(hRun) => {
+                  setMonth(Number(hRun.period_end.slice(5, 7)));
+                  setYear(Number(hRun.period_end.slice(0, 4)));
+                  setSelectedRunId(hRun.id);
+                }}
+              />
             )}
 
             {run.status === "draft" && employees.length > 0 && (
@@ -3392,6 +3361,114 @@ function MonthPlanStrip({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function PayrollHistoryPanel({
+  runs,
+  selectedRunId,
+  onOpenRun,
+}: {
+  runs: PayrollRun[];
+  selectedRunId: string | null;
+  onOpenRun: (run: PayrollRun) => void;
+}) {
+  const groups = useMemo(() => {
+    const byMonth = new Map<string, PayrollRun[]>();
+    for (const r of runs) {
+      const key = historyMonthKey(r.period_end);
+      const list = byMonth.get(key) ?? [];
+      list.push(r);
+      byMonth.set(key, list);
+    }
+    return [...byMonth.entries()]
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([key, list]) => {
+        const [y, m] = key.split("-").map(Number);
+        return {
+          key,
+          monthLabel: formatHistoryMonthLabel(y, m),
+          items: [...list].sort((a, b) => (a.period_start < b.period_start ? 1 : -1)),
+        };
+      });
+  }, [runs]);
+
+  return (
+    <div className="bg-white border border-card-border rounded-card p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Clock className="w-4 h-4 text-ink-400" />
+        <span className="text-label font-medium text-ink-600">ประวัติรอบที่ผ่านมา</span>
+        <span className="rounded-full bg-paper-field border border-card-border px-2 py-px text-label font-medium text-ink-500 tabular-nums">
+          {runs.length} รอบ
+        </span>
+      </div>
+      <p className="mb-3 text-label leading-5 text-ink-400">
+        แตะเพื่อเปิดรอบอื่น — เดือนที่แสดงจะเปลี่ยนตามรอบที่เลือก
+      </p>
+      <div className="max-h-64 overflow-y-auto space-y-3">
+        {groups.map((group) => (
+          <div key={group.key}>
+            <div className="mb-1.5 text-label font-semibold text-ink-500">{group.monthLabel}</div>
+            <div className="space-y-1.5">
+              {group.items.map((hRun) => {
+                const isCurrent = hRun.id === selectedRunId;
+                const { title, detail } = describeHistoryRun(hRun);
+                const finalized = hRun.status === "finalized";
+                const emptyDraft = !finalized && !(Number(hRun.total_net) > 0);
+                const kind = batchTypeOf(hRun);
+                return (
+                  <button
+                    key={hRun.id}
+                    type="button"
+                    disabled={isCurrent}
+                    onClick={() => onOpenRun(hRun)}
+                    title={`${title} · ${detail} · ${finalized ? "ปิดรอบแล้ว" : "ร่าง"} — แตะเพื่อเปิด`}
+                    aria-label={
+                      isCurrent
+                        ? `${title} (รอบปัจจุบัน)`
+                        : `เปิด${title} (${finalized ? "ปิดรอบแล้ว" : "ร่าง"})`
+                    }
+                    aria-current={isCurrent ? "true" : undefined}
+                    className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-control border text-left transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 cursor-default" : "bg-white border-card-border hover:border-primary/30"}`}
+                  >
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-px text-label font-semibold ${BATCH_BADGE[kind]}`}
+                    >
+                      {BATCH_TYPE_LABELS[kind]}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-label font-semibold text-ink-900">
+                        {title}
+                      </span>
+                      <span className="block truncate text-label tabular-nums text-ink-400">
+                        {detail}
+                      </span>
+                    </span>
+                    <StatusBadge
+                      tone={finalized ? "green" : "amber"}
+                      label={finalized ? "ปิดรอบ" : "ร่าง"}
+                    />
+                    {emptyDraft ? (
+                      <span className="shrink-0 text-label text-ink-400">ยังไม่มีตัวเลข</span>
+                    ) : (
+                      <span className="shrink-0 text-label font-semibold tabular-nums text-ink-900">
+                        ฿{formatCurrency(hRun.total_net)}
+                      </span>
+                    )}
+                    {!isCurrent && (
+                      <ChevronRight
+                        className="w-3.5 h-3.5 shrink-0 text-ink-300"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
