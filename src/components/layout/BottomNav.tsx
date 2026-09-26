@@ -15,6 +15,7 @@ import {
 import { BOTTOM_NAV_ITEMS } from "../../constants";
 import { useWorkspaceRole, useWorkspaceFeatures } from "../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../lib/permissions";
+import { resolvePayrollTabsVisibility } from "../../lib/payroll/visibility";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { supabase } from "../../lib/supabase";
@@ -44,6 +45,7 @@ export function BottomNav() {
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const workspaceFeatures = useWorkspaceFeatures(profile?.workspace_user_id ?? profile?.id);
 
+  const payrollTabs = resolvePayrollTabsVisibility(workspaceFeatures.features);
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
     if (item.path === "/payroll")
       return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
@@ -54,7 +56,12 @@ export function BottomNav() {
     if (item.path === "/catalog") return permissions.canViewCatalog;
     if (item.path === "/customers") return permissions.canViewCustomers;
     return true;
-  });
+  }).map((item) =>
+    // Employees-only clients land directly on the employee master.
+    item.path === "/payroll" && !payrollTabs.showRuns
+      ? { ...item, path: "/payroll/employees" }
+      : item,
+  );
 
   const allItems = [...navItems, { label: "ออกจากระบบ", path: LOGOUT_PATH }];
 

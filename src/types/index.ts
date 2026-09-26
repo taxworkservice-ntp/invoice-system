@@ -29,7 +29,12 @@ export type ItemType = "product" | "service";
 export type JobDetailPresetField = string;
 export type JobDetailFieldType = "text" | "dimension";
 export type ClientFeatureKey =
-  "service_job_details" | "classic_v2_template" | "dn_appendix" | "payroll";
+  | "service_job_details"
+  | "classic_v2_template"
+  | "dn_appendix"
+  | "payroll"
+  | "payroll_runs"
+  | "payroll_employees";
 
 export type StockMovementType = "manual_in" | "manual_out" | "auto_out" | "auto_in" | "return_in";
 

@@ -23,6 +23,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { Modal } from "../../../components/ui/Modal";
 import { SummaryRow } from "../../../components/home/SummaryRow";
 import { PayrollTabs } from "../../../components/payroll/PayrollTabs";
+import { resolvePayrollTabsVisibility } from "../../../lib/payroll/visibility";
 import { splitInsuredName } from "../../../lib/payroll/ssoExport";
 import { currentAgeYears, wasSixtyAtHire } from "../../../lib/payroll/ssoEligibility";
 import { TABLE } from "../../../lib/tableStyles";
@@ -36,7 +37,7 @@ import { ImageUpload, type UploadedFileMeta } from "../../../components/ui/Image
 import { downloadBlob, datedFilename } from "../../../lib/download/download";
 import { buildSsoRows, buildSsoRosterRows, buildSsoWorkbook } from "../../../lib/payroll/ssoExport";
 import { workbookToBlob } from "../../../lib/payroll/reportXlsx";
-import { useWorkspaceRole } from "../../../hooks/useAuth";
+import { useWorkspaceFeatures, useWorkspaceRole } from "../../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../../lib/permissions";
 import { useToast } from "../../../hooks/useToast";
 import {
@@ -161,6 +162,7 @@ export default function EmployeesPage() {
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
 
   const userId = workspaceUserId;
+  const payrollTabs = resolvePayrollTabsVisibility(useWorkspaceFeatures(userId).features);
 
   const fetchEmployees = useCallback(async () => {
     if (!userId) return;
@@ -742,7 +744,7 @@ export default function EmployeesPage() {
       }
     >
       <div className="space-y-4">
-        <PayrollTabs />
+        <PayrollTabs showRuns={payrollTabs.showRuns} showEmployees={payrollTabs.showEmployees} />
 
         <SummaryRow
           activePreset={filter}

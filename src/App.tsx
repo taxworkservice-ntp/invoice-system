@@ -4,6 +4,7 @@ import { Spinner } from "./components/ui/Spinner";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { useWorkspaceFeatures, useWorkspaceRole } from "./hooks/useAuth";
 import { getWorkspacePermissions } from "./lib/permissions";
+import { resolvePayrollTabsVisibility } from "./lib/payroll/visibility";
 
 const LoginPage = lazy(() => import("./app/(auth)/login"));
 const SetupPage = lazy(() => import("./app/(auth)/setup"));
@@ -58,6 +59,8 @@ export default function App() {
   const isAdmin = role === "admin";
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const canManagePayroll = workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
+  // Admin-controlled per-client tab visibility (fail-open to both tabs).
+  const payrollTabs = resolvePayrollTabsVisibility(workspaceFeatures.features);
 
   if (recovery) {
     return <Navigate to="/reset-password" replace />;
@@ -146,11 +149,27 @@ export default function App() {
               />
               <Route
                 path="/payroll"
-                element={canManagePayroll ? <PayrollPage /> : <Navigate to="/home" replace />}
+                element={
+                  canManagePayroll && payrollTabs.showRuns ? (
+                    <PayrollPage />
+                  ) : canManagePayroll && payrollTabs.showEmployees ? (
+                    <Navigate to="/payroll/employees" replace />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
               />
               <Route
                 path="/payroll/employees"
-                element={canManagePayroll ? <EmployeesPage /> : <Navigate to="/home" replace />}
+                element={
+                  canManagePayroll && payrollTabs.showEmployees ? (
+                    <EmployeesPage />
+                  ) : canManagePayroll && payrollTabs.showRuns ? (
+                    <Navigate to="/payroll" replace />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
               />
               <Route
                 path="/reports"

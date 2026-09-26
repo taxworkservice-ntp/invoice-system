@@ -40,7 +40,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { TABLE } from "../../../lib/tableStyles";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
-import { useWorkspaceRole, useClientProfile } from "../../../hooks/useAuth";
+import { useWorkspaceRole, useClientProfile, useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../../lib/permissions";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { getProxiedImageUrl } from "../../../lib/r2";
@@ -82,6 +82,7 @@ import {
 } from "../../../lib/payroll/schedule";
 import { AttendancePanel } from "../../../components/payroll/AttendancePanel";
 import { PayrollTabs } from "../../../components/payroll/PayrollTabs";
+import { resolvePayrollTabsVisibility } from "../../../lib/payroll/visibility";
 import { suggestOtWindow } from "../../../lib/payroll/attendance";
 import { PAY_ITEM_KINDS } from "../../../lib/payroll/payItems";
 import { type RecurringTemplate } from "../../../lib/payroll/recurring";
@@ -216,6 +217,7 @@ export default function PayrollPage() {
   const toast = useToast();
   const { workspaceUserId, workspaceRole, workspacePermissions, profile } = useWorkspaceRole();
   const userId = workspaceUserId;
+  const payrollTabs = resolvePayrollTabsVisibility(useWorkspaceFeatures(userId).features);
   const canManagePayroll = getWorkspacePermissions(
     workspaceRole,
     workspacePermissions,
@@ -1859,7 +1861,10 @@ export default function PayrollPage() {
       <div className="space-y-4">
         <Card className="p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <PayrollTabs />
+            <PayrollTabs
+              showRuns={payrollTabs.showRuns}
+              showEmployees={payrollTabs.showEmployees}
+            />
             <div className="flex items-center gap-2">
               <Select
                 aria-label="เดือน"

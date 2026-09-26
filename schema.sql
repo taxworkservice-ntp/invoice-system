@@ -1453,6 +1453,11 @@ alter table client_features drop constraint if exists client_features_feature_ke
 alter table client_features add constraint client_features_feature_key_check
   check (feature_key in ('service_job_details', 'classic_v2_template', 'dn_appendix', 'payroll'));
 
+-- Per-client payroll tab visibility (admin 3-state control)
+alter table client_features drop constraint if exists client_features_feature_key_check;
+alter table client_features add constraint client_features_feature_key_check
+  check (feature_key in ('service_job_details', 'classic_v2_template', 'dn_appendix', 'payroll', 'payroll_runs', 'payroll_employees'));
+
 -- ============================================================
 -- PAYROLL — Employees
 -- ============================================================

@@ -21,6 +21,7 @@ import { BOTTOM_NAV_ITEMS } from "../../constants";
 import { useClientProfile, useWorkspaceFeatures, useWorkspaceRole } from "../../hooks/useAuth";
 import { DevBadge } from "../ui/DevBadge";
 import { getWorkspacePermissions } from "../../lib/permissions";
+import { resolvePayrollTabsVisibility } from "../../lib/payroll/visibility";
 import { getProxiedImageUrl } from "../../lib/r2";
 import { supabase } from "../../lib/supabase";
 import { Modal } from "../ui/Modal";
@@ -111,6 +112,7 @@ export function AppShell({
     if (typeof window === "undefined") return true;
     return window.localStorage.getItem("invoice-system.sidebar-expanded") !== "false";
   });
+  const payrollTabs = resolvePayrollTabsVisibility(workspaceFeatures.features);
   const navItems = BOTTOM_NAV_ITEMS.filter((item) => {
     if (item.path === "/payroll")
       return workspaceFeatures.hasFeature("payroll") && permissions.canManagePayroll;
@@ -121,7 +123,12 @@ export function AppShell({
     if (item.path === "/catalog") return permissions.canViewCatalog;
     if (item.path === "/customers") return permissions.canViewCustomers;
     return true;
-  });
+  }).map((item) =>
+    // Employees-only clients land directly on the employee master.
+    item.path === "/payroll" && !payrollTabs.showRuns
+      ? { ...item, path: "/payroll/employees" }
+      : item,
+  );
 
   function toggleSidebar() {
     setSidebarExpanded((current) => {
