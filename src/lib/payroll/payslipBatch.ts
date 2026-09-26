@@ -27,9 +27,13 @@ export async function buildPayslipsZip(
   let succeeded = 0;
   const failures: { label: string; error?: string }[] = [];
 
+  // OT rounds pay OT only: same scope the payroll page applies, so slips match.
+  const otOnly = run.batch_type === "ot";
   for (const employee of employees) {
     try {
-      const item = resolveEffectiveLineItem(employee.id, lineItems, recurringByEmployee, run.id);
+      const item = resolveEffectiveLineItem(employee.id, lineItems, recurringByEmployee, run.id, {
+        includeRecurring: !otOnly,
+      });
       const calc = calculateBreakdown(
         {
           salary_type: employee.salary_type,
@@ -46,6 +50,7 @@ export async function buildPayslipsZip(
         settings,
         month,
         year,
+        otOnly ? { scope: "ot-only" } : undefined,
       );
       const hourlyRate = getEffectiveHourlyRate(
         employee.salary_type,

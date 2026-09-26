@@ -48,6 +48,24 @@ export interface PayrollBreakdown extends PayrollResult {
   hourly_rate: number;
 }
 
+/**
+ * Pay scope of a run.
+ * - "full": salary rounds — base salary (or daily days) + OT + additions/deductions.
+ * - "ot-only": OT rounds — base locked to zero and absence deductions skipped
+ *   (both belong to salary rounds). The hourly rate is STILL derived from base
+ *   salary so OT amounts compute correctly (Thai LPA convention).
+ * SSO/WHT then follow naturally from the reduced gross.
+ */
+export type PayrollScope = "full" | "ot-only";
+
+export interface PayrollCalcOpts {
+  scope?: PayrollScope;
+}
+
+function resolveScope(opts?: PayrollCalcOpts): PayrollScope {
+  return opts?.scope === "ot-only" ? "ot-only" : "full";
+}
+
 const SSO_CEILING = 17500;
 const SSO_RATE = 0.05;
 export const PND3_HIRE_RATE = 0.03;
@@ -202,15 +220,22 @@ export function calculateGross(
   settings: PayrollSettings,
   month: number,
   year?: number,
+  opts?: PayrollCalcOpts,
 ): number {
+  const scope = resolveScope(opts);
   const baseSalary = Number(input.base_salary) || 0;
   const basePay =
-    input.salary_type === "daily" ? baseSalary * (Number(input.days_worked) || 0) : baseSalary;
+    scope === "ot-only"
+      ? 0
+      : input.salary_type === "daily"
+        ? baseSalary * (Number(input.days_worked) || 0)
+        : baseSalary;
 
   const totalAdditions = input.additions.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
 
   const divisorDays = resolveDivisorDays(settings, month, year);
-  const absenceDeduction = calculateAbsenceDeduction(input, settings, divisorDays);
+  const absenceDeduction =
+    scope === "ot-only" ? 0 : calculateAbsenceDeduction(input, settings, divisorDays);
 
   const hourlyRate = getEffectiveHourlyRate(input.salary_type, baseSalary, divisorDays);
   const totalOT = calculateTotalOT(input.ot_entries, hourlyRate);
@@ -284,8 +309,12 @@ export function calculateNet(
   settings: PayrollSettings,
   month: number,
   year?: number,
+  opts?: PayrollCalcOpts,
 ): PayrollResult {
-  const gross = applyRounding(calculateGross(input, settings, month, year), settings.rounding_rule);
+  const gross = applyRounding(
+    calculateGross(input, settings, month, year, opts),
+    settings.rounding_rule,
+  );
   const totalDeductions = applyRounding(
     input.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0),
     settings.rounding_rule,
@@ -324,13 +353,19 @@ export function calculateBreakdown(
   settings: PayrollSettings,
   month: number,
   year?: number,
+  opts?: PayrollCalcOpts,
 ): PayrollBreakdown {
+  const scope = resolveScope(opts);
   const baseSalary = Number(input.base_salary) || 0;
   const base_pay =
-    input.salary_type === "daily" ? baseSalary * (Number(input.days_worked) || 0) : baseSalary;
+    scope === "ot-only"
+      ? 0
+      : input.salary_type === "daily"
+        ? baseSalary * (Number(input.days_worked) || 0)
+        : baseSalary;
   const divisorDays = resolveDivisorDays(settings, month, year);
   const hourly_rate = getEffectiveHourlyRate(input.salary_type, baseSalary, divisorDays);
-  const absence = calculateAbsenceDeduction(input, settings, divisorDays);
+  const absence = scope === "ot-only" ? 0 : calculateAbsenceDeduction(input, settings, divisorDays);
   const ot_pay = calculateTotalOT(input.ot_entries, hourly_rate);
   const additions_total = input.additions.reduce(
     (sum, item) => sum + (Number(item.amount) || 0),
@@ -340,7 +375,7 @@ export function calculateBreakdown(
     (sum, item) => sum + (Number(item.amount) || 0),
     0,
   );
-  const result = calculateNet(input, settings, month, year);
+  const result = calculateNet(input, settings, month, year, opts);
 
   return {
     ...result,

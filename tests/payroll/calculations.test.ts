@@ -357,6 +357,40 @@ describe("manual per-day absence rate override", () => {
     ).toBe(0);
   });
 
+  it("locks base and absences to zero in ot-only scope (OT rounds)", () => {
+    const otInput = input({
+      ot_entries: [{ hours: 10, type: "normal", multiplier: 1.5 }],
+      additions: [{ label: "Bonus", amount: 1000 }],
+      absent_days: 2,
+    });
+    const result = calculateBreakdown(otInput, settings, 8, 2026, { scope: "ot-only" });
+
+    expect(result.base_pay).toBe(0);
+    expect(result.absence_deduction).toBe(0);
+    // Hourly rate still derives from base salary (Thai LPA: 30000/30/8 = 125).
+    expect(result.hourly_rate).toBe(125);
+    expect(result.ot_pay).toBe(1875);
+    expect(result.gross_pay).toBe(2875);
+    expect(calculateGross(otInput, settings, 8, 2026, { scope: "ot-only" })).toBe(2875);
+    // Net invariant holds on the reduced gross.
+    expect(result.net_pay).toBeCloseTo(
+      result.gross_pay - result.sso_employee - result.withholding_tax - result.deductions_total,
+      2,
+    );
+  });
+
+  it("ignores days_worked for daily staff in ot-only scope", () => {
+    const result = calculateBreakdown(
+      input({ salary_type: "daily", base_salary: 1000, days_worked: 20 }),
+      settings,
+      8,
+      2026,
+      { scope: "ot-only" },
+    );
+    expect(result.base_pay).toBe(0);
+    expect(result.gross_pay).toBe(0);
+  });
+
   it("keeps the payslip rounding invariant with an override", () => {
     const s: PayrollSettings = { ...settings, rounding_rule: "floor" };
     const result = calculateBreakdown(

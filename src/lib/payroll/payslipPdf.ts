@@ -23,7 +23,20 @@ export interface PayslipCompany {
   logoUrl: string | null;
 }
 
-const MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+const MONTHS = [
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
+];
 
 const SLIP_CSS = `
   .slip-root { font-family: 'Sarabun', 'TH Sarabun New', Arial, sans-serif; color: #1a1a18; font-size: 12px; padding: 20px; background: #ffffff; width: 100%; box-sizing: border-box; }
@@ -57,25 +70,51 @@ function fmt(n: number): string {
 }
 
 function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /** Slip markup WITHOUT document chrome (<style> included) — consumed by the PDF renderer. */
-export function buildPayslipSlipNode(employee: Employee, run: PayrollRun, lineItem: PayrollLineItem, calc: PayslipCalc, hourlyRate: number, company?: PayslipCompany | null): string {
+export function buildPayslipSlipNode(
+  employee: Employee,
+  run: PayrollRun,
+  lineItem: PayrollLineItem,
+  calc: PayslipCalc,
+  hourlyRate: number,
+  company?: PayslipCompany | null,
+): string {
   const otLines = (lineItem.ot_entries || [])
     .map((ot) => {
       const pay = Number(ot.hours) * hourlyRate * Number(ot.multiplier);
       return `<div class="line"><span>OT ${ot.type === "holiday" ? "วันหยุด" : "ปกติ"} ${ot.hours}ชม. ×${ot.multiplier}</span><span>฿${fmt(pay)}</span></div>`;
     })
     .join("");
-  const addLines = (lineItem.additions || []).map((a) => `<div class="line"><span>${esc(a.label)}</span><span>฿${fmt(Number(a.amount) || 0)}</span></div>`).join("");
-  const dedLines = (lineItem.deductions || []).map((d) => `<div class="line"><span>${esc(d.label)}</span><span>-฿${fmt(Number(d.amount) || 0)}</span></div>`).join("");
+  const addLines = (lineItem.additions || [])
+    .map(
+      (a) =>
+        `<div class="line"><span>${esc(a.label)}</span><span>฿${fmt(Number(a.amount) || 0)}</span></div>`,
+    )
+    .join("");
+  const dedLines = (lineItem.deductions || [])
+    .map(
+      (d) =>
+        `<div class="line"><span>${esc(d.label)}</span><span>-฿${fmt(Number(d.amount) || 0)}</span></div>`,
+    )
+    .join("");
   const periodLabel = `${MONTHS[(run.period_month ?? 1) - 1]} ${(run.period_year ?? 2025) + 543}`;
 
   const coName = company?.name?.trim() ? esc(company.name.trim()) : null;
-  const coLines = [company?.address?.trim(), company?.taxId?.trim() ? `เลขประจำตัวผู้เสียภาษี ${esc(company.taxId.trim())}` : "", company?.phone?.trim() ? `โทร ${esc(company.phone.trim())}` : ""].filter(Boolean);
-  const header = coName || company?.logoUrl
-    ? `<div class="co-head">
+  const coLines = [
+    company?.address?.trim(),
+    company?.taxId?.trim() ? `เลขประจำตัวผู้เสียภาษี ${esc(company.taxId.trim())}` : "",
+    company?.phone?.trim() ? `โทร ${esc(company.phone.trim())}` : "",
+  ].filter(Boolean);
+  const header =
+    coName || company?.logoUrl
+      ? `<div class="co-head">
         <div class="co-brand">
           ${company?.logoUrl ? `<img src="${esc(company.logoUrl)}" alt="" onerror="this.style.display='none'" />` : ""}
           <div>${coName ? `<div class="co-name">${coName}</div>` : ""}${coLines.length > 0 ? `<div class="co-meta">${coLines.join("<br/>")}</div>` : ""}</div>
@@ -86,7 +125,7 @@ export function buildPayslipSlipNode(employee: Employee, run: PayrollRun, lineIt
           <div style="font-weight:500;font-size:13px">${run.pay_date}</div>
         </div>
       </div>`
-    : `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+      : `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
       <div><h1>สลิปเงินเดือน</h1><div class="sub">Pay Slip</div></div>
       <div style="text-align:right">
         <div style="color:#9b9b9b;font-size:11px">รอบการจ่าย</div>
@@ -107,7 +146,7 @@ export function buildPayslipSlipNode(employee: Employee, run: PayrollRun, lineIt
     <div class="cols">
       <div>
         <h3>รายได้</h3>
-        <div class="line"><span>เงินเดือน${employee.salary_type === "daily" ? ` (${lineItem.days_worked ?? 0} วัน)` : ""}</span><span>฿${fmt(calc.base_pay)}</span></div>
+        ${calc.base_pay > 0 ? `<div class="line"><span>เงินเดือน${employee.salary_type === "daily" ? ` (${lineItem.days_worked ?? 0} วัน)` : ""}</span><span>฿${fmt(calc.base_pay)}</span></div>` : ""}
         ${(calc.absence_deduction ?? 0) > 0 ? `<div class="line"><span>หักวันขาดงาน (${lineItem.absent_days} วัน)</span><span>-฿${fmt(calc.absence_deduction)}</span></div>` : ""}
         ${otLines}${addLines}
         <div class="total-line"><span>รวมรายได้</span><span>฿${fmt(calc.gross_pay)}</span></div>
@@ -130,7 +169,14 @@ export function buildPayslipSlipNode(employee: Employee, run: PayrollRun, lineIt
   </div>`;
 }
 
-export function buildPayslipHtml(employee: Employee, run: PayrollRun, lineItem: PayrollLineItem, calc: PayslipCalc, hourlyRate: number, company?: PayslipCompany | null): string {
+export function buildPayslipHtml(
+  employee: Employee,
+  run: PayrollRun,
+  lineItem: PayrollLineItem,
+  calc: PayslipCalc,
+  hourlyRate: number,
+  company?: PayslipCompany | null,
+): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>สลิปเงินเดือน ${esc(employee.full_name)}</title><style>@page { size: A4; margin: 0; } body { margin: 0; }</style></head><body>${buildPayslipSlipNode(employee, run, lineItem, calc, hourlyRate, company)}</body></html>`;
 }
 
@@ -144,7 +190,9 @@ export interface BulkPayslipInput {
 }
 
 export function buildPayslipHtmlPerPage(inputs: BulkPayslipInput[]): string {
-  const pages = inputs.map((i) => buildPayslipHtml(i.employee, i.run, i.lineItem, i.calc, i.hourlyRate, i.company));
+  const pages = inputs.map((i) =>
+    buildPayslipHtml(i.employee, i.run, i.lineItem, i.calc, i.hourlyRate, i.company),
+  );
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>สลิปเงินเดือน</title>
 <style>@page { size: A4; margin: 12mm; } body { font-family: 'Sarabun', Arial, sans-serif; } .page { page-break-after: always; } .page:last-child { page-break-after: auto; }</style></head><body>
 ${pages.map((p) => `<div class="page">${p}</div>`).join("")}

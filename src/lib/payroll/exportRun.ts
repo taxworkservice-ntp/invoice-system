@@ -38,7 +38,10 @@ export async function listPayrollRuns(userId: string, limit = 24): Promise<Payro
  * Reconstruct everything the payroll export builders need for one run,
  * mirroring the Payroll page's own data load so totals match exactly.
  */
-export async function loadPayrollExportBundle(userId: string, runId: string): Promise<PayrollExportBundle> {
+export async function loadPayrollExportBundle(
+  userId: string,
+  runId: string,
+): Promise<PayrollExportBundle> {
   const { data: run, error } = await supabase
     .from("payroll_runs")
     .select("*")
@@ -49,18 +52,19 @@ export async function loadPayrollExportBundle(userId: string, runId: string): Pr
   const payrollRun = run as PayrollRun;
   const { month, year } = payrollRunPeriod(payrollRun);
 
-  const [{ data: empData }, { data: recData }, { data: itemsData }, { data: settingsData }] = await Promise.all([
-    supabase
-      .from("employees")
-      .select("*")
-      .eq("user_id", userId)
-      .lte("start_date", payrollRun.period_end)
-      .or(`end_date.is.null,end_date.gte.${payrollRun.period_start}`)
-      .order("employee_code"),
-    supabase.from("payroll_recurring_items").select("*").eq("user_id", userId).eq("active", true),
-    supabase.from("payroll_line_items").select("*").eq("payroll_run_id", payrollRun.id),
-    supabase.from("client_payroll_settings").select("*").eq("user_id", userId).maybeSingle(),
-  ]);
+  const [{ data: empData }, { data: recData }, { data: itemsData }, { data: settingsData }] =
+    await Promise.all([
+      supabase
+        .from("employees")
+        .select("*")
+        .eq("user_id", userId)
+        .lte("start_date", payrollRun.period_end)
+        .or(`end_date.is.null,end_date.gte.${payrollRun.period_start}`)
+        .order("employee_code"),
+      supabase.from("payroll_recurring_items").select("*").eq("user_id", userId).eq("active", true),
+      supabase.from("payroll_line_items").select("*").eq("payroll_run_id", payrollRun.id),
+      supabase.from("client_payroll_settings").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
 
   const employees = (empData ?? []) as Employee[];
   const recurringByEmployee = new Map<string, RecurringTemplate[]>();
@@ -73,6 +77,8 @@ export async function loadPayrollExportBundle(userId: string, runId: string): Pr
   for (const item of (itemsData ?? []) as PayrollLineItem[]) lineItems.set(item.employee_id, item);
 
   const settings = (settingsData as PayrollSettings | null) ?? DEFAULT_SETTINGS;
+  // OT rounds pay OT only: same scope the payroll page applies, so exports match.
+  const otOnly = payrollRun.batch_type === "ot";
   const rows = buildPayrollCalcRows({
     employees,
     lineItems,
@@ -81,7 +87,18 @@ export async function loadPayrollExportBundle(userId: string, runId: string): Pr
     year,
     recurringByEmployee,
     runId: payrollRun.id,
+    calcOpts: otOnly ? { scope: "ot-only" } : undefined,
+    includeRecurring: !otOnly,
   });
 
-  return { run: payrollRun, employees, settings, rows, lineItems, recurringByEmployee, month, year };
+  return {
+    run: payrollRun,
+    employees,
+    settings,
+    rows,
+    lineItems,
+    recurringByEmployee,
+    month,
+    year,
+  };
 }

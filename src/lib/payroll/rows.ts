@@ -1,5 +1,5 @@
 import type { Employee, PayrollLineItem } from "../../types";
-import { calculateBreakdown, type PayrollSettings } from "./calculations";
+import { calculateBreakdown, type PayrollCalcOpts, type PayrollSettings } from "./calculations";
 import { applyRecurringTemplates, type RecurringTemplate } from "./recurring";
 import { isSsoExemptByAge } from "./ssoEligibility";
 import type { PayrollCalcRow } from "./reportXlsx";
@@ -32,14 +32,19 @@ export function createEmptyLineItem(runId: string, employeeId: string): PayrollL
 /**
  * Raw stored item with active recurring templates merged in (view/save layer,
  * shared by the payroll page and the Download Center exports).
+ *
+ * OT rounds pass `includeRecurring: false`: monthly allowances belong to
+ * salary rounds and must not sneak into every OT batch.
  */
 export function resolveEffectiveLineItem(
   employeeId: string,
   lineItems: Map<string, PayrollLineItem>,
   recurringByEmployee: Map<string, RecurringTemplate[]>,
   runId: string,
+  opts?: { includeRecurring?: boolean },
 ): PayrollLineItem {
   const raw = lineItems.get(employeeId) ?? createEmptyLineItem(runId, employeeId);
+  if (opts?.includeRecurring === false) return raw;
   const templates = recurringByEmployee.get(employeeId) ?? [];
   if (templates.length === 0) return raw;
   const merged = applyRecurringTemplates(raw, templates);
@@ -58,10 +63,24 @@ export function buildPayrollCalcRows(params: {
   year: number;
   recurringByEmployee: Map<string, RecurringTemplate[]>;
   runId: string;
+  calcOpts?: PayrollCalcOpts;
+  includeRecurring?: boolean;
 }): PayrollCalcRow[] {
-  const { employees, lineItems, settings, month, year, recurringByEmployee, runId } = params;
+  const {
+    employees,
+    lineItems,
+    settings,
+    month,
+    year,
+    recurringByEmployee,
+    runId,
+    calcOpts,
+    includeRecurring,
+  } = params;
   return employees.map((employee) => {
-    const effective = resolveEffectiveLineItem(employee.id, lineItems, recurringByEmployee, runId);
+    const effective = resolveEffectiveLineItem(employee.id, lineItems, recurringByEmployee, runId, {
+      includeRecurring,
+    });
     const calc = calculateBreakdown(
       {
         salary_type: employee.salary_type,
@@ -80,6 +99,7 @@ export function buildPayrollCalcRows(params: {
       settings,
       month,
       year,
+      calcOpts,
     );
     return { employee, lineItem: lineItems.get(employee.id) ?? null, ...calc };
   });
