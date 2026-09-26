@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Plus,
   Trash2,
@@ -12,6 +12,7 @@ import {
   Paperclip,
   ExternalLink,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
@@ -35,7 +36,13 @@ import { supabase } from "../../../lib/supabase";
 import { deleteFromR2, getR2PresignedUrl } from "../../../lib/r2";
 import { ImageUpload, type UploadedFileMeta } from "../../../components/ui/ImageUpload";
 import { downloadBlob, datedFilename } from "../../../lib/download/download";
-import { buildSsoRows, buildSsoRosterRows, buildSsoWorkbook } from "../../../lib/payroll/ssoExport";
+import {
+  buildSsoMovementRows,
+  buildSsoMovementWorkbook,
+  buildSsoRows,
+  buildSsoRosterRows,
+  buildSsoWorkbook,
+} from "../../../lib/payroll/ssoExport";
 import { workbookToBlob } from "../../../lib/payroll/reportXlsx";
 import { useWorkspaceFeatures, useWorkspaceRole } from "../../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../../lib/permissions";
@@ -88,6 +95,21 @@ export function resignReasonLabel(reason: string | null | undefined): string {
 type ModalState = { mode: "create"; form: EmployeeForm } | { mode: "edit"; form: EmployeeForm };
 
 type EmployeeFilter = "active" | "inactive" | "incomplete" | "all";
+
+const REPORT_MONTHS = [
+  { value: 1, label: "มกราคม" },
+  { value: 2, label: "กุมภาพันธ์" },
+  { value: 3, label: "มีนาคม" },
+  { value: 4, label: "เมษายน" },
+  { value: 5, label: "พฤษภาคม" },
+  { value: 6, label: "มิถุนายน" },
+  { value: 7, label: "กรกฎาคม" },
+  { value: 8, label: "สิงหาคม" },
+  { value: 9, label: "กันยายน" },
+  { value: 10, label: "ตุลาคม" },
+  { value: 11, label: "พฤศจิกายน" },
+  { value: 12, label: "ธันวาคม" },
+];
 
 function isIncompleteProfile(emp: Employee): boolean {
   return (
@@ -160,6 +182,11 @@ export default function EmployeesPage() {
   const [offboardingReason, setOffboardingReason] = useState("");
   const [offboardingNote, setOffboardingNote] = useState("");
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
+  const now = new Date();
+  const [reportMonth, setReportMonth] = useState(now.getMonth() + 1);
+  const [reportYear, setReportYear] = useState(now.getFullYear());
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const userId = workspaceUserId;
   const payrollTabs = resolvePayrollTabsVisibility(useWorkspaceFeatures(userId).features);
@@ -686,6 +713,88 @@ export default function EmployeesPage() {
     toast.success(`ส่งออกประกันสังคม ${built.rows.length} คน${skipped}`);
   }
 
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setExportMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [exportMenuOpen]);
+
+  function exportMovementToast(
+    built: {
+      rows: unknown[];
+      errors: { employeeCode: string; fullName: string; reason: string }[];
+      skippedDaily: number;
+      skippedContract: number;
+      skippedOver60: number;
+    },
+    emptyLabel: string,
+  ): boolean {
+    if (built.errors.length > 0) {
+      const names = built.errors
+        .slice(0, 3)
+        .map((e) => `${e.employeeCode} ${e.fullName}`.trim())
+        .join(", ");
+      const more = built.errors.length > 3 ? ` และอีก ${built.errors.length - 3} คน` : "";
+      toast.error(`ส่งออกไม่ได้: ${names}${more} — ${built.errors[0].reason}`);
+      return false;
+    }
+    if (built.rows.length === 0) {
+      toast.error(emptyLabel);
+      return false;
+    }
+    return true;
+  }
+
+  function movementSkippedNote(built: {
+    skippedDaily: number;
+    skippedContract: number;
+    skippedOver60: number;
+  }): string {
+    const parts: string[] = [];
+    if (built.skippedDaily > 0) parts.push(`รายวัน ${built.skippedDaily}`);
+    if (built.skippedContract > 0) parts.push(`ภ.ง.ด.3 ${built.skippedContract}`);
+    if (built.skippedOver60 > 0) parts.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
+    return parts.length > 0 ? ` (ข้าม: ${parts.join(" · ")})` : "";
+  }
+
+  async function handleExportSsoMovement(direction: "joiners" | "leavers") {
+    const isJoiners = direction === "joiners";
+    const built = buildSsoMovementRows(employees, reportYear, reportMonth, direction);
+    if (
+      !exportMovementToast(
+        built,
+        isJoiners ? "เดือนนี้ไม่มีพนักงานเข้าใหม่" : "เดือนนี้ไม่มีพนักงานลาออก",
+      )
+    ) {
+      setExportMenuOpen(false);
+      return;
+    }
+    const wb = buildSsoMovementWorkbook(built.rows, {
+      direction,
+      year: reportYear,
+      month: reportMonth,
+    });
+    const blob = await workbookToBlob(wb);
+    const mm = String(reportMonth).padStart(2, "0");
+    downloadBlob(blob, `sso-${isJoiners ? "joiners" : "leavers"}-${reportYear}-${mm}.xlsx`);
+    toast.success(
+      `ส่งออกบัญชี${isJoiners ? "เข้าใหม่" : "ลาออก"} ${built.rows.length} คน${movementSkippedNote(built)}`,
+    );
+    setExportMenuOpen(false);
+  }
+
   function maskAccount(account: string): string {
     if (account.length <= 4) return account ? "•••" : "";
     return `•••-${account.slice(-4)}`;
@@ -721,16 +830,49 @@ export default function EmployeesPage() {
       title="พนักงาน"
       action={
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleExportSsoRoster}
-            className="!rounded-control"
-            aria-label="ส่งออกรายงานประกันสังคม"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">ประกันสังคม</span>
-          </Button>
+          <div className="relative" ref={exportMenuRef}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setExportMenuOpen((open) => !open)}
+              className="!rounded-control"
+              aria-label="ส่งออกรายงาน"
+              aria-expanded={exportMenuOpen}
+              aria-haspopup="menu"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">ส่งออก</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-card-border rounded-control z-30 py-1 shadow-overlay">
+                <div className="px-3 pt-1.5 pb-1 text-label font-medium text-ink-400">
+                  รายงานประกันสังคม
+                </div>
+                <button
+                  onClick={handleExportSsoRoster}
+                  className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex flex-col gap-0.5"
+                >
+                  <span>รายชื่อประกันสังคม</span>
+                  <span className="text-label text-ink-400">ค่าจ้าง + เงินสมทบทุกคน</span>
+                </button>
+                <button
+                  onClick={() => handleExportSsoMovement("joiners")}
+                  className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex flex-col gap-0.5"
+                >
+                  <span>เข้าใหม่ประจำเดือน (สปส.1-03)</span>
+                  <span className="text-label text-ink-400">พร้อมกำหนดยื่นภายใน 30 วัน</span>
+                </button>
+                <button
+                  onClick={() => handleExportSsoMovement("leavers")}
+                  className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex flex-col gap-0.5"
+                >
+                  <span>ลาออกประจำเดือน (สปส.6-09)</span>
+                  <span className="text-label text-ink-400">พร้อมกำหนดยื่นภายในวันที่ 15</span>
+                </button>
+              </div>
+            )}
+          </div>
           <Button
             size="sm"
             onClick={openCreate}
@@ -819,6 +961,34 @@ export default function EmployeesPage() {
               ล้างตัวกรอง
             </button>
           )}
+          <div className="flex-1" />
+          <span className="text-label text-ink-400">รอบรายงาน</span>
+          <Select
+            aria-label="เดือนรายงาน"
+            title="เดือนรายงาน"
+            value={reportMonth}
+            onChange={(e) => setReportMonth(Number(e.target.value))}
+            className="w-[118px]"
+          >
+            {REPORT_MONTHS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            aria-label="ปีรายงาน"
+            title="ปีรายงาน (พ.ศ.)"
+            value={reportYear}
+            onChange={(e) => setReportYear(Number(e.target.value))}
+            className="w-[88px]"
+          >
+            {[reportYear - 1, reportYear, reportYear + 1].map((y) => (
+              <option key={y} value={y}>
+                {y + 543}
+              </option>
+            ))}
+          </Select>
         </div>
 
         {loading ? (

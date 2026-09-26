@@ -226,6 +226,226 @@ export function buildSsoRows(calcRows: PayrollCalcRow[]): SsoBuildResult {
   return { rows, errors, skippedInactive, skippedContract, skippedOver60 };
 }
 
+export type SsoMovementDirection = "joiners" | "leavers";
+
+export interface SsoMovementRow {
+  employeeCode: string;
+  title: string;
+  firstName: string;
+  lastName: string;
+  taxId: string;
+  position: string;
+  /** Hire date (joiners) or exit date (leavers), ISO YYYY-MM-DD. */
+  eventDate: string;
+  /** Filing deadline, ISO: hire +30d (สปส.1-03) or 15th of next month (สปส.6-09). */
+  deadline: string;
+}
+
+export interface SsoMovementBuild {
+  rows: SsoMovementRow[];
+  errors: SsoRowError[];
+  skippedDaily: number;
+  skippedContract: number;
+  skippedOver60: number;
+}
+
+/** Add whole days in UTC (avoids TZ drift on ISO dates). */
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 15th of the month following the given ISO date. */
+function fifteenthOfNextMonth(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth(); // 0-based: +1 rolls to next month
+  const ny = m === 11 ? y + 1 : y;
+  const nm = m === 11 ? 0 : m + 1;
+  return `${ny}-${String(nm + 1).padStart(2, "0")}-15`;
+}
+
+/** Buddhist-era display for handover readability: 01/08/2569. */
+export function formatBuddhistShort(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getUTCFullYear() + 543}`;
+}
+
+function toMovementRow(
+  emp: Employee,
+  eventDate: string,
+  deadline: string,
+  errors: SsoRowError[],
+): SsoMovementRow | null {
+  if (!isValidThaiId(emp.tax_id)) {
+    errors.push({
+      employeeCode: emp.employee_code,
+      fullName: emp.full_name,
+      reason: "เลขประจำตัวประชาชนไม่ถูกต้อง (ต้องมี 13 หลัก)",
+    });
+    return null;
+  }
+  const name = splitInsuredName(emp.full_name);
+  if (!name.firstName) {
+    errors.push({
+      employeeCode: emp.employee_code,
+      fullName: emp.full_name,
+      reason: "ชื่อผู้ประกันตนว่างเปล่า",
+    });
+    return null;
+  }
+  return {
+    employeeCode: emp.employee_code,
+    title: name.title,
+    firstName: name.firstName,
+    lastName: name.lastName,
+    taxId: (emp.tax_id || "").replace(/\D/g, ""),
+    position: emp.position || "—",
+    eventDate,
+    deadline,
+  };
+}
+
+/**
+ * Monthly in/out movement for SSO registration reference (สปส.1-03 joiners,
+ * สปส.6-09 leavers). Monthly staff only (business choice — the roster wage
+ * exclusion does not apply here, registration is pay-type agnostic, but the
+ * client files daily staff through a separate practice).
+ * Sorted by event date, then employee code.
+ */
+export function buildSsoMovementRows(
+  employees: Employee[],
+  year: number,
+  month: number,
+  direction: SsoMovementDirection,
+): SsoMovementBuild {
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const endDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const end = `${year}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`;
+  const rows: SsoMovementRow[] = [];
+  const errors: SsoRowError[] = [];
+  let skippedDaily = 0;
+  let skippedContract = 0;
+  let skippedOver60 = 0;
+
+  for (const emp of employees) {
+    const eventDate = direction === "joiners" ? emp.start_date : (emp.end_date ?? "");
+    if (!eventDate || eventDate < start || eventDate > end) continue;
+    if (emp.salary_type !== "monthly") {
+      skippedDaily += 1;
+      continue;
+    }
+    if (emp.sso_registered === false) {
+      skippedContract += 1;
+      continue;
+    }
+    if (!isSsoCovered(emp)) {
+      skippedOver60 += 1;
+      continue;
+    }
+    const deadline =
+      direction === "joiners" ? addDaysISO(eventDate, 30) : fifteenthOfNextMonth(eventDate);
+    const row = toMovementRow(emp, eventDate, deadline, errors);
+    if (row) rows.push(row);
+  }
+
+  rows.sort((a, b) =>
+    a.eventDate === b.eventDate
+      ? a.employeeCode.localeCompare(b.employeeCode)
+      : a.eventDate < b.eventDate
+        ? -1
+        : 1,
+  );
+  return { rows, errors, skippedDaily, skippedContract, skippedOver60 };
+}
+
+export const SSO_MOVEMENT_HEADERS_JOINERS = [
+  "ลำดับ",
+  "รหัสพนักงาน",
+  "คำนำหน้า",
+  "ชื่อ",
+  "นามสกุล",
+  "เลขบัตรประชาชน",
+  "ตำแหน่ง",
+  "ประเภทการจ้าง",
+  "วันที่เข้าทำงาน",
+  "กำหนดยื่นภายใน (สปส.1-03)",
+];
+
+export const SSO_MOVEMENT_HEADERS_LEAVERS = [
+  "ลำดับ",
+  "รหัสพนักงาน",
+  "คำนำหน้า",
+  "ชื่อ",
+  "นามสกุล",
+  "เลขบัตรประชาชน",
+  "ตำแหน่ง",
+  "ประเภทการจ้าง",
+  "วันที่ออก",
+  "กำหนดยื่นภายใน (สปส.6-09)",
+];
+
+/**
+ * Single-sheet handover workbook: title block (form reference + month) then
+ * one flat table. IDs and dates are text (leading zeros, Buddhist year).
+ */
+export function buildSsoMovementWorkbook(
+  rows: SsoMovementRow[],
+  opts: {
+    direction: SsoMovementDirection;
+    year: number;
+    month: number;
+    companyName?: string | null;
+  },
+): ExcelJS.Workbook {
+  const { direction, year, month } = opts;
+  const isJoiners = direction === "joiners";
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(isJoiners ? "เข้าใหม่" : "ลาออก");
+  ws.columns = [6, 14, 10, 20, 20, 20, 18, 12, 14, 20].map((width) => ({ width }));
+
+  const title = isJoiners
+    ? "บัญชีรายชื่อผู้ประกันตนเข้าใหม่ — เพื่อประกอบแบบ สปส.1-03"
+    : "บัญชีรายชื่อผู้ประกันตนลาออก — เพื่อประกอบแบบ สปส.6-09";
+  const titleRow = ws.addRow([title]);
+  titleRow.font = { bold: true, size: 12 };
+  const subRow = ws.addRow([
+    `${opts.companyName?.trim() ? `${opts.companyName.trim()} · ` : ""}ประจำเดือน ${month}/${year + 543} · จำนวน ${rows.length} คน`,
+  ]);
+  subRow.font = { size: 10, color: { argb: "FF6B6B6B" } };
+  ws.addRow([]);
+
+  const headers = isJoiners ? SSO_MOVEMENT_HEADERS_JOINERS : SSO_MOVEMENT_HEADERS_LEAVERS;
+  const headerRow = ws.addRow(headers);
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, size: 10 };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+  });
+
+  rows.forEach((row, i) => {
+    const excelRow = ws.addRow([
+      i + 1,
+      row.employeeCode,
+      row.title,
+      row.firstName,
+      row.lastName,
+      "",
+      row.position,
+      "รายเดือน",
+      "",
+      "",
+    ]);
+    excelRow.getCell(6).value = { richText: [{ text: row.taxId }] };
+    excelRow.getCell(9).value = formatBuddhistShort(row.eventDate);
+    excelRow.getCell(10).value = formatBuddhistShort(row.deadline);
+  });
+
+  return wb;
+}
+
 /** Filing workbook in the SSO e-filing layout. IDs are text (keep leading zeros). */
 export function buildSsoWorkbook(rows: SsoFilingRow[]): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
