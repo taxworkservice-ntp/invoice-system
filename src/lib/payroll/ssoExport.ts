@@ -533,6 +533,8 @@ export interface Sso110Meta {
   ssoBranchNo?: string | null;
   year: number;
   month: number;
+  /** Honesty line for anytime exports, e.g. names of included draft rounds. */
+  scopeNote?: string | null;
 }
 
 /**
@@ -559,6 +561,9 @@ export function buildSso110Workbook(rows: Sso110Row[], meta: Sso110Meta): ExcelJ
     size: 10,
     color: { argb: "FF6B6B6B" },
   };
+  if (meta.scopeNote?.trim()) {
+    ws.addRow([meta.scopeNote.trim()]).font = { size: 10, color: { argb: "FF6B6B6B" } };
+  }
   ws.addRow([]);
 
   const headerRow = ws.addRow(SSO110_HEADERS);

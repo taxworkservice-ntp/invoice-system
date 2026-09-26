@@ -190,7 +190,7 @@ export default function AdminClientDetailPage() {
           />
         )}
         {activeTab === "documents" && <DocumentsTab documents={documents} />}
-        {activeTab === "reports" && <ReportsTab />}
+        {activeTab === "reports" && <ReportsTab clientId={id} />}
         {activeTab === "activity" && (
           <ActivityTab activities={activities} activityDeals={activityDeals} />
         )}

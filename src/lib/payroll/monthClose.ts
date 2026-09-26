@@ -1,5 +1,13 @@
-import { applyRounding, calculateMonthlyWithholdingTax, PND3_HIRE_RATE } from "./calculations";
-import type { PayrollRoundingRule } from "../../types";
+import {
+  applyRounding,
+  calculateBreakdown,
+  calculateMonthlyWithholdingTax,
+  PND3_HIRE_RATE,
+  type PayrollSettings,
+} from "./calculations";
+import { isSsoExemptByAge } from "./ssoEligibility";
+import type { Employee, PayrollLineItem, PayrollRoundingRule } from "../../types";
+import { createEmptyLineItem } from "./rows";
 
 // Month-close aggregation for Thai statutory obligations.
 //
@@ -168,6 +176,159 @@ export interface CalcLike {
   withholding_tax: number;
   deductions_total: number;
   net_pay: number;
+}
+
+export interface MonthCloseRun extends MonthRunRef {
+  status: "draft" | "finalized";
+  label?: string | null;
+  period_start: string;
+}
+
+export interface ComputeMonthDataParams {
+  employees: Employee[];
+  runs: MonthCloseRun[];
+  /** Effective line item per run per employee (recurring already merged as appropriate). */
+  effectiveItems: Map<string, Map<string, PayrollLineItem>>;
+  settings: PayrollSettings;
+  month: number;
+  year: number;
+}
+
+export interface MonthDataTotals {
+  owedSso: number;
+  owedWht: number;
+  storedSso: number;
+  storedWht: number;
+  pendingSso: number;
+  pendingWht: number;
+}
+
+export interface MonthDataResult {
+  owed: Map<string, MonthObligation>;
+  attributed: Map<string, Map<string, AttributedObligation>>;
+  closingId: string | null;
+  closingRun: MonthCloseRun | null;
+  totals: MonthDataTotals;
+  /** Draft rounds included in the numbers (for scope lines + audit). */
+  draftRunIds: string[];
+}
+
+/**
+ * Shared month computation behind the payroll page and the admin export
+ * center: month-total insurable wages → monthly obligations → attribution to
+ * draft runs. Pure: callers supply effective items (live on the client page,
+ * stored on the admin side).
+ */
+export function computeMonthData(params: ComputeMonthDataParams): MonthDataResult | null {
+  const { employees, runs, effectiveItems, settings, month, year } = params;
+  if (employees.length === 0 || runs.length === 0) return null;
+  const dust = (n: number) => (n < 0.01 ? 0 : n);
+
+  const wageInputs: MonthWageInput[] = employees.map((emp) => {
+    let total = 0;
+    for (const r of runs) {
+      const ot = (r.batch_type ?? "salary") === "ot";
+      const item =
+        effectiveItems.get(r.id)?.get(emp.id) ?? createEmptyLineItem(r.id, emp.id);
+      const calc = calculateBreakdown(
+        {
+          salary_type: emp.salary_type,
+          base_salary: emp.base_salary,
+          days_worked: item.days_worked,
+          absent_days: item.absent_days,
+          absence_daily_rate: item.absence_daily_rate,
+          ot_entries: item.ot_entries,
+          additions: item.additions,
+          deductions: item.deductions,
+          sso_registered: emp.sso_registered !== false,
+          sso_exempt: isSsoExemptByAge(emp),
+        },
+        settings,
+        month,
+        year,
+        ot ? { scope: "ot-only" } : undefined,
+      );
+      total += calc.gross_pay;
+    }
+    return {
+      employeeId: emp.id,
+      insurable: total,
+      sso_registered: emp.sso_registered !== false,
+      sso_exempt: isSsoExemptByAge(emp),
+    };
+  });
+
+  const owedList = computeMonthlyObligations(wageInputs, {
+    ceiling: settings.sso_ceiling_override ?? undefined,
+    rounding: settings.rounding_rule,
+  });
+  const owed = new Map(owedList.map((o) => [o.employeeId, o]));
+
+  // Stored SSO/WHT come from finalized runs only. Draft stored rows hold
+  // working values that attribution recomputes — reading them here would
+  // double-count against the attributed amounts below.
+  const storedFinalized = new Map<string, Map<string, AttributedObligation>>();
+  for (const r of runs) {
+    if (r.status !== "finalized") continue;
+    const perEmp = new Map<string, AttributedObligation>();
+    for (const [, item] of effectiveItems.get(r.id) ?? []) {
+      if (item.gross_pay == null) continue;
+      perEmp.set(item.employee_id, {
+        sso_employee: Number(item.sso_employee) || 0,
+        sso_employer: Number(item.sso_employer) || 0,
+        withholding_tax: Number(item.withholding_tax) || 0,
+      });
+    }
+    storedFinalized.set(r.id, perEmp);
+  }
+
+  const empById = new Map(employees.map((e) => [e.id, e]));
+  const attributed = attributeObligations({
+    runs,
+    runStatuses: new Map(runs.map((r) => [r.id, r.status])),
+    owed,
+    storedFinalized,
+    isContractor: (id) => (empById.get(id)?.sso_registered ?? true) === false,
+  });
+
+  let owedSso = 0;
+  let owedWht = 0;
+  let storedSso = 0;
+  let storedWht = 0;
+  let attrSso = 0;
+  let attrWht = 0;
+  for (const [, o] of owed) {
+    owedSso += o.sso_employee;
+    owedWht += o.withholding_tax;
+  }
+  for (const [, m] of storedFinalized)
+    for (const [, s] of m) {
+      storedSso += s.sso_employee;
+      storedWht += s.withholding_tax;
+    }
+  for (const [, m] of attributed)
+    for (const [, a] of m) {
+      attrSso += a.sso_employee;
+      attrWht += a.withholding_tax;
+    }
+
+  const closingId = closingSalaryRunId(runs);
+  const closingRun = runs.find((r) => r.id === closingId) ?? null;
+  return {
+    owed,
+    attributed,
+    closingId,
+    closingRun,
+    totals: {
+      owedSso,
+      owedWht,
+      storedSso,
+      storedWht,
+      pendingSso: dust(Math.max(0, owedSso - storedSso - attrSso)),
+      pendingWht: dust(Math.max(0, owedWht - storedWht - attrWht)),
+    },
+    draftRunIds: runs.filter((r) => r.status === "draft").map((r) => r.id),
+  };
 }
 
 /**

@@ -91,11 +91,8 @@ import { resolvePayrollTabsVisibility } from "../../../lib/payroll/visibility";
 import { suggestOtWindow } from "../../../lib/payroll/attendance";
 import {
   applyAttribution,
-  attributeObligations,
-  closingSalaryRunId,
-  computeMonthlyObligations,
+  computeMonthData,
   type AttributedObligation,
-  type MonthWageInput,
 } from "../../../lib/payroll/monthClose";
 import { PAY_ITEM_KINDS } from "../../../lib/payroll/payItems";
 import { type RecurringTemplate } from "../../../lib/payroll/recurring";
@@ -1787,107 +1784,27 @@ export default function PayrollPage() {
   // closing salary draft takes owed minus finalized-stored; other drafts zero).
   // Contractors keep per-run 3%; finalized runs keep stored values (history).
   const monthClose = useMemo(() => {
-    if (!run || employees.length === 0 || runs.length === 0) return null;
-    const dust = (n: number) => (n < 0.01 ? 0 : n);
-    const wageInputs: MonthWageInput[] = employees.map((emp) => {
-      let total = 0;
-      for (const r of runs) {
-        const ot = batchTypeOf(r) === "ot";
-        const item =
-          r.id === run.id
-            ? getEffectiveItem(emp.id)
-            : (monthLineItems.get(r.id)?.find((i) => i.employee_id === emp.id) ??
-              createEmptyLineItem(r.id, emp.id));
-        const calc = calculateBreakdown(
-          {
-            salary_type: emp.salary_type,
-            base_salary: emp.base_salary,
-            days_worked: item.days_worked,
-            absent_days: item.absent_days,
-            absence_daily_rate: item.absence_daily_rate,
-            ot_entries: item.ot_entries,
-            additions: item.additions,
-            deductions: item.deductions,
-            sso_registered: emp.sso_registered !== false,
-            sso_exempt: isSsoExemptByAge(emp),
-          },
-          settings,
-          calcMonth,
-          calcYear,
-          ot ? { scope: "ot-only" } : undefined,
-        );
-        total += calc.gross_pay;
-      }
-      return {
-        employeeId: emp.id,
-        insurable: total,
-        sso_registered: emp.sso_registered !== false,
-        sso_exempt: isSsoExemptByAge(emp),
-      };
-    });
-    const owedList = computeMonthlyObligations(wageInputs, {
-      ceiling: settings.sso_ceiling_override ?? undefined,
-      rounding: settings.rounding_rule,
-    });
-    const owed = new Map(owedList.map((o) => [o.employeeId, o]));
-    const storedFinalized = new Map<string, Map<string, AttributedObligation>>();
+    if (!run) return null;
+    // Selected run uses live effective items (unsaved edits + templates);
+    // siblings use stored rows (which already carry saved snapshots).
+    const effectiveItems = new Map<string, Map<string, PayrollLineItem>>();
     for (const r of runs) {
-      if (r.status !== "finalized") continue;
-      const perEmp = new Map<string, AttributedObligation>();
-      for (const it of monthLineItems.get(r.id) ?? []) {
-        if (it.gross_pay == null) continue;
-        perEmp.set(it.employee_id, {
-          sso_employee: Number(it.sso_employee) || 0,
-          sso_employer: Number(it.sso_employer) || 0,
-          withholding_tax: Number(it.withholding_tax) || 0,
-        });
+      const perEmp = new Map<string, PayrollLineItem>();
+      if (r.id === run.id) {
+        for (const emp of employees) perEmp.set(emp.id, getEffectiveItem(emp.id));
+      } else {
+        for (const it of monthLineItems.get(r.id) ?? []) perEmp.set(it.employee_id, it);
       }
-      storedFinalized.set(r.id, perEmp);
+      effectiveItems.set(r.id, perEmp);
     }
-    const empById = new Map(employees.map((e) => [e.id, e]));
-    const attributed = attributeObligations({
+    return computeMonthData({
+      employees,
       runs,
-      runStatuses: new Map(runs.map((r) => [r.id, r.status])),
-      owed,
-      storedFinalized,
-      isContractor: (id) => (empById.get(id)?.sso_registered ?? true) === false,
+      effectiveItems,
+      settings,
+      month: calcMonth,
+      year: calcYear,
     });
-    let owedSso = 0;
-    let owedWht = 0;
-    let storedSso = 0;
-    let storedWht = 0;
-    let attrSso = 0;
-    let attrWht = 0;
-    for (const [, o] of owed) {
-      owedSso += o.sso_employee;
-      owedWht += o.withholding_tax;
-    }
-    for (const [, m] of storedFinalized)
-      for (const [, s] of m) {
-        storedSso += s.sso_employee;
-        storedWht += s.withholding_tax;
-      }
-    for (const [, m] of attributed)
-      for (const [, a] of m) {
-        attrSso += a.sso_employee;
-        attrWht += a.withholding_tax;
-      }
-    const closingId = closingSalaryRunId(runs);
-    const closingRun = runs.find((r) => r.id === closingId) ?? null;
-    return {
-      owed,
-      attributed,
-      closingId,
-      closingRun,
-      totals: {
-        owedSso,
-        owedWht,
-        storedSso,
-        storedWht,
-        pendingSso: dust(Math.max(0, owedSso - storedSso - attrSso)),
-        pendingWht: dust(Math.max(0, owedWht - storedWht - attrWht)),
-      },
-    };
   }, [
     run,
     runs,

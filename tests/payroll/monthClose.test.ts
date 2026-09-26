@@ -3,9 +3,12 @@ import {
   applyAttribution,
   attributeObligations,
   closingSalaryRunId,
+  computeMonthData,
   computeMonthlyObligations,
   ssoWageBase,
 } from "../../src/lib/payroll/monthClose";
+import { createEmptyLineItem } from "../../src/lib/payroll/rows";
+import type { Employee, PayrollLineItem } from "../../src/types";
 import { calculateMonthlyWithholdingTax } from "../../src/lib/payroll/calculations";
 
 describe("monthly SSO/WHT aggregation", () => {
@@ -48,7 +51,9 @@ describe("monthly SSO/WHT aggregation", () => {
       { id: "s2", batch_type: "salary", period_end: "2026-08-31" },
     ];
     expect(closingSalaryRunId(runs)).toBe("s2");
-    expect(closingSalaryRunId([{ id: "ot", batch_type: "ot", period_end: "2026-08-25" }])).toBeNull();
+    expect(
+      closingSalaryRunId([{ id: "ot", batch_type: "ot", period_end: "2026-08-25" }]),
+    ).toBeNull();
   });
 
   it("attributes the full monthly amount to the closing draft, zero elsewhere", () => {
@@ -58,7 +63,17 @@ describe("monthly SSO/WHT aggregation", () => {
       { id: "s2", batch_type: "salary", period_end: "2026-08-31" },
     ];
     const owed = new Map([
-      ["e1", { employeeId: "e1", insurable: 35000, ssoBase: 17500, sso_employee: 875, sso_employer: 875, withholding_tax: 100 }],
+      [
+        "e1",
+        {
+          employeeId: "e1",
+          insurable: 35000,
+          ssoBase: 17500,
+          sso_employee: 875,
+          sso_employer: 875,
+          withholding_tax: 100,
+        },
+      ],
     ]);
     const attr = attributeObligations({
       runs,
@@ -87,7 +102,17 @@ describe("monthly SSO/WHT aggregation", () => {
   it("subtracts finalized siblings and never goes negative", () => {
     const runs = [{ id: "s2", batch_type: "salary", period_end: "2026-08-31" }];
     const owed = new Map([
-      ["e1", { employeeId: "e1", insurable: 35000, ssoBase: 17500, sso_employee: 875, sso_employer: 875, withholding_tax: 100 }],
+      [
+        "e1",
+        {
+          employeeId: "e1",
+          insurable: 35000,
+          ssoBase: 17500,
+          sso_employee: 875,
+          sso_employer: 875,
+          withholding_tax: 100,
+        },
+      ],
     ]);
     // Half already stored in a finalized first-half round.
     const storedFinalized = new Map([
@@ -124,9 +149,89 @@ describe("monthly SSO/WHT aggregation", () => {
     });
   });
 
+  it("computes month data end to end across split batches", () => {
+    const emp = {
+      id: "e1",
+      salary_type: "monthly",
+      base_salary: 30000,
+    } as Employee;
+    const settings = { ot_divisor: 30, normal_ot_multiplier: 1.5, holiday_ot_multiplier: 3 };
+    const salaryItem: PayrollLineItem = {
+      ...createEmptyLineItem("s1", "e1"),
+      ot_entries: [],
+      additions: [],
+      deductions: [],
+      gross_pay: 30000,
+      sso_employee: 875,
+      sso_employer: 875,
+      withholding_tax: 100,
+      net_pay: 29025,
+    };
+    const otItem: PayrollLineItem = {
+      ...createEmptyLineItem("ot1", "e1"),
+      ot_entries: [{ hours: 10, type: "normal", multiplier: 1.5 }],
+      additions: [],
+      deductions: [],
+    };
+    const result = computeMonthData({
+      employees: [emp],
+      runs: [
+        {
+          id: "s1",
+          batch_type: "salary",
+          period_end: "2026-08-15",
+          status: "draft",
+          period_start: "2026-08-01",
+        },
+        {
+          id: "ot1",
+          batch_type: "ot",
+          period_end: "2026-08-05",
+          status: "draft",
+          period_start: "2026-08-01",
+        },
+      ],
+      effectiveItems: new Map([
+        ["s1", new Map([["e1", salaryItem]])],
+        ["ot1", new Map([["e1", otItem]])],
+      ]),
+      settings,
+      month: 8,
+      year: 2026,
+    })!;
+    // Month insurable = 30000 base + 1875 OT; one ceiling → 875 total.
+    expect(result.owed.get("e1")?.sso_employee).toBe(875);
+    expect(result.closingId).toBe("s1");
+    // Closing draft carries everything (nothing finalized yet); OT takes zero.
+    expect(result.attributed.get("s1")?.get("e1")?.sso_employee).toBe(875);
+    expect(result.attributed.get("ot1")?.get("e1")?.sso_employee).toBe(0);
+    expect(result.totals.pendingSso).toBe(0);
+    expect(result.draftRunIds).toEqual(expect.arrayContaining(["s1", "ot1"]));
+  });
+
+  it("returns null without employees or runs", () => {
+    expect(
+      computeMonthData({
+        employees: [],
+        runs: [],
+        effectiveItems: new Map(),
+        settings: { ot_divisor: 30, normal_ot_multiplier: 1.5, holiday_ot_multiplier: 3 },
+        month: 8,
+        year: 2026,
+      }),
+    ).toBeNull();
+  });
+
   it("keeps the payslip invariant when swapping attributed values", () => {
     const out = applyAttribution(
-      { gross_pay: 5000, sso_employee: 250, sso_employer: 250, withholding_tax: 10, deductions_total: 500, net_pay: 4240 },
+      {
+        gross_pay: 5000,
+        sso_employee: 250,
+        sso_employer: 250,
+        withholding_tax: 10,
+        deductions_total: 500,
+        net_pay: 4240,
+      },
       { sso_employee: 0, sso_employer: 0, withholding_tax: 0 },
     );
     expect(out.net_pay).toBe(4500);
