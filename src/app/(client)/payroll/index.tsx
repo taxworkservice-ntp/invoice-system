@@ -84,12 +84,22 @@ import { AttendancePanel } from "../../../components/payroll/AttendancePanel";
 import { PayrollTabs } from "../../../components/payroll/PayrollTabs";
 import { resolvePayrollTabsVisibility } from "../../../lib/payroll/visibility";
 import { suggestOtWindow } from "../../../lib/payroll/attendance";
+import {
+  applyAttribution,
+  attributeObligations,
+  closingSalaryRunId,
+  computeMonthlyObligations,
+  type AttributedObligation,
+  type MonthWageInput,
+} from "../../../lib/payroll/monthClose";
 import { PAY_ITEM_KINDS } from "../../../lib/payroll/payItems";
 import { type RecurringTemplate } from "../../../lib/payroll/recurring";
 import {
   buildPayrollCalcRows,
   createEmptyLineItem,
+  getRowStatus,
   resolveEffectiveLineItem,
+  type RowStatus,
 } from "../../../lib/payroll/rows";
 import { syncRunToWht, cleanupRunWht, type WhtSyncResult } from "../../../lib/payroll/whtSync";
 import type { Employee, PayrollRun, PayrollLineItem, OtEntry } from "../../../types";
@@ -152,8 +162,6 @@ const MONTHS = [
   { value: 12, label: "ธันวาคม" },
 ];
 
-type RowStatus = "complete" | "warning" | "incomplete" | "untouched";
-
 // PND3 ประเภทรายจ่าย for payroll-synced contractors — all 3% so the rate math never breaks.
 const WHT_PND3_DEFAULT_DESC = "ค่าจ้างทำของ";
 const WHT_PND3_DESC_OPTIONS = [WHT_PND3_DEFAULT_DESC, "ค่าบริการ", "ค่านายหน้า"] as const;
@@ -174,41 +182,22 @@ function formatThaiDate(dateStr: string): string {
   return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 }
 
+/** Sum OT hours from entries (coerces JSON-loaded strings, like the engine). */
+function sumOtHours(entries: { hours: number }[]): number {
+  return entries.reduce((sum, e) => sum + (Number(e.hours) || 0), 0);
+}
+
+/** Compact hours label, e.g. 10 ชม. or 7.5 ชม. */
+function formatOtHours(hours: number): string {
+  const trimmed = Math.round(hours * 10) / 10;
+  return `${trimmed.toLocaleString("th-TH", { maximumFractionDigits: 1 })} ชม.`;
+}
+
 function getPayrollPeriod(month: number, year: number) {
   const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const periodEnd = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
   return { periodStart, periodEnd };
-}
-
-function getRowStatus(employee: Employee, item: PayrollLineItem): RowStatus {
-  const hasOT = item.ot_entries.length > 0;
-  const hasDaysWorked = item.days_worked !== null && item.days_worked > 0;
-  const hasAbsences = (item.absent_days ?? 0) > 0;
-  const hasAdditions = item.additions.length > 0;
-  const hasDeductions = item.deductions.length > 0;
-  const hasData = hasDaysWorked || hasAbsences || hasOT || hasAdditions || hasDeductions;
-
-  // Monthly staff earn their full base salary by default — a row with no extra
-  // inputs is complete and finalizable. Daily staff need days_worked recorded.
-  if (!hasData) return employee.salary_type === "daily" ? "untouched" : "complete";
-  if (employee.salary_type === "daily" && !hasDaysWorked) return "incomplete";
-  if (
-    hasOT &&
-    item.ot_entries.some((entry) => Number(entry.hours) <= 0 || Number(entry.multiplier) <= 0)
-  )
-    return "warning";
-  if (
-    hasAdditions &&
-    item.additions.some((entry) => !entry.label.trim() || Number(entry.amount) < 0)
-  )
-    return "warning";
-  if (
-    hasDeductions &&
-    item.deductions.some((entry) => !entry.label.trim() || Number(entry.amount) < 0)
-  )
-    return "warning";
-  return "complete";
 }
 
 export default function PayrollPage() {
@@ -307,6 +296,8 @@ export default function PayrollPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [excludedEmployeeCount, setExcludedEmployeeCount] = useState(0);
   const [lineItems, setLineItems] = useState<Map<string, PayrollLineItem>>(new Map());
+  // Stored rows for ALL runs of the displayed month (powers month-close SSO/WHT).
+  const [monthLineItems, setMonthLineItems] = useState<Map<string, PayrollLineItem[]>>(new Map());
   const [settings, setSettings] = useState<PayrollSettings>({
     ot_divisor: 30,
     normal_ot_multiplier: 1.5,
@@ -640,6 +631,36 @@ export default function PayrollPage() {
   useEffect(() => {
     fetchRunDetails();
   }, [fetchRunDetails]);
+
+  // Stored rows for every run of the displayed month — the month-close
+  // aggregation (monthly SSO/WHT) reads finalized siblings from here.
+  useEffect(() => {
+    if (!userId || runs.length === 0) {
+      setMonthLineItems(new Map());
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("payroll_line_items")
+      .select("*")
+      .in(
+        "payroll_run_id",
+        runs.map((r) => r.id),
+      )
+      .then(({ data }) => {
+        if (cancelled) return;
+        const map = new Map<string, PayrollLineItem[]>();
+        for (const item of (data ?? []) as PayrollLineItem[]) {
+          const list = map.get(item.payroll_run_id) ?? [];
+          list.push(item);
+          map.set(item.payroll_run_id, list);
+        }
+        setMonthLineItems(map);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, runs]);
 
   useEffect(() => {
     payDateTouched.current = false;
@@ -1174,7 +1195,8 @@ export default function PayrollPage() {
     if (!run || !userId) return;
 
     const incompleteEmployees = employees.filter(
-      (employee) => getRowStatus(employee, getEffectiveItem(employee.id)) !== "complete",
+      (employee) =>
+        getRowStatus(employee, getEffectiveItem(employee.id), { isOtRun }) !== "complete",
     );
     if (incompleteEmployees.length > 0) {
       toast.error(`กรุณาตรวจสอบข้อมูลพนักงาน ${incompleteEmployees.length} คนก่อนปิดรอบ`);
@@ -1318,7 +1340,7 @@ export default function PayrollPage() {
   }
 
   function buildCalcRows(): PayrollCalcRow[] {
-    return buildPayrollCalcRows({
+    const rows = buildPayrollCalcRows({
       employees,
       lineItems,
       settings,
@@ -1326,6 +1348,18 @@ export default function PayrollPage() {
       year: calcYear,
       recurringByEmployee,
       runId: run?.id ?? "",
+      calcOpts: isOtRun ? { scope: "ot-only" } : undefined,
+      includeRecurring: !isOtRun,
+    });
+    // Draft exports match the table: attributed monthly SSO/WHT on the closing
+    // round, zero elsewhere (contractors keep per-run 3%).
+    if (!run || run.status !== "draft") return rows;
+    const perEmp = monthClose?.attributed.get(run.id);
+    if (!perEmp) return rows;
+    return rows.map((r) => {
+      if (r.employee.sso_registered === false) return r;
+      const attr = perEmp.get(r.employee.id);
+      return attr ? { ...r, ...applyAttribution(r, attr, settings.rounding_rule) } : r;
     });
   }
 
@@ -1382,8 +1416,28 @@ export default function PayrollPage() {
   }
 
   async function handleExportSso() {
-    if (!run) return;
-    const built = buildSsoRows(buildCalcRows());
+    if (!run || !monthClose) return;
+    // Filing-correct rows: one monthly wage line per employee (all batches
+    // aggregated), so the ceiling applies once — never per disbursement round.
+    const monthRows: PayrollCalcRow[] = employees
+      .filter((emp) => (monthClose.owed.get(emp.id)?.insurable ?? 0) > 0)
+      .map((emp) => {
+        const o = monthClose.owed.get(emp.id)!;
+        return {
+          employee: emp,
+          lineItem: null,
+          base_pay: o.insurable,
+          ot_pay: 0,
+          additions_total: 0,
+          deductions_total: 0,
+          gross_pay: o.insurable,
+          sso_employee: o.sso_employee,
+          sso_employer: o.sso_employer,
+          withholding_tax: 0,
+          net_pay: o.insurable,
+        };
+      });
+    const built = buildSsoRows(monthRows);
     if (built.errors.length > 0) {
       const names = built.errors
         .slice(0, 3)
@@ -1394,7 +1448,7 @@ export default function PayrollPage() {
       return;
     }
     if (built.rows.length === 0) {
-      toast.error("ไม่มีพนักงานประกันสังคมในรอบนี้");
+      toast.error("ไม่มีพนักงานประกันสังคมในเดือนนี้");
       return;
     }
     const wb = buildSsoWorkbook(built.rows);
@@ -1676,6 +1730,124 @@ export default function PayrollPage() {
     await fetchRunDetails();
   }
 
+  // Month-close obligations: monthly SSO/WHT owed per employee across ALL
+  // runs of the displayed month, and their attribution to draft runs (the
+  // closing salary draft takes owed minus finalized-stored; other drafts zero).
+  // Contractors keep per-run 3%; finalized runs keep stored values (history).
+  const monthClose = useMemo(() => {
+    if (!run || employees.length === 0 || runs.length === 0) return null;
+    const dust = (n: number) => (n < 0.01 ? 0 : n);
+    const wageInputs: MonthWageInput[] = employees.map((emp) => {
+      let total = 0;
+      for (const r of runs) {
+        const ot = batchTypeOf(r) === "ot";
+        const item =
+          r.id === run.id
+            ? getEffectiveItem(emp.id)
+            : (monthLineItems.get(r.id)?.find((i) => i.employee_id === emp.id) ??
+              createEmptyLineItem(r.id, emp.id));
+        const calc = calculateBreakdown(
+          {
+            salary_type: emp.salary_type,
+            base_salary: emp.base_salary,
+            days_worked: item.days_worked,
+            absent_days: item.absent_days,
+            absence_daily_rate: item.absence_daily_rate,
+            ot_entries: item.ot_entries,
+            additions: item.additions,
+            deductions: item.deductions,
+            sso_registered: emp.sso_registered !== false,
+            sso_exempt: isSsoExemptByAge(emp),
+          },
+          settings,
+          calcMonth,
+          calcYear,
+          ot ? { scope: "ot-only" } : undefined,
+        );
+        total += calc.gross_pay;
+      }
+      return {
+        employeeId: emp.id,
+        insurable: total,
+        sso_registered: emp.sso_registered !== false,
+        sso_exempt: isSsoExemptByAge(emp),
+      };
+    });
+    const owedList = computeMonthlyObligations(wageInputs, {
+      ceiling: settings.sso_ceiling_override ?? undefined,
+      rounding: settings.rounding_rule,
+    });
+    const owed = new Map(owedList.map((o) => [o.employeeId, o]));
+    const storedFinalized = new Map<string, Map<string, AttributedObligation>>();
+    for (const r of runs) {
+      if (r.status !== "finalized") continue;
+      const perEmp = new Map<string, AttributedObligation>();
+      for (const it of monthLineItems.get(r.id) ?? []) {
+        if (it.gross_pay == null) continue;
+        perEmp.set(it.employee_id, {
+          sso_employee: Number(it.sso_employee) || 0,
+          sso_employer: Number(it.sso_employer) || 0,
+          withholding_tax: Number(it.withholding_tax) || 0,
+        });
+      }
+      storedFinalized.set(r.id, perEmp);
+    }
+    const empById = new Map(employees.map((e) => [e.id, e]));
+    const attributed = attributeObligations({
+      runs,
+      runStatuses: new Map(runs.map((r) => [r.id, r.status])),
+      owed,
+      storedFinalized,
+      isContractor: (id) => (empById.get(id)?.sso_registered ?? true) === false,
+    });
+    let owedSso = 0;
+    let owedWht = 0;
+    let storedSso = 0;
+    let storedWht = 0;
+    let attrSso = 0;
+    let attrWht = 0;
+    for (const [, o] of owed) {
+      owedSso += o.sso_employee;
+      owedWht += o.withholding_tax;
+    }
+    for (const [, m] of storedFinalized)
+      for (const [, s] of m) {
+        storedSso += s.sso_employee;
+        storedWht += s.withholding_tax;
+      }
+    for (const [, m] of attributed)
+      for (const [, a] of m) {
+        attrSso += a.sso_employee;
+        attrWht += a.withholding_tax;
+      }
+    const closingId = closingSalaryRunId(runs);
+    const closingRun = runs.find((r) => r.id === closingId) ?? null;
+    return {
+      owed,
+      attributed,
+      closingId,
+      closingRun,
+      totals: {
+        owedSso,
+        owedWht,
+        storedSso,
+        storedWht,
+        pendingSso: dust(Math.max(0, owedSso - storedSso - attrSso)),
+        pendingWht: dust(Math.max(0, owedWht - storedWht - attrWht)),
+      },
+    };
+  }, [
+    run,
+    runs,
+    employees,
+    lineItems,
+    monthLineItems,
+    recurringByEmployee,
+    settings,
+    calcMonth,
+    calcYear,
+  ]);
+
   function getLineItem(employeeId: string): PayrollLineItem {
     const existing = lineItems.get(employeeId);
     if (existing) return existing;
@@ -1691,7 +1863,7 @@ export default function PayrollPage() {
   }
 
   function calcLineItem(employee: Employee, item: PayrollLineItem) {
-    return calculateBreakdown(
+    const base = calculateBreakdown(
       {
         salary_type: employee.salary_type,
         base_salary: employee.base_salary,
@@ -1709,6 +1881,14 @@ export default function PayrollPage() {
       calcYear,
       isOtRun ? { scope: "ot-only" } : undefined,
     );
+    // Monthly attribution (drafts only): the closing salary draft carries the
+    // month's SSO/WHT; other drafts show zero and settle there. Contractors
+    // keep per-run 3%; finalized runs keep stored history.
+    if (employee.sso_registered === false) return base;
+    if (!run || run.status !== "draft") return base;
+    const attr = monthClose?.attributed.get(run.id)?.get(employee.id);
+    if (!attr) return base;
+    return applyAttribution(base, attr, settings.rounding_rule);
   }
 
   const totals = employees.reduce(
@@ -1730,12 +1910,26 @@ export default function PayrollPage() {
     { base: 0, ot: 0, additions: 0, deductions: 0, gross: 0, sso: 0, ssoEmp: 0, wht: 0, net: 0 },
   );
 
+  // OT-round KPIs: people with OT hours and total OT hours in this round.
+  const otStats = employees.reduce(
+    (acc, emp) => {
+      const item = getEffectiveItem(emp.id);
+      const hours = item.ot_entries.reduce((sum, e) => sum + (Number(e.hours) || 0), 0);
+      return {
+        people: acc.people + (hours > 0 ? 1 : 0),
+        hours: acc.hours + hours,
+      };
+    },
+    { people: 0, hours: 0 },
+  );
+  const otHoursLabel = `${(Math.round(otStats.hours * 10) / 10).toLocaleString("th-TH", { maximumFractionDigits: 1 })} ชม.`;
+
   const completedCount = employees.filter((emp) => {
     const item = getEffectiveItem(emp.id);
-    return getRowStatus(emp, item) === "complete";
+    return getRowStatus(emp, item, { isOtRun }) === "complete";
   }).length;
   const incompleteEmployees = employees.filter(
-    (emp) => getRowStatus(emp, getEffectiveItem(emp.id)) !== "complete",
+    (emp) => getRowStatus(emp, getEffectiveItem(emp.id), { isOtRun }) !== "complete",
   );
 
   // WHT picker rows: employee + what they'd owe + whether the sync can take them.
@@ -1813,6 +2007,11 @@ export default function PayrollPage() {
         lineItem={getEffectiveItem(printEmployee.id)}
         settings={settings}
         company={companyInfo}
+        attributed={
+          run?.status === "draft"
+            ? (monthClose?.attributed.get(run.id)?.get(printEmployee.id) ?? null)
+            : null
+        }
         onBack={() => setPrintEmployee(null)}
         onPrint={() => {
           logAuditEvent({
@@ -1878,11 +2077,23 @@ export default function PayrollPage() {
       }
     >
       <div className="space-y-4">
-        <Card className="p-3">
+        <Card className={`p-3 ${isOtRun ? "!border-amber-200 !bg-amber-50/40" : ""}`}>
+          {isOtRun && run && (
+            <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
+              <span className="text-body font-semibold text-amber-800">
+                รอบ OT · {formatPayRangeLabel({ start: run.period_start, end: run.period_end })}
+              </span>
+              <span className="text-label text-amber-700">
+                จ่ายเฉพาะค่า OT — ฐานเงินเดือนอยู่ในรอบเงินเดือน
+              </span>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <PayrollTabs
               showRuns={payrollTabs.showRuns}
               showEmployees={payrollTabs.showEmployees}
+              runsCount={runs.length}
+              employeesCount={employees.length}
             />
             <div className="flex items-center gap-2">
               <Select
@@ -2141,6 +2352,52 @@ export default function PayrollPage() {
                       SSO/PND.1 ยื่นรายเดือน ต้องปิดทุกช่วงก่อนนับรวม
                     </p>
                   )}
+                  {monthClose && supportsBatchType && (
+                    <div className="mt-2 border-t border-card-border pt-2">
+                      <div className="mb-1 text-label font-semibold text-ink-500">
+                        ประกันสังคม + ภาษีประจำเดือน (รวมทุกช่วง)
+                      </div>
+                      {(() => {
+                        const { totals, closingRun } = monthClose;
+                        const closingLabel = closingRun
+                          ? closingRun.label ||
+                            formatPayRangeLabel({
+                              start: closingRun.period_start,
+                              end: closingRun.period_end,
+                            })
+                          : "";
+                        if (!closingRun) {
+                          return (
+                            <p className="text-label leading-5 text-ink-500">
+                              เดือนนี้ยังไม่มีรอบเงินเดือน — ประกันสังคม ฿
+                              {formatCurrency(totals.owedSso)} และภาษี ฿
+                              {formatCurrency(totals.owedWht)} จะตั้งหักเมื่อสร้างรอบเงินเดือน
+                            </p>
+                          );
+                        }
+                        if (totals.pendingSso + totals.pendingWht > 0) {
+                          return (
+                            <p className="flex items-start gap-1 text-label leading-5 text-amber-700">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                              <span>
+                                ยอดค้างตั้งหัก: ประกันสังคม ฿{formatCurrency(totals.pendingSso)} ·
+                                ภาษี ฿{formatCurrency(totals.pendingWht)} — เปิดรอบ {closingLabel}{" "}
+                                อีกครั้งเพื่อปรับยอด (รอบที่ปิดแล้วจะไม่ถูกแก้)
+                              </span>
+                            </p>
+                          );
+                        }
+                        return (
+                          <p className="flex items-center gap-1 text-label text-green-700">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            ตั้งหักครบในรอบ {closingLabel} แล้ว (ประกันสังคม ฿
+                            {formatCurrency(totals.owedSso)} · ภาษี ฿
+                            {formatCurrency(totals.owedWht)})
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               </details>
             );
@@ -2342,9 +2599,18 @@ export default function PayrollPage() {
               <div className="flex items-start gap-2 rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label text-amber-800">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                 <span>
-                  รอบ OT นี้จ่ายเฉพาะค่า OT (
-                  {formatPayRangeLabel({ start: run.period_start, end: run.period_end })}) —
-                  ฐานเงินเดือนจ่ายในรอบเงินเดือน
+                  {run.status === "draft" && totals.ot === 0 ? (
+                    <>
+                      ยังไม่มี OT ในรอบนี้ — เปิดรายชื่อพนักงานเพื่อบันทึกชั่วโมง OT
+                      (ฐานเงินเดือนจ่ายในรอบเงินเดือน)
+                    </>
+                  ) : (
+                    <>
+                      รอบ OT นี้จ่ายเฉพาะค่า OT (
+                      {formatPayRangeLabel({ start: run.period_start, end: run.period_end })}) —
+                      ฐานเงินเดือนจ่ายในรอบเงินเดือน
+                    </>
+                  )}
                 </span>
               </div>
             )}
@@ -2376,28 +2642,56 @@ export default function PayrollPage() {
               })()}
 
             <div className="grid max-w-row grid-cols-2 sm:grid-cols-4 gap-3">
-              <SummaryCard
-                icon={<Users className="w-4 h-4" />}
-                label="พนักงาน"
-                value={`${employees.length} คน`}
-              />
-              <SummaryCard
-                icon={<Wallet className="w-4 h-4" />}
-                label="ค่าแรงรวม"
-                value={`฿${formatCurrency(totals.gross)}`}
-              />
-              <SummaryCard
-                icon={<Receipt className="w-4 h-4" />}
-                label="หักรวม"
-                value={`฿${formatCurrency(totals.sso + totals.wht)}`}
-                sub={`นายจ้างสมทบ ฿${formatCurrency(totals.ssoEmp)}`}
-              />
-              <SummaryCard
-                icon={<Banknote className="w-4 h-4" />}
-                label="สุทธิ"
-                value={`฿${formatCurrency(totals.net)}`}
-                highlight
-              />
+              {isOtRun ? (
+                <>
+                  <SummaryCard
+                    icon={<Users className="w-4 h-4" />}
+                    label="คนมี OT"
+                    value={`${otStats.people}/${employees.length} คน`}
+                  />
+                  <SummaryCard
+                    icon={<Clock className="w-4 h-4" />}
+                    label="ชั่วโมง OT รวม"
+                    value={otHoursLabel}
+                  />
+                  <SummaryCard
+                    icon={<Wallet className="w-4 h-4" />}
+                    label="ค่า OT รวม"
+                    value={`฿${formatCurrency(totals.ot)}`}
+                  />
+                  <SummaryCard
+                    icon={<Banknote className="w-4 h-4" />}
+                    label="สุทธิรอบนี้"
+                    value={`฿${formatCurrency(totals.net)}`}
+                    highlight
+                  />
+                </>
+              ) : (
+                <>
+                  <SummaryCard
+                    icon={<Users className="w-4 h-4" />}
+                    label="พนักงาน"
+                    value={`${employees.length} คน`}
+                  />
+                  <SummaryCard
+                    icon={<Wallet className="w-4 h-4" />}
+                    label="ค่าแรงรวม"
+                    value={`฿${formatCurrency(totals.gross)}`}
+                  />
+                  <SummaryCard
+                    icon={<Receipt className="w-4 h-4" />}
+                    label="หักรวม"
+                    value={`฿${formatCurrency(totals.sso + totals.wht)}`}
+                    sub={`นายจ้างสมทบ ฿${formatCurrency(totals.ssoEmp)}`}
+                  />
+                  <SummaryCard
+                    icon={<Banknote className="w-4 h-4" />}
+                    label="สุทธิ"
+                    value={`฿${formatCurrency(totals.net)}`}
+                    highlight
+                  />
+                </>
+              )}
             </div>
 
             {historyRuns.length > 1 && (
@@ -2466,15 +2760,34 @@ export default function PayrollPage() {
                     <th className={`${TABLE.thStatic} ${TH_STICKY}`}>พนักงาน</th>
                     {run.status === "draft" ? (
                       <>
-                        {!isOtRun && employees.some((e) => e.salary_type === "daily") && (
-                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>วันทำงาน</th>
+                        {isOtRun ? (
+                          <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
+                            ชั่วโมง OT
+                          </th>
+                        ) : (
+                          <>
+                            {employees.some((e) => e.salary_type === "daily") && (
+                              <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
+                                วันทำงาน
+                              </th>
+                            )}
+                            <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
+                              ฐานเงินเดือน
+                            </th>
+                          </>
                         )}
                         <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
-                          ฐานเงินเดือน
+                          {isOtRun
+                            ? `OT · ${formatPayRangeLabel({ start: run.period_start, end: run.period_end })}`
+                            : "OT"}
                         </th>
-                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>OT</th>
                         <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>เงินเพิ่ม</th>
                         <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>เงินหัก</th>
+                      </>
+                    ) : isOtRun ? (
+                      <>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ชั่วโมง OT</th>
+                        <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ค่า OT</th>
                       </>
                     ) : (
                       <>
@@ -2488,7 +2801,9 @@ export default function PayrollPage() {
                         <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>ภาษี</th>
                       </>
                     )}
-                    <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>สุทธิ</th>
+                    <th className={`${TABLE.thStatic} ${TH_STICKY} text-right`}>
+                      {isOtRun ? "สุทธิรอบนี้" : "สุทธิ"}
+                    </th>
                     <th className={`${TABLE.thStatic} ${TH_STICKY} w-20`}></th>
                   </tr>
                 </thead>
@@ -2496,7 +2811,7 @@ export default function PayrollPage() {
                   {filteredEmployees.map((emp) => {
                     const item = getEffectiveItem(emp.id);
                     const calc = calcLineItem(emp, item);
-                    const rowStatus = getRowStatus(emp, item);
+                    const rowStatus = getRowStatus(emp, item, { isOtRun });
                     return (
                       <PayrollRow
                         key={emp.id}
@@ -2506,6 +2821,7 @@ export default function PayrollPage() {
                         rowStatus={rowStatus}
                         highlighted={highlightedEmployeeId === emp.id}
                         baseLocked={isOtRun}
+                        otHours={isOtRun ? sumOtHours(item.ot_entries) : null}
                         daysColumn={
                           run.status === "draft" &&
                           !isOtRun &&
@@ -2551,12 +2867,20 @@ export default function PayrollPage() {
                     <tr className={TABLE.tfootTr}>
                       <td className={TF_STICKY}></td>
                       <td className={TF_STICKY}>รวมโดยประมาณ</td>
-                      {employees.some((e) => e.salary_type === "daily") && (
-                        <td className={TF_STICKY}></td>
+                      {isOtRun ? (
+                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                          {formatOtHours(otStats.hours)}
+                        </td>
+                      ) : (
+                        <>
+                          {employees.some((e) => e.salary_type === "daily") && (
+                            <td className={TF_STICKY}></td>
+                          )}
+                          <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                            ฿{formatCurrency(totals.base)}
+                          </td>
+                        </>
                       )}
-                      <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                        ฿{formatCurrency(totals.base)}
-                      </td>
                       <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
                         ฿{formatCurrency(totals.ot)}
                       </td>
@@ -2579,18 +2903,31 @@ export default function PayrollPage() {
                     <tfoot>
                       <tr className={TABLE.tfootTr}>
                         <td className={TF_STICKY}>รวม</td>
-                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                          ฿{formatCurrency(totals.gross)}
-                        </td>
-                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                          ฿{formatCurrency(totals.sso)}
-                        </td>
-                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                          ฿{formatCurrency(totals.ssoEmp)}
-                        </td>
-                        <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
-                          ฿{formatCurrency(totals.wht)}
-                        </td>
+                        {isOtRun ? (
+                          <>
+                            <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                              {formatOtHours(otStats.hours)}
+                            </td>
+                            <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                              ฿{formatCurrency(totals.ot)}
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                              ฿{formatCurrency(totals.gross)}
+                            </td>
+                            <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                              ฿{formatCurrency(totals.sso)}
+                            </td>
+                            <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                              ฿{formatCurrency(totals.ssoEmp)}
+                            </td>
+                            <td className={`px-3 py-2 text-right tabular-nums ${TF_STICKY}`}>
+                              ฿{formatCurrency(totals.wht)}
+                            </td>
+                          </>
+                        )}
                         <td
                           className={`px-3 py-2 text-right font-semibold tabular-nums ${TF_STICKY}`}
                         >
@@ -2603,6 +2940,13 @@ export default function PayrollPage() {
                 )}
               </table>
             </div>
+
+            {run.status === "finalized" && isOtRun && (
+              <p className="text-label leading-5 text-ink-400">
+                ประกันสังคมและภาษีหัก ณ ที่จ่ายของเดือนนี้รวมอยู่ในรอบเงินเดือน รอบนี้จ่ายเฉพาะค่า
+                OT
+              </p>
+            )}
 
             {run.status === "finalized" && (
               <div className="flex gap-2">
@@ -2635,6 +2979,11 @@ export default function PayrollPage() {
               year={calcYear}
               readOnly={run?.status === "finalized"}
               templateNote={templateNote}
+              attributed={
+                run?.status === "draft"
+                  ? (monthClose?.attributed.get(run.id)?.get(detailEmployee.id) ?? null)
+                  : null
+              }
               onSave={async (item) => {
                 const ok = await handleSaveLineItem(detailEmployee.id, item);
                 if (ok) {
@@ -2895,7 +3244,7 @@ export default function PayrollPage() {
       <Modal
         open={showFinalizeModal}
         onClose={() => setShowFinalizeModal(false)}
-        title="ยืนยันปิดรอบเงินเดือน"
+        title={isOtRun ? "ยืนยันปิดรอบ OT" : "ยืนยันปิดรอบเงินเดือน"}
       >
         <div className="space-y-4">
           <div className="bg-amber-50 border border-amber-200 rounded-control p-3 flex items-start gap-2">
@@ -2933,30 +3282,61 @@ export default function PayrollPage() {
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-paper-field rounded-control p-3">
-              <div className="text-label text-ink-500">ค่าแรงรวม</div>
-              <div className="text-body font-semibold text-ink-900 tabular-nums">
-                ฿{formatCurrency(totals.gross)}
-              </div>
-            </div>
-            <div className="bg-paper-field rounded-control p-3">
-              <div className="text-label text-ink-500">หักรวม</div>
-              <div className="text-body font-semibold text-ink-900 tabular-nums">
-                ฿{formatCurrency(totals.sso + totals.wht)}
-              </div>
-            </div>
-            <div className="bg-paper-field rounded-control p-3">
-              <div className="text-label text-ink-500">จำนวนพนักงาน</div>
-              <div className="text-body font-semibold text-ink-900 tabular-nums">
-                {employees.length} คน
-              </div>
-            </div>
-            <div className="bg-primary-soft rounded-control p-3">
-              <div className="text-label text-primary-deep">เงินเดือนสุทธิ</div>
-              <div className="text-body font-semibold text-primary-deep tabular-nums">
-                ฿{formatCurrency(totals.net)}
-              </div>
-            </div>
+            {isOtRun ? (
+              <>
+                <div className="bg-paper-field rounded-control p-3">
+                  <div className="text-label text-ink-500">ค่า OT รวม</div>
+                  <div className="text-body font-semibold text-ink-900 tabular-nums">
+                    ฿{formatCurrency(totals.ot)}
+                  </div>
+                </div>
+                <div className="bg-paper-field rounded-control p-3">
+                  <div className="text-label text-ink-500">ชั่วโมง OT รวม</div>
+                  <div className="text-body font-semibold text-ink-900 tabular-nums">
+                    {otHoursLabel}
+                  </div>
+                </div>
+                <div className="bg-paper-field rounded-control p-3">
+                  <div className="text-label text-ink-500">คนมี OT</div>
+                  <div className="text-body font-semibold text-ink-900 tabular-nums">
+                    {otStats.people}/{employees.length} คน
+                  </div>
+                </div>
+                <div className="bg-primary-soft rounded-control p-3">
+                  <div className="text-label text-primary-deep">สุทธิรอบนี้</div>
+                  <div className="text-body font-semibold text-primary-deep tabular-nums">
+                    ฿{formatCurrency(totals.net)}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bg-paper-field rounded-control p-3">
+                  <div className="text-label text-ink-500">ค่าแรงรวม</div>
+                  <div className="text-body font-semibold text-ink-900 tabular-nums">
+                    ฿{formatCurrency(totals.gross)}
+                  </div>
+                </div>
+                <div className="bg-paper-field rounded-control p-3">
+                  <div className="text-label text-ink-500">หักรวม</div>
+                  <div className="text-body font-semibold text-ink-900 tabular-nums">
+                    ฿{formatCurrency(totals.sso + totals.wht)}
+                  </div>
+                </div>
+                <div className="bg-paper-field rounded-control p-3">
+                  <div className="text-label text-ink-500">จำนวนพนักงาน</div>
+                  <div className="text-body font-semibold text-ink-900 tabular-nums">
+                    {employees.length} คน
+                  </div>
+                </div>
+                <div className="bg-primary-soft rounded-control p-3">
+                  <div className="text-label text-primary-deep">เงินเดือนสุทธิ</div>
+                  <div className="text-body font-semibold text-primary-deep tabular-nums">
+                    ฿{formatCurrency(totals.net)}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <div className="rounded-control border border-card-border p-3">
             <label className="flex items-center gap-2 text-body font-medium text-ink-800 cursor-pointer">
@@ -3748,8 +4128,9 @@ interface PayrollRowProps {
   status: "draft" | "finalized";
   rowStatus: RowStatus;
   highlighted?: boolean;
-  /** OT rounds: base cell renders locked zero — base is paid in salary rounds. */
+  /** OT rounds: restructured row (OT hours + OT pay, no base/day columns). */
   baseLocked?: boolean;
+  otHours?: number | null;
   daysColumn?: boolean;
   daysWorked?: number | null;
   inlineEditing?: boolean;
@@ -3766,6 +4147,7 @@ function PayrollRow({
   rowStatus,
   highlighted,
   baseLocked,
+  otHours,
   daysColumn,
   daysWorked,
   inlineEditing,
@@ -3778,7 +4160,7 @@ function PayrollRow({
     complete: "border-l-green-500",
     warning: "border-l-amber-400",
     incomplete: "border-l-red-400",
-    untouched: "border-l-cool-200",
+    untouched: "border-l-ink-200",
   };
 
   const statusIcons: Record<RowStatus, React.ReactNode> = {
@@ -3860,45 +4242,57 @@ function PayrollRow({
       </td>
       {status === "draft" ? (
         <>
-          {daysColumn && (
+          {baseLocked ? (
             <td className="px-3 py-2 text-right">
-              {employee.salary_type === "daily" ? (
-                inlineEditing && onSaveDaysWorked ? (
-                  <InlineDaysWorked
-                    value={daysWorked ?? null}
-                    onSave={onSaveDaysWorked}
-                    onCancel={() => onToggleInlineEdit?.()}
-                  />
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleInlineEdit?.();
-                    }}
-                    className="tabular-nums text-ink-700 hover:text-primary hover:underline transition-colors cursor-pointer"
-                    aria-label={`แก้ไขวันทำงาน ${employee.full_name}`}
-                  >
-                    {daysWorked !== null && daysWorked !== undefined ? `${daysWorked} วัน` : "—"}
-                  </button>
-                )
+              {otHours != null && otHours > 0 ? (
+                <span className="tabular-nums text-ink-700">{formatOtHours(otHours)}</span>
               ) : (
-                <span className="text-ink-300" title="พนักงานรายเดือน — ไม่นับวันทำงาน">
-                  —
-                </span>
+                <span className="text-ink-300">—</span>
               )}
             </td>
+          ) : (
+            <>
+              {daysColumn && (
+                <td className="px-3 py-2 text-right">
+                  {employee.salary_type === "daily" ? (
+                    inlineEditing && onSaveDaysWorked ? (
+                      <InlineDaysWorked
+                        value={daysWorked ?? null}
+                        onSave={onSaveDaysWorked}
+                        onCancel={() => onToggleInlineEdit?.()}
+                      />
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleInlineEdit?.();
+                        }}
+                        className="tabular-nums text-ink-700 hover:text-primary hover:underline transition-colors cursor-pointer"
+                        aria-label={`แก้ไขวันทำงาน ${employee.full_name}`}
+                      >
+                        {daysWorked !== null && daysWorked !== undefined
+                          ? `${daysWorked} วัน`
+                          : "—"}
+                      </button>
+                    )
+                  ) : (
+                    <span className="text-ink-300" title="พนักงานรายเดือน — ไม่นับวันทำงาน">
+                      —
+                    </span>
+                  )}
+                </td>
+              )}
+              <td className="px-3 py-2 text-right">
+                <span className="text-ink-700 tabular-nums">฿{formatCurrency(calc.base_pay)}</span>
+              </td>
+            </>
           )}
           <td className="px-3 py-2 text-right">
-            {baseLocked ? (
-              <span className="text-ink-300 tabular-nums" title="รอบ OT ไม่จ่ายฐานเงินเดือน">
-                —
-              </span>
-            ) : (
-              <span className="text-ink-700 tabular-nums">฿{formatCurrency(calc.base_pay)}</span>
-            )}
-          </td>
-          <td className="px-3 py-2 text-right">
-            <span className="text-ink-700 tabular-nums">฿{formatCurrency(calc.ot_pay)}</span>
+            <span
+              className={`tabular-nums ${baseLocked ? "text-ink-900 font-semibold" : "text-ink-700"}`}
+            >
+              ฿{formatCurrency(calc.ot_pay)}
+            </span>
           </td>
           <td className="px-3 py-2 text-right">
             <span className="text-green-600 tabular-nums">
@@ -3908,6 +4302,21 @@ function PayrollRow({
           <td className="px-3 py-2 text-right">
             <span className="text-red-500 tabular-nums">
               ฿{formatCurrency(calc.deductions_total)}
+            </span>
+          </td>
+        </>
+      ) : baseLocked ? (
+        <>
+          <td className="px-3 py-2 text-right">
+            {otHours != null && otHours > 0 ? (
+              <span className="tabular-nums text-ink-700">{formatOtHours(otHours)}</span>
+            ) : (
+              <span className="text-ink-300">—</span>
+            )}
+          </td>
+          <td className="px-3 py-2 text-right">
+            <span className="text-ink-900 tabular-nums font-medium">
+              ฿{formatCurrency(calc.ot_pay)}
             </span>
           </td>
         </>
@@ -4038,6 +4447,8 @@ interface PayrollDetailModalProps {
   year: number;
   readOnly: boolean;
   templateNote?: string | null;
+  /** Monthly-attributed SSO/WHT for draft runs (reflects saved state). */
+  attributed?: AttributedObligation | null;
   onSave: (item: PayrollLineItem) => Promise<boolean>;
   onPrint: () => void;
   onClose: () => void;
@@ -4052,6 +4463,7 @@ function PayrollDetailModal({
   year,
   readOnly,
   templateNote,
+  attributed,
   onSave,
   onPrint,
   onClose,
@@ -4352,6 +4764,7 @@ function PayrollDetailModal({
             month={month}
             year={year}
             otOnly={run != null && batchTypeOf(run) === "ot"}
+            attributed={attributed}
           />
 
           <div className="flex flex-col sm:flex-row gap-2 pt-1">
@@ -4692,6 +5105,8 @@ interface CalculationBreakdownProps {
   year: number;
   /** OT rounds: base locked to zero — base is paid in salary rounds. */
   otOnly?: boolean;
+  /** Monthly-attributed SSO/WHT for draft runs (contractors excluded). */
+  attributed?: AttributedObligation | null;
 }
 
 function CalculationBreakdown({
@@ -4701,6 +5116,7 @@ function CalculationBreakdown({
   month,
   year,
   otOnly,
+  attributed,
 }: CalculationBreakdownProps) {
   const divisorDays =
     settings.prorate_mode === "actual_days" ? getMonthDays(month, year) : settings.ot_divisor || 30;
@@ -4753,6 +5169,12 @@ function CalculationBreakdown({
     year,
     otOnly ? { scope: "ot-only" } : undefined,
   );
+  // Draft runs show monthly-attributed SSO/WHT (closing round carries the
+  // month); contractors keep per-run 3%.
+  const shown =
+    attributed && employee.sso_registered !== false
+      ? applyAttribution(calc, attributed, settings.rounding_rule)
+      : calc;
 
   const absenceDailyRate =
     lineItem.absence_daily_rate && lineItem.absence_daily_rate > 0
@@ -4819,7 +5241,7 @@ function CalculationBreakdown({
               <div className="flex justify-between">
                 <span className="text-ink-500">ภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 · ค่าจ้างทำของ 3%)</span>
                 <span className="text-red-500 tabular-nums font-medium">
-                  -฿{formatCurrency(calc.withholding_tax)}
+                  -฿{formatCurrency(shown.withholding_tax)}
                 </span>
               </div>
             </>
@@ -4828,19 +5250,19 @@ function CalculationBreakdown({
               <div className="flex justify-between">
                 <span className="text-ink-500">ประกันสังคม (พนักงาน)</span>
                 <span className="text-red-500 tabular-nums font-medium">
-                  -฿{formatCurrency(calc.sso_employee)}
+                  -฿{formatCurrency(shown.sso_employee)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-500">ประกันสังคม (นายจ้าง)</span>
                 <span className="text-ink-500 tabular-nums font-medium">
-                  ฿{formatCurrency(calc.sso_employer)}
+                  ฿{formatCurrency(shown.sso_employer)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-500">ภาษีหัก ณ ที่จ่าย</span>
                 <span className="text-red-500 tabular-nums font-medium">
-                  -฿{formatCurrency(calc.withholding_tax)}
+                  -฿{formatCurrency(shown.withholding_tax)}
                 </span>
               </div>
             </>
@@ -4856,7 +5278,7 @@ function CalculationBreakdown({
           <div className="flex justify-between border-t border-primary/20 pt-1.5">
             <span className="text-ink-700 font-semibold">เงินเดือนสุทธิ</span>
             <span className="text-primary-deep tabular-nums font-semibold">
-              ฿{formatCurrency(calc.net_pay)}
+              ฿{formatCurrency(shown.net_pay)}
             </span>
           </div>
         </div>
@@ -4871,6 +5293,8 @@ interface PayslipViewProps {
   lineItem: PayrollLineItem;
   settings: PayrollSettings;
   company?: PayslipCompany | null;
+  /** Monthly-attributed SSO/WHT for draft runs (contractors excluded). */
+  attributed?: AttributedObligation | null;
   onBack: () => void;
   onPrint?: () => void;
 }
@@ -4881,6 +5305,7 @@ function PayslipView({
   lineItem,
   settings,
   company,
+  attributed,
   onBack,
   onPrint,
 }: PayslipViewProps) {
@@ -4904,6 +5329,10 @@ function PayslipView({
     run ? Number(run.period_end.slice(0, 4)) : undefined,
     otOnly ? { scope: "ot-only" } : undefined,
   );
+  const shown =
+    attributed && employee.sso_registered !== false
+      ? applyAttribution(calc, attributed, settings.rounding_rule)
+      : calc;
 
   function handlePrint() {
     onPrint?.();
@@ -4971,10 +5400,12 @@ function PayslipView({
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <h1 className="text-display font-semibold text-ink-900">สลิปเงินเดือน</h1>
+                <h1 className="text-display font-semibold text-ink-900">
+                  {otOnly ? "สลิปค่าล่วงเวลา (OT)" : "สลิปเงินเดือน"}
+                </h1>
                 <p className="text-label text-ink-400 mt-0.5">
-                  Pay Slip · {MONTHS[(run?.period_month ?? 1) - 1]?.label}{" "}
-                  {(run?.period_year ?? 2025) + 543}
+                  {otOnly ? "OT Pay Slip" : "Pay Slip"} ·{" "}
+                  {MONTHS[(run?.period_month ?? 1) - 1]?.label} {(run?.period_year ?? 2025) + 543}
                 </p>
                 <div className="text-label text-ink-400 mt-1">วันจ่าย</div>
                 <div className="text-body font-medium text-ink-700">{run?.pay_date}</div>
@@ -5077,7 +5508,7 @@ function PayslipView({
                     <div className="flex justify-between">
                       <span className="text-ink-500">ประกันสังคม (พนักงาน)</span>
                       <span className="text-ink-700 tabular-nums font-medium">
-                        -฿{formatCurrency(calc.sso_employee)}
+                        -฿{formatCurrency(shown.sso_employee)}
                       </span>
                     </div>
                   )}
@@ -5088,7 +5519,7 @@ function PayslipView({
                         : "ภาษีหัก ณ ที่จ่าย"}
                     </span>
                     <span className="text-ink-700 tabular-nums font-medium">
-                      -฿{formatCurrency(calc.withholding_tax)}
+                      -฿{formatCurrency(shown.withholding_tax)}
                     </span>
                   </div>
                   {lineItem.deductions.map((ded, i) => (
@@ -5102,7 +5533,8 @@ function PayslipView({
                   <div className="flex justify-between border-t border-card-border pt-2 mt-2">
                     <span className="text-ink-700 font-semibold">รวมหัก</span>
                     <span className="text-ink-900 tabular-nums font-semibold">
-                      -฿{formatCurrency(calc.sso_employee + calc.withholding_tax + totalDeductions)}
+                      -฿
+                      {formatCurrency(shown.sso_employee + shown.withholding_tax + totalDeductions)}
                     </span>
                   </div>
                 </div>
@@ -5116,15 +5548,15 @@ function PayslipView({
                   <span className="text-label text-ink-400 ml-2">Net Pay</span>
                 </div>
                 <span className="text-page font-semibold text-ink-900 tabular-nums">
-                  ฿{formatCurrency(calc.net_pay)}
+                  ฿{formatCurrency(shown.net_pay)}
                 </span>
               </div>
               <div className="text-right text-label text-ink-400 mt-1">
-                ({thaiNumberToWords(calc.net_pay)})
+                ({thaiNumberToWords(shown.net_pay)})
               </div>
               {employee.sso_registered !== false ? (
                 <p className="text-label text-ink-400 mt-2">
-                  นายจ้างสมทบประกันสังคม ฿{formatCurrency(calc.sso_employer)}{" "}
+                  นายจ้างสมทบประกันสังคม ฿{formatCurrency(shown.sso_employer)}{" "}
                   (ไม่หักจากเงินเดือนสุทธิของพนักงาน)
                 </p>
               ) : (

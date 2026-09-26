@@ -744,7 +744,11 @@ export default function EmployeesPage() {
       }
     >
       <div className="space-y-4">
-        <PayrollTabs showRuns={payrollTabs.showRuns} showEmployees={payrollTabs.showEmployees} />
+        <PayrollTabs
+          showRuns={payrollTabs.showRuns}
+          showEmployees={payrollTabs.showEmployees}
+          employeesCount={employees.length}
+        />
 
         <SummaryRow
           activePreset={filter}

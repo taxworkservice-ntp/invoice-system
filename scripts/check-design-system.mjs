@@ -25,13 +25,41 @@ const EXEMPT = [/components[\\/]print[\\/]/, /[\\/]print\.tsx$/];
 const WIDTH_OWNERS = [/design[\\/]tokens\.ts$/, /components[\\/]layout[\\/]/];
 
 const RULES = [
-  { name: "arbitrary px font size", re: /text-\[[0-9.]+px\]/g, hint: "use text-label / text-body / text-title" },
-  { name: "arbitrary hex color", re: /[a-z-]+-\[#[0-9A-Fa-f]{3,8}\]/g, hint: "use a design token (text-ink-*, bg-*, border-*)" },
-  { name: "legacy neutral ramp", re: /\b(?:text|bg|border|ring|divide|from|to|via)-(?:gray|stone|slate|cool)-[0-9]+/g, hint: "use the ink ramp" },
-  { name: "legacy shadow", re: /(?<![\w-])shadow(?:-(?:sm|md|lg|xl|2xl))?(?![\w-])/g, hint: "surfaces are flat; overlays use shadow-overlay" },
-  { name: "legacy type size", re: /\btext-(?:3xs|2xs|xs|sm|base|lg|xl|2xl|3xl)\b/g, hint: "use role tokens (label/body/title/subtitle/display/page/hero)" },
-  { name: "non-semibold heading", re: /\bfont-(?:bold|extrabold)\b/g, hint: "headings use font-semibold" },
-  { name: "retired page container", re: /\bmax-w-(?:screen-2xl|7xl)\b/g, hint: 'page width is owned by AppShell — pass width="data" | "form"' },
+  {
+    name: "arbitrary px font size",
+    re: /text-\[[0-9.]+px\]/g,
+    hint: "use text-label / text-body / text-title",
+  },
+  {
+    name: "arbitrary hex color",
+    re: /[a-z-]+-\[#[0-9A-Fa-f]{3,8}\]/g,
+    hint: "use a design token (text-ink-*, bg-*, border-*)",
+  },
+  {
+    name: "legacy neutral ramp",
+    re: /\b(?:text|bg|border|ring|divide|from|to|via)-(?:[trblxy]-)?(?:gray|stone|slate|cool)-[0-9]+/g,
+    hint: "use the ink ramp",
+  },
+  {
+    name: "legacy shadow",
+    re: /(?<![\w-])shadow(?:-(?:sm|md|lg|xl|2xl))?(?![\w-])/g,
+    hint: "surfaces are flat; overlays use shadow-overlay",
+  },
+  {
+    name: "legacy type size",
+    re: /\btext-(?:3xs|2xs|xs|sm|base|lg|xl|2xl|3xl)\b/g,
+    hint: "use role tokens (label/body/title/subtitle/display/page/hero)",
+  },
+  {
+    name: "non-semibold heading",
+    re: /\bfont-(?:bold|extrabold)\b/g,
+    hint: "headings use font-semibold",
+  },
+  {
+    name: "retired page container",
+    re: /\bmax-w-(?:screen-2xl|7xl)\b/g,
+    hint: 'page width is owned by AppShell — pass width="data" | "form"',
+  },
   {
     name: "per-page container width",
     re: /\bmax-w-(?:page|form)\b/g,

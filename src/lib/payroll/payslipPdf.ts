@@ -105,6 +105,10 @@ export function buildPayslipSlipNode(
     )
     .join("");
   const periodLabel = `${MONTHS[(run.period_month ?? 1) - 1]} ${(run.period_year ?? 2025) + 543}`;
+  // OT rounds produce OT-only slips with their own title.
+  const isOtSlip = run.batch_type === "ot";
+  const slipTitle = isOtSlip ? "สลิปค่าล่วงเวลา (OT)" : "สลิปเงินเดือน";
+  const slipSub = isOtSlip ? "OT Pay Slip" : "Pay Slip";
 
   const coName = company?.name?.trim() ? esc(company.name.trim()) : null;
   const coLines = [
@@ -120,13 +124,13 @@ export function buildPayslipSlipNode(
           <div>${coName ? `<div class="co-name">${coName}</div>` : ""}${coLines.length > 0 ? `<div class="co-meta">${coLines.join("<br/>")}</div>` : ""}</div>
         </div>
         <div class="period">
-          <h1>สลิปเงินเดือน</h1><div class="sub">Pay Slip · ${periodLabel}</div>
+          <h1>${slipTitle}</h1><div class="sub">${slipSub} · ${periodLabel}</div>
           <div style="color:#9b9b9b;font-size:11px">วันจ่าย</div>
           <div style="font-weight:500;font-size:13px">${run.pay_date}</div>
         </div>
       </div>`
       : `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
-      <div><h1>สลิปเงินเดือน</h1><div class="sub">Pay Slip</div></div>
+      <div><h1>${slipTitle}</h1><div class="sub">${slipSub}</div></div>
       <div style="text-align:right">
         <div style="color:#9b9b9b;font-size:11px">รอบการจ่าย</div>
         <div style="font-weight:500;font-size:13px">${run.pay_date}</div>

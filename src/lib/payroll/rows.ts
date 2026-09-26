@@ -105,6 +105,51 @@ export function buildPayrollCalcRows(params: {
   });
 }
 
+export type RowStatus = "complete" | "warning" | "incomplete" | "untouched";
+
+/**
+ * Per-row readiness for the payroll table (drives the accent border + the
+ * finalize gate).
+ * - Monthly staff earn full base by default: an empty row is complete.
+ * - Daily staff need days_worked — EXCEPT in OT rounds, where day tracking
+ *   is hidden and base is zero, so OT entries alone complete the row.
+ */
+export function getRowStatus(
+  employee: Employee,
+  item: PayrollLineItem,
+  opts?: { isOtRun?: boolean },
+): RowStatus {
+  const isOtRun = opts?.isOtRun === true;
+  const hasOT = item.ot_entries.length > 0;
+  const hasDaysWorked = item.days_worked !== null && item.days_worked > 0;
+  const hasAbsences = (item.absent_days ?? 0) > 0;
+  const hasAdditions = item.additions.length > 0;
+  const hasDeductions = item.deductions.length > 0;
+  const hasData = hasDaysWorked || hasAbsences || hasOT || hasAdditions || hasDeductions;
+
+  // Monthly staff earn their full base salary by default — a row with no extra
+  // inputs is complete and finalizable. Daily staff need days_worked recorded,
+  // unless this is an OT round (no day entry, no base pay).
+  if (!hasData) return employee.salary_type === "daily" && !isOtRun ? "untouched" : "complete";
+  if (employee.salary_type === "daily" && !hasDaysWorked && !isOtRun) return "incomplete";
+  if (
+    hasOT &&
+    item.ot_entries.some((entry) => Number(entry.hours) <= 0 || Number(entry.multiplier) <= 0)
+  )
+    return "warning";
+  if (
+    hasAdditions &&
+    item.additions.some((entry) => !entry.label.trim() || Number(entry.amount) < 0)
+  )
+    return "warning";
+  if (
+    hasDeductions &&
+    item.deductions.some((entry) => !entry.label.trim() || Number(entry.amount) < 0)
+  )
+    return "warning";
+  return "complete";
+}
+
 /** Statutory month/year for a run, derived from its period end (as the page does). */
 export function payrollRunPeriod(run: { period_end: string }): { month: number; year: number } {
   return {
