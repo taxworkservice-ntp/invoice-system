@@ -98,12 +98,15 @@ export const AUDIT_ACTIONS = {
   PAYROLL_RUN_DELETED: "payroll_run_deleted",
   PAYROLL_RUN_UPDATED: "payroll_run_updated",
   PAYROLL_WHT_SYNCED: "payroll_wht_synced",
+  ADMIN_VIEW_AS_ENTER: "admin_view_as_enter",
+  ADMIN_VIEW_AS_EXIT: "admin_view_as_exit",
 } as const;
 
 export const AUDIT_ENTITY_TYPES = {
   EMPLOYEE: "employee",
   PAYROLL_RUN: "payroll_run",
   PAYSLIP: "payslip",
+  CLIENT_PROFILE: "client_profile",
 } as const;
 
 export function getActionLabel(action: string): string {
@@ -127,6 +130,8 @@ export function getActionLabel(action: string): string {
     payroll_run_deleted: "ลบรอบเงินเดือน",
     payroll_run_updated: "แก้ไขข้อมูลรอบ",
     payroll_wht_synced: "ซิงก์ภาษีหัก ณ ที่จ่าย",
+    admin_view_as_enter: "แอดมินเปิดดู workspace ลูกค้า",
+    admin_view_as_exit: "แอดมินออกจากมุมมองลูกค้า",
   };
   return labels[action] ?? action;
 }

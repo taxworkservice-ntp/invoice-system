@@ -1,5 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import { formatBuddhistDate } from "../../../lib/dates";
 import { CLIENT_FEATURES } from "../../../lib/features";
+import { useAuth } from "../../../hooks/useAuth";
+import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from "../../../lib/payroll/audit";
+import { supabase } from "../../../lib/supabase";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 import type { AdminClientMember } from "../../../lib/adminApi";
@@ -36,7 +40,27 @@ export function OverviewTab({
   onRetry,
   onGoTab,
 }: OverviewTabProps) {
+  const { enterViewAs } = useAuth();
+  const navigate = useNavigate();
   const featuresOn = features.filter((f) => f.enabled).length;
+
+  async function handleViewAs() {
+    const workspaceId = clientProfile.user_id;
+    let adminEmail = "";
+    try {
+      adminEmail = (await supabase.auth.getUser()).data.user?.email ?? "";
+    } catch {
+      // ignore — audit still records the workspace
+    }
+    enterViewAs(workspaceId);
+    void logAuditEvent({
+      action: AUDIT_ACTIONS.ADMIN_VIEW_AS_ENTER,
+      entity_type: AUDIT_ENTITY_TYPES.CLIENT_PROFILE,
+      entity_id: workspaceId,
+      details: { admin_email: adminEmail, workspace_user_id: workspaceId },
+    });
+    navigate("/home");
+  }
 
   return (
     <div className="space-y-4">
@@ -151,6 +175,9 @@ export function OverviewTab({
       <div>
         <SectionHeader>ทางลัด</SectionHeader>
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => void handleViewAs()}>
+            เปิด workspace ลูกค้า
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => onGoTab("team")}>
             จัดการทีม
           </Button>

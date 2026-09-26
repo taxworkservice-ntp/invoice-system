@@ -54,6 +54,8 @@ export interface Profile {
   workspace_role?: ClientMemberRole | null;
   workspace_user_id?: string | null;
   workspace_permissions?: Partial<Record<string, boolean>> | null;
+  /** Session-only marker: admin viewing this workspace via view-as (never stored). */
+  viewing_as?: boolean;
   created_at: string;
 }
 

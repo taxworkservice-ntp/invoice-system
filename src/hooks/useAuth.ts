@@ -1,7 +1,15 @@
 import { createContext, createElement, useContext, useEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { supabase } from "../lib/supabase";
-import type { ClientFeature, ClientFeatureKey, ClientMemberRole, Profile, ClientProfile, UserRole } from "../types";
+import { clearViewAsWorkspaceId, getViewAsWorkspaceId, setViewAsWorkspaceId } from "../lib/viewAs";
+import type {
+  ClientFeature,
+  ClientFeatureKey,
+  ClientMemberRole,
+  Profile,
+  ClientProfile,
+  UserRole,
+} from "../types";
 
 interface AuthContextValue {
   profile: Profile | null;
@@ -11,18 +19,17 @@ interface AuthContextValue {
   workspaceLoading: boolean;
   error: string | null;
   recovery: boolean;
+  viewingAs: boolean;
   setClientProfile: Dispatch<SetStateAction<ClientProfile | null>>;
   refetchWorkspace: () => Promise<void>;
+  enterViewAs: (workspaceUserId: string) => void;
+  exitViewAs: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function resolveProfile(userId: string): Promise<Profile> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
 
   if (error) throw error;
 
@@ -39,7 +46,8 @@ async function resolveProfile(userId: string): Promise<Profile> {
       .maybeSingle();
 
     if (membership?.workspace_user_id) {
-      let effectivePermissions = (membership.permissions ?? null) as Profile["workspace_permissions"];
+      let effectivePermissions = (membership.permissions ??
+        null) as Profile["workspace_permissions"];
 
       if (effectivePermissions == null && membership.custom_role_id) {
         const { data: customRole } = await supabase
@@ -47,7 +55,8 @@ async function resolveProfile(userId: string): Promise<Profile> {
           .select("permissions")
           .eq("id", membership.custom_role_id)
           .maybeSingle();
-        effectivePermissions = (customRole?.permissions ?? null) as Profile["workspace_permissions"];
+        effectivePermissions = (customRole?.permissions ??
+          null) as Profile["workspace_permissions"];
       }
 
       return {
@@ -69,6 +78,33 @@ async function resolveProfile(userId: string): Promise<Profile> {
     };
   }
 
+  if (baseProfile.role === "admin") {
+    // Admin "view as client": session-scoped override resolved as the target
+    // workspace with owner-equivalent rights. Verified against the stored
+    // profile so a stale id fails closed back to the admin session.
+    const viewAsId = getViewAsWorkspaceId();
+    if (viewAsId) {
+      const { data: target } = await supabase
+        .from("client_profiles")
+        .select("user_id")
+        .eq("user_id", viewAsId)
+        .maybeSingle();
+      if (target) {
+        return {
+          ...baseProfile,
+          auth_user_id: userId,
+          id: viewAsId,
+          role: "client",
+          workspace_user_id: viewAsId,
+          workspace_role: "owner",
+          workspace_permissions: null,
+          viewing_as: true,
+        };
+      }
+      clearViewAsWorkspaceId();
+    }
+  }
+
   return {
     ...baseProfile,
     auth_user_id: userId,
@@ -84,11 +120,13 @@ async function resolveWorkspaceData(profile: Profile | null) {
   }
 
   const workspaceUserId = profile.workspace_user_id ?? profile.id;
-  const [{ data: clientProfileData, error: clientProfileError }, { data: featureData, error: featureError }] =
-    await Promise.all([
-      supabase.from("client_profiles").select("*").eq("user_id", workspaceUserId).maybeSingle(),
-      supabase.from("client_features").select("*").eq("user_id", workspaceUserId).eq("enabled", true),
-    ]);
+  const [
+    { data: clientProfileData, error: clientProfileError },
+    { data: featureData, error: featureError },
+  ] = await Promise.all([
+    supabase.from("client_profiles").select("*").eq("user_id", workspaceUserId).maybeSingle(),
+    supabase.from("client_features").select("*").eq("user_id", workspaceUserId).eq("enabled", true),
+  ]);
 
   if (clientProfileError) throw clientProfileError;
   if (featureError) throw featureError;
@@ -109,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [recovery, setRecovery] = useState(false);
   const authUserIdRef = useRef<string | null>(null);
   const profileRef = useRef<Profile | null>(null);
+  const reloadProfileRef = useRef<() => void>(() => {});
 
   function updateProfile(nextProfile: Profile | null) {
     profileRef.current = nextProfile;
@@ -123,8 +162,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function clearAuthState() {
     authUserIdRef.current = null;
+    clearViewAsWorkspaceId();
     updateProfile(null);
     clearWorkspace();
+  }
+
+  function enterViewAs(workspaceUserId: string) {
+    setViewAsWorkspaceId(workspaceUserId);
+    reloadProfileRef.current();
+  }
+
+  function exitViewAs() {
+    clearViewAsWorkspaceId();
+    reloadProfileRef.current();
   }
 
   useEffect(() => {
@@ -188,6 +238,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Re-resolution entry point for enter/exitViewAs (effect runs once).
+    reloadProfileRef.current = () => {
+      const uid = authUserIdRef.current;
+      if (uid) {
+        setLoading(true);
+        void fetchProfile(uid);
+      }
+    };
+
     supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
       if (!active) return;
       if (sessionError) {
@@ -217,7 +276,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (event === "PASSWORD_RECOVERY") {
         setRecovery(true);
@@ -226,7 +287,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         if (session?.user) {
-          const isSameLoadedUser = authUserIdRef.current === session.user.id && profileRef.current?.auth_user_id === session.user.id;
+          const isSameLoadedUser =
+            authUserIdRef.current === session.user.id &&
+            profileRef.current?.auth_user_id === session.user.id;
           if (event === "SIGNED_IN" && isSameLoadedUser) {
             return;
           }
@@ -274,19 +337,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  return createElement(AuthContext.Provider, {
-    value: {
-      profile,
-      clientProfile,
-      clientFeatures,
-      loading,
-      workspaceLoading,
-      error,
-      recovery,
-      setClientProfile,
-      refetchWorkspace,
+  return createElement(
+    AuthContext.Provider,
+    {
+      value: {
+        profile,
+        clientProfile,
+        clientFeatures,
+        loading,
+        workspaceLoading,
+        error,
+        recovery,
+        viewingAs: profile?.viewing_as === true,
+        setClientProfile,
+        refetchWorkspace,
+        enterViewAs,
+        exitViewAs,
+      },
     },
-  }, children);
+    children,
+  );
 }
 
 export function useAuth() {
@@ -341,7 +411,12 @@ export function useWorkspaceFeatures(userId: string | undefined) {
   };
 }
 
-export function useRole(): { role: UserRole | null; isAdmin: boolean; isClient: boolean; loading: boolean } {
+export function useRole(): {
+  role: UserRole | null;
+  isAdmin: boolean;
+  isClient: boolean;
+  loading: boolean;
+} {
   const { profile, loading } = useAuth();
   return {
     role: profile?.role ?? null,

@@ -2,9 +2,10 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Spinner } from "./components/ui/Spinner";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
-import { useWorkspaceFeatures, useWorkspaceRole } from "./hooks/useAuth";
+import { useAuth, useWorkspaceFeatures, useWorkspaceRole } from "./hooks/useAuth";
 import { getWorkspacePermissions } from "./lib/permissions";
 import { resolvePayrollTabsVisibility } from "./lib/payroll/visibility";
+import { ViewAsBanner } from "./components/admin/ViewAsBanner";
 
 const LoginPage = lazy(() => import("./app/(auth)/login"));
 const SetupPage = lazy(() => import("./app/(auth)/setup"));
@@ -54,6 +55,7 @@ function RouteFallback() {
 
 export default function App() {
   const { profile, workspaceRole, workspacePermissions, loading, recovery } = useWorkspaceRole();
+  const { viewingAs } = useAuth();
   const workspaceFeatures = useWorkspaceFeatures(profile?.workspace_user_id ?? profile?.id);
   const role = profile?.role ?? null;
   const isAdmin = role === "admin";
@@ -77,6 +79,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Suspense fallback={<RouteFallback />}>
+        {viewingAs && <ViewAsBanner />}
         <Routes>
           <Route
             path="/login"
