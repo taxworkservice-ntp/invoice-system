@@ -106,7 +106,7 @@ const REPORT_MONTHS = [
   { value: 12, label: "ธันวาคม" },
 ];
 
-type EmployeeFilter = "active" | "inactive" | "incomplete" | "all";
+type EmployeeFilter = "active" | "inactive" | "incomplete" | "all" | "sso" | "nonsso";
 
 function isIncompleteProfile(emp: Employee): boolean {
   return (
@@ -216,6 +216,10 @@ export default function EmployeesPage() {
     if (filter === "active" && emp.status !== "active") return false;
     if (filter === "inactive" && emp.status !== "inactive") return false;
     if (filter === "incomplete" && !isIncompleteProfile(emp)) return false;
+    if (filter === "sso" && !(emp.status === "active" && emp.sso_registered !== false))
+      return false;
+    if (filter === "nonsso" && !(emp.status === "active" && emp.sso_registered === false))
+      return false;
     if (department !== "all" && (emp.department ?? "").trim() !== department) return false;
     if (!search) return true;
     const q = search.toLowerCase();
@@ -230,6 +234,12 @@ export default function EmployeesPage() {
   const activeCount = employees.filter((e) => e.status === "active").length;
   const inactiveCount = employees.filter((e) => e.status === "inactive").length;
   const incompleteCount = employees.filter(isIncompleteProfile).length;
+  const ssoCount = employees.filter(
+    (e) => e.status === "active" && e.sso_registered !== false,
+  ).length;
+  const nonSsoCount = employees.filter(
+    (e) => e.status === "active" && e.sso_registered === false,
+  ).length;
 
   type EmployeeSortKey =
     | "employee_code"
@@ -721,7 +731,14 @@ export default function EmployeesPage() {
               title: "ข้อมูลครบทุกคน",
               description: "ดีแล้ว — ไม่มีพนักงานที่ขาดเลขภาษีหรือบัญชีธนาคาร",
             }
-          : { title: "ไม่พบพนักงาน", description: "ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง" };
+          : filter === "sso"
+            ? { title: "ไม่มีพนักงานประกันสังคม", description: "ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง" }
+            : filter === "nonsso"
+              ? {
+                  title: "ไม่มีพนักงานนอกประกันสังคม",
+                  description: "ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง",
+                }
+              : { title: "ไม่พบพนักงาน", description: "ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง" };
 
   // Defense-in-depth: route guard in App.tsx is the first gate; this blocks
   // salary data even if the route check is ever bypassed.
@@ -793,6 +810,7 @@ export default function EmployeesPage() {
 
         <SummaryRow
           activePreset={filter}
+          gridClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
           items={[
             {
               label: "กำลังทำงาน",
@@ -801,6 +819,22 @@ export default function EmployeesPage() {
               primary: "count",
               hint: "พนักงานปัจจุบัน",
               preset: "active",
+            },
+            {
+              label: "ประกันสังคม",
+              value: ssoCount,
+              count: ssoCount,
+              primary: "count",
+              hint: "ขึ้นทะเบียน SSO",
+              preset: "sso",
+            },
+            {
+              label: "ไม่ขึ้นประกันสังคม",
+              value: nonSsoCount,
+              count: nonSsoCount,
+              primary: "count",
+              hint: "ภ.ง.ด.3 / สัญญาจ้าง",
+              preset: "nonsso",
             },
             {
               label: "ลาออกแล้ว",

@@ -15,11 +15,18 @@ interface SummaryRowProps {
   items: SummaryItem[];
   onCardTap: (preset: string) => void;
   activePreset?: string;
+  /** Column steps for pages with more cards; defaults to the 4-card layout. */
+  gridClassName?: string;
 }
 
-export function SummaryRow({ items, onCardTap, activePreset }: SummaryRowProps) {
+export function SummaryRow({
+  items,
+  onCardTap,
+  activePreset,
+  gridClassName = "grid-cols-2 sm:grid-cols-4",
+}: SummaryRowProps) {
   return (
-    <div className="grid max-w-row grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className={`grid max-w-row ${gridClassName} gap-2`}>
       {items.map((item) => {
         const active = activePreset === item.preset;
         return (
