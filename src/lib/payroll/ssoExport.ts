@@ -388,6 +388,128 @@ export const SSO_MOVEMENT_HEADERS_LEAVERS = [
   "กำหนดยื่นภายใน (สปส.6-09)",
 ];
 
+export interface Sso101Row extends SsoMovementRow {
+  dateOfBirth: string;
+  address: string;
+  wage: number;
+  employmentType: string;
+}
+
+export interface Sso101Build {
+  rows: Sso101Row[];
+  errors: SsoRowError[];
+  skippedDaily: number;
+  skippedContract: number;
+  skippedOver60: number;
+}
+
+export const SSO101_HEADERS = [
+  "ลำดับ",
+  "รหัสพนักงาน",
+  "คำนำหน้า",
+  "ชื่อ",
+  "นามสกุล",
+  "เลขบัตรประชาชน",
+  "วันเดือนปีเกิด",
+  "ที่อยู่",
+  "ตำแหน่ง",
+  "ประเภทการจ้าง",
+  "วันที่เข้าทำงาน",
+  "ค่าจ้าง",
+  "กำหนดยื่นภายใน (สปส.1-01)",
+];
+
+/**
+ * สปส.1-01 new-insured registration handover: same monthly-joiner scope as
+ * สปส.1-03 (start_date in month, +30d deadline) plus the registration fields
+ * the form needs — DOB, address, wage. Monthly staff only, same business
+ * choice as the movement report.
+ */
+export function buildSso101Rows(employees: Employee[], year: number, month: number): Sso101Build {
+  const movement = buildSsoMovementRows(employees, year, month, "joiners");
+  const byCode = new Map(movement.rows.map((r) => [r.employeeCode, r]));
+  const rows: Sso101Row[] = [];
+  for (const emp of employees) {
+    const base = byCode.get(emp.employee_code);
+    if (!base) continue;
+    rows.push({
+      ...base,
+      dateOfBirth: emp.date_of_birth ?? "",
+      address: (emp.address ?? "").trim() || "—",
+      wage: Number(emp.base_salary) || 0,
+      employmentType: emp.salary_type === "daily" ? "รายวัน" : "รายเดือน",
+    });
+  }
+  rows.sort((a, b) =>
+    a.eventDate === b.eventDate
+      ? a.employeeCode.localeCompare(b.employeeCode)
+      : a.eventDate < b.eventDate
+        ? -1
+        : 1,
+  );
+  return {
+    rows,
+    errors: movement.errors,
+    skippedDaily: movement.skippedDaily,
+    skippedContract: movement.skippedContract,
+    skippedOver60: movement.skippedOver60,
+  };
+}
+
+/**
+ * Single-sheet handover workbook for สปส.1-01, same layout language as the
+ * movement workbooks: title block + flat table, IDs and dates as text.
+ */
+export function buildSso101Workbook(
+  rows: Sso101Row[],
+  opts: { year: number; month: number; companyName?: string | null },
+): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("สปส.1-01");
+  ws.columns = [6, 14, 10, 20, 20, 20, 14, 30, 18, 12, 14, 12, 20].map((width) => ({
+    width,
+  }));
+
+  const titleRow = ws.addRow(["บัญชีรายชื่อผู้ประกันตนขึ้นทะเบียนใหม่ — เพื่อประกอบแบบ สปส.1-01"]);
+  titleRow.font = { bold: true, size: 12 };
+  const subRow = ws.addRow([
+    `${opts.companyName?.trim() ? `${opts.companyName.trim()} · ` : ""}ประจำเดือน ${opts.month}/${opts.year + 543} · จำนวน ${rows.length} คน`,
+  ]);
+  subRow.font = { size: 10, color: { argb: "FF6B6B6B" } };
+  ws.addRow([]);
+
+  const headerRow = ws.addRow(SSO101_HEADERS);
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, size: 10 };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+  });
+
+  rows.forEach((row, i) => {
+    const excelRow = ws.addRow([
+      i + 1,
+      row.employeeCode,
+      row.title,
+      row.firstName,
+      row.lastName,
+      "",
+      "",
+      row.address,
+      row.position,
+      row.employmentType,
+      "",
+      row.wage,
+      "",
+    ]);
+    excelRow.getCell(6).value = { richText: [{ text: row.taxId }] };
+    excelRow.getCell(7).value = row.dateOfBirth ? formatBuddhistShort(row.dateOfBirth) : "—";
+    excelRow.getCell(11).value = formatBuddhistShort(row.eventDate);
+    excelRow.getCell(12).numFmt = "#,##0";
+    excelRow.getCell(13).value = formatBuddhistShort(row.deadline);
+  });
+
+  return wb;
+}
+
 /**
  * Single-sheet handover workbook: title block (form reference + month) then
  * one flat table. IDs and dates are text (leading zeros, Buddhist year).

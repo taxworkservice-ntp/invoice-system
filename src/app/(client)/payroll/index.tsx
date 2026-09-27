@@ -21,12 +21,10 @@ import {
   TrendingDown,
   Download,
   FileSpreadsheet,
-  FileArchive,
   CalendarRange,
   Layers,
   Trash2,
   Loader2,
-  RefreshCw,
   ChevronRight,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -60,19 +58,11 @@ import { isSsoExemptByAge } from "../../../lib/payroll/ssoEligibility";
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from "../../../lib/payroll/audit";
 import {
   buildRunSummaryWorkbook,
-  buildBankPaymentWorkbook,
   buildWhtWorkbook,
   workbookToBlob,
   type PayrollCalcRow,
 } from "../../../lib/payroll/reportXlsx";
-import {
-  buildSso110Rows,
-  buildSso110Workbook,
-  buildSsoRows,
-  buildSsoWorkbook,
-} from "../../../lib/payroll/ssoExport";
-import { buildPayslipSlipNode, type PayslipCompany } from "../../../lib/payroll/payslipPdf";
-import { slipNodeToPdfBlob, sanitizePdfFilename } from "../../../lib/payroll/payslipPdfRender";
+import { type PayslipCompany } from "../../../lib/payroll/payslipPdf";
 import {
   formatPayRangeLabel,
   suggestNextWindow,
@@ -1382,27 +1372,6 @@ export default function PayrollPage() {
     });
   }
 
-  async function handleExportBankPayment() {
-    if (!run) return;
-    const rows = buildCalcRows().filter((r) => r.employee.bank_account);
-    if (rows.length === 0) {
-      toast.error("ไม่มีพนักงานที่มีเลขบัญชีธนาคาร");
-      return;
-    }
-    const wb = buildBankPaymentWorkbook(run, rows);
-    const blob = await workbookToBlob(wb);
-    downloadBlob(
-      blob,
-      `bank-payment-${run.period_year}-${String(run.period_month).padStart(2, "0")}.xlsx`,
-    );
-    await logAuditEvent({
-      action: AUDIT_ACTIONS.PAYROLL_EXPORTED,
-      entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
-      entity_id: run.id,
-      details: { report: "bank_payment", count: rows.length },
-    });
-  }
-
   async function handleExportWht() {
     if (!run) return;
     const rows = buildCalcRows();
@@ -1414,168 +1383,6 @@ export default function PayrollPage() {
       entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
       entity_id: run.id,
       details: { report: "wht", count: rows.length },
-    });
-  }
-
-  async function handleExportSso() {
-    if (!run || !monthClose) return;
-    // Filing-correct rows: one monthly wage line per employee (all batches
-    // aggregated), so the ceiling applies once — never per disbursement round.
-    const monthRows: PayrollCalcRow[] = employees
-      .filter((emp) => (monthClose.owed.get(emp.id)?.insurable ?? 0) > 0)
-      .map((emp) => {
-        const o = monthClose.owed.get(emp.id)!;
-        return {
-          employee: emp,
-          lineItem: null,
-          base_pay: o.insurable,
-          ot_pay: 0,
-          additions_total: 0,
-          deductions_total: 0,
-          gross_pay: o.insurable,
-          sso_employee: o.sso_employee,
-          sso_employer: o.sso_employer,
-          withholding_tax: 0,
-          net_pay: o.insurable,
-        };
-      });
-    const built = buildSsoRows(monthRows);
-    if (built.errors.length > 0) {
-      const names = built.errors
-        .slice(0, 3)
-        .map((e) => `${e.employeeCode} ${e.fullName}`.trim())
-        .join(", ");
-      const more = built.errors.length > 3 ? ` และอีก ${built.errors.length - 3} คน` : "";
-      toast.error(`ส่งออกไม่ได้: ${names}${more} — ${built.errors[0].reason}`);
-      return;
-    }
-    if (built.rows.length === 0) {
-      toast.error("ไม่มีพนักงานประกันสังคมในเดือนนี้");
-      return;
-    }
-    const wb = buildSsoWorkbook(built.rows);
-    const blob = await workbookToBlob(wb);
-    downloadBlob(blob, `sso-${run.period_year}-${String(run.period_month).padStart(2, "0")}.xlsx`);
-    const skippedParts: string[] = [];
-    if (built.skippedInactive > 0) skippedParts.push(`ลาออก ${built.skippedInactive}`);
-    if (built.skippedContract > 0) skippedParts.push(`ภ.ง.ด.3 ${built.skippedContract}`);
-    if (built.skippedOver60 > 0) skippedParts.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
-    if (skippedParts.length > 0) {
-      toast.success(
-        `ส่งออกประกันสังคม ${built.rows.length} คน (ข้าม: ${skippedParts.join(" · ")})`,
-      );
-    }
-    await logAuditEvent({
-      action: AUDIT_ACTIONS.PAYROLL_EXPORTED,
-      entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
-      entity_id: run.id,
-      details: { report: "sso", count: built.rows.length },
-    });
-  }
-
-  async function handleExportSso110() {
-    if (!run || !monthClose) return;
-    const built = buildSso110Rows(employees, monthClose.owed);
-    if (built.errors.length > 0) {
-      const names = built.errors
-        .slice(0, 3)
-        .map((e) => `${e.employeeCode} ${e.fullName}`.trim())
-        .join(", ");
-      const more = built.errors.length > 3 ? ` และอีก ${built.errors.length - 3} คน` : "";
-      toast.error(`ส่งออกไม่ได้: ${names}${more} — ${built.errors[0].reason}`);
-      return;
-    }
-    if (built.rows.length === 0) {
-      toast.error("เดือนนี้ไม่มีพนักงานที่ต้องยื่นประกันสังคม");
-      return;
-    }
-    const wb = buildSso110Workbook(built.rows, {
-      companyName: clientProfile?.company_name_th ?? null,
-      ssoAccountNo: clientProfile?.sso_account_no ?? null,
-      ssoBranchNo: clientProfile?.sso_branch_no ?? null,
-      year: calcYear,
-      month: calcMonth,
-    });
-    const blob = await workbookToBlob(wb);
-    downloadBlob(blob, `sso-1-10-${calcYear}-${String(calcMonth).padStart(2, "0")}.xlsx`);
-    const skippedParts: string[] = [];
-    if (built.skippedContract > 0) skippedParts.push(`ภ.ง.ด.3 ${built.skippedContract}`);
-    if (built.skippedOver60 > 0) skippedParts.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
-    if (built.skippedZeroWage > 0) skippedParts.push(`ไม่มีค่าจ้าง ${built.skippedZeroWage}`);
-    if (skippedParts.length > 0 || !clientProfile?.sso_account_no) {
-      const notes = [...skippedParts];
-      if (!clientProfile?.sso_account_no)
-        notes.push("ยังไม่กรอกเลขที่บัญชีนายจ้าง (ตั้งค่า > ข้อมูลบริษัท)");
-      toast.success(
-        `ส่งออก สปส.1-10 ${built.rows.length} คน${notes.length > 0 ? ` (${notes.join(" · ")})` : ""}`,
-      );
-    } else {
-      toast.success(`ส่งออก สปส.1-10 ${built.rows.length} คน`);
-    }
-    await logAuditEvent({
-      action: AUDIT_ACTIONS.PAYROLL_EXPORTED,
-      entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
-      entity_id: run.id,
-      details: { report: "sso110", count: built.rows.length },
-    });
-  }
-
-  async function handleExportBulkPayslips() {
-    if (!run) return;
-    const { default: JSZip } = await import("jszip");
-    const zip = new JSZip();
-    const statutoryMonth = Number(run.period_end.slice(5, 7));
-    const statutoryYear = Number(run.period_end.slice(0, 4));
-    let okCount = 0;
-    let failCount = 0;
-
-    for (const emp of employees) {
-      try {
-        const item = getEffectiveItem(emp.id);
-        const calc = calcLineItem(emp, item);
-        const hourlyRate = getEffectiveHourlyRate(
-          emp.salary_type,
-          emp.base_salary,
-          resolveDivisorDays(settings, statutoryMonth, statutoryYear),
-        );
-        const totalDeductions = item.deductions.reduce((s, d) => s + (Number(d.amount) || 0), 0);
-        const blob = await slipNodeToPdfBlob(
-          buildPayslipSlipNode(
-            emp,
-            run,
-            item,
-            { ...calc, totalDeductions },
-            hourlyRate,
-            companyInfo,
-          ),
-        );
-        zip.file(`${sanitizePdfFilename(`${emp.employee_code}-${emp.full_name}`)}.pdf`, blob);
-        okCount++;
-      } catch (e) {
-        console.warn("payslip pdf failed", emp.employee_code, e);
-        failCount++;
-      }
-    }
-
-    if (okCount === 0) {
-      toast.error("สร้างสลิปไม่สำเร็จ");
-      return;
-    }
-    const blob = await zip.generateAsync({ type: "blob" });
-    downloadBlob(
-      blob,
-      `payslips-${run.period_year}-${String(run.period_month).padStart(2, "0")}.pdf.zip`,
-    );
-    toast.success(
-      failCount > 0
-        ? `สร้าง PDF สำเร็จ ${okCount} คน · ล้มเหลว ${failCount} คน`
-        : `สร้าง PDF ${okCount} ใบแล้ว`,
-    );
-    await logAuditEvent({
-      action: AUDIT_ACTIONS.PAYROLL_EXPORTED,
-      entity_type: AUDIT_ENTITY_TYPES.PAYROLL_RUN,
-      entity_id: run.id,
-      details: { report: "bulk_payslips_pdf", count: okCount },
     });
   }
 
@@ -2003,15 +1810,8 @@ export default function PayrollPage() {
         <div className="flex gap-2">
           {run && (
             <PayrollExportMenu
-              status={run.status}
               onExportSummary={handleExportSummary}
-              onExportBank={handleExportBankPayment}
               onExportWht={handleExportWht}
-              onExportSso={handleExportSso}
-              onExportSso110={handleExportSso110}
-              onExportPayslips={handleExportBulkPayslips}
-              onSyncWht={handleSyncWht}
-              syncingWht={syncingWht}
             />
           )}
           {run?.status === "draft" && (
@@ -2047,6 +1847,12 @@ export default function PayrollPage() {
       }
     >
       <div className="space-y-4">
+        <PayrollTabs
+          showRuns={payrollTabs.showRuns}
+          showEmployees={payrollTabs.showEmployees}
+          runsCount={runs.length}
+          employeesCount={employees.length}
+        />
         <Card className={`p-3 ${isOtRun ? "!border-amber-200 !bg-amber-50/40" : ""}`}>
           {isOtRun && run && (
             <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
@@ -2059,12 +1865,6 @@ export default function PayrollPage() {
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <PayrollTabs
-              showRuns={payrollTabs.showRuns}
-              showEmployees={payrollTabs.showEmployees}
-              runsCount={runs.length}
-              employeesCount={employees.length}
-            />
             <div className="flex items-center gap-2">
               <Select
                 aria-label="เดือน"
@@ -2514,46 +2314,49 @@ export default function PayrollPage() {
               </div>
             )}
 
-            {run.status === "draft" && employees.length > 0 && (
-              <div className="bg-white border border-card-border rounded-card p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-ink-400" />
-                    <span className="text-label font-medium text-ink-600">ความคืบหน้า</span>
-                  </div>
-                  <span className="text-label font-semibold text-ink-700">
-                    {completedCount} / {employees.length} คน
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-ink-50 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary to-primary-deep rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                {completedCount === employees.length && (
-                  <div className="mt-2 flex items-center gap-1 text-green-600">
+            {run.status === "draft" &&
+              employees.length > 0 &&
+              (completedCount === employees.length ? (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-control border border-card-border bg-white px-3 py-2 text-label">
+                  <span className="inline-flex items-center gap-1 font-medium text-green-700">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span className="text-label font-medium">กรอกครบทุกคนแล้ว — พร้อมปิดรอบ!</span>
+                    กรอกครบ {employees.length} คน — พร้อมปิดรอบ!
+                  </span>
+                  {runDiff && (runDiff.added > 0 || runDiff.left > 0) && (
+                    <>
+                      {runDiff.added > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-green-700">
+                          <TrendingUp className="w-3 h-3" />+{runDiff.added} ใหม่
+                        </span>
+                      )}
+                      {runDiff.left > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-ink-500">
+                          <TrendingDown className="w-3 h-3" />-{runDiff.left} ลาออก
+                        </span>
+                      )}
+                      <span className="text-ink-400">เทียบเดือนก่อน</span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white border border-card-border rounded-card p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-ink-400" />
+                      <span className="text-label font-medium text-ink-600">ความคืบหน้า</span>
+                    </div>
+                    <span className="text-label font-semibold text-ink-700">
+                      {completedCount} / {employees.length} คน
+                    </span>
                   </div>
-                )}
-                {runDiff && (runDiff.added > 0 || runDiff.left > 0) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-label">
-                    {runDiff.added > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-green-700">
-                        <TrendingUp className="w-3 h-3" />+{runDiff.added} ใหม่
-                      </span>
-                    )}
-                    {runDiff.left > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-ink-500">
-                        <TrendingDown className="w-3 h-3" />-{runDiff.left} ลาออก
-                      </span>
-                    )}
-                    <span className="text-ink-400">เทียบเดือนก่อน</span>
+                  <div className="w-full h-2 bg-ink-50 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${progressPercent}%` }}
+                    />
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              ))}
 
             {excludedEmployeeCount > 0 && (
               <div className="flex items-start gap-2 rounded-control border border-blue-200 bg-blue-50 px-3 py-2 text-label text-blue-800">
@@ -3688,19 +3491,22 @@ function MonthPlanStrip({
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2">
-        <span className="text-label font-semibold text-ink-500">แผนการจ่ายประจำเดือน</span>
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="shrink-0 text-label font-semibold text-ink-500">แผนการจ่ายประจำเดือน</span>
+        <span
+          className="min-w-0 flex-1 truncate text-label text-ink-400"
+          title="จ่ายได้หลายครั้งตามจริง ภาษีหัก ณ ที่จ่ายกับประกันสังคมรวมเป็นรายเดือนเสมอ"
+        >
+          จ่ายได้หลายครั้งตามจริง ภาษีหัก ณ ที่จ่ายกับประกันสังคมรวมเป็นรายเดือนเสมอ
+        </span>
         <button
           type="button"
           onClick={onCustomRange}
-          className="ml-auto shrink-0 text-label font-medium text-primary hover:underline"
+          className="flex shrink-0 items-center gap-1 text-label font-medium text-primary hover:underline"
         >
-          ＋ รอบพิเศษ
+          <Plus className="h-3.5 w-3.5" /> รอบพิเศษ
         </button>
       </div>
-      <p className="mb-2 text-label leading-5 text-ink-400">
-        จ่ายได้หลายครั้งตามจริง ภาษีหัก ณ ที่จ่ายกับประกันสังคมรวมเป็นรายเดือนเสมอ
-      </p>
       {renderLane(
         "รอบเงินเดือน",
         views.filter(({ slot }) => slot.batchType === "salary"),
@@ -3715,9 +3521,9 @@ function MonthPlanStrip({
   function renderLane(label: string, lane: MonthPlanSlotView[]) {
     if (lane.length === 0) return null;
     return (
-      <div className="mt-2 first:mt-0">
-        <div className="mb-1.5 text-label font-semibold text-ink-500">{label}</div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-1.5 first:mt-0">
+        <div className="mb-1 text-label font-semibold text-ink-500">{label}</div>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
           {lane.map(({ slot, run }) => {
             const key = `${slot.batchType}:${slot.start}:${slot.end}`;
             const isCurrent = run !== null && run.id === selectedRunId;
@@ -3742,7 +3548,7 @@ function MonthPlanStrip({
                     ? `เปิด${slot.label} (${finalized ? "ปิดรอบแล้ว" : "ร่าง"})`
                     : `สร้าง${slot.label}`
                 }
-                className={`flex min-w-0 items-center gap-1.5 rounded-control border px-2.5 py-2 text-left transition-colors ${isCurrent ? "border-primary/30 bg-primary-soft cursor-default" : "border-card-border bg-white hover:border-primary/30"} ${!run ? "border-dashed" : ""}`}
+                className={`flex min-w-0 items-center gap-1.5 rounded-control border px-2 py-1.5 text-left transition-colors ${isCurrent ? "border-primary/30 bg-primary-soft cursor-default" : "border-card-border bg-white hover:border-primary/30"} ${!run ? "border-dashed" : ""}`}
               >
                 {busy ? (
                   <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
@@ -3758,12 +3564,11 @@ function MonthPlanStrip({
                 ) : (
                   <Plus className="h-3.5 w-3.5 shrink-0 text-ink-300" />
                 )}
-                <span className="min-w-0">
-                  <span className="block truncate text-label font-semibold text-ink-900">
-                    {slot.label}
-                  </span>
-                  <span className="block text-label tabular-nums text-ink-400">
-                    {run ? (finalized ? "ปิดรอบแล้ว" : "ร่าง") : "ยังไม่สร้าง"}
+                <span className="min-w-0 flex-1 truncate text-label text-ink-900">
+                  <span className="font-semibold">{slot.label}</span>
+                  <span className="tabular-nums text-ink-400">
+                    {" "}
+                    · {run ? (finalized ? "ปิดรอบแล้ว" : "ร่าง") : "ยังไม่สร้าง"}
                   </span>
                 </span>
               </button>
@@ -3831,27 +3636,24 @@ function PayrollHistoryPanel({
             : `เปิด${title} (${finalized ? "ปิดรอบแล้ว" : "ร่าง"})`
         }
         aria-current={isCurrent ? "true" : undefined}
-        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-control border text-left transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 cursor-default" : "bg-white border-card-border hover:border-primary/30"}`}
+        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-control border text-left transition-colors ${isCurrent ? "bg-primary-soft border-primary/30 cursor-default" : "bg-white border-card-border hover:border-primary/30"}`}
       >
         <span
           className={`shrink-0 rounded px-1.5 py-px text-label font-semibold ${BATCH_BADGE[kind]}`}
         >
           {BATCH_TYPE_LABELS[kind]}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-label font-semibold text-ink-900">{title}</span>
-          <span className="block truncate text-label tabular-nums text-ink-400">{detail}</span>
+        <span className="min-w-0 flex-1 truncate text-body text-ink-900">
+          <span className="font-medium">{title}</span>
+          <span className="tabular-nums text-ink-400"> · {detail}</span>
         </span>
         <StatusBadge tone={finalized ? "green" : "amber"} label={finalized ? "ปิดรอบ" : "ร่าง"} />
         {emptyDraft ? (
           <span className="shrink-0 text-label text-ink-400">ยังไม่มีตัวเลข</span>
         ) : (
-          <span className="shrink-0 text-label font-semibold tabular-nums text-ink-900">
+          <span className="shrink-0 text-body font-semibold tabular-nums text-ink-900">
             ฿{formatCurrency(hRun.total_net)}
           </span>
-        )}
-        {!isCurrent && (
-          <ChevronRight className="w-3.5 h-3.5 shrink-0 text-ink-300" aria-hidden="true" />
         )}
       </button>
     );
@@ -3860,34 +3662,37 @@ function PayrollHistoryPanel({
   function renderGroup(group: { key: string; monthLabel: string; items: PayrollRun[] }) {
     return (
       <div key={group.key}>
-        <div className="mb-1.5 text-label font-semibold text-ink-500">{group.monthLabel}</div>
-        <div className="space-y-1.5">{group.items.map(renderRunRow)}</div>
+        <div className="mb-1 text-label font-semibold text-ink-500">{group.monthLabel}</div>
+        <div className="space-y-1">{group.items.map(renderRunRow)}</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-card-border rounded-card p-4">
-      <div className="flex items-center gap-2 mb-1">
-        <Clock className="w-4 h-4 text-ink-400" />
-        <span className="text-label font-medium text-ink-600">ประวัติรอบที่ผ่านมา</span>
-        <span className="rounded-full bg-paper-field border border-card-border px-2 py-px text-label font-medium text-ink-500 tabular-nums">
+    <div className="bg-white border border-card-border rounded-card p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Clock className="w-4 h-4 shrink-0 text-ink-400" />
+        <span className="shrink-0 text-label font-medium text-ink-600">ประวัติรอบที่ผ่านมา</span>
+        <span className="shrink-0 rounded-full bg-paper-field border border-card-border px-2 py-px text-label font-medium text-ink-500 tabular-nums">
           {currentGroup ? `${currentGroup.items.length} รอบในเดือนนี้ · ` : ""}ทั้งหมด {runs.length}{" "}
           รอบ
         </span>
+        <span
+          className="min-w-0 flex-1 truncate text-right text-label text-ink-400"
+          title="แตะเพื่อเปิดรอบอื่น — เดือนที่แสดงจะเปลี่ยนตามรอบที่เลือก"
+        >
+          แตะเพื่อเปิดรอบอื่น — เดือนที่แสดงจะเปลี่ยนตามรอบที่เลือก
+        </span>
       </div>
-      <p className="mb-3 text-label leading-5 text-ink-400">
-        แตะเพื่อเปิดรอบอื่น — เดือนที่แสดงจะเปลี่ยนตามรอบที่เลือก
-      </p>
       {currentGroup && renderGroup(currentGroup)}
       {olderGroups.length > 0 && (
-        <details className="group mt-3 border-t border-card-border pt-2">
+        <details className="group mt-2 border-t border-card-border pt-1.5">
           <summary className="flex items-center gap-2 text-ink-700 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <ChevronRight className="w-4 h-4 text-ink-400 transition-transform group-open:rotate-90" />
             <span className="text-body font-medium">รอบเดือนก่อนหน้า</span>
             <span className="ml-auto text-label text-ink-400 tabular-nums">{olderCount} รอบ</span>
           </summary>
-          <div className="pt-3 space-y-3">{olderGroups.map(renderGroup)}</div>
+          <div className="pt-2 space-y-2">{olderGroups.map(renderGroup)}</div>
         </details>
       )}
     </div>
@@ -3914,28 +3719,11 @@ function SummaryCard({ icon, label, value, sub, highlight }: SummaryCardProps) {
 }
 
 interface PayrollExportMenuProps {
-  status: "draft" | "finalized";
   onExportSummary: () => void | Promise<void>;
-  onExportBank: () => void | Promise<void>;
   onExportWht: () => void | Promise<void>;
-  onExportSso: () => void | Promise<void>;
-  onExportSso110: () => void | Promise<void>;
-  onExportPayslips: () => void | Promise<void>;
-  onSyncWht: () => void | Promise<void>;
-  syncingWht?: boolean;
 }
 
-function PayrollExportMenu({
-  status,
-  onExportSummary,
-  onExportBank,
-  onExportWht,
-  onExportSso,
-  onExportSso110,
-  onExportPayslips,
-  onSyncWht,
-  syncingWht,
-}: PayrollExportMenuProps) {
+function PayrollExportMenu({ onExportSummary, onExportWht }: PayrollExportMenuProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -3997,9 +3785,7 @@ function PayrollExportMenu({
       {open && (
         <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-card-border rounded-control z-30 py-1">
           <div className="px-3 pt-1.5 pb-1 text-label font-medium text-ink-400">
-            {status === "finalized"
-              ? "รอบปิดแล้ว — ส่งออกเอกสารจริง"
-              : "รอบร่าง — ส่งออกได้เฉพาะสรุป/ภาษี"}
+            รอบร่าง — ส่งออกได้เฉพาะสรุป/ภาษี
           </div>
           <button
             disabled={busy !== null}
@@ -4025,71 +3811,6 @@ function PayrollExportMenu({
             )}{" "}
             ภาษีหัก ณ ที่จ่าย (Excel)
           </button>
-          <button
-            disabled={busy !== null}
-            onClick={() => run("sso", onExportSso)}
-            className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50"
-          >
-            {busy === "sso" ? (
-              <Loader2 className="w-4 h-4 animate-spin text-orange-600" />
-            ) : (
-              <FileSpreadsheet className="w-4 h-4 text-orange-600" />
-            )}{" "}
-            ประกันสังคม (Excel)
-          </button>
-          <button
-            disabled={busy !== null}
-            onClick={() => run("sso110", onExportSso110)}
-            className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50"
-          >
-            {busy === "sso110" ? (
-              <Loader2 className="w-4 h-4 animate-spin text-orange-600" />
-            ) : (
-              <FileSpreadsheet className="w-4 h-4 text-orange-600" />
-            )}{" "}
-            สปส.1-10 รายเดือน (Excel)
-          </button>
-          {status === "finalized" && (
-            <>
-              <div className="border-t border-card-border my-1" />
-              <button
-                disabled={busy !== null || syncingWht}
-                onClick={() => run("syncwht", onSyncWht)}
-                className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50"
-              >
-                {busy === "syncwht" || syncingWht ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 text-teal-600" />
-                )}{" "}
-                ซิงก์รายการภาษีหัก ณ ที่จ่าย
-              </button>
-              <button
-                disabled={busy !== null}
-                onClick={() => run("bank", onExportBank)}
-                className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50"
-              >
-                {busy === "bank" ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
-                ) : (
-                  <FileSpreadsheet className="w-4 h-4 text-purple-600" />
-                )}{" "}
-                รายการโอนธนาคาร (Excel)
-              </button>
-              <button
-                disabled={busy !== null}
-                onClick={() => run("payslips", onExportPayslips)}
-                className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex items-center gap-2 disabled:opacity-50"
-              >
-                {busy === "payslips" ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
-                ) : (
-                  <FileArchive className="w-4 h-4 text-amber-600" />
-                )}{" "}
-                สลิปเงินเดือนทั้งหมด (ZIP)
-              </button>
-            </>
-          )}
         </div>
       )}
     </div>

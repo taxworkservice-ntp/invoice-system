@@ -759,7 +759,7 @@ export default function WhtPage() {
               setTab(TAB_RECORDS);
               setSearch("");
             }}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors ${tab === TAB_RECORDS ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-700"}`}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body transition-colors ${tab === TAB_RECORDS ? "bg-primary font-semibold text-white" : "font-medium text-ink-500 hover:text-ink-900"}`}
           >
             <FileText className="h-4 w-4" />
             บันทึก หัก ณ ที่จ่าย
@@ -770,7 +770,7 @@ export default function WhtPage() {
               setTab(TAB_VENDORS);
               setSearch("");
             }}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body font-medium transition-colors ${tab === TAB_VENDORS ? "bg-white text-ink-900 " : "text-ink-500 hover:text-ink-700"}`}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-control px-3 py-2 text-body transition-colors ${tab === TAB_VENDORS ? "bg-primary font-semibold text-white" : "font-medium text-ink-500 hover:text-ink-900"}`}
           >
             <Users className="h-4 w-4" />
             ผู้ขาย/ผู้รับเงิน
@@ -923,21 +923,21 @@ export default function WhtPage() {
                   <button
                     type="button"
                     onClick={() => setDoneView("active")}
-                    className={`px-3 py-1 text-label font-medium rounded-control transition-colors ${doneView === "active" ? "bg-white text-ink-900 " : "text-ink-300 hover:text-ink-900"}`}
+                    className={`px-3 py-1 text-label rounded-control transition-colors ${doneView === "active" ? "bg-primary font-semibold text-white" : "font-medium text-ink-500 hover:text-ink-900"}`}
                   >
                     รอจัดการ ({activeRecords.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setDoneView("done")}
-                    className={`px-3 py-1 text-label font-medium rounded-control transition-colors ${doneView === "done" ? "bg-white text-ink-900 " : "text-ink-300 hover:text-ink-900"}`}
+                    className={`px-3 py-1 text-label rounded-control transition-colors ${doneView === "done" ? "bg-primary font-semibold text-white" : "font-medium text-ink-500 hover:text-ink-900"}`}
                   >
                     เรียบร้อย ({doneRecords.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setDoneView("all")}
-                    className={`px-3 py-1 text-label font-medium rounded-control transition-colors ${doneView === "all" ? "bg-white text-ink-900 " : "text-ink-300 hover:text-ink-900"}`}
+                    className={`px-3 py-1 text-label rounded-control transition-colors ${doneView === "all" ? "bg-primary font-semibold text-white" : "font-medium text-ink-500 hover:text-ink-900"}`}
                   >
                     ทั้งหมด ({filteredRecords.length})
                   </button>

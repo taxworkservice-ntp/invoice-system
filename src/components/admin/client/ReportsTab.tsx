@@ -6,8 +6,19 @@ import {
   fetchAdminMonthBundle,
   type AdminMonthBundle,
 } from "../../../lib/adminPayrollExport";
-import { buildRunSummaryWorkbook, workbookToBlob } from "../../../lib/payroll/reportXlsx";
 import {
+  buildBankPaymentWorkbook,
+  buildRunSummaryWorkbook,
+  buildWhtWorkbook,
+  workbookToBlob,
+} from "../../../lib/payroll/reportXlsx";
+import {
+  buildEmployeeReportRows,
+  buildEmployeeReportWorkbook,
+} from "../../../lib/payroll/employeeReport";
+import {
+  buildSso101Rows,
+  buildSso101Workbook,
   buildSso110Rows,
   buildSso110Workbook,
   buildSsoMovementRows,
@@ -37,14 +48,37 @@ const REPORT_MONTHS = [
   { value: 12, label: "ธันวาคม" },
 ];
 
-type ReportId = "sso110" | "joiners" | "leavers" | "roster" | "summary";
+type ReportId =
+  | "sso110"
+  | "sso101"
+  | "joiners"
+  | "leavers"
+  | "roster"
+  | "summary"
+  | "wht"
+  | "bank"
+  | "payslips"
+  | "employees";
 
 const REPORTS: { id: ReportId; label: string; hint: string }[] = [
   { id: "sso110", label: "สปส.1-10 รายเดือน", hint: "ค่าจ้าง + เงินสมทบรวมทั้งเดือน" },
+  {
+    id: "sso101",
+    label: "ขึ้นทะเบียนใหม่ (สปส.1-01)",
+    hint: "วันเกิด + ที่อยู่ + ค่าจ้างรายเดือน",
+  },
   { id: "joiners", label: "เข้าใหม่ประจำเดือน (สปส.1-03)", hint: "พร้อมกำหนดยื่นภายใน 30 วัน" },
   { id: "leavers", label: "ลาออกประจำเดือน (สปส.6-09)", hint: "พร้อมกำหนดยื่นภายในวันที่ 15" },
   { id: "roster", label: "รายชื่อประกันสังคม", hint: "ค่าจ้าง + เงินสมทบทุกคน" },
   { id: "summary", label: "สรุปเงินเดือน", hint: "แยกรายรอบ รวมรอบร่างด้วย" },
+  { id: "wht", label: "ภาษีหัก ณ ที่จ่าย", hint: "แยกรายรอบ รวมรอบร่างด้วย" },
+  { id: "bank", label: "รายการโอนธนาคาร", hint: "เฉพาะผู้มีเลขบัญชี แยกรายรอบ" },
+  { id: "payslips", label: "สลิปเงินเดือนทั้งหมด", hint: "PDF ทุกคนทุกรอบ (ZIP)" },
+  {
+    id: "employees",
+    label: "ทะเบียนพนักงานประจำเดือน",
+    hint: "ข้อมูลพนักงานทั้งหมด พร้อมสถานะประกันสังคมและรายการเข้า-ออก",
+  },
 ];
 
 /**
@@ -233,12 +267,230 @@ export function ReportsTab({ clientId }: { clientId: string | undefined }) {
     });
   }
 
+  async function handleSso101() {
+    await withBundle("sso101", async (bundle) => {
+      const built = buildSso101Rows(bundle.employees, year, month);
+      if (blockedError(built)) return;
+      if (built.rows.length === 0) {
+        toast.error("เดือนนี้ไม่มีพนักงานเข้าใหม่");
+        return;
+      }
+      const wb = buildSso101Workbook(built.rows, {
+        year,
+        month,
+        companyName: bundle.profile?.company_name_th ?? null,
+      });
+      downloadBlob(await workbookToBlob(wb), `sso-1-01-${ym()}-${slug(bundle)}.xlsx`);
+      const skips: string[] = [];
+      if (built.skippedDaily > 0) skips.push(`รายวัน ${built.skippedDaily}`);
+      if (built.skippedContract > 0) skips.push(`ภ.ง.ด.3 ${built.skippedContract}`);
+      if (built.skippedOver60 > 0) skips.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
+      toast.success(
+        `ส่งออก สปส.1-01 ${built.rows.length} คน${skips.length > 0 ? ` (ข้าม: ${skips.join(" · ")})` : ""}`,
+      );
+      audit("sso101", bundle.draftLabels);
+    });
+  }
+
+  async function handleWht() {
+    await withBundle("wht", async (bundle) => {
+      if (bundle.runs.length === 0) {
+        toast.error("เดือนนี้ไม่มีรอบเงินเดือน");
+        return;
+      }
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      let count = 0;
+      for (const r of bundle.runs) {
+        const rows = buildAdminCalcRows(bundle, r);
+        const blob = await workbookToBlob(buildWhtWorkbook(r, rows));
+        const label = r.label || `${r.period_start}_${r.period_end}`;
+        zip.file(`wht-${ym()}-${sanitizeFilenamePart(label)}.xlsx`, blob);
+        count += 1;
+      }
+      if (count === 1) {
+        const first = Object.values(zip.files)[0];
+        const blob = await first.async("blob");
+        downloadBlob(blob, `wht-${ym()}-${slug(bundle)}.xlsx`);
+      } else {
+        downloadBlob(await zip.generateAsync({ type: "blob" }), `wht-${ym()}-${slug(bundle)}.zip`);
+      }
+      toast.success(`ส่งออกภาษีหัก ณ ที่จ่าย ${count} รอบ`);
+      audit("wht", bundle.draftLabels);
+    });
+  }
+
+  async function handleBank() {
+    await withBundle("bank", async (bundle) => {
+      if (bundle.runs.length === 0) {
+        toast.error("เดือนนี้ไม่มีรอบเงินเดือน");
+        return;
+      }
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      let count = 0;
+      for (const r of bundle.runs) {
+        const rows = buildAdminCalcRows(bundle, r).filter((row) => row.employee.bank_account);
+        if (rows.length === 0) continue;
+        const blob = await workbookToBlob(buildBankPaymentWorkbook(r, rows));
+        const label = r.label || `${r.period_start}_${r.period_end}`;
+        zip.file(`bank-payment-${ym()}-${sanitizeFilenamePart(label)}.xlsx`, blob);
+        count += 1;
+      }
+      if (count === 0) {
+        toast.error("ไม่มีพนักงานที่มีเลขบัญชีธนาคาร");
+        return;
+      }
+      if (count === 1) {
+        const first = Object.values(zip.files)[0];
+        const blob = await first.async("blob");
+        downloadBlob(blob, `bank-payment-${ym()}-${slug(bundle)}.xlsx`);
+      } else {
+        downloadBlob(
+          await zip.generateAsync({ type: "blob" }),
+          `bank-payment-${ym()}-${slug(bundle)}.zip`,
+        );
+      }
+      toast.success(`ส่งออกรายการโอนธนาคาร ${count} รอบ`);
+      audit("bank", bundle.draftLabels);
+    });
+  }
+
+  async function handlePayslips() {
+    await withBundle("payslips", async (bundle) => {
+      if (bundle.runs.length === 0) {
+        toast.error("เดือนนี้ไม่มีรอบเงินเดือน");
+        return;
+      }
+      const { default: JSZip } = await import("jszip");
+      const { buildPayslipSlipNode } = await import("../../../lib/payroll/payslipPdf");
+      const { slipNodeToPdfBlob, sanitizePdfFilename } =
+        await import("../../../lib/payroll/payslipPdfRender");
+      const { calculateBreakdown, getEffectiveHourlyRate, resolveDivisorDays } =
+        await import("../../../lib/payroll/calculations");
+      const { resolveEffectiveLineItem } = await import("../../../lib/payroll/rows");
+      const { applyAttribution } = await import("../../../lib/payroll/monthClose");
+      const { isSsoExemptByAge } = await import("../../../lib/payroll/ssoEligibility");
+      const { getProxiedImageUrl } = await import("../../../lib/r2");
+      const profile = bundle.profile;
+      const company = profile
+        ? {
+            name: profile.company_name_th ?? null,
+            address: profile.address ?? null,
+            taxId: profile.tax_id ?? null,
+            phone: profile.phone ?? null,
+            logoUrl: profile.logo_url ? getProxiedImageUrl(profile.logo_url) : null,
+          }
+        : null;
+      const zip = new JSZip();
+      let okCount = 0;
+      let failCount = 0;
+      for (const r of bundle.runs) {
+        const otOnly = (r.batch_type ?? "salary") === "ot";
+        const statutoryMonth = Number(r.period_end.slice(5, 7));
+        const statutoryYear = Number(r.period_end.slice(0, 4));
+        const label = r.label || `${r.period_start}_${r.period_end}`;
+        for (const emp of bundle.employees) {
+          try {
+            const item = resolveEffectiveLineItem(
+              emp.id,
+              bundle.storedByRun.get(r.id) ?? new Map(),
+              bundle.recurringByEmployee,
+              r.id,
+              { includeRecurring: !otOnly },
+            );
+            let calc = calculateBreakdown(
+              {
+                salary_type: emp.salary_type,
+                base_salary: emp.base_salary,
+                days_worked: item.days_worked,
+                absent_days: item.absent_days,
+                absence_daily_rate: item.absence_daily_rate,
+                ot_entries: item.ot_entries,
+                additions: item.additions,
+                deductions: item.deductions,
+                sso_registered: emp.sso_registered !== false,
+                sso_exempt: isSsoExemptByAge(emp),
+              },
+              bundle.settings,
+              statutoryMonth,
+              statutoryYear,
+              otOnly ? { scope: "ot-only" } : undefined,
+            );
+            if (emp.sso_registered !== false && r.status === "draft") {
+              const attr = bundle.monthData?.attributed.get(r.id)?.get(emp.id);
+              if (attr) calc = applyAttribution(calc, attr, bundle.settings.rounding_rule);
+            }
+            const hourlyRate = getEffectiveHourlyRate(
+              emp.salary_type,
+              emp.base_salary,
+              resolveDivisorDays(bundle.settings, statutoryMonth, statutoryYear),
+            );
+            const totalDeductions = (item.deductions ?? []).reduce(
+              (s, d) => s + (Number(d.amount) || 0),
+              0,
+            );
+            const blob = await slipNodeToPdfBlob(
+              buildPayslipSlipNode(emp, r, item, { ...calc, totalDeductions }, hourlyRate, company),
+            );
+            zip.file(
+              `${sanitizeFilenamePart(label)}/${sanitizePdfFilename(`${emp.employee_code}-${emp.full_name}`)}.pdf`,
+              blob,
+            );
+            okCount += 1;
+          } catch {
+            failCount += 1;
+          }
+        }
+      }
+      if (okCount === 0) {
+        toast.error("สร้างสลิปไม่สำเร็จ");
+        return;
+      }
+      downloadBlob(
+        await zip.generateAsync({ type: "blob" }),
+        `payslips-${ym()}-${slug(bundle)}.zip`,
+      );
+      toast.success(
+        failCount > 0
+          ? `สร้าง PDF สำเร็จ ${okCount} ใบ · ล้มเหลว ${failCount} ใบ`
+          : `สร้าง PDF ${okCount} ใบแล้ว`,
+      );
+      audit("payslips", bundle.draftLabels);
+    });
+  }
+
+  async function handleEmployees() {
+    await withBundle("employees", async (bundle) => {
+      if (bundle.employees.length === 0) {
+        toast.error("ลูกค้านี้ยังไม่มีพนักงาน");
+        return;
+      }
+      const built = buildEmployeeReportRows(bundle.employees, year, month);
+      const wb = buildEmployeeReportWorkbook(built, {
+        year,
+        month,
+        companyName: bundle.profile?.company_name_th ?? null,
+      });
+      downloadBlob(await workbookToBlob(wb), `employee-report-${ym()}-${slug(bundle)}.xlsx`);
+      toast.success(
+        `ส่งออกรายงานพนักงาน ${built.all.length} คน (SSO ${built.sso.length} · นอก SSO ${built.nonSso.length} · เข้า ${built.joiners.length} · ออก ${built.leavers.length})`,
+      );
+      audit("employees", bundle.draftLabels);
+    });
+  }
+
   const handlers: Record<ReportId, () => void> = {
     sso110: () => void handleSso110(),
+    sso101: () => void handleSso101(),
     joiners: () => void handleMovement("joiners"),
     leavers: () => void handleMovement("leavers"),
     roster: () => void handleRoster(),
     summary: () => void handleSummary(),
+    wht: () => void handleWht(),
+    bank: () => void handleBank(),
+    payslips: () => void handlePayslips(),
+    employees: () => void handleEmployees(),
   };
 
   return (

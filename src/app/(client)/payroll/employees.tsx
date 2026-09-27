@@ -35,14 +35,11 @@ import { SortableTh } from "../../../components/ui/SortableTh";
 import { supabase } from "../../../lib/supabase";
 import { deleteFromR2, getR2PresignedUrl } from "../../../lib/r2";
 import { ImageUpload, type UploadedFileMeta } from "../../../components/ui/ImageUpload";
-import { downloadBlob, datedFilename } from "../../../lib/download/download";
+import { downloadBlob } from "../../../lib/download/download";
 import {
-  buildSsoMovementRows,
-  buildSsoMovementWorkbook,
-  buildSsoRows,
-  buildSsoRosterRows,
-  buildSsoWorkbook,
-} from "../../../lib/payroll/ssoExport";
+  buildEmployeeReportRows,
+  buildEmployeeReportWorkbook,
+} from "../../../lib/payroll/employeeReport";
 import { workbookToBlob } from "../../../lib/payroll/reportXlsx";
 import { useWorkspaceFeatures, useWorkspaceRole } from "../../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../../lib/permissions";
@@ -94,8 +91,6 @@ export function resignReasonLabel(reason: string | null | undefined): string {
 
 type ModalState = { mode: "create"; form: EmployeeForm } | { mode: "edit"; form: EmployeeForm };
 
-type EmployeeFilter = "active" | "inactive" | "incomplete" | "all";
-
 const REPORT_MONTHS = [
   { value: 1, label: "มกราคม" },
   { value: 2, label: "กุมภาพันธ์" },
@@ -110,6 +105,8 @@ const REPORT_MONTHS = [
   { value: 11, label: "พฤศจิกายน" },
   { value: 12, label: "ธันวาคม" },
 ];
+
+type EmployeeFilter = "active" | "inactive" | "incomplete" | "all";
 
 function isIncompleteProfile(emp: Employee): boolean {
   return (
@@ -674,43 +671,21 @@ export default function EmployeesPage() {
     setDeletingEmployee(null);
   }
 
-  async function handleExportSsoRoster() {
-    const roster = buildSsoRosterRows(employees);
-    if (roster.skippedDaily.length > 0) {
-      const names = roster.skippedDaily
-        .slice(0, 3)
-        .map((e) => `${e.employee_code} ${e.full_name}`.trim())
-        .join(", ");
-      const more =
-        roster.skippedDaily.length > 3 ? ` และอีก ${roster.skippedDaily.length - 3} คน` : "";
-      toast.error(
-        `ส่งออกไม่ได้: พนักงานรายวัน ${names}${more} ต้องส่งออกจากรอบเงินเดือน (ค่าจ้างตามวันทำงานจริง)`,
-      );
+  async function handleExportEmployeeReport() {
+    if (employees.length === 0) {
+      toast.error("ยังไม่มีพนักงาน");
+      setExportMenuOpen(false);
       return;
     }
-    const built = buildSsoRows(roster.rows);
-    if (built.errors.length > 0) {
-      const names = built.errors
-        .slice(0, 3)
-        .map((e) => `${e.employeeCode} ${e.fullName}`.trim())
-        .join(", ");
-      const more = built.errors.length > 3 ? ` และอีก ${built.errors.length - 3} คน` : "";
-      toast.error(`ส่งออกไม่ได้: ${names}${more} — ${built.errors[0].reason}`);
-      return;
-    }
-    if (built.rows.length === 0) {
-      toast.error("ไม่มีพนักงานประกันสังคม");
-      return;
-    }
-    const wb = buildSsoWorkbook(built.rows);
+    const built = buildEmployeeReportRows(employees, reportYear, reportMonth);
+    const wb = buildEmployeeReportWorkbook(built, { year: reportYear, month: reportMonth });
     const blob = await workbookToBlob(wb);
-    downloadBlob(blob, datedFilename("sso-employees", "xlsx"));
-    const skippedParts: string[] = [];
-    if (built.skippedInactive > 0) skippedParts.push(`ลาออก ${built.skippedInactive}`);
-    if (built.skippedContract > 0) skippedParts.push(`ภ.ง.ด.3 ${built.skippedContract}`);
-    if (built.skippedOver60 > 0) skippedParts.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
-    const skipped = skippedParts.length > 0 ? ` (ข้าม: ${skippedParts.join(" · ")})` : "";
-    toast.success(`ส่งออกประกันสังคม ${built.rows.length} คน${skipped}`);
+    const mm = String(reportMonth).padStart(2, "0");
+    downloadBlob(blob, `employee-report-${reportYear}-${mm}.xlsx`);
+    toast.success(
+      `ส่งออกรายงานพนักงาน ${built.all.length} คน (SSO ${built.sso.length} · นอก SSO ${built.nonSso.length} · เข้า ${built.joiners.length} · ออก ${built.leavers.length})`,
+    );
+    setExportMenuOpen(false);
   }
 
   useEffect(() => {
@@ -730,70 +705,6 @@ export default function EmployeesPage() {
       document.removeEventListener("keydown", handleKey);
     };
   }, [exportMenuOpen]);
-
-  function exportMovementToast(
-    built: {
-      rows: unknown[];
-      errors: { employeeCode: string; fullName: string; reason: string }[];
-      skippedDaily: number;
-      skippedContract: number;
-      skippedOver60: number;
-    },
-    emptyLabel: string,
-  ): boolean {
-    if (built.errors.length > 0) {
-      const names = built.errors
-        .slice(0, 3)
-        .map((e) => `${e.employeeCode} ${e.fullName}`.trim())
-        .join(", ");
-      const more = built.errors.length > 3 ? ` และอีก ${built.errors.length - 3} คน` : "";
-      toast.error(`ส่งออกไม่ได้: ${names}${more} — ${built.errors[0].reason}`);
-      return false;
-    }
-    if (built.rows.length === 0) {
-      toast.error(emptyLabel);
-      return false;
-    }
-    return true;
-  }
-
-  function movementSkippedNote(built: {
-    skippedDaily: number;
-    skippedContract: number;
-    skippedOver60: number;
-  }): string {
-    const parts: string[] = [];
-    if (built.skippedDaily > 0) parts.push(`รายวัน ${built.skippedDaily}`);
-    if (built.skippedContract > 0) parts.push(`ภ.ง.ด.3 ${built.skippedContract}`);
-    if (built.skippedOver60 > 0) parts.push(`เกิน 60 ตอนเข้างาน ${built.skippedOver60}`);
-    return parts.length > 0 ? ` (ข้าม: ${parts.join(" · ")})` : "";
-  }
-
-  async function handleExportSsoMovement(direction: "joiners" | "leavers") {
-    const isJoiners = direction === "joiners";
-    const built = buildSsoMovementRows(employees, reportYear, reportMonth, direction);
-    if (
-      !exportMovementToast(
-        built,
-        isJoiners ? "เดือนนี้ไม่มีพนักงานเข้าใหม่" : "เดือนนี้ไม่มีพนักงานลาออก",
-      )
-    ) {
-      setExportMenuOpen(false);
-      return;
-    }
-    const wb = buildSsoMovementWorkbook(built.rows, {
-      direction,
-      year: reportYear,
-      month: reportMonth,
-    });
-    const blob = await workbookToBlob(wb);
-    const mm = String(reportMonth).padStart(2, "0");
-    downloadBlob(blob, `sso-${isJoiners ? "joiners" : "leavers"}-${reportYear}-${mm}.xlsx`);
-    toast.success(
-      `ส่งออกบัญชี${isJoiners ? "เข้าใหม่" : "ลาออก"} ${built.rows.length} คน${movementSkippedNote(built)}`,
-    );
-    setExportMenuOpen(false);
-  }
 
   function maskAccount(account: string): string {
     if (account.length <= 4) return account ? "•••" : "";
@@ -847,28 +758,16 @@ export default function EmployeesPage() {
             {exportMenuOpen && (
               <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-card-border rounded-control z-30 py-1 shadow-overlay">
                 <div className="px-3 pt-1.5 pb-1 text-label font-medium text-ink-400">
-                  รายงานประกันสังคม
+                  รายงานพนักงาน
                 </div>
                 <button
-                  onClick={handleExportSsoRoster}
+                  onClick={handleExportEmployeeReport}
                   className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex flex-col gap-0.5"
                 >
-                  <span>รายชื่อประกันสังคม</span>
-                  <span className="text-label text-ink-400">ค่าจ้าง + เงินสมทบทุกคน</span>
-                </button>
-                <button
-                  onClick={() => handleExportSsoMovement("joiners")}
-                  className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex flex-col gap-0.5"
-                >
-                  <span>เข้าใหม่ประจำเดือน (สปส.1-03)</span>
-                  <span className="text-label text-ink-400">พร้อมกำหนดยื่นภายใน 30 วัน</span>
-                </button>
-                <button
-                  onClick={() => handleExportSsoMovement("leavers")}
-                  className="w-full text-left px-3 py-2 text-body hover:bg-paper-field flex flex-col gap-0.5"
-                >
-                  <span>ลาออกประจำเดือน (สปส.6-09)</span>
-                  <span className="text-label text-ink-400">พร้อมกำหนดยื่นภายในวันที่ 15</span>
+                  <span>ทะเบียนพนักงานประจำเดือน</span>
+                  <span className="text-label text-ink-400">
+                    ข้อมูลพนักงานทั้งหมด พร้อมสถานะประกันสังคมและรายการเข้า-ออก
+                  </span>
                 </button>
               </div>
             )}
