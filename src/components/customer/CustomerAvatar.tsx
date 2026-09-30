@@ -3,18 +3,34 @@ import type { Customer } from "../../types";
 import { avatarPalette, ink, paper } from "../../design/tokens";
 
 interface CustomerAvatarProps {
-  customer: Pick<Customer, "name" | "avatar_initials" | "avatar_color">;
+  customer: Pick<Customer, "name" | "avatar_initials" | "avatar_color" | "avatar_hidden">;
   size?: "xs" | "sm" | "md" | "lg";
+  /** Global kill-switch (tenant setting): renders nothing, the name shifts left. */
+  hidden?: boolean;
   className?: string;
 }
 
 /** Thai legal-entity prefixes (full words and abbreviations) skipped for initials. */
 const PREFIX_RE = /^(บริษัท|ห้างหุ้นส่วนจำกัด|ร้าน|บจก\.?|บมจ\.?|หจก\.?|หสน\.?)\s*/i;
 
-const segmenter =
-  typeof Intl !== "undefined" && "Segmenter" in Intl
-    ? new Intl.Segmenter("th", { granularity: "grapheme" })
-    : null;
+/** Minimal shape of Intl.Segmenter (missing from the ES2020 lib). */
+interface GraphemeSegmenter {
+  segment(text: string): Iterable<{ segment: string }>;
+}
+
+function getSegmenter(): GraphemeSegmenter | null {
+  const intl = Intl as unknown as {
+    Segmenter?: new (locale: string, opts: { granularity: string }) => GraphemeSegmenter;
+  };
+  if (typeof intl.Segmenter === "undefined") return null;
+  try {
+    return new intl.Segmenter("th", { granularity: "grapheme" });
+  } catch {
+    return null;
+  }
+}
+
+const segmenter = getSegmenter();
 
 function graphemes(text: string): string[] {
   if (segmenter) return [...segmenter.segment(text)].map((s) => s.segment);
@@ -64,30 +80,48 @@ const SIZE_CLASSES: Record<NonNullable<CustomerAvatarProps["size"]>, string> = {
   lg: "w-16 h-16 text-subtitle",
 };
 
-export function CustomerAvatar({ customer, size = "md", className = "" }: CustomerAvatarProps) {
-  const { bg, fg, initials, outlined } = useMemo(() => {
+export function CustomerAvatar({
+  customer,
+  size = "md",
+  hidden = false,
+  className = "",
+}: CustomerAvatarProps) {
+  const { bg, fg, initials, blank, outlined } = useMemo(() => {
+    // Per-customer opt-out (or pre-migration rows without the column, which
+    // read as undefined and stay visible): blank box keeps rows aligned.
+    if (customer.avatar_hidden === true) {
+      return {
+        bg: paper.DEFAULT,
+        fg: ink[900],
+        initials: "",
+        blank: true,
+        outlined: true,
+      };
+    }
     // Grapheme-aware so Thai combining marks are never split from their base.
     const raw = (customer.avatar_initials?.trim() || deriveInitials(customer.name)).toUpperCase();
     const initials = graphemes(raw).slice(0, 3).join("") || "?";
     if (isValidHex(customer.avatar_color)) {
       const hex = customer.avatar_color.trim();
       if (isWhiteHex(hex)) {
-        return { bg: paper.DEFAULT, fg: ink[900], initials, outlined: true };
+        return { bg: paper.DEFAULT, fg: ink[900], initials, blank: false, outlined: true };
       }
-      return { bg: hex, fg: contrastFg(hex), initials, outlined: false };
+      return { bg: hex, fg: contrastFg(hex), initials, blank: false, outlined: false };
     }
     const palette = avatarPalette[hashName(customer.name) % avatarPalette.length];
-    return { bg: palette.bg, fg: palette.fg, initials, outlined: false };
-  }, [customer.avatar_color, customer.avatar_initials, customer.name]);
+    return { bg: palette.bg, fg: palette.fg, initials, blank: false, outlined: false };
+  }, [customer.avatar_color, customer.avatar_initials, customer.avatar_hidden, customer.name]);
+
+  if (hidden) return null;
 
   return (
     <div
       role="img"
       aria-label={customer.name}
-      className={`shrink-0 rounded-control flex items-center justify-center font-semibold select-none ${SIZE_CLASSES[size]} ${outlined ? "border border-card-border" : ""} ${className}`}
+      className={`shrink-0 rounded-control flex items-center justify-center font-semibold select-none ${SIZE_CLASSES[size]} ${blank || outlined ? "border border-card-border" : ""} ${className}`}
       style={{ backgroundColor: bg, color: fg }}
     >
-      {initials}
+      {blank ? null : initials}
     </div>
   );
 }

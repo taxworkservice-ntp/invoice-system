@@ -53,7 +53,7 @@ type DealDoc = Pick<
 >;
 
 type DealWithRelations = Deal & {
-  customers: Pick<Customer, "id" | "name" | "code" | "avatar_initials" | "avatar_color"> | null;
+  customers: Pick<Customer, "id" | "name" | "code" | "avatar_initials" | "avatar_color" | "avatar_hidden"> | null;
   documents: DealDoc[];
   deal_number: string | null;
 };
@@ -78,7 +78,7 @@ type DashboardDeal = {
   dealNumber: string | null;
   customerName: string;
   customerCode: string | null;
-  customerAvatar: Pick<Customer, "name" | "avatar_initials" | "avatar_color"> | null;
+  customerAvatar: Pick<Customer, "name" | "avatar_initials" | "avatar_color" | "avatar_hidden"> | null;
   itemSummary: string;
   itemNames: string[];
   amount: number;
@@ -578,6 +578,7 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
           name: deal.customers.name,
           avatar_initials: deal.customers.avatar_initials,
           avatar_color: deal.customers.avatar_color,
+          avatar_hidden: deal.customers.avatar_hidden,
         }
       : null,
     itemSummary: deal.title || latestDocument?.doc_number || "",
@@ -780,7 +781,7 @@ export default function HomePage() {
           `
         id, user_id, customer_id, title, deal_number, manual_stage,
         is_active, created_at, updated_at, notes,
-        customers(id, name, code, avatar_initials, avatar_color),
+        customers(id, name, code, avatar_initials, avatar_color, avatar_hidden),
         documents(
           id, doc_type, doc_number, status, converted_from_id,
           total_amount, vat_amount, net_payable, wht_amount, amount_received,
@@ -1096,6 +1097,8 @@ export default function HomePage() {
   }, [totalDonePages, donePage]);
 
   const homeTitle = clientProfile?.company_name_th?.trim() || "หน้างานขาย";
+  // Tenant-level avatar toggle (missing pre-migration = shown).
+  const showAvatars = clientProfile?.show_customer_avatars !== false;
   const actionCount = activeDealsAll.length;
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -1378,6 +1381,7 @@ export default function HomePage() {
                             name: deal.customerName,
                             avatar_initials: null,
                             avatar_color: null,
+                            avatar_hidden: false,
                           };
                           const updatedAtParts = formatBuddhistDateTimeParts(deal.updatedAt);
                           return (
@@ -1389,7 +1393,11 @@ export default function HomePage() {
                             >
                               <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <CustomerAvatar customer={rowAvatar} size="xs" />
+                                  <CustomerAvatar
+                                    customer={rowAvatar}
+                                    size="xs"
+                                    hidden={!showAvatars}
+                                  />
                                   <span className="text-ink-900 truncate" title={deal.customerName}>
                                     {deal.customerName}
                                   </span>
@@ -1623,6 +1631,7 @@ export default function HomePage() {
                                   name: deal.customerName,
                                   avatar_initials: null,
                                   avatar_color: null,
+                                  avatar_hidden: false,
                                 };
                                 const doneUpdatedParts = deal.updatedAt
                                   ? formatBuddhistDateTimeParts(deal.updatedAt)
@@ -1635,7 +1644,11 @@ export default function HomePage() {
                                   >
                                     <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
                                       <div className="flex items-center gap-2 min-w-0">
-                                        <CustomerAvatar customer={rowAvatar} size="xs" />
+                                        <CustomerAvatar
+                                          customer={rowAvatar}
+                                          size="xs"
+                                          hidden={!showAvatars}
+                                        />
                                         <div className="min-w-0">
                                           <div
                                             className="truncate text-ink-900"

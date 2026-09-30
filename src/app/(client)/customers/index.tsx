@@ -10,7 +10,7 @@ import { SortableTh } from "../../../components/ui/SortableTh";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { useCustomers } from "../../../hooks/useCustomers";
-import { useAuth, useWorkspaceRole } from "../../../hooks/useAuth";
+import { useAuth, useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { fetchAllRows } from "../../../lib/fetchAllRows";
@@ -56,6 +56,8 @@ export default function CustomersPage() {
   ).canManageCustomers;
   const toast = useToast();
   const { customers, loading, refetch, updateCustomerLocal } = useCustomers(profile?.id);
+  const { clientProfile } = useClientProfile(profile?.id);
+  const showAvatars = clientProfile?.show_customer_avatars !== false;
   const [search, setSearch] = useState("");
   const [dealStats, setDealStats] = useState<Record<string, CustomerDealStats>>({});
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -439,7 +441,7 @@ export default function CustomersPage() {
                         </td>
                         <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2 min-w-0`}>
                           <div className="flex items-center gap-2 min-w-0">
-                            <CustomerAvatar customer={c} size="xs" />
+                            <CustomerAvatar customer={c} size="xs" hidden={!showAvatars} />
                             <span className="text-ink-900 truncate" title={c.name}>
                               {c.name}
                             </span>

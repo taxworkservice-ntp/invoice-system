@@ -5,6 +5,7 @@ import { useBankAccounts } from "../../../hooks/useBankAccounts";
 import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { SettingRow } from "../../../components/ui/SettingRow";
+import { Switch } from "../../../components/ui/Switch";
 import { Button } from "../../../components/ui/Button";
 import { SaveBar } from "../../../components/ui/SaveBar";
 import { Input } from "../../../components/ui/Input";
@@ -36,6 +37,8 @@ export default function SettingsCompanyPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [showAvatars, setShowAvatars] = useState(true);
+  const [savingAvatars, setSavingAvatars] = useState(false);
 
   const [bankName, setBankName] = useState("");
   const [bankAccount, setBankAccount] = useState("");
@@ -53,6 +56,7 @@ export default function SettingsCompanyPage() {
     setContactName(clientProfile.contact_name || "");
     setSsoAccountNo(clientProfile.sso_account_no || "");
     setSsoBranchNo(clientProfile.sso_branch_no || "000000");
+    setShowAvatars(clientProfile.show_customer_avatars !== false);
   }, [clientProfile]);
 
   useEffect(() => {
@@ -185,6 +189,29 @@ export default function SettingsCompanyPage() {
     }
     removeBankAccountLocal(account.id);
     toast.success("ลบบัญชีธนาคารแล้ว");
+  }
+
+  async function handleToggleAvatars(on: boolean) {
+    if (!profile || !clientProfile) return;
+    setShowAvatars(on);
+    setSavingAvatars(true);
+    const { error: err } = await supabase
+      .from("client_profiles")
+      .update({ show_customer_avatars: on })
+      .eq("user_id", profile.id);
+    if (err) {
+      // Revert: pre-migration DBs (42703) or real errors must not lie in the UI.
+      setShowAvatars(clientProfile.show_customer_avatars !== false);
+      toast.error(
+        err.code === "42703"
+          ? "ยังไม่พบการตั้งค่านี้ — ให้ผู้ดูแลระบบรัน migration ก่อน"
+          : err.message,
+      );
+    } else {
+      setClientProfile({ ...clientProfile, show_customer_avatars: on } as ClientProfile);
+      toast.success(on ? "แสดง avatar ลูกค้าแล้ว" : "ซ่อน avatar ลูกค้าแล้ว");
+    }
+    setSavingAvatars(false);
   }
 
   async function handleSave() {
@@ -338,6 +365,26 @@ export default function SettingsCompanyPage() {
                 placeholder="ชื่อที่ใช้แสดงในการทักทาย"
               />
             </SettingRow>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="การแสดงผล"
+          description="เลือกรายการที่แสดงในหน้ารายการของบริษัทคุณ"
+        >
+          <div className="py-1.5">
+            <Switch
+              checked={showAvatars}
+              onChange={(on) => {
+                void handleToggleAvatars(on);
+              }}
+              label="แสดง avatar ลูกค้า"
+              disabled={savingAvatars}
+            />
+            <p className="mt-1.5 text-label leading-relaxed text-ink-300">
+              ปิดแล้วรายการลูกค้าจะแสดงชื่ออย่างเดียว ไม่มีช่อง avatar —
+              กล่องว่างของลูกค้าที่ตั้งซ่อนไว้เป็นรายคนก็จะหายไปด้วย
+            </p>
           </div>
         </SectionCard>
 

@@ -264,6 +264,7 @@ export default function CustomerDetailPage() {
   const [editCreditTerm, setEditCreditTerm] = useState<string>("");
   const [editAvatarInitials, setEditAvatarInitials] = useState("");
   const [editAvatarColor, setEditAvatarColor] = useState("");
+  const [editAvatarHidden, setEditAvatarHidden] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
   const [useCustomAvatar, setUseCustomAvatar] = useState(false);
@@ -318,6 +319,7 @@ export default function CustomerDetailPage() {
         );
         setEditAvatarInitials(custRes.data.avatar_initials || "");
         setEditAvatarColor(custRes.data.avatar_color || "");
+        setEditAvatarHidden(custRes.data.avatar_hidden === true);
         setUseCustomAvatar(Boolean(custRes.data.avatar_initials || custRes.data.avatar_color));
       }
       if (dealsRes.data) {
@@ -385,6 +387,7 @@ export default function CustomerDetailPage() {
         credit_term_days: creditTermValue,
         avatar_initials: avatarInitials,
         avatar_color: avatarColor,
+        avatar_hidden: editAvatarHidden,
       })
       .eq("id", customer.id);
     if (err) {
@@ -402,6 +405,7 @@ export default function CustomerDetailPage() {
         credit_term_days: creditTermValue,
         avatar_initials: avatarInitials,
         avatar_color: avatarColor,
+        avatar_hidden: editAvatarHidden,
       });
       toast.success("บันทึกแล้ว");
       setEditing(false);
@@ -422,12 +426,21 @@ export default function CustomerDetailPage() {
         : null;
     const { error: err } = await supabase
       .from("customers")
-      .update({ avatar_initials: avatarInitials, avatar_color: avatarColor })
+      .update({
+        avatar_initials: avatarInitials,
+        avatar_color: avatarColor,
+        avatar_hidden: editAvatarHidden,
+      })
       .eq("id", customer.id);
     if (err) {
       toast.error(err.message);
     } else {
-      setCustomer({ ...customer, avatar_initials: avatarInitials, avatar_color: avatarColor });
+      setCustomer({
+        ...customer,
+        avatar_initials: avatarInitials,
+        avatar_color: avatarColor,
+        avatar_hidden: editAvatarHidden,
+      });
       toast.success("บันทึก avatar แล้ว");
     }
     setSavingAvatar(false);
@@ -438,14 +451,15 @@ export default function CustomerDetailPage() {
     setSavingAvatar(true);
     const { error: err } = await supabase
       .from("customers")
-      .update({ avatar_initials: null, avatar_color: null })
+      .update({ avatar_initials: null, avatar_color: null, avatar_hidden: false })
       .eq("id", customer.id);
     if (err) {
       toast.error(err.message);
     } else {
-      setCustomer({ ...customer, avatar_initials: null, avatar_color: null });
+      setCustomer({ ...customer, avatar_initials: null, avatar_color: null, avatar_hidden: false });
       setEditAvatarInitials("");
       setEditAvatarColor("");
+      setEditAvatarHidden(false);
       setUseCustomAvatar(false);
       toast.success("คืนค่า avatar เป็นอัตโนมัติ");
     }
@@ -610,12 +624,18 @@ export default function CustomerDetailPage() {
       <div className="space-y-4">
         <Card>
           <div className="flex items-start gap-3 mb-3">
-            <CustomerAvatar customer={customer} size="lg" />
+            <CustomerAvatar
+              customer={customer}
+              size="lg"
+              hidden={clientProfile?.show_customer_avatars === false}
+            />
             <div className="flex-1 min-w-0">
               <h2 className="text-title font-semibold text-ink-900 truncate">{customer.name}</h2>
               <div className="text-label text-ink-300 mt-0.5">
                 avatar:{" "}
-                {customer.avatar_initials || customer.avatar_color ? (
+                {customer.avatar_hidden === true ? (
+                  <span>ซ่อนอยู่</span>
+                ) : customer.avatar_initials || customer.avatar_color ? (
                   <span className="text-primary">กำหนดเอง</span>
                 ) : (
                   "อัตโนมัติ"
@@ -656,6 +676,15 @@ export default function CustomerDetailPage() {
                   />
                   กำหนด avatar เอง
                 </label>
+                <label className="flex items-center gap-2 text-body text-ink-700">
+                  <input
+                    type="checkbox"
+                    checked={editAvatarHidden}
+                    onChange={(e) => setEditAvatarHidden(e.target.checked)}
+                    className="w-4 h-4 rounded border-line-strong text-primary focus:ring-primary"
+                  />
+                  ซ่อน avatar นี้ (แสดงกล่องว่าง)
+                </label>
 
                 {useCustomAvatar && (
                   <>
@@ -686,31 +715,34 @@ export default function CustomerDetailPage() {
                         ))}
                       </div>
                     </div>
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        onClick={saveAvatar}
-                        loading={savingAvatar}
-                        disabled={savingAvatar}
-                        className="!text-label"
-                      >
-                        บันทึก avatar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={resetAvatar}
-                        disabled={
-                          savingAvatar || (!customer.avatar_initials && !customer.avatar_color)
-                        }
-                        className="!text-label"
-                      >
-                        <RotateCcw size={12} className="mr-1" />
-                        คืนค่าอัตโนมัติ
-                      </Button>
-                    </div>
                   </>
                 )}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    onClick={saveAvatar}
+                    loading={savingAvatar}
+                    disabled={savingAvatar}
+                    className="!text-label"
+                  >
+                    บันทึก avatar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={resetAvatar}
+                    disabled={
+                      savingAvatar ||
+                      (!customer.avatar_initials &&
+                        !customer.avatar_color &&
+                        customer.avatar_hidden !== true)
+                    }
+                    className="!text-label"
+                  >
+                    <RotateCcw size={12} className="mr-1" />
+                    คืนค่าอัตโนมัติ
+                  </Button>
+                </div>
               </div>
             )}
           </div>

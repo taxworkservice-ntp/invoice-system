@@ -151,6 +151,8 @@ export interface ClientProfile {
   require_dn_price_review?: boolean;
   show_logo: boolean;
   show_company_name: boolean;
+  /** Show customer avatars in lists (default on). Off = names only, no boxes. */
+  show_customer_avatars: boolean;
   logo_layout?: "left" | "above" | null;
   dev_mode_enabled: boolean;
   dev_effective_date: string | null;
@@ -201,6 +203,8 @@ export interface Customer {
   is_favorite: boolean;
   avatar_initials: string | null;
   avatar_color: string | null;
+  /** Hide this customer's avatar (blank placeholder box keeps list rows aligned). */
+  avatar_hidden: boolean;
   credit_term_days: number | null;
   created_at: string;
   updated_at: string;
