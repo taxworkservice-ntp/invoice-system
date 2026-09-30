@@ -1003,7 +1003,7 @@ export default function CustomerDetailPage() {
                         active={dealSort.sort.key === "title"}
                         dir={dealSort.sort.dir}
                         onClick={() => dealSort.handleSort("title")}
-                        className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[200px]`}
+                        className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[140px] md:min-w-[200px]`}
                       />
                       <SortableTh
                         label="สถานะ"

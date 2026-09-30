@@ -1254,7 +1254,7 @@ export default function WhtPage() {
                   <table className={`${TABLE.table} min-w-[720px]`}>
                     <thead>
                       <tr className={TABLE.theadTr}>
-                        <th className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[180px]`}>
+                        <th className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}>
                           ชื่อ
                         </th>
                         <th className={`${TABLE.thStatic} whitespace-nowrap`}>เลขผู้เสียภาษี</th>
@@ -1273,7 +1273,10 @@ export default function WhtPage() {
                           onClick={() => openEditVendor(v)}
                         >
                           <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
-                            <span className="text-ink-900 truncate block" title={v.name}>
+                            <span
+                              className="text-ink-900 truncate block max-w-full"
+                              title={v.name}
+                            >
                               {v.name}
                             </span>
                           </td>

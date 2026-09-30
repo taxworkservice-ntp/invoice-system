@@ -138,7 +138,7 @@ export function StockReportTable({ items, startIndex = 0, onToggleFavorite }: Pr
                 active={sort.key === "name"}
                 dir={sort.dir}
                 onClick={() => handleSort("name")}
-                className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[180px]`}
+                className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
               />
               <SortableTh
                 label="สต็อก"

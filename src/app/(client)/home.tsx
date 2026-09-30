@@ -1325,7 +1325,7 @@ export default function HomePage() {
                             active={dealSort.sort.key === "customerName"}
                             dir={dealSort.sort.dir}
                             onClick={() => dealSort.handleSort("customerName")}
-                            className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[180px]`}
+                            className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
                           />
                           <th className={`${TABLE.thStatic} w-[84px]`}>เลขที่ดีล</th>
                           <th className={`${TABLE.thStatic} whitespace-nowrap`}>เอกสารล่าสุด</th>
@@ -1599,7 +1599,7 @@ export default function HomePage() {
                           <table className={`${TABLE.table} min-w-[900px]`}>
                             <thead>
                               <tr className={TABLE.theadTr}>
-                                <th className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[180px]`}>
+                                <th className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}>
                                   ลูกค้า
                                 </th>
                                 <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ดีล</th>

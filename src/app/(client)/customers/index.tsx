@@ -357,7 +357,7 @@ export default function CustomersPage() {
                       active={customerSort.sort.key === "name"}
                       dir={customerSort.sort.dir}
                       onClick={() => customerSort.handleSort("name")}
-                      className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[180px]`}
+                      className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
                     />
                     <th className={`${TABLE.thStatic} whitespace-nowrap`}>รหัส</th>
                     <SortableTh
