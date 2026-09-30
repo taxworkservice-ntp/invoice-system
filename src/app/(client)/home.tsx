@@ -1389,7 +1389,7 @@ export default function HomePage() {
                             >
                               <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <CustomerAvatar customer={rowAvatar} size="sm" />
+                                  <CustomerAvatar customer={rowAvatar} size="xs" />
                                   <span className="text-ink-900 truncate" title={deal.customerName}>
                                     {deal.customerName}
                                   </span>
@@ -1635,7 +1635,7 @@ export default function HomePage() {
                                   >
                                     <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
                                       <div className="flex items-center gap-2 min-w-0">
-                                        <CustomerAvatar customer={rowAvatar} size="sm" />
+                                        <CustomerAvatar customer={rowAvatar} size="xs" />
                                         <div className="min-w-0">
                                           <div
                                             className="truncate text-ink-900"

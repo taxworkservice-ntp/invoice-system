@@ -1,22 +1,25 @@
 import { useMemo } from "react";
 import type { Customer } from "../../types";
+import { avatarPalette, ink, paper } from "../../design/tokens";
 
 interface CustomerAvatarProps {
   customer: Pick<Customer, "name" | "avatar_initials" | "avatar_color">;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }
 
-const PALETTE = [
-  { bg: "#E8F1FB", fg: "#378ADD" },
-  { bg: "#FDE9E7", fg: "#C2410C" },
-  { bg: "#E6F4EA", fg: "#1E7E34" },
-  { bg: "#FEF3E2", fg: "#B45309" },
-  { bg: "#F0E7F8", fg: "#7C3AED" },
-  { bg: "#FCE7F3", fg: "#BE185D" },
-  { bg: "#E0F2F1", fg: "#0F766E" },
-  { bg: "#E3F2FD", fg: "#1565C0" },
-];
+/** Thai legal-entity prefixes (full words and abbreviations) skipped for initials. */
+const PREFIX_RE = /^(บริษัท|ห้างหุ้นส่วนจำกัด|ร้าน|บจก\.?|บมจ\.?|หจก\.?|หสน\.?)\s*/i;
+
+const segmenter =
+  typeof Intl !== "undefined" && "Segmenter" in Intl
+    ? new Intl.Segmenter("th", { granularity: "grapheme" })
+    : null;
+
+function graphemes(text: string): string[] {
+  if (segmenter) return [...segmenter.segment(text)].map((s) => s.segment);
+  return Array.from(text);
+}
 
 function hashName(name: string): number {
   let hash = 0;
@@ -27,18 +30,21 @@ function hashName(name: string): number {
 }
 
 function deriveInitials(name: string): string {
-  const cleaned = name
-    .replace(/^บริษัท\s+|^ห้างหุ้นส่วนจำกัด\s+|^ร้าน\s+/i, "")
-    .trim();
+  const cleaned = name.replace(PREFIX_RE, "").trim();
   if (!cleaned) return "?";
   const words = cleaned.split(/\s+/).filter(Boolean);
-  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
-  return (words[0][0] + words[1][0] + (words[2]?.[0] || "")).toUpperCase();
+  const firstOf = (word: string): string => graphemes(word)[0] ?? "";
+  if (words.length === 1) return graphemes(words[0]).slice(0, 3).join("");
+  return firstOf(words[0]) + firstOf(words[1]) + (words[2] ? firstOf(words[2]) : "");
 }
 
 function isValidHex(color: string | null | undefined): color is string {
   if (!color) return false;
   return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color.trim());
+}
+
+function isWhiteHex(hex: string): boolean {
+  return /^#(?:fff|ffffff)$/i.test(hex.trim());
 }
 
 function contrastFg(hex: string): string {
@@ -48,50 +54,38 @@ function contrastFg(hex: string): string {
   const g = parseInt(full.slice(2, 4), 16);
   const b = parseInt(full.slice(4, 6), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "#1A1A18" : "#FFFFFF";
+  return luminance > 0.6 ? ink[900] : paper.DEFAULT;
 }
 
 const SIZE_CLASSES: Record<NonNullable<CustomerAvatarProps["size"]>, string> = {
+  xs: "w-7 h-7 text-label",
   sm: "w-8 h-8 text-label",
   md: "w-10 h-10 text-body",
   lg: "w-16 h-16 text-subtitle",
 };
 
 export function CustomerAvatar({ customer, size = "md", className = "" }: CustomerAvatarProps) {
-  const { bg, fg, initials, isWhite } = useMemo(() => {
+  const { bg, fg, initials, outlined } = useMemo(() => {
+    // Grapheme-aware so Thai combining marks are never split from their base.
+    const raw = (customer.avatar_initials?.trim() || deriveInitials(customer.name)).toUpperCase();
+    const initials = graphemes(raw).slice(0, 3).join("") || "?";
     if (isValidHex(customer.avatar_color)) {
-      const hex = customer.avatar_color;
-      const isWhiteBg = /^#(F{3}|F{6})$/i.test(hex) || /^#(f{3}|f{6})$/i.test(hex);
-      return {
-        bg: hex,
-        fg: contrastFg(hex),
-        initials: (customer.avatar_initials || deriveInitials(customer.name)).toUpperCase().slice(0, 3),
-        isWhite: isWhiteBg,
-      };
+      const hex = customer.avatar_color.trim();
+      if (isWhiteHex(hex)) {
+        return { bg: paper.DEFAULT, fg: ink[900], initials, outlined: true };
+      }
+      return { bg: hex, fg: contrastFg(hex), initials, outlined: false };
     }
-    const palette = PALETTE[hashName(customer.name) % PALETTE.length];
-    return {
-      bg: palette.bg,
-      fg: palette.fg,
-      initials: (customer.avatar_initials || deriveInitials(customer.name)).toUpperCase().slice(0, 3),
-      isWhite: false,
-    };
+    const palette = avatarPalette[hashName(customer.name) % avatarPalette.length];
+    return { bg: palette.bg, fg: palette.fg, initials, outlined: false };
   }, [customer.avatar_color, customer.avatar_initials, customer.name]);
-
-  if (isWhite) {
-    return (
-      <div
-        className={`shrink-0 rounded-control flex items-center justify-center ${SIZE_CLASSES[size]} ${className} border border-card-border bg-white`}
-        aria-label={customer.name}
-      />
-    );
-  }
 
   return (
     <div
-      className={`shrink-0 rounded-control flex items-center justify-center font-semibold select-none ${SIZE_CLASSES[size]} ${className}`}
-      style={{ backgroundColor: bg, color: fg }}
+      role="img"
       aria-label={customer.name}
+      className={`shrink-0 rounded-control flex items-center justify-center font-semibold select-none ${SIZE_CLASSES[size]} ${outlined ? "border border-card-border" : ""} ${className}`}
+      style={{ backgroundColor: bg, color: fg }}
     >
       {initials}
     </div>

@@ -439,7 +439,7 @@ export default function CustomersPage() {
                         </td>
                         <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2 min-w-0`}>
                           <div className="flex items-center gap-2 min-w-0">
-                            <CustomerAvatar customer={c} size="sm" />
+                            <CustomerAvatar customer={c} size="xs" />
                             <span className="text-ink-900 truncate" title={c.name}>
                               {c.name}
                             </span>

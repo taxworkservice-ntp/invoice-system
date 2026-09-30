@@ -176,6 +176,28 @@ export const contentWidth = {
 } as const;
 
 /**
+ * Customer avatar palette — soft background + readable foreground pairs.
+ * `CustomerAvatar` hashes the customer name into this list deterministically,
+ * so a customer's color never shifts between renders. Keep entries coming in
+ * pairs of meaningfully distinct hues; with long customer lists a small
+ * palette collides (birthday problem), so prefer adding over replacing.
+ */
+export const avatarPalette = [
+  { bg: "#E8F1FB", fg: "#378ADD" },
+  { bg: "#FDE9E7", fg: "#C2410C" },
+  { bg: "#E6F4EA", fg: "#1E7E34" },
+  { bg: "#FEF3E2", fg: "#B45309" },
+  { bg: "#F0E7F8", fg: "#7C3AED" },
+  { bg: "#FCE7F3", fg: "#BE185D" },
+  { bg: "#E0F2F1", fg: "#0F766E" },
+  { bg: "#E3F2FD", fg: "#1565C0" },
+  { bg: "#E0F5FA", fg: "#0E7490" },
+  { bg: "#F0F7E0", fg: "#4D7C0F" },
+  { bg: "#E9EAFB", fg: "#4338CA" },
+  { bg: "#F1E8E0", fg: "#8A5A2B" },
+] as const;
+
+/**
  * Content profiles → container utility. `AppShell` is the only consumer; pages
  * pass a profile instead of a width class so no page can invent its own.
  */
