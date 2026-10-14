@@ -412,33 +412,29 @@ export default function SettingsDocumentsPage() {
         : (DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").every(t => showStampOnDocs[t.key] !== false) ? null : DOC_VISIBILITY_TYPES.filter(t => t.key !== "wht").reduce((acc, t) => ({ ...acc, [t.key]: showStampOnDocs[t.key] !== false }), {} as Record<string, boolean>)),
     };
 
+    const activePayload: Record<string, unknown> = { ...payload };
+    const strippedColumns: string[] = [];
     let { error: err } = await supabase
       .from("client_profiles")
-      .update(payload)
+      .update(activePayload)
       .eq("user_id", profile.id);
 
-    if (err && (err.message.includes("price_deviation_warn_pct") || err.message.includes("classic_v2_regular_item_font") || err.message.includes("classic_terms_by_type") || err.message.includes("pdf_font_scale") || err.message.includes("pdf_section_font_scales") || err.message.includes("pdf_type_font_scales"))) {
-      // One of the pending migrations (add_price_deviation_warn_pct,
-      // add_classic_v2_regular_item_font, add_classic_terms_by_type,
-      // add_pdf_font_scale) not applied yet — save everything else so the
-      // page never breaks on schema lag. classic_v2_* stays in the fallback
-      // payload, so pre-migration saves still persist the font settings.
-      const {
-        price_deviation_warn_pct: _pending,
-        classic_v2_regular_item_font: _pendingFont,
-        classic_terms_by_type: _pendingTerms,
-        pdf_font_scale: _pendingPdfScale,
-        pdf_section_font_scales: _pendingPdfSections,
-        pdf_type_font_scales: _pendingPdfTypes,
-        ...fallbackPayload
-      } = payload;
+    // Schema lag: a pending migration in sql/ hasn't been applied yet, so
+    // PostgREST rejects the whole PATCH with "Could not find the 'X' column
+    // in the schema cache". Strip the unknown column and retry so an
+    // unrelated change (e.g. pdf_template) still saves.
+    for (let i = 0; i < 10 && err; i++) {
+      const missing = /Could not find the '([^']+)' column/.exec(err.message || "")?.[1];
+      if (!missing || !(missing in activePayload)) break;
+      delete activePayload[missing];
+      strippedColumns.push(missing);
       ({ error: err } = await supabase
         .from("client_profiles")
-        .update(fallbackPayload)
+        .update(activePayload)
         .eq("user_id", profile.id));
-      if (!err) {
-        toast.error("บันทึกแล้ว แต่บางค่าตั้งค่ายังไม่มีผล — กรุณารัน migration ที่ค้างอยู่ใน sql/");
-      }
+    }
+    if (!err && strippedColumns.length > 0) {
+      toast.error("บันทึกแล้ว แต่บางค่าตั้งค่ายังไม่มีผล — กรุณารัน migration ที่ค้างอยู่ใน sql/");
     }
 
     if (err) {
@@ -449,7 +445,7 @@ export default function SettingsDocumentsPage() {
       toast.success("บันทึกแล้ว");
       setClientProfile({
         ...clientProfile,
-        ...payload,
+        ...activePayload,
         price_deviation_warn_pct: parsedWarnPct,
         require_dn_price_review: requireDnPriceReview,
       } as ClientProfile);
