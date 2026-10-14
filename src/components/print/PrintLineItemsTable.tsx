@@ -75,41 +75,41 @@ export function PrintLineItemsTable({
     return (
       <section className="print-block mt-3">
         <div className="mb-0.5">
-          <span className="text-[calc(9px*var(--modern-fs-thead))] tracking-[0.12em] text-[#667085]">
+          <span className="text-[calc(9px*var(--modern-fs-thead))] tracking-[0.12em] text-[#1F2937]">
             รายการใบแจ้งหนี้
           </span>
-          <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8] ml-2">INVOICES</span>
+          <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467] ml-2">INVOICES</span>
         </div>
         <table className="print-table w-full border-separate border-spacing-0">
-          <thead className="bg-[#F4F7FB] text-[#344054]">
+          <thead className="bg-[#F4F7FB] text-[#1F2937]">
             <tr>
               <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 เลขที่ใบแจ้งหนี้
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   INVOICE NO.
                 </div>
               </th>
               <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 วันที่ออก
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   ISSUE DATE
                 </div>
               </th>
               <th className="px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 มูลค่า
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   SUBTOTAL
                 </div>
               </th>
               <th className="px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 ภาษีมูลค่าเพิ่ม
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   VAT
                 </div>
               </th>
               <th className="px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 รวม
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   TOTAL
                 </div>
               </th>
@@ -121,7 +121,7 @@ export function PrintLineItemsTable({
                 <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {invoice.invoice_number}
                 </td>
-                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
+                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
                   {formatDate(invoice.issue_date)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
@@ -173,43 +173,43 @@ export function PrintLineItemsTable({
     return (
       <section className="print-block mt-3">
         <div className="mb-0.5">
-          <span className="text-[calc(9px*var(--modern-fs-thead))] tracking-[0.12em] text-[#667085]">
+          <span className="text-[calc(9px*var(--modern-fs-thead))] tracking-[0.12em] text-[#1F2937]">
             {paidViaBn ? "ใบวางบิลที่ชำระ" : "รายการที่ชำระ"}
           </span>
-          <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8] ml-2">
+          <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467] ml-2">
             {paidViaBn ? "PAID BILLING NOTE" : "PAID INVOICES"}
           </span>
         </div>
         <table className="print-table w-full border-separate border-spacing-0">
-          <thead className="bg-[#F4F7FB] text-[#344054]">
+          <thead className="bg-[#F4F7FB] text-[#1F2937]">
             <tr>
               <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 {paidViaBn ? "เลขที่ใบวางบิล" : "เลขที่ใบแจ้งหนี้"}
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   {paidViaBn ? "BILLING NOTE NO." : "INVOICE NO."}
                 </div>
               </th>
               <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 วันที่ออก
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   ISSUE DATE
                 </div>
               </th>
               <th className="px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 มูลค่า
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   SUBTOTAL
                 </div>
               </th>
               <th className="px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 ภาษีมูลค่าเพิ่ม
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   VAT
                 </div>
               </th>
               <th className="px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                 จำนวนเงิน
-                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                   AMOUNT
                 </div>
               </th>
@@ -221,7 +221,7 @@ export function PrintLineItemsTable({
                 <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {invoice.invoice_number}
                 </td>
-                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
+                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
                   {formatDate(invoice.issue_date)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
@@ -266,33 +266,33 @@ export function PrintLineItemsTable({
   return (
     <section className="print-block mt-3">
       <div className="mb-0.5">
-        <span className="text-[calc(9px*var(--modern-fs-thead))] tracking-[0.12em] text-[#667085]">
+        <span className="text-[calc(9px*var(--modern-fs-thead))] tracking-[0.12em] text-[#1F2937]">
           {document.doc_type === "receipt"
             ? "รายการที่ชำระ"
             : "รายการสินค้าและบริการ"}
         </span>
-        <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8] ml-2">ITEMS</span>
+        <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467] ml-2">ITEMS</span>
       </div>
       <table className="print-table w-full border-separate border-spacing-0">
-        <thead className="bg-[#F4F7FB] text-[#344054]">
+        <thead className="bg-[#F4F7FB] text-[#1F2937]">
           <tr>
             <th className="w-[7mm] px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
               ลำดับ
-              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">NO.</div>
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">NO.</div>
             </th>
             <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
               รายละเอียด
-              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                 DESCRIPTION
               </div>
             </th>
             <th className="w-[16mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
               จำนวน
-              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">QTY</div>
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">QTY</div>
             </th>
             <th className="w-[16mm] px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
               หน่วย
-              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                 UNIT
               </div>
             </th>
@@ -300,19 +300,19 @@ export function PrintLineItemsTable({
               <>
                 <th className="w-[20mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                   ราคา/หน่วย
-                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                     UNIT PRICE
                   </div>
                 </th>
                 <th className="w-[13mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                   ส่วนลด
-                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                     DISC.
                   </div>
                 </th>
                 <th className="w-[22mm] px-2 py-1.5 text-right text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">
                   จำนวนเงิน
-                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">
+                  <div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">
                     AMOUNT
                   </div>
                 </th>
@@ -328,13 +328,13 @@ export function PrintLineItemsTable({
 
             return (
               <tr key={item.id} className={getRowClass()}>
-                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] text-[#667085] border-t-[0.5px] border-[#E6EBF2]">
+                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
                   {startIndex + index}
                 </td>
                 <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#111827] border-t-[0.5px] border-[#E6EBF2] break-words">
                   <div className="leading-[14px]"><RefItemName name={item.item_name} /></div>
                   {printableNote ? (
-                    <div className="mt-0.5 whitespace-pre-line text-[calc(9px*var(--modern-fs-items))] leading-[12px] text-[#667085]">
+                    <div className="mt-0.5 whitespace-pre-line text-[calc(9px*var(--modern-fs-items))] leading-[12px] text-[#1F2937]">
                       {printableNote}
                     </div>
                   ) : null}
@@ -347,7 +347,7 @@ export function PrintLineItemsTable({
                     </div>
                   ) : null}
                   {showInlineDeliveryNotes && lineDeliveryNoteMap[item.id] ? (
-                    <div className="mt-0.5 text-[calc(9px*var(--modern-fs-items))] text-[#6B7280]">
+                    <div className="mt-0.5 text-[calc(9px*var(--modern-fs-items))] text-[#1F2937]">
                       อ้างอิง {lineDeliveryNoteMap[item.id].number}
                       {lineDeliveryNoteMap[item.id].issue_date
                         ? ` (${formatDate(lineDeliveryNoteMap[item.id].issue_date)})`
@@ -374,7 +374,7 @@ export function PrintLineItemsTable({
                   (receiptInvoices.length > 1 ||
                     billingNoteInvoices.length > 1) &&
                   invoiceNumberMap[item.document_id] ? (
-                    <div className="mt-0.5 text-[calc(9px*var(--modern-fs-items))] text-[#6B7280]">
+                    <div className="mt-0.5 text-[calc(9px*var(--modern-fs-items))] text-[#1F2937]">
                       ใบแจ้งหนี้ {invoiceNumberMap[item.document_id]}
                     </div>
                   ) : null}
@@ -382,7 +382,7 @@ export function PrintLineItemsTable({
                 <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {blankForm ? "" : item.quantity}
                 </td>
-                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num-unit))] text-[#475467] border-t-[0.5px] border-[#E6EBF2]">
+                <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-num-unit))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
                   {item.unit}
                 </td>
                 {showAmountColumns && (

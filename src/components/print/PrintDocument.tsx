@@ -86,7 +86,6 @@ export function PrintDocument({
   const showFooter = pageMode === "single" || pageMode === "last";
   const showContinuationHeader = pageMode === "continuation" || pageMode === "last";
   const isFirst = pageMode === "first" || pageMode === "single";
-  const hasPayment = (showPaymentMethod && data.document.payment_method) || data.document.wht_certificate_no || data.document.amount_received != null;
   const signatureUrl = data.clientProfile.signature_url;
   const stampUrl = data.clientProfile.stamp_url;
   const signatureScaleMult = ASSET_SCALE_MULT[data.clientProfile.signature_scale ?? "medium"] ?? 1;
@@ -161,21 +160,21 @@ export function PrintDocument({
         blankForm={blankForm}
       />
       {continuedLine && (
-        <div className="mt-1.5 text-center text-[calc(8.5px*var(--modern-fs-items))] text-[#94a3b8] tracking-[0.08em] border-b-[0.5px] border-[#E6EBF2] pb-1">
+        <div className="mt-1.5 text-center text-[calc(8.5px*var(--modern-fs-items))] text-[#475467] tracking-[0.08em] border-b-[0.5px] border-[#E6EBF2] pb-1">
           {continuedLine}
         </div>
       )}
       {data.invoiceDeliveryNotes.length > 0 && !data.showInlineDeliveryNotes && !data.isDeliveryNoteSummaryInvoice && showFooter && (
         <section className="print-block mt-3">
           <div className="mb-0.5">
-            <span className="text-[calc(9px*var(--modern-fs-items))] tracking-[0.12em] text-[#667085]">อ้างอิงใบส่งของ</span>
-            <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8] ml-2">DELIVERY NOTES</span>
+            <span className="text-[calc(9px*var(--modern-fs-items))] tracking-[0.12em] text-[#1F2937]">อ้างอิงใบส่งของ</span>
+            <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467] ml-2">DELIVERY NOTES</span>
           </div>
           <table className="print-table w-full border-separate border-spacing-0">
-            <thead className="bg-[#F4F7FB] text-[#344054]">
+            <thead className="bg-[#F4F7FB] text-[#1F2937]">
               <tr>
-                <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">เลขที่ใบส่งของ<div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">DELIVERY NO.</div></th>
-                <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">วันที่ส่งของ<div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#94a3b8]">DELIVERY DATE</div></th>
+                <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">เลขที่ใบส่งของ<div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">DELIVERY NO.</div></th>
+                <th className="px-2 py-1.5 text-left text-[calc(9px*var(--modern-fs-thead))] font-semibold tracking-[0.06em]">วันที่ส่งของ<div className="text-[calc(6.5px*var(--modern-fs-en))] font-normal text-[#475467]">DELIVERY DATE</div></th>
               </tr>
             </thead>
             <tbody>
@@ -184,7 +183,7 @@ export function PrintDocument({
                   <td className="border-t-[0.5px] border-[#E6EBF2] px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#111827]">
                     {deliveryNote.delivery_note_number}
                   </td>
-                  <td className="border-t-[0.5px] border-[#E6EBF2] px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#475467]">
+                  <td className="border-t-[0.5px] border-[#E6EBF2] px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#1F2937]">
                     {formatDate(deliveryNote.issue_date)}
                   </td>
                 </tr>
@@ -196,12 +195,12 @@ export function PrintDocument({
       {showFooter && <PrintTotals data={data} blankForm={blankForm} />}
 
       {isDeliveryNote && showFooter && (
-        <footer className="print-block mt-3 grid grid-cols-3 gap-3 text-[calc(10px*var(--modern-fs-footer))] text-[#475467]">
+        <footer className="print-block mt-3 grid grid-cols-3 gap-3 text-[calc(10px*var(--modern-fs-footer))] text-[#1F2937]">
           <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
             <div className="mt-5 border-b-[0.5px] border-[#98A2B3] pb-3" />
             <div className="mt-1 text-center">ผู้ส่งสินค้า</div>
-            <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">DELIVERED BY</div>
-            <div className="mt-1 flex items-center justify-center gap-1 text-[calc(9px*var(--modern-fs-footer))] text-[#667085]">
+            <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">DELIVERED BY</div>
+            <div className="mt-1 flex items-center justify-center gap-1 text-[calc(9px*var(--modern-fs-footer))] text-[#1F2937]">
               วันที่
               <span className="inline-block h-3 w-12 border-b-[0.5px] border-[#98A2B3]" />
             </div>
@@ -209,8 +208,8 @@ export function PrintDocument({
           <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
             <div className="mt-5 border-b-[0.5px] border-[#98A2B3] pb-3" />
             <div className="mt-1 text-center">ผู้รับสินค้า</div>
-            <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">RECEIVED BY</div>
-            <div className="mt-1 flex items-center justify-center gap-1 text-[calc(9px*var(--modern-fs-footer))] text-[#667085]">
+            <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">RECEIVED BY</div>
+            <div className="mt-1 flex items-center justify-center gap-1 text-[calc(9px*var(--modern-fs-footer))] text-[#1F2937]">
               วันที่
               <span className="inline-block h-3 w-12 border-b-[0.5px] border-[#98A2B3]" />
             </div>
@@ -237,8 +236,8 @@ export function PrintDocument({
                 )}
               </div>
             <div className="mt-1 text-center">ผู้มีอำนาจลงนาม</div>
-            <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">AUTHORIZED BY</div>
-            <div className="mt-1 flex items-center justify-center gap-1 text-[calc(9px*var(--modern-fs-footer))] text-[#667085]">
+            <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">AUTHORIZED BY</div>
+            <div className="mt-1 flex items-center justify-center gap-1 text-[calc(9px*var(--modern-fs-footer))] text-[#1F2937]">
               วันที่
               <span className="inline-block h-3 w-12 border-b-[0.5px] border-[#98A2B3]" />
             </div>
@@ -250,9 +249,9 @@ export function PrintDocument({
         <section className="print-block mt-3 rounded-md border border-[#E6EBF2] bg-[#F8FAFC] p-3">
           <div>
             <div className="text-[calc(10px*var(--modern-fs-terms))] font-semibold text-[#111827]">เงื่อนไข</div>
-            <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">TERMS &amp; CONDITIONS</div>
+            <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">TERMS &amp; CONDITIONS</div>
           </div>
-          <ol className="mt-1 ml-5 list-decimal space-y-0.5 text-[calc(9px*var(--modern-fs-terms))] leading-[14px] text-[#475467]">
+          <ol className="mt-1 ml-5 list-decimal space-y-0.5 text-[calc(9px*var(--modern-fs-terms))] leading-[14px] text-[#1F2937]">
             {terms.map((term, i) => (
               <li key={i}>{term}</li>
             ))}
@@ -262,19 +261,18 @@ export function PrintDocument({
 
       {showFooter && (
         <footer className={isDeliveryNote ? "hidden" : "print-block mt-3 grid grid-cols-2 gap-3"}>
-          <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
+          <div className="pt-2">
             <div>
-              <div className="text-[calc(9px*var(--modern-fs-payment))] tracking-[0.12em] text-[#667085]">
+              <div className="text-[calc(9px*var(--modern-fs-payment))] tracking-[0.12em] text-[#1F2937]">
                 รายละเอียดการชำระเงิน
               </div>
-              <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">PAYMENT</div>
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">PAYMENT</div>
             </div>
-            <div className="mt-1 space-y-0.5 text-[calc(9.5px*var(--modern-fs-payment))] text-[#475467]">
+            <div className="mt-1 space-y-0.5 text-[calc(9.5px*var(--modern-fs-payment))] text-[#1F2937]">
               <>
                 {showBank && bankName ? <div>ธนาคาร: {bankName}</div> : null}
                 {showBank && bankAccountNumber ? <div>เลขที่บัญชี: {bankAccountNumber}</div> : null}
                 {showBank && bankAccountHolder ? <div>ชื่อบัญชี: {bankAccountHolder}</div> : null}
-                {hasPayment ? <div className="border-t-[0.5px] border-[#E8ECF2] my-0.5" /> : null}
                 {showPaymentMethod && data.document.payment_method ? (
                   <div>
                     วิธีชำระเงิน:{" "}
@@ -292,14 +290,14 @@ export function PrintDocument({
 
           <div className="border-t-[0.5px] border-[#D3DAE6] pt-2">
             <div>
-              <div className="text-[calc(9px*var(--modern-fs-footer))] tracking-[0.12em] text-[#667085]">ลายเซ็น</div>
-              <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">SIGNATURE</div>
+              <div className="text-[calc(9px*var(--modern-fs-footer))] tracking-[0.12em] text-[#1F2937]">ลายเซ็น</div>
+              <div className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">SIGNATURE</div>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 text-[calc(10px*var(--modern-fs-footer))] text-[#475467]">
+            <div className="mt-5 grid grid-cols-2 gap-3 text-[calc(10px*var(--modern-fs-footer))] text-[#1F2937]">
               <div>
                 <div className="border-b-[0.5px] border-[#98A2B3] pb-3" />
                 <div className="mt-0.5 text-center">ผู้รับเงิน</div>
-                <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">PAYEE</div>
+                <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">PAYEE</div>
               </div>
               <div>
                 <div className="relative border-b-[0.5px] border-[#98A2B3] pb-3">
@@ -323,7 +321,7 @@ export function PrintDocument({
                   )}
                 </div>
                 <div className="mt-0.5 text-center">ผู้มีอำนาจลงนาม</div>
-                <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#94a3b8]">AUTHORIZED SIGNATURE</div>
+                <div className="text-center text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">AUTHORIZED SIGNATURE</div>
               </div>
             </div>
           </div>
