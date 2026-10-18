@@ -17,12 +17,18 @@ export function FormActionBar({
   total,
   primary,
   secondary,
+  hint,
+  hintOnClick,
 }: {
   contextLabel?: string;
   totalLabel?: string;
   total?: number;
   primary?: FormActionButton;
   secondary?: FormActionButton;
+  /** Inline reason shown when the primary action is disabled (no extra scroll). */
+  hint?: string | null;
+  /** When provided, the hint becomes a button that jumps to the blocker. */
+  hintOnClick?: (() => void) | null;
 }) {
   return (
     <div className="sticky-action z-10 rounded-card border border-card-border bg-page-bg/95 p-3 backdrop-blur">
@@ -33,7 +39,11 @@ export function FormActionBar({
           ) : null}
           {typeof total === "number" ? (
             <div className="mt-0.5 text-title font-semibold tabular-nums text-ink-900">
-              {totalLabel} ฿{total.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {totalLabel} ฿
+              {total.toLocaleString("th-TH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
           ) : null}
         </div>
@@ -49,16 +59,25 @@ export function FormActionBar({
             </Button>
           ) : null}
           {primary ? (
-            <Button
-              onClick={primary.onClick}
-              loading={primary.loading}
-              disabled={primary.disabled}
-            >
+            <Button onClick={primary.onClick} loading={primary.loading} disabled={primary.disabled}>
               {primary.label}
             </Button>
           ) : null}
         </div>
       </div>
+      {hint ? (
+        hintOnClick ? (
+          <button
+            type="button"
+            onClick={hintOnClick}
+            className="mt-1.5 text-label leading-5 text-primary-deep hover:underline"
+          >
+            {hint} →
+          </button>
+        ) : (
+          <p className="mt-1.5 text-label leading-5 text-ink-500">{hint}</p>
+        )
+      ) : null}
     </div>
   );
 }

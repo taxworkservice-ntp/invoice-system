@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Eye, EyeOff, PenLine } from "lucide-react";
+import { Check, CheckCircle2, Eye, EyeOff, PenLine } from "lucide-react";
 import { Card } from "../ui/Card";
+import type { StepStatus } from "./FormStep";
 
 /**
  * Consolidated document-output options section.
@@ -12,29 +13,62 @@ export function DocumentOptionsCard({
   title = "ตัวเลือกเอกสาร",
   description = "ตัวเลือกเหล่านี้มีผลต่อเอกสาร PDF เท่านั้น",
   children,
+  id,
+  status,
+  active,
 }: {
   /** When set, renders as a numbered form step instead of a plain card. */
   number?: number;
   title?: string;
   description?: string;
   children: ReactNode;
+  /** Anchor id for guided-save scrolling. */
+  id?: string;
+  /** Live completion state — pill only, never disables the section. */
+  status?: StepStatus;
+  /** The step the guide currently points at — solid number badge. */
+  active?: boolean;
 }) {
   return (
-    <Card>
+    <Card id={id} tone={status === "done" ? "success" : undefined}>
       <div className="mb-1 flex items-center gap-2.5">
         {typeof number === "number" ? (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-label font-semibold text-primary">
-            {number}
+          <span
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-label font-semibold leading-none ${
+              status === "done"
+                ? "border border-success-border bg-paid-bg text-paid-text"
+                : status === "waiting"
+                  ? "border border-dashed border-line-strong bg-white text-paid-text"
+                  : active
+                    ? "bg-primary text-white"
+                    : "bg-primary/10 text-primary"
+            }`}
+          >
+            {status === "done" || status === "waiting" ? <Check className="h-3.5 w-3.5" /> : number}
           </span>
         ) : null}
-        <h3 className="text-body font-medium text-ink-900">{title}</h3>
+        <h3
+          className={`text-body ${status === "done" || active ? "font-semibold" : "font-medium"} text-ink-900`}
+        >
+          {title}
+        </h3>
+        {status === "done" ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
+            <Check className="h-3 w-3" />
+            ครบแล้ว
+          </span>
+        ) : status === "waiting" ? (
+          <span className="rounded-full bg-ink-50 px-2 py-0.5 text-label font-medium text-ink-500">
+            รอขั้นตอนก่อนหน้า
+          </span>
+        ) : status === "todo" ? (
+          <span className="rounded-full bg-pending-bg px-2 py-0.5 text-label font-medium text-pending-text">
+            ยังไม่ครบ
+          </span>
+        ) : null}
       </div>
-      {description ? (
-        <p className="mb-3 text-label text-ink-400">{description}</p>
-      ) : null}
-      <div className="divide-y divide-card-border">
-        {children}
-      </div>
+      {description ? <p className="mb-3 text-label text-ink-400">{description}</p> : null}
+      <div className="divide-y divide-card-border">{children}</div>
     </Card>
   );
 }
@@ -67,18 +101,16 @@ export function DocumentOptionRow({
           className="sr-only"
         />
         <span
-          className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${ checked ? "bg-primary" : "bg-line" }`}
+          className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${checked ? "bg-primary" : "bg-line"}`}
         >
           <span
-            className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${ checked ? "translate-x-4" : "" }`}
+            className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-4" : ""}`}
           />
         </span>
       </div>
       <div className="min-w-0 flex-1">
         <span className="text-body font-medium text-ink-800">{label}</span>
-        {badge ? (
-          <span className="ml-2 text-label text-ink-400">{badge}</span>
-        ) : null}
+        {badge ? <span className="ml-2 text-label text-ink-400">{badge}</span> : null}
         {description ? (
           <p className="mt-0.5 text-label leading-5 text-ink-500">{description}</p>
         ) : null}
@@ -135,7 +167,9 @@ export function DocumentOptionSegmented<T extends string>({
           );
         })}
       </div>
-      {description ? <p className="mt-1.5 text-label leading-5 text-ink-500">{description}</p> : null}
+      {description ? (
+        <p className="mt-1.5 text-label leading-5 text-ink-500">{description}</p>
+      ) : null}
       {error ? <p className="mt-1 text-label text-danger-text">{error}</p> : null}
     </div>
   );
@@ -215,7 +249,7 @@ export function DnAmountDisplayPicker({
                 key={optionValue}
                 className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 transition-colors ${
                   active
-                    ? "border-primary bg-primary-soft/50"
+                    ? "border-success-border bg-white"
                     : "border-card-border bg-white hover:border-line-strong"
                 }`}
               >
@@ -226,7 +260,7 @@ export function DnAmountDisplayPicker({
                   onChange={() => onChange(optionValue)}
                   className="mt-1 h-4 w-4 shrink-0 accent-primary"
                 />
-                <span className={`mt-0.5 ${active ? "text-primary-deep" : "text-ink-400"}`}>
+                <span className={`mt-0.5 ${active ? "text-paid-text" : "text-ink-400"}`}>
                   <DnAmountDisplayIcon value={optionValue} />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -235,6 +269,12 @@ export function DnAmountDisplayPicker({
                     {copy.badge ? (
                       <span className="rounded-full bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep">
                         {copy.badge}
+                      </span>
+                    ) : null}
+                    {active ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
+                        <CheckCircle2 className="h-3 w-3" />
+                        เลือกแล้ว
                       </span>
                     ) : null}
                   </span>
@@ -251,7 +291,10 @@ export function DnAmountDisplayPicker({
         </div>
       </fieldset>
       {missing ? (
-        <p className={`mt-2 text-label leading-5 ${showError ? "font-medium text-danger-text" : "text-ink-400"}`} role={showError ? "alert" : undefined}>
+        <p
+          className={`mt-2 text-label leading-5 ${showError ? "font-medium text-danger-text" : "text-ink-400"}`}
+          role={showError ? "alert" : undefined}
+        >
           กรุณาเลือก 1 แบบก่อนบันทึก — มีผลกับ PDF เท่านั้น
         </p>
       ) : (
