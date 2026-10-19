@@ -48,6 +48,9 @@ test.describe.serial("invoice from delivery notes — both modes + guard", () =>
     const { data: dn } = await (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
     await page.goto(`/documents/new?type=invoice_from_delivery_notes&dnId=${dn!.id}`);
     await expect(page.getByText(`ใบส่งของ ${dnNumber}`)).toBeVisible();
+    // Ref mode is chosen here, at creation — set it explicitly (the create form
+    // is the only place it can be chosen).
+    await page.getByRole("checkbox", { name: /โหมดอ้างอิง/ }).check();
     // no detail grid inputs in ref mode
     await expect(page.getByPlaceholder("+ รายละเอียด / สเปค")).toHaveCount(0);
   });
@@ -55,7 +58,7 @@ test.describe.serial("invoice from delivery notes — both modes + guard", () =>
   test("detail mode shows the editable grid with variance hints", async ({ page }) => {
     const { data: dn } = await (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
     await page.goto(`/documents/new?type=invoice_from_delivery_notes&dnId=${dn!.id}`);
-    await page.getByText("โหมดอ้างอิง", { exact: true }).click();
+    await page.getByRole("checkbox", { name: /โหมดอ้างอิง/ }).uncheck();
     await expect(page.getByPlaceholder("+ รายละเอียด / สเปค").first()).toBeVisible();
   });
 
@@ -63,7 +66,7 @@ test.describe.serial("invoice from delivery notes — both modes + guard", () =>
     const { data: dn } = await (await api()).from("documents").select("id").eq("doc_number", dnNumber).single();
     await page.goto(`/documents/new?type=invoice_from_delivery_notes&dnId=${dn!.id}`);
     // switch to detail mode and try to over-bill
-    await page.getByText("โหมดอ้างอิง", { exact: true }).click();
+    await page.getByRole("checkbox", { name: /โหมดอ้างอิง/ }).uncheck();
     const qty = page.locator('input[type="number"]').first();
     await qty.fill("99");
     // The input clamps to the remaining delivered quantity (5) —
@@ -73,7 +76,7 @@ test.describe.serial("invoice from delivery notes — both modes + guard", () =>
     await page.waitForURL(
       /\/deals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
     );
-    await expect(page.getByRole("button", { name: "สร้างใบวางบิล" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^ออกใบวางบิล/ })).toBeVisible();
   });
 
   test.afterAll(async () => {

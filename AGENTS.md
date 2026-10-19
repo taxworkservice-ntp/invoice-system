@@ -22,6 +22,9 @@
   (removes `[MOCK]`-tagged data only). All generated deals/docs are tagged `[MOCK]`.
 - Print-layout regression: `npm run test:print-layout` /
   `npm run test:print-layout:update` (needs Chrome; see scripts/print-layout-regression.mjs).
+  Conformance checks over the same fixture: `npm run test:print-layout:estimate`
+  (model vs rendered heights) and `npm run test:print-layout:fill` (a filled
+  page must never grow past A4).
 - Pagination checks: `npx tsx tests/print-layout/pagination.many.check.ts`.
 - Lint: `npm run lint` (ESLint + design-system check) / `npm run lint:design`
   (tokens, neutrals, shadows, type roles). `npm run format` runs Prettier.

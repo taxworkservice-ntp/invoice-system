@@ -47,7 +47,7 @@ test.describe.serial("draft receipt lifecycle", () => {
   test("save draft receipt → deal waits for confirmation (not done)", async ({ page }) => {
     await page.goto(`/deals/${dealId}`);
     // skip BN, open payment modal directly
-    await page.getByRole("button", { name: "ข้ามใบวางบิล แล้วบันทึกรับเงิน" }).click();
+    await page.getByRole("button", { name: "รับเงินโดยไม่ออกใบวางบิล" }).click();
     await expect(page.getByRole("heading", { name: "บันทึกรับเงิน (ร่างใบเสร็จ)" })).toBeVisible();
     // Regression guard: the disabled placeholder must be gone once the bank
     // list loads, and the default account must be auto-selected.

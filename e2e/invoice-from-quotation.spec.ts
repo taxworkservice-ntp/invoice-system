@@ -68,7 +68,7 @@ test.describe.serial("invoice from quotation journey", () => {
     );
     await expect(page.getByText("รอวางบิล")).toBeVisible();
     // Sent invoice -> next action is billing note creation.
-    await expect(page.getByRole("button", { name: "สร้างใบวางบิล" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^ออกใบวางบิล/ })).toBeVisible();
   });
 
   test.afterAll(async () => {

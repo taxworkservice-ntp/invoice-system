@@ -59,7 +59,7 @@ test.describe.serial("partial delivery journey", () => {
     );
     // Draft DNs do not count as delivered until sent.
     await page
-      .getByRole("button", { name: "บันทึกว่าส่งของแล้ว" })
+      .getByRole("button", { name: "บันทึกการส่งของ" })
       .first()
       .click();
     await expect(page.getByText("ส่งแล้ว 4 / 10")).toBeVisible();
@@ -73,7 +73,7 @@ test.describe.serial("partial delivery journey", () => {
       /\/deals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
     );
     await page
-      .getByRole("button", { name: "บันทึกว่าส่งของแล้ว" })
+      .getByRole("button", { name: "บันทึกการส่งของ" })
       .first()
       .click();
     await expect(page.getByText("ส่งครบแล้ว").first()).toBeVisible();

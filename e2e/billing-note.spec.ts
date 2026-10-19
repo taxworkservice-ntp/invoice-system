@@ -33,7 +33,7 @@ test.describe.serial("billing note journey", () => {
 
   test("create billing note from sent invoice", async ({ page }) => {
     await page.goto(`/deals/${dealId}`);
-    await page.getByRole("button", { name: "สร้างใบวางบิล" }).click();
+    await page.getByRole("button", { name: /^ออกใบวางบิล/ }).click();
     // Invoice is pre-checked (auto-selected from this deal).
     // Saving a draft keeps the form open — sync on the insert completing.
     const saveDone = page.waitForResponse(

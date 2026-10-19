@@ -149,14 +149,14 @@ test.describe.serial("deal QA · create → send → convert", () => {
 
   test("A3 convert sent quotation to invoice from the deal page", async ({ page }) => {
     await page.goto(`/deals/${dealId}`);
-    await page.getByRole("button", { name: "สร้างบิลต่อ" }).click();
+    await page.getByRole("button", { name: "ออกใบแจ้งหนี้ต่อ" }).click();
     await page.waitForURL(/\/documents\/new\?type=invoice_from_quotation/);
     await expect(page.getByText("ลูกค้าและรอบเอกสาร").first()).toBeVisible();
 
     await page.getByRole("button", { name: "สร้างใบแจ้งหนี้" }).click();
     await page.waitForURL(UUID_RE);
     await expect(page.getByText("รอวางบิล")).toBeVisible();
-    await expect(page.getByRole("button", { name: "สร้างใบวางบิล" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^ออกใบวางบิล/ })).toBeVisible();
 
     const { data: docs } = await admin()
       .from("documents")
