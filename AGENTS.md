@@ -18,6 +18,13 @@
 
 ## Workspace & tooling
 - Test workspace: `testcompany@gmail.com` (service key in `.env.local`).
+- Local API (`/api/*`): the app proxies to a separate dev server — run
+  `npm run dev:api` (port 8787) alongside `npm run dev`. Its handlers need the
+  **server** secrets (not just the `VITE_*` ones): `SUPABASE_SERVICE_ROLE_KEY`
+  and the four `R2_*` values, read at import time. Without them every `/api`
+  route answers 500 (PDF export, logo/image proxy, PDF cache). Check with
+  `npm run check:env`; the dev server also warns at startup and names the
+  missing variable in its response.
 - Mock data: `npm run seed:mock` (interactive generator), `npm run seed:mock:clean`
   (removes `[MOCK]`-tagged data only). All generated deals/docs are tagged `[MOCK]`.
 - Print-layout regression: `npm run test:print-layout` /

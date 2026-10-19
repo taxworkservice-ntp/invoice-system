@@ -31,6 +31,31 @@ async function loadEnvFiles() {
 
 await loadEnvFiles();
 
+// Server-only variables the local API handlers read at import time. Without
+// them every /api route that touches the admin client or R2 answers 500 with
+// an opaque message in the browser, because the throw happens while the
+// handler module is being loaded. Naming them up front (and in the response)
+// turns a silent 500 into a one-line fix.
+const REQUIRED_SERVER_ENV = [
+  { name: "SUPABASE_SERVICE_ROLE_KEY", fallback: null },
+  { name: "SUPABASE_URL", fallback: "VITE_SUPABASE_URL" },
+  { name: "SUPABASE_ANON_KEY", fallback: "VITE_SUPABASE_ANON_KEY" },
+  { name: "R2_BUCKET", fallback: null, storage: true },
+  { name: "R2_ACCESS_KEY_ID", fallback: null, storage: true },
+  { name: "R2_SECRET_ACCESS_KEY", fallback: null, storage: true },
+  { name: "R2_ENDPOINT", fallback: null, storage: true },
+];
+
+function missingServerEnv() {
+  return REQUIRED_SERVER_ENV.filter(
+    ({ name, fallback }) => !process.env[name] && !(fallback && process.env[fallback]),
+  );
+}
+
+const ENV_FIX_HINT =
+  "Add the server secrets to .env.local (see .env.example) — `npx vercel env pull .env.development` " +
+  "fetches them from the linked Vercel project — then restart `npm run dev:api`.";
+
 const handlerCache = new Map();
 
 async function fileExists(p) {
@@ -146,8 +171,14 @@ const server = createServer(async (req, res) => {
   } catch (error) {
     console.error(`[dev-api] ${req.method} ${url.pathname} failed:`, error);
     if (!res.headersSent) {
+      const message = error?.message || "Internal server error";
+      // A missing server var throws while the handler module loads, so the
+      // browser only ever saw "Internal server error". Say which var and how
+      // to fix it instead — this is a local setup step, not a bug.
+      const missing = typeof message === "string" && message.startsWith("Missing required environment variable:");
       res.status(500).send(JSON.stringify({
-        error: process.env.NODE_ENV === "production" ? "Internal server error" : error?.message || "Internal server error",
+        error: process.env.NODE_ENV === "production" ? "Internal server error" : message,
+        ...(missing ? { hint: ENV_FIX_HINT } : {}),
       }));
     }
   }
@@ -156,4 +187,20 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`[dev-api] local API server on http://localhost:${PORT}`);
   console.log(`[dev-api] unmapped /api routes forward to ${PROD_ORIGIN}`);
+  const missing = missingServerEnv();
+  if (missing.length > 0) {
+    const required = missing.filter((item) => !item.storage).map((item) => item.name);
+    const storage = missing.filter((item) => item.storage).map((item) => item.name);
+    console.warn("[dev-api] ──────────────────────────────────────────────────────────────");
+    if (required.length > 0) {
+      console.warn(`[dev-api] MISSING server env: ${required.join(", ")}`);
+      console.warn("[dev-api]   → /api routes (PDF export, cron, admin) will answer 500 until set.");
+    }
+    if (storage.length > 0) {
+      console.warn(`[dev-api] MISSING storage env: ${storage.join(", ")}`);
+      console.warn("[dev-api]   → storage routes (logo/image proxy, PDF cache) will answer 500 until set.");
+    }
+    console.warn(`[dev-api] ${ENV_FIX_HINT}`);
+    console.warn("[dev-api] ──────────────────────────────────────────────────────────────");
+  }
 });
