@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDnSectionPlan, DN_SECTION_TAG } from "../../src/lib/dnGroups";
 import { estimateLineItemHeight } from "../../src/lib/printRowHeight";
-import { paginateRows, type ClassicV2FontScales } from "../../src/lib/pagination";
+import { paginateRows, getRowBudgets, type ClassicV2FontScales } from "../../src/lib/pagination";
 import type { DocumentLineItem as Line } from "../../src/types";
 
 function line(overrides: Partial<Line> & { id: string }): Line {
@@ -73,8 +73,6 @@ const NOTE3 = NOTE4.split("\n").slice(0, 3).join("\n");
 type Unit = {
   item: Line;
   hasHeader: boolean;
-  hasFooterAfter: boolean;
-  hasSpacerAfter: boolean;
   soHeader: string | null;
   headerHasRefLine: boolean;
 };
@@ -92,8 +90,6 @@ function dnUnits(): Unit[] {
   ).map((entry) => ({
     item: entry.item,
     hasHeader: entry.header !== null,
-    hasFooterAfter: entry.footerAfter !== null,
-    hasSpacerAfter: entry.spacerAfter,
     soHeader: entry.header?.soHeader ?? null,
     headerHasRefLine: !!entry.header?.number,
   }));
@@ -105,14 +101,14 @@ function estimate(unit: Unit): number {
       fontScale: DN_SCALES.items,
       numScale: DN_SCALES.num,
       hideDeliveryAmounts: false,
-      hasDnGroupBand: unit.hasHeader || unit.hasFooterAfter,
+      hasDnGroupBand: unit.hasHeader,
       dnGroupSoHeader: unit.soHeader,
-    }) + (unit.hasSpacerAfter ? 3 : 0)
+    })
   );
 }
 
-function paginate(reserveTotalsBlock: boolean) {
-  return paginateRows(dnUnits(), "classic_v2", "line_items", {
+function paginateUnits(units: Unit[], reserveTotalsBlock: boolean) {
+  return paginateRows(units, "classic_v2", "line_items", {
     estimateHeight: estimate,
     fontScale: DN_SCALES,
     extraReserveMm: META_RESERVE_MM,
@@ -120,6 +116,10 @@ function paginate(reserveTotalsBlock: boolean) {
     spaceBonusMm: SPACE_BONUS,
     reserveTotalsBlock,
   });
+}
+
+function paginate(reserveTotalsBlock: boolean) {
+  return paginateUnits(dnUnits(), reserveTotalsBlock);
 }
 
 describe("classic V2 DN pagination", () => {
@@ -132,8 +132,20 @@ describe("classic V2 DN pagination", () => {
     expect(batches[0].items).toHaveLength(2);
   });
 
-  it("still splits when the unrendered totals block is reserved (guard)", () => {
-    expect(paginate(true).map((batch) => batch.mode)).toEqual(["first", "last"]);
+  it("reserving the unrendered totals block shrinks the page budget (guard)", () => {
+    // A hidden-amount DN never draws the totals block. Reserving it anyway can
+    // only cost room, so the guard is that the reserved budget is smaller.
+    const opts = { continuationFullHeader: true, spaceBonusMm: SPACE_BONUS };
+    const withReserve = getRowBudgets("classic_v2", DN_SCALES, "line_items", META_RESERVE_MM, {
+      ...opts,
+      reserveTotalsBlock: true,
+    });
+    const without = getRowBudgets("classic_v2", DN_SCALES, "line_items", META_RESERVE_MM, {
+      ...opts,
+      reserveTotalsBlock: false,
+    });
+    expect(withReserve.first).toBeLessThan(without.first);
+    expect(withReserve.last).toBeLessThan(without.last);
   });
 });
 
@@ -173,8 +185,6 @@ function dn107Units(): Unit[] {
   ).map((entry) => ({
     item: entry.item,
     hasHeader: entry.header !== null,
-    hasFooterAfter: entry.footerAfter !== null,
-    hasSpacerAfter: entry.spacerAfter,
     soHeader: entry.header?.soHeader ?? null,
     headerHasRefLine: !!entry.header?.number,
   }));
@@ -186,12 +196,12 @@ function estimateDn(unit: Unit, compact = false): number {
       fontScale: DN_SCALES.items,
       numScale: DN_SCALES.num,
       hideDeliveryAmounts: false,
-      hasDnGroupBand: unit.hasHeader || unit.hasFooterAfter,
+      hasDnGroupBand: unit.hasHeader,
       dnGroupSoHeader: unit.soHeader,
       dnGroupHasRefLine: unit.headerHasRefLine,
       dnNotes: true,
       compactDn: compact,
-    }) + (unit.hasSpacerAfter ? (compact ? 2.2 : 3) : 0)
+    })
   );
 }
 

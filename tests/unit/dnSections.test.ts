@@ -107,11 +107,6 @@ describe("multi-section row plan", () => {
     expect(plan[0].header).toMatchObject({ g: 1, number: "", soHeader: "SO1" });
     expect(plan[1].header).toBeNull();
     expect(plan[2].header).toMatchObject({ g: 2, number: "", soHeader: "SO2" });
-    // Boundary between sections breathes; document end does not trail.
-    expect(plan[1].spacerAfter).toBe(true);
-    expect(plan[2].spacerAfter).toBe(false);
-    // No sum footers inside marker sections.
-    expect(plan.every((p) => p.footerAfter === null)).toBe(true);
   });
 
   it("keeps unmarked runs on today's auto-grouping with shared numbering", () => {
@@ -198,9 +193,6 @@ describe("legacy single-header conversion", () => {
     const converted = buildDnSectionPlan([marker("m", "SO1"), ...lines], {});
     expect(converted.map((p) => p.number)).toEqual(legacy.map((p) => p.number));
     expect(converted.map((p) => p.header)).toEqual(legacy.map((p) => p.header));
-    expect(converted.map((p) => [p.footerAfter, p.spacerAfter])).toEqual(
-      legacy.map((p) => [p.footerAfter, p.spacerAfter]),
-    );
   });
 });
 
@@ -274,8 +266,6 @@ describe("invoice section groups (one group per DN section)", () => {
     expect(plan.map((p) => p.number)).toEqual(["1.1", "1.2", "2.1", "2.2"]);
     expect(plan[0].header).toMatchObject({ g: 1, number: "DN-2026-09-099", soHeader: "SO1" });
     expect(plan[2].header).toMatchObject({ g: 2, number: "DN-2026-09-099", soHeader: "SO2" });
-    expect(plan[1].spacerAfter).toBe(true);
-    expect(plan[3].spacerAfter).toBe(false);
   });
 
   it("null sections keep the legacy single group byte-identical", () => {

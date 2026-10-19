@@ -1,4 +1,6 @@
 import { formatCurrency } from "../../lib/format";
+import { formatPrintDate } from "../../lib/dates";
+import { resolveYearEra } from "../../lib/yearEra";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { getPrintableLineNote } from "../../lib/dnGroups";
 import { RefItemName } from "./RefItemName";
@@ -13,16 +15,6 @@ import type { PageMode } from "../../lib/pagination";
 const MIN_MODERN_ITEM_ROWS = 6;
 const MIN_MODERN_BILLING_NOTE_ROWS = 6;
 const MIN_MODERN_RECEIPT_ROWS = 6;
-
-function formatDate(date: string | null | undefined) {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return date;
-  const d = parsed.getDate().toString().padStart(2, "0");
-  const m = (parsed.getMonth() + 1).toString().padStart(2, "0");
-  const y = parsed.getFullYear();
-  return `${d}/${m}/${y}`;
-}
 
 function getRowClass() {
   return "break-inside-avoid align-top bg-white";
@@ -54,6 +46,7 @@ export function PrintLineItemsTable({
     invoiceNumberMap,
   } = data;
   const lineItems = lineItemsOverride ?? data.lineItems;
+  const era = resolveYearEra(data.clientProfile);
   const billingNoteInvoices = billingNoteInvoicesOverride ?? dataBillingNoteInvoices;
   const receiptInvoices = receiptInvoicesOverride ?? dataReceiptInvoices;
   const isDeliveryNote = document.doc_type === "delivery_note";
@@ -122,7 +115,7 @@ export function PrintLineItemsTable({
                   {invoice.invoice_number}
                 </td>
                 <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
-                  {formatDate(invoice.issue_date)}
+                  {formatPrintDate(invoice.issue_date, era)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {formatCurrency(invoice.subtotal)}
@@ -222,7 +215,7 @@ export function PrintLineItemsTable({
                   {invoice.invoice_number}
                 </td>
                 <td className="px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#1F2937] border-t-[0.5px] border-[#E6EBF2]">
-                  {formatDate(invoice.issue_date)}
+                  {formatPrintDate(invoice.issue_date, era)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-[calc(10px*var(--modern-fs-num))] text-[#111827] border-t-[0.5px] border-[#E6EBF2]">
                   {formatCurrency(invoice.subtotal)}
@@ -350,7 +343,7 @@ export function PrintLineItemsTable({
                     <div className="mt-0.5 text-[calc(9px*var(--modern-fs-items))] text-[#1F2937]">
                       อ้างอิง {lineDeliveryNoteMap[item.id].number}
                       {lineDeliveryNoteMap[item.id].issue_date
-                        ? ` (${formatDate(lineDeliveryNoteMap[item.id].issue_date)})`
+                        ? ` (${formatPrintDate(lineDeliveryNoteMap[item.id].issue_date, era)})`
                         : ""}
                     </div>
                   ) : null}

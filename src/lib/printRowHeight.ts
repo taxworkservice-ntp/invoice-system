@@ -57,10 +57,17 @@ const CLASSIC_DN_BAND_FIXED_MM = DN_BAND_MM.classic - TEXT_LINE_MM.classic;
 // ~54 at 10.5pt — width growth is linear in the font scale, so the estimate
 // divides by the scale; 63 ≈ 85% of measured capacity keeps the estimate
 // conservative (over-counts wrapped lines slightly).
+//
+// Classic V2 has ONE value: it always draws the amount-column grid (only the
+// values hide on a delivery note), so the description column is always 87mm —
+// a "no amounts → wider column" variant would under-count wrapped lines and
+// split a full delivery note too late. Modern does drop the columns when
+// amounts hide, but its capacity there has never been measured, so it keeps the
+// same conservative value in both modes (over-counting only breaks a page
+// earlier, which can never clip).
 const NAME_CHARS_PER_LINE = {
   modern: 32,
   classic: 63,
-  classicNoAmounts: 100,
 };
 
 // Portion of a classic row that does NOT grow with --classic-font-scale:
@@ -167,10 +174,11 @@ export function estimateLineItemHeight(
     ? rowFixedMm + firstLineMm
     : base;
 
+  // Classic V2 keeps its amount columns whatever the print mode, so its
+  // description column never widens. (Modern hides them when amounts hide, but
+  // its wider capacity is unmeasured — keep the conservative value.)
   const rawCharsPerLine = isClassic
-    ? opts.hideDeliveryAmounts
-      ? NAME_CHARS_PER_LINE.classicNoAmounts
-      : NAME_CHARS_PER_LINE.classic
+    ? NAME_CHARS_PER_LINE.classic
     : NAME_CHARS_PER_LINE.modern;
   // Wrapped-text capacity shrinks as the font grows; floor keeps the
   // estimate conservative (over-estimates wrapped lines).

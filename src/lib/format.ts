@@ -1,4 +1,4 @@
-import { formatBuddhistDate } from "./dates";
+import { formatDocDate, type YearEra } from "./dates";
 
 const currencyFormatter = new Intl.NumberFormat("th-TH", {
   minimumFractionDigits: 2,
@@ -90,6 +90,8 @@ export function buildReceiptPaymentRows(input: {
   amountReceived?: number | null;
   whtCertificateNo?: string | null;
   issueDate?: string | null;
+  /** Workspace year system; defaults to พ.ศ. so older callers are unchanged. */
+  era?: YearEra;
 }): ReceiptPaymentRow[] {
   // Labels carry their trailing " :" (info-box convention) so renderers print
   // them verbatim.
@@ -104,7 +106,9 @@ export function buildReceiptPaymentRows(input: {
     if (bank) rows.push({ label: "ธนาคาร :", value: bank });
     const rawDate = (input.chequeDate || "").trim();
     if (rawDate) {
-      const shown = isIsoDate(rawDate) ? formatBuddhistDate(rawDate) : rawDate;
+      const shown = isIsoDate(rawDate)
+        ? formatDocDate(rawDate, input.era ?? "be")
+        : rawDate;
       const postdated =
         isIsoDate(rawDate) &&
         isIsoDate(input.issueDate) &&

@@ -1,16 +1,6 @@
 import { printTitle } from "../../lib/docLabels";
 import type { PrintDocumentData } from "../../lib/print";
 
-function formatDate(date: string | null | undefined) {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return date;
-  const d = parsed.getDate().toString().padStart(2, "0");
-  const m = (parsed.getMonth() + 1).toString().padStart(2, "0");
-  const y = parsed.getFullYear();
-  return `${d}/${m}/${y}`;
-}
-
 export function PrintContinuationHeader({
   data,
   pageIndex,

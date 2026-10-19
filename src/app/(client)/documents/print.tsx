@@ -5,7 +5,6 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { SectionCard } from "../../../components/ui/SectionCard";
-import { Select } from "../../../components/ui/Input";
 import { Switch } from "../../../components/ui/Switch";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { PrintDocument } from "../../../components/print/PrintDocument";
@@ -21,13 +20,12 @@ import {
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
-import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, DN_GROUP_SPACER_MM, DN_GROUP_SPACER_COMPACT_MM, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
+import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
 import { buildZipBlob, safeZipSegment } from "../../../lib/download/zip";
 import { warmPdfCache } from "../../../lib/pdfWarm";
 import { useToast } from "../../../hooks/useToast";
 import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_COMPACT_DN_BONUS_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
-import { PRINT_TITLE_PRESETS, writeLastPrintTitleVariant } from "../../../lib/docLabels";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
@@ -284,8 +282,6 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
     const units = rowPlan.map((p) => ({
       item: p.item,
       hasHeader: p.header !== null,
-      hasFooterAfter: p.footerAfter !== null,
-      hasSpacerAfter: p.spacerAfter,
       soHeader: p.header?.soHeader ?? null,
       // Empty number = SO-only band (DN section/legacy header): its first SO
       // line is already part of the band charge.
@@ -303,10 +299,9 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
           hasLineDiscount:
             (unit.item.discount_amount ?? 0) > 0 || (unit.item.discount_percent ?? 0) > 0,
           hasInlineDnRef: false,
-          // Group header and sum rows share one geometry (single line, same
-          // padding), so both charge the same reserve. They never coincide on
-          // one unit: single-line groups get no sum row.
-          hasDnGroupBand: unit.hasHeader || unit.hasFooterAfter,
+          // A section band shares the row geometry (single line, same padding),
+          // so it charges the same reserve as a normal row.
+          hasDnGroupBand: unit.hasHeader,
           dnGroupSoHeader: unit.soHeader,
           dnGroupHasRefLine: unit.headerHasRefLine,
           // DN line notes are shorter than the item-name metric; scope the
@@ -316,8 +311,7 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
           hasLineImage:
             data.document.doc_type === "quotation" && !!unit.item.image_url,
           hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[unit.item.document_id],
-        }) +
-        (unit.hasSpacerAfter ? (compactDn ? DN_GROUP_SPACER_COMPACT_MM : DN_GROUP_SPACER_MM) : 0),
+        }),
       fontScale: budgetScales,
       extraReserveMm,
       continuationFullHeader,
@@ -388,20 +382,10 @@ export default function DocumentPrintPreviewPage() {
     : searchParams.get("copyTypes") === "original,copy"
       ? ["original", "copy"] as CopyType[]
       : [searchParams.get("copyType") === "copy" ? "copy" : "original"] as CopyType[];
-  // โหมดอ้างอิง (classic V2): the DN reference table (เหมือนใบวางบิล) replaces
-  // the items table in BOTH the preview and the exported PDF.
-  // PDF render instances get the flag from the URL; the preview uses state.
-  // Default is รายการเต็ม — reference mode is opt-in (remembered per browser).
-  const refCollapseParam = searchParams.get("refCollapse");
-  const [refCollapse, setRefCollapse] = useState(() => {
-    if (refCollapseParam !== null) return refCollapseParam === "1";
-    return window.localStorage.getItem("invoice-system.ref-collapse") === "1";
-  });
-  const toggleRefCollapse = (value: boolean) => {
-    setRefCollapse(value);
-    window.localStorage.setItem("invoice-system.ref-collapse", value ? "1" : "0");
-  };
-
+  // โหมดอ้างอิง (ref mode — one printed line per delivery note) is chosen when
+  // the invoice is created, on the create form, and saved into its lines: a
+  // summary invoice cannot be expanded back into item detail, so it must not be
+  // a switch that any print can flip. The preview prints what the document is.
   // Expectation-setting line if the render takes a while (cold renders run
   // 10–30s; cached ones are instant).
   useEffect(() => {
@@ -419,14 +403,7 @@ export default function DocumentPrintPreviewPage() {
     if (!id || exportMode) return;
     warmPdfCache(id);
   }, [id, exportMode]);
-  const hasDnMarkers = !!data?.lineItems?.some(
-    (l) => l.quantity === 0 && l.source_document_id && !l.source_line_item_id,
-  );
-  const isClassicV2 = data?.template === "classic_v2";
-  const showRefModeToggle =
-    isClassicV2 &&
-    (hasDnMarkers ||
-      (data?.document.doc_type === "invoice" && (data.invoiceDeliveryNotes.length ?? 0) > 0));
+
   const [copyType, setCopyType] = useState<CopyType>(exportCopyTypes[0] || "original");
   const [copyOrder, setCopyOrder] = useState<CopyOrder>(() => {
     if (typeof window === "undefined") return "original-first";
@@ -605,7 +582,7 @@ export default function DocumentPrintPreviewPage() {
     return apiFetchBlob(`/api/documents/${encodeURIComponent(id)}/pdf`, {
       method: "POST",
       signal,
-      body: JSON.stringify({ copyTypes, refCollapse: refCollapse ? 1 : 0, interleave: interleaveCopies ? 1 : 0 }),
+      body: JSON.stringify({ copyTypes, interleave: interleaveCopies ? 1 : 0 }),
     });
   }
 
@@ -712,32 +689,6 @@ export default function DocumentPrintPreviewPage() {
     });
   }
 
-  // Tax-invoice printed-title preset (print only — doc_type stays "invoice").
-  // Saved on the document so preview, export PDF, and reprints agree.
-  const [savingPrintTitle, setSavingPrintTitle] = useState(false);
-  async function handlePrintTitleChange(value: string) {
-    if (!data || savingPrintTitle) return;
-    const prev = data.document.print_title_variant || "";
-    if (value === prev) return;
-    setSavingPrintTitle(true);
-    setPdfError("");
-    try {
-      const { error } = await supabase
-        .from("documents")
-        .update({ print_title_variant: value || null })
-        .eq("id", data.document.id);
-      if (error) throw error;
-      setData({ ...data, document: { ...data.document, print_title_variant: value || null } });
-      // Remember for the next new tax invoice.
-      writeLastPrintTitleVariant(value);
-    } catch (err) {
-      console.error("Failed to save document print title:", err);
-      setPdfError("บันทึกชื่อเรื่องเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-    } finally {
-      setSavingPrintTitle(false);
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#EEF2F6] flex items-center justify-center">
@@ -745,7 +696,6 @@ export default function DocumentPrintPreviewPage() {
       </div>
     );
   }
-
   if (error || !data) {
     return (
       <div className="min-h-screen bg-[#EEF2F6] px-6 py-10">
@@ -763,7 +713,7 @@ export default function DocumentPrintPreviewPage() {
   }
 
   if (exportMode) {
-    const batches = getPrintBatches(data, blankForm, undefined, refCollapse);
+    const batches = getPrintBatches(data, blankForm);
     const { appendix } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
     // Two-copy page order (?interleave=0 restores the legacy layout where
     // each copy prints complete first). Default interleaves page-by-page
@@ -824,9 +774,8 @@ export default function DocumentPrintPreviewPage() {
     );
   }
 
-  const showPrintTitle = data.document.doc_type === "invoice" && data.document.vat_registered;
   const showDnAppendixOption = dnAppendixFeatureEnabled && data.invoiceDeliveryNotes.length > 0;
-  const hasDocumentOptions = showPrintTitle || showRefModeToggle || showDnAppendixOption;
+  const hasDocumentOptions = showDnAppendixOption;
   const headerDescription = blankForm
     ? `${data.document.doc_number || "เอกสาร"} · ฟอร์มเปล่า — ให้พนักงานกรอกจำนวนและราคาด้วยมือ`
     : data.document.doc_number || "เอกสาร";
@@ -852,34 +801,6 @@ return (
             <div className="flex flex-col gap-2 border-b border-line pb-3 sm:flex-row sm:items-center sm:gap-4">
               <span className="shrink-0 text-label font-medium text-ink-400 sm:w-[180px]">เนื้อหาเอกสาร</span>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                {showPrintTitle ? (
-                  <InlineControl label="ชื่อเรื่องบนหัวเอกสาร">
-                    <div className="w-[220px]">
-                      <Select
-                        value={data.document.print_title_variant || ""}
-                        onChange={(event) => void handlePrintTitleChange(event.target.value)}
-                        disabled={savingPrintTitle}
-                      >
-                        <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
-                        {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
-                          <option key={value} value={value}>{preset.thai}</option>
-                        ))}
-                      </Select>
-                    </div>
-                  </InlineControl>
-                ) : null}
-                {showRefModeToggle ? (
-                  <InlineControl label="รูปแบบรายการ">
-                    <Segmented
-                      value={refCollapse ? "ref" : "full"}
-                      onChange={(value) => toggleRefCollapse(value === "ref")}
-                      options={[
-                        { value: "ref", label: "แบบอ้างอิง", title: "แบบอ้างอิง (ตารางใบส่งของ)" },
-                        { value: "full", label: "รายการเต็ม", title: "แสดงรายการสินค้าเต็ม" },
-                      ]}
-                    />
-                  </InlineControl>
-                ) : null}
                 {showDnAppendixOption ? (
                   <InlineControl label="แนบภาคผนวกการส่งของ">
                     <Switch checked={dnAppendix} onChange={setDnAppendix} />
@@ -1035,7 +956,7 @@ return (
           >
             <PrintErrorBoundary onError={() => {}}>
               {(() => {
-                  const batches = getPrintBatches(data, blankForm, undefined, refCollapse);
+                  const batches = getPrintBatches(data, blankForm);
                   return batches.map(({ kind, batch }, i) => {
                     const props = {
                       data,

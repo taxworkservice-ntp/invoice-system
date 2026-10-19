@@ -1,12 +1,12 @@
 import { Fragment } from "react";
 import { formatCurrency, paymentMethodText, buildReceiptPaymentRows } from "../../lib/format";
+import { formatPrintDate } from "../../lib/dates";
+import { resolveYearEra } from "../../lib/yearEra";
 import { getProxiedImageUrl } from "../../lib/storageApi";
 import {
   buildDnBlocks,
   buildDnSectionPlan,
   buildDnSoHeaderPlan,
-  DN_GROUP_SPACER_MM,
-  DN_GROUP_SPACER_COMPACT_MM,
   dnHeaderLabel,
   filterDnRefMarkers,
   filterDnRenderLines,
@@ -18,7 +18,6 @@ import {
 import { getRowBudgets } from "../../lib/pagination";
 import {
   estimateLineItemHeight,
-  getBaseRowMm,
 } from "../../lib/printRowHeight";
 import { getDnVarianceParts } from "../../lib/dnVariance";
 import { printTitle } from "../../lib/docLabels";
@@ -121,26 +120,6 @@ const COPY_LABELS: Record<CopyType, string> = {
   copy: "สำเนา",
 };
 
-function formatDate(date: string | null | undefined): string {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return date;
-  const d = parsed.getDate().toString().padStart(2, "0");
-  const m = (parsed.getMonth() + 1).toString().padStart(2, "0");
-  const y = parsed.getFullYear();
-  return `${d}/${m}/${y}`;
-}
-
-function formatDateBuddhist(date: string | null | undefined): string {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return date;
-  const d = parsed.getDate().toString().padStart(2, "0");
-  const m = (parsed.getMonth() + 1).toString().padStart(2, "0");
-  const y = parsed.getFullYear() + 543;
-  return `${d}/${m}/${y}`;
-}
-
 // ป.80/2542 ข้อ 3(5): the corrected value on a credit note is the original
 // invoice value minus the adjustment; on a debit note it is plus.
 function adjustmentCorrectAmount(original: number, adjustment: number, isCreditNote: boolean): number {
@@ -160,6 +139,26 @@ const SHOW_PAYMENT_METHOD_TYPES = new Set([
 const MIN_CLASSIC_ITEM_ROWS = 8;
 const MIN_CLASSIC_BILLING_NOTE_ROWS = 8;
 const MIN_CLASSIC_RECEIPT_ROWS = 8;
+
+/**
+ * A synthetic one-line row, used to charge filler rows their rendered height.
+ * It goes through the same estimator as a real line, so a filler can never be
+ * charged less than a content row — the estimator carries both the text line
+ * (which scales) and the per-row safety margin. An *empty* name would skip the
+ * text line entirely (the estimator only charges lines beyond the first), so
+ * the name is a single character.
+ */
+const FILLER_ROW_LINE = {
+  item_name: "x",
+  line_note: null,
+  item_type: "service",
+  unit: "",
+  quantity: 0,
+  unit_price: 0,
+  discount_percent: 0,
+  discount_amount: 0,
+  line_total: 0,
+} as unknown as DocumentLineItem;
 
 interface PrintDocumentClassicProps {
   data: PrintDocumentData;
@@ -215,6 +214,7 @@ export function PrintDocumentClassicV2({
     bankAccount,
   } = data;
   const lineItems = batchLineItems ?? data.lineItems;
+  const era = resolveYearEra(clientProfile);
   // Classic V2 detail mode: qty-0 DN marker rows and DN section-header
   // lines never render. Numbering is hierarchical (BOQ-style: groups 1..n,
   // children 1.1..) derived from the FULL line list, so numbers stay
@@ -339,31 +339,34 @@ export function PrintDocumentClassicV2({
   const enScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("en", typeFontScales, sectionScales, fontScaleMult);
   const label = printTitle(document);
   const copyLabel = COPY_LABELS[copyType];
-  const classicTerms = resolveTermsByType(clientProfile.classic_terms_by_type, clientProfile.classic_terms, document.doc_type);
+  // Classic V2 prints no closing terms on a delivery note (it is not a
+  // contract): the remark slot there only ever held the note, and the note now
+  // prints as the item table's last row.
+  const classicTerms = isDeliveryNote
+    ? []
+    : resolveTermsByType(clientProfile.classic_terms_by_type, clientProfile.classic_terms, document.doc_type);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
+  const noteText = document.note?.trim();
   // Group header rows, sum rows and inter-group spacers occupy physical rows
   // on the sheet — count them so the blank-row padding keeps the fixed height.
   const groupHeaderCount = tableLines.reduce(
     (count, line) => count + (dnRowPlanById.get(line.id)?.header ? 1 : 0),
     0,
   );
-  const groupFooterCount = tableLines.reduce(
-    (count, line) => count + (dnRowPlanById.get(line.id)?.footerAfter ? 1 : 0),
-    0,
-  );
-  const groupSpacerCount = tableLines.reduce(
-    (count, line) => count + (dnRowPlanById.get(line.id)?.spacerAfter ? 1 : 0),
-    0,
-  );
-  // Elastic filler rows: blank rows are decoration, never content. Shrink
-  // them (down to 0) to fit tall multi-line notes on one page before the
-  // paginator splits to a new page. Mirrors getPrintBatches() budgets so
-  // preview and PDF agree; falls back to the old fixed count on any error.
-  const maxBlankLines = isLastOrSingle
-    ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - (tableLines.length + groupHeaderCount + groupFooterCount + groupSpacerCount))
+  // Elastic filler rows: blank rows are decoration, never content. The table is
+  // padded to MIN_CLASSIC_ITEM_ROWS, and then — when the page budget has room
+  // for at least two more — filled out to whatever the budget actually allows,
+  // so a short document doesn't leave a dead band above the bottom row. They
+  // still shrink back (down to 0) for tall last pages, so they can never push a
+  // note or row off the sheet. Fillers never reach the paginator (it plans
+  // rows, not decoration), so page breaks are unaffected. Mirrors
+  // getPrintBatches() budgets so preview and PDF agree; falls back to the
+  // minimum table height on any error.
+  const minBlankLines = isLastOrSingle
+    ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - (tableLines.length + groupHeaderCount))
     : 0;
   const blankLineCount = (() => {
-    if (!isLastOrSingle || maxBlankLines <= 0) return 0;
+    if (!isLastOrSingle) return 0;
     try {
       const hideEn = clientProfile.classic_v2_hide_english_labels === true;
       const compactSig = clientProfile.classic_v2_compact_signature === true;
@@ -409,6 +412,12 @@ export function PrintDocumentClassicV2({
       const budgets = getRowBudgets("classic_v2", budgetScales, "line_items", extraReserveMm, {
         continuationFullHeader: fullHeaderPerPage,
         spaceBonusMm,
+        // Mirror the paginator: a hidden-amount delivery note draws no totals
+        // column, so the scaled totals block must not be charged against the
+        // space we are about to fill.
+        reserveTotalsBlock:
+          document.doc_type !== "delivery_note" ||
+          (document.hide_amounts_on_print === false && !blankForm),
       });
       const budget = pageMode === "last" ? budgets.last : budgets.first;
       const hasMultiInvoiceRefs =
@@ -428,20 +437,57 @@ export function PrintDocumentClassicV2({
             hasLineDiscount:
               (line.discount_amount ?? 0) > 0 || (line.discount_percent ?? 0) > 0,
             hasInlineDnRef: false,
-            hasDnGroupBand: !!entry && (entry.header !== null || entry.footerAfter !== null),
+            hasDnGroupBand: !!entry && entry.header !== null,
             dnGroupSoHeader: entry?.header?.soHeader ?? null,
             dnGroupHasRefLine: !!entry?.header?.number,
             dnNotes: isDeliveryNote,
             compactDn,
             hasLineImage: document.doc_type === "quotation" && !!line.image_url,
             hasInvoiceRef: hasMultiInvoiceRefs && !!invoiceNumberMap[line.document_id],
-          }) + (entry?.spacerAfter ? (compactDn ? DN_GROUP_SPACER_COMPACT_MM : DN_GROUP_SPACER_MM) : 0);
+          });
       }
-      const blankRowMm = Math.max(1, getBaseRowMm("classic_v2", itemsScaleMult));
-      const fit = Math.floor((budget - usedMm) / blankRowMm + 1e-6);
-      return Math.max(0, Math.min(maxBlankLines, fit));
+      const blankRowMm = Math.max(
+        1,
+        // Charge a filler row what it really renders: the same single-line row
+        // metric the paginator uses for content (text line + safety margin).
+        // The bare base row under-counts by ~0.8mm per row, which is enough to
+        // push a filled page past A4.
+        estimateLineItemHeight(FILLER_ROW_LINE, "classic_v2", {
+          fontScale: itemsScaleMult,
+          numScale: numScaleMult,
+        }),
+      );
+      // The document note renders as the table's closing row, above the filler
+      // rows, so it has to be charged here too. Calibrated on the fixture: a
+      // one-line note is ~6.5mm at scale 1 (≈3mm of cell padding + label line,
+      // then ~3.6mm per body line — the 7.5pt body at line-height 1.35 grows
+      // with the items scale, the padding does not).
+      const noteLines = noteText
+        ? noteText
+            .split(/\r?\n/)
+            .reduce(
+              (total, part) => total + Math.max(1, Math.ceil(part.length / (128 / itemsScaleMult))),
+              0,
+            )
+        : 0;
+      const noteRowMm = noteLines > 0 ? 3 + noteLines * 3.6 * itemsScaleMult : 0;
+      // Leave one row spare: the row estimator is calibrated conservatively but
+      // is not exact (a quotation's photo rows run ~1mm tall apiece), and a
+      // single over-counted filler pushes the sheet past A4 — which clips in
+      // print. The spare row costs nothing visible (it is the gap that would
+      // otherwise sit above the bottom row).
+      const fit =
+        Math.floor((budget - usedMm - noteRowMm) / blankRowMm + 1e-6) - 1;
+      const fill = Math.max(0, fit);
+      // Fill the page when it buys at least two ruled rows; otherwise keep the
+      // minimum table height — but never more than the budget actually allows,
+      // so a tight budget (large font scales) still shrinks the fillers instead
+      // of pushing the sheet past A4.
+      return fill >= minBlankLines + 2
+        ? fill
+        : Math.max(0, Math.min(minBlankLines, fill));
     } catch {
-      return maxBlankLines;
+      return minBlankLines;
     }
   })();
   const billingBlankCount = isLastOrSingle
@@ -453,7 +499,6 @@ export function PrintDocumentClassicV2({
   const dnBlankCount = isLastOrSingle && dnTableRows
     ? Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - dnTableRows.length)
     : 0;
-  const noteText = document.note?.trim();
   const bankInfo = [
     bankName && showBank ? `ธนาคาร: ${bankName}` : null,
     bankAccountNumber && showBank ? `เลขที่บัญชี: ${bankAccountNumber}` : null,
@@ -651,7 +696,7 @@ export function PrintDocumentClassicV2({
                       <span className="print-classic-meta-th-en">DATE</span>
                     </th>
                     <td className="print-classic-meta-val">
-                      {formatDate(document.issue_date)}
+                      {formatPrintDate(document.issue_date, era)}
                     </td>
                   </tr>
                   {document.customer_po_number ? (
@@ -704,7 +749,7 @@ export function PrintDocumentClassicV2({
                         </span>
                       </th>
                       <td className="print-classic-meta-val">
-                        {formatDate(document.due_date)}
+                        {formatPrintDate(document.due_date, era)}
                       </td>
                     </tr>
                   ) : null}
@@ -787,7 +832,7 @@ export function PrintDocumentClassicV2({
                   <tr key={dn.id}>
                     <td className="center">{dnTableStart + i}</td>
                     <td>{dn.delivery_note_number}</td>
-                    <td>{dn.issue_date ? formatDateBuddhist(dn.issue_date) : "-"}</td>
+                    <td>{dn.issue_date ? formatPrintDate(dn.issue_date, era) : "-"}</td>
                     <td className="right">{formatCurrency(dn.subtotal)}</td>
                     <td className="right">{formatCurrency(dn.vat_amount)}</td>
                     <td className="right bold">{formatCurrency(dn.total_amount)}</td>
@@ -842,7 +887,7 @@ export function PrintDocumentClassicV2({
                   <tr key={inv.id}>
                     <td className="center">{startIndex + i}</td>
                     <td>{inv.invoice_number}</td>
-                    <td>{formatDateBuddhist(inv.issue_date)}</td>
+                    <td>{formatPrintDate(inv.issue_date, era)}</td>
                     <td className="right">{formatCurrency(inv.subtotal)}</td>
                     <td className="right">{formatCurrency(inv.vat_amount)}</td>
                     <td className="right bold">
@@ -909,7 +954,7 @@ export function PrintDocumentClassicV2({
                   <tr key={inv.id}>
                     <td className="center">{startIndex + i}</td>
                     <td>{inv.invoice_number}</td>
-                    <td>{formatDateBuddhist(inv.issue_date)}</td>
+                    <td>{formatPrintDate(inv.issue_date, era)}</td>
                     <td className="right">{formatCurrency(inv.subtotal)}</td>
                     <td className="right">{formatCurrency(inv.vat_amount)}</td>
                     <td className="right bold">
@@ -985,16 +1030,17 @@ export function PrintDocumentClassicV2({
                         {header ? (
                           <tr className="print-classic-dn-group-row">
                             <td className="center">{header.g}</td>
-                            <td
-                              className="print-classic-dn-group-label"
-                              colSpan={5}
-                            >
+                            {/* Merged band: the section text uses the full row
+                                width (the paginator budgets it that way), so the
+                                column rules stop at this row — the spacer below
+                                is what keeps the grid running. */}
+                            <td className="print-classic-dn-group-label" colSpan={5}>
                               {/* SO-only header (DN opt-in): the free text IS
                                   the header. Standard groups keep the DN ref
                                   line and append each frozen SO section as its
                                   own line below it. */}
                               {header.number ? (
-                                <RefItemName name={dnHeaderLabel(header)} />
+                                <RefItemName name={dnHeaderLabel(header, era)} />
                               ) : null}
                               {header.soHeader ? (
                                 header.number ? (
@@ -1071,28 +1117,17 @@ export function PrintDocumentClassicV2({
                             {blankForm || !showAmountValues ? "" : item.hide_amounts_on_print ? "-" : formatCurrency(item.line_total)}
                           </td>
                         </tr>
-                        {entry?.footerAfter ? (
-                          <tr className="print-classic-dn-group-sum">
-                            <td className="center" />
-                            <td
-                              className="print-classic-dn-group-sum-label"
-                              colSpan={4}
-                            >
-                              รวม
-                            </td>
-                            <td className="right bold">
-                              {blankForm || !showAmountValues ? "" : formatCurrency(entry.footerAfter.subtotal)}
-                            </td>
-                          </tr>
-                        ) : null}
-                        {entry?.spacerAfter ? (
-                          <tr className="print-classic-dn-spacer">
-                            <td colSpan={6} />
-                          </tr>
-                        ) : null}
                       </Fragment>
                     );
                   })}
+                {showFooter && noteText ? (
+                  <tr className="print-classic-note-row">
+                    <td colSpan={6}>
+                      <span className="print-classic-note-label">หมายเหตุ (REMARK)</span>
+                      <span className="print-classic-note-body">{noteText}</span>
+                    </td>
+                  </tr>
+                ) : null}
                 {Array.from({ length: blankLineCount }).map((_, index) => (
                   <tr
                     key={`blank-${index}`}
@@ -1143,7 +1178,7 @@ export function PrintDocumentClassicV2({
                     <tr key={dn.id}>
                       <td className="center">{i + 1}</td>
                       <td>{dn.delivery_note_number}</td>
-                      <td>{formatDateBuddhist(dn.issue_date)}</td>
+                      <td>{formatPrintDate(dn.issue_date, era)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1151,27 +1186,26 @@ export function PrintDocumentClassicV2({
             </div>
           ) : null}
 
-          {/* ============== NOTE / PAYMENT + TOTALS ============== */}
-          {showFooter && (
+          {/* ============== REMARK (terms) / PAYMENT + TOTALS ============== */}
+          {/* A delivery note has no terms and its note now prints inside the
+              items table, so with amounts hidden there is nothing left to
+              draw — skip the row entirely rather than print an empty band. */}
+          {showFooter && ((isDeliveryNote ? false : classicTerms.length > 0 || paymentLines.length > 0 || isReceipt) || (!hideDeliveryAmounts && !blankForm)) ? (
           <div className={`print-classic-bottom-row${useSummaryGrid ? " print-classic-bottom-row-receipt" : ""}`}>
             <div className="print-classic-terms-col">
-              {isDeliveryNote ? (
+              {isDeliveryNote ? null : (
                 <>
-                  <div className="print-classic-terms-title">
-                    หมายเหตุการส่งของ (REMARKS)
-                  </div>
-                  <div className="print-classic-terms-body">
-                    {noteText || "-"}
-                  </div>
-                </>
-              ) : (
-                <>
-                  {noteText ? (
+                  {/* Terms now print in the remark slot, above PAYMENT. */}
+                  {classicTerms.length > 0 ? (
                     <section className="print-classic-terms-section">
                       <div className="print-classic-terms-title">
-                        หมายเหตุ (NOTE)
+                        หมายเหตุ (REMARK)
                       </div>
-                      <div className="print-classic-terms-body">{noteText}</div>
+                      <ol className="print-classic-note-list">
+                        {classicTerms.map((term, index) => (
+                          <li key={`${index}-${term}`}>{term}</li>
+                        ))}
+                      </ol>
                     </section>
                   ) : null}
                   {paymentLines.length > 0 && !isReceipt ? (
@@ -1220,7 +1254,7 @@ export function PrintDocumentClassicV2({
                       </div>
                       <div className="print-classic-settle-row">
                         <span>เลขที่ / วันที่</span>
-                        <span>{referenceDoc.doc_number || "-"}{referenceDoc.issue_date ? ` · ${formatDate(referenceDoc.issue_date)}` : ""}</span>
+                        <span>{referenceDoc.doc_number || "-"}{referenceDoc.issue_date ? ` · ${formatPrintDate(referenceDoc.issue_date, era)}` : ""}</span>
                       </div>
                       <div className="print-classic-settle-row">
                         <span>มูลค่าตามใบกำกับเดิม (ก่อน VAT)</span>
@@ -1244,7 +1278,7 @@ export function PrintDocumentClassicV2({
                       </div>
                     </section>
                   ) : null}
-                  {!noteText && paymentLines.length === 0 && !isReceipt ? (
+                  {classicTerms.length === 0 && paymentLines.length === 0 && !isReceipt ? (
                     <div className="print-classic-terms-body">-</div>
                   ) : null}
                 </>
@@ -1398,7 +1432,7 @@ export function PrintDocumentClassicV2({
               </div>
             )}
           </div>
-          )}
+          ) : null}
         </div>
       </section>
 
@@ -1413,18 +1447,6 @@ export function PrintDocumentClassicV2({
 
       {showFooter && (
         <>
-          {!isDeliveryNote && classicTerms.length > 0 ? (
-            <div className="print-classic-fine-terms">
-              <div className="print-classic-fine-terms-title">
-                เงื่อนไข (TERMS)
-              </div>
-              <ol>
-                {classicTerms.map((term, index) => (
-                  <li key={`${index}-${term}`}>{term}</li>
-                ))}
-              </ol>
-            </div>
-          ) : null}
 
           {/* ============== BOTTOM BAND (signatures) ============== */}
           {/* The pin spacer absorbs rounding slack so the band always sits
@@ -1527,6 +1549,7 @@ export function PrintDocumentClassicV2({
                           amountReceived: document.amount_received,
                           whtCertificateNo: document.wht_certificate_no,
                           issueDate: document.issue_date,
+                          era,
                         });
                         return rows.length > 0 ? (
                           <>

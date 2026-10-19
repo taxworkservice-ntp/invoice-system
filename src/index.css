@@ -1036,7 +1036,6 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 .print-theme-classic-v2.print-regular-items .print-classic-items-table thead th,
 .print-theme-classic-v2.print-regular-items .print-classic-items-table td.bold,
 .print-theme-classic-v2.print-regular-items .print-classic-dn-group-label,
-.print-theme-classic-v2.print-regular-items .print-classic-dn-group-sum-label,
 .print-theme-classic-v2.print-regular-items .print-classic-dn-child-no,
 .print-theme-classic-v2.print-regular-items .print-classic-frame-section-title,
 .print-theme-classic-v2.print-regular-items .print-classic-items-title {
@@ -1101,19 +1100,26 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   padding: 1.2mm 2mm;
 }
 
+/* The section band carries the group number — make it read as a heading. */
+.print-theme-classic-v2 .print-classic-dn-group-row td.center {
+  font-weight: 600;
+  color: #0f172a;
+}
+
 .print-theme-classic-v2 .print-classic-dn-group-label {
   font-size: calc(6.5pt * var(--classic-fs-items));
-  color: #64748b;
+  /* Colour comes from the V2 readability pass (near-black body text). */
   font-weight: 600;
   letter-spacing: 0.02em;
   text-align: left;
 }
 
 /* frozen SO header: second line under the DN ref (or the whole header on
-   an SO-grouped delivery note). Same size, regular weight, wraps freely —
-   pagination charges one extra text line per header carrying it. */
+   an SO-grouped delivery note). Full-band width (the band is one merged cell),
+   semibold, wraps freely — the paginator charges one text line per wrapped
+   line at this same width. */
 .print-theme-classic-v2 .print-classic-dn-group-so {
-  font-weight: 400;
+  font-weight: 600;
   color: #0f172a;
   overflow-wrap: anywhere;
 }
@@ -1149,29 +1155,39 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   padding-left: 8mm;
 }
 
-/* multi-line group sum row (รวม): plain total convention — hairline above,
-   label flush-right toward the amount cell. Same padding as the header row
-   so the shared pagination reserve stays valid. */
-.print-theme-classic-v2 .print-classic-dn-group-sum td {
-  border-top: 0.5px solid #94a3b8;
-  padding: 0.8mm 2mm;
+/* The document's own note, as the items table's closing row: full width,
+   label then text, so it reads as part of the table rather than a stray box. */
+.print-theme-classic-v2 tr.print-classic-note-row td {
+  padding: 1.4mm 2.5mm;
+  background: #ffffff;
 }
-
-.print-theme-classic-v2 .print-classic-dn-group-sum-label {
+.print-theme-classic-v2 .print-classic-note-label {
+  display: block;
   font-size: calc(6.5pt * var(--classic-fs-items));
   color: #334155;
   font-weight: 600;
-  text-align: right;
+  letter-spacing: 0.02em;
 }
-
-/* breathing room after each DN group — borderless so the row measures
-   exactly DN_GROUP_SPACER_MM (charged in pagination). */
-.print-theme-classic-v2 tr.print-classic-dn-spacer td {
-  height: 3mm;
-  padding: 0;
-  border: 0;
-  font-size: 0;
-  line-height: 0;
+.print-theme-classic-v2 .print-classic-note-body {
+  display: block;
+  margin-top: 0.4mm;
+  font-size: calc(7.5pt * var(--classic-fs-items));
+  line-height: 1.35;
+  color: #111827;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+/* Terms list, now printed in the remark slot above PAYMENT. */
+.print-theme-classic-v2 .print-classic-note-list {
+  margin: 0;
+  padding-left: 5mm;
+  list-style: decimal;
+  font-size: calc(7.5pt * var(--classic-fs-totals));
+  line-height: 1.45;
+  color: #1f2937;
+}
+.print-theme-classic-v2 .print-classic-note-list li {
+  margin-bottom: 0.5mm;
 }
 
 /* classic V2: softened grid — lighter vertical rules so the table keeps its
@@ -2031,9 +2047,6 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 }
 .print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-dn-group-row td {
   padding: 0.8mm 2mm;
-}
-.print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-dn-spacer td {
-  height: 2mm;
 }
 .print-theme-classic-v2.print-delivery-note.print-dn-compact .print-classic-bottom-band {
   margin-top: 1.2mm;

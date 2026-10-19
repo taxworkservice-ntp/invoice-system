@@ -71,6 +71,9 @@ const clientProfile: ClientProfile = {
   stamp_url: image("PAID", "#dc2626"),
   dev_mode_enabled: false,
   dev_effective_date: null,
+  // Pinned so print-layout baselines never depend on the DB default. `ce`
+  // mirrors a workspace configured with the current platform default.
+  year_era: "ce",
   created_at: now,
   updated_at: now,
 };
@@ -721,6 +724,17 @@ const activeData = appendixOn
 document.documentElement.classList.add("print-export-document");
 document.body.classList.add("print-export-document");
 document.documentElement.dataset.accentMode = "element";
+
+// Exposed for the estimate-vs-render conformance check
+// (scripts/print-layout-estimate-check.mjs) — dev fixture only.
+(window as unknown as { __printFixture?: unknown }).__printFixture = {
+  template,
+  pageMode,
+  document: activeData.document,
+  clientProfile: activeData.clientProfile,
+  lineItems: activeData.lineItems,
+  lineDeliveryNoteMap: activeData.lineDeliveryNoteMap,
+};
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

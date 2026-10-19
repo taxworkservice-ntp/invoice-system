@@ -1,20 +1,13 @@
 import { printTitle } from "../../lib/docLabels";
+import { formatPrintDate } from "../../lib/dates";
+import { resolveYearEra } from "../../lib/yearEra";
 import type { PrintDocumentData } from "../../lib/print";
 import type { CopyType } from "./PrintDocument";
 import { DocLogo } from "./DocLogo";
 
-function formatDate(date: string | null | undefined) {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return date;
-  const d = parsed.getDate().toString().padStart(2, "0");
-  const m = (parsed.getMonth() + 1).toString().padStart(2, "0");
-  const y = parsed.getFullYear();
-  return `${d}/${m}/${y}`;
-}
-
 export function PrintHeader({ data, copyType = "original" }: { data: PrintDocumentData; copyType?: CopyType }) {
   const { clientProfile, customer, document, referenceDoc, receiptPaymentNumber, receiptOutstanding } = data;
+  const era = resolveYearEra(clientProfile);
   const label = printTitle(document);
   const copyLabel = copyType === "copy" ? "สำเนา" : "ต้นฉบับ";
   const receiptPaidInFull = document.doc_type === "receipt" && receiptOutstanding !== undefined && receiptOutstanding <= 0.01;
@@ -97,7 +90,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
                 <span className="text-[#1F2937]">วันที่</span>
                 <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">DATE</span>
               </div>
-              <span className="text-right text-[#111827] self-center">{formatDate(document.issue_date)}</span>
+              <span className="text-right text-[#111827] self-center">{formatPrintDate(document.issue_date, era)}</span>
             </div>
             {document.due_date ? (
               <div className="flex justify-between gap-2">
@@ -105,7 +98,7 @@ export function PrintHeader({ data, copyType = "original" }: { data: PrintDocume
                   <span className="text-[#1F2937]">ครบกำหนด</span>
                   <span className="text-[calc(6.5px*var(--modern-fs-en))] text-[#475467]">DUE DATE</span>
                 </div>
-                <span className="text-right text-[#111827] self-center">{formatDate(document.due_date)}</span>
+                <span className="text-right text-[#111827] self-center">{formatPrintDate(document.due_date, era)}</span>
               </div>
             ) : null}
             {referenceDoc?.doc_number ? (

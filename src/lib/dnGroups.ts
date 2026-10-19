@@ -1,5 +1,5 @@
 import type { DocumentLineItem } from "../types";
-import { formatBuddhistDate } from "./dates";
+import { formatPrintDate, type YearEra } from "./dates";
 
 /**
  * Classic V2 detail-mode DN grouping (BOQ-style hierarchical numbering).
@@ -20,15 +20,6 @@ import { formatBuddhistDate } from "./dates";
  */
 
 export type DnRefKind = "delivery_note" | "quotation";
-
-/** Breathing room after each DN group (mm) — rendered as a borderless
- * spacer row and charged to the group's last line in pagination. Must match
- * the `.print-classic-dn-spacer` CSS height. */
-export const DN_GROUP_SPACER_MM = 3;
-
-/** Compact delivery-note spacing: spacer height when classic_v2_compact_dn is on.
- * Measured 2.2mm (CSS height 2mm + row border) by print-layout-measure.mjs. */
-export const DN_GROUP_SPACER_COMPACT_MM = 2.2;
 
 export interface DnRefInfo {
   number: string;
@@ -54,8 +45,6 @@ export interface DnGroupBlock {
   kind: DnRefKind | undefined;
   soHeader: string | null;
   items: DocumentLineItem[];
-  /** Σ line_total of the group, rounded to 2dp. */
-  subtotal: number;
 }
 
 export interface DnSingleBlock {
@@ -73,7 +62,6 @@ export interface DnHeaderPayload {
   issueDate: string | null;
   kind: DnRefKind | undefined;
   soHeader: string | null;
-  subtotal: number;
 }
 
 /** Row plan entry aligned 1:1 with the flattened renderable lines. */
@@ -83,13 +71,6 @@ export interface DnRowPlanEntry {
   number: string;
   /** Present on the first child of each group (header renders above it). */
   header: DnHeaderPayload | null;
-  /** True on the last child of each group (spacer renders below it), except
-   * the document's final line — no trailing gap before the totals. */
-  spacerAfter: boolean;
-  /** Present on the last child of a MULTI-line group (sum row renders below
-   * the child, above any spacer). Single-line groups need no sum — it would
-   * duplicate the line amount. Shown even on the document's final line. */
-  footerAfter: DnHeaderPayload | null;
 }
 
 /**
@@ -124,14 +105,11 @@ export function buildDnSoHeaderPlan(
     issueDate: null,
     kind: undefined,
     soHeader,
-    subtotal: 0,
   };
   return renderableLines.map((item, j) => ({
     item,
     number: `1.${j + 1}`,
     header: j === 0 ? header : null,
-    spacerAfter: false,
-    footerAfter: null,
   }));
 }
 
@@ -209,11 +187,6 @@ export function buildDnBlocks(
       kind: ref.kind,
       soHeader: ref.soHeader?.trim() ? ref.soHeader.trim() : null,
       items: open.items,
-      subtotal:
-        Math.round(
-          open.items.reduce((s, l) => s + (Number(l.line_total) || 0), 0) *
-            100,
-        ) / 100,
     });
     open = null;
   };
@@ -255,12 +228,15 @@ export function getPrintableLineNote(note: string | null | undefined): string {
     .trim();
 }
 
-export function dnHeaderLabel(payload: {
-  number: string;
-  issueDate: string | null;
-}): string {
+export function dnHeaderLabel(
+  payload: {
+    number: string;
+    issueDate: string | null;
+  },
+  era: YearEra = "be",
+): string {
   return payload.issueDate
-    ? `${payload.number} วันที่: ${formatBuddhistDate(payload.issueDate)}`
+    ? `${payload.number} วันที่: ${formatPrintDate(payload.issueDate, era)}`
     : payload.number;
 }
 
@@ -279,8 +255,6 @@ export function planDnRows(blocks: DnBlock[]): DnRowPlanEntry[] {
         item: block.item,
         number: `${block.s}`,
         header: null,
-        spacerAfter: false,
-        footerAfter: null,
       });
     } else {
       const header: DnHeaderPayload = {
@@ -289,45 +263,14 @@ export function planDnRows(blocks: DnBlock[]): DnRowPlanEntry[] {
         issueDate: block.issueDate,
         kind: block.kind,
         soHeader: block.soHeader,
-        subtotal: block.subtotal,
       };
       block.items.forEach((item, j) => {
         plan.push({
           item,
           number: `${block.g}.${j + 1}`,
           header: j === 0 ? header : null,
-          // Set below: only the group's last child gets a spacer, and never
-          // the document's final line.
-          spacerAfter: false,
-          // Sum row only for multi-line groups, on the last child.
-          footerAfter:
-            block.items.length > 1 && j === block.items.length - 1
-              ? header
-              : null,
         });
       });
-    }
-  }
-  // Mark each group's last child (except the document's final line): a
-  // spacer renders below it so groups read as separated blocks. Standalone
-  // lines never get spacers — flat invoices render exactly as before.
-  return markGroupSpacers(plan);
-}
-
-/**
- * Spacer post-pass shared by every row plan: a dotted (hierarchical) number
- * followed by a different top-level number means a group/section boundary,
- * so the boundary line gets breathing room below it — except on the
- * document's final line (no trailing gap before the totals).
- */
-function markGroupSpacers(plan: DnRowPlanEntry[]): DnRowPlanEntry[] {
-  const topOf = (n: string) => n.split(".")[0];
-  for (let i = 0; i < plan.length - 1; i++) {
-    if (
-      plan[i].number.includes(".") &&
-      topOf(plan[i].number) !== topOf(plan[i + 1].number)
-    ) {
-      plan[i].spacerAfter = true;
     }
   }
   return plan;
@@ -616,15 +559,12 @@ export function buildDnSectionPlan(
         issueDate: null,
         kind: undefined,
         soHeader: sectionHeader,
-        subtotal: 0,
       };
       segment.forEach((item, j) => {
         plan.push({
           item,
           number: `${g}.${j + 1}`,
           header: j === 0 ? header : null,
-          spacerAfter: false,
-          footerAfter: null,
         });
       });
     } else {
@@ -646,5 +586,5 @@ export function buildDnSectionPlan(
     segment.push(item);
   }
   flush();
-  return markGroupSpacers(plan);
+  return plan;
 }

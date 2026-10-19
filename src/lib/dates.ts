@@ -81,16 +81,77 @@ export function beYear(): number {
   return toBuddhistYearNow();
 }
 
-export function formatBuddhistDate(isoDate: string): string {
+/**
+ * Year system a workspace prints in.
+ *  - `ce` = ค.ศ. ("2026")
+ *  - `be` = พ.ศ. ("2569")
+ * One setting per client, applied to every date the client sees — screens and
+ * paper alike. It never changes a document number.
+ */
+export type YearEra = "ce" | "be";
+
+/** Calendar year → the year as written in that era. */
+export function toEraYear(year: number, era: YearEra): number {
+  return era === "be" ? toBuddhistYear(year) : year;
+}
+
+/** A year as written in an era → the Gregorian calendar year (inverse of `toEraYear`). */
+export function fromEraYear(year: number, era: YearEra): number {
+  return era === "be" ? year - BUDDHIST_OFFSET : year;
+}
+
+/** Era-aware abbreviated date: `18 ต.ค. 2569` / `18 ต.ค. 2026`. */
+export function formatDocDate(isoDate: string, era: YearEra = "be"): string {
   const { day, month, year } = bangkokParts(isoDate);
-  return `${day} ${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`;
+  return `${day} ${THAI_MONTHS_ABBR[month - 1]} ${toEraYear(year, era)}`;
+}
+
+/** Era-aware full-month date: `18 ตุลาคม 2569` / `18 ตุลาคม 2026`. */
+export function formatDocDateFull(isoDate: string, era: YearEra = "be"): string {
+  const { day, month, year } = bangkokParts(isoDate);
+  return `${day} ${THAI_MONTHS_FULL[month - 1]} ${toEraYear(year, era)}`;
+}
+
+/** Era-aware `dd/mm/yyyy` — the paper's numeric style. */
+export function formatDocNumericDate(isoDate: string, era: YearEra = "be"): string {
+  const { day, month, year } = bangkokParts(isoDate);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(day)}/${pad(month)}/${toEraYear(year, era)}`;
+}
+
+/**
+ * `dd/mm/yyyy` for printed documents, in the workspace era.
+ *
+ * The one date formatter the print components use. Empty input prints "-" and
+ * unparseable input is echoed verbatim, matching every private print formatter
+ * this replaced. Passing the era is required on purpose: paper must never pick
+ * a year system itself (see `lib/yearEra.ts`).
+ */
+export function formatPrintDate(
+  date: string | null | undefined,
+  era: YearEra,
+): string {
+  if (!date) return "-";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return formatDocNumericDate(date, era);
+}
+
+export function formatDocDateTimeParts(
+  isoDate: string,
+  era: YearEra = "be",
+): { date: string; time: string } {
+  return { date: formatDocDate(isoDate, era), time: formatBangkokTime(isoDate) };
+}
+
+/** @deprecated Use `formatDocDate(value, era)` — kept for older call sites. */
+export function formatBuddhistDate(isoDate: string): string {
+  return formatDocDate(isoDate, "be");
 }
 
 /** Numeric date with Common Era year: "2026-09-15" → "15/09/2026". */
 export function formatNumericThaiDate(isoDate: string): string {
-  const { day, month, year } = bangkokParts(isoDate);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(day)}/${pad(month)}/${year}`;
+  return formatDocNumericDate(isoDate, "ce");
 }
 
 /**
@@ -111,12 +172,17 @@ export function daysSinceDate(isoDate: string | null | undefined): number | null
 
 /** Month picker label: "2026-09" → "ก.ย. 2569". Falls back to input. */
 export function formatBuddhistMonth(yearMonth: string): string {
+  return formatDocMonth(yearMonth, "be");
+}
+
+/** Era-aware month label: "2026-09" → "ก.ย. 2026" / "ก.ย. 2569". */
+export function formatDocMonth(yearMonth: string, era: YearEra = "be"): string {
   const [y, m] = yearMonth.split("-");
   const month = parseInt(m, 10);
   const year = parseInt(y, 10);
   if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12)
     return yearMonth;
-  return `${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`;
+  return `${THAI_MONTHS_ABBR[month - 1]} ${toEraYear(year, era)}`;
 }
 
 export function formatBuddhistDateTime(isoDate: string): string {
@@ -124,17 +190,14 @@ export function formatBuddhistDateTime(isoDate: string): string {
   return `${date} เวลา ${time}`;
 }
 
+/** @deprecated Use `formatDocDateTimeParts(value, era)`. */
 export function formatBuddhistDateTimeParts(isoDate: string): { date: string; time: string } {
-  const { day, month, year } = bangkokParts(isoDate);
-  return {
-    date: `${day} ${THAI_MONTHS_ABBR[month - 1]} ${toBuddhistYear(year)}`,
-    time: formatBangkokTime(isoDate),
-  };
+  return formatDocDateTimeParts(isoDate, "be");
 }
 
+/** @deprecated Use `formatDocDateFull(value, era)`. */
 export function formatBuddhistDateFull(isoDate: string): string {
-  const { day, month, year } = bangkokParts(isoDate);
-  return `${day} ${THAI_MONTHS_FULL[month - 1]} ${toBuddhistYear(year)}`;
+  return formatDocDateFull(isoDate, "be");
 }
 
 export function relativeTimeThai(dateStr: string): string {

@@ -1,4 +1,6 @@
 import { formatCurrency, paymentMethodText } from "../../lib/format";
+import { formatPrintDate } from "../../lib/dates";
+import { resolveYearEra } from "../../lib/yearEra";
 import { splitTerms, resolveTermsByType } from "../../lib/terms";
 import type { PrintDocumentData } from "../../lib/print";
 import type {
@@ -43,16 +45,6 @@ const COPY_LABELS: Record<CopyType, string> = {
   copy: "สำเนา",
 };
 
-function formatDate(date: string | null | undefined) {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return date;
-  const d = parsed.getDate().toString().padStart(2, "0");
-  const m = (parsed.getMonth() + 1).toString().padStart(2, "0");
-  const y = parsed.getFullYear();
-  return `${d}/${m}/${y}`;
-}
-
 export function PrintDocument({
   data,
   copyType = "original",
@@ -76,7 +68,9 @@ export function PrintDocument({
   summaryStartIndex?: number;
   blankForm?: boolean;
 }) {
-  const showBank = SHOW_BANK_TYPES.has(data.document.doc_type) &&
+  const era = resolveYearEra(data.clientProfile);
+  const showBank =
+    SHOW_BANK_TYPES.has(data.document.doc_type) &&
     (data.document.doc_type !== "receipt" || !!data.bankAccount);
   const showPaymentMethod = SHOW_PAYMENT_METHOD_TYPES.has(data.document.doc_type);
   const bankAccount = data.bankAccount;
@@ -184,7 +178,7 @@ export function PrintDocument({
                     {deliveryNote.delivery_note_number}
                   </td>
                   <td className="border-t-[0.5px] border-[#E6EBF2] px-2 py-1.5 text-[calc(10px*var(--modern-fs-items))] text-[#1F2937]">
-                    {formatDate(deliveryNote.issue_date)}
+                    {formatPrintDate(deliveryNote.issue_date, era)}
                   </td>
                 </tr>
               ))}

@@ -65,8 +65,6 @@ describe("DN single-group plan", () => {
     expect(plan.map((p) => p.number)).toEqual(["1.1", "1.2"]);
     expect(plan[0].header).toMatchObject({ g: 1, number: "", soHeader: "SO1 Part no.2" });
     expect(plan[1].header).toBeNull();
-    // No sum footer (DN amounts usually hidden), no spacers (one group).
-    expect(plan.every((p) => p.footerAfter === null && !p.spacerAfter)).toBe(true);
   });
 
   it("takes precedence over source grouping inputs", () => {
