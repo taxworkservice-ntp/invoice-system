@@ -882,3 +882,36 @@ date and the workspace era.
 Tests: `tests/unit/whtCertificate.test.ts` (10 cases) pins the owner's example,
 the era resolution, the cross-era scan (asserting both stems are queried) and
 the skip/parse edge cases. 261 unit tests total.
+
+### 2026-10-19 — one year everywhere, and a ใบส่งของ remark slot
+
+- **The era no longer goes stale in an open tab.** `clientProfile` is cached for
+  the whole session, so flipping ค.ศ./พ.ศ. in the admin panel left client tabs
+  formatting dates from the old value — a freshly-issued `DO-2569-…` number
+  (from the DB) beside a `19 ต.ค. 2026` date (from the cache). `useAuth` now
+  re-reads **only `year_era`** on focus/visibility (throttled 30 s) and replaces
+  the state **only when it actually changed**, so a page holding unsaved edits
+  hydrated from `clientProfile` is never re-hydrated.
+- **Three more places formatted a year by hand**, all fixed: the WHT
+  certificate's own printed date (a local `fmtDate` composing
+  `getDate()/getMonth()/getFullYear()`), the documents list's year filter, the
+  Home "งานเสร็จ" year filter, and the `ปี …` filter chip (now `toEraYear(...)`
+  against the workspace era — the option *values* stay calendar years, they are
+  filter keys).
+- **The guard was the reason they slipped through**, so `check-year-era.mjs`
+  grew the patterns that had escaped it: any-locale `toLocale*`/`Intl` with a
+  year (paren-balanced, so multi-line option objects count), hand-built
+  `${…}/${…}/${getFullYear()}` date strings, a bare year rendered as JSX text
+  (`>{year}<`, multi-line), and a Thai `ปี ${…}` label interpolating a bare
+  year. Proven to bite (it flagged all four before the fixes) and it now covers
+  the admin area as a group rather than file by file — admin screens belong to
+  no workspace and legitimately show timestamps.
+- **ใบส่งของ joined the closing-remark tabs** (`TERMS_DOC_TYPES`), so Settings ›
+  เอกสาร now offers it: type text wins, a blank tab suppresses the remark on
+  delivery notes only, an untouched tab still inherits the legacy workspace
+  text. `resolveTermsByType` already behaved that way; only the tab list and its
+  pinning unit test said otherwise. **Modern** lost its own delivery-note
+  suppression too, so the setting means the same thing on both templates.
+
+Verified: tsc, 263 unit tests (terms-by-type + row model), lint with the
+hardened year-era check, clean build.

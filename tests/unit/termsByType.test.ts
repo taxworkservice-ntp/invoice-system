@@ -10,11 +10,27 @@ describe("splitTerms", () => {
 });
 
 describe("resolveTermsByType", () => {
-  it("covers every printing type except delivery notes", () => {
+  it("covers every type that prints a closing remark, delivery notes included", () => {
     expect([...TERMS_DOC_TYPES].sort()).toEqual(
-      ["billing_note", "credit_note", "debit_note", "invoice", "quotation", "receipt"],
+      ["billing_note", "credit_note", "debit_note", "delivery_note", "invoice", "quotation", "receipt"],
     );
-    expect((TERMS_DOC_TYPES as readonly string[]).includes("delivery_note")).toBe(false);
+    expect((TERMS_DOC_TYPES as readonly string[]).includes("delivery_note")).toBe(true);
+  });
+
+  it("gives a delivery note its own remark, blankable on its own", () => {
+    const map = { delivery_note: "ส่งของตามเงื่อนไขที่ตกลงกัน", invoice: "ชำระภายใน 30 วัน" };
+    expect(resolveTermsByType(map, "global", "delivery_note")).toEqual(["ส่งของตามเงื่อนไขที่ตกลงกัน"]);
+    expect(resolveTermsByType(map, "global", "invoice")).toEqual(["ชำระภายใน 30 วัน"]);
+    // An explicitly blank delivery note suppresses its remark without touching
+    // the other types.
+    expect(resolveTermsByType({ ...map, delivery_note: "  " }, "global", "delivery_note")).toEqual([]);
+    expect(resolveTermsByType({ ...map, delivery_note: "  " }, "global", "invoice")).toEqual([
+      "ชำระภายใน 30 วัน",
+    ]);
+  });
+
+  it("a delivery note with no slot still inherits the legacy text", () => {
+    expect(resolveTermsByType({ invoice: "x" }, "global", "delivery_note")).toEqual(["global"]);
   });
 
   it("type text wins; empty string hides that type", () => {

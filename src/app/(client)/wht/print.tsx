@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { whtCertificateYymm } from "../../../lib/whtCertificate";
 import { resolveYearEra } from "../../../lib/yearEra";
+import { formatDocNumericDate } from "../../../lib/dates";
 import { getProxiedImageUrl } from "../../../lib/r2";
 import type { WhtRecord, WhtVendor, ClientProfile } from "../../../types";
 
@@ -42,14 +43,6 @@ const CHECKMARK_POS: Record<string, { top: number; left: number; fs: number }> =
   pnd3a:        { top: 657, left: 733, fs: 32 },
   pnd53:        { top: 655, left: 1005, fs: 32 },
 };
-
-function fmtDate(iso: string) {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-  } catch { return iso || ""; }
-}
 
 function fmtNum(n: number | null | undefined) {
   if (n == null || n === 0) return "";
@@ -108,7 +101,9 @@ function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: numb
   const whtId =
     record.certificate_no ||
     (month ? `WT${fallbackStem}${String(seq + 100).padStart(3, "0")}` : "");
-  const dateStr = fmtDate(record.issue_date);
+  const dateStr = record.issue_date
+    ? formatDocNumericDate(record.issue_date, resolveYearEra(profile))
+    : "";
   const amtStr = fmtNum(record.amount);
   const whtStr = fmtNum(record.wht_amount);
   const thaiStr = thaiBahtText(record.wht_amount);
@@ -366,7 +361,9 @@ function CleanPage({
         </thead>
         <tbody>
           <tr>
-            <td style={{ padding: "2mm 3mm" }}>{fmtDate(record.issue_date)}</td>
+            <td style={{ padding: "2mm 3mm" }}>
+              {record.issue_date ? formatDocNumericDate(record.issue_date, resolveYearEra(profile)) : ""}
+            </td>
             <td style={{ padding: "2mm 3mm", textAlign: "right" }}>{fmtNum(record.amount)}</td>
             <td style={{ padding: "2mm 3mm", textAlign: "center" }}>{record.wht_rate}%</td>
             <td style={{ padding: "2mm 3mm", textAlign: "right", color: "#C0392B", fontWeight: 600 }}>{fmtNum(record.wht_amount)}</td>

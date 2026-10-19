@@ -13,6 +13,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
+import { useYearEra } from "../../../components/YearEraProvider";
+import { toEraYear } from "../../../lib/dates";
 import { Select } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
 import { Modal } from "../../../components/ui/Modal";
@@ -181,6 +183,8 @@ interface StatChip {
 }
 
 export default function DocumentsPage() {
+  // Filter values are calendar (ค.ศ.) keys; the picker shows the workspace year.
+  const era = useYearEra();
   const navigate = useNavigate();
   const createDocument = useCreateDocument();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -785,7 +789,7 @@ export default function DocumentsPage() {
                 <option value="all">ทุกปี</option>
                 {availableYears.map((year) => (
                   <option key={year} value={String(year)}>
-                    {year}
+                    {toEraYear(year, era)}
                   </option>
                 ))}
               </Select>

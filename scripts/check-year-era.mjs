@@ -26,10 +26,10 @@ const ROOT = path.join(process.cwd(), "src");
 const ALLOWED = [
   /lib[\\/]dates\.ts$/, // the owner of era-aware formatting
   /lib[\\/]payroll[\\/]ssoExport\.ts$/, // government filing, fixed to พ.ศ.
-  /app[\\/]\(admin\)[\\/]clients\.tsx$/,
-  /components[\\/]admin[\\/]client[\\/]OverviewTab\.tsx$/,
-  /components[\\/]admin[\\/]client[\\/]ActivityTab\.tsx$/,
-  /components[\\/]admin[\\/]client[\\/]ReportsTab\.tsx$/,
+  // Admin tooling: the platform's own screens, which belong to no workspace and
+  // therefore have no era to follow (they show timestamps, not document dates).
+  /app[\\/]\(admin\)[\\/]/,
+  /components[\\/]admin[\\/]/,
 ];
 
 const RULES = [
@@ -44,13 +44,98 @@ const RULES = [
     hint: "use toEraYear(year, era) with the workspace era",
   },
   {
-    name: "Thai-locale date (implicitly พ.ศ.)",
-    // A Thai-locale date string with a year renders the Buddhist year even
-    // though the source value is ค.ศ. Day/month-only formats are fine.
-    re: /toLocaleDate(?:String|TimeString)\(\s*"th-TH"[^)]*\byear\b|toLocale(?:Date|Time)?String\(\s*"th-TH"[^)]*dateStyle/,
-    hint: "use useDocDate() so the year follows the workspace era",
+    name: "hand-built date string",
+    // `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}` — a local
+    // formatter composing a date from raw parts, which is how the WHT
+    // certificate printed ค.ศ. Because the literal interpolates getFullYear()
+    // AND uses a "/" separator, plain date arithmetic
+    // (`new Date(d.getFullYear(), d.getMonth() + 1)`) is not caught.
+    re: /`[^`]*\/[^`]*\$\{[^}]*getFullYear\(\)[^}]*\}[^`]*`/,
+    hint: "use useDocDate() / formatDocNumericDate(value, era)",
   },
 ];
+
+// The year in JSX text or in a Thai year label — multi-line, because
+// `<option …>\n {year}\n</option>` and `\u0e1b\u0e35 ${filters.year}` are the two shapes that slipped
+// through while the year filter and the filter chip printed \u0e04.\u0e28.
+const RENDERED_YEAR = [
+  />\s*\{\s*(?:year|y|reportYear|currentYear|selectedYear|nowYear)\s*\}\s*</g,
+  // A Thai year label interpolating a *bare* year value (`\u0e1b\u0e35 ${filters.year}`) —
+  // a converted value (`\u0e1b\u0e35 ${yearLabel(year)}`) is a call and passes.
+  /`[^`]*\u0e1b\u0e35[^`]*\$\{\s*(?:[\w$.]*\.)?(?:year|y|reportYear|currentYear|selectedYear|nowYear)\s*\}[^`]*`/g,
+];
+
+// Multi-line aware: a call's options object may span lines, which is exactly
+// how `toLocaleDateString("th-TH", { … year … })` escaped the line rules.
+const CALL_WITH_YEAR = /(toLocaleDateString|toLocaleTimeString|toLocaleString|Intl\.DateTimeFormat)\s*\(/g;
+
+/** Text of the call whose "(" sits at `open`, paren-balanced. */
+function callText(text, open) {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === "(") depth += 1;
+    else if (text[i] === ")") {
+      depth -= 1;
+      if (depth === 0) return { body: text.slice(open, i + 1), end: i };
+    }
+  }
+  return { body: text.slice(open, open + 240), end: open + 240 };
+}
+
+/** Violations in one file's source: line rules + the multi-line call scan. */
+function scanSource(file, source) {
+  const found = [];
+  const lineOf = (index) => source.slice(0, index).split("\n").length;
+
+  source.split(/\r?\n/).forEach((line, index) => {
+    for (const rule of RULES) {
+      rule.re.lastIndex = 0;
+      const match = rule.re.exec(line);
+      if (match) {
+        found.push({
+          file,
+          line: index + 1,
+          rule: rule.name,
+          match: match[0].trim().slice(0, 80),
+          hint: rule.hint,
+        });
+      }
+    }
+  });
+
+  CALL_WITH_YEAR.lastIndex = 0;
+  let call;
+  while ((call = CALL_WITH_YEAR.exec(source)) !== null) {
+    const { body, end } = callText(source, call.index + call[0].length - 1);
+    if (/\byear\b|dateStyle/.test(body)) {
+      found.push({
+        file,
+        line: lineOf(call.index),
+        rule: "Thai/foreign-locale date with a year",
+        match: body.replace(/\s+/g, " ").slice(0, 80),
+        hint: "use useDocDate() — a locale year is a fixed era (th-TH is always พ.ศ.)",
+      });
+    }
+    CALL_WITH_YEAR.lastIndex = end;
+  }
+
+  for (const re of RENDERED_YEAR) {
+    re.lastIndex = 0;
+    let hit;
+    while ((hit = re.exec(source)) !== null) {
+      found.push({
+        file,
+        line: lineOf(hit.index),
+        rule: "year rendered without the era",
+        match: hit[0].replace(/\s+/g, " ").trim().slice(0, 80),
+        hint: "wrap it: {toEraYear(year, era)} or use useDocDate()",
+      });
+      re.lastIndex = hit.index + hit[0].length;
+    }
+  }
+
+  return found;
+}
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -65,22 +150,8 @@ const violations = [];
 
 for (const file of walk(ROOT)) {
   if (ALLOWED.some((re) => re.test(file))) continue;
-  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
-  lines.forEach((line, index) => {
-    for (const rule of RULES) {
-      rule.re.lastIndex = 0;
-      const match = rule.re.exec(line);
-      if (match) {
-        violations.push({
-          file: path.relative(process.cwd(), file),
-          line: index + 1,
-          rule: rule.name,
-          match: match[0],
-          hint: rule.hint,
-        });
-      }
-    }
-  });
+  const relative = path.relative(process.cwd(), file);
+  violations.push(...scanSource(relative, fs.readFileSync(file, "utf8")));
 }
 
 if (violations.length === 0) {

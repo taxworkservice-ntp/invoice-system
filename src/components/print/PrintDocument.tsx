@@ -122,9 +122,13 @@ export function PrintDocument({
   const isCopy = copyType === "copy";
   const isDeliveryNote = data.document.doc_type === "delivery_note";
   const documentClass = isDeliveryNote ? " print-delivery-note" : "";
-  const terms = isDeliveryNote
-    ? []
-    : resolveTermsByType(data.clientProfile.classic_terms_by_type, data.clientProfile.classic_terms, data.document.doc_type);
+  // Delivery notes print their configured remark too (Settings › เอกสาร has a
+  // ใบส่งของ tab); a type with no terms configured still prints nothing.
+  const terms = resolveTermsByType(
+    data.clientProfile.classic_terms_by_type,
+    data.clientProfile.classic_terms,
+    data.document.doc_type,
+  );
   const lineItems = batchLineItems ?? data.lineItems;
   const billingNoteInvoices = batchBillingNoteInvoices ?? data.billingNoteInvoices;
   const receiptInvoices = batchReceiptInvoices ?? data.receiptInvoices;

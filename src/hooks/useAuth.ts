@@ -26,6 +26,9 @@ interface AuthContextValue {
   exitViewAs: () => void;
 }
 
+/** Focus/visibility re-check of the workspace year setting (cheap, throttled). */
+const YEAR_ERA_REFRESH_MS = 30_000;
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function resolveProfile(userId: string): Promise<Profile> {
@@ -322,6 +325,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  /**
+   * The workspace's year system can change while a tab is open (an
+   * administrator flips ค.ศ./พ.ศ. in the client's Manage tab) and the client
+   * app caches `clientProfile` for the whole session. Without this, one card
+   * would show a freshly-issued พ.ศ. document number beside a ค.ศ. date
+   * formatted from the stale profile.
+   *
+   * Only the era is re-read, and the state is replaced *only when it actually
+   * changed* — a page may hold unsaved edits hydrated from `clientProfile`, and
+   * a focus refetch must never re-hydrate them.
+   */
+  useEffect(() => {
+    if (!profile || profile.role !== "client") return;
+    const workspaceUserId = profile.workspace_user_id ?? profile.id;
+    let lastCheckedAt = 0;
+
+    async function refreshYearEra() {
+      if (Date.now() - lastCheckedAt < YEAR_ERA_REFRESH_MS) return;
+      lastCheckedAt = Date.now();
+      const { data, error: eraError } = await supabase
+        .from("client_profiles")
+        .select("year_era")
+        .eq("user_id", workspaceUserId)
+        .maybeSingle();
+      if (eraError || !data) return;
+      setClientProfile((prev) =>
+        prev && prev.year_era !== data.year_era ? { ...prev, year_era: data.year_era } : prev,
+      );
+    }
+
+    function onVisible() {
+      if (document.visibilityState === "visible") void refreshYearEra();
+    }
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [profile]);
 
   async function refetchWorkspace() {
     setWorkspaceLoading(true);

@@ -28,6 +28,7 @@ import { supabase } from "../../lib/supabase";
 import { preloadDealDetail } from "../../lib/dealDetailCache";
 import { formatCurrency } from "../../lib/format";
 import { useDocDate } from "../../components/YearEraProvider";
+import { toEraYear } from "../../lib/dates";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS, DOC_TYPE_SHORT, DOC_TYPE_COLORS } from "../../constants";
 import { TABLE } from "../../lib/tableStyles";
@@ -1559,7 +1560,7 @@ export default function HomePage() {
                       <option value="all">ทุกปี</option>
                       {doneYearOptions.map((y) => (
                         <option key={y} value={y}>
-                          {y}
+                          {toEraYear(Number(y), docDate.era)}
                         </option>
                       ))}
                     </select>

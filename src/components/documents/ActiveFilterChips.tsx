@@ -2,6 +2,8 @@ import { X } from "lucide-react";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../constants";
 import type { DocumentFilters } from "../../lib/documentFilters";
 import { formatCurrency } from "../../lib/format";
+import { toEraYear } from "../../lib/dates";
+import { useYearEra } from "../../components/YearEraProvider";
 
 const MONTH_LABELS = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -35,6 +37,8 @@ export function ActiveFilterChips({
   onRemove,
   onClearAll,
 }: ActiveFilterChipsProps) {
+  // Filter values are calendar (ค.ศ.) keys; the chip shows the workspace year.
+  const era = useYearEra();
   const chips: { key: string; label: string; clear: Partial<DocumentFilters> }[] = [];
 
   if (filters.q) chips.push({ key: "q", label: `ค้นหา: ${filters.q}`, clear: { q: "" } });
@@ -48,7 +52,8 @@ export function ActiveFilterChips({
     });
   if (filters.month !== "all")
     chips.push({ key: "month", label: `เดือน ${MONTH_LABELS[Number(filters.month) - 1] || filters.month}`, clear: { month: "all" } });
-  if (filters.year !== "all") chips.push({ key: "year", label: `ปี ${filters.year}`, clear: { year: "all" } });
+  if (filters.year !== "all")
+    chips.push({ key: "year", label: `ปี ${toEraYear(Number(filters.year), era)}`, clear: { year: "all" } });
   if (filters.from) chips.push({ key: "from", label: `จาก ${filters.from}`, clear: { from: "" } });
   if (filters.to) chips.push({ key: "to", label: `ถึง ${filters.to}`, clear: { to: "" } });
   if (filters.amountMin != null)
