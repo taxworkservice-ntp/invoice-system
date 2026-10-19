@@ -58,6 +58,7 @@ export function ManageTab({
   fetchData,
 }: ManageTabProps) {
   const navigate = useNavigate();
+  const [savingYearEra, setSavingYearEra] = useState(false);
   const toast = useToast();
   const [resetting, setResetting] = useState(false);
   const [togglingDev, setTogglingDev] = useState(false);
@@ -95,6 +96,30 @@ export function ManageTab({
   const [resettingDocs, setResettingDocs] = useState(false);
 
   const confirmName = clientProfile?.company_name_th?.trim() || email.trim();
+
+  /**
+   * Year system for this client's documents (ค.ศ. / พ.ศ.).
+   *
+   * Admin-only by design: a guard trigger rejects the change from anyone who is
+   * not `is_admin()`, so a workspace owner cannot set it themselves.
+   */
+  async function handleYearEra(next: "ce" | "be") {
+    if (!id || clientProfile?.year_era === next) return;
+    setSavingYearEra(true);
+    try {
+      const { error } = await supabase
+        .from("client_profiles")
+        .update({ year_era: next })
+        .eq("user_id", id);
+      if (error) throw error;
+      setClientProfile((prev) => (prev ? { ...prev, year_era: next } : prev));
+      toast.success("บันทึกรูปแบบปีแล้ว");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
+    } finally {
+      setSavingYearEra(false);
+    }
+  }
 
   async function handleResetPassword() {
     if (!email) return;
@@ -419,6 +444,41 @@ export function ManageTab({
   return (
     <div className="space-y-4">
       <div>
+        <SectionHeader>รูปแบบปีในเอกสาร</SectionHeader>
+        <Card>
+          <p className="text-body leading-6 text-ink-700">
+            ใช้กับวันที่บนเอกสารและหน้าจอของลูกค้ารายนี้ · เอกสารที่ออกไปแล้วไม่ถูกแก้ไข ·
+            เลขที่เอกสารยังใช้ปี ค.ศ. เสมอ
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(
+              [
+                { value: "ce", label: "ค.ศ.", sample: "18/10/2026" },
+                { value: "be", label: "พ.ศ.", sample: "18/10/2569" },
+              ] as const
+            ).map((option) => {
+              const active = (clientProfile?.year_era ?? "ce") === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={savingYearEra || !id}
+                  onClick={() => handleYearEra(option.value)}
+                  aria-pressed={active}
+                  className={`rounded-control border px-3 py-2 text-left transition-colors disabled:opacity-50 ${
+                    active
+                      ? "border-primary bg-primary-soft text-primary-deep"
+                      : "border-card-border bg-white text-ink-600 hover:border-line-strong"
+                  }`}
+                >
+                  <span className="block text-body font-semibold">{option.label}</span>
+                  <span className="block text-label text-ink-500">{option.sample}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+
         <SectionHeader>บัญชีและการเข้าถึง</SectionHeader>
         <Card>
           <div className="space-y-2">

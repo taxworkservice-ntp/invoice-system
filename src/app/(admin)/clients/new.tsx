@@ -23,6 +23,8 @@ export default function AdminClientNewPage() {
   const [email, setEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [adminNote, setAdminNote] = useState("");
+  // Year system for this client's new documents (admin-only; default ค.ศ.).
+  const [yearEra, setYearEra] = useState<"ce" | "be">("ce");
   const [tempPassword, setTempPassword] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -50,6 +52,7 @@ export default function AdminClientNewPage() {
         email: email.trim(),
         companyName: companyName.trim(),
         adminNote: adminNote.trim(),
+        yearEra,
         password: tempPassword || undefined,
       });
 
@@ -223,6 +226,38 @@ export default function AdminClientNewPage() {
                   {tempPassword
                     ? "ลูกค้าจะเข้าสู่ระบบด้วยรหัสนี้และต้องเปลี่ยนรหัสผ่านทันที"
                     : "ถ้าไม่กรอก ระบบจะส่งอีเมลเชิญเพื่อให้ลูกค้าตั้งรหัสผ่านเอง"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-label font-medium text-ink-600 mb-1">
+                  รูปแบบปีในเอกสาร
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { value: "ce", label: "ค.ศ.", sample: "18/10/2026" },
+                      { value: "be", label: "พ.ศ.", sample: "18/10/2569" },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setYearEra(option.value)}
+                      aria-pressed={yearEra === option.value}
+                      className={`rounded-control border px-3 py-2 text-left transition-colors ${
+                        yearEra === option.value
+                          ? "border-primary bg-primary-soft text-primary-deep"
+                          : "border-card-border bg-white text-ink-600 hover:border-line-strong"
+                      }`}
+                    >
+                      <span className="block text-body font-semibold">{option.label}</span>
+                      <span className="block text-label text-ink-500">{option.sample}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-label text-ink-300">
+                  เลขที่เอกสารยังใช้ปี ค.ศ. เสมอ · เปลี่ยนภายหลังได้ที่แท็บ Manage
                 </p>
               </div>
 

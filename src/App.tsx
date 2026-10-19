@@ -6,6 +6,7 @@ import { useAuth, useWorkspaceFeatures, useWorkspaceRole } from "./hooks/useAuth
 import { getWorkspacePermissions } from "./lib/permissions";
 import { resolvePayrollTabsVisibility } from "./lib/payroll/visibility";
 import { ViewAsBanner } from "./components/admin/ViewAsBanner";
+import { YearEraProvider } from "./components/YearEraProvider";
 
 const LoginPage = lazy(() => import("./app/(auth)/login"));
 const SetupPage = lazy(() => import("./app/(auth)/setup"));
@@ -55,7 +56,7 @@ function RouteFallback() {
 
 export default function App() {
   const { profile, workspaceRole, workspacePermissions, loading, recovery } = useWorkspaceRole();
-  const { viewingAs } = useAuth();
+  const { viewingAs, clientProfile } = useAuth();
   const workspaceFeatures = useWorkspaceFeatures(profile?.workspace_user_id ?? profile?.id);
   const role = profile?.role ?? null;
   const isAdmin = role === "admin";
@@ -79,8 +80,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Suspense fallback={<RouteFallback />}>
-        {viewingAs && <ViewAsBanner />}
-        <Routes>
+        {/* One year system for the whole client app: the provider must sit
+            ABOVE the routed pages, because a page calls `useDocDate()` in its
+            own body — a provider rendered by the page (or by AppShell inside
+            it) would be too late for that hook. */}
+        <YearEraProvider profile={clientProfile}>
+          {viewingAs && <ViewAsBanner />}
+          <Routes>
           <Route
             path="/login"
             element={
@@ -305,6 +311,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        </YearEraProvider>
       </Suspense>
     </ErrorBoundary>
   );

@@ -37,6 +37,8 @@ export async function createAdminClient(payload: {
   companyName: string;
   adminNote: string;
   password?: string;
+  /** Year system for this client's documents — admin-only setting. */
+  yearEra?: "ce" | "be";
 }): Promise<{ userId: string; email: string; tempPassword?: string }> {
   return apiFetch("/api/admin/clients/create", {
     method: "POST",

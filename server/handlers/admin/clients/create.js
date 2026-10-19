@@ -17,6 +17,8 @@ export default async function handler(req, res) {
     const companyName = body.companyName?.trim() || "";
     const adminNote = body.adminNote?.trim() || "";
     const tempPassword = body.password?.trim() || "";
+    // Year system for this client's documents (defaults to ค.ศ. in the column).
+    const yearEra = body.yearEra === "be" ? "be" : "ce";
 
     if (!email) throw new ApiError(400, "Email is required");
 
@@ -52,8 +54,8 @@ export default async function handler(req, res) {
     });
     if (memberErr) throw memberErr;
 
-    if (companyName || tempPassword) {
-      const cpInsert = { user_id: newUserId };
+    if (companyName || tempPassword || yearEra) {
+      const cpInsert = { user_id: newUserId, year_era: yearEra };
       cpInsert.company_name_th = companyName || "รอกรอกข้อมูลบริษัท";
       if (tempPassword) cpInsert.password_changed = false;
       const { error: cpErr } = await supabaseAdmin.from("client_profiles").insert(cpInsert);
