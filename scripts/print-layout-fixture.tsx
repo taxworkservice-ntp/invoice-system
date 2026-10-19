@@ -584,6 +584,10 @@ const deliveryDocument: Document = {
   ...documentData,
   id: "doc-delivery",
   doc_type: "delivery_note",
+  // A delivery note carrying a project name is the shape the owner's real
+  // documents have — the project heading renders as the items table's first row
+  // here too, which the DN variants never used to exercise.
+  task_name: "กล่อง Amazon cafe",
   doc_number: "DN-2026-09-107",
   due_date: null,
   hide_amounts_on_print: true,
