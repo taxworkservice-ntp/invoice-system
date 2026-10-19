@@ -740,3 +740,52 @@ green, estimate check green, fill check green (11 variants). The PNG print
 baselines change → the owner regenerates them with
 `npm run test:print-layout:update` where they were created (this machine cannot
 reproduce the renderer).
+
+### 2026-10-19 — the admin panel could not write to a workspace that had documents
+
+Symptom: on `/admin/clients/<id>?tab=manage`, picking ค.ศ./พ.ศ. in
+**รูปแบบปีในเอกสาร** answered **HTTP 400** (`client_profiles?user_id=eq.…`).
+
+It was not the year-era guard, and not `is_admin()`. The trigger stack was:
+
+```
+update client_profiles { year_era }
+  → guard_admin_only_profile_fields            (passes: caller IS an admin)
+  → trg_touch_documents_on_profile_change      (bumps every document's render version)
+    → update documents set render_updated_at = now() where user_id = new.user_id
+      → trg_enforce_document_action_permission
+        → client_workspace_can(workspace, 'canCreateEditDocuments')
+```
+
+`client_workspace_can()` bypassed the action guards for the service role
+(`auth.uid() is null`) and for the workspace **owner**, but a platform admin
+signing in with their own JWT is neither, so the document trigger raised
+`You do not have permission to edit document drafts` (P0001) and PostgREST
+mapped that class to 400. Reproduced by impersonating the admin in PostgREST's
+own context (`set local role authenticated` + `request.jwt.claims`).
+
+It looked intermittent because a workspace with **zero** documents matches no
+row in that cascade and quietly succeeds — the reporting workspace had exactly
+one document. The same chain breaks the **dev-mode toggle** (`toggle_dev_mode`
+is also an update of `client_profiles`) for any workspace with documents.
+
+- `sql/20261019_admin_can_touch_workspace_documents.sql`: `client_workspace_can`
+  now returns true for `public.is_admin()` too. It grants nothing new — an admin
+  already has full power over every workspace through the service-role API — it
+  only stops the admin's own session from being treated as a stranger. Applied
+  to the project already.
+- Verified in rolled-back transactions (nothing committed): admin may set the
+  year era and toggle dev mode; the **owner still may not** change the year era
+  (`42501 year_era is managed by the platform administrator`); a non-member still
+  gets `false`; a member whose per-member override disables
+  `canCreateEditDocuments` is still refused by the document trigger, and allowed
+  when the override is on.
+
+Found on the way, **not fixed** (needs a decision): the client's
+Settings › เลขที่เอกสาร writes `dev_effective_date` inside the same `Promise.all`
+as the prefix/sequence rows, and `guard_dev_mode_columns` refuses that column to
+non-admins — so a workspace in dev mode cannot save that page, and because the
+writes are batched one rejection makes a successful sequence save look failed.
+Options: let the owner set the date (the admin UI only toggles dev mode on/off),
+or move the date control to the admin panel; either way the date write should be
+decoupled from the numbering save.
