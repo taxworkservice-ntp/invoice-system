@@ -25,7 +25,7 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { ItemCreateModal } from "../../../components/catalog/ItemCreateModal";
-import { NextStepBanner, type NextStepState } from "../../../components/documents/NextStepBanner";
+import { NextStepBanner, nextStepMessage, type NextStepState } from "../../../components/documents/NextStepBanner";
 import { PoTaskFields } from "../../../components/documents/PoTaskFields";
 import { Switch } from "../../../components/ui/Switch";
 import { calculateLineAmounts, calculateTax } from "../../../lib/tax";
@@ -88,10 +88,12 @@ import { useCustomerReferenceHistory } from "../../../hooks/useCustomerReference
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../../constants";
 import {
   AlertTriangle,
+  ArrowDown,
   Check,
   CheckCircle2,
   ChevronDown,
   Heading,
+  ListTodo,
   PlusCircle,
   X,
   SlidersHorizontal,
@@ -2160,6 +2162,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             : pendingPriceReviewCount > 0
               ? { kind: "confirm-prices", count: pendingPriceReviewCount }
               : { kind: "ready", saveLabel: "ตรวจสอบและบันทึก" };
+  // The sticky action bar repeats this: the banner scrolls away, the bar does not.
+  const blockedMessage = nextStepMessage(dnNextStep);
   const handleDnGuideGoto = () => {
     if (!selectedCustomer) {
       setCustomerPickerOpen(true);
@@ -2754,7 +2758,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         onClick={goToNextUnconfirmedPrice}
                         className="ml-auto text-label font-medium text-warning-text underline underline-offset-2 transition-opacity hover:opacity-80"
                       >
-                        ไปยังรายการถัดไป
+                        ถัดไป
                       </button>
                     </div>
                   ) : (
@@ -3365,6 +3369,27 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   className="mb-3"
                 />
               )}
+
+              {/* The same blocker the in-flow banner names, repeated where it
+                  stays on screen: this bar is sticky, the banner is not, and
+                  the officer is usually scrolled down in the line list by the
+                  time they reach for save. */}
+              {isDeliveryNote && blockedMessage ? (
+                <button
+                  type="button"
+                  onClick={handleDnGuideGoto}
+                  role="status"
+                  aria-live="polite"
+                  className="mb-2 flex w-full items-center gap-2 rounded-control border border-amber-300 bg-amber-50/60 px-3 py-2 text-left text-body text-amber-900"
+                >
+                  <ListTodo className="h-4 w-4 shrink-0 text-pending-text" />
+                  <span className="min-w-0 flex-1 truncate">{blockedMessage}</span>
+                  <span className="shrink-0 text-label font-medium underline underline-offset-2">
+                    แก้ไข
+                  </span>
+                  <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+                </button>
+              ) : null}
 
               <Button className="w-full" disabled={!canSave || saving} onClick={handleSave}>
                 {saving

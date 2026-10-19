@@ -16,6 +16,29 @@ export type NextStepState =
   | { kind: "confirm-prices"; count: number }
   | { kind: "ready"; saveLabel: string };
 
+/**
+ * The one blocker a state represents, as text — `null` when nothing is
+ * blocking. Exported so a form's sticky action bar can repeat it (the bar is
+ * what stays on screen while the officer scrolls the line list; the banner
+ * itself scrolls away with the work).
+ */
+export function nextStepMessage(state: NextStepState): string | null {
+  if (state.kind === "ready") return null;
+  return state.kind === "pick-customer"
+    ? "เลือกลูกค้าก่อนสร้างเอกสาร"
+    : state.kind === "pick-date"
+      ? "เลือกวันที่ออกเอกสาร"
+      : state.kind === "add-lines"
+        ? "เพิ่มรายการสินค้าอย่างน้อย 1 รายการ"
+        : state.kind === "fill-quantities"
+          ? "ใส่จำนวนส่งอย่างน้อย 1 รายการ"
+          : state.kind === "fill-markers"
+            ? `กรอกชื่อหัวข้อกลุ่มให้ครบ (${state.count} หัวข้อ)`
+            : state.kind === "pick-amount"
+              ? "เลือกการแสดงจำนวนเงิน 1 แบบ"
+              : `ยืนยันราคาอีก ${state.count} รายการ`;
+}
+
 export function NextStepBanner({
   state,
   onFillAll,
@@ -29,7 +52,11 @@ export function NextStepBanner({
 }) {
   if (state.kind === "ready") {
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-success-border bg-success-soft px-3 py-2.5">
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-success-border bg-success-soft px-3 py-2.5"
+      >
         <CheckCircle2 className="h-4 w-4 shrink-0 text-success-text" />
         <p className="min-w-0 flex-1 text-body font-medium text-success-text">พร้อมบันทึกแล้ว</p>
         <span className="text-label leading-5 text-ink-500">
@@ -39,23 +66,14 @@ export function NextStepBanner({
     );
   }
 
-  const message =
-    state.kind === "pick-customer"
-      ? "เลือกลูกค้าก่อนสร้างเอกสาร"
-      : state.kind === "pick-date"
-        ? "เลือกวันที่ออกเอกสาร"
-        : state.kind === "add-lines"
-          ? "เพิ่มรายการสินค้าอย่างน้อย 1 รายการ"
-          : state.kind === "fill-quantities"
-            ? "ใส่จำนวนส่งอย่างน้อย 1 รายการ"
-            : state.kind === "fill-markers"
-              ? `กรอกชื่อหัวข้อกลุ่มให้ครบ (${state.count} หัวข้อ)`
-              : state.kind === "pick-amount"
-                ? "เลือกการแสดงจำนวนเงิน 1 แบบ"
-                : `ยืนยันราคาอีก ${state.count} รายการ`;
+  const message = nextStepMessage(state) ?? "";
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-amber-300 bg-amber-50/60 px-3 py-2.5">
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-amber-300 bg-amber-50/60 px-3 py-2.5"
+    >
       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-pending-bg px-2 py-0.5 text-label font-medium text-pending-text">
         <ListTodo className="h-3.5 w-3.5" />
         ขั้นตอนต่อไป
@@ -75,7 +93,7 @@ export function NextStepBanner({
         </Button>
       ) : (
         <Button size="sm" variant="secondary" onClick={onGoto}>
-          ไปยัง
+          แก้ไข
           <ArrowDown className="ml-1 h-3.5 w-3.5" />
         </Button>
       )}

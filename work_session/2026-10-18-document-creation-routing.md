@@ -831,3 +831,30 @@ without clipping; `estimate` and `pagination.many` green; 7 new unit tests for
 the row model (251 total); lint + build clean. PNG baselines change for classic
 V2 again — regenerate with `npm run test:print-layout:update` where they were
 made.
+
+### 2026-10-19 — numbers follow the era, and the "next step" is visible while you scroll
+
+- **Document and deal numbers now print the workspace's year system.** The
+  numbers were the last CE holdout: a workspace set to พ.ศ. printed พ.ศ. dates
+  but `INV-2026-…`. `generate_doc_number`, `generate_deal_number` and
+  `repair_doc_numbers` now add 543 for `year_era = 'be'` **in the printed string
+  only** — the reset window, `last_year` and the uniqueness scans stay on the
+  calendar year, and the document scan reads `issue_date` (so numbering stays
+  duplicate-free across a switch; the deal scan matches both number shapes).
+  No backfill. Verified by impersonation-free calls in rolled-back transactions:
+  the `be` workspace (`บริษัท เทสท์ โค จำกัด`) now yields `INV-2569-10-0011`,
+  `DN-2569-10-0023`, `DL-2569-00341` while a `ce` workspace still yields
+  `INV-2026-…`; `doc_number_sequences.last_year` stayed 2026 and nothing was
+  written. Admin hint updated (it used to say numbers always use CE).
+- **The form's next-step blocker is now repeated in the sticky action bar** on
+  the deal form (the DN-from-quotation form already did it through
+  `FormActionBar`'s `hint` + `hintOnClick`). The in-flow banner stays where the
+  work is; the bar is what remains on screen. Wording: one exported
+  `nextStepMessage()` so banner and bar can't drift; `ไปยัง` → `แก้ไข` and the
+  price-review link `ไปยังรายการถัดไป` → `ถัดไป`; both banner states now carry
+  `role="status" aria-live="polite"`.
+
+Left alone deliberately: `generate_wht_certificate_no` prints `YYMM###`
+(2-digit year, no prefix-year pattern) — flip it the same way if the WHT
+certificate should read 69…; no certificate numbers exist yet, so there is
+nothing to backfill.
