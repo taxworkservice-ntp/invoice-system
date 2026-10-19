@@ -74,7 +74,7 @@ export default function CatalogEditPage() {
           variant="danger"
           onClick={() => setDeleteConfirm(true)}
         >
-          ลบ
+          ซ่อน
         </Button>
       }
     >
@@ -92,10 +92,10 @@ export default function CatalogEditPage() {
           />
           <div className="relative bg-white rounded-t-card md:rounded-card w-full max-w-sm p-5">
             <h3 className="text-title font-semibold mb-1">
-              ลบ {item.name}?
+              ซ่อน {item.name}?
             </h3>
             <p className="text-body text-ink-300 mb-1">
-              รายการนี้จะถูกซ่อนจากแค็ตตาล็อก
+              รายการนี้จะถูกซ่อนจากแค็ตตาล็อก — SKU กลับมาใช้กับรายการใหม่ได้
             </p>
             <p className="text-body text-ink-300 mb-4">
               เอกสารที่ใช้รายการนี้ไม่ได้รับผลกระทบ
@@ -108,7 +108,7 @@ export default function CatalogEditPage() {
                 loading={deleting}
                 className="flex-1"
               >
-                ลบรายการ
+                ซ่อนรายการ
               </Button>
               <Button
                 variant="secondary"
