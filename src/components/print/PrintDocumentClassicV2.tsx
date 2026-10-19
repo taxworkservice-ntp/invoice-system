@@ -999,7 +999,12 @@ export function PrintDocumentClassicV2({
               <tbody>
                 {isFirstOrSingle && showProjectRow ? (
                   <tr className="print-classic-note-row print-classic-project-row">
-                    <td colSpan={6}>
+                    {/* The NO./เลขที่ column stays empty so the heading starts
+                        in the description column, lined up with the item names —
+                        the row still reads as part of the table and the first
+                        column keeps its rule. */}
+                    <td />
+                    <td colSpan={5}>
                       {/* The project name is the heading for the work below —
                           it stands alone, with no ชื่อโครงการ label. */}
                       <span className="print-classic-project-name">{document.task_name}</span>

@@ -915,3 +915,18 @@ the skip/parse edge cases. 261 unit tests total.
 
 Verified: tsc, 263 unit tests (terms-by-type + row model), lint with the
 hardened year-era check, clean build.
+
+### 2026-10-19 — the project heading starts in the description column
+
+The project name printed as one full-width cell, so it began under `เลขที่ (ITEM)`
+— at odds with the item names beside it. It is now an empty NO. cell plus a
+`colSpan={5}` cell, so the heading starts **in the description column**, flush
+with the item names (measured: heading text left = item text left = 88.0px), the
+first column keeps its vertical rule, and the row still reads as part of the
+table. Row height is unchanged (6.63mm — the model's 3.06 + 3.572 still exact),
+and the conservative 130-char wrap budget still sits below the ~144 the narrower
+cell can hold, so the `project` fixture variants keep it honest.
+
+Note for a later pass: a delivery note's child rows indent their names (`1.1 …`),
+so there the heading aligns with the column rather than with that indentation —
+intentional, the heading is not a line item.
