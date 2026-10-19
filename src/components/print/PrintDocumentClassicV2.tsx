@@ -17,6 +17,7 @@ import {
 } from "../../lib/dnGroups";
 import { getRowBudgets } from "../../lib/pagination";
 import {
+  estimateClassicV2FullRowHeight,
   estimateLineItemHeight,
 } from "../../lib/printRowHeight";
 import { getDnVarianceParts } from "../../lib/dnVariance";
@@ -339,14 +340,19 @@ export function PrintDocumentClassicV2({
   const enScaleMult = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("en", typeFontScales, sectionScales, fontScaleMult);
   const label = printTitle(document);
   const copyLabel = COPY_LABELS[copyType];
-  // Classic V2 prints no closing terms on a delivery note (it is not a
-  // contract): the remark slot there only ever held the note, and the note now
-  // prints as the item table's last row.
-  const classicTerms = isDeliveryNote
-    ? []
-    : resolveTermsByType(clientProfile.classic_terms_by_type, clientProfile.classic_terms, document.doc_type);
+  const classicTerms = resolveTermsByType(clientProfile.classic_terms_by_type, clientProfile.classic_terms, document.doc_type);
   const isLastOrSingle = pageMode === "last" || pageMode === "single";
+  // The project name is a job heading above the work, so it renders as the
+  // items table's first row on the page that carries the first item — not on a
+  // continuation page, and never on a blank form.
+  const isFirstOrSingle = pageMode === "single" || pageMode === "first";
+  const showProjectRow = !blankForm && !!document.task_name;
   const noteText = document.note?.trim();
+  // Reserved heights (mm) for the two full-width table rows — the same helper
+  // and the same scales the paginator uses in getPrintBatches(), so the filler
+  // count below and the page breaks cannot disagree.
+  const noteRowMm = estimateClassicV2FullRowHeight(noteText, { labelChars: 15, fontScale: totalsScaleMult });
+  const projectRowMm = estimateClassicV2FullRowHeight(document.task_name, { fontScale: itemsScaleMult });
   // Group header rows, sum rows and inter-group spacers occupy physical rows
   // on the sheet — count them so the blank-row padding keeps the fixed height.
   const groupHeaderCount = tableLines.reduce(
@@ -377,13 +383,10 @@ export function PrintDocumentClassicV2({
         (document.doc_type === "billing_note" && document.status !== "paid"
           ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
           : 0) +
-        ((document.task_name ? metaRowReserveMm : 0) +
-          (document.customer_po_number ? metaRowReserveMm : 0)) *
-          headerScaleMult;
+        (document.customer_po_number ? metaRowReserveMm : 0) * headerScaleMult;
       const metaRowCount =
         2 +
         (document.due_date ? 1 : 0) +
-        (document.task_name ? 1 : 0) +
         (document.customer_po_number ? 1 : 0);
       const hideEnBandMm = hideEn ? metaRowCount * CLASSIC_V2_HIDE_EN_META_ROW_MM : 0;
       const hideEnTheadMm = hideEn ? CLASSIC_V2_HIDE_EN_THEAD_MM : 0;
@@ -409,9 +412,10 @@ export function PrintDocumentClassicV2({
         terms: termsScaleMult,
         footer: footerScaleMult,
       };
-      const budgets = getRowBudgets("classic_v2", budgetScales, "line_items", extraReserveMm, {
+      const budgets = getRowBudgets("classic_v2", budgetScales, "line_items", extraReserveMm + noteRowMm, {
         continuationFullHeader: fullHeaderPerPage,
         spaceBonusMm,
+        firstPageReserveMm: projectRowMm,
         // Mirror the paginator: a hidden-amount delivery note draws no totals
         // column, so the scaled totals block must not be charged against the
         // space we are about to fill.
@@ -457,27 +461,17 @@ export function PrintDocumentClassicV2({
           numScale: numScaleMult,
         }),
       );
-      // The document note renders as the table's closing row, above the filler
-      // rows, so it has to be charged here too. Calibrated on the fixture: a
-      // one-line note is ~6.5mm at scale 1 (≈3mm of cell padding + label line,
-      // then ~3.6mm per body line — the 7.5pt body at line-height 1.35 grows
-      // with the items scale, the padding does not).
-      const noteLines = noteText
-        ? noteText
-            .split(/\r?\n/)
-            .reduce(
-              (total, part) => total + Math.max(1, Math.ceil(part.length / (128 / itemsScaleMult))),
-              0,
-            )
-        : 0;
-      const noteRowMm = noteLines > 0 ? 3 + noteLines * 3.6 * itemsScaleMult : 0;
+      // The project heading and the document note are reserved through the
+      // budgets above (firstPageReserveMm / extraReserveMm), exactly like
+      // getPrintBatches() does, so the filler count needs no hand-made charge
+      // for them — the budget already excludes both.
+      //
       // Leave one row spare: the row estimator is calibrated conservatively but
       // is not exact (a quotation's photo rows run ~1mm tall apiece), and a
       // single over-counted filler pushes the sheet past A4 — which clips in
       // print. The spare row costs nothing visible (it is the gap that would
       // otherwise sit above the bottom row).
-      const fit =
-        Math.floor((budget - usedMm - noteRowMm) / blankRowMm + 1e-6) - 1;
+      const fit = Math.floor((budget - usedMm) / blankRowMm + 1e-6) - 1;
       const fill = Math.max(0, fit);
       // Fill the page when it buys at least two ruled rows; otherwise keep the
       // minimum table height — but never more than the budget actually allows,
@@ -753,15 +747,8 @@ export function PrintDocumentClassicV2({
                       </td>
                     </tr>
                   ) : null}
-                  {document.task_name ? (
-                    <tr>
-                      <th>
-                        <span className="print-classic-meta-th-th">ชื่อโครงการ :</span>
-                        <span className="print-classic-meta-th-en">PROJECT</span>
-                      </th>
-                      <td className="print-classic-meta-val">{document.task_name}</td>
-                    </tr>
-                  ) : null}
+                  {/* ชื่อโครงการ prints as the items table's first row (a job
+                      heading above the work), not here — see showProjectRow. */}
                 </tbody>
               </table>
             </div>
@@ -1010,6 +997,15 @@ export function PrintDocumentClassicV2({
                 </tr>
               </thead>
               <tbody>
+                {isFirstOrSingle && showProjectRow ? (
+                  <tr className="print-classic-note-row print-classic-project-row">
+                    <td colSpan={6}>
+                      {/* The project name is the heading for the work below —
+                          it stands alone, with no ชื่อโครงการ label. */}
+                      <span className="print-classic-project-name">{document.task_name}</span>
+                    </td>
+                  </tr>
+                ) : null}
                 {tableLines.map((item) => {
                     // Hierarchical number ("G" / "G.j") + optional group header
                     // come from the global row plan, so numbering stays
@@ -1120,14 +1116,6 @@ export function PrintDocumentClassicV2({
                       </Fragment>
                     );
                   })}
-                {showFooter && noteText ? (
-                  <tr className="print-classic-note-row">
-                    <td colSpan={6}>
-                      <span className="print-classic-note-label">หมายเหตุ (REMARK)</span>
-                      <span className="print-classic-note-body">{noteText}</span>
-                    </td>
-                  </tr>
-                ) : null}
                 {Array.from({ length: blankLineCount }).map((_, index) => (
                   <tr
                     key={`blank-${index}`}
@@ -1141,6 +1129,17 @@ export function PrintDocumentClassicV2({
                     <td className="right">&nbsp;</td>
                   </tr>
                 ))}
+                {showFooter && noteText ? (
+                  <tr className="print-classic-note-row">
+                    <td colSpan={6}>
+                      {/* The document's own note closes the table, below the
+                          ruled filler rows. Its label is บันทึก (NOTE) — the
+                          workspace's closing terms own หมายเหตุ (REMARK). */}
+                      <span className="print-classic-note-label">บันทึก (NOTE):</span>{" "}
+                      <span className="print-classic-note-body">{noteText}</span>
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           )}
@@ -1187,102 +1186,101 @@ export function PrintDocumentClassicV2({
           ) : null}
 
           {/* ============== REMARK (terms) / PAYMENT + TOTALS ============== */}
-          {/* A delivery note has no terms and its note now prints inside the
-              items table, so with amounts hidden there is nothing left to
-              draw — skip the row entirely rather than print an empty band. */}
-          {showFooter && ((isDeliveryNote ? false : classicTerms.length > 0 || paymentLines.length > 0 || isReceipt) || (!hideDeliveryAmounts && !blankForm)) ? (
+          {/* Terms print on every document type that has them configured,
+              delivery notes included (Settings › เอกสาร offers a tab per
+              type). A page with nothing to draw — hidden amounts and no terms
+              or payment lines — skips the row entirely rather than printing an
+              empty band. */}
+          {showFooter && ((classicTerms.length > 0 || paymentLines.length > 0 || isReceipt) || (!hideDeliveryAmounts && !blankForm)) ? (
           <div className={`print-classic-bottom-row${useSummaryGrid ? " print-classic-bottom-row-receipt" : ""}`}>
             <div className="print-classic-terms-col">
-              {isDeliveryNote ? null : (
-                <>
-                  {/* Terms now print in the remark slot, above PAYMENT. */}
-                  {classicTerms.length > 0 ? (
-                    <section className="print-classic-terms-section">
+              {/* Terms print in the remark slot, above PAYMENT — on delivery
+                notes too, when that type has terms configured. */}
+                {classicTerms.length > 0 ? (
+                  <section className="print-classic-terms-section">
+                    <div className="print-classic-terms-title">
+                      หมายเหตุ (REMARK)
+                    </div>
+                    <ol className="print-classic-note-list">
+                      {classicTerms.map((term, index) => (
+                        <li key={`${index}-${term}`}>{term}</li>
+                      ))}
+                    </ol>
+                  </section>
+                ) : null}
+                {paymentLines.length > 0 && !isReceipt ? (
+                  <section className="print-classic-terms-section print-classic-terms-section--payment">
+                    <div className="print-classic-terms-title">
+                      รายละเอียดการชำระเงิน (PAYMENT)
+                    </div>
+                    <ul className="print-classic-payment-list">
+                      {paymentLines.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+                {isReceipt ? (
+                  <section className="print-classic-terms-section">
+                    <div className="print-classic-settle-head">
                       <div className="print-classic-terms-title">
-                        หมายเหตุ (REMARK)
+                        สถานะการชำระเงิน (SETTLEMENT)
                       </div>
-                      <ol className="print-classic-note-list">
-                        {classicTerms.map((term, index) => (
-                          <li key={`${index}-${term}`}>{term}</li>
-                        ))}
-                      </ol>
-                    </section>
-                  ) : null}
-                  {paymentLines.length > 0 && !isReceipt ? (
-                    <section className="print-classic-terms-section print-classic-terms-section--payment">
-                      <div className="print-classic-terms-title">
-                        รายละเอียดการชำระเงิน (PAYMENT)
-                      </div>
-                      <ul className="print-classic-payment-list">
-                        {paymentLines.map((line) => (
-                          <li key={line}>{line}</li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null}
-                  {isReceipt ? (
-                    <section className="print-classic-terms-section">
-                      <div className="print-classic-settle-head">
-                        <div className="print-classic-terms-title">
-                          สถานะการชำระเงิน (SETTLEMENT)
-                        </div>
-                        {receiptPaidInFull ? (
-                          <span className="print-classic-paid-badge">
-                            <span>ชำระครบถ้วน</span>
-                            <span className="print-classic-paid-badge-en">PAID IN FULL</span>
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>ยอดตามเอกสารอ้างอิง (REFERENCE AMOUNT)</span>
-                        <span>{formatCurrency(receiptReferenceAmount)}</span>
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>ยอดชำระสะสมก่อนหักภาษี ณ ที่จ่าย (TOTAL SETTLED)</span>
-                        <span>{formatCurrency(receiptCumulativePaid ?? 0)}</span>
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>ยอดคงเหลือค้างชำระ (BALANCE DUE)</span>
-                        <span>{formatCurrency(receiptOutstanding ?? 0)}</span>
-                      </div>
-                    </section>
-                  ) : null}
-                  {(document.doc_type === "credit_note" || document.doc_type === "debit_note") && referenceDoc ? (
-                    <section className="print-classic-terms-section">
-                      <div className="print-classic-terms-title">
-                        อ้างอิงใบกำกับภาษีเดิม (ORIGINAL TAX INVOICE)
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>เลขที่ / วันที่</span>
-                        <span>{referenceDoc.doc_number || "-"}{referenceDoc.issue_date ? ` · ${formatPrintDate(referenceDoc.issue_date, era)}` : ""}</span>
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>มูลค่าตามใบกำกับเดิม (ก่อน VAT)</span>
-                        <span>{formatCurrency(referenceDoc.subtotal || 0)}</span>
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>มูลค่าตามใบกำกับเดิม (รวม VAT)</span>
-                        <span>{formatCurrency(referenceDoc.total_amount || 0)}</span>
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>มูลค่าที่ถูกต้องหลังปรับปรุง (ก่อน VAT)</span>
-                        <span>{formatCurrency(adjustmentCorrectAmount(referenceDoc.subtotal || 0, document.subtotal || 0, isCreditNote))}</span>
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>มูลค่าที่ถูกต้องหลังปรับปรุง (รวม VAT)</span>
-                        <span>{formatCurrency(adjustmentCorrectAmount(referenceDoc.total_amount || 0, document.total_amount || 0, isCreditNote))}</span>
-                      </div>
-                      <div className="print-classic-settle-row">
-                        <span>ผลต่าง = ยอดตามเอกสารฉบับนี้</span>
-                        <span>{formatCurrency(document.total_amount || 0)}</span>
-                      </div>
-                    </section>
-                  ) : null}
-                  {classicTerms.length === 0 && paymentLines.length === 0 && !isReceipt ? (
-                    <div className="print-classic-terms-body">-</div>
-                  ) : null}
-                </>
-              )}
+                      {receiptPaidInFull ? (
+                        <span className="print-classic-paid-badge">
+                          <span>ชำระครบถ้วน</span>
+                          <span className="print-classic-paid-badge-en">PAID IN FULL</span>
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>ยอดตามเอกสารอ้างอิง (REFERENCE AMOUNT)</span>
+                      <span>{formatCurrency(receiptReferenceAmount)}</span>
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>ยอดชำระสะสมก่อนหักภาษี ณ ที่จ่าย (TOTAL SETTLED)</span>
+                      <span>{formatCurrency(receiptCumulativePaid ?? 0)}</span>
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>ยอดคงเหลือค้างชำระ (BALANCE DUE)</span>
+                      <span>{formatCurrency(receiptOutstanding ?? 0)}</span>
+                    </div>
+                  </section>
+                ) : null}
+                {(document.doc_type === "credit_note" || document.doc_type === "debit_note") && referenceDoc ? (
+                  <section className="print-classic-terms-section">
+                    <div className="print-classic-terms-title">
+                      อ้างอิงใบกำกับภาษีเดิม (ORIGINAL TAX INVOICE)
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>เลขที่ / วันที่</span>
+                      <span>{referenceDoc.doc_number || "-"}{referenceDoc.issue_date ? ` · ${formatPrintDate(referenceDoc.issue_date, era)}` : ""}</span>
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>มูลค่าตามใบกำกับเดิม (ก่อน VAT)</span>
+                      <span>{formatCurrency(referenceDoc.subtotal || 0)}</span>
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>มูลค่าตามใบกำกับเดิม (รวม VAT)</span>
+                      <span>{formatCurrency(referenceDoc.total_amount || 0)}</span>
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>มูลค่าที่ถูกต้องหลังปรับปรุง (ก่อน VAT)</span>
+                      <span>{formatCurrency(adjustmentCorrectAmount(referenceDoc.subtotal || 0, document.subtotal || 0, isCreditNote))}</span>
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>มูลค่าที่ถูกต้องหลังปรับปรุง (รวม VAT)</span>
+                      <span>{formatCurrency(adjustmentCorrectAmount(referenceDoc.total_amount || 0, document.total_amount || 0, isCreditNote))}</span>
+                    </div>
+                    <div className="print-classic-settle-row">
+                      <span>ผลต่าง = ยอดตามเอกสารฉบับนี้</span>
+                      <span>{formatCurrency(document.total_amount || 0)}</span>
+                    </div>
+                  </section>
+                ) : null}
+                {classicTerms.length === 0 && paymentLines.length === 0 && !isReceipt ? (
+                  <div className="print-classic-terms-body">-</div>
+                ) : null}
             </div>
             {!hideDeliveryAmounts && !blankForm && (
               <div className="print-classic-totals-col">

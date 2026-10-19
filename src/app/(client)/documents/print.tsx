@@ -30,6 +30,7 @@ import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
 import {
+  estimateClassicV2FullRowHeight,
   estimateLineItemHeight,
   estimateSummaryRowHeight,
 } from "../../../lib/printRowHeight";
@@ -167,9 +168,24 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const extraReserveMm = (isClassicV2 && data.document.doc_type === "billing_note" && data.document.status !== "paid"
     ? CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM
     : 0) + (isClassicV2
-    ? ((data.document.task_name ? metaRowReserveMm : 0) +
-       (data.document.customer_po_number ? metaRowReserveMm : 0)) * headerScale
+    ? (data.document.customer_po_number ? metaRowReserveMm : 0) * headerScale
     : 0);
+  // Classic V2 draws two full-width rows inside the items table: the project
+  // heading as its first row (first page only) and the document note as its
+  // last (a footer-page row, like the totals block). Both occupy real height,
+  // so both are reserved — the note through extraReserveMm (first + last
+  // pages), the heading through firstPageReserveMm (single + multi-page first).
+  const totalsScale = docOverrideMult ?? getClassicV2EffectiveSectionScaleMult("totals", typeFontScales, sectionScales, globalScale);
+  const noteRowMm = isClassicV2
+    ? estimateClassicV2FullRowHeight(data.document.note, {
+        // "บันทึก (NOTE): " shares the note's first line.
+        labelChars: 15,
+        fontScale: totalsScale,
+      })
+    : 0;
+  const projectRowMm = isClassicV2
+    ? estimateClassicV2FullRowHeight(data.document.task_name, { fontScale: itemsScale })
+    : 0;
   // Space savings returned to the budgets (fixed blocks render smaller):
   // hide-EN shrinks each visible meta row + thead + signature titles; the
   // compact signature band shrinks the whole band. DATE/NO always print;
@@ -178,7 +194,6 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const metaRowCount =
     2 +
     (data.document.due_date ? 1 : 0) +
-    (data.document.task_name ? 1 : 0) +
     (data.document.customer_po_number ? 1 : 0);
   const hideEnBandMm = hideEn ? metaRowCount * CLASSIC_V2_HIDE_EN_META_ROW_MM : 0;
   const hideEnTheadMm = hideEn ? CLASSIC_V2_HIDE_EN_THEAD_MM : 0;
@@ -313,7 +328,8 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
           hasInvoiceRef: hasMultiInvoiceRefs && !!data.invoiceNumberMap[unit.item.document_id],
         }),
       fontScale: budgetScales,
-      extraReserveMm,
+      extraReserveMm: extraReserveMm + noteRowMm,
+      firstPageReserveMm: projectRowMm,
       continuationFullHeader,
       spaceBonusMm,
       stripReserveMm,

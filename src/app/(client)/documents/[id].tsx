@@ -1146,7 +1146,7 @@ export default function DocumentDetailPage() {
       )}
 
       {doc.note && (
-        <DetailCard title="หมายเหตุ" icon={<NotebookText className="h-4 w-4" />} className="mb-4">
+        <DetailCard title="บันทึก" icon={<NotebookText className="h-4 w-4" />} className="mb-4">
           <p className="text-body text-ink-700 whitespace-pre-wrap">{doc.note}</p>
         </DetailCard>
       )}

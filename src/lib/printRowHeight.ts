@@ -96,8 +96,7 @@ export function getBaseRowMm(template: PrintTemplate, fontScale = 1): number {
   return BASE_ROW_MM.classic;
 }
 
-function countLines(text: string, charsPerLine: number): number {
-  const lines = text.split(/\r?\n/);
+function countLines(text: string, charsPerLine: number): number {  const lines = text.split(/\r?\n/);
   let count = 0;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -253,4 +252,47 @@ export function estimateSummaryRowHeight(
   numScale?: number,
 ): number {
   return getBaseRowMm(template, numScale ?? fontScale);
+}
+
+// Classic V2's full-width table rows: the project heading (the items table's
+// first row, no label) and the document note (`บันทึก (NOTE): …`, its last row).
+// Both span every column, so they wrap in the whole 182mm content width.
+//
+// Constants measured against the fixture's rendered CSS (scripts/_probe-rows.mjs):
+// cell padding 1.4mm + the 0.5px border ≈ 3.06mm fixed, and a body line at
+// 7.5pt/1.35 = 3.572mm × its font scale. The wrap capacity of the full-width
+// cell is ~155 characters at scale 1 (measured: a 140-char Thai/Latin sample
+// stays on one line, 180 wraps to two); the model charges 130 — the same ~85%
+// conservatism as NAME_CHARS_PER_LINE, so a long project name reserves a line
+// too many rather than too few.
+const CLASSIC_V2_FULL_ROW_FIXED_MM = 3.06;
+const CLASSIC_V2_FULL_ROW_LINE_MM = 3.572;
+const CLASSIC_V2_FULL_ROW_CHARS_PER_LINE = 130;
+
+/**
+ * Height of a Classic V2 full-width table row (project heading or document
+ * note) in mm.
+ *
+ * @param text   the row's text (the note's value, or the project name)
+ * @param opts.labelChars characters of inline label that share the first line
+ *   (the note's `บันทึก (NOTE): ` — it wraps with the value, so it has to be
+ *   counted); 0 for a label-free row such as the project heading
+ * @param opts.fontScale the row's CSS font scale — the project heading rides
+ *   `--classic-fs-items`, the note rides `--classic-fs-totals`
+ */
+export function estimateClassicV2FullRowHeight(
+  text: string | null | undefined,
+  opts: { labelChars?: number; fontScale?: number } = {},
+): number {
+  const value = typeof text === "string" ? text : "";
+  if (!value.trim()) return 0;
+  const fontScale = opts.fontScale ?? 1;
+  const perLine = CLASSIC_V2_FULL_ROW_CHARS_PER_LINE / fontScale;
+  const lines = value
+    .split(/\r?\n/)
+    .reduce((total, part, index) => {
+      const chars = part.length + (index === 0 ? (opts.labelChars ?? 0) : 0);
+      return total + Math.max(1, Math.ceil(chars / perLine));
+    }, 0);
+  return CLASSIC_V2_FULL_ROW_FIXED_MM + lines * CLASSIC_V2_FULL_ROW_LINE_MM * fontScale;
 }

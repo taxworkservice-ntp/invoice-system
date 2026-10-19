@@ -49,6 +49,12 @@ const VARIANTS = [
   { name: "delivery single", template: "classic_v2", doc: "delivery", pageMode: "single" },
   { name: "delivery compact", template: "classic_v2", doc: "delivery", pageMode: "single", compactDn: true },
   { name: "quotation single", template: "classic_v2", doc: "qt", pageMode: "single" },
+  // The project heading is a reserved first-page row, so a multi-page first
+  // page and a long (wrapping) name both have to stay inside A4.
+  { name: "invoice project single", template: "classic_v2", doc: "project", pageMode: "single" },
+  { name: "invoice project first", template: "classic_v2", doc: "project", pageMode: "first" },
+  { name: "invoice project last", template: "classic_v2", doc: "project", pageMode: "last" },
+  { name: "invoice project xlarge", template: "classic_v2", doc: "project", pageMode: "single", fontScale: "xlarge" },
   { name: "dn (invoice from DNs) last", template: "classic_v2", doc: "dn", pageMode: "last" },
 ];
 

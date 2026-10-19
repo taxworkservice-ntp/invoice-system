@@ -1725,7 +1725,7 @@ export function DeliveryNoteFromQuotationForm({
                 />
                 <div className="mt-3">
                   <Input
-                    label="หมายเหตุบนใบส่งของ"
+                    label="บันทึกบนใบส่งของ"
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
                     placeholder="เช่น ส่งบางส่วนจากใบเสนอราคา"

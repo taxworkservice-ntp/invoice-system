@@ -1158,7 +1158,7 @@ export function InvoiceFromQuotationForm() {
                   : null
               }
             />
-            <Input label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้" />
+            <Input label="บันทึก" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้" />
             <div className="rounded-card border border-card-border bg-paper-soft p-3 text-body">
               <div className="mb-2 flex items-center gap-2 text-label font-medium text-ink-500">
                 <FileStack className="h-3.5 w-3.5" />

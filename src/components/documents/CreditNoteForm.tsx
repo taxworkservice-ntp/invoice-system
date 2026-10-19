@@ -724,7 +724,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
 
           <div className="mt-4">
             <label className="block text-label font-medium text-ink-600 mb-1">
-              หมายเหตุ
+              บันทึก
             </label>
           <textarea
             value={note}

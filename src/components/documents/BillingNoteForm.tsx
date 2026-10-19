@@ -1348,7 +1348,11 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
           </Select>
           <div className="mt-2 text-label text-ink-500">คำนวณจากราคาก่อน VAT</div>
 
+          <label htmlFor="billingNoteNote" className="block text-label font-medium text-ink-600 mb-1">
+            บันทึก
+          </label>
           <textarea
+            id="billingNoteNote"
             value={note}
             onChange={(event) => {
               setIsDirty(true);

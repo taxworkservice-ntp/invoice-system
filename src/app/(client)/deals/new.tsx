@@ -3295,7 +3295,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   </div>
                   <div className="border-t border-card-border pt-3">
                     <label className="block text-label font-medium text-ink-500 mb-1">
-                      หมายเหตุ
+                      บันทึก
                     </label>
                     <textarea
                       value={note}

@@ -205,6 +205,12 @@ export function getRowBudgets(
      * block that isn't there. Defaults to true (all non-DN layouts).
      */
     reserveTotalsBlock?: boolean;
+    /**
+     * classic V2: a full-width row that renders on the FIRST page only — the
+     * project heading above the items. Charged to both first-page layouts
+     * (unlike `extraReserveMm`, which the multi-page first page skips).
+     */
+    firstPageReserveMm?: number;
   } = {},
 ): { first: number; continuation: number; last: number } {
   const baseMm = getBaseRowMm(template);
@@ -259,8 +265,12 @@ export function getRowBudgets(
   const stripContinuation = opts.stripReserveMm ?? 0;
   const contMode = opts.continuationFullHeader ? "continuation_full_header" : "continuation";
   const contCap = opts.continuationFullHeader ? (cap.continuationFullHeader ?? cap.continuation) : cap.continuation;
+  // `firstPageReserveMm` is charged to both first-page layouts (single-page and
+  // the multi-page first page): it covers a row that only ever renders there —
+  // classic V2's project heading above the items.
+  const firstPageReserve = opts.firstPageReserveMm ?? 0;
   return {
-    first: Math.max(minRowMm, firstCap * baseMm - firstReserve - firstExtra - stripFirst + (opts.spaceBonusMm?.first ?? 0)),
+    first: Math.max(minRowMm, firstCap * baseMm - firstReserve - firstExtra - stripFirst - firstPageReserve + (opts.spaceBonusMm?.first ?? 0)),
     continuation: Math.max(minRowMm, contCap * baseMm - reserve(contMode) - stripContinuation + (opts.spaceBonusMm?.continuation ?? 0)),
     last: Math.max(minRowMm, cap.last * baseMm - reserve("last") - extraReserveMm + (opts.spaceBonusMm?.last ?? 0)),
   };
@@ -301,6 +311,13 @@ export interface PaginateOptions<T> {
    * does not render on continuation pages.
    */
   extraReserveMm?: number;
+  /**
+   * Classic V2: a full-width row that renders on the FIRST page only — the
+   * project heading above the items. Charged to both the single-page layout and
+   * the multi-page first page (unlike `extraReserveMm`, which is footer-area
+   * content and therefore skipped by the multi-page first page).
+   */
+  firstPageReserveMm?: number;
   /**
    * Classic V2 signature-initials strip reserve (mm) for the multi-page
    * first page and continuation pages. Height-path only — every production
@@ -361,6 +378,7 @@ export function paginateRows<T>(
       options.spaceBonusMm,
       options.stripReserveMm ?? 0,
       options.reserveTotalsBlock ?? true,
+      options.firstPageReserveMm ?? 0,
     );
   }
 
@@ -431,8 +449,9 @@ function paginateRowsByHeight<T>(
   spaceBonusMm?: { first?: number; firstMulti?: number; continuation?: number; last?: number },
   stripReserveMm = 0,
   reserveTotalsBlock = true,
+  firstPageReserveMm = 0,
 ): GenericPageBatch<T>[] {
-  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader, spaceBonusMm, stripReserveMm, reserveTotalsBlock });
+  const budgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { continuationFullHeader, spaceBonusMm, stripReserveMm, reserveTotalsBlock, firstPageReserveMm });
   const heights = rows.map((row, i) => estimateHeight(row, i));
   const totalHeight = heights.reduce((sum, h) => sum + h, 0);
 
@@ -475,7 +494,7 @@ function paginateRowsByHeight<T>(
   // Multi-page: the FIRST page carries only header + info band (totals and
   // signatures are on the last page), so it packs to the larger multi-first
   // budget — but always leaves at least one row for the finalized page.
-  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true, spaceBonusMm: { first: spaceBonusMm?.firstMulti ?? spaceBonusMm?.first }, stripReserveMm, reserveTotalsBlock });
+  const multiBudgets = getRowBudgets(template, fontScale, kind, extraReserveMm, { multiFirst: true, spaceBonusMm: { first: spaceBonusMm?.firstMulti ?? spaceBonusMm?.first }, stripReserveMm, reserveTotalsBlock, firstPageReserveMm });
   const multiFirstCap = (kind === "summary_rows"
     ? SUMMARY_ROW_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]
     : LINE_ITEM_CAPACITY[template === "modern" ? "modern" : template === "classic_v2" ? "classic_v2" : "classic"]

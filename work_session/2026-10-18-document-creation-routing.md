@@ -789,3 +789,45 @@ writes are batched one rejection makes a successful sequence save look failed.
 Options: let the owner set the date (the admin UI only toggles dev mode on/off),
 or move the date control to the admin panel; either way the date write should be
 decoupled from the numbering save.
+
+### 2026-10-19 — project heading, the note row, and terms on every document type
+
+Three print changes, all Classic V2, all driven by "what the document carries
+should print the same way on every type".
+
+- **The project name is now the items table's first row** (`document.task_name`),
+  full width, no `ชื่อโครงการ` label, on the page that carries the first item —
+  a job heading above the work instead of a wrapped row in the narrow meta
+  panel (which is gone, so the meta reserve is gone with it). Reserved exactly:
+  a new `firstPageReserveMm` in `getRowBudgets` is charged to both first-page
+  layouts, because the existing `extraReserveMm` is footer-area content and the
+  multi-page first page deliberately skips it — an unreserved heading there
+  would have clipped.
+- **The document note closes the table**, below the ruled filler rows (it used
+  to sit above them), with an inline label: `บันทึก (NOTE): ส่งก่อนกำหนด`. Its
+  typography now follows the remark/PAYMENT column (7.5pt × `--classic-fs-totals`)
+  for label and value alike, and the two full-width rows share one measured
+  model (`estimateClassicV2FullRowHeight`: 3.06mm padding + 3.572mm per line,
+  measured against the fixture; wrap budget 130 chars against a measured ~155).
+  Both rows are now *reserved* (note → `extraReserveMm`, heading →
+  `firstPageReserveMm`) instead of leaning on the fill's spare row.
+- **Terms print on delivery notes too.** `classicTerms` was hard-wired to `[]`
+  for DNs while Settings › เอกสาร offered a ใบส่งของ tab for them — a setting
+  that could be filled in and never printed. The suppression is gone, so every
+  type prints the terms configured for it (and a type with none still prints
+  nothing).
+- **The duplicate label is resolved**: the workspace-configured closing terms
+  keep `หมายเหตุ (REMARK)` (they own the name, and Settings says the same); the
+  per-document note becomes `บันทึก (NOTE)`. The forms follow: `หมายเหตุ` → บันทึก
+  in the invoice-from-DN / invoice-from-quotation / credit-note / deal forms,
+  `หมายเหตุบนใบส่งของ` → `บันทึกบนใบส่งของ`, the document page's card title too,
+  and the billing-note form's previously *unlabelled* note textarea got the same
+  label.
+
+Checks: `test:print-layout:fill` grew four `project` variants (single/first/last
++xlarge) — a *filled* page with a reserved heading still lands on 297.1mm, and
+the multi-page first page with a long wrapping name uses its whole budget
+without clipping; `estimate` and `pagination.many` green; 7 new unit tests for
+the row model (251 total); lint + build clean. PNG baselines change for classic
+V2 again — regenerate with `npm run test:print-layout:update` where they were
+made.

@@ -1162,18 +1162,27 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   background: #ffffff;
 }
 .print-theme-classic-v2 .print-classic-note-label {
-  display: block;
-  font-size: calc(6.5pt * var(--classic-fs-items));
+  font-size: calc(7.5pt * var(--classic-fs-totals));
   color: #334155;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 .print-theme-classic-v2 .print-classic-note-body {
-  display: block;
-  margin-top: 0.4mm;
-  font-size: calc(7.5pt * var(--classic-fs-items));
+  font-size: calc(7.5pt * var(--classic-fs-totals));
   line-height: 1.35;
   color: #111827;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+/* The project heading: a full-width row above the first item. It stands alone
+   (no ชื่อโครงการ label) and shares the note row's cell padding, so the two
+   rows are geometrically identical apart from the label line. */
+.print-theme-classic-v2 .print-classic-project-name {
+  display: block;
+  font-size: calc(7.5pt * var(--classic-fs-items));
+  line-height: 1.35;
+  font-weight: 600;
+  color: #000000;
   white-space: pre-line;
   overflow-wrap: anywhere;
 }

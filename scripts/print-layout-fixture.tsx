@@ -496,9 +496,24 @@ const qtData = (template: HtmlPrintTemplate): PrintDocumentData => ({
   showInlineDeliveryNotes: false,
 });
 
-const dnData = (template: HtmlPrintTemplate): PrintDocumentData => ({
+// --- "project" fixture: an invoice carrying a long project name (หัวข้อ
+//     โครงการ) plus a PO, so the heading row's wrapping and the info band are
+//     both exercised by the layout checks. ---
+const projectDocument: Document = {
+  ...documentData,
+  id: "doc-project",
+  doc_number: "INV-2026-07-002",
+  task_name: "งานติดตั้งระบบไฟส่องสว่างและปรับปรุงห้องผลิต อาคาร 2 ชั้น 3 (เฟส 2)",
+  customer_po_number: "PO-2026-0451",
+};
+
+const projectData = (template: HtmlPrintTemplate): PrintDocumentData => ({
   ...data(template),
-  document: dnDocumentData,
+  document: projectDocument,
+});
+
+const dnData = (template: HtmlPrintTemplate): PrintDocumentData => ({
+  ...data(template),  document: dnDocumentData,
   lineItems: dnDraftLines,
   invoiceDeliveryNotes: dnLinks,
   lineDeliveryNoteMap: dnLineDeliveryNoteMap as PrintDocumentData["lineDeliveryNoteMap"],
@@ -603,6 +618,7 @@ const docVariant =
   : params.get("doc") === "dn" ? "dn"
   : params.get("doc") === "qt" ? "qt"
   : params.get("doc") === "delivery" ? "delivery"
+  : params.get("doc") === "project" ? "project"
   : "base";
 const appendixOn = params.get("appendix") === "1";
 const fontScalePreset = params.get("fontScale");
@@ -615,6 +631,7 @@ const baseData = docVariant === "many" ? manyData(template)
   : docVariant === "dn" ? dnData(template)
   : docVariant === "qt" ? qtData(template)
   : docVariant === "delivery" ? deliveryData(template)
+  : docVariant === "project" ? projectData(template)
   : data(template);
 // โหมดอ้างอิง (classic V2):
 //   refCollapse=1 → pass the refCollapse prop — DN reference table replaces
