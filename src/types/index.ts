@@ -87,6 +87,18 @@ export interface BankAccount {
 export interface ClientProfile {
   id: string;
   user_id: string;
+  /**
+   * Whether discount inputs are offered in this workspace (Settings ›
+   * Documents). Display-only — never zeroes or hides a stored discount.
+   * Undefined/null on workspaces that predate the column = enabled.
+   */
+  discounts_enabled?: boolean | null;
+  /**
+   * Year system for this client's dates — `ce` (ค.ศ., "2026") or `be`
+   * (พ.ศ., "2569"). Set by the platform administrator only (guard trigger);
+   * absence reads as `be`, the historical behaviour.
+   */
+  year_era?: "ce" | "be" | null;
   company_name_th: string;
   company_name_en: string | null;
   tax_id: string | null;

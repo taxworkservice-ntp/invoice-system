@@ -8,7 +8,8 @@ import { useToast } from "../../hooks/useToast";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { Input, Select } from "../ui/Input";
+import { Select } from "../ui/Input";
+import { NumericInput } from "../ui/NumericInput";
 import { DateInput } from "../ui/DateInput";
 import { CatalogAutocomplete } from "../CatalogAutocomplete";
 import { Spinner } from "../ui/Spinner";
@@ -17,7 +18,7 @@ import { isRefSummaryLine } from "../../lib/refSummary";
 import { businessTodayString } from "../../lib/devDate";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
 import { returnStockOnCreditNoteIssued } from "../../lib/stock";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 import { DOC_TYPE_LABELS, WHT_RATE_OPTIONS } from "../../constants";
 import type { Document, DocumentLineItem, Customer, Deal } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
@@ -52,6 +53,7 @@ function uid() {
 
 export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: CreditNoteFormProps) {
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
@@ -491,7 +493,7 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-label text-ink-500">วันที่ที่ใช้บนเอกสาร</div>
-                  <div className="mt-1 text-body font-semibold text-ink-900">{formatBuddhistDate(issueDate)}</div>
+                  <div className="mt-1 text-body font-semibold text-ink-900">{docDate.date(issueDate)}</div>
                 </div>
                 {!isReadOnly && (
                   <div className="flex gap-2">
@@ -616,12 +618,10 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                         {isReadOnly ? (
                           <span className="text-right block">{it.quantity}</span>
                         ) : (
-                          <Input
-                            type="number"
-                            min="0"
-                            step="1"
+                          <NumericInput
                             value={it.quantity}
-                            onChange={(e) => updateItem(it.key, "quantity", e.target.value)}
+                            maxFractionDigits={3}
+                            onTextChange={(text) => updateItem(it.key, "quantity", text)}
                             className="text-label text-right px-1 py-1"
                           />
                         )}
@@ -630,12 +630,11 @@ export function CreditNoteForm({ dealId, documentId, docType = "credit_note" }: 
                         {isReadOnly ? (
                           <span className="text-right block">{it.unitPrice.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
                         ) : (
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                          <NumericInput
                             value={it.unitPrice}
-                            onChange={(e) => updateItem(it.key, "unitPrice", e.target.value)}
+                            maxFractionDigits={2}
+                            minFractionDigits={2}
+                            onTextChange={(text) => updateItem(it.key, "unitPrice", text)}
                             className="text-label text-right px-1 py-1"
                           />
                         )}

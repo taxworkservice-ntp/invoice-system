@@ -15,7 +15,11 @@ import {
   Pencil,
   ScrollText,
   Printer,
+  ReceiptText,
+  Truck,
+  Wallet,
 } from "lucide-react";
+import { NextStepChoice, type NextStepOption } from "../../../components/deal/NextStepChoice";
 import {
   fetchSourceDealsForInvoices,
   fetchWorkspaceBillingRefs,
@@ -26,6 +30,7 @@ import {
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { useDevMode } from "../../../hooks/useDevMode";
 import { useToast } from "../../../hooks/useToast";
+import { useCreateDocument } from "../../../hooks/useCreateDocument";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -43,7 +48,7 @@ import {
 import { copyDocumentAsDraft } from "../../../lib/documentCopy";
 import { resolveDocNumber } from "../../../lib/docNumber";
 import { businessTodayString } from "../../../lib/devDate";
-import { formatBuddhistDate } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
 import { formatCurrency } from "../../../lib/format";
 import { computeDealFinancialSummary } from "../../../lib/dealFinancials";
 import { FinancialSummaryCard } from "../../../components/deal/FinancialSummaryCard";
@@ -96,6 +101,17 @@ interface BorrowedDoc extends DocWithMeta {
   sourceDealId: string;
   sourceDealNumber: string | null;
 }
+
+/** What each next-step action does — shown on its own choice card. */
+const ACTION_DESCRIPTIONS: Record<string, string> = {
+  send_draft: "ล็อกเอกสารหลังส่ง — แก้ไขภายหลังต้องยกเลิกและออกใหม่",
+  confirm_receipt: "ยืนยันว่าได้รับเงินแล้ว ระบบจะออกใบเสร็จให้",
+  convert: "สร้างใบแจ้งหนี้จากรายการเดิม และให้ตรวจสอบก่อนบันทึก",
+  delivery_from_quote: "บันทึกว่าส่งสินค้าแล้ว — ออกใบแจ้งหนี้ภายหลังได้",
+  invoice_from_dns: "นำรายการจากใบส่งของมาออกใบแจ้งหนี้ และให้ตรวจสอบก่อนบันทึก",
+  billing: "รวมใบแจ้งหนี้ที่ยังไม่ชำระ และให้ตรวจสอบยอดก่อนบันทึก",
+  collect: "บันทึกรับเงินทันที ระบบจะออกใบเสร็จรับเงินให้",
+};
 
 type MainAction =
   | { type: "send_draft"; doc: Document; label: string; danger?: boolean }
@@ -248,6 +264,12 @@ function assembleBorrowedDocs(payload: DealDetailRpcPayload): BorrowedDoc[] {
 export default function DealDetailPage() {
   const { id: dealId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const docDate = useDocDate();
+  const activityDateTime = (iso: string) => {
+    const parts = docDate.dateTimeParts(iso);
+    return `${parts.date} ${parts.time}`;
+  };
+  const createDocument = useCreateDocument();
   const { profile, loading: authLoading, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const { isDevMode } = useDevMode();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
@@ -743,7 +765,7 @@ export default function DealDetailPage() {
   };
 
   const handleCreateCreditNote = () => {
-    navigate(`/documents/new?type=credit_note&dealId=${dealId}`);
+    createDocument("credit_note", { dealId });
   };
 
   const handleOpenVoidModal = (doc: Document, recreate: boolean) => {
@@ -1505,23 +1527,23 @@ export default function DealDetailPage() {
             : doc.doc_type === "invoice"
               ? "ส่งใบแจ้งหนี้ให้ลูกค้า"
               : doc.doc_type === "delivery_note"
-                ? "บันทึกว่าส่งของแล้ว"
+                ? "บันทึกการส่งของ"
                 : "ส่งใบวางบิลให้ลูกค้า",
       };
     }
     if (doc.doc_type === "delivery_note" && doc.status === "sent") {
       if (!canSendDocumentType(permissions, doc.doc_type)) return null;
-      return { type: "invoice_from_dns", doc, label: "สร้างบิลจากใบส่งของ" };
+      return { type: "invoice_from_dns", doc, label: "ออกใบแจ้งหนี้จากใบส่งของ" };
     }
     if (doc.doc_type === "quotation" && doc.status === "sent") {
       if (!canSendDocumentType(permissions, doc.doc_type)) return null;
       return hasQuotationDeliveryActivity
-        ? { type: "delivery_from_quote", doc, label: "บันทึกว่าส่งของแล้ว" }
-        : { type: "convert", doc, label: "สร้างบิลต่อ" };
+        ? { type: "delivery_from_quote", doc, label: "บันทึกการส่งของ" }
+        : { type: "convert", doc, label: "ออกใบแจ้งหนี้ต่อ" };
     }
     if (doc.doc_type === "invoice" && doc.status === "sent") {
       if (!permissions.canRecordPayments) return null;
-      return { type: "billing", doc, label: "สร้างใบวางบิล" };
+      return { type: "billing", doc, label: "ออกใบวางบิล" };
     }
     if (doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue")) {
       if (!permissions.canRecordPayments) return null;
@@ -1552,12 +1574,12 @@ export default function DealDetailPage() {
       canSendDocumentType(permissions, doc.doc_type)
     ) {
       return mainAction?.type === "delivery_from_quote"
-        ? { type: "convert" as const, doc, label: "ข้ามส่งของ แล้วสร้างบิล" }
-        : { type: "delivery_from_quote" as const, doc, label: "ส่งของก่อน แล้วบันทึกการส่ง" };
+        ? { type: "convert" as const, doc, label: "ออกใบแจ้งหนี้โดยไม่บันทึกการส่ง" }
+        : { type: "delivery_from_quote" as const, doc, label: "ส่งของก่อน แล้วออกใบแจ้งหนี้ภายหลัง" };
     }
 
     if (doc.doc_type === "invoice" && doc.status === "sent" && permissions.canRecordPayments) {
-      return { type: "collect" as const, doc, label: "ข้ามใบวางบิล แล้วบันทึกรับเงิน" };
+      return { type: "collect" as const, doc, label: "รับเงินโดยไม่ออกใบวางบิล" };
     }
 
     return null;
@@ -1566,10 +1588,10 @@ export default function DealDetailPage() {
   const actionHint = useMemo(() => {
     if (!activeDoc?.document.doc_number) return "";
     if (activeDoc.document.due_date) {
-      return `ครบกำหนด ${formatBuddhistDate(activeDoc.document.due_date)} • ${activeDoc.document.doc_number}`;
+      return `ครบกำหนด ${docDate.date(activeDoc.document.due_date)} • ${activeDoc.document.doc_number}`;
     }
     return activeDoc.document.doc_number;
-  }, [activeDoc]);
+  }, [activeDoc, docDate]);
 
   const actionHelper = useMemo(() => {
     if (!activeDoc || !mainAction) return "";
@@ -1587,6 +1609,65 @@ export default function DealDetailPage() {
       return "ระบบจะนำรายการจากใบส่งของมาให้ตรวจสอบก่อนออกบิล";
     return "";
   }, [activeDoc, mainAction]);
+
+  /** One place that performs a next-step action — cards and buttons share it. */
+  function runAction(action: Exclude<NonNullable<MainAction>, { type: "done" }>) {
+      if (action.type === "send_draft") handleSendDraft(action.doc);
+      if (action.type === "confirm_receipt") setConfirmingReceiptDoc(action.doc);
+      if (action.type === "convert")
+        createDocument("invoice_from_quotation", { quotationId: action.doc.id });
+      if (action.type === "delivery_from_quote")
+        createDocument("delivery_note_from_quotation", { quotationId: action.doc.id });
+      if (action.type === "invoice_from_dns")
+        createDocument("invoice_from_delivery_notes", { dnId: action.doc.id });
+      if (action.type === "billing") createDocument("billing_note", { dealId });
+    if (action.type === "collect") handleOpenPaymentModal(action.doc);
+  }
+
+  /** What each next step actually does — shown on its own card. */
+
+  const iconForAction = (type: string) => {
+    if (type === "delivery_from_quote") return Truck;
+    if (type === "billing") return ReceiptText;
+    if (type === "collect" || type === "confirm_receipt") return Wallet;
+    if (type === "invoice_from_dns") return FileStack;
+    return FileText;
+  };
+
+  /**
+   * The next-step choice. Two options ⇒ cards ("this or that"); one ⇒ the
+   * caller renders its normal primary button.
+   *
+   * Order is fixed by the workflow, not by which action is primary: the
+   * invoice/billing path always reads first (left), the delivery/payment path
+   * second (right) — so the pair does not flip once a delivery is recorded.
+   */
+  const nextStepOptions: NextStepOption[] = (() => {
+    const build = (
+      action: Exclude<NonNullable<MainAction>, { type: "done" }>,
+    ): NextStepOption => ({
+      key: action.type,
+      label: action.label,
+      description: ACTION_DESCRIPTIONS[action.type] ?? actionHelper,
+      icon: iconForAction(action.type),
+      danger: "danger" in action && action.danger === true,
+      loading: actionLoadingId === action.doc.id,
+      onClick: () => runAction(action),
+    });
+
+    if (!mainAction || mainAction.type === "done") return [];
+
+    const options: NextStepOption[] = [build(mainAction)];
+    if (optionalAction) options.push(build(optionalAction));
+
+    // Invoice/billing on the left, delivery/payment on the right.
+    const deliverySide = (key: string) => key === "delivery_from_quote" || key === "collect";
+    if (options.length === 2 && deliverySide(options[0].key) && !deliverySide(options[1].key)) {
+      [options[0], options[1]] = [options[1], options[0]];
+    }
+    return options;
+  })();
+
 
   function handleCopyText(text: string) {
     navigator.clipboard.writeText(text);
@@ -1928,7 +2009,7 @@ export default function DealDetailPage() {
             <div className="mt-3 flex items-start gap-2 rounded-control bg-red-50 border border-red-100 px-3 py-2 text-label text-red-700">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>
-                เอกสารนี้เกินกำหนดชำระแล้ว ตั้งแต่ {formatBuddhistDate(activeDoc.document.due_date)}
+                เอกสารนี้เกินกำหนดชำระแล้ว ตั้งแต่ {docDate.date(activeDoc.document.due_date)}
               </span>
             </div>
           )}
@@ -2049,36 +2130,32 @@ export default function DealDetailPage() {
                 </div>
               ) : mainAction ? (
                 <>
-                  <Button
-                    variant={"danger" in mainAction && mainAction.danger ? "danger" : "primary"}
-                    className="w-full justify-center py-3 text-body"
-                    loading={actionLoadingId === mainAction.doc.id}
-                    onClick={() => {
-                      if (mainAction.type === "send_draft") handleSendDraft(mainAction.doc);
-                      if (mainAction.type === "confirm_receipt")
-                        setConfirmingReceiptDoc(mainAction.doc);
-                      if (mainAction.type === "convert")
-                        navigate(
-                          `/documents/new?type=invoice_from_quotation&quotationId=${mainAction.doc.id}`,
-                        );
-                      if (mainAction.type === "delivery_from_quote") {
-                        const params = new URLSearchParams({
-                          type: "delivery_note_from_quotation",
-                          quotationId: mainAction.doc.id,
-                        });
-                        navigate(`/documents/new?${params.toString()}`);
-                      }
-                      if (mainAction.type === "invoice_from_dns")
-                        navigate(
-                          `/documents/new?type=invoice_from_delivery_notes&dnId=${mainAction.doc.id}`,
-                        );
-                      if (mainAction.type === "billing")
-                        navigate(`/documents/new?type=billing_note&dealId=${dealId}`);
-                      if (mainAction.type === "collect") handleOpenPaymentModal(mainAction.doc);
-                    }}
-                  >
-                    {mainAction.label}
-                  </Button>
+                  {actionHint && (
+                    <div
+                      className={`mb-2 text-center text-label ${isOverdue ? "text-red-700" : "text-ink-500"}`}
+                    >
+                      {actionHint}
+                    </div>
+                  )}
+                  {nextStepOptions.length > 1 ? (
+                    <NextStepChoice options={nextStepOptions} />
+                  ) : (
+                    <>
+                      <Button
+                        variant={"danger" in mainAction && mainAction.danger ? "danger" : "primary"}
+                        className="w-full justify-center py-3 text-body"
+                        loading={actionLoadingId === mainAction.doc.id}
+                        onClick={() => nextStepOptions[0]?.onClick()}
+                      >
+                        {mainAction.label}
+                      </Button>
+                      {actionHelper && (
+                        <div className="mt-2 rounded-control bg-blue-50 px-3 py-2 text-center text-label leading-4 text-blue-800">
+                          ขั้นตอนถัดไป: {actionHelper}
+                        </div>
+                      )}
+                    </>
+                  )}
                   {activeDoc?.document.status === "draft" && (
                     <Button
                       variant="secondary"
@@ -2086,42 +2163,6 @@ export default function DealDetailPage() {
                       onClick={handleCurrentDocAction}
                     >
                       แก้ไขฉบับร่าง
-                    </Button>
-                  )}
-                  {actionHint && (
-                    <div
-                      className={`mt-2 text-center text-label ${isOverdue ? "text-red-700" : "text-ink-500"}`}
-                    >
-                      {actionHint}
-                    </div>
-                  )}
-                  {actionHelper && (
-                    <div className="mt-2 rounded-control bg-blue-50 px-3 py-2 text-center text-label leading-4 text-blue-800">
-                      ขั้นตอนถัดไป: {actionHelper}
-                    </div>
-                  )}
-                  {optionalAction && (
-                    <Button
-                      variant="secondary"
-                      className="mt-2 w-full justify-center py-3 text-body"
-                      loading={actionLoadingId === optionalAction.doc.id}
-                      onClick={() => {
-                        if (optionalAction.type === "convert")
-                          navigate(
-                            `/documents/new?type=invoice_from_quotation&quotationId=${optionalAction.doc.id}`,
-                          );
-                        if (optionalAction.type === "delivery_from_quote") {
-                          const params = new URLSearchParams({
-                            type: "delivery_note_from_quotation",
-                            quotationId: optionalAction.doc.id,
-                          });
-                          navigate(`/documents/new?${params.toString()}`);
-                        }
-                        if (optionalAction.type === "collect")
-                          handleOpenPaymentModal(optionalAction.doc);
-                      }}
-                    >
-                      {optionalAction.label}
                     </Button>
                   )}
                 </>
@@ -2180,7 +2221,7 @@ export default function DealDetailPage() {
                       {summaryStats.lastPaid && (
                         <div>
                           ชำระเมื่อ{" "}
-                          {formatBuddhistDate(
+                          {docDate.date(
                             summaryStats.lastPaid.document.paid_at ||
                               summaryStats.lastPaid.document.issue_date,
                           )}
@@ -2297,11 +2338,9 @@ export default function DealDetailPage() {
                         onClick={() => {
                           if (dnAction.disabled || !dnAction.target) return;
                           if (dnAction.target.type === "form") {
-                            const params = new URLSearchParams({
-                              type: "delivery_note_from_quotation",
+                            createDocument("delivery_note_from_quotation", {
                               quotationId: dnAction.target.quotationId,
                             });
-                            navigate(`/documents/new?${params.toString()}`);
                           } else {
                             navigate(`/documents/${dnAction.target.id}`);
                           }
@@ -2321,12 +2360,12 @@ export default function DealDetailPage() {
                       <Button
                         className="w-full justify-center"
                         onClick={() =>
-                          navigate(
-                            `/documents/new?type=invoice_from_delivery_notes&dnId=${billableSentDns[0].document.id}`,
-                          )
+                          createDocument("invoice_from_delivery_notes", {
+                            dnId: billableSentDns[0].document.id,
+                          })
                         }
                       >
-                        สร้างบิลจากใบส่งของ
+                        ออกใบแจ้งหนี้จากใบส่งของ
                         <span className="ml-2 inline-flex items-center rounded-full bg-white/25 px-2 py-0.5 text-label font-medium">
                           {billableSentDns.length} ใบ
                         </span>
@@ -2357,7 +2396,7 @@ export default function DealDetailPage() {
                                 {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
                               </div>
                               <div className="mt-0.5 text-ink-500">
-                                {formatBuddhistDate(doc.issue_date)}
+                                {docDate.date(doc.issue_date)}
                               </div>
                             </div>
                             <span
@@ -2415,10 +2454,7 @@ export default function DealDetailPage() {
                               {activity.description}
                             </span>
                             <span className="text-label text-ink-400">
-                              {new Date(activity.created_at).toLocaleString("th-TH", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })}
+                              {activityDateTime(activity.created_at)}
                             </span>
                           </div>
                           {activity.metadata?.status === "voided" &&
@@ -2559,7 +2595,7 @@ export default function DealDetailPage() {
                                   จากงานขาย {borrowed.sourceDealNumber || "(ไม่มีเลขงานขาย)"}
                                 </button>
                                 <div className="mt-1 text-label text-ink-400">
-                                  {formatBuddhistDate(doc.issue_date)}
+                                  {docDate.date(doc.issue_date)}
                                 </div>
                               </div>
                               <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -2711,12 +2747,12 @@ export default function DealDetailPage() {
                                   })()
                                 : null}
                               <div className="mt-1 text-label text-ink-400">
-                                {formatBuddhistDate(doc.issue_date)}
+                                {docDate.date(doc.issue_date)}
                                 {doc.due_date ? (
                                   <>
                                     {" • ครบ "}
                                     <span className={overdue ? "text-red-700" : ""}>
-                                      {formatBuddhistDate(doc.due_date)}
+                                      {docDate.date(doc.due_date)}
                                     </span>
                                   </>
                                 ) : null}
@@ -2794,7 +2830,7 @@ export default function DealDetailPage() {
                                     </>
                                   ) : (
                                     <div className="text-green-600">
-                                      {doc.paid_at ? formatBuddhistDate(doc.paid_at) : ""}
+                                      {doc.paid_at ? docDate.date(doc.paid_at) : ""}
                                       {doc.payment_method
                                         ? ` · ${PAYMENT_METHOD_LABELS[doc.payment_method]}`
                                         : ""}
@@ -2885,7 +2921,7 @@ export default function DealDetailPage() {
                                   </div>
                                 )}
                                 <div className="mt-1 text-label text-ink-400">
-                                  {formatBuddhistDate(doc.issue_date)}
+                                  {docDate.date(doc.issue_date)}
                                 </div>
                                 {doc.voided_reason && (
                                   <div className="mt-0.5 text-label text-ink-400 italic">
@@ -3000,7 +3036,7 @@ export default function DealDetailPage() {
                       variant="secondary"
                       tone="slate"
                       className="justify-center"
-                      onClick={() => navigate(`/documents/new?type=debit_note&dealId=${dealId}`)}
+                      onClick={() => createDocument("debit_note", { dealId })}
                     >
                       ออกใบเพิ่มหนี้
                     </Button>
@@ -3074,7 +3110,7 @@ export default function DealDetailPage() {
                     {documentTypeLabel(doc.doc_type, doc.vat_registered).thai}
                   </div>
                   <div className="text-label text-ink-500">
-                    {doc.doc_number || "ยังไม่มีเลขเอกสาร"} · {formatBuddhistDate(doc.issue_date)}
+                    {doc.doc_number || "ยังไม่มีเลขเอกสาร"} · {docDate.date(doc.issue_date)}
                   </div>
                 </div>
                 <ExternalLink size={14} className="shrink-0 text-ink-300" />
@@ -3264,7 +3300,7 @@ export default function DealDetailPage() {
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-ink-500">วันที่รับเงิน</span>
-                <span>{formatBuddhistDate(confirmingReceiptDoc.issue_date)}</span>
+                <span>{docDate.date(confirmingReceiptDoc.issue_date)}</span>
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-ink-500">ยอดรับสุทธิ</span>

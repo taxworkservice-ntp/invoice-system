@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import { useBankAccounts } from "../../hooks/useBankAccounts";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { NumericInput } from "../ui/NumericInput";
 import { Modal } from "../ui/Modal";
 import { DateInput } from "../ui/DateInput";
 import { FieldGuidance } from "../ui/FieldGuidance";
@@ -381,7 +382,7 @@ export function PaymentModal({
               <option value="net_cash">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</option>
             </select>
 
-            <Input
+            <NumericInput
               label={
                 inputBasis === "pre_tax"
                   ? "ยอดชำระก่อน VAT"
@@ -389,10 +390,10 @@ export function PaymentModal({
                     ? "ยอดรวมก่อนหักภาษี ณ ที่จ่าย"
                     : "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย"
               }
-              type="number"
-              step="0.01"
-              value={baseAmount || ""}
-              onChange={(e) => setBaseAmount(parseFloat(e.target.value) || 0)}
+              value={baseAmount}
+              onValueChange={setBaseAmount}
+              maxFractionDigits={2}
+              minFractionDigits={2}
             />
 
             <div>

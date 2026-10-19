@@ -4,6 +4,7 @@ import { UnitSelector } from "./UnitSelector";
 import { CartonUnitSection } from "./CartonUnitSection";
 import { StockInitialField } from "./StockInitialField";
 import { Button } from "../ui/Button";
+import { NumericInput } from "../ui/NumericInput";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useClientFeatures } from "../../hooks/useClientFeatures";
@@ -37,6 +38,8 @@ function uniquePresetValues(values: string[]) {
 
 interface Props {
   item?: Item | null;
+  /** Create mode only — prefills the name (e.g. what the officer typed). */
+  initialName?: string;
   onSave: (itemId?: string) => void;
   onCancel: () => void;
   /** Create mode only — called with the fresh row after insert + stock setup
@@ -44,18 +47,25 @@ interface Props {
   onCreated?: (item: Item) => void;
 }
 
-export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props) {
+export function ItemForm({ item, initialName, onSave, onCancel: _onCancel, onCreated }: Props) {
   const { profile } = useAuth();
   const { hasFeature } = useClientFeatures(profile?.id);
   const toast = useToast();
   const isEdit = !!item;
   const jobDetailsFeatureEnabled = hasFeature("service_job_details");
 
-  const [name, setName] = useState(item?.name || "");
+  const [name, setName] = useState(item?.name || initialName || "");
   const [sku, setSku] = useState(item?.sku || "");
-  const [itemType, setItemType] = useState<"product" | "service">(
-    item?.item_type || (localStorage.getItem("catalogLastType") as "product" | "service") || "product",
+  // Create starts with NOTHING chosen — the type decides what the record is
+  // (stock-counted or not), so it must be a conscious pick, not a remembered
+  // default. The last type is only offered as a hint chip.
+  const [itemType, setItemType] = useState<"product" | "service" | null>(
+    item?.item_type ?? null,
   );
+  const [lastType] = useState<"product" | "service" | null>(() => {
+    const stored = localStorage.getItem("catalogLastType");
+    return stored === "product" || stored === "service" ? stored : null;
+  });
   const [unitPrice, setUnitPrice] = useState(
     item ? String(item.unit_price) : "",
   );
@@ -279,6 +289,10 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
   function validate(): boolean {
     const fieldErrors: Record<string, string> = {};
 
+    if (!itemType) {
+      fieldErrors.type = "กรุณาเลือกประเภทสินค้า/บริการ";
+    }
+
     if (!name.trim()) {
       fieldErrors.name = "กรุณากรอกชื่อสินค้า";
     }
@@ -322,6 +336,8 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
 
   async function handleSubmit() {
     if (!validate() || !profile) return;
+    // Narrowed by the validation above (create requires a picked type).
+    if (!itemType) return;
     setSaving(true);
 
     const price = parseFloat(unitPrice);
@@ -433,10 +449,22 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
     <div className="space-y-4">
       <TypeSelector
         value={itemType}
-        onChange={(v) => { setItemType(v); localStorage.setItem("catalogLastType", v); }}
+        onChange={(v) => {
+          setItemType(v);
+          setErrors((prev) => ({ ...prev, type: "" }));
+          localStorage.setItem("catalogLastType", v);
+        }}
         disabled={isEdit}
+        hintValue={lastType}
+        error={errors.type}
       />
 
+      {itemType === null ? (
+        <p className="text-label leading-5 text-ink-500">
+          เลือกประเภทก่อน แล้วระบบจะแสดงช่องกรอกที่ตรงกัน
+        </p>
+      ) : (
+        <>
       <div className="bg-white border-[0.5px] border-card-border rounded-[10px] p-4">
         <div className="mb-4 rounded-[10px] border border-paper-warm bg-paper-tint px-3 py-3">
             <div className="flex items-center gap-2 text-label font-semibold text-ink-300">
@@ -475,7 +503,6 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
           }}
           placeholder="เช่น กระดาษ A4, ออกแบบโลโก้..."
           className="w-full text-title px-0 py-1 border-b border-card-border focus:outline-none focus:border-primary transition-colors bg-transparent"
-          autoFocus={!isEdit}
         />
         {errors.name && (
           <p className="text-label text-danger mt-1">{errors.name}</p>
@@ -836,16 +863,14 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
                 <label className="block text-body text-ink-900 mb-1">
                   ต้นทุนเริ่มต้นต่อ {baseUnit}
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={initialCost}
-                  onChange={(e) => {
-                    setInitialCost(e.target.value);
+                <NumericInput
+                  value={initialCost === "" ? null : parseFloat(initialCost) || 0}
+                  maxFractionDigits={2}
+                  minFractionDigits={2}
+                  onTextChange={(text) => {
+                    setInitialCost(text);
                     setErrors((prev) => ({ ...prev, initialCost: "" }));
                   }}
-                  className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   placeholder="เช่น 45.00"
                 />
                 <p className="text-label text-ink-300 mt-1">
@@ -864,14 +889,13 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
               แจ้งเตือนเมื่อเหลือ
             </label>
             <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={lowStockThreshold}
-                onChange={(e) => setLowStockThreshold(e.target.value)}
-                className="w-24 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
+              <div className="w-24">
+                <NumericInput
+                  value={lowStockThreshold === "" ? null : parseFloat(lowStockThreshold) || 0}
+                  maxFractionDigits={0}
+                  onTextChange={setLowStockThreshold}
+                />
+              </div>
               <span className="text-body text-ink-300">{baseUnit}</span>
             </div>
             <p className="text-label text-ink-300 mt-1">
@@ -881,10 +905,13 @@ export function ItemForm({ item, onSave, onCancel: _onCancel, onCreated }: Props
         </div>
       )}
 
+        </>
+      )}
+
       <div className="flex gap-2">
         <Button
           onClick={handleSubmit}
-          disabled={saving}
+          disabled={saving || itemType === null}
           loading={saving}
           className="flex-1"
         >

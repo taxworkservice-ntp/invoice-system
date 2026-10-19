@@ -36,7 +36,7 @@ export function CatalogAutocomplete({
   matched = false,
   placeholder = "ชื่อรายการ",
   className = "",
-  createItemType = "product",
+  createItemType,
   createDefaultUnit = "ชิ้น",
   onCreate,
   onFullCreate,

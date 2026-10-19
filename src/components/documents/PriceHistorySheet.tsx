@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Skeleton } from "../ui/Skeleton";
 import { fetchPriceHistory, priceHistoryDocTypeLabel, type PriceHistoryRow } from "../../lib/priceHistory";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 
 interface PriceHistorySheetProps {
   open: boolean;
@@ -13,19 +13,13 @@ interface PriceHistorySheetProps {
   customerId: string | null;
   customerName: string | null;
   excludeDocumentId?: string | null;
+  /** The line's current price — shown in the confirm before replacing it. */
+  currentPrice?: number | null;
   onApply: (unitPrice: number) => void;
 }
 
 function formatPrice(n: number): string {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatDate(row: PriceHistoryRow): string {
-  try {
-    return formatBuddhistDate(row.issueDate || row.createdAt);
-  } catch {
-    return (row.issueDate || row.createdAt || "").slice(0, 10);
-  }
 }
 
 export function PriceHistorySheet({
@@ -37,12 +31,16 @@ export function PriceHistorySheet({
   customerId,
   customerName,
   excludeDocumentId,
+  currentPrice = null,
   onApply,
 }: PriceHistorySheetProps) {
+  const docDate = useDocDate();
   const [filter, setFilter] = useState<"customer" | "all">(customerId ? "customer" : "all");
   const [rows, setRows] = useState<PriceHistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [pendingPrice, setPendingPrice] = useState<number | null>(null);
 
   // Reset to customer scope whenever a new item/customer is opened.
   useEffect(() => {
@@ -153,7 +151,7 @@ export function PriceHistorySheet({
                     ))}
                 </div>
                 <div className="mt-0.5 truncate text-label text-ink-500">
-                  {formatDate(row)}
+                  {docDate.date(row.issueDate || row.createdAt)}
                   {row.customerName ? ` · ${row.customerName}` : ""}
                   {` · ${row.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${row.unit}`}
                   {row.discountPercent > 0 ? ` · ลด ${row.discountPercent}%` : ""}
@@ -165,7 +163,7 @@ export function PriceHistorySheet({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onApply(row.unitPrice)}
+                  onClick={() => setPendingPrice(row.unitPrice)}
                   className="mt-1 rounded-control bg-primary px-2.5 py-1 text-label font-medium text-white transition-colors hover:bg-primary-deep"
                 >
                   ใช้ราคานี้
@@ -176,6 +174,38 @@ export function PriceHistorySheet({
         </div>
       )}
       <p className="mt-3 text-center text-label text-ink-400">แตะ “ใช้ราคานี้” เพื่อใส่ราคาในบรรทัดนี้ · แตะเลขที่เอกสารเพื่อเปิดงานขายในแท็บใหม่</p>
+
+      <Modal
+        open={pendingPrice != null}
+        onClose={() => setPendingPrice(null)}
+        title="ใช้ราคานี้?"
+      >
+        <p className="text-body text-ink-700">฿{formatPrice(pendingPrice ?? 0)} · {itemName}</p>
+        {currentPrice != null && Math.abs(currentPrice - (pendingPrice ?? 0)) >= 0.005 ? (
+          <p className="mt-2 text-label leading-5 text-ink-500">
+            ระบบจะแทนที่ราคาปัจจุบัน ฿{formatPrice(currentPrice)} ของรายการนี้
+          </p>
+        ) : null}
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setPendingPrice(null)}
+            className="rounded-control border border-card-border bg-white px-3 py-1.5 text-label font-medium text-ink-600 transition-colors hover:border-line-strong"
+          >
+            ยกเลิก
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (pendingPrice != null) onApply(pendingPrice);
+              setPendingPrice(null);
+            }}
+            className="rounded-control bg-primary px-3 py-1.5 text-label font-medium text-white transition-colors hover:bg-primary-deep"
+          >
+            ใช้ราคานี้
+          </button>
+        </div>
+      </Modal>
     </Modal>
   );
 }

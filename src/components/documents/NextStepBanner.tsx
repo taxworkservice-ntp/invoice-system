@@ -75,7 +75,7 @@ export function NextStepBanner({
         </Button>
       ) : (
         <Button size="sm" variant="secondary" onClick={onGoto}>
-          พาไป
+          ไปยัง
           <ArrowDown className="ml-1 h-3.5 w-3.5" />
         </Button>
       )}

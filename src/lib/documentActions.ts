@@ -63,7 +63,7 @@ export function getDocumentMenuActions(
         id: "send",
         label:
           doc.doc_type === "delivery_note"
-            ? "บันทึกว่าส่งของแล้ว"
+            ? "บันทึกการส่งของ"
             : "ทำเครื่องหมายว่าส่งแล้ว",
       });
     }
@@ -81,7 +81,7 @@ export function getDocumentMenuActions(
       if (permissions.canVoidDocuments) add({ id: "void", label: "ยกเลิก", danger: true });
     } else if (doc.doc_type === "invoice") {
       if (permissions.canRecordPayments) {
-        add({ id: "billing", label: "สร้างใบวางบิล" });
+        add({ id: "billing", label: "ออกใบวางบิล" });
         add({ id: "pay", label: "บันทึกรับเงิน" });
       }
       if (permissions.canVoidDocuments) add({ id: "void", label: "ยกเลิก", danger: true });

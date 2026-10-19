@@ -1,10 +1,16 @@
 import { useRef, type InputHTMLAttributes } from "react";
+import { fromEraYear, toEraYear, type YearEra } from "../../lib/dates";
+import { useYearEra } from "../YearEraProvider";
 
-function formatDisplay(iso: string) {
+/**
+ * `dd/mm/yyyy` text field backed by a hidden native date picker. The year it
+ * shows follows the workspace era, while the stored value stays ISO (ค.ศ.).
+ */
+function formatDisplay(iso: string, era: YearEra) {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
+  return `${d}/${m}/${toEraYear(Number(y), era)}`;
 }
 
 export function DateInput({
@@ -19,13 +25,14 @@ export function DateInput({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const dateRef = useRef<HTMLInputElement>(null);
+  const era = useYearEra();
 
   return (
     <div className="relative">
       <input
         id={id}
         type="text"
-        value={formatDisplay(value || "")}
+        value={formatDisplay(value || "", era)}
         onChange={(e) => {
           const raw = e.target.value.replace(/\//g, "");
           if (raw.length >= 8) {
@@ -33,7 +40,7 @@ export function DateInput({
             const m = raw.substring(2, 4);
             const y = raw.substring(4, 8);
             onChange({
-              target: { value: `${y}-${m}-${d}` },
+              target: { value: `${fromEraYear(Number(y), era)}-${m}-${d}` },
             } as React.ChangeEvent<HTMLInputElement>);
           }
         }}

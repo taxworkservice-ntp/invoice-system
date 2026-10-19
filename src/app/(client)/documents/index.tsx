@@ -25,6 +25,7 @@ import { SavedViewsMenu } from "../../../components/documents/SavedViewsMenu";
 import { useDocuments } from "../../../hooks/useDocuments";
 import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
+import { useCreateDocument } from "../../../hooks/useCreateDocument";
 import { supabase } from "../../../lib/supabase";
 import { warmPdfCache } from "../../../lib/pdfWarm";
 import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
@@ -181,6 +182,7 @@ interface StatChip {
 
 export default function DocumentsPage() {
   const navigate = useNavigate();
+  const createDocument = useCreateDocument();
   const [searchParams, setSearchParams] = useSearchParams();
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
@@ -444,7 +446,7 @@ export default function DocumentsPage() {
     try {
       const { warnings } = await sendDocumentWithSideEffects(doc, profile.id, { issueDate: devIssueDate });
       warnings.forEach((warning) => toast.info(`${warning.itemName} สต็อกไม่พอ`));
-      toast.success(doc.doc_type === "delivery_note" ? "บันทึกว่าส่งของแล้ว" : "ทำเครื่องหมายว่าส่งแล้ว");
+      toast.success(doc.doc_type === "delivery_note" ? "บันทึกการส่งของ" : "ทำเครื่องหมายว่าส่งแล้ว");
       warmPdfCache(doc.id);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -552,12 +554,12 @@ export default function DocumentsPage() {
         return;
       }
       setOpenMenuId(null);
-      navigate(`/documents/new?type=billing_note&dealId=${doc.deal_id || ""}`);
+      createDocument("billing_note", { dealId: doc.deal_id });
       return;
     }
     if (action === "invoice_from_dn") {
       setOpenMenuId(null);
-      navigate(`/documents/new?type=invoice_from_delivery_notes&dnId=${doc.id}`);
+      createDocument("invoice_from_delivery_notes", { dnId: doc.id });
       return;
     }
     await handleInlineAction(doc, action);

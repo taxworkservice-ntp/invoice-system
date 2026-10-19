@@ -132,7 +132,7 @@ function SectionScaleEditor({
       </div>
       <div className="py-1.5">
         <ScaleRow
-          label="เงื่อนไขท้ายเอกสาร"
+          label="หมายเหตุ (REMARK)"
           value={getValue("terms")}
           onSet={(v) => setValue("terms", v)}
           inheritOptionLabel={termsInheritLabel || rowProps.inheritOptionLabel}
@@ -280,6 +280,8 @@ export default function SettingsDocumentsPage() {
   const [dnShowFullTotals, setDnShowFullTotals] = useState(false);
   const [dnAmountDisplay, setDnAmountDisplay] = useState<"full" | "hidden" | "blank" | null>("hidden");
   const [requireDnPriceReview, setRequireDnPriceReview] = useState(false);
+  // Discount inputs in document forms (display-only; off = hidden).
+  const [discountsEnabled, setDiscountsEnabled] = useState(true);
   const [priceWarnPct, setPriceWarnPct] = useState("10");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -339,6 +341,7 @@ export default function SettingsDocumentsPage() {
     setDnShowFullTotals(clientProfile.delivery_note_show_full_totals === true);
     setDnAmountDisplay(clientProfile.delivery_note_amount_display ?? null);
     setRequireDnPriceReview(clientProfile.require_dn_price_review === true);
+    setDiscountsEnabled(clientProfile.discounts_enabled !== false);
     setPriceWarnPct(
       clientProfile.price_deviation_warn_pct != null
         ? String(clientProfile.price_deviation_warn_pct)
@@ -375,6 +378,7 @@ export default function SettingsDocumentsPage() {
     const payload: Record<string, unknown> = {
       price_deviation_warn_pct: parsedWarnPct,
       require_dn_price_review: requireDnPriceReview,
+      discounts_enabled: discountsEnabled,
       logo_url: logoKey,
       logo_size: logoSize,
       show_logo: showLogo,
@@ -448,6 +452,7 @@ export default function SettingsDocumentsPage() {
         ...activePayload,
         price_deviation_warn_pct: parsedWarnPct,
         require_dn_price_review: requireDnPriceReview,
+        discounts_enabled: discountsEnabled,
       } as ClientProfile);
     }
     setSaving(false);
@@ -510,6 +515,7 @@ export default function SettingsDocumentsPage() {
     dnShowFullTotals !== (clientProfile?.delivery_note_show_full_totals === true) ||
     dnAmountDisplay !== (clientProfile?.delivery_note_amount_display ?? null) ||
     requireDnPriceReview !== (clientProfile?.require_dn_price_review === true) ||
+    discountsEnabled !== (clientProfile?.discounts_enabled !== false) ||
     priceWarnPct !== (clientProfile?.price_deviation_warn_pct != null
       ? String(clientProfile.price_deviation_warn_pct)
       : "10");
@@ -546,7 +552,7 @@ export default function SettingsDocumentsPage() {
     { label: "ยอดรวม", mult: specimenMult("totals"), text: "ยอดรวมทั้งสิ้น / NET PAYABLE" },
     { label: "ยอดรวมสุดท้าย", mult: specimenMult("totals_net"), text: "ยอดรวมทั้งสิ้น 12,500.00" },
     { label: "ข้อมูลการชำระเงิน", mult: specimenMult("payment"), text: "ธนาคาร: ธนาคารตัวอย่าง · เลขที่บัญชี 123-4-56789-0" },
-    { label: "เงื่อนไขท้ายเอกสาร", mult: specimenMult("terms"), text: "ชำระเงินภายใน 30 วันนับจากวันที่ออกเอกสาร" },
+    { label: "หมายเหตุ (REMARK)", mult: specimenMult("terms"), text: "ชำระเงินภายใน 30 วันนับจากวันที่ออกเอกสาร" },
     { label: "ป้ายภาษาอังกฤษ", mult: specimenMult("en"), text: "INVOICE · SUB TOTAL · AUTHORIZED BY" },
     { label: "ลายเซ็น/ท้ายเอกสาร", mult: specimenMult("footer"), text: "ผู้มีอำนาจลงนาม / วันที่" },
   ];
@@ -842,7 +848,10 @@ export default function SettingsDocumentsPage() {
         </SectionCard>
         )}
 
-        <SectionCard title="ข้อความเงื่อนไขท้ายเอกสาร (รายประเภทเอกสาร)" description="หนึ่งบรรทัดต่อหนึ่งข้อ — เว้นว่างไว้หากประเภทนั้นไม่ต้องการเงื่อนไข">
+        <SectionCard
+          title="หมายเหตุ (REMARK)"
+          description="หนึ่งบรรทัดต่อหนึ่งข้อ — พิมพ์เป็นบล็อกหมายเหตุเหนือรายละเอียดการชำระเงิน เว้นว่างไว้หากประเภทนั้นไม่ต้องการ"
+        >
           <div className="mb-3 flex flex-wrap gap-1.5">
             {DOC_VISIBILITY_TYPES.filter((t) => (TERMS_DOC_TYPES as readonly string[]).includes(t.key)).map((t) => (
               <button
@@ -859,7 +868,7 @@ export default function SettingsDocumentsPage() {
             value={termsByType[termsTab] ?? ""}
             onChange={(e) => { setTermsByType({ ...termsByType, [termsTab]: e.target.value }); setSaved(false); }}
             rows={4}
-            placeholder="เว้นว่าง = ไม่แสดงเงื่อนไขท้ายเอกสารประเภทนี้"
+            placeholder="เว้นว่าง = ไม่แสดงหมายเหตุท้ายเอกสารประเภทนี้"
             className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
           />
           <p className="text-label text-ink-300 mt-1">
@@ -1023,6 +1032,25 @@ export default function SettingsDocumentsPage() {
             controlAlign="right"
           >
             <Switch checked={requireDnPriceReview} onChange={(checked) => { setRequireDnPriceReview(checked); setSaved(false); }} />
+          </SettingRow>
+        </SectionCard>
+
+        <SectionCard
+          title="ส่วนลด"
+          description="ปิดได้สำหรับร้านที่ไม่ใช้ส่วนลด — ซ่อนช่องกรอกส่วนลดในเอกสารใหม่ ไม่กระทบส่วนลดที่บันทึกไว้แล้วและไม่กระทบเอกสารที่พิมพ์"
+        >
+          <SettingRow
+            label="เปิดใช้ส่วนลด"
+            description="มีผลกับช่องกรอกส่วนลดในเอกสาร (รายการ, ท้ายบิล และใบลดหนี้)"
+            controlAlign="right"
+          >
+            <Switch
+              checked={discountsEnabled}
+              onChange={(checked) => {
+                setDiscountsEnabled(checked);
+                setSaved(false);
+              }}
+            />
           </SettingRow>
         </SectionCard>
 

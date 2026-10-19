@@ -4,6 +4,8 @@ import type { Item } from "../../types";
 
 interface ItemCreateModalProps {
   open: boolean;
+  /** Prefills the name field (e.g. the name typed on a document line). */
+  initialName?: string;
   onClose: () => void;
   /** Called with the fresh row after the item is saved — lets the host apply
    * it to a line immediately (auto-select) without waiting for a refetch. */
@@ -15,11 +17,12 @@ interface ItemCreateModalProps {
  * same ItemForm used by /catalog/new so there is a single source of truth for
  * item fields. Mounts fresh on every open — ItemForm state resets.
  */
-export function ItemCreateModal({ open, onClose, onCreated }: ItemCreateModalProps) {
+export function ItemCreateModal({ open, initialName, onClose, onCreated }: ItemCreateModalProps) {
   return (
     <Modal open={open} onClose={onClose} title="สร้างสินค้า/บริการใหม่" size="xl" className="md:max-w-2xl">
       <ItemForm
         item={null}
+        initialName={initialName}
         onSave={() => undefined}
         onCancel={onClose}
         onCreated={(item) => {

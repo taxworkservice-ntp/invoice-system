@@ -178,6 +178,32 @@ export function DocumentOptionSegmented<T extends string>({
 /** Delivery-note print mode — how much money the PDF shows. */
 export type DnAmountDisplay = "full" | "hidden" | "blank";
 
+const DN_AMOUNT_STORAGE_PREFIX = "invoice-system.dn-amount-last:";
+
+/** Last amount mode explicitly chosen for a customer — a hint, never a default. */
+export function readLastDnAmount(customerId: string | null | undefined): DnAmountDisplay | null {
+  if (typeof window === "undefined" || !customerId) return null;
+  try {
+    const raw = window.localStorage.getItem(DN_AMOUNT_STORAGE_PREFIX + customerId);
+    return raw === "full" || raw === "hidden" || raw === "blank" ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remember an explicit amount-mode choice per customer (overwrites on each pick). */
+export function writeLastDnAmount(
+  customerId: string | null | undefined,
+  value: DnAmountDisplay,
+): void {
+  if (typeof window === "undefined" || !customerId) return;
+  try {
+    window.localStorage.setItem(DN_AMOUNT_STORAGE_PREFIX + customerId, value);
+  } catch {
+    // Storage unavailable (private mode) — the hint is best-effort only.
+  }
+}
+
 type DnAmountDisplayCopy = {
   title: string;
   description: string;
@@ -199,7 +225,6 @@ export const DN_AMOUNT_DISPLAY_COPY: Record<DnAmountDisplay, DnAmountDisplayCopy
     title: "ซ่อนจำนวนเงิน",
     description: "PDF แสดงเฉพาะชื่อสินค้า จำนวน และหน่วย",
     footnote: "ซ่อนราคา ส่วนลด และยอดรวม — ยอดในระบบยังอยู่ครบไว้ออกบิลต่อ",
-    badge: "แนะนำ",
   },
   blank: {
     title: "ฟอร์มเปล่า — เขียนมือหน้างาน",
@@ -228,12 +253,15 @@ export function DnAmountDisplayPicker({
   onChange,
   showError = false,
   name = "dn-amount-display",
+  hintValue = null,
 }: {
   value: DnAmountDisplay | null;
   onChange: (value: DnAmountDisplay) => void;
   /** True once a save was attempted with nothing chosen — turns the hint red. */
   showError?: boolean;
   name?: string;
+  /** Last mode explicitly chosen for this customer — shown as a tag, never preselected. */
+  hintValue?: DnAmountDisplay | null;
 }) {
   const missing = value == null;
   return (
@@ -275,6 +303,10 @@ export function DnAmountDisplayPicker({
                       <span className="inline-flex items-center gap-1 rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
                         <CheckCircle2 className="h-3 w-3" />
                         เลือกแล้ว
+                      </span>
+                    ) : hintValue === optionValue ? (
+                      <span className="rounded-full bg-ink-50 px-2 py-0.5 text-label font-medium text-ink-500">
+                        ครั้งก่อนกับลูกค้านี้
                       </span>
                     ) : null}
                   </span>

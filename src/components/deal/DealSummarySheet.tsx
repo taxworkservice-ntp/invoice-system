@@ -5,7 +5,7 @@ import { Button } from "../ui/Button";
 import { DOC_TYPE_LABELS } from "../../constants";
 import { documentTypeLabel } from "../../lib/docLabels";
 import { formatCurrency } from "../../lib/format";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 import type { Document, DealActivity } from "../../types";
 import { computeDealFinancialSummary, type DealFinancialSummary } from "../../lib/dealFinancials";
 
@@ -62,6 +62,7 @@ export function DealSummarySheet({
   documents,
   activities,
 }: Props) {
+  const docDate = useDocDate();
   const summary: DealFinancialSummary = useMemo(
     () => computeDealFinancialSummary(documents),
     [documents],
@@ -86,15 +87,13 @@ export function DealSummarySheet({
   const timelineByDay = useMemo(() => {
     const groups = new Map<string, DealActivity[]>();
     for (const activity of timeline) {
-      const day = new Date(activity.created_at).toLocaleDateString("th-TH", {
-        dateStyle: "long",
-      });
+      const day = docDate.full(activity.created_at);
       const list = groups.get(day) || [];
       list.push(activity);
       groups.set(day, list);
     }
     return [...groups.entries()];
-  }, [timeline]);
+  }, [timeline, docDate]);
 
   return (
     <>
@@ -195,7 +194,7 @@ export function DealSummarySheet({
                     <tr key={doc.id} className={isVoided ? "text-ink-300 line-through decoration-gray-300/60" : "text-ink-900"}>
                       <td className="py-1.5 pr-2 font-medium whitespace-nowrap">{doc.doc_number || "—"}</td>
                       <td className="py-1.5 pr-2 whitespace-nowrap">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</td>
-                      <td className="py-1.5 pr-2 whitespace-nowrap">{formatBuddhistDate(doc.issue_date)}</td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap">{docDate.date(doc.issue_date)}</td>
                       <td className="py-1.5 pr-2 text-right tabular-nums">{formatCurrency(doc.total_amount || 0)}</td>
                       <td className="py-1.5 pr-2 text-right tabular-nums">{doc.vat_amount ? formatCurrency(doc.vat_amount) : "—"}</td>
                       <td className="py-1.5 pr-2 text-right tabular-nums">{doc.wht_amount ? formatCurrency(doc.wht_amount) : "—"}</td>
@@ -233,7 +232,7 @@ export function DealSummarySheet({
                           ? PAYMENT_METHOD_LABELS[receipt.payment_method] || receipt.payment_method
                           : null,
                         receipt.paid_at
-                          ? new Date(receipt.paid_at).toLocaleDateString("th-TH", { dateStyle: "medium" })
+                          ? docDate.date(receipt.paid_at)
                           : null,
                         receipt.wht_certificate_no ? `ใบหักภาษี ณ ที่จ่าย ${receipt.wht_certificate_no}` : null,
                       ]
@@ -268,7 +267,7 @@ export function DealSummarySheet({
             </div>
             <div className="text-right text-label">
               <div>{dealNumber ? `DL ${dealNumber}` : ""}</div>
-              <div>พิมพ์ {new Date().toLocaleDateString("th-TH", { dateStyle: "long" })}</div>
+              <div>พิมพ์ {docDate.full(new Date().toISOString())}</div>
             </div>
           </div>
           <SummaryPrintTables
@@ -370,6 +369,7 @@ function SummaryPrintTables({
   receipts: Document[];
   summary: DealFinancialSummary;
 }) {
+  const docDate = useDocDate();
   return (
     <div className="space-y-4 text-label">
       <div>
@@ -392,7 +392,7 @@ function SummaryPrintTables({
               <tr key={doc.id} className="border-b border-black/10">
                 <td className="py-1 pr-2">{doc.doc_number || "—"}</td>
                 <td className="py-1 pr-2">{documentTypeLabel(doc.doc_type, doc.vat_registered).thai}</td>
-                <td className="py-1 pr-2">{formatBuddhistDate(doc.issue_date)}</td>
+                <td className="py-1 pr-2">{docDate.date(doc.issue_date)}</td>
                 <td className="py-1 pr-2 text-right tabular-nums">{formatCurrency(doc.total_amount || 0)}</td>
                 <td className="py-1 pr-2 text-right tabular-nums">{doc.vat_amount ? formatCurrency(doc.vat_amount) : "—"}</td>
                 <td className="py-1 pr-2 text-right tabular-nums">{doc.wht_amount ? formatCurrency(doc.wht_amount) : "—"}</td>
@@ -419,7 +419,7 @@ function SummaryPrintTables({
                   </td>
                   <td className="py-1 pr-2">
                     {receipt.paid_at
-                      ? new Date(receipt.paid_at).toLocaleDateString("th-TH", { dateStyle: "medium" })
+                      ? docDate.date(receipt.paid_at)
                       : "—"}
                   </td>
                   <td className="py-1 text-right tabular-nums">

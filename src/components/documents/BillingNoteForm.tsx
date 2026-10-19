@@ -16,9 +16,10 @@ import { FormActionBar } from "./FormActionBar";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
 import { useToast } from "../../hooks/useToast";
+import { useCreateDocument } from "../../hooks/useCreateDocument";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 import { assertDocNumberAvailable, resolveDocNumber } from "../../lib/docNumber";
 import { addDaysString, businessTodayString } from "../../lib/devDate";
 import { deleteDraftDocument } from "../../lib/documentDelete";
@@ -82,10 +83,14 @@ function staticSkeletonLine(className: string) {
 interface BillingNoteFormProps {
   dealId?: string;
   documentId?: string;
+  /** Entry from a customer page — pre-picks that customer once the list loads. */
+  initialCustomerId?: string;
 }
 
-export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
+export function BillingNoteForm({ dealId, documentId, initialCustomerId }: BillingNoteFormProps) {
   const navigate = useNavigate();
+  const docDate = useDocDate();
+  const createDocument = useCreateDocument();
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
@@ -120,6 +125,12 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
 
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
   const [dueDate, setDueDate] = useState(() => addDaysString(businessTodayString(clientProfile), 7));
+
+  useEffect(() => {
+    if (!initialCustomerId || documentId || selectedCustomer) return;
+    const match = customers.find((customer) => customer.id === initialCustomerId);
+    if (match) setSelectedCustomer(match);
+  }, [customers, documentId, initialCustomerId, selectedCustomer]);
 
   useEffect(() => {
     if (documentId) return;
@@ -1078,7 +1089,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 disabled={readOnly}
               />
               <div className="mt-1 text-label text-ink-500">
-                {formatBuddhistDate(issueDate)}
+                {docDate.date(issueDate)}
               </div>
             </div>
             <div>
@@ -1097,7 +1108,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 className={errors.dueDate ? "border-red-400" : ""}
               />{errors.dueDate && <p className="text-label text-red-500 mt-1">{errors.dueDate}</p>}
               <div className="mt-1 text-label text-ink-500">
-                {dueDate ? formatBuddhistDate(dueDate) : "-"}
+                {dueDate ? docDate.date(dueDate) : "-"}
               </div>
               {pastDueDate && (
                 <div className="mt-1 flex items-center gap-1 text-label text-amber-600">
@@ -1148,9 +1159,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                 dealId ? (
                   <button
                     className="text-body font-medium text-primary"
-                    onClick={() =>
-                      navigate(`/deals/new?type=invoice&dealId=${dealId}`)
-                    }
+                    onClick={() => createDocument("invoice", { dealId })}
                   >
                     สร้างใบแจ้งหนี้ใหม่ →
                   </button>
@@ -1241,7 +1250,7 @@ export function BillingNoteForm({ dealId, documentId }: BillingNoteFormProps) {
                           {invoice.doc_number}
                         </div>
                         <div className="text-label text-ink-500">
-                          {formatBuddhistDate(invoice.issue_date)}
+                          {docDate.date(invoice.issue_date)}
                         </div>
                       </div>
                       <div className="text-right text-label text-ink-700">
@@ -1455,6 +1464,7 @@ function InvoiceRow({
   disabled: boolean;
   onToggle: () => void;
 }) {
+  const docDate = useDocDate();
   return (
     <label
       className={`flex cursor-pointer items-start gap-3 border-b border-card-border px-0 py-3 last:border-0 ${checked ? "bg-blue-50/60" : "bg-white"} ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
@@ -1481,7 +1491,7 @@ function InvoiceRow({
           </div>
         </div>
         <div className="mt-1 text-label text-ink-500">
-          {formatBuddhistDate(invoice.issue_date)} • {invoice.itemSummary}
+          {docDate.date(invoice.issue_date)} • {invoice.itemSummary}
         </div>
         {invoice.isVoidedLinked && (
           <div className="mt-2 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-label font-medium text-red-600">

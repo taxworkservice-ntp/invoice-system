@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Navigate } from "react-router-dom";
 import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useCustomers } from "../../../hooks/useCustomers";
 import { useItems } from "../../../hooks/useItems";
@@ -52,13 +52,29 @@ import { CustomerPickerModal } from "../../../components/customers/CustomerPicke
 import { Spinner } from "../../../components/ui/Spinner";
 import { supabase } from "../../../lib/supabase";
 import { getDocNumberErrorMessage, resolveDocNumber } from "../../../lib/docNumber";
+import { resolveCreation } from "../../../lib/docCreation";
+import { focusLineInput, moveLine, removeLine } from "../../../lib/lineDraft";
+import { NumericInput } from "../../../components/ui/NumericInput";
+import { isDiscountEnabled } from "../../../lib/discounts";
+import type { DocumentLine } from "../../../lib/documentLine";
+import {
+  countPendingPriceReviews,
+  countReviewableLines,
+  findNextPendingPriceReview,
+  hasCartonOption,
+  isCartonUnitSelected,
+  isPriceReviewRequired,
+  lineBaseQuantity as getLineBaseQuantity,
+  priceDeviation,
+  suggestedUnitPrice as getSuggestedUnitPrice,
+} from "../../../lib/documentLine";
 import {
   businessTodayString,
   localTodayString,
   monthStartString as getMonthStartString,
 } from "../../../lib/devDate";
-import { formatBuddhistDate } from "../../../lib/dates";
-import { cartonsToBase, formatMixedStock, restoreStockOnVoid, round3 } from "../../../lib/stock";
+import { useDocDate } from "../../../components/YearEraProvider";
+import { restoreStockOnVoid } from "../../../lib/stock";
 import {
   DEFAULT_JOB_DETAIL_FIELDS,
   getJobDetailFieldLabel,
@@ -76,15 +92,15 @@ import {
   CheckCircle2,
   ChevronDown,
   Heading,
-  Plus,
   PlusCircle,
   X,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
-import { fetchPriceHistory } from "../../../lib/priceHistory";
+import { priceHintKey, usePriceHints } from "../../../hooks/usePriceHints";
 import { PriceHistorySheet } from "../../../components/documents/PriceHistorySheet";
-import { PriceReviewControl } from "../../../components/documents/PriceReviewControl";
+import { PriceHint } from "../../../components/documents/PriceHint";
+import { LineItemEditorModal } from "../../../components/documents/LineItemEditorModal";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import type {
   Document,
@@ -99,25 +115,10 @@ import type {
   JobDetailPresetField,
 } from "../../../types";
 
-interface LineItemForm {
-  id: string;
-  image_url?: string | null;
-  item_id: string | null;
-  item_sku?: string | null;
-  item_name: string;
-  line_note: string;
-  item_type: string;
-  unit_price: number;
-  quantity: number;
-  discount_percent?: number;
-  unit: string;
+/** This form's line: the shared line plus its job-detail and carton drafting fields. */
+interface LineItemForm extends DocumentLine {
   base_unit: string;
-  carton_unit: string | null;
-  qty_per_carton: number | null;
   base_unit_price: number | null;
-  // Mandatory DN price review (opt-in per client): false until the officer
-  // edits the price input or ticks the per-line confirm checkbox.
-  price_confirmed: boolean;
   job_details_open: boolean;
   job_color: string;
   job_width: string;
@@ -126,19 +127,9 @@ interface LineItemForm {
   job_material: string;
   job_remark: string;
   job_detail_values: Record<string, string>;
-  hide_amounts_on_print: boolean;
-  /** DN section-header (grouping) line: no qty/price, prints as a group header. */
-  isSectionMarker: boolean;
 }
 
 type JobDetailSuggestions = Record<string, string[]>;
-
-interface PriceHint {
-  price: number;
-  date: string;
-  customerName: string | null;
-  scope: "customer" | "all";
-}
 
 interface JobDetailPresetInputProps {
   label: string;
@@ -149,53 +140,6 @@ interface JobDetailPresetInputProps {
   onDeletePreset: (value: string) => void;
 }
 
-function CommaInput({
-  value,
-  onChange,
-  ...props
-}: { value: number; onChange: (val: number) => void } & Omit<
-  React.InputHTMLAttributes<HTMLInputElement>,
-  "value" | "onChange"
->) {
-  const [focus, setFocus] = useState(false);
-  const [text, setText] = useState("");
-
-  const formatted = !value
-    ? ""
-    : Number.isInteger(value)
-      ? value.toLocaleString()
-      : value.toLocaleString(undefined, { minimumFractionDigits: 2 });
-
-  const display = focus ? text : formatted;
-
-  return (
-    <input
-      type="text"
-      inputMode="decimal"
-      value={display}
-      onFocus={() => {
-        setFocus(true);
-        setText(value ? String(value) : "");
-      }}
-      onBlur={() => {
-        setFocus(false);
-        const raw = text.replace(/,/g, "");
-        const num = parseFloat(raw);
-        if (!isNaN(num)) onChange(num);
-        else if (raw === "" || raw === "-") onChange(0);
-      }}
-      onChange={(e) => {
-        const raw = e.target.value.replace(/,/g, "");
-        setText(raw);
-        const num = parseFloat(raw);
-        if (!isNaN(num)) onChange(num);
-      }}
-      className="w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors border-card-border"
-      placeholder="0"
-      {...props}
-    />
-  );
-}
 
 function JobDetailPresetInput({
   label,
@@ -335,31 +279,6 @@ function createSectionMarker(header: string): LineItemForm {
   };
 }
 
-/**
- * Focus the first input of a freshly inserted line-item row (insert-anywhere
- * UX). Line ids are UUIDs, so the selector is always safe. No-op when the
- * row was not inserted (guard rejected) or not yet painted.
- */
-function focusLineInput(id: string) {
-  window.setTimeout(() => {
-    const input = document.querySelector(`#dn-line-${id} input`);
-    if (input instanceof HTMLElement) {
-      input.scrollIntoView({ behavior: "smooth", block: "center" });
-      input.focus({ preventScroll: true });
-    }
-  }, 30);
-}
-
-interface UnpaidInvoice {
-  id: string;
-  doc_number: string;
-  subtotal: number;
-  vat_amount: number;
-  total_amount: number;
-  net_payable: number;
-  issue_date: string;
-}
-
 function parseAmount(value: string) {
   const parsed = parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -405,58 +324,6 @@ function getUsageBillDetail(note: string) {
     periodEnd: periodMatch?.[2] || "",
     unit: usageMatch?.[1]?.trim() || "",
   };
-}
-
-function hasCartonOption(lineItem: LineItemForm) {
-  return Boolean(lineItem.carton_unit && lineItem.qty_per_carton && lineItem.qty_per_carton > 0);
-}
-
-function isCartonUnitSelected(lineItem: LineItemForm) {
-  return hasCartonOption(lineItem) && lineItem.unit === lineItem.carton_unit;
-}
-
-function getLineBaseQuantity(lineItem: LineItemForm) {
-  if (isCartonUnitSelected(lineItem) && lineItem.qty_per_carton) {
-    return cartonsToBase(lineItem.quantity, lineItem.qty_per_carton);
-  }
-
-  return round3(lineItem.quantity);
-}
-
-function getSuggestedUnitPrice(
-  baseUnitPrice: number,
-  unit: string,
-  cartonUnit?: string | null,
-  qtyPerCarton?: number | null,
-) {
-  if (cartonUnit && qtyPerCarton && qtyPerCarton > 0 && unit === cartonUnit) {
-    return Math.round(baseUnitPrice * qtyPerCarton * 100) / 100;
-  }
-
-  return baseUnitPrice;
-}
-
-/**
- * Catalog-price deviation check for the non-blocking "wrong unit price" hint.
- * Compares the typed unit price against the catalog price converted to the
- * line's current unit (so selling by carton doesn't false-trigger).
- * Returns the expected catalog price when the deviation exceeds warnPct,
- * otherwise null. warnPct <= 0 disables the check.
- */
-function getPriceDeviation(lineItem: LineItemForm, warnPct: number): number | null {
-  if (!(warnPct > 0)) return null;
-  const base = lineItem.base_unit_price;
-  if (base == null) return null; // free-text line — nothing to compare against
-  const expected = getSuggestedUnitPrice(
-    base,
-    lineItem.unit,
-    lineItem.carton_unit,
-    lineItem.qty_per_carton,
-  );
-  if (!(expected > 0)) return null;
-  if (!(lineItem.unit_price > 0)) return null; // empty/zero price — not a typo signal
-  const deviationPct = (Math.abs(lineItem.unit_price - expected) / expected) * 100;
-  return deviationPct > warnPct ? expected : null;
 }
 
 /** Delivery-note print modes — how much money the PDF shows. Copy lives in DocumentOptions. */
@@ -568,6 +435,7 @@ interface NewDealPageProps {
 export default function NewDealPage({ documentId, initialType }: NewDealPageProps = {}) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const isClassicMode = searchParams.get("mode") === "classic";
   const requestedType = initialType || searchParams.get("type") || "quotation";
   const isUtilityBill = requestedType === "utility_bill";
@@ -583,13 +451,20 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
           : isUtilityBill
             ? "ออกบิลประจำรอบ"
             : DOC_TYPE_LABELS[type]?.th || "เอกสารใหม่";
-  const isBillingNote = type === "billing_note";
   const isDeliveryNote = type === "delivery_note";
   const isLineItemDocument = type === "quotation" || type === "invoice" || isDeliveryNote;
 
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const experience = getWorkspaceExperience(workspaceRole, permissions);
+  // Self-guard: this page only hosts the deal-form modes. Anything else
+  // (billing note, conversion forms, unknown values) is redirected to the
+  // screen that actually owns it — see src/lib/docCreation.ts.
+  const creation = resolveCreation({
+    type: requestedType,
+    params: searchParams,
+    experience,
+  });
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
   const { hasFeature } = useClientFeatures(userId);
@@ -620,8 +495,18 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const [lineItems, setLineItems] = useState<LineItemForm[]>([]); // Price-history ("ราคาที่เคยขาย"): which line's sheet is open, plus a
   // cache of last-price hints keyed `${itemId}|${customerId ?? "-"}`.
   const [priceHistoryLineId, setPriceHistoryLineId] = useState<string | null>(null);
-  const [priceHints, setPriceHints] = useState<Record<string, PriceHint | null>>({});
-  const hintRequested = useRef<Set<string>>(new Set());
+  // Read-only rows + one shared line editor: which line is open, and which
+  // lines are still new (an untouched new line is dropped on close).
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const newLineIdsRef = useRef<Set<string>>(new Set());
+  // Last-price hints (เคยขาย…) — shared with the delivery-note form.
+  const priceHints = usePriceHints({
+    userId,
+    customerId: selectedCustomer?.id ?? null,
+    itemIds: lineItems.map((line) => line.item_id),
+    excludeDocumentId: documentId || null,
+    enabled: isLineItemDocument,
+  });
   const [serviceJobDetailFields, setServiceJobDetailFields] = useState<
     Record<string, JobDetailFieldConfig[]>
   >({});
@@ -683,21 +568,21 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   const hideAmountsOnPrint = amountDisplay === "hidden";
   const isBlankForm = amountDisplay === "blank";
   // Mandatory DN price review (workspace setting) — real delivery notes only.
-  const dnPriceReviewRequired = isDeliveryNote && requireDnPriceReview && !isBlankForm;
+  const dnPriceReviewRequired =
+    isDeliveryNote && isPriceReviewRequired({ requireDnPriceReview, isBlankForm });
   // Only named product lines count — section markers carry no price, and
   // unnamed placeholder rows are not reviewable yet (matches the save gate).
-  const priceReviewableCount = dnPriceReviewRequired
-    ? lineItems.filter((l) => !l.isSectionMarker && l.item_name.trim()).length
-    : 0;
+  const priceReviewableCount = dnPriceReviewRequired ? countReviewableLines(lineItems) : 0;
   const pendingPriceReviewCount = dnPriceReviewRequired
-    ? lineItems.filter((l) => !l.isSectionMarker && l.item_name.trim() && !l.price_confirmed).length
+    ? countPendingPriceReviews(lineItems)
     : 0;
 
   function goToNextUnconfirmedPrice() {
-    const target = lineItems.find(
-      (l) => !l.isSectionMarker && l.item_name.trim() && !l.price_confirmed,
-    );
+    const target = findNextPendingPriceReview(lineItems);
     if (!target) return;
+    // Rows are read-only now: open the editor so the confirm control is in
+    // front of the officer, and scroll the row into view behind it.
+    setEditingLineId(target.id);
     const el = document.getElementById(`dn-line-${target.id}`);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -710,15 +595,13 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
   // New invoices default to the last selection (per browser); editing an
   // existing draft overrides this from its stored value below.
+  const discountsEnabled = isDiscountEnabled(clientProfile);
+
   const [printTitleVariant, setPrintTitleVariant] = useState(() => readLastPrintTitleVariant());
   // DN full-totals is settings-only (ตั้งค่า › ใบส่งของ): new docs follow the
   // workspace setting, draft edits keep their saved value frozen at hydrate.
   const frozenShowFullTotals = useRef<boolean | null>(null);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
-
-  const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
-  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
-  const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [loadingLastInvoice, setLoadingLastInvoice] = useState(false);
@@ -736,7 +619,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       setShowAdditionalDetails(true);
     }
   }, [editLoading, note, whtRate, clientProfile]);
-  const useAtomicCreate = !documentId && !editingDealId && !isBillingNote && isLineItemDocument;
+  const useAtomicCreate = !documentId && !editingDealId && isLineItemDocument;
   const [docNumberOverride, setDocNumberOverride] = useState("");
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
@@ -1014,31 +897,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   }, [searchParams, customers, customersLoading, selectedCustomer]);
 
   useEffect(() => {
-    if (isBillingNote && selectedCustomer && userId) {
-      setLoadingInvoices(true);
-      supabase
-        .from("documents")
-        .select("id, doc_number, subtotal, vat_amount, total_amount, net_payable, issue_date")
-        .eq("user_id", userId)
-        .eq("customer_id", selectedCustomer.id)
-        .eq("doc_type", "invoice")
-        .eq("status", "sent")
-        .order("issue_date", { ascending: true })
-        .then(({ data, error: fetchError }) => {
-          if (!fetchError && data) {
-            const invoices = data as unknown as UnpaidInvoice[];
-            setUnpaidInvoices(invoices);
-            setSelectedInvoiceIds(new Set(invoices.map((inv) => inv.id)));
-          }
-          setLoadingInvoices(false);
-        });
-    } else {
-      setUnpaidInvoices([]);
-      setSelectedInvoiceIds(new Set());
-    }
-  }, [isBillingNote, selectedCustomer, userId]);
-
-  useEffect(() => {
     const itemIds = jobDetailServiceItems.map((item) => item.id);
     if (!userId || itemIds.length === 0) {
       setServiceJobDetailFields({});
@@ -1100,73 +958,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     };
   }, [jobDetailServiceItems, userId]);
 
-  // Last-price hints: for every catalog line, fetch the newest history row
-  // (this customer first, else anyone). One fetch per item+customer key —
-  // the requested-set survives re-renders so picks/draft-loads don't spam.
-  useEffect(() => {
-    if (!userId || !isLineItemDocument) return;
-    const custId = selectedCustomer?.id ?? null;
-    const ids = [...new Set(lineItems.map((l) => l.item_id).filter((x): x is string => !!x))];
-    const missing = ids.filter((id) => !hintRequested.current.has(`${id}|${custId ?? "-"}`));
-    if (missing.length === 0) return;
-    missing.forEach((id) => hintRequested.current.add(`${id}|${custId ?? "-"}`));
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(
-        missing.map(async (id) => {
-          const key = `${id}|${custId ?? "-"}`;
-          try {
-            if (custId) {
-              const custRows = await fetchPriceHistory(userId, id, {
-                customerId: custId,
-                limit: 1,
-                excludeDocumentId: documentId || null,
-              });
-              if (custRows.length > 0) {
-                const r = custRows[0];
-                return [
-                  key,
-                  {
-                    price: r.unitPrice,
-                    date: r.issueDate || r.createdAt,
-                    customerName: r.customerName,
-                    scope: "customer",
-                  },
-                ] as const;
-              }
-            }
-            const allRows = await fetchPriceHistory(userId, id, {
-              limit: 1,
-              excludeDocumentId: documentId || null,
-            });
-            if (allRows.length === 0) return [key, null] as const;
-            const r = allRows[0];
-            return [
-              key,
-              {
-                price: r.unitPrice,
-                date: r.issueDate || r.createdAt,
-                customerName: r.customerName,
-                scope: "all",
-              },
-            ] as const;
-          } catch {
-            // Silent fail = no hint; the history sheet still retries on open.
-            return [key, null] as const;
-          }
-        }),
-      );
-      if (cancelled) return;
-      setPriceHints((prev) => {
-        const next = { ...prev };
-        for (const [k, v] of entries) next[k] = v;
-        return next;
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [lineItems, userId, selectedCustomer?.id, documentId, isLineItemDocument]);
+  // Last-price hints are fetched by `usePriceHints` (shared with the
+  // delivery-note form) — see the hook beside `lineItems` above.
 
   async function removeServiceJobDetailPreset(
     itemId: string,
@@ -1401,15 +1194,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     setUtilityCurrentReading("");
   };
 
-  const toggleInvoice = (id: string) => {
-    setSelectedInvoiceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const lineItemsWithTotals = useMemo(() => {
     return lineItems.map((lineItem) => ({
       ...lineItem,
@@ -1417,33 +1201,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     }));
   }, [lineItems]);
 
-  const billingNoteSummary = useMemo(() => {
-    const selected = unpaidInvoices.filter((inv) => selectedInvoiceIds.has(inv.id));
-    return {
-      subtotal: selected.reduce((sum, inv) => sum + inv.subtotal, 0),
-      vatAmount: selected.reduce((sum, inv) => sum + inv.vat_amount, 0),
-      totalAmount: selected.reduce((sum, inv) => sum + inv.total_amount, 0),
-    };
-  }, [unpaidInvoices, selectedInvoiceIds]);
-
   const tax = useMemo(() => {
-    if (isBillingNote) {
-      const { subtotal, vatAmount, totalAmount } = billingNoteSummary;
-      const whtPct = parseFloat(whtRate);
-      const whtAmount = whtPct > 0 ? Math.round(subtotal * whtPct) / 100 : 0;
-      return {
-        grossSubtotal: Math.round(subtotal * 100) / 100,
-        lineDiscountAmount: 0,
-        subtotalBeforeDiscount: Math.round(subtotal * 100) / 100,
-        discountAmount: 0,
-        subtotal: Math.round(subtotal * 100) / 100,
-        vatAmount: Math.round(vatAmount * 100) / 100,
-        total: Math.round(totalAmount * 100) / 100,
-        whtAmount: Math.round(whtAmount * 100) / 100,
-        netPayable: Math.round((totalAmount - whtAmount) * 100) / 100,
-      };
-    }
-
     return calculateTax(
       lineItemsWithTotals.map((lineItem) => ({
         unit_price: lineItem.unit_price,
@@ -1460,8 +1218,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     vatRegistered,
     vatRate,
     whtRate,
-    isBillingNote,
-    billingNoteSummary,
     documentDiscountPercent,
   ]);
 
@@ -1539,22 +1295,34 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   };
 
   const addLineItem = () => {
-    setLineItems((prev) => [...prev, createEmptyLine()]);
+    const line = createEmptyLine();
+    newLineIdsRef.current.add(line.id);
+    setLineItems((prev) => [...prev, line]);
+    setEditingLineId(line.id);
+  };
+
+  const closeLineEditor = () => {
+    const id = editingLineId;
+    setEditingLineId(null);
+    if (!id || !newLineIdsRef.current.has(id)) return;
+    newLineIdsRef.current.delete(id);
+    // An untouched new line is not a line — drop it so rows never pile up empty.
+    const line = lineItems.find((lineItem) => lineItem.id === id);
+    if (line && !line.item_name.trim()) {
+      setLineItems((prev) => removeLine(prev, id));
+    }
   };
 
   const removeLineItem = (id: string) => {
-    setLineItems((prev) => prev.filter((lineItem) => lineItem.id !== id));
+    newLineIdsRef.current.delete(id);
+    setEditingLineId((current) => (current === id ? null : current));
+    setLineItems((prev) => removeLine(prev, id));
   };
 
+  const editingLine = lineItems.find((lineItem) => lineItem.id === editingLineId) ?? null;
+
   const moveLineItem = (id: string, direction: "up" | "down") => {
-    setLineItems((prev) => {
-      const index = prev.findIndex((lineItem) => lineItem.id === id);
-      const target = direction === "up" ? index - 1 : index + 1;
-      if (index < 0 || target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
+    setLineItems((prev) => moveLine(prev, id, direction));
   };
 
   // Form badges mirror the printed G / G.j hierarchy whenever grouping is on.
@@ -1626,11 +1394,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
   /** Append a blank item at the end of a marker's section. */
   const addItemToSection = (markerId: string) => {
     const line = createEmptyLine();
+    newLineIdsRef.current.add(line.id);
     setLineItems((prev) => {
       const index = findSectionEndIndex(prev, markerId);
       return [...prev.slice(0, index), line, ...prev.slice(index)];
     });
-    focusLineInput(line.id);
+    setEditingLineId(line.id);
   };
 
   const updateJobDetail = (id: string, field: string, value: string) => {
@@ -1730,21 +1499,165 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     );
   };
 
-  const updateLineUnit = (id: string, nextUnit: string) => {
-    setLineItems((prev) =>
-      prev.map((lineItem) => {
-        if (lineItem.id !== id) return lineItem;
-        return {
-          ...lineItem,
-          unit: nextUnit,
-          unit_price: getSuggestedUnitPrice(
-            lineItem.base_unit_price ?? lineItem.unit_price,
-            nextUnit,
-            lineItem.carton_unit,
-            lineItem.qty_per_carton,
-          ),
-        };
-      }),
+
+  /**
+   * The parts of a line that only this form has — job details, the quotation
+   * example photo, and the "sold before at ฿x — use this price" shortcut.
+   *
+   * Kept as one block so the row and the shared line editor render the same
+   * thing: the editor already owns name/qty/unit/price/discount/note, price
+   * review and carton units.
+   */
+  const renderLineOptions = (item: LineItemForm): React.ReactNode => {
+    const matchedItem = item.item_id
+      ? items.find((catalogItem) => catalogItem.id === item.item_id)
+      : null;
+    const jobDetailsEnabled =
+      jobDetailsFeatureEnabled && matchedItem?.item_type === "service" && matchedItem.has_job_details;
+    const jobDetailFields = matchedItem?.id
+      ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS
+      : DEFAULT_JOB_DETAIL_FIELDS;
+    const jobDetailsSummary = getJobDetailsSummary(item, jobDetailFields);
+    const enabledJobDetailFields = jobDetailFields.filter((field) => field.is_enabled);
+    const filledJobDetailFields = enabledJobDetailFields.filter((field) => {
+      if (field.field_type === "dimension") {
+        const dimension = getJobDetailDimension(item, field.field_key);
+        return Boolean(dimension.width.trim() || dimension.height.trim());
+      }
+      return Boolean(getJobDetailValue(item, field.field_key).trim());
+    }).length;
+
+    return (
+      <>
+        {jobDetailsEnabled && (
+          <div className="mb-2 rounded-control border border-card-border bg-paper-field px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => toggleJobDetails(item.id)}
+                className="inline-flex items-center gap-1.5 rounded-control border border-line bg-white px-2.5 py-1.5 text-label font-medium text-ink-900 transition-colors hover:border-primary hover:text-primary"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                {jobDetailsSummary ? "แก้ไขรายละเอียดงาน" : "เพิ่มรายละเอียดงาน"}
+              </button>
+              <span className="max-w-full truncate text-label text-ink-600">
+                {filledJobDetailFields}/{enabledJobDetailFields.length} ช่อง
+                {jobDetailsSummary ? ` · ${jobDetailsSummary}` : " · ยังไม่มีรายละเอียด"}
+              </span>
+            </div>
+            {item.job_details_open && (
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {matchedItem?.id
+                  ? jobDetailFields.map((field) => {
+                      if (field.field_type === "dimension") {
+                        const { width, height } = getJobDetailDimension(item, field.field_key);
+                        return (
+                          <div key={field.field_key}>
+                            <span className="mb-1 block text-label font-medium text-ink-700">
+                              {field.label}
+                            </span>
+                            <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
+                              <NumericInput
+                                bare
+                                value={width === "" ? null : Number(width)}
+                                maxFractionDigits={0}
+                                onTextChange={(text) =>
+                                  updateJobDetail(item.id, `${field.field_key}_width`, text)
+                                }
+                                placeholder="24"
+                                className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              />
+                              <span className="text-label text-ink-400">x</span>
+                              <NumericInput
+                                bare
+                                value={height === "" ? null : Number(height)}
+                                maxFractionDigits={0}
+                                onTextChange={(text) =>
+                                  updateJobDetail(item.id, `${field.field_key}_height`, text)
+                                }
+                                placeholder="35"
+                                className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              />
+                              <select
+                                value={
+                                  getJobDetailValue(item, `${field.field_key}_unit`) ||
+                                  field.default_unit ||
+                                  "มม."
+                                }
+                                onChange={(e) =>
+                                  updateJobDetail(
+                                    item.id,
+                                    `${field.field_key}_unit`,
+                                    e.target.value,
+                                  )
+                                }
+                                className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label"
+                              >
+                                <option value="มม.">มม.</option>
+                                <option value="ซม.">ซม.</option>
+                                <option value="นิ้ว">นิ้ว</option>
+                                <option value="เมตร">เมตร</option>
+                              </select>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const input = renderJobDetailPresetInput(
+                        item.id,
+                        matchedItem.id,
+                        field.field_key,
+                        getJobDetailValue(item, field.field_key),
+                        field.label,
+                        field.placeholder,
+                      );
+                      return field.field_key === "remark" ? (
+                        <div key={field.field_key} className="md:col-span-2">
+                          {input}
+                        </div>
+                      ) : (
+                        <div key={field.field_key}>{input}</div>
+                      );
+                    })
+                  : null}
+              </div>
+            )}
+          </div>
+        )}
+
+        {type === "quotation" && (
+          <LineImageUpload
+            userId={userId!}
+            imageKey={item.image_url || null}
+            onKeyChange={(key: string | null) => updateLineItem(item.id, "image_url", key ?? "")}
+          />
+        )}
+      </>
+    );
+  };
+
+  /** Read-only row summary for a job-detail service line ("" when not one). */  const jobDetailsSummaryFor = (item: LineItemForm): string => {
+    if (!jobDetailsFeatureEnabled) return "";
+    const matchedItem = item.item_id ? items.find((catalogItem) => catalogItem.id === item.item_id) : null;
+    if (!(matchedItem?.item_type === "service" && matchedItem.has_job_details)) return "";
+    const fields = matchedItem.id
+      ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS
+      : DEFAULT_JOB_DETAIL_FIELDS;
+    return getJobDetailsSummary(item, fields);
+  };
+
+  /** "Sold to this customer before at ฿x — use this price" shortcut. */
+  const renderPriceHint = (item: LineItemForm): React.ReactNode => {
+    const hintKey = priceHintKey(item.item_id, selectedCustomer?.id ?? null);
+    const priceHint = hintKey ? (priceHints[hintKey] ?? null) : null;
+    if (!priceHint) return null;
+    return (
+      <PriceHint
+        hint={priceHint}
+        currentPrice={item.unit_price}
+        confirmsPrice={dnPriceReviewRequired}
+        onApply={() => updateLineItem(item.id, "unit_price", priceHint.price)}
+      />
     );
   };
 
@@ -1766,7 +1679,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       return;
     }
     // No-default date: the officer must pick explicitly (pre-filled dates get skipped).
-    if (!isBillingNote && !issueDate) {
+    if (!issueDate) {
       setError("กรุณาเลือกวันที่ออกเอกสาร");
       scrollToId("deal-date");
       return;
@@ -1827,19 +1740,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       // price is confirmed. Blank-form DNs carry no prices — exempt.
       // Section markers carry no price — exempt.
       if (isDeliveryNote && requireDnPriceReview && !isBlankForm) {
-        const pending = validItems.filter(
-          (lineItem) => !lineItem.isSectionMarker && !lineItem.price_confirmed,
-        ).length;
+        const pending = countPendingPriceReviews(validItems);
         if (pending > 0) {
           setError(`กรุณายืนยันราคาทุกรายการก่อนบันทึกใบส่งของ (เหลือ ${pending} รายการ)`);
           return;
         }
       }
-    }
-
-    if (isBillingNote && selectedInvoiceIds.size === 0) {
-      setError("กรุณาเลือกอย่างน้อย 1 ใบแจ้งหนี้");
-      return;
     }
 
     // Duplicate-invoice guard: warn (non-blocking) when an invoice with the
@@ -1867,7 +1773,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         );
         if (matches.length > 0) {
           setDuplicateWarning(
-            matches.map((m) => `${m.doc_number} (${formatBuddhistDate(m.issue_date)})`),
+            matches.map((m) => `${m.doc_number} (${docDate.date(m.issue_date)})`),
           );
         }
       } catch {
@@ -1886,7 +1792,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     let createdDocumentId: string | null = null;
     try {
       let dealId: string | null = editingDealId;
-      if (!documentId && !isBillingNote && !useAtomicCreate) {
+      if (!documentId && !useAtomicCreate) {
         const { data: deal, error: dealError } = await supabase
           .from("deals")
           .insert({
@@ -1954,32 +1860,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       };
 
       let savedDocumentId = documentId || "";
-      if (isBillingNote && !documentId) {
-        // Transactional path: billing note + links + invoice state changes
-        // commit together or not at all (see create_billing_note_with_links).
-        const selectedInvoices = unpaidInvoices.filter((inv) => selectedInvoiceIds.has(inv.id));
-        if (selectedInvoices.length === 0) {
-          throw new Error("กรุณาเลือกอย่างน้อย 1 ใบแจ้งหนี้");
-        }
-        const { data: createdBn, error: bnCreateError } = await supabase.rpc(
-          "create_billing_note_with_links",
-          {
-            p_user_id: userId,
-            p_document: {
-              ...docPayload,
-              title: selectedCustomer ? `ใบวางบิลรวม ${selectedCustomer.name}` : null,
-            },
-            p_invoice_ids: selectedInvoices.map((inv) => inv.id),
-          },
-        );
-        const bnRecord = Array.isArray(createdBn) ? createdBn[0] : createdBn;
-        if (bnCreateError || !bnRecord?.document_id)
-          throw bnCreateError || new Error("ไม่สามารถบันทึกใบวางบิลได้");
-        savedDocumentId = bnRecord.document_id;
-        createdDocumentId = bnRecord.document_id;
-        createdDealId = bnRecord.deal_id;
-        dealId = bnRecord.deal_id;
-      } else if (useAtomicCreate) {
+      if (useAtomicCreate) {
         const validItems = lineItems.filter((lineItem) => lineItem.item_name.trim());
         const lineItemRecords = validItems.map((lineItem, idx) => {
           if (lineItem.isSectionMarker) {
@@ -2170,10 +2051,8 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
   const canSave =
     selectedCustomer &&
-    (isBillingNote || issueDate !== "") &&
-    (isBillingNote
-      ? selectedInvoiceIds.size > 0
-      : lineItems.some((lineItem) => lineItem.item_name.trim()));
+    issueDate !== "" &&
+    lineItems.some((lineItem) => lineItem.item_name.trim());
   const isIssueDateToday = issueDate === todayString();
   // Segmented date control state — derived, never stored.
   const dateMode =
@@ -2234,6 +2113,30 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
       targetId: "deal-print",
     },
   ];
+  // At least one named line is the rule every mode shares (same gate as save).
+  const hasNamedLine = lineItems.some((lineItem) => lineItem.item_name.trim() !== "");
+  const linesStepDone = dateEff && hasNamedLine;
+  /**
+   * Steps for the non-delivery-note modes. Same ordered truth as the delivery
+   * note's list (a step counts as done only when the earlier ones are), minus
+   * the print-mode step, which only exists for delivery notes.
+   */
+  const formGuideSteps: FormProgressStep[] = [
+    { label: "ลูกค้า", state: custDone ? "done" : "current", targetId: "deal-customer" },
+    {
+      label: isUtilityBill ? "รอบบิล" : "วันที่",
+      state: dateEff ? "done" : dateOwn ? "waiting" : custDone ? "current" : "todo",
+      targetId: "deal-date",
+    },
+    {
+      label: "รายการ",
+      state: linesStepDone ? "done" : hasNamedLine ? "waiting" : dateEff ? "current" : "todo",
+      targetId: "deal-lines",
+    },
+  ];
+  /** One list drives both the rail and the mobile strip, for every mode. */
+  const guideSteps: FormProgressStep[] = isDeliveryNote ? dnGuideSteps : formGuideSteps;
+
   const dnSpyActive = useScrollSpy(["deal-customer", "deal-date", "deal-lines", "deal-print"]);
   const dnGuideTarget = !issueDate
     ? "deal-date"
@@ -2286,6 +2189,33 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [documentDiscountPercent, lineItems, note, saving, selectedCustomer]);
+
+  if (creation.status === "invalid") {
+    return <Navigate to="/home" replace />;
+  }
+
+  if (creation.status === "denied") {
+    return (
+      <AppShell title="ไม่มีสิทธิ์จัดทำเอกสาร" showBack>
+        <Card>
+          <div className="space-y-3">
+            <p className="text-body font-medium text-ink-900">{creation.reason}</p>
+            <p className="text-label leading-5 text-ink-500">
+              หากต้องการจัดทำเอกสารประเภทนี้ กรุณาให้ผู้จัดการหรือเจ้าของกิจการเป็นผู้ดำเนินการ
+            </p>
+            <Button variant="secondary" onClick={() => navigate(-1)}>
+              ย้อนกลับ
+            </Button>
+          </div>
+        </Card>
+      </AppShell>
+    );
+  }
+
+  // Not a deal-form mode (billing note, conversion form, …): hand over.
+  if (creation.form !== "deal") {
+    return <Navigate to={creation.path} replace />;
+  }
 
   if (editLoading) {
     return (
@@ -2357,20 +2287,19 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
         {isDeliveryNote && (
           <NextStepBanner state={dnNextStep} onFillAll={addLineItem} onGoto={handleDnGuideGoto} />
         )}
-        {isDeliveryNote && (
-          <div className="lg:hidden">
-            <FormProgress steps={dnGuideSteps} onSelect={(id) => scrollToId(id)} />
-          </div>
-        )}
+        <div className="lg:hidden">
+          <FormProgress steps={guideSteps} onSelect={(id) => scrollToId(id)} />
+        </div>
         <div className="lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-4">
-          {isDeliveryNote && (
-            <FormStepRail
-              steps={dnGuideSteps}
-              onSelect={(id) => scrollToId(id)}
-              activeId={dnSpyActive}
-            />
-          )}
-          <div className="min-w-0 space-y-4">
+          {/* Column 1 is the guide rail; the content column is pinned to
+              column 2 so the layout never depends on the rail existing. */}
+          <FormStepRail
+            className="lg:col-start-1"
+            steps={guideSteps}
+            onSelect={(id) => scrollToId(id)}
+            activeId={dnSpyActive}
+          />
+          <div className="min-w-0 space-y-4 lg:col-start-2">
             <Card id="deal-customer" tone={custDone ? "success" : undefined}>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <StepHeading number={1} title="ลูกค้า" />
@@ -2447,8 +2376,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               />
             </Card>
 
-            {!isBillingNote && (
-              <Card id="deal-date" tone={isDeliveryNote && dateEff ? "success" : undefined}>
+            <Card id="deal-date" tone={dateEff ? "success" : undefined}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <StepHeading number={2} title="วันที่ออกเอกสาร" />
@@ -2488,7 +2416,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       <div className="mt-1 text-body font-semibold text-ink-900">
                         {issueDate ? (
                           <>
-                            {formatBuddhistDate(issueDate)}
+                            {docDate.date(issueDate)}
                             <span className="ml-2 font-normal text-ink-500">
                               {new Date(`${issueDate}T00:00:00`).toLocaleDateString("th-TH", {
                                 weekday: "long",
@@ -2561,8 +2489,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                     </div>
                   )}
                 </div>
-              </Card>
-            )}
+            </Card>
 
             {!isDeliveryNote && (
               <Card>
@@ -2654,21 +2581,19 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   <div>
                     <span className="mb-1.5 block text-body text-ink-900">มาตรวัด</span>
                     <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
-                      <Input
+                      <NumericInput
                         label="เลขก่อนหน้า"
-                        type="number"
-                        min="0"
-                        value={utilityPreviousReading}
-                        onChange={(e) => setUtilityPreviousReading(e.target.value)}
+                        value={utilityPreviousReading === "" ? null : parseAmount(utilityPreviousReading)}
+                        maxFractionDigits={3}
+                        onTextChange={setUtilityPreviousReading}
                         placeholder="0"
                       />
                       <span className="pb-2 text-ink-400 text-body">→</span>
-                      <Input
+                      <NumericInput
                         label="เลขปัจจุบัน"
-                        type="number"
-                        min="0"
-                        value={utilityCurrentReading}
-                        onChange={(e) => setUtilityCurrentReading(e.target.value)}
+                        value={utilityCurrentReading === "" ? null : parseAmount(utilityCurrentReading)}
+                        maxFractionDigits={3}
+                        onTextChange={setUtilityCurrentReading}
                         placeholder="0"
                         error={utilityValidation.readingError}
                       />
@@ -2695,12 +2620,12 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <Input
+                    <NumericInput
                       label="ราคา/หน่วย (บาท)"
-                      type="number"
-                      min="0"
-                      value={utilityRate}
-                      onChange={(e) => setUtilityRate(e.target.value)}
+                      value={utilityRate === "" ? null : parseAmount(utilityRate)}
+                      maxFractionDigits={2}
+                      minFractionDigits={2}
+                      onTextChange={setUtilityRate}
                       placeholder="0.00"
                       error={utilityValidation.rateError}
                     />
@@ -2759,7 +2684,10 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
             )}
 
             {isLineItemDocument && (
-              <Card id="deal-lines" tone={linesEff ? "success" : undefined}>
+              <Card
+                id="deal-lines"
+                tone={(isDeliveryNote ? linesEff : linesStepDone) ? "success" : undefined}
+              >
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <StepHeading
                     number={3}
@@ -2785,17 +2713,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">
                         จำเป็น
                       </span>
-                    )}
-                    {permissions.canManageCatalog && (
-                      <button
-                        type="button"
-                        onClick={() => setItemCreateModal({ open: true, targetLineId: null })}
-                        title="สร้างสินค้า/บริการใหม่ในแคตตาล็อก"
-                        className="inline-flex items-center gap-1 rounded-control border border-card-border bg-white px-2.5 py-1.5 text-label font-medium text-ink-600 transition-colors hover:border-primary hover:text-primary-deep"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        สร้าง
-                      </button>
                     )}
                   </div>
                 </div>
@@ -2913,42 +2830,21 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                         </div>
                       );
                     }
-                    const matchedItem = item.item_id
-                      ? items.find((catalogItem) => catalogItem.id === item.item_id)
-                      : null;
-                    const soldByCarton = isCartonUnitSelected(item);
-                    const baseQuantity = getLineBaseQuantity(item);
-                    const jobDetailsEnabled =
-                      jobDetailsFeatureEnabled &&
-                      matchedItem?.item_type === "service" &&
-                      matchedItem.has_job_details;
-                    const jobDetailFields = matchedItem?.id
-                      ? serviceJobDetailFields[matchedItem.id] || DEFAULT_JOB_DETAIL_FIELDS
-                      : DEFAULT_JOB_DETAIL_FIELDS;
-                    const jobDetailsSummary = getJobDetailsSummary(item, jobDetailFields);
-                    const enabledJobDetailFields = jobDetailFields.filter(
-                      (field) => field.is_enabled,
-                    );
                     // Non-blocking catalog-price check — blank-form DNs never print
                     // prices, so a deviation there is not a typo signal.
-                    const priceDeviation = !isBlankForm
-                      ? getPriceDeviation(item, priceWarnPct)
+                    const catalogPriceDeviation = !isBlankForm
+                      ? priceDeviation({
+                          unitPrice: item.unit_price,
+                          baseUnitPrice: item.base_unit_price,
+                          unit: item.unit,
+                          cartonUnit: item.carton_unit,
+                          qtyPerCarton: item.qty_per_carton,
+                          warnPct: priceWarnPct,
+                        })
                       : null;
                     // Mandatory price review applies to DN lines only, and never
                     // to blank-form DNs (no prices on the document at all).
                     const needsPriceReview = dnPriceReviewRequired;
-                    // Last-price hint ("ราคาที่เคยขาย") for catalog lines.
-                    const hintKey = item.item_id
-                      ? `${item.item_id}|${selectedCustomer?.id ?? "-"}`
-                      : null;
-                    const priceHint = hintKey ? (priceHints[hintKey] ?? null) : null;
-                    const filledJobDetailFields = enabledJobDetailFields.filter((field) => {
-                      if (field.field_type === "dimension") {
-                        const dimension = getJobDetailDimension(item, field.field_key);
-                        return Boolean(dimension.width.trim() || dimension.height.trim());
-                      }
-                      return Boolean(getJobDetailValue(item, field.field_key).trim());
-                    }).length;
 
                     if (isUtilityBill && idx === 0) {
                       const amounts = calculateLineAmounts(item);
@@ -3020,351 +2916,109 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                               </div>
                             );
                           })()}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start gap-1 mb-2">
-                              <div className="flex-1 min-w-0">
-                                <CatalogAutocomplete
-                                  items={items}
-                                  value={item.item_name}
-                                  onChange={(val) => updateLineItem(item.id, "item_name", val)}
-                                  onSelect={(catalogItem) =>
-                                    selectCatalogItem(item.id, catalogItem)
-                                  }
-                                  matched={!!item.item_id}
-                                  placeholder="พิมพ์ชื่อสินค้าหรือบริการ..."
-                                  onCreate={async (input) => {
-                                    try {
-                                      return await addItem(input);
-                                    } catch (err: unknown) {
-                                      setError(
-                                        err instanceof Error ? err.message : "เกิดข้อผิดพลาด",
-                                      );
-                                      throw err;
-                                    }
-                                  }}
-                                  onFullCreate={
-                                    permissions.canManageCatalog
-                                      ? () =>
-                                          setItemCreateModal({ open: true, targetLineId: item.id })
-                                      : undefined
-                                  }
-                                />
-                              </div>
-                              {isDeliveryNote && groupingEnabled && (
-                                <button
-                                  type="button"
-                                  onClick={() => insertSectionMarkerAbove(item.id)}
-                                  aria-label="เพิ่มหัวข้อกลุ่มเหนือรายการนี้"
-                                  title="เพิ่มหัวข้อกลุ่มเหนือรายการนี้"
-                                  className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-primary md:h-auto md:w-auto md:px-1"
-                                >
-                                  <Heading className="h-4 w-4" />
-                                </button>
-                              )}
-                              <LineMoveButtons
-                                className="mt-0.5"
-                                onMoveUp={() => moveLineItem(item.id, "up")}
-                                onMoveDown={() => moveLineItem(item.id, "down")}
-                                canMoveUp={idx > 0}
-                                canMoveDown={idx < lineItems.length - 1}
-                              />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start gap-1">
+                              {/* Read-only row: it mirrors what prints. All
+                                  editing happens in the shared line editor. */}
                               <button
                                 type="button"
-                                onClick={() => removeLineItem(item.id)}
-                                aria-label="ลบรายการ"
-                                title="ลบรายการ"
-                                className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-red-600 md:h-auto md:w-auto"
+                                onClick={() => setEditingLineId(item.id)}
+                                aria-label="แก้ไขรายการนี้"
+                                className="min-w-0 flex-1 rounded-control px-1 py-0.5 text-left transition-colors hover:bg-paper-field"
                               >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                            {isUtilityBill && item.line_note.includes("[USAGE_BILL]") ? (
-                              <div className="mb-2 whitespace-pre-line rounded-control border border-card-border bg-paper-field px-3 py-2 text-label leading-5 text-ink-600">
-                                {getUtilityDisplayNote(item.line_note)}
-                              </div>
-                            ) : jobDetailsEnabled ? (
-                              <div className="mb-2 rounded-control border border-card-border bg-paper-field px-3 py-2">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleJobDetails(item.id)}
-                                    className="inline-flex items-center gap-1.5 rounded-control border border-line bg-white px-2.5 py-1.5 text-label font-medium text-ink-900 transition-colors hover:border-primary hover:text-primary"
-                                  >
-                                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                                    {jobDetailsSummary
-                                      ? "แก้ไขรายละเอียดงาน"
-                                      : "เพิ่มรายละเอียดงาน"}
-                                  </button>
-                                  <span className="max-w-full truncate text-label text-ink-600">
-                                    {filledJobDetailFields}/{enabledJobDetailFields.length} ช่อง
-                                    {jobDetailsSummary
-                                      ? ` · ${jobDetailsSummary}`
-                                      : " · ยังไม่มีรายละเอียด"}
+                                <span className="block text-body font-medium text-ink-900">
+                                  {item.item_name || (
+                                    <span className="font-normal text-ink-400">
+                                      ยังไม่ระบุชื่อ — แตะเพื่อแก้ไข
+                                    </span>
+                                  )}
+                                </span>
+                                {item.item_sku && (
+                                  <span className="block text-label text-ink-500">
+                                    SKU: {item.item_sku}
                                   </span>
-                                </div>
-                                {item.job_details_open && (
-                                  <div className="mt-3 grid gap-2 md:grid-cols-2">
-                                    {matchedItem?.id
-                                      ? jobDetailFields.map((field) => {
-                                          if (field.field_type === "dimension") {
-                                            const { width, height } = getJobDetailDimension(
-                                              item,
-                                              field.field_key,
-                                            );
-                                            return (
-                                              <div key={field.field_key}>
-                                                <span className="mb-1 block text-label font-medium text-ink-700">
-                                                  {field.label}
-                                                </span>
-                                                <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
-                                                  <input
-                                                    type="number"
-                                                    min="0"
-                                                    value={width}
-                                                    onChange={(event) =>
-                                                      updateJobDetail(
-                                                        item.id,
-                                                        `${field.field_key}_width`,
-                                                        event.target.value,
-                                                      )
-                                                    }
-                                                    placeholder="24"
-                                                    className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                  />
-                                                  <span className="text-label text-ink-400">x</span>
-                                                  <input
-                                                    type="number"
-                                                    min="0"
-                                                    value={height}
-                                                    onChange={(event) =>
-                                                      updateJobDetail(
-                                                        item.id,
-                                                        `${field.field_key}_height`,
-                                                        event.target.value,
-                                                      )
-                                                    }
-                                                    placeholder="35"
-                                                    className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                  />
-                                                  <select
-                                                    value={
-                                                      getJobDetailValue(
-                                                        item,
-                                                        `${field.field_key}_unit`,
-                                                      ) ||
-                                                      field.default_unit ||
-                                                      "มม."
-                                                    }
-                                                    onChange={(e) =>
-                                                      updateJobDetail(
-                                                        item.id,
-                                                        `${field.field_key}_unit`,
-                                                        e.target.value,
-                                                      )
-                                                    }
-                                                    className="rounded-control border border-card-border bg-white px-2 py-1.5 text-label"
-                                                  >
-                                                    <option value="มม.">มม.</option>
-                                                    <option value="ซม.">ซม.</option>
-                                                    <option value="นิ้ว">นิ้ว</option>
-                                                    <option value="เมตร">เมตร</option>
-                                                  </select>
-                                                </div>
-                                              </div>
-                                            );
-                                          }
-
-                                          const input = renderJobDetailPresetInput(
-                                            item.id,
-                                            matchedItem.id,
-                                            field.field_key,
-                                            getJobDetailValue(item, field.field_key),
-                                            field.label,
-                                            field.placeholder,
-                                          );
-                                          return field.field_key === "remark" ? (
-                                            <div key={field.field_key} className="md:col-span-2">
-                                              {input}
-                                            </div>
-                                          ) : (
-                                            <div key={field.field_key}>{input}</div>
-                                          );
-                                        })
-                                      : null}
-                                  </div>
                                 )}
-                              </div>
-                            ) : (
-                              <textarea
-                                value={item.line_note}
-                                onChange={(e) =>
-                                  updateLineItem(item.id, "line_note", e.target.value)
-                                }
-                                placeholder="หมายเหตุของรายการนี้ (ถ้ามี)"
-                                rows={2}
-                                className="mb-2 w-full rounded-control border border-card-border bg-white px-3 py-2 text-label text-ink-900 placeholder:text-ink-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                              />
-                            )}
-                            {type === "quotation" && (
-                              <LineImageUpload
-                                userId={userId!}
-                                imageKey={item.image_url || null}
-                                onKeyChange={(key: string | null) =>
-                                  updateLineItem(item.id, "image_url", key ?? "")
-                                }
-                              />
-                            )}
-                            <div className="grid grid-cols-2 gap-2 items-start sm:flex sm:gap-1">
-                              <label className="col-span-1 block sm:w-[160px]">
-                                <span className="text-label text-ink-400 block mb-0.5">จำนวน</span>
-                                <CommaInput
-                                  value={item.quantity}
-                                  onChange={(v) => updateLineItem(item.id, "quantity", v)}
-                                  placeholder="1"
-                                />
-                              </label>
-                              <label className="col-span-1 block sm:w-[72px]">
-                                <span className="text-label text-ink-400 block mb-0.5">หน่วย</span>
-                                <Input
-                                  placeholder="ชิ้น"
-                                  value={item.unit}
-                                  onChange={(e) => updateLineItem(item.id, "unit", e.target.value)}
-                                  className="w-full"
-                                />
-                              </label>
-                              <div className="col-span-1 block sm:w-[160px]">
-                                <span className="text-label text-ink-400 block mb-0.5">
-                                  ราคา/หน่วย
-                                </span>
-                                <CommaInput
-                                  value={item.unit_price}
-                                  onChange={(v) => updateLineItem(item.id, "unit_price", v)}
-                                  placeholder="0"
-                                />
-                              </div>
-                              <label className="col-span-1 block sm:w-[68px]">
-                                <span className="text-label text-ink-400 block mb-0.5">
-                                  ส่วนลด %
-                                </span>
-                                <CommaInput
-                                  value={item.discount_percent ?? 0}
-                                  onChange={(v) => updateLineItem(item.id, "discount_percent", v)}
-                                  placeholder="0"
-                                />
-                              </label>
-                              <div className="col-span-2 flex items-center justify-between text-right sm:flex-1 sm:min-w-[70px] sm:block sm:pt-[16px]">
-                                <div className="text-label font-medium text-ink-700">
-                                  ฿
-                                  {calculateLineAmounts(item).lineTotal.toLocaleString(undefined, {
-                                    minimumFractionDigits: 2,
-                                  })}
-                                </div>
-                                {item.unit_price > 0 && item.quantity > 0 && (
-                                  <div className="text-label text-ink-400 leading-tight">
-                                    {item.unit_price.toLocaleString()} ×{" "}
-                                    {item.quantity.toLocaleString()}
-                                  </div>
+                                {(jobDetailsSummaryFor(item) || item.line_note.trim()) && (
+                                  <span className="line-clamp-2 block text-label text-ink-500">
+                                    {jobDetailsSummaryFor(item) || item.line_note}
+                                  </span>
                                 )}
+                                <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-ink-600">
+                                  <span className="tabular-nums">
+                                    {item.quantity.toLocaleString("th-TH", {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 3,
+                                    })}{" "}
+                                    {item.unit}
+                                  </span>
+                                  <span className="tabular-nums">
+                                    ฿
+                                    {item.unit_price.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                    })}
+                                  </span>
+                                  {(item.discount_percent ?? 0) > 0 && (
+                                    <span className="tabular-nums">
+                                      ลด {item.discount_percent}%
+                                    </span>
+                                  )}
+                                  <span className="font-medium tabular-nums text-ink-900">
+                                    ฿
+                                    {calculateLineAmounts(item).lineTotal.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                    })}
+                                  </span>
+                                  {hasCartonOption(item) && isCartonUnitSelected(item) && (
+                                    <span>
+                                      = {getLineBaseQuantity(item).toLocaleString("th-TH")}{" "}
+                                      {item.base_unit}
+                                    </span>
+                                  )}
+                                </span>
+                              </button>
+                              <div className="flex shrink-0 items-start">
+                                {isDeliveryNote && groupingEnabled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => insertSectionMarkerAbove(item.id)}
+                                    aria-label="เพิ่มหัวข้อกลุ่มเหนือรายการนี้"
+                                    title="เพิ่มหัวข้อกลุ่มเหนือรายการนี้"
+                                    className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-primary md:h-auto md:w-auto md:px-1"
+                                  >
+                                    <Heading className="h-4 w-4" />
+                                  </button>
+                                )}
+                                <LineMoveButtons
+                                  className="mt-0.5"
+                                  onMoveUp={() => moveLineItem(item.id, "up")}
+                                  onMoveDown={() => moveLineItem(item.id, "down")}
+                                  canMoveUp={idx > 0}
+                                  canMoveDown={idx < lineItems.length - 1}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeLineItem(item.id)}
+                                  aria-label="ลบรายการ"
+                                  title="ลบรายการ"
+                                  className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control text-ink-400 transition-colors hover:text-red-600 md:h-auto md:w-auto"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
                               </div>
                             </div>
-
-                            {(priceDeviation != null || priceHint || needsPriceReview) && (
-                              <div className="mt-2 flex flex-col gap-2 rounded-control border border-line bg-paper-field px-3 py-2">
-                                {(priceDeviation != null || priceHint) && (
-                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                    {priceDeviation != null && (
-                                      <span className="inline-flex items-center gap-1 text-label font-medium text-warning-text">
-                                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                                        ต่างจากแค็ตตาล็อก ฿
-                                        {priceDeviation.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                        })}
-                                        /{item.unit}
-                                      </span>
-                                    )}
-                                    {priceHint && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          updateLineItem(item.id, "unit_price", priceHint.price);
-                                        }}
-                                        className="inline-flex flex-wrap items-center gap-1 text-label font-medium text-primary hover:underline"
-                                      >
-                                        {priceHint.scope === "customer"
-                                          ? `เคยขายลูกค้านี้ ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                                          : `เคยขายล่าสุด ฿${priceHint.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}${priceHint.customerName ? ` · ${priceHint.customerName}` : ""}`}
-                                        <span className="underline underline-offset-2">
-                                          ใช้ราคานี้
-                                        </span>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                {needsPriceReview && (
-                                  <PriceReviewControl
-                                    confirmed={item.price_confirmed}
-                                    onConfirm={() =>
-                                      updateLineItem(item.id, "price_confirmed", true)
-                                    }
-                                    onUnconfirm={() =>
-                                      updateLineItem(item.id, "price_confirmed", false)
-                                    }
-                                    onOpenHistory={
-                                      item.item_id
-                                        ? () => setPriceHistoryLineId(item.id)
-                                        : undefined
-                                    }
-                                  />
-                                )}
+                            {needsPriceReview && !item.price_confirmed && (
+                              <div className="mt-1 text-label font-medium text-warning-text">
+                                ต้องยืนยันราคา — แตะรายการเพื่อยืนยัน
                               </div>
                             )}
-
-                            {hasCartonOption(item) && (
-                              <div className="mt-2 rounded-control border border-line-faint bg-paper-field px-3 py-2 text-label text-ink-600">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateLineUnit(item.id, item.base_unit)}
-                                    className={`rounded-full px-2.5 py-1 transition-colors ${!soldByCarton ? "bg-ink-900 text-white" : "bg-white text-ink-600 border border-line"}`}
-                                  >
-                                    ขายเป็น {item.base_unit}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      item.carton_unit && updateLineUnit(item.id, item.carton_unit)
-                                    }
-                                    className={`rounded-full px-2.5 py-1 transition-colors ${soldByCarton ? "bg-ink-900 text-white" : "bg-white text-ink-600 border border-line"}`}
-                                  >
-                                    ขายเป็น {item.carton_unit}
-                                  </button>
-                                </div>
-                                <div className="mt-2">
-                                  1 {item.carton_unit} = {item.qty_per_carton} {item.base_unit}
-                                </div>
-                                <div className="mt-1">
-                                  ตัดสต็อกเป็น{" "}
-                                  {baseQuantity.toLocaleString("th-TH", {
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 3,
-                                  })}{" "}
-                                  {item.base_unit}
-                                  {soldByCarton
-                                    ? ` จาก ${item.quantity.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${item.carton_unit}`
-                                    : ""}
-                                </div>
-                                {matchedItem && (
-                                  <div className="mt-1 text-ink-500">
-                                    คงเหลือ{" "}
-                                    {formatMixedStock(
-                                      matchedItem.stock_count,
-                                      matchedItem.base_unit,
-                                      matchedItem.carton_unit,
-                                      matchedItem.qty_per_carton,
-                                    )}
-                                  </div>
-                                )}
+                            {catalogPriceDeviation != null && (
+                              <div className="mt-1 inline-flex items-center gap-1 text-label font-medium text-warning-text">
+                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                ต่างจากแค็ตตาล็อก ฿
+                                {catalogPriceDeviation.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                })}
+                                /{item.unit}
                               </div>
                             )}
                           </div>
@@ -3372,6 +3026,72 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       </div>
                     );
                   })}
+                  <LineItemEditorModal
+                    open={editingLine != null}
+                    line={editingLine}
+                    isNew={editingLine != null && newLineIdsRef.current.has(editingLine.id)}
+                    remaining={null}
+                    over={false}
+                    requirePriceReview={dnPriceReviewRequired}
+                    pricesInternalOnly={isBlankForm}
+                    priceWarnPct={isBlankForm ? 0 : priceWarnPct}
+                    items={items}
+                    sourceSummary={null}
+                    onClose={closeLineEditor}
+                    onOpenPriceHistory={
+                      editingLine?.item_id
+                        ? () => setPriceHistoryLineId(editingLine.id)
+                        : undefined
+                    }
+                    extra={
+                      editingLine ? renderLineOptions(editingLine) : null
+                    }
+                    priceHint={editingLine ? renderPriceHint(editingLine) : null}
+                    onPatch={(patch) => {
+                      if (!editingLine) return;
+                      setLineItems((prev) =>
+                        prev.map((lineItem) =>
+                          lineItem.id === editingLine.id
+                            ? ({ ...lineItem, ...patch } as LineItemForm)
+                            : lineItem,
+                        ),
+                      );
+                    }}
+                    onQuantity={(value) => {
+                      if (!editingLine) return;
+                      const quantity = Number(value);
+                      updateLineItem(
+                        editingLine.id,
+                        "quantity",
+                        Number.isFinite(quantity) ? Math.max(0, quantity) : 0,
+                      );
+                    }}
+                    onDelete={() => {
+                      if (editingLine) removeLineItem(editingLine.id);
+                    }}
+                    onSaveAndAddAnother={addLineItem}
+                    onNameChange={(value) => {
+                      if (editingLine) updateLineItem(editingLine.id, "item_name", value);
+                    }}
+                    onPickCatalogItem={(catalogItem) => {
+                      if (editingLine) selectCatalogItem(editingLine.id, catalogItem);
+                    }}
+                    onCreateCatalogItem={async (input) => {
+                      try {
+                        return await addItem(input);
+                      } catch (err: unknown) {
+                        setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+                        throw err;
+                      }
+                    }}
+                    canCreateCatalogItem={permissions.canManageCatalog}
+                    allowDiscount={discountsEnabled}
+                    onFullCreateCatalogItem={() => {
+                      if (editingLine) {
+                        setItemCreateModal({ open: true, targetLineId: editingLine.id });
+                      }
+                    }}
+                  />
                   <button
                     type="button"
                     onClick={addLineItem}
@@ -3406,16 +3126,18 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                       </p>
                     </>
                   )}
-                  <div className="flex items-center justify-end gap-2">
-                    <span className="text-ink-500">ส่วนลดท้ายบิล (%)</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={documentDiscountPercent || ""}
-                      onChange={(e) => setDocumentDiscountPercent(parseFloat(e.target.value) || 0)}
-                      className="w-[92px] text-right"
-                    />
-                  </div>
+                  {discountsEnabled && (
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-ink-500">ส่วนลดท้ายบิล (%)</span>
+                      <NumericInput
+                        value={documentDiscountPercent}
+                        onValueChange={(next) => setDocumentDiscountPercent(next)}
+                        maxFractionDigits={2}
+                        maxValue={100}
+                        className="w-[92px] text-right"
+                      />
+                    </div>
+                  )}
                   {tax.discountAmount > 0 && (
                     <p className="text-red-500">
                       ส่วนลดท้ายบิล: -฿
@@ -3520,85 +3242,6 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
               </div>
             </Modal>
 
-            {isBillingNote && (
-              <Card>
-                <div className="mb-3">
-                  <StepHeading number={3} title="ใบแจ้งหนี้ที่ยังไม่ได้ชำระ" />
-                </div>
-                {!selectedCustomer ? (
-                  <p className="text-body text-ink-400">กรุณาเลือกลูกค้าก่อน</p>
-                ) : loadingInvoices ? (
-                  <Spinner />
-                ) : unpaidInvoices.length === 0 ? (
-                  <p className="text-body text-ink-400">
-                    ไม่พบใบแจ้งหนี้ที่ยังไม่ได้ชำระสำหรับลูกค้านี้
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {unpaidInvoices.map((invoice) => (
-                      <label
-                        key={invoice.id}
-                        className="flex items-center gap-3 p-2 rounded-control hover:bg-paper-field cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedInvoiceIds.has(invoice.id)}
-                          onChange={() => toggleInvoice(invoice.id)}
-                          className="rounded"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-body font-medium">{invoice.doc_number}</p>
-                          <p className="text-label text-ink-500">
-                            {formatBuddhistDate(invoice.issue_date)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-body font-medium">
-                            ฿
-                            {invoice.total_amount.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                            })}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-                {selectedInvoiceIds.size > 0 && (
-                  <div className="mt-4 pt-3 border-t border-line text-right text-body space-y-0.5">
-                    <p className="text-ink-500">
-                      ราคารวม: ฿
-                      {billingNoteSummary.subtotal.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })}
-                    </p>
-                    <p className="text-ink-500">
-                      VAT: ฿
-                      {billingNoteSummary.vatAmount.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })}
-                    </p>
-                    <p className="font-medium">
-                      รวมทั้งสิ้น: ฿
-                      {tax.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </p>
-                    {parseFloat(whtRate) > 0 && (
-                      <>
-                        <p className="text-red-500">
-                          หัก ณ ที่จ่าย {whtRate}%: -฿
-                          {tax.whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </p>
-                        <p className="font-semibold text-title mt-1">
-                          ยอดที่ต้องชำระ: ฿
-                          {tax.netPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                )}
-              </Card>
-            )}
-
             <Card>
               <button
                 type="button"
@@ -3700,9 +3343,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   </div>
                   <div className="mt-0.5 text-label text-ink-500">
                     {selectedCustomer?.name || "ยังไม่ได้เลือกลูกค้า"} ·{" "}
-                    {isBillingNote
-                      ? `${selectedInvoiceIds.size} ใบแจ้งหนี้`
-                      : `${lineItems.filter((line) => line.item_name.trim()).length} รายการ`}
+                    {lineItems.filter((line) => line.item_name.trim()).length} รายการ
                     {isDeliveryNote && amountDisplay != null && amountDisplay !== "full"
                       ? " · ไม่แสดงราคาใน PDF"
                       : ""}
@@ -3758,7 +3399,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   <div className="flex justify-between mt-1.5">
                     <span className="text-ink-500">วันที่ออกเอกสาร</span>
                     <span className="font-medium text-ink-900">
-                      {issueDate ? formatBuddhistDate(issueDate) : "-"}
+                      {issueDate ? docDate.date(issueDate) : "-"}
                       {issueDate && !isIssueDateToday && (
                         <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-700">
                           {issueDate > todayString() ? "ล่วงหน้า" : "ย้อนหลัง"}
@@ -3785,44 +3426,36 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   </div>
                 )}
 
-                {isBillingNote ? (
-                  <div className="rounded-control border border-card-border p-3 text-body">
-                    <div className="text-label text-ink-500">
-                      ใบแจ้งหนี้ที่รวม ({selectedInvoiceIds.size})
-                    </div>
+                <div className="rounded-control border border-card-border p-3 text-body">
+                  <div className="mb-2 text-label text-ink-500">
+                    รายการ ({lineItems.filter((li) => li.item_name.trim()).length})
                   </div>
-                ) : (
-                  <div className="rounded-control border border-card-border p-3 text-body">
-                    <div className="mb-2 text-label text-ink-500">
-                      รายการ ({lineItems.filter((li) => li.item_name.trim()).length})
-                    </div>
-                    <div className="space-y-2">
-                      {lineItems
-                        .filter((li) => li.item_name.trim())
-                        .map((li) => (
-                          <div key={li.id} className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate font-medium text-ink-900">
-                                {li.item_name}
-                              </div>
-                              <div className="text-label text-ink-500">
-                                {li.quantity} {li.unit || li.base_unit} × ฿
-                                {li.unit_price.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                })}
-                              </div>
+                  <div className="space-y-2">
+                    {lineItems
+                      .filter((li) => li.item_name.trim())
+                      .map((li) => (
+                        <div key={li.id} className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate font-medium text-ink-900">
+                              {li.item_name}
                             </div>
-                            <div className="shrink-0 font-medium text-ink-900">
-                              ฿
-                              {lineItemAmount(li).toLocaleString(undefined, {
+                            <div className="text-label text-ink-500">
+                              {li.quantity} {li.unit || li.base_unit} × ฿
+                              {li.unit_price.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                               })}
                             </div>
                           </div>
-                        ))}
-                    </div>
+                          <div className="shrink-0 font-medium text-ink-900">
+                            ฿
+                            {lineItemAmount(li).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                            })}
+                          </div>
+                        </div>
+                      ))}
                   </div>
-                )}
+                </div>
 
                 <div className="rounded-control border border-card-border bg-paper-field p-3 text-body space-y-1.5">
                   <div className="flex justify-between">
@@ -3882,6 +3515,11 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
 
             <ItemCreateModal
               open={itemCreateModal.open}
+              initialName={
+                itemCreateModal.targetLineId
+                  ? (lineItems.find((line) => line.id === itemCreateModal.targetLineId)?.item_name ?? "")
+                  : ""
+              }
               onClose={() => setItemCreateModal({ open: false, targetLineId: null })}
               onCreated={handleFullCreateItem}
             />
@@ -3901,6 +3539,7 @@ export default function NewDealPage({ documentId, initialType }: NewDealPageProp
                   customerId={selectedCustomer?.id ?? null}
                   customerName={selectedCustomer?.name ?? null}
                   excludeDocumentId={documentId || null}
+                  currentPrice={target.unit_price}
                   onApply={(price) => {
                     updateLineItem(target.id, "unit_price", price);
                     setPriceHistoryLineId(null);

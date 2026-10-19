@@ -3,6 +3,7 @@ import { Package, Plus, Search, Star, Wrench } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { TypeSelector } from "./TypeSelector";
 import { formatCurrency } from "../../lib/format";
 import { formatMixedStock } from "../../lib/stock";
 import type { Item } from "../../types";
@@ -13,6 +14,10 @@ interface CatalogItemPickerModalProps {
   onSelect: (item: Item) => void;
   onClose: () => void;
   initialSearch?: string;
+  /**
+   * Contextual default for the quick create (e.g. the utility form only makes
+   * services). Omitted = the officer must pick, like /catalog/new.
+   */
   createItemType?: "product" | "service";
   createDefaultUnit?: string;
   onCreate?: (input: {
@@ -36,7 +41,7 @@ export function CatalogItemPickerModal({
   onSelect,
   onClose,
   initialSearch = "",
-  createItemType = "product",
+  createItemType,
   createDefaultUnit = "ชิ้น",
   onCreate,
   onFullCreate,
@@ -44,11 +49,13 @@ export function CatalogItemPickerModal({
   const [search, setSearch] = useState(initialSearch);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [newItem, setNewItem] = useState({
+  const emptyNewItem = () => ({
     name: "",
     unit_price: "",
     base_unit: createDefaultUnit,
+    type: createItemType ?? null,
   });
+  const [newItem, setNewItem] = useState(emptyNewItem);
 
   useEffect(() => {
     if (open) setSearch(initialSearch);
@@ -57,9 +64,10 @@ export function CatalogItemPickerModal({
   useEffect(() => {
     if (!open) {
       setAdding(false);
-      setNewItem({ name: "", unit_price: "", base_unit: createDefaultUnit });
+      setNewItem(emptyNewItem());
     }
-  }, [createDefaultUnit, open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createDefaultUnit, createItemType, open]);
 
   const sortedItems = useMemo(
     () => [...items].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th")),
@@ -73,7 +81,7 @@ export function CatalogItemPickerModal({
   }, [search, sortedItems]);
 
   const handleCreate = async () => {
-    if (!onCreate) return;
+    if (!onCreate || !newItem.type) return;
     const name = newItem.name.trim();
     const price = parseFloat(newItem.unit_price);
     if (!name || isNaN(price) || price < 0) return;
@@ -83,9 +91,9 @@ export function CatalogItemPickerModal({
         name,
         unit_price: price,
         base_unit: newItem.base_unit.trim() || createDefaultUnit,
-        item_type: createItemType,
+        item_type: newItem.type,
       });
-      setNewItem({ name: "", unit_price: "", base_unit: createDefaultUnit });
+      setNewItem(emptyNewItem());
       setAdding(false);
       setSearch("");
       onSelect(created);
@@ -113,6 +121,11 @@ export function CatalogItemPickerModal({
           <div className="rounded-card border border-card-border bg-paper-soft p-3">
             <div className="mb-3 text-body font-medium text-ink-900">เพิ่มรายการใหม่</div>
             <div className="space-y-2">
+              <TypeSelector
+                value={newItem.type}
+                onChange={(type) => setNewItem((prev) => ({ ...prev, type }))}
+                hintValue={createItemType ?? null}
+              />
               <Input
                 label="ชื่อรายการ"
                 value={newItem.name}
@@ -150,7 +163,7 @@ export function CatalogItemPickerModal({
                 <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>ยกเลิก</Button>
                 <Button
                   size="sm"
-                  disabled={!newItem.name.trim() || newItem.unit_price === "" || isNaN(parseFloat(newItem.unit_price)) || saving}
+                  disabled={!newItem.type || !newItem.name.trim() || newItem.unit_price === "" || isNaN(parseFloat(newItem.unit_price)) || saving}
                   loading={saving}
                   onClick={handleCreate}
                 >

@@ -9,6 +9,7 @@ import { MOVEMENT_TYPE_LABELS } from "./constants";
 import { supabase } from "../../lib/supabase";
 import { Download, FileText, Star } from "lucide-react";
 import { useToast } from "../../hooks/useToast";
+import { useDocDate } from "../YearEraProvider";
 import type { Item } from "../../types";
 
 type TabKey = "all" | "product" | "service";
@@ -32,6 +33,7 @@ export function CatalogList({
   canManage = true,
 }: Props) {
   const toast = useToast();
+  const docDate = useDocDate();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [filterMode, setFilterMode] = useState<FilterMode>(() => {
@@ -182,7 +184,7 @@ export function CatalogList({
         const unit = item?.base_unit || "ชิ้น";
 
         const row = [
-          new Date(m.created_at).toLocaleDateString("th-TH"),
+          docDate.numeric(m.created_at),
           itemName,
           MOVEMENT_TYPE_LABELS[m.movement_type] || m.movement_type,
           m.qty_base.toString(),

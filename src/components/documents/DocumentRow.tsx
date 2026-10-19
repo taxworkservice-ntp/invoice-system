@@ -17,7 +17,7 @@ import { StatusBadge } from "../ui/StatusBadge";
 import { Money } from "../ui/Money";
 import { getDocumentMenuActions, type DocumentActionId } from "../../lib/documentActions";
 import type { WorkspacePermissions } from "../../lib/permissions";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 import type { Document } from "../../types";
 
 const ACTION_ICONS: Record<DocumentActionId, ReactNode> = {
@@ -99,6 +99,7 @@ export function DocumentRow({
   searchQuery,
   quickAction,
 }: DocumentRowProps) {
+  const docDate = useDocDate();
   const menuRef = useRef<HTMLDivElement>(null);
   const isVoided = doc.status === "voided";
   const isSettled = ["paid", "generated", "issued", "partially_paid"].includes(doc.status);
@@ -171,8 +172,8 @@ export function DocumentRow({
           </p>
 
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-label text-ink-400">
-            <span>ออกเอกสาร {formatBuddhistDate(doc.issue_date)}</span>
-            {doc.due_date && <span>· ครบกำหนด {formatBuddhistDate(doc.due_date)}</span>}
+            <span>ออกเอกสาร {docDate.date(doc.issue_date)}</span>
+            {doc.due_date && <span>· ครบกำหนด {docDate.date(doc.due_date)}</span>}
             {!isSettled && <span className="text-ink-300">· {nextStep}</span>}
             {isVoided && doc.voided_reason && (
               <span className="italic text-ink-300">· เหตุผล: {doc.voided_reason}</span>

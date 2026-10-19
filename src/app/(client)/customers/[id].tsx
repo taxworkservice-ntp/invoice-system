@@ -21,13 +21,14 @@ import { CustomerAvatar } from "../../../components/customer/CustomerAvatar";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
-import { formatBuddhistDate } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
 import { formatCurrency } from "../../../lib/format";
 import { businessTodayString, addDaysString, monthStartString } from "../../../lib/devDate";
 import { dealOutstanding } from "../../../lib/receivable";
 import { TABLE } from "../../../lib/tableStyles";
 import type { Customer, Deal, Document, DocumentLineItem } from "../../../types";
-import { getWorkspacePermissions } from "../../../lib/permissions";
+import { getWorkspaceExperience, getWorkspacePermissions } from "../../../lib/permissions";
+import { resolveCreation } from "../../../lib/docCreation";
 
 const AVATAR_PRESET_COLORS = [
   "#378ADD",
@@ -241,7 +242,9 @@ function getDealHistoryItem(deal: DealWithDocs): DealHistoryItem {
 
 export default function CustomerDetailPage() {
   const { workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const docDate = useDocDate();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const experience = getWorkspaceExperience(workspaceRole, permissions);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -1076,7 +1079,7 @@ export default function CustomerDetailPage() {
                             </div>
                             <div className="mt-0.5 truncate text-label text-ink-400">
                               {rep?.doc_number || "ยังไม่มีเลขเอกสาร"}
-                              {item.latestDate && ` · ${formatBuddhistDate(item.latestDate)}`}
+                              {item.latestDate && ` · ${docDate.date(item.latestDate)}`}
                             </div>
                           </td>
                           <td className="px-3 py-3 md:py-2">
@@ -1148,7 +1151,18 @@ export default function CustomerDetailPage() {
         workspacePermissions={permissions}
         onSelect={(type) => {
           setNewSheetOpen(false);
-          navigate(`/deals/new?type=${type}&customer_id=${customer.id}`);
+          const resolved = resolveCreation({
+            type,
+            params: new URLSearchParams({ customer_id: customer.id }),
+            experience,
+          });
+          if (resolved.status === "ok") {
+            navigate(resolved.path);
+            return;
+          }
+          if (resolved.status === "denied") {
+            toast.error(resolved.reason);
+          }
         }}
       />
     </AppShell>

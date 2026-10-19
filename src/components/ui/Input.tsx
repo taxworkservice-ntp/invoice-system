@@ -5,7 +5,14 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export function Input({ label, className = "", id, error, ...props }: InputProps) {
+/**
+ * Text/number field. Forwards its ref so wrappers (see `NumericInput`) can
+ * manage the caret while formatting.
+ */
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
+  { label, className = "", id, error, ...props },
+  ref,
+) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   const errorId = error ? `${fieldId}-error` : undefined;
@@ -19,6 +26,7 @@ export function Input({ label, className = "", id, error, ...props }: InputProps
       )}
       <input
         id={fieldId}
+        ref={ref}
         aria-invalid={error ? true : undefined}
         aria-describedby={errorId}
         className={`w-full min-h-11 md:min-h-0 px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${error ? "border-danger" : "border-card-border"} ${className}`}
@@ -31,7 +39,7 @@ export function Input({ label, className = "", id, error, ...props }: InputProps
       )}
     </div>
   );
-}
+});
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;

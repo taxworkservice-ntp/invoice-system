@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cartonsToBase, baseToCartons, formatMixedStock } from "../../lib/stock";
+import { NumericInput } from "../ui/NumericInput";
 
 interface Props {
   value: number | string;
@@ -23,21 +24,10 @@ export function StockInitialField({
   const [useCarton, setUseCarton] = useState(hasCarton);
 
   const displayUnit = hasCarton && useCarton ? cartonUnit! : baseUnit;
-  const step = hasCarton && useCarton ? "1" : "0.01";
 
   const displayValue = hasCarton && useCarton
     ? baseToCartons(numValue, qtyPerCarton!)
     : numValue;
-
-  function handleChange(raw: string) {
-    if (hasCarton && useCarton) {
-      const cartons = parseFloat(raw) || 0;
-      const base = cartonsToBase(cartons, qtyPerCarton!);
-      onChange(base);
-    } else {
-      onChange(raw);
-    }
-  }
 
   return (
     <div className="space-y-1">
@@ -59,14 +49,18 @@ export function StockInitialField({
         )}
       </div>
       <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min="0"
-          step={step}
-          value={displayValue === 0 ? "" : displayValue}
-          onChange={(e) => handleChange(e.target.value)}
-          className="flex-1 px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
-        />
+        <div className="flex-1">
+          <NumericInput
+            value={displayValue === 0 ? null : displayValue}
+            maxFractionDigits={hasCarton && useCarton ? 0 : 3}
+            onValueChange={(next) => {
+              // Selling by carton shows cartons; stock is always stored in base units.
+              onChange(
+                hasCarton && useCarton ? cartonsToBase(next, qtyPerCarton!) : next,
+              );
+            }}
+          />
+        </div>
         <span className="text-body text-ink-300 shrink-0">{displayUnit}</span>
       </div>
       {hasCarton && numValue > 0 && (

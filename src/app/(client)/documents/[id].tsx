@@ -14,6 +14,7 @@ import { useTableSort } from "../../../components/ui/useTableSort";
 import { getDocumentDetail, saveLineItems } from "../../../hooks/useDocuments";
 import { useClientProfile, useWorkspaceRole } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
+import { useCreateDocument } from "../../../hooks/useCreateDocument";
 import { supabase } from "../../../lib/supabase";
 import { warmPdfCache } from "../../../lib/pdfWarm";
 import { voidDocumentWithSideEffects } from "../../../lib/documentVoid";
@@ -31,15 +32,11 @@ import { AmountRow } from "../../../components/ui/AmountRow";
 import { PAYMENT_METHOD_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { isDocumentOverdue } from "../../../lib/dealStatus";
-import { formatBuddhistDate } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
 import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice, DocumentType } from "../../../types";
-
-function formatDate(date: string): string {
-  return formatBuddhistDate(date);
-}
 
 function getDisplayAmount(doc: Document): number {
   return doc.doc_type === "delivery_note" ? doc.total_amount : doc.net_payable;
@@ -112,6 +109,9 @@ function MenuItem({
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const docDate = useDocDate();
+  const formatDate = (date: string) => docDate.date(date);
+  const createDocument = useCreateDocument();
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const userId = profile?.id;
@@ -1204,7 +1204,7 @@ export default function DocumentDetailPage() {
                           icon={<FileText size={14} />}
                           onClick={() => {
                             setActionsMenuOpen(false);
-                            navigate(`/documents/new?type=credit_note&dealId=${doc.deal_id || ""}`);
+                            createDocument("credit_note", { dealId: doc.deal_id });
                           }}
                         >
                           ออกใบลดหนี้
@@ -1213,7 +1213,7 @@ export default function DocumentDetailPage() {
                           icon={<FileText size={14} />}
                           onClick={() => {
                             setActionsMenuOpen(false);
-                            navigate(`/documents/new?type=debit_note&dealId=${doc.deal_id || ""}`);
+                            createDocument("debit_note", { dealId: doc.deal_id });
                           }}
                         >
                           ออกใบเพิ่มหนี้

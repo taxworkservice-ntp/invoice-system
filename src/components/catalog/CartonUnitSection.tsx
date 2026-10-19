@@ -1,5 +1,6 @@
 import { UnitSelector } from "./UnitSelector";
 import { CartonPreview } from "./CartonPreview";
+import { NumericInput } from "../ui/NumericInput";
 
 interface Props {
   enabled: boolean;
@@ -64,14 +65,11 @@ export function CartonUnitSection({
             <label className="block text-label font-semibold text-ink-300 mb-1">
               จำนวนต่อหน่วย
             </label>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={qtyPerCarton}
-              onChange={(e) => onQtyChange(e.target.value)}
+            <NumericInput
+              value={qtyNum === 0 ? null : qtyNum}
+              maxFractionDigits={0}
+              onTextChange={(text) => onQtyChange(text)}
               placeholder={`เช่น ${qtyNum || 10} ${baseUnit} ต่อ${unit || "ลัง"}`}
-              className="w-full px-3 py-2 text-body border border-card-border rounded-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
             />
           </div>
           {unit && qtyNum >= 1 && (

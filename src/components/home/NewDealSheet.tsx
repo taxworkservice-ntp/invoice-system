@@ -26,7 +26,6 @@ const GROUPS: {
     subtitle: string;
     type: NewDealType;
     tag: string;
-    recommended?: boolean;
   }[];
 }[] = [
   {
@@ -257,9 +256,6 @@ export function NewDealSheet({ open, onClose, onSelect, vatRegistered = true, wo
             <div className="flex items-center gap-2">
               <div className="truncate text-body font-semibold text-ink-900">{optionTitle(option)}</div>
               <span className={`shrink-0 rounded-control px-1.5 py-0.5 text-label font-semibold ${TAG_STYLES[option.type]}`}>{option.tag}</span>
-              {option.recommended && (
-                <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-label font-medium text-green-700">แนะนำ</span>
-              )}
             </div>
             <div className="mt-0.5 line-clamp-2 text-label leading-4 text-ink-500">{optionSubtitle(option)}</div>
           </div>

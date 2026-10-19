@@ -24,13 +24,14 @@ import {
   correctManualStockIn,
   correctManualStockOut,
 } from "../../../lib/stock";
-import { formatBuddhistDate } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
 import { getWorkspacePermissions } from "../../../lib/permissions";
 import type { Item, StockMovement } from "../../../types";
 
 export default function CatalogItemPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const { profile, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const toast = useToast();
@@ -329,7 +330,7 @@ export default function CatalogItemPage() {
               <div className="rounded-control border border-card-border bg-paper-field p-3 text-body space-y-1">
                 <div className="font-medium text-ink-900">รายการเดิม</div>
                 <div className="text-ink-700">
-                  วันที่: {formatBuddhistDate(revertTarget.created_at)}
+                  วันที่: {docDate.date(revertTarget.created_at)}
                 </div>
                 <div className="text-ink-700">
                   จำนวน: {revertTarget.movement_type === "manual_in" ? "+" : "-"}

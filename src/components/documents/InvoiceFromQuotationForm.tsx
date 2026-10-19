@@ -7,6 +7,7 @@ import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
 import { FormStep } from "./FormStep";
 import { FormActionBar } from "./FormActionBar";
 import { LineGridHeaderRow, LINE_GRID_COLS, numericInputClass } from "./lineGrid";
+import { NumericInput } from "../ui/NumericInput";
 import { Button } from "../ui/Button";
 import { Input, Select } from "../ui/Input";
 import { DateInput } from "../ui/DateInput";
@@ -23,7 +24,7 @@ import { resolveDocNumber } from "../../lib/docNumber";
 import { PRINT_TITLE_PRESETS, readLastPrintTitleVariant, writeLastPrintTitleVariant } from "../../lib/docLabels";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 import { formatCurrency } from "../../lib/format";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../lib/stock";
 import { WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../constants";
@@ -114,6 +115,7 @@ function lineNetAmount(l: EditableInvoiceLine) {
 
 export function InvoiceFromQuotationForm() {
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const [searchParams] = useSearchParams();
   const preselectedQtId = searchParams.get("quotationId");
   const { profile } = useAuth();
@@ -470,7 +472,7 @@ export function InvoiceFromQuotationForm() {
         group = {
           key: l.source_document_id,
           label: `ใบเสนอราคา ${l.qtDocNumber}`,
-          dateLabel: qt?.issue_date ? formatBuddhistDate(qt.issue_date) : "",
+          dateLabel: qt?.issue_date ? docDate.date(qt.issue_date) : "",
           total: 0,
           lineCount: 0,
         };
@@ -480,7 +482,7 @@ export function InvoiceFromQuotationForm() {
       group.lineCount += 1;
     }
     return groups;
-  }, [billableLines, selectedQuotations]);
+  }, [billableLines, selectedQuotations, docDate]);
 
   const tax = useMemo(() => {
     return calculateTax(
@@ -576,7 +578,7 @@ export function InvoiceFromQuotationForm() {
             item_id: null,
             item_name: `ใบเสนอราคา ${qt.doc_number || qt.id.slice(0, 8)}`,
             line_note: [
-              qt.issue_date ? `วันที่เสนอราคา: ${formatBuddhistDate(qt.issue_date)}` : null,
+              qt.issue_date ? `วันที่เสนอราคา: ${docDate.date(qt.issue_date)}` : null,
               `รายการ ${groupLines.length} บรรทัด`,
             ]
               .filter(Boolean)
@@ -602,7 +604,7 @@ export function InvoiceFromQuotationForm() {
         lineRecords.push({
           item_id: null,
           item_name: `ใบเสนอราคา ${qt.doc_number || qt.id.slice(0, 8)}`,
-          line_note: qt.issue_date ? `วันที่เสนอราคา: ${formatBuddhistDate(qt.issue_date)}` : null,
+          line_note: qt.issue_date ? `วันที่เสนอราคา: ${docDate.date(qt.issue_date)}` : null,
           item_sku: null,
           item_type: "service",
           unit: "",
@@ -922,7 +924,7 @@ export function InvoiceFromQuotationForm() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-ink-900">{qt.doc_number || "ไม่มีเลขเอกสาร"}</span>
-                        <span className="text-label text-ink-500">{formatBuddhistDate(qt.issue_date)}</span>
+                        <span className="text-label text-ink-500">{docDate.date(qt.issue_date)}</span>
                       </div>
                       <div className="mt-1 text-label leading-5 text-ink-500">
                         {buildItemSummary(qt.line_items.map((l) => ({ ...l, quantity: l.remaining })))}
@@ -1013,18 +1015,13 @@ export function InvoiceFromQuotationForm() {
                                 />
                               </div>
                               <div>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={l.maxQty}
-                                  step="any"
+                                <NumericInput
+                                  bare
                                   value={l.quantity}
-                                  onChange={(event) =>
+                                  maxFractionDigits={3}
+                                  onValueChange={(next) =>
                                     updateLine(l.key, {
-                                      quantity: Math.max(
-                                        0,
-                                        Math.min(Number(event.target.value) || 0, l.maxQty),
-                                      ),
+                                      quantity: Math.max(0, Math.min(next, l.maxQty)),
                                     })
                                   }
                                   className={numericInputClass(false)}
@@ -1045,15 +1042,12 @@ export function InvoiceFromQuotationForm() {
                                 />
                               </div>
                               <div>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="any"
+                                <NumericInput
+                                  bare
                                   value={l.unit_price}
-                                  onChange={(event) =>
-                                    updateLine(l.key, {
-                                      unit_price: Number(event.target.value) || 0,
-                                    })
+                                  maxFractionDigits={2}
+                                  onValueChange={(next) =>
+                                    updateLine(l.key, { unit_price: Math.max(0, next) })
                                   }
                                   className={numericInputClass(priceChanged)}
                                 />
@@ -1064,18 +1058,13 @@ export function InvoiceFromQuotationForm() {
                                 )}
                               </div>
                               <div>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  step="any"
+                                <NumericInput
+                                  bare
                                   value={l.discount_percent}
-                                  onChange={(event) =>
+                                  maxFractionDigits={2}
+                                  onValueChange={(next) =>
                                     updateLine(l.key, {
-                                      discount_percent: Math.max(
-                                        0,
-                                        Math.min(100, Number(event.target.value) || 0),
-                                      ),
+                                      discount_percent: Math.max(0, Math.min(100, next)),
                                       discount_amount: 0,
                                     })
                                   }

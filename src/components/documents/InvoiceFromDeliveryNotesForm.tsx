@@ -10,6 +10,7 @@ import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
 import { FormStep } from "./FormStep";
 import { FormActionBar } from "./FormActionBar";
 import { LineGridHeaderRow, numericInputClass } from "./lineGrid";
+import { NumericInput } from "../ui/NumericInput";
 import { useWorkspaceFeatures } from "../../hooks/useAuth";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
@@ -21,11 +22,11 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
-import { PRINT_TITLE_PRESETS, readLastPrintTitleVariant, writeLastPrintTitleVariant } from "../../lib/docLabels";
+import { readLastPrintTitleVariant } from "../../lib/docLabels";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
 import { getDnLineSectionMap, getDnSectionHeaders, joinDnSectionHeaders } from "../../lib/dnGroups";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 import { formatCurrency } from "../../lib/format";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../lib/stock";
 import { WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../constants";
@@ -126,6 +127,7 @@ type InvoiceLineGroup = {
 
 export function InvoiceFromDeliveryNotesForm() {
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const [searchParams] = useSearchParams();
   const preselectedDnId = searchParams.get("dnId");
   const { profile } = useAuth();
@@ -165,7 +167,9 @@ export function InvoiceFromDeliveryNotesForm() {
   const [showDnVariance, setShowDnVariance] = useState(false);
   // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
   // Defaults to the last selection (per browser).
-  const [printTitleVariant, setPrintTitleVariant] = useState(() => readLastPrintTitleVariant());
+  // The printed title is chosen in the print preview (the one place that owns
+  // it) and remembered per browser; a new invoice inherits the last choice.
+  const [printTitleVariant] = useState(() => readLastPrintTitleVariant());
   const [error, setError] = useState("");
   // Ref mode: one printed line per source delivery note instead of item detail.
   // Default is detail (opt-in, remembered per browser) — ref-saved invoices
@@ -525,7 +529,7 @@ export function InvoiceFromDeliveryNotesForm() {
         group = {
           key: l.source_document_id,
           label: `ใบส่งของ ${l.dnDocNumber}`,
-          dateLabel: dn?.issue_date ? formatBuddhistDate(dn.issue_date) : "",
+          dateLabel: dn?.issue_date ? docDate.date(dn.issue_date) : "",
           total: 0,
           lineCount: 0,
         };
@@ -535,7 +539,7 @@ export function InvoiceFromDeliveryNotesForm() {
       group.lineCount += 1;
     }
     return groups;
-  }, [billableLines, selectedDeliveryNotes]);
+  }, [billableLines, selectedDeliveryNotes, docDate]);
 
   // Group editable lines under their source delivery note (manual lines last).
   const lineGroups = useMemo<InvoiceLineGroup[]>(() => {
@@ -558,7 +562,7 @@ export function InvoiceFromDeliveryNotesForm() {
           key: l.source_document_id,
           kind: "dn",
           title: `ใบส่งของ ${l.dnDocNumber}`,
-          dateLabel: dn?.issue_date ? formatBuddhistDate(dn.issue_date) : "",
+          dateLabel: dn?.issue_date ? docDate.date(dn.issue_date) : "",
           deliveredTotal: (dn?.line_items || []).reduce((sum, li) => sum + li.deliveredQty, 0),
           remainingTotal: (dn?.line_items || []).reduce((sum, li) => sum + Math.max(0, li.remaining), 0),
           lines: [],
@@ -570,7 +574,7 @@ export function InvoiceFromDeliveryNotesForm() {
 
     const filledDnGroups = dnGroups.filter((g) => g.lines.length > 0);
     return manualGroup && manualGroup.lines.length > 0 ? [...filledDnGroups, manualGroup] : filledDnGroups;
-  }, [invoiceLines, selectedDeliveryNotes]);
+  }, [invoiceLines, selectedDeliveryNotes, docDate]);
 
   const tax = useMemo(() => {
     return calculateTax(
@@ -668,7 +672,7 @@ export function InvoiceFromDeliveryNotesForm() {
           const groupTotal = groupLines.reduce((sum, l) => sum + lineNetAmount(l), 0);
           lineRecords.push({
             item_id: null,
-            item_name: dn.issue_date ? `${dnLabel} วันที่: ${formatBuddhistDate(dn.issue_date)}` : dnLabel,
+            item_name: dn.issue_date ? `${dnLabel} วันที่: ${docDate.date(dn.issue_date)}` : dnLabel,
             line_note: null,
             item_sku: null,
             item_type: "service",
@@ -691,7 +695,7 @@ export function InvoiceFromDeliveryNotesForm() {
         lineRecords.push({
           item_id: null,
           item_name: `ใบส่งของ ${dn.doc_number || dn.id.slice(0, 8)}`,
-          line_note: dn.issue_date ? `วันที่ส่งของ: ${formatBuddhistDate(dn.issue_date)}` : null,
+          line_note: dn.issue_date ? `วันที่ส่งของ: ${docDate.date(dn.issue_date)}` : null,
           item_sku: null,
           item_type: "service",
           unit: "",
@@ -957,7 +961,7 @@ export function InvoiceFromDeliveryNotesForm() {
                   </div>
                 </div>
                 {issueDate && (
-                  <p className="mt-1 text-label font-medium text-ink-600">{formatBuddhistDate(issueDate)}</p>
+                  <p className="mt-1 text-label font-medium text-ink-600">{docDate.date(issueDate)}</p>
                 )}
                 <p className="mt-1 text-label leading-4 text-ink-500">ใช้เป็นวันที่ออกใบแจ้งหนี้/ใบกำกับภาษี และวันที่ในเลขที่เอกสาร</p>
               </div>
@@ -1086,7 +1090,7 @@ export function InvoiceFromDeliveryNotesForm() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-ink-900">{dn.doc_number || "ไม่มีเลขเอกสาร"}</span>
-                        <span className="text-label text-ink-500">{formatBuddhistDate(dn.issue_date)}</span>
+                        <span className="text-label text-ink-500">{docDate.date(dn.issue_date)}</span>
                       </div>
                       <div className="mt-1 text-label leading-5 text-ink-500">
                         {buildItemSummary(dn.line_items.map((l) => ({ ...l, quantity: l.remaining })))}
@@ -1192,15 +1196,13 @@ export function InvoiceFromDeliveryNotesForm() {
                                 />
                               </div>
                               <div>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={l.maxQty}
-                                  step="any"
+                                <NumericInput
+                                  bare
                                   value={l.quantity}
-                                  onChange={(event) =>
+                                  maxFractionDigits={3}
+                                  onValueChange={(next) =>
                                     updateLine(l.key, {
-                                      quantity: Math.max(0, Math.min(Number(event.target.value) || 0, l.maxQty)),
+                                      quantity: Math.max(0, Math.min(next, l.maxQty)),
                                     })
                                   }
                                   className={numericInputClass(false)}
@@ -1219,12 +1221,13 @@ export function InvoiceFromDeliveryNotesForm() {
                                 />
                               </div>
                               <div>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="any"
+                                <NumericInput
+                                  bare
                                   value={l.unit_price}
-                                  onChange={(event) => updateLine(l.key, { unit_price: Number(event.target.value) || 0 })}
+                                  maxFractionDigits={2}
+                                  onValueChange={(next) =>
+                                    updateLine(l.key, { unit_price: Math.max(0, next) })
+                                  }
                                   className={numericInputClass(priceChanged)}
                                 />
                                 {priceChanged && (
@@ -1234,15 +1237,13 @@ export function InvoiceFromDeliveryNotesForm() {
                                 )}
                               </div>
                               <div>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  step="any"
+                                <NumericInput
+                                  bare
                                   value={l.discount_percent}
-                                  onChange={(event) =>
+                                  maxFractionDigits={2}
+                                  onValueChange={(next) =>
                                     updateLine(l.key, {
-                                      discount_percent: Math.max(0, Math.min(100, Number(event.target.value) || 0)),
+                                      discount_percent: Math.max(0, Math.min(100, next)),
                                       discount_amount: 0,
                                     })
                                   }
@@ -1278,7 +1279,7 @@ export function InvoiceFromDeliveryNotesForm() {
         <DocumentOptionsCard number={4}>
           <DocumentOptionRow
             label="โหมดอ้างอิง"
-            description="PDF แสดง 1 บรรทัดต่อใบส่งของ (เหมือนใบวางบิล) ปิดเพื่อแสดงรายการสินค้าแบบละเอียด"
+            description="PDF แสดง 1 บรรทัดต่อใบส่งของ (เหมือนใบวางบิล) ปิดเพื่อแสดงรายการสินค้าแบบละเอียด — เลือกตอนสร้าง แก้ภายหลังไม่ได้"
             checked={refOnlyMode}
             onChange={setRefOnlyMode}
           />
@@ -1299,26 +1300,6 @@ export function InvoiceFromDeliveryNotesForm() {
               checked={dnAppendix}
               onChange={setDnAppendix}
             />
-          )}
-          {taxSnapshot.vatRegistered && (
-            <div className="py-3 first:pt-0 last:pb-0">
-              <Select
-                label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
-                value={printTitleVariant}
-                onChange={(event) => {
-                  setPrintTitleVariant(event.target.value);
-                  writeLastPrintTitleVariant(event.target.value);
-                }}
-              >
-                <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
-                {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
-                  <option key={value} value={value}>{preset.thai}</option>
-                ))}
-              </Select>
-              <p className="mt-1 text-label leading-4 text-ink-400">
-                ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น — ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
-              </p>
-            </div>
           )}
         </DocumentOptionsCard>
 

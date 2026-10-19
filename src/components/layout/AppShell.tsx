@@ -250,6 +250,7 @@ export function AppShell({
         <main
           className={`mx-auto w-full px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8 ${containerClass}`}
         >
+          {/* Year system comes from the app-level YearEraProvider (see App.tsx). */}
           {children}
         </main>
       </div>

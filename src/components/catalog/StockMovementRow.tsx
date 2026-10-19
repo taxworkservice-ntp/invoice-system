@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import type { StockMovement, Item } from "../../types";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 import { formatCurrency } from "../../lib/format";
 import { formatBaseWithCartonHint, formatMixedStock } from "../../lib/stock";
 import { MOVEMENT_TYPE_LABELS, MOVEMENT_TYPE_ICONS } from "./constants";
@@ -14,6 +14,7 @@ interface Props {
 
 export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const isIn =
     movement.movement_type === "manual_in" ||
     movement.movement_type === "auto_in" ||
@@ -70,7 +71,7 @@ export function StockMovementRow({ movement, item, onRevert, onEdit }: Props) {
           </div>
           <div className="mt-0.5 flex items-center justify-between">
             <span className="text-label text-ink-300">
-              {formatBuddhistDate(movement.created_at)}
+              {docDate.date(movement.created_at)}
             </span>
             <span className="text-label text-ink-300">
               คงเหลือ{" "}

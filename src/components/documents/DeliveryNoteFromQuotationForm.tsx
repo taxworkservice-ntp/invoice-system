@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Check, PackageCheck, Plus, Trash2, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, Check, PackageCheck, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { Switch } from "../ui/Switch";
 import { Input } from "../ui/Input";
 import { DateInput } from "../ui/DateInput";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
-import { PriceReviewControl } from "./PriceReviewControl";
-import { useAuth, useClientProfile } from "../../hooks/useAuth";
+import { LineItemEditorModal } from "./LineItemEditorModal";
+import { PriceHistorySheet } from "./PriceHistorySheet";
+import { PriceHint } from "./PriceHint";
+import { useAuth, useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
+import { getWorkspacePermissions } from "../../lib/permissions";
+import { isDiscountEnabled } from "../../lib/discounts";
 import { useCustomerReferenceHistory } from "../../hooks/useCustomerReferenceHistory";
+import { priceHintKey, usePriceHints } from "../../hooks/usePriceHints";
 import { useToast } from "../../hooks/useToast";
+import { useItems } from "../../hooks/useItems";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
@@ -26,12 +31,28 @@ import {
   isDnSectionMarker,
 } from "../../lib/dnGroups";
 import { businessTodayString } from "../../lib/devDate";
+import {
+  type DocumentLine,
+  cartonSaveQuantities,
+  isPriceReviewRequired,
+  pendingPriceReviewLines,
+} from "../../lib/documentLine";
+import {
+  focusLineInput,
+  moveLine as moveLineInList,
+  removeLine as removeLineFromList,
+} from "../../lib/lineDraft";
 import { calculateLineAmounts, calculateTax } from "../../lib/tax";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
 import { formatCurrency } from "../../lib/format";
-import type { Customer, Document, DocumentLineItem, DocumentStatus } from "../../types";
+import type { Customer, Document, DocumentLineItem, DocumentStatus, Item } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
-import { DnAmountDisplayPicker, type DnAmountDisplay } from "./DocumentOptions";
+import {
+  DnAmountDisplayPicker,
+  readLastDnAmount,
+  writeLastDnAmount,
+  type DnAmountDisplay,
+} from "./DocumentOptions";
 import {
   FormProgress,
   FormStep,
@@ -53,28 +74,12 @@ type DeliveryTotals = {
   pending: number;
 };
 
-type DeliveryLine = {
-  id: string;
+/** This form's line: the shared line plus its quotation-source bookkeeping. */
+export type DeliveryLine = DocumentLine & {
   source: DocumentLineItem | null;
-  quantity: number;
   delivered: number;
   pending: number;
-  item_name: string;
-  item_sku: string | null;
-  item_type: string;
-  unit: string;
-  unit_price: number;
-  // Mandatory DN price review (opt-in per client): false until the officer
-  // edits the price input or ticks the per-line confirm checkbox.
-  price_confirmed: boolean;
-  discount_percent: number;
-  line_note: string;
   base_quantity: number | null;
-  qty_carton: number | null;
-  carton_unit: string | null;
-  hide_amounts_on_print: boolean;
-  /** Section-header (grouping) line: no qty/price, prints as a group header. */
-  isSectionMarker: boolean;
 };
 
 function round3(value: number) {
@@ -88,20 +93,6 @@ function formatQty(value: number) {
   });
 }
 
-/**
- * Focus the first input of a freshly inserted line row (insert-anywhere UX).
- * No-op when the row was not inserted (guard rejected) or not yet painted.
- */
-function focusLineInput(id: string) {
-  window.setTimeout(() => {
-    const input = document.querySelector(`#dn-line-${id} input`);
-    if (input instanceof HTMLElement) {
-      input.scrollIntoView({ behavior: "smooth", block: "center" });
-      input.focus({ preventScroll: true });
-    }
-  }, 30);
-}
-
 function blankDeliveryLine(): DeliveryLine {
   return {
     id: crypto.randomUUID(),
@@ -110,6 +101,7 @@ function blankDeliveryLine(): DeliveryLine {
     delivered: 0,
     pending: 0,
     item_name: "",
+    item_id: null,
     item_sku: null,
     item_type: "product",
     unit: "ชิ้น",
@@ -154,12 +146,17 @@ export function DeliveryNoteFromQuotationForm({
   documentId,
 }: DeliveryNoteFromQuotationFormProps) {
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
+  // Catalog creation is an owner/manager action — officers pick from the catalog.
+  const { workspaceRole, workspacePermissions } = useWorkspaceRole();
+  const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
   const businessToday = businessTodayString(clientProfile);
   const todayString = () => businessToday;
   const toast = useToast();
+  const { items: catalogItems, addItem: addCatalogItem } = useItems(userId);
 
   const [quotation, setQuotation] = useState<QuotationWithCustomer | null>(null);
   const [quotationLines, setQuotationLines] = useState<DocumentLineItem[]>([]);
@@ -178,21 +175,17 @@ export function DeliveryNoteFromQuotationForm({
   // Caption shown when an old draft's single SO header was converted into a
   // section-marker line on load (forms no longer write dn_so_header).
   const [legacyHeaderConverted, setLegacyHeaderConverted] = useState(false);
-  // Section grouping is opt-in per DN (default off = today's flat flow).
-  // UI-only state, initialized from data — never persisted on its own.
-  const [groupingEnabled, setGroupingEnabled] = useState(false);
+  // Grouping is emergent, not a mode: any section-marker line groups the
+  // lines below it on the printout; no markers means a flat delivery note.
   // Hide lines that are already fully delivered (qty 0 + nothing remaining).
   const [hideCompleted, setHideCompleted] = useState(false);
-  // Per-line "รายละเอียดราคา" disclosure — independent of save data.
-  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
-  const toggleLineExpanded = (lineId: string) => {
-    setExpandedLines((current) => {
-      const next = new Set(current);
-      if (next.has(lineId)) next.delete(lineId);
-      else next.add(lineId);
-      return next;
-    });
-  };
+  // Line currently open in the editor modal (null = modal closed).
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  // Line whose price-history sheet is open (null = closed).
+  const [priceHistoryLineId, setPriceHistoryLineId] = useState<string | null>(null);
+  // Ids created via the add buttons this session — the modal offers
+  // "บันทึกและเพิ่มต่อ" for these instead of just บันทึก.
+  const newLineIdsRef = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
@@ -200,6 +193,8 @@ export function DeliveryNoteFromQuotationForm({
   // Required amount-display mode — never pre-selected. The officer picks
   // explicitly on every delivery note (draft edits hydrate the saved mode).
   const [amountDisplay, setAmountDisplay] = useState<DnAmountDisplay | null>(null);
+  // Last mode explicitly chosen for this customer — shown as a tag only.
+  const [amountHint, setAmountHint] = useState<DnAmountDisplay | null>(null);
   // Pending hidden→full switch awaiting modal confirmation (reveals prices to
   // the recipient — never a silent switch).
   const [pendingAmount, setPendingAmount] = useState<DnAmountDisplay | null>(null);
@@ -207,7 +202,14 @@ export function DeliveryNoteFromQuotationForm({
   const applyAmountDisplay = (value: DnAmountDisplay) => {
     setAmountDisplaySubmitAttempted(false);
     setAmountDisplay(value);
+    writeLastDnAmount(quotation?.customer_id, value);
+    setAmountHint(value);
   };
+
+  // Load the per-customer hint once the quotation (and its customer) is known.
+  useEffect(() => {
+    setAmountHint(readLastDnAmount(quotation?.customer_id));
+  }, [quotation?.customer_id]);
   // Turns the picker's hint red only after a save was attempted with no choice.
   const [amountDisplaySubmitAttempted, setAmountDisplaySubmitAttempted] = useState(false);
   const hideAmountsOnPrint = amountDisplay === "hidden";
@@ -219,7 +221,13 @@ export function DeliveryNoteFromQuotationForm({
   const isEditing = Boolean(documentId);
   // Mandatory per-line price review before a DN can be saved (opt-in).
   // Blank-form DNs carry no prices on the document — exempt, like deals/new.tsx.
-  const requirePriceReview = clientProfile?.require_dn_price_review === true && !isBlankForm;
+  const requirePriceReview = isPriceReviewRequired({
+    requireDnPriceReview: clientProfile?.require_dn_price_review === true,
+    isBlankForm,
+  });
+  // Catalog-price deviation guard (workspace setting; 0 = off). Shared with the
+  // deal form so both delivery-note paths warn on the same rule.
+  const priceWarnPct = clientProfile?.price_deviation_warn_pct ?? 10;
 
   useEffect(() => {
     if (documentId) return;
@@ -364,6 +372,7 @@ export function DeliveryNoteFromQuotationForm({
             if (isDnSectionMarker(line)) {
               initialLines.push({
                 id: line.id,
+                item_id: null,
                 source: null,
                 quantity: 0,
                 delivered: 0,
@@ -398,6 +407,7 @@ export function DeliveryNoteFromQuotationForm({
               delivered: total.delivered,
               pending: total.pending,
               item_name: line.item_name,
+              item_id: line.item_id ?? null,
               item_sku: line.item_sku ?? source?.item_sku ?? null,
               item_type: line.item_type || source?.item_type || "product",
               unit: line.unit || source?.unit || "ชิ้น",
@@ -420,6 +430,7 @@ export function DeliveryNoteFromQuotationForm({
             if (remaining <= 0) return;
             initialLines.push({
               id: line.id,
+              item_id: line.item_id ?? null,
               source: line,
               quantity: remaining,
               delivered: total.delivered,
@@ -448,6 +459,7 @@ export function DeliveryNoteFromQuotationForm({
           if (legacyHeader) {
             initialLines.unshift({
               id: crypto.randomUUID(),
+              item_id: null,
               source: null,
               quantity: 0,
               delivered: 0,
@@ -468,15 +480,13 @@ export function DeliveryNoteFromQuotationForm({
             });
             setLegacyHeaderConverted(true);
           }
-          if (legacyHeader || initialLines.some((line) => line.isSectionMarker)) {
-            setGroupingEnabled(true);
-          }
         } else {
           qLines.forEach((line) => {
             const total = totals.get(line.id) || { delivered: 0, pending: 0 };
             const remaining = round3(line.quantity - total.delivered - total.pending);
             initialLines.push({
               id: line.id,
+              item_id: line.item_id ?? null,
               source: line,
               quantity: Math.max(0, remaining),
               delivered: total.delivered,
@@ -567,12 +577,12 @@ export function DeliveryNoteFromQuotationForm({
     () => selectedLines.filter((line) => !line.isSectionMarker).length,
     [selectedLines],
   );
+  // Unnamed product rows can be saved in this form, so every non-marker line
+  // counts as reviewable here (the deal form counts named lines only).
   const pricePendingIds = useMemo(
     () =>
       requirePriceReview
-        ? selectedLines
-            .filter((line) => !line.isSectionMarker && !line.price_confirmed)
-            .map((line) => line.id)
+        ? pendingPriceReviewLines(selectedLines, { namedOnly: false }).map((line) => line.id)
         : [],
     [requirePriceReview, selectedLines],
   );
@@ -590,7 +600,7 @@ export function DeliveryNoteFromQuotationForm({
     {
       label: "วันที่ส่งของ",
       state: dateDone ? "done" : "current",
-      targetId: "dn-header",
+      targetId: "dn-step-date",
     },
     {
       label: "รายการ",
@@ -603,7 +613,7 @@ export function DeliveryNoteFromQuotationForm({
       targetId: "dn-step-print",
     },
   ];
-  const spyActive = useScrollSpy(["dn-header", "dn-step-lines", "dn-step-print"]);
+  const spyActive = useScrollSpy(["dn-step-date", "dn-step-lines", "dn-step-print"]);
   const nextStep: NextStepState = !issueDate
     ? { kind: "pick-date" }
     : itemLineCount === 0
@@ -620,7 +630,7 @@ export function DeliveryNoteFromQuotationForm({
               };
   // First blocker in save order — the guided-save jump target.
   const firstBlockerTarget = !issueDate
-    ? "dn-header"
+    ? "dn-step-date"
     : itemLineCount === 0
       ? "dn-step-lines"
       : emptyMarkerIds.length > 0
@@ -635,6 +645,46 @@ export function DeliveryNoteFromQuotationForm({
     window.setTimeout(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 30);
+  };
+
+  // Line currently open in the editor modal (null = closed).
+  const editingLine =
+    editingLineId != null ? (lines.find((item) => item.id === editingLineId) ?? null) : null;
+  const editingRemaining =
+    editingLine?.source != null
+      ? round3(editingLine.source.quantity - editingLine.delivered - editingLine.pending)
+      : null;
+  const editingOver =
+    editingLine != null &&
+    editingRemaining != null &&
+    editingLine.quantity > Math.max(0, editingRemaining);
+
+  // Last-price hints (เคยขาย…) per catalog line — same rule as the deal form,
+  // via the shared hook. Independent of the DN price-review setting.
+  const priceHints = usePriceHints({
+    userId,
+    customerId: quotation?.customer_id ?? null,
+    itemIds: lines.map((line) => line.item_id),
+    excludeDocumentId: documentId || null,
+  });
+
+  /** "Sold to this customer before at ฿x — use this price" shortcut. */
+  const renderPriceHint = (line: DeliveryLine) => {
+    const hintKey = priceHintKey(line.item_id, quotation?.customer_id ?? null);
+    const priceHint = hintKey ? (priceHints[hintKey] ?? null) : null;
+    if (!priceHint) return null;
+    return (
+      <PriceHint
+        hint={priceHint}
+        currentPrice={line.unit_price}
+        confirmsPrice={requirePriceReview}
+        onApply={() => updateLine(line.id, { unit_price: priceHint.price, price_confirmed: true })}
+      />
+    );
+  };
+
+  const handleSaveAndAddAnother = () => {
+    setEditingLineId(addCustomLine());
   };
 
   // Header progress: how much of the quotation is already delivered + this round.
@@ -684,18 +734,11 @@ export function DeliveryNoteFromQuotationForm({
   }, [quotation?.vat_rate, quotation?.vat_registered, quotation?.wht_rate, selectedLines]);
 
   // Form badges mirror the printed G / G.j hierarchy whenever grouping is on.
-  const lineNumbers = useMemo(
-    () => (groupingEnabled ? getDnSectionDisplayNumbers(lines) : null),
-    [groupingEnabled, lines],
-  );
-  const emptySectionIds = useMemo(
-    () => (groupingEnabled ? getDnSectionMarkersWithoutChildren(lines) : new Set<string>()),
-    [groupingEnabled, lines],
-  );
+  const lineNumbers = useMemo(() => getDnSectionDisplayNumbers(lines), [lines]);
+  const emptySectionIds = useMemo(() => getDnSectionMarkersWithoutChildren(lines), [lines]);
   // Item ids nested under a non-blank marker — indented as a visual section.
   // Mirrors getDnSectionDisplayNumbers: a blank marker ends the run.
   const inSectionIds = useMemo(() => {
-    if (!groupingEnabled) return new Set<string>();
     const ids = new Set<string>();
     let inSection = false;
     for (const line of lines) {
@@ -706,17 +749,10 @@ export function DeliveryNoteFromQuotationForm({
       if (inSection) ids.add(line.id);
     }
     return ids;
-  }, [groupingEnabled, lines]);
+  }, [lines]);
 
   const moveLine = (lineId: string, direction: "up" | "down") => {
-    setLines((current) => {
-      const index = current.findIndex((line) => line.id === lineId);
-      const target = direction === "up" ? index - 1 : index + 1;
-      if (index < 0 || target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
+    setLines((current) => moveLineInList(current, lineId, direction));
   };
 
   const updateQuantity = (lineId: string, value: string) => {
@@ -725,16 +761,6 @@ export function DeliveryNoteFromQuotationForm({
       current.map((line) =>
         line.id === lineId
           ? { ...line, quantity: Number.isFinite(nextQty) ? Math.max(0, round3(nextQty)) : 0 }
-          : line,
-      ),
-    );
-  };
-
-  const stepQuantity = (lineId: string, delta: number) => {
-    setLines((current) =>
-      current.map((line) =>
-        line.id === lineId
-          ? { ...line, quantity: Math.max(0, round3(line.quantity + delta)) }
           : line,
       ),
     );
@@ -781,10 +807,54 @@ export function DeliveryNoteFromQuotationForm({
     );
   };
 
+  /** Apply a catalog item to a line (dropdown pick or exact-name typing).
+   * The price always needs a fresh look — catalog prices are never auto-confirmed. */
+  const applyCatalogItem = (lineId: string, catalogItem: Item) => {
+    updateLine(lineId, {
+      item_name: catalogItem.name,
+      item_id: catalogItem.id,
+      item_sku: catalogItem.sku ?? null,
+      item_type: catalogItem.item_type,
+      unit: catalogItem.base_unit || "ชิ้น",
+      unit_price: Number(catalogItem.unit_price) || 0,
+      price_confirmed: false,
+    });
+  };
+
+  /** Name typing with exact-match catalog linking (mirrors the deal form). */
+  const handleLineNameChange = (lineId: string, value: string) => {
+    const name = value.trim();
+    const match = name
+      ? catalogItems.find((item) => item.name.toLowerCase() === name.toLowerCase())
+      : undefined;
+    if (match) {
+      applyCatalogItem(lineId, match);
+      updateLine(lineId, { item_name: value });
+      return;
+    }
+    updateLine(lineId, { item_name: value, item_id: null, item_sku: null, price_confirmed: false });
+  };
+
+  const createCatalogItem = async (
+    lineId: string,
+    input: {
+      name: string;
+      unit_price: number;
+      base_unit: string;
+      item_type: "product" | "service";
+    },
+  ) => {
+    const created = await addCatalogItem(input);
+    applyCatalogItem(lineId, created);
+    return created;
+  };
+
+  /** Create a blank item line and return its id — the caller opens the editor modal. */
   const addCustomLine = () => {
     const line = blankDeliveryLine();
+    newLineIdsRef.current.add(line.id);
     setLines((current) => [...current, line]);
-    focusLineInput(line.id);
+    return line.id;
   };
 
   const addSectionMarker = () => {
@@ -798,45 +868,33 @@ export function DeliveryNoteFromQuotationForm({
     focusLineInput(marker.id);
   };
 
-  /** Insert a blank header directly above a line — no append-then-shuffle. */
-  const insertSectionMarkerAbove = (lineId: string) => {
-    const marker = deliverySectionMarker();
-    setLines((current) => {
-      const idx = current.findIndex((item) => item.id === lineId);
-      const at = idx < 0 ? current.length : idx;
-      const prevLine = current[at - 1];
-      if (prevLine && prevLine.isSectionMarker && !prevLine.item_name.trim()) return current;
-      return [...current.slice(0, at), marker, ...current.slice(at)];
-    });
-    focusLineInput(marker.id);
-  };
-
-  /** Append a blank item at the end of a marker's section. */
+  /** Append a blank item at the end of a marker's section, opened in the editor modal. */
   const addItemToSection = (markerId: string) => {
     const line = blankDeliveryLine();
+    newLineIdsRef.current.add(line.id);
     setLines((current) => {
       const index = findSectionEndIndex(current, markerId);
       return [...current.slice(0, index), line, ...current.slice(index)];
     });
-    focusLineInput(line.id);
+    setEditingLineId(line.id);
   };
 
   const removeLine = (lineId: string) => {
-    setLines((current) => current.filter((line) => line.id !== lineId));
+    newLineIdsRef.current.delete(lineId);
+    setEditingLineId((current) => (current === lineId ? null : current));
+    setLines((current) => removeLineFromList(current, lineId));
   };
 
-  const toggleGrouping = (on: boolean) => {
-    // Turning off deletes the headers (with confirmation) — hidden markers
-    // that still affect the printout would be worse than asking once.
-    if (!on && lines.some((line) => line.isSectionMarker)) {
-      const count = lines.filter((line) => line.isSectionMarker).length;
-      const ok = window.confirm(
-        `ปิดการจัดกลุ่มจะลบหัวข้อกลุ่มทั้ง ${count} หัวข้อ — รายการสินค้าคงอยู่ครบและเรียงต่อเนื่องแบบปกติ ยืนยันหรือไม่?`,
-      );
-      if (!ok) return;
-      setLines((current) => current.filter((line) => !line.isSectionMarker));
+  /** Close the editor modal — a still-empty new line is discarded. */
+  const closeEditor = () => {
+    const id = editingLineId;
+    setEditingLineId(null);
+    if (!id || !newLineIdsRef.current.has(id)) return;
+    const line = lines.find((item) => item.id === id);
+    if (line && !line.item_name.trim() && line.quantity === 0) {
+      newLineIdsRef.current.delete(id);
+      setLines((current) => current.filter((item) => item.id !== id));
     }
-    setGroupingEnabled(on);
   };
 
   const handleSave = async () => {
@@ -845,7 +903,7 @@ export function DeliveryNoteFromQuotationForm({
     if (!issueDate) {
       setSaveAttempted(true);
       setError("กรุณาเลือกวันที่ส่งของ");
-      scrollToId("dn-header");
+      scrollToId("dn-step-date");
       return;
     }
     // Section markers carry no goods — they still need their header text,
@@ -877,18 +935,12 @@ export function DeliveryNoteFromQuotationForm({
     // is confirmed. Blank-form DNs carry no prices — exempt.
     // Section markers carry no price — exempt.
     if (requirePriceReview) {
-      const pending = selectedLines.filter(
-        (line) => !line.isSectionMarker && !line.price_confirmed,
-      );
+      const pending = pendingPriceReviewLines(selectedLines, { namedOnly: false });
       if (pending.length > 0) {
         setSaveAttempted(true);
         setError(`กรุณายืนยันราคาทุกรายการก่อนบันทึกใบส่งของ (เหลือ ${pending.length} รายการ)`);
-        // Auto-expand the pending lines so the confirm control is visible.
-        setExpandedLines((current) => {
-          const next = new Set(current);
-          pending.forEach((line) => next.add(line.id));
-          return next;
-        });
+        // Open the first pending line in the editor so the confirm control is visible.
+        setEditingLineId(pending[0].id);
         scrollToId(`dn-line-${pending[0].id}`);
         return;
       }
@@ -1000,10 +1052,26 @@ export function DeliveryNoteFromQuotationForm({
           discount_percent: line.discount_percent,
         });
 
+        // Carton lines: the paper shows cartons, stock moves in pieces
+        // (shared rule — see src/lib/documentLine.ts). The factor lives on the
+        // catalog item; `line.qty_carton` is the carton count, not the factor.
+        const cartonItem = line.item_id
+          ? catalogItems.find((item) => item.id === line.item_id)
+          : null;
+        const carton =
+          cartonItem?.carton_unit && Number(cartonItem.qty_per_carton) > 0
+            ? cartonSaveQuantities({
+                quantity: line.quantity,
+                unit: line.unit,
+                cartonUnit: cartonItem.carton_unit,
+                qtyPerCarton: Number(cartonItem.qty_per_carton),
+              })
+            : null;
+
         return {
           document_id: deliveryNoteId,
           user_id: userId,
-          item_id: line.source?.item_id ?? null,
+          item_id: line.item_id ?? line.source?.item_id ?? null,
           item_name: line.item_name,
           line_note: line.line_note.trim() || null,
           item_sku: line.item_sku,
@@ -1011,17 +1079,21 @@ export function DeliveryNoteFromQuotationForm({
           unit: line.unit,
           unit_price: line.unit_price,
           quantity: line.quantity,
-          base_quantity: line.source
-            ? getBaseQuantity(line.source, line.quantity)
-            : line.base_quantity,
+          base_quantity: carton
+            ? carton.baseQuantity
+            : line.source
+              ? getBaseQuantity(line.source, line.quantity)
+              : line.base_quantity,
           discount_percent: line.discount_percent,
           discount_amount: calc.discountAmount,
-          qty_carton: line.source
-            ? line.source.qty_carton
-              ? line.quantity
-              : null
-            : line.qty_carton,
-          carton_unit: line.source?.carton_unit ?? line.carton_unit,
+          qty_carton: carton
+            ? carton.qtyCarton
+            : line.source
+              ? line.source.qty_carton
+                ? line.quantity
+                : null
+              : line.qty_carton,
+          carton_unit: carton ? carton.cartonUnit : (line.source?.carton_unit ?? line.carton_unit),
           line_total: calc.lineTotal,
           source_document_id: line.source ? quotation.id : null,
           source_line_item_id: line.source ? line.source.id : null,
@@ -1116,34 +1188,56 @@ export function DeliveryNoteFromQuotationForm({
       )}
 
       <div className="space-y-4">
-        <Card id="dn-header" tone={issueDate ? "success" : undefined}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-label font-medium text-ink-500">อ้างอิงใบเสนอราคา</div>
-              <div className="mt-1 text-subtitle font-semibold text-ink-900">
-                {quotation.doc_number || "-"}
+        <Card>
+          <div className="text-label font-medium text-ink-500">อ้างอิงใบเสนอราคา</div>
+          <div className="mt-1 text-subtitle font-semibold text-ink-900">
+            {quotation.doc_number || "-"}
+          </div>
+          <div className="mt-1 text-body text-ink-500">{quotation.customer?.name || "ลูกค้า"}</div>
+          <div className="mt-2 text-label leading-5 text-ink-500">
+            เสนอ {formatQty(deliveryProgress.quoted)} · ส่งแล้ว{" "}
+            {formatQty(deliveryProgress.delivered)} · รอบนี้ {formatQty(deliveryProgress.thisRound)}{" "}
+            · ใบเสนอราคาลงวันที่ {docDate.date(quotation.issue_date)}
+          </div>
+        </Card>
+
+        <Card id="dn-step-date" tone={issueDate ? "success" : undefined}>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-body font-medium text-ink-900">
+                  วันที่ส่งของ <span className="text-danger">*</span>
+                </span>
+                {issueDate ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-paid-bg px-2 py-0.5 text-label font-medium text-paid-text">
+                    <Check className="h-3 w-3" />
+                    เลือกแล้ว
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-pending-bg px-2 py-0.5 text-label font-medium text-pending-text">
+                    จำเป็น — ยังไม่เลือก
+                  </span>
+                )}
               </div>
-              <div className="mt-1 text-body text-ink-500">
-                {quotation.customer?.name || "ลูกค้า"}
-              </div>
-              <div className="mt-2 text-label leading-5 text-ink-500">
-                เสนอ {formatQty(deliveryProgress.quoted)} · ส่งแล้ว{" "}
-                {formatQty(deliveryProgress.delivered)} · รอบนี้{" "}
-                {formatQty(deliveryProgress.thisRound)}
+              <div className="mt-0.5 text-label leading-5 text-ink-500">
+                {issueDate ? (
+                  <>
+                    {docDate.date(issueDate)} ·{" "}
+                    {new Date(`${issueDate}T00:00:00`).toLocaleDateString("th-TH", {
+                      weekday: "long",
+                    })}
+                  </>
+                ) : (
+                  "แตะปฏิทินเพื่อเลือกวันส่งของจริง — ต้องเลือกก่อนบันทึก"
+                )}
               </div>
             </div>
-            <div className="w-[160px]">
-              <label className="mb-1 block text-label font-medium text-ink-600">
-                วันที่ส่งของ <span className="text-danger">*</span>
-              </label>
-              <DateInput value={issueDate} onChange={(event) => setIssueDate(event.target.value)} />
-              {issueDate ? (
-                <div className="mt-1 text-label text-ink-400">
-                  วันที่ใบเสนอราคา {formatBuddhistDate(quotation.issue_date)}
-                </div>
-              ) : (
-                <div className="mt-1 text-label font-medium text-ink-500">ยังไม่เลือกวันที่</div>
-              )}
+            <div className="w-full sm:w-56">
+              <DateInput
+                value={issueDate}
+                onChange={(event) => setIssueDate(event.target.value)}
+                aria-label="วันที่ส่งของ"
+              />
             </div>
           </div>
         </Card>
@@ -1218,390 +1312,375 @@ export function DeliveryNoteFromQuotationForm({
               </div>
               {amountDisplay !== null && amountDisplay !== "full" && (
                 <p className="mb-3 rounded-control border border-line bg-paper-field px-3 py-2 text-label leading-5 text-ink-500">
-                  โหมดนี้ซ่อนราคาใน PDF — ราคาด้านล่างมีไว้คิดยอดออกบิลต่อเท่านั้น
+                  โหมดนี้ซ่อนราคาใน PDF — กดชื่อรายการเพื่อแก้ไขราคา (มีไว้คิดยอดออกบิลต่อเท่านั้น)
                 </p>
               )}
-              <div className="rounded-control border border-dashed border-card-border px-3 py-2">
-                <Switch
-                  checked={groupingEnabled}
-                  onChange={toggleGrouping}
-                  label={
-                    <>
-                      ส่งของหลาย SO ในใบเดียว{" "}
-                      <span className="font-normal text-ink-400">
-                        (เพิ่มหัวข้อกลุ่มเหนือรายการ)
-                      </span>
-                    </>
-                  }
-                />
-                <p className="mt-1 text-label leading-4 text-ink-400">
-                  เปิดเพื่อเพิ่มหัวข้อกลุ่มเหนือรายการ — ใบส่งของจะพิมพ์แยกกลุ่มตามหัวข้อ
-                  ปิดจะลบหัวข้อทั้งหมด (รายการสินค้าไม่หาย)
+              {legacyHeaderConverted && (
+                <p className="mb-3 rounded-control border border-line bg-paper-field px-3 py-2 text-label leading-5 text-ink-500">
+                  แปลงหัวข้อ SO เดี่ยวเดิมเป็นบรรทัดหัวข้อนี้แล้ว — ตรวจสอบและบันทึกเพื่อยืนยัน
                 </p>
-                {legacyHeaderConverted && groupingEnabled && (
-                  <p className="mt-1 text-label leading-4 text-ink-500">
-                    แปลงหัวข้อ SO เดี่ยวเดิมเป็นบรรทัดหัวข้อนี้แล้ว — ตรวจสอบและบันทึกเพื่อยืนยัน
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                {visibleLines.map((line) => {
-                  const index = lines.findIndex((item) => item.id === line.id);
-                  if (line.isSectionMarker && groupingEnabled) {
-                    const markerNumber = lineNumbers?.get(line.id);
-                    return (
-                      <div key={line.id} id={`dn-line-${line.id}`} className="flex gap-2">
-                        {markerNumber ? (
-                          <div
-                            className={`flex-shrink-0 w-6 h-6 mt-0 rounded-full border flex items-center justify-center leading-none ${
-                              line.item_name.trim()
-                                ? "border-success-border bg-paid-bg text-paid-text"
-                                : "border-primary-border bg-primary-soft text-primary"
-                            }`}
-                            title={line.item_name.trim() ? "กรอกหัวข้อแล้ว" : "ยังไม่กรอกหัวข้อ"}
-                          >
-                            {line.item_name.trim() ? (
-                              <Check className="h-3.5 w-3.5" />
-                            ) : (
-                              <span className="text-label font-semibold">{markerNumber}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex-shrink-0 w-5" aria-hidden />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <DnSectionMarkerRow
-                            value={line.item_name}
-                            onChange={(value) => updateLine(line.id, { item_name: value })}
-                            onRemove={() => removeLine(line.id)}
-                            onMoveUp={() => moveLine(line.id, "up")}
-                            onMoveDown={() => moveLine(line.id, "down")}
-                            canMoveUp={index > 0}
-                            canMoveDown={index < lines.length - 1}
-                            warnEmpty={emptySectionIds.has(line.id)}
-                            sectionNumber={markerNumber ?? undefined}
-                            itemCount={countSectionItems(lines, line.id)}
-                            onAddItem={() => addItemToSection(line.id)}
-                          />
-                        </div>
-                      </div>
-                    );
-                  }
-                  const remaining = line.source
-                    ? round3(line.source.quantity - line.delivered - line.pending)
-                    : null;
-                  const over = remaining !== null && line.quantity > Math.max(0, remaining);
-                  const lineCalc = calculateLineAmounts({
-                    unit_price: line.unit_price,
-                    quantity: line.quantity,
-                    discount_percent: line.discount_percent,
-                  });
-
-                  return (
-                    <div
-                      key={line.id}
-                      id={`dn-line-${line.id}`}
-                      className={`flex gap-2 ${inSectionIds.has(line.id) ? "ml-7" : ""}`}
-                    >
-                      {(() => {
-                        const done = line.quantity > 0;
-                        return (
-                          <div
-                            className={`flex-shrink-0 w-6 h-6 mt-0 rounded-full border flex items-center justify-center leading-none ${
-                              done
-                                ? "border-success-border bg-paid-bg text-paid-text"
-                                : "border-primary-border bg-primary-soft text-primary"
-                            }`}
-                            title={done ? "ใส่จำนวนแล้ว" : "ยังไม่ใส่จำนวน"}
-                          >
-                            {done ? (
-                              <Check className="h-3.5 w-3.5" />
-                            ) : (
-                              <span className="text-label font-semibold">
-                                {lineNumbers?.get(line.id) ?? index + 1}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
-                      <div
-                        className={`flex-1 min-w-0 rounded-card border p-3 ${over ? "border-amber-300 bg-amber-50/40" : line.quantity > 0 ? "border-success-border bg-white" : "border-card-border bg-white"}`}
+              )}
+              <div className="overflow-x-auto rounded-card border border-card-border">
+                <table className="w-full text-body">
+                  <thead>
+                    <tr className="border-b border-card-border bg-paper-soft/60 text-left text-label text-ink-500">
+                      <th scope="col" className="w-10 px-2 py-2 font-medium">
+                        <span className="sr-only">สถานะ</span>
+                      </th>
+                      <th scope="col" className="px-2 py-2 font-medium">
+                        รายการ
+                      </th>
+                      <th scope="col" className="px-2 py-2 text-right font-medium">
+                        จำนวนส่ง
+                      </th>
+                      <th scope="col" className="hidden px-2 py-2 font-medium sm:table-cell">
+                        หน่วย
+                      </th>
+                      <th
+                        scope="col"
+                        className="hidden px-2 py-2 text-right font-medium md:table-cell"
                       >
-                        <div className="flex items-start gap-2">
-                          <div className="min-w-0 flex-1">
-                            <Input
-                              label="ชื่อสินค้า / รายละเอียด"
-                              value={line.item_name}
-                              onChange={(event) =>
-                                updateLine(line.id, { item_name: event.target.value })
-                              }
-                              placeholder="ระบุชื่อสินค้า"
-                            />
-                            {line.source?.item_sku && (
-                              <div className="mt-0.5 text-label text-ink-500">
-                                SKU: {line.source.item_sku}
-                              </div>
-                            )}
-                          </div>
-                          <LineMoveButtons
-                            className="mt-5"
-                            onMoveUp={() => moveLine(line.id, "up")}
-                            onMoveDown={() => moveLine(line.id, "down")}
-                            canMoveUp={index > 0}
-                            canMoveDown={index < lines.length - 1}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeLine(line.id)}
-                            aria-label={`ลบรายการ ${line.item_name || index + 1}`}
-                            title="ลบรายการนี้"
-                            className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-red-300 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-
-                        {line.source &&
-                          (() => {
-                            const quoted = Number(line.source.quantity) || 0;
-                            const done = round3(line.delivered + line.pending);
-                            const pct =
-                              quoted > 0 ? Math.min(100, Math.round((done / quoted) * 100)) : 0;
-                            return (
-                              <div className="mt-2">
-                                <div className="text-label leading-5 text-ink-500">
-                                  เสนอ {formatQty(quoted)} · ส่งแล้ว {formatQty(line.delivered)}
-                                  {line.pending > 0
-                                    ? ` · ร่างค้าง ${formatQty(line.pending)}`
-                                    : ""}{" "}
-                                  ·{" "}
-                                  <span
-                                    className={`font-medium ${remaining! < 0 ? "text-red-700" : "text-ink-800"}`}
-                                  >
-                                    คงเหลือ {formatQty(Math.max(0, remaining!))} {line.source.unit}
-                                  </span>
-                                </div>
-                                <div
-                                  className="mt-1 h-1 overflow-hidden rounded-full bg-line-soft"
-                                  aria-hidden
-                                >
+                        ราคา/หน่วย
+                      </th>
+                      <th
+                        scope="col"
+                        className="hidden px-2 py-2 text-right font-medium md:table-cell"
+                      >
+                        ส่วนลด
+                      </th>
+                      <th scope="col" className="px-2 py-2 text-right font-medium">
+                        ยอดเงิน
+                      </th>
+                      <th scope="col" className="px-2 py-2">
+                        <span className="sr-only">จัดการ</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line-faint">
+                    {visibleLines.map((line) => {
+                      const index = lines.findIndex((item) => item.id === line.id);
+                      if (line.isSectionMarker) {
+                        const markerNumber = lineNumbers.get(line.id);
+                        return (
+                          <tr key={line.id} id={`dn-line-${line.id}`}>
+                            <td colSpan={8} className="px-2 py-2">
+                              <div className="flex gap-2">
+                                {markerNumber ? (
                                   <div
-                                    className="h-full rounded-full bg-primary/60"
-                                    style={{ width: `${pct}%` }}
+                                    className={`flex-shrink-0 w-6 h-6 mt-0.5 rounded-full border flex items-center justify-center leading-none ${
+                                      line.item_name.trim()
+                                        ? "border-success-border bg-paid-bg text-paid-text"
+                                        : "border-primary-border bg-primary-soft text-primary"
+                                    }`}
+                                    title={
+                                      line.item_name.trim() ? "กรอกหัวข้อแล้ว" : "ยังไม่กรอกหัวข้อ"
+                                    }
+                                  >
+                                    {line.item_name.trim() ? (
+                                      <Check className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <span className="text-label font-semibold">
+                                        {markerNumber}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex-shrink-0 w-6" aria-hidden />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <DnSectionMarkerRow
+                                    value={line.item_name}
+                                    onChange={(value) => updateLine(line.id, { item_name: value })}
+                                    onRemove={() => removeLine(line.id)}
+                                    onMoveUp={() => moveLine(line.id, "up")}
+                                    onMoveDown={() => moveLine(line.id, "down")}
+                                    canMoveUp={index > 0}
+                                    canMoveDown={index < lines.length - 1}
+                                    warnEmpty={emptySectionIds.has(line.id)}
+                                    sectionNumber={markerNumber ?? undefined}
+                                    itemCount={countSectionItems(lines, line.id)}
+                                    onAddItem={() => addItemToSection(line.id)}
                                   />
                                 </div>
                               </div>
-                            );
-                          })()}
+                            </td>
+                          </tr>
+                        );
+                      }
+                      const remaining = line.source
+                        ? round3(line.source.quantity - line.delivered - line.pending)
+                        : null;
+                      const over = remaining !== null && line.quantity > Math.max(0, remaining);
+                      const lineCalc = calculateLineAmounts({
+                        unit_price: line.unit_price,
+                        quantity: line.quantity,
+                        discount_percent: line.discount_percent,
+                      });
+                      const done = line.quantity > 0;
+                      const needsPrice = requirePriceReview && !line.price_confirmed;
+                      const openEditor = () => setEditingLineId(line.id);
 
-                        <div className="mt-3 flex flex-wrap items-end gap-2">
-                          <div className="flex items-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => stepQuantity(line.id, -1)}
-                              aria-label="ลดจำนวน"
-                              className="flex h-9 w-9 items-center justify-center rounded-control border border-card-border text-body text-ink-600 hover:border-primary hover:text-primary"
-                            >
-                              −
-                            </button>
-                            <div className="w-28">
-                              <Input
-                                label="จำนวนส่ง"
-                                type="number"
-                                min="0"
-                                step="0.001"
-                                value={line.quantity}
-                                onChange={(event) => updateQuantity(line.id, event.target.value)}
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => stepQuantity(line.id, 1)}
-                              aria-label="เพิ่มจำนวน"
-                              className="flex h-9 w-9 items-center justify-center rounded-control border border-card-border text-body text-ink-600 hover:border-primary hover:text-primary"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <div className="w-24">
-                            <Input
-                              label="หน่วย"
-                              value={line.unit}
-                              onChange={(event) =>
-                                updateLine(line.id, { unit: event.target.value })
-                              }
-                              placeholder="ชิ้น"
-                            />
-                          </div>
-                          {remaining != null && remaining > 0 && line.quantity !== remaining && (
-                            <button
-                              type="button"
-                              onClick={() => setQuantityToRemaining(line.id)}
-                              className="mb-0.5 rounded-full border border-primary-border bg-primary-soft px-2.5 py-1 text-label font-medium text-primary-deep hover:bg-primary-soft/70"
-                            >
-                              ทั้งหมด {formatQty(remaining)}
-                            </button>
-                          )}
-                          <div className="mb-1 ml-auto text-right">
-                            <div className="text-label font-medium tabular-nums text-ink-700">
-                              ฿{formatCurrency(lineCalc.lineTotal)}
-                            </div>
-                            <div className="text-label tabular-nums text-ink-400">
-                              {formatQty(line.quantity)} × ฿{formatCurrency(line.unit_price)}
-                            </div>
-                          </div>
-                        </div>
-
-                        {over && (
-                          <div className="mt-2 text-label font-medium text-amber-800">
-                            เกินคงเหลือ {formatQty(round3(line.quantity - Math.max(0, remaining!)))}{" "}
-                            {line.source!.unit} — ตรวจสอบกับลูกค้าก่อนส่ง
-                          </div>
-                        )}
-                        {groupingEnabled && (
-                          <button
-                            type="button"
-                            onClick={() => insertSectionMarkerAbove(line.id)}
-                            className="mt-2 text-label text-ink-400 hover:text-primary-deep hover:underline"
-                          >
-                            + เพิ่มหัวข้อกลุ่มเหนือรายการนี้
-                          </button>
-                        )}
-
-                        {requirePriceReview && !line.price_confirmed && (
-                          <div className="mt-2">
-                            <PriceReviewControl
-                              className="rounded-control border border-line bg-paper-field px-3 py-2"
-                              confirmed={line.price_confirmed}
-                              onConfirm={() => updateLine(line.id, { price_confirmed: true })}
-                              onUnconfirm={() => updateLine(line.id, { price_confirmed: false })}
-                            />
-                          </div>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => toggleLineExpanded(line.id)}
-                          aria-expanded={expandedLines.has(line.id)}
-                          className="mt-2 text-label font-medium text-primary-deep hover:underline"
+                      return (
+                        <tr
+                          key={line.id}
+                          id={`dn-line-${line.id}`}
+                          className={
+                            over ? "bg-amber-50/60" : done ? "bg-success-soft/40" : undefined
+                          }
                         >
-                          {expandedLines.has(line.id)
-                            ? "ซ่อนราคา / หมายเหตุ"
-                            : "ราคา / ส่วนลด / หมายเหตุ"}
-                          {requirePriceReview && line.price_confirmed ? " · ยืนยันราคาแล้ว" : ""}
-                          {line.hide_amounts_on_print ? " · ซ่อนราคาใน PDF" : ""}
-                        </button>
-
-                        {expandedLines.has(line.id) && (
-                          <div className="mt-2 space-y-2 rounded-control border border-line bg-paper-field/60 p-3">
-                            <div className="grid grid-cols-2 gap-2">
-                              <Input
-                                label="ราคา/หน่วย (เก็บไว้คิดบิลต่อ)"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={line.unit_price}
-                                onChange={(event) => {
-                                  const next = Number(event.target.value);
-                                  updateLine(line.id, {
-                                    unit_price: Number.isFinite(next) ? Math.max(0, next) : 0,
-                                    price_confirmed: true,
-                                  });
-                                }}
-                              />
-                              <Input
-                                label="ส่วนลด %"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={line.discount_percent}
-                                onChange={(event) => {
-                                  const next = Number(event.target.value);
-                                  updateLine(line.id, {
-                                    discount_percent: Number.isFinite(next) ? Math.max(0, next) : 0,
-                                  });
-                                }}
-                              />
+                          <td className="px-2 py-2 align-top">
+                            <div
+                              className={`flex h-6 w-6 rounded-full border items-center justify-center leading-none ${
+                                done
+                                  ? "border-success-border bg-paid-bg text-paid-text"
+                                  : "border-primary-border bg-primary-soft text-primary"
+                              }`}
+                              title={done ? "ใส่จำนวนแล้ว" : "ยังไม่ใส่จำนวน"}
+                            >
+                              {done ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : (
+                                <span className="text-label font-semibold">
+                                  {lineNumbers.get(line.id) ?? index + 1}
+                                </span>
+                              )}
                             </div>
-
-                            {requirePriceReview && line.price_confirmed && (
-                              <PriceReviewControl
-                                className="rounded-control border border-line bg-white px-3 py-2"
-                                confirmed={line.price_confirmed}
-                                onConfirm={() => updateLine(line.id, { price_confirmed: true })}
-                                onUnconfirm={() => updateLine(line.id, { price_confirmed: false })}
-                              />
-                            )}
-
-                            <Input
-                              label="หมายเหตุของรายการ"
-                              value={line.line_note}
-                              onChange={(event) =>
-                                updateLine(line.id, { line_note: event.target.value })
-                              }
-                              placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
-                            />
-
-                            <div className="flex items-center gap-2">
+                          </td>
+                          <td
+                            className={`min-w-0 px-2 py-2 align-top ${inSectionIds.has(line.id) ? "pl-7" : ""}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={openEditor}
+                              className="block min-w-0 text-left"
+                              title="แก้ไขรายการ"
+                            >
+                              <span className="block text-body font-medium text-ink-900">
+                                {line.item_name || (
+                                  <span className="font-normal text-ink-400">
+                                    ยังไม่ระบุชื่อ — แตะเพื่อเพิ่ม
+                                  </span>
+                                )}
+                              </span>
+                              {line.source?.item_sku && (
+                                <span className="block text-label text-ink-500">
+                                  SKU: {line.source.item_sku}
+                                </span>
+                              )}
+                              {line.line_note.trim() && (
+                                <span className="block line-clamp-2 text-label text-ink-500">
+                                  {line.line_note}
+                                </span>
+                              )}
+                            </button>
+                            {over && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  updateLine(line.id, {
-                                    hide_amounts_on_print: !line.hide_amounts_on_print,
-                                  })
-                                }
-                                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-label transition-colors ${line.hide_amounts_on_print ? "border-amber-300 bg-amber-50 text-amber-800" : "border-card-border bg-white text-ink-500 hover:border-primary hover:text-primary"}`}
-                                title={
-                                  line.hide_amounts_on_print
-                                    ? "คลิกเพื่อแสดงราคาในเอกสาร"
-                                    : "คลิกเพื่อซ่อนราคาในเอกสาร"
-                                }
+                                onClick={openEditor}
+                                className="mt-0.5 block text-left text-label font-medium text-amber-800"
                               >
-                                {line.hide_amounts_on_print ? (
-                                  <EyeOff className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Eye className="h-3.5 w-3.5" />
-                                )}
-                                {line.hide_amounts_on_print
-                                  ? "ซ่อนราคาแล้ว"
-                                  : "ซ่อนราคาเฉพาะรายการนี้"}
+                                เกินคงเหลือ{" "}
+                                {formatQty(round3(line.quantity - Math.max(0, remaining!)))}{" "}
+                                {line.source!.unit} — แตะเพื่อแก้ไข
+                              </button>
+                            )}
+                            {needsPrice && (
+                              <button
+                                type="button"
+                                onClick={openEditor}
+                                className="mt-0.5 block text-left text-label font-medium text-amber-800"
+                              >
+                                รอการยืนยันราคา — แตะเพื่อยืนยัน
+                              </button>
+                            )}
+                            {line.hide_amounts_on_print && (
+                              <span className="mt-0.5 block text-label text-ink-400">
+                                ซ่อนราคาใน PDF
+                              </span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 align-top text-right tabular-nums">
+                            <button
+                              type="button"
+                              onClick={openEditor}
+                              className="hover:text-primary-deep hover:underline"
+                              title="แก้ไขจำนวน"
+                            >
+                              <span className="font-medium text-ink-800">
+                                {formatQty(line.quantity)}
+                              </span>
+                              <span className="text-label font-normal text-ink-500 sm:hidden">
+                                {" "}
+                                {line.unit || "—"}
+                              </span>
+                            </button>
+                            {remaining != null && remaining > 0 && (
+                              <div className="mt-0.5 text-label text-ink-400">
+                                คงเหลือให้ส่ง {formatQty(remaining)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="hidden whitespace-nowrap px-2 py-2 align-top sm:table-cell">
+                            <button
+                              type="button"
+                              onClick={openEditor}
+                              className="hover:text-primary-deep hover:underline"
+                              title="แก้ไขหน่วย"
+                            >
+                              {line.unit || "—"}
+                            </button>
+                          </td>
+                          <td className="hidden whitespace-nowrap px-2 py-2 text-right align-top tabular-nums md:table-cell">
+                            <button
+                              type="button"
+                              onClick={openEditor}
+                              className="hover:text-primary-deep hover:underline"
+                              title="แก้ไขราคา"
+                            >
+                              ฿{formatCurrency(line.unit_price)}
+                            </button>
+                          </td>
+                          <td className="hidden whitespace-nowrap px-2 py-2 text-right align-top tabular-nums md:table-cell">
+                            <button
+                              type="button"
+                              onClick={openEditor}
+                              className="hover:text-primary-deep hover:underline"
+                              title="แก้ไขส่วนลด"
+                            >
+                              {line.discount_percent ? `${formatQty(line.discount_percent)}%` : "—"}
+                            </button>
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 text-right align-top tabular-nums">
+                            <div className="font-medium text-ink-800">
+                              ฿{formatCurrency(lineCalc.lineTotal)}
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 align-top">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={openEditor}
+                                aria-label={`แก้ไข ${line.item_name || `รายการที่ ${index + 1}`}`}
+                                title="แก้ไขทั้งหมด"
+                                className="flex h-8 w-8 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-primary hover:text-primary"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <LineMoveButtons
+                                onMoveUp={() => moveLine(line.id, "up")}
+                                onMoveDown={() => moveLine(line.id, "down")}
+                                canMoveUp={index > 0}
+                                canMoveDown={index < lines.length - 1}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeLine(line.id)}
+                                aria-label={`ลบรายการ ${line.item_name || index + 1}`}
+                                title="ลบรายการนี้"
+                                className="flex h-8 w-8 items-center justify-center rounded-control border border-card-border text-ink-400 transition-colors hover:border-red-300 hover:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {visibleLines.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-6 text-center text-label text-ink-400">
+                          ยังไม่มีรายการ — กดปุ่มเพิ่มสินค้าด้านล่าง
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
+              <div className="mt-2 flex flex-col gap-2">
                 <Button
                   variant="secondary"
                   size="sm"
                   className="w-full justify-center"
-                  onClick={addCustomLine}
+                  onClick={() => setEditingLineId(addCustomLine())}
                 >
                   <Plus className="h-4 w-4 mr-1.5" />
                   เพิ่มสินค้าหรือบริการ
                 </Button>
-                {groupingEnabled && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full justify-center"
-                    onClick={addSectionMarker}
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    เพิ่มหัวข้อกลุ่ม (SO ของลูกค้า)
-                  </Button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => scrollToId("dn-step-print")}
-                  className="mt-1 w-full text-center text-label font-medium text-primary-deep hover:underline"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full justify-center"
+                  onClick={addSectionMarker}
                 >
-                  ไปเลือกการแสดงผล ↓
-                </button>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  เพิ่มหัวข้อกลุ่ม (SO ของลูกค้า)
+                </Button>
               </div>
+              <button
+                type="button"
+                onClick={() => scrollToId("dn-step-print")}
+                className="mt-1 w-full text-center text-label font-medium text-primary-deep hover:underline"
+              >
+                ไปเลือกการแสดงผล ↓
+              </button>
+
+              <LineItemEditorModal
+                open={editingLine != null}
+                line={editingLine}
+                isNew={editingLine != null && newLineIdsRef.current.has(editingLine.id)}
+                priceWarnPct={isBlankForm ? 0 : priceWarnPct}
+                remaining={editingRemaining}
+                over={editingOver}
+                requirePriceReview={requirePriceReview}
+                pricesInternalOnly={amountDisplay !== null && amountDisplay !== "full"}
+                onClose={closeEditor}
+                onPatch={(patch) => {
+                  if (editingLine) updateLine(editingLine.id, patch);
+                }}
+                onQuantity={(value) => {
+                  if (editingLine) updateQuantity(editingLine.id, value);
+                }}
+                onSetRemaining={() => {
+                  if (editingLine) setQuantityToRemaining(editingLine.id);
+                }}
+                onDelete={() => {
+                  if (editingLine) removeLine(editingLine.id);
+                }}
+                onSaveAndAddAnother={handleSaveAndAddAnother}
+                items={catalogItems}
+                onNameChange={(value) => {
+                  if (editingLine) handleLineNameChange(editingLine.id, value);
+                }}
+                onPickCatalogItem={(item) => {
+                  if (editingLine) applyCatalogItem(editingLine.id, item);
+                }}
+                canCreateCatalogItem={permissions.canManageCatalog}
+                allowDiscount={isDiscountEnabled(clientProfile)}
+                onCreateCatalogItem={async (input) => {
+                  if (!editingLine)
+                    throw new Error(
+                      "\u0e44\u0e21\u0e48\u0e21\u0e35\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e17\u0e35\u0e48\u0e01\u0e33\u0e25\u0e31\u0e07\u0e41\u0e01\u0e49\u0e44\u0e02",
+                    );
+                  return createCatalogItem(editingLine.id, input);
+                }}
+                sourceSummary={
+                  editingLine?.source
+                    ? {
+                        quoted: Number(editingLine.source.quantity) || 0,
+                        delivered: editingLine.delivered,
+                        pending: editingLine.pending,
+                        unit: editingLine.source.unit || editingLine.unit,
+                      }
+                    : null
+                }
+                onOpenPriceHistory={
+                  editingLine?.item_id
+                    ? () => setPriceHistoryLineId(editingLine.id)
+                    : undefined
+                }
+                priceHint={editingLine ? renderPriceHint(editingLine) : null}
+              />
             </FormStep>
 
             <FormStep
@@ -1621,6 +1700,7 @@ export function DeliveryNoteFromQuotationForm({
               <DnAmountDisplayPicker
                 value={amountDisplay}
                 showError={amountDisplaySubmitAttempted}
+                hintValue={amountHint}
                 onChange={(value) => {
                   if (amountDisplay === "hidden" && value === "full") {
                     setPendingAmount(value);
@@ -1739,7 +1819,9 @@ export function DeliveryNoteFromQuotationForm({
                 label: isEditing ? "บันทึกร่างใบส่งของ" : "สร้างใบส่งของฉบับร่าง",
                 onClick: handleSave,
                 loading: saving,
-                disabled: selectedLines.length === 0 || saving,
+                // Readiness gate: never clickable while anything is missing —
+                // the hint above names the blocker and jumps to it.
+                disabled: firstBlockerTarget != null || saving,
               }}
             />
           </div>
@@ -1767,6 +1849,30 @@ export function DeliveryNoteFromQuotationForm({
             </Button>
           </div>
         </Modal>
+        {(() => {
+          const target = lines.find((line) => line.id === priceHistoryLineId) || null;
+          const targetItem = target?.item_id
+            ? catalogItems.find((item) => item.id === target.item_id)
+            : null;
+          if (!target || !targetItem || !userId) return null;
+          return (
+            <PriceHistorySheet
+              open
+              onClose={() => setPriceHistoryLineId(null)}
+              userId={userId}
+              itemId={targetItem.id}
+              itemName={targetItem.name}
+              customerId={quotation?.customer_id ?? null}
+              customerName={quotation?.customer?.name ?? null}
+              excludeDocumentId={documentId || null}
+              currentPrice={target.unit_price}
+              onApply={(price) => {
+                updateLine(target.id, { unit_price: price, price_confirmed: true });
+                setPriceHistoryLineId(null);
+              }}
+            />
+          );
+        })()}
       </div>
     </AppShell>
   );

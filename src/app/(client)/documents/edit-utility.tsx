@@ -6,6 +6,7 @@ import { useToast } from "../../../hooks/useToast";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { NumericInput } from "../../../components/ui/NumericInput";
 import { Card } from "../../../components/ui/Card";
 import { CatalogAutocomplete } from "../../../components/CatalogAutocomplete";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -362,21 +363,19 @@ export default function EditUtilityBillPage() {
             <div>
               <span className="mb-1.5 block text-body text-ink-900">มาตรวัด</span>
               <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
-                <Input
+                <NumericInput
                   label="เลขก่อนหน้า"
-                  type="number"
-                  min="0"
-                  value={utilityPreviousReading}
-                  onChange={(e) => setUtilityPreviousReading(e.target.value)}
+                  value={utilityPreviousReading === "" ? null : parseAmount(utilityPreviousReading)}
+                  maxFractionDigits={3}
+                  onTextChange={setUtilityPreviousReading}
                   placeholder="0"
                 />
                 <span className="pb-2 text-ink-400 text-body">→</span>
-                <Input
+                <NumericInput
                   label="เลขปัจจุบัน"
-                  type="number"
-                  min="0"
-                  value={utilityCurrentReading}
-                  onChange={(e) => setUtilityCurrentReading(e.target.value)}
+                  value={utilityCurrentReading === "" ? null : parseAmount(utilityCurrentReading)}
+                  maxFractionDigits={3}
+                  onTextChange={setUtilityCurrentReading}
                   placeholder="0"
                   error={utilityValidation.readingError}
                 />
@@ -389,12 +388,12 @@ export default function EditUtilityBillPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Input
+              <NumericInput
                 label="ราคา/หน่วย (บาท)"
-                type="number"
-                min="0"
-                value={utilityRate}
-                onChange={(e) => setUtilityRate(e.target.value)}
+                value={utilityRate === "" ? null : parseAmount(utilityRate)}
+                maxFractionDigits={2}
+                minFractionDigits={2}
+                onTextChange={setUtilityRate}
                 placeholder="0.00"
                 error={utilityValidation.rateError}
               />
