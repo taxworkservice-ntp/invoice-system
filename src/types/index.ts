@@ -148,6 +148,14 @@ export interface ClientProfile {
   classic_v2_sign_every_page?: boolean;
   /** Classic V2: render item-table text (headers, amounts, group labels) in regular weight (default off). */
   classic_v2_regular_item_font?: boolean;
+  /**
+   * Classic V2: how much of the items table's inner grid is drawn.
+   *   "all"  — row separators + column rules (default)
+   *   "rows" — row separators only
+   *   "none" — no inner lines (the header separator, the divide between DN
+   *            groups and the table frame still print)
+   */
+  classic_v2_table_lines?: "all" | "rows" | "none";
   /** Classic V2 delivery notes: tighten paddings/margins/line-height (no font change) to fit more lines per page. */
   classic_v2_compact_dn?: boolean;
   show_signature_on_wht: boolean;

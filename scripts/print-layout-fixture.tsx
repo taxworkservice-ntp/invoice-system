@@ -712,6 +712,13 @@ if (params.get("compactSig") === "1") {
     classic_v2_compact_signature: true,
   };
 }
+const tableLines = params.get("tableLines");
+if (tableLines === "rows" || tableLines === "none") {
+  activeBaseData.clientProfile = {
+    ...activeBaseData.clientProfile,
+    classic_v2_table_lines: tableLines,
+  };
+}
 if (params.get("compactDn") === "1") {
   activeBaseData.clientProfile = {
     ...activeBaseData.clientProfile,

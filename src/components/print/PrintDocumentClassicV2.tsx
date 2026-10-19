@@ -543,6 +543,8 @@ export function PrintDocumentClassicV2({
         + `${clientProfile.classic_v2_compact_signature ? " print-sig-compact" : ""}`
         + `${clientProfile.classic_v2_regular_item_font ? " print-regular-items" : ""}`
         + `${compactDn ? " print-dn-compact" : ""}`
+        + `${clientProfile.classic_v2_table_lines === "rows" ? " print-classic-table-lines-rows" : ""}`
+        + `${clientProfile.classic_v2_table_lines === "none" ? " print-classic-table-lines-none" : ""}`
       }
       style={{
         "--classic-font-scale": fontScaleMult,

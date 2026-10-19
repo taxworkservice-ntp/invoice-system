@@ -55,6 +55,11 @@ const VARIANTS = [
   { name: "invoice project first", template: "classic_v2", doc: "project", pageMode: "first" },
   { name: "invoice project last", template: "classic_v2", doc: "project", pageMode: "last" },
   { name: "invoice project xlarge", template: "classic_v2", doc: "project", pageMode: "single", fontScale: "xlarge" },
+  // The inner grid can be switched off (rows only / no inner lines) — the sheet
+  // must still fit A4 and the page must still be filled the same way.
+  { name: "invoice lines rows", template: "classic_v2", doc: "project", pageMode: "single", tableLines: "rows" },
+  { name: "invoice lines none", template: "classic_v2", doc: "project", pageMode: "single", tableLines: "none" },
+  { name: "dn lines none", template: "classic_v2", doc: "dn", pageMode: "last", tableLines: "none" },
   { name: "dn (invoice from DNs) last", template: "classic_v2", doc: "dn", pageMode: "last" },
 ];
 
@@ -88,6 +93,7 @@ async function measureVariant(page, baseUrl, variant) {
   if (variant.pageMode) url.searchParams.set("pageMode", variant.pageMode);
   if (variant.fontScale) url.searchParams.set("fontScale", variant.fontScale);
   if (variant.compactDn) url.searchParams.set("compactDn", "1");
+  if (variant.tableLines) url.searchParams.set("tableLines", variant.tableLines);
 
   await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForSelector(".print-sheet", { timeout: 15000 });

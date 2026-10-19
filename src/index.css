@@ -1017,6 +1017,21 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   background: #ffffff;
 }
 .print-classic-items-table tbody td:last-child { border-right: 0; }
+
+/* Classic V2: how much of the items table's inner grid is drawn
+   (Settings › เอกสาร → เส้นในตาราง). The column rules and the row
+   separators are the body cells' two borders, so the option switches their
+   colour — the frame, the header underline and the divide between DN groups
+   are separate rules and always print. */
+.print-theme-classic-v2.print-classic-table-lines-rows
+  .print-classic-items-table tbody td {
+  border-right-color: transparent;
+}
+.print-theme-classic-v2.print-classic-table-lines-none
+  .print-classic-items-table tbody td {
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
 /* description column scales separately from the numeric columns */
 .print-classic-items-table tbody td.print-classic-item-name {
   font-size: calc(7.5pt * var(--classic-fs-items));

@@ -37,6 +37,9 @@ const VARIANTS = [
   { name: "delivery-compact", template: "classic_v2", doc: "delivery", compactDn: true },
   { name: "delivery-xlarge", template: "classic_v2", doc: "delivery", fontScale: "xlarge" },
   { name: "many", template: "classic_v2", doc: "many" },
+  // With the inner grid off the rows lose their 0.5px bottom border, so the
+  // model (which charges for it) must stay an upper bound.
+  { name: "project-no-lines", template: "classic_v2", doc: "project", tableLines: "none" },
 ];
 
 async function executablePath() {
@@ -76,6 +79,7 @@ async function measureVariant(page, baseUrl, variant) {
   if (variant.doc) url.searchParams.set("doc", variant.doc);
   if (variant.fontScale) url.searchParams.set("fontScale", variant.fontScale);
   if (variant.compactDn) url.searchParams.set("compactDn", "1");
+  if (variant.tableLines) url.searchParams.set("tableLines", variant.tableLines);
 
   await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForSelector(".print-sheet", { timeout: 15000 });

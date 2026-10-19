@@ -257,6 +257,7 @@ export default function SettingsDocumentsPage() {
   const [classicV2FullPageHeader, setClassicV2FullPageHeader] = useState(false);
   const [classicV2HideEnglishLabels, setClassicV2HideEnglishLabels] = useState(false);
   const [classicV2CompactSignature, setClassicV2CompactSignature] = useState(false);
+  const [classicV2TableLines, setClassicV2TableLines] = useState<"all" | "rows" | "none">("all");
   const [classicV2SignEveryPage, setClassicV2SignEveryPage] = useState(false);
   const [classicV2RegularItemFont, setClassicV2RegularItemFont] = useState(false);
   const [classicV2CompactDn, setClassicV2CompactDn] = useState(false);
@@ -307,6 +308,11 @@ export default function SettingsDocumentsPage() {
     setClassicV2FullPageHeader(clientProfile.classic_v2_full_page_header === true);
     setClassicV2HideEnglishLabels(clientProfile.classic_v2_hide_english_labels === true);
     setClassicV2CompactSignature(clientProfile.classic_v2_compact_signature === true);
+    setClassicV2TableLines(
+      clientProfile.classic_v2_table_lines === "rows" || clientProfile.classic_v2_table_lines === "none"
+        ? clientProfile.classic_v2_table_lines
+        : "all",
+    );
     setClassicV2SignEveryPage(clientProfile.classic_v2_sign_every_page === true);
     setClassicV2RegularItemFont(clientProfile.classic_v2_regular_item_font === true);
     setClassicV2CompactDn(clientProfile.classic_v2_compact_dn === true);
@@ -388,6 +394,7 @@ export default function SettingsDocumentsPage() {
       classic_v2_full_page_header: classicV2FullPageHeader,
       classic_v2_hide_english_labels: classicV2HideEnglishLabels,
       classic_v2_compact_signature: classicV2CompactSignature,
+      classic_v2_table_lines: classicV2TableLines,
       classic_v2_sign_every_page: classicV2SignEveryPage,
       classic_v2_regular_item_font: classicV2RegularItemFont,
       classic_v2_compact_dn: classicV2CompactDn,
@@ -494,6 +501,7 @@ export default function SettingsDocumentsPage() {
     classicV2FullPageHeader !== (clientProfile?.classic_v2_full_page_header === true) ||
     classicV2HideEnglishLabels !== (clientProfile?.classic_v2_hide_english_labels === true) ||
     classicV2CompactSignature !== (clientProfile?.classic_v2_compact_signature === true) ||
+    classicV2TableLines !== (clientProfile?.classic_v2_table_lines ?? "all") ||
     classicV2SignEveryPage !== (clientProfile?.classic_v2_sign_every_page === true) ||
     classicV2RegularItemFont !== (clientProfile?.classic_v2_regular_item_font === true) ||
     classicV2CompactDn !== (clientProfile?.classic_v2_compact_dn === true) ||
@@ -719,6 +727,26 @@ export default function SettingsDocumentsPage() {
                 controlAlign="right"
               >
                 <Switch checked={classicV2RegularItemFont} onChange={(checked) => { setClassicV2RegularItemFont(checked); setSaved(false); }} />
+              </SettingRow>
+            )}
+            {pdfTemplate === "classic_v2" && hasClassicV2 && (
+              <SettingRow
+                label="เส้นในตารางรายการ (คลาสสิก V2)"
+                description="เส้นคั่นภายในตารางรายการ — ทั้งหมด = เส้นแนวนอนและแนวตั้ง, แนวนอน = มีเส้นคั่นแนวนอนอย่างเดียว, ไม่แสดง = ไม่มีเส้นคั่นภายใน (เส้นใต้หัวตาราง เส้นคั่นระหว่างใบส่งของ และกรอบตารางยังคงพิมพ์)"
+                controlAlign="right"
+              >
+                <Select
+                  value={classicV2TableLines}
+                  onChange={(event) => {
+                    setClassicV2TableLines(event.target.value as "all" | "rows" | "none");
+                    setSaved(false);
+                  }}
+                  className="w-[180px]"
+                >
+                  <option value="all">ทั้งหมด (แนวนอน + แนวตั้ง)</option>
+                  <option value="rows">เฉพาะแนวนอน</option>
+                  <option value="none">ไม่แสดงเส้นคั่น</option>
+                </Select>
               </SettingRow>
             )}
             {pdfTemplate === "classic_v2" && hasClassicV2 && (

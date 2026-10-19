@@ -930,3 +930,35 @@ cell can hold, so the `project` fixture variants keep it honest.
 Note for a later pass: a delivery note's child rows indent their names (`1.1 …`),
 so there the heading aligns with the column rather than with that indentation —
 intentional, the heading is not a line item.
+
+### 2026-10-19 — the items table's inner grid becomes a setting (Classic V2)
+
+The table's inner rules were all-or-nothing: the body cells carried both a
+column rule and a row separator, so a DN group band (a merged section title)
+was the only row without inner lines — and a document that wanted the airy
+"no grid" look had to live with a full ledger grid.
+
+`client_profiles.classic_v2_table_lines` (per workspace, like the other
+classic V2 print options) now chooses:
+
+- `all` (default) — column rules + row separators, as before;
+- `rows` — row separators only, no column rules;
+- `none` — no inner lines at all.
+
+The switch is two border-colour rules on the items table's body cells, so
+everything that is a *separate* rule keeps printing: the table frame, the
+underline under the header, and **the divide between DN groups** (the group
+row's `border-top`). Verified on the fixture: the group's top rule is
+`#9ca3af` in all three modes, while the cells' right/bottom borders go
+transparent in `rows` / `none`.
+
+The migration (`sql/20261019_classic_v2_table_lines.sql`) is applied to the
+project; every existing workspace reads `all`. The fill check gained three
+variants (`rows`, `none`, a DN with `none`) and the estimate check one
+(`project-no-lines`): with the borders gone the rows render 3.2mm shorter than
+the model charges, so the model stays an upper bound and pages break a touch
+early rather than late.
+
+Note: `none` also removes the ruled look of the blank rows that pad a short
+document to the bottom of the page — that is the point of the option, but it
+is the reason `all` stays the default.
