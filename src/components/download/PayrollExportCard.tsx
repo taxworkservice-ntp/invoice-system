@@ -6,6 +6,7 @@ import { useDownloadJob } from "../../hooks/useDownloadJob";
 import { downloadBlob } from "../../lib/download/download";
 import { logDownload } from "../../lib/download/audit";
 import { getProxiedImageUrl } from "../../lib/r2";
+import { useDocDate } from "../YearEraProvider";
 import type { PayslipCompany } from "../../lib/payroll/payslipPdf";
 import type { PayrollRun } from "../../types";
 import { DownloadJobBar } from "./DownloadJobBar";
@@ -29,6 +30,7 @@ function runLabel(run: PayrollRun) {
 export function PayrollExportCard() {
   const { profile } = useAuth();
   const { clientProfile } = useClientProfile(profile?.id);
+  const docDate = useDocDate();
   const toast = useToast();
   const job = useDownloadJob();
   const userId = profile?.id;
@@ -79,13 +81,13 @@ export function PayrollExportCard() {
 
       let workbook;
       if (kind === "summary") {
-        workbook = buildRunSummaryWorkbook(bundle.run, bundle.rows);
+        workbook = buildRunSummaryWorkbook(bundle.run, bundle.rows, docDate.era);
       } else if (kind === "bank") {
         const rows = bundle.rows.filter((row) => row.employee.bank_account);
         if (rows.length === 0) throw new Error("ไม่มีพนักงานที่มีเลขบัญชีธนาคาร");
-        workbook = buildBankPaymentWorkbook(bundle.run, rows);
+        workbook = buildBankPaymentWorkbook(bundle.run, rows, docDate.era);
       } else {
-        workbook = buildWhtWorkbook(bundle.run, bundle.rows);
+        workbook = buildWhtWorkbook(bundle.run, bundle.rows, docDate.era);
       }
 
       const blob = await workbookToBlob(workbook);
@@ -109,7 +111,7 @@ export function PayrollExportCard() {
       const { loadPayrollExportBundle } = await import("../../lib/payroll/exportRun");
       const { buildPayslipsZip } = await import("../../lib/payroll/payslipBatch");
       const bundle = await loadPayrollExportBundle(userId, runId);
-      const result = await buildPayslipsZip(bundle, company);
+      const result = await buildPayslipsZip(bundle, company, docDate.era);
       if (!result.blob) throw new Error("สร้างสลิปไม่สำเร็จ");
       downloadBlob(result.blob, `payslips_${monthSuffix(bundle.run)}.zip`);
       await logDownload({

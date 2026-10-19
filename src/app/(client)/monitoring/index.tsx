@@ -12,11 +12,8 @@ import { TABLE } from "../../../lib/tableStyles";
 import { supabase } from "../../../lib/supabase";
 import { useAuth, useWorkspaceRole } from "../../../hooks/useAuth";
 import { formatCurrency } from "../../../lib/format";
-import {
-  formatBuddhistDate,
-  formatBuddhistDateTimeParts,
-  relativeTimeThai,
-} from "../../../lib/dates";
+import { relativeTimeThai } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
 import {
   countMonitorExceptions,
   filterActivities,
@@ -74,6 +71,7 @@ export default function MonitoringPage() {
   const { workspaceRole } = useWorkspaceRole();
   const userId = profile?.id;
   const isOwner = workspaceRole === "owner";
+  const docDate = useDocDate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,8 +201,8 @@ export default function MonitoringPage() {
   );
 
   const dayGroups = useMemo(
-    () => groupActivitiesByDay(visible, (iso) => formatBuddhistDate(iso)),
-    [visible],
+    () => groupActivitiesByDay(visible, (iso) => docDate.date(iso)),
+    [visible, docDate],
   );
 
   const visibleStaleDeals = useMemo(() => {
@@ -242,7 +240,7 @@ export default function MonitoringPage() {
     const amount = activity.metadata?.amount;
     const amountBefore = activity.metadata?.amount_before;
     const voidReason = (activity.metadata?.voided_reason || "").trim();
-    const { time } = formatBuddhistDateTimeParts(activity.created_at);
+    const { time } = docDate.dateTimeParts(activity.created_at);
     const dealLabel = deal?.customer_name || deal?.title || deal?.deal_number || "งานขาย";
     const showTrail =
       typeof amountBefore === "number" && typeof amount === "number" && amountBefore !== amount;
@@ -300,7 +298,7 @@ export default function MonitoringPage() {
     const amount = activity.metadata?.amount;
     const amountBefore = activity.metadata?.amount_before;
     const voidReason = (activity.metadata?.voided_reason || "").trim();
-    const { time } = formatBuddhistDateTimeParts(activity.created_at);
+    const { time } = docDate.dateTimeParts(activity.created_at);
     const dealLabel = deal?.customer_name || deal?.title || deal?.deal_number || "งานขาย";
     const showTrail =
       typeof amountBefore === "number" && typeof amount === "number" && amountBefore !== amount;

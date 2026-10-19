@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import type { Employee, PayrollRun, PayrollLineItem } from "../../types";
 import { formatCurrency } from "../format";
+import { toEraYear, type YearEra } from "../dates";
 
 const BRAND_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF378ADD" } };
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F7FB" } };
@@ -55,10 +56,15 @@ export interface PayrollCalcRow {
 
 const MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-function buildSummaryHeader(ws: ExcelJS.Worksheet, run: PayrollRun, rows: PayrollCalcRow[]) {
+function buildSummaryHeader(
+  ws: ExcelJS.Worksheet,
+  run: PayrollRun,
+  rows: PayrollCalcRow[],
+  era: YearEra,
+) {
   ws.mergeCells("A1:K1");
   const titleCell = ws.getCell("A1");
-  titleCell.value = `สรุปเงินเดือน — ${MONTHS[run.period_month - 1]} ${run.period_year + 543}`;
+  titleCell.value = `สรุปเงินเดือน — ${MONTHS[run.period_month - 1]} ${toEraYear(run.period_year, era)}`;
   applyTitle(titleCell);
 
   ws.mergeCells("A2:K2");
@@ -71,12 +77,16 @@ function buildSummaryHeader(ws: ExcelJS.Worksheet, run: PayrollRun, rows: Payrol
   headerRow.eachCell((cell) => applyHeader(cell));
 }
 
-export function buildRunSummaryWorkbook(run: PayrollRun, rows: PayrollCalcRow[]): ExcelJS.Workbook {
+export function buildRunSummaryWorkbook(
+  run: PayrollRun,
+  rows: PayrollCalcRow[],
+  era: YearEra = "be",
+): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("สรุปเงินเดือน");
   applyPageSetup(ws);
 
-  buildSummaryHeader(ws, run, rows);
+  buildSummaryHeader(ws, run, rows, era);
 
   let totBase = 0, totOt = 0, totAdd = 0, totDed = 0, totGross = 0, totSso = 0, totSsoEmp = 0, totWht = 0, totNet = 0;
 
@@ -123,14 +133,18 @@ export function buildRunSummaryWorkbook(run: PayrollRun, rows: PayrollCalcRow[])
   return wb;
 }
 
-export function buildBankPaymentWorkbook(run: PayrollRun, rows: PayrollCalcRow[]): ExcelJS.Workbook {
+export function buildBankPaymentWorkbook(
+  run: PayrollRun,
+  rows: PayrollCalcRow[],
+  era: YearEra = "be",
+): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("รายการโอน");
   applyPageSetup(ws);
 
   ws.mergeCells("A1:F1");
   const titleCell = ws.getCell("A1");
-  titleCell.value = `รายการโอนเงินเดือน — ${MONTHS[run.period_month - 1]} ${run.period_year + 543} · วันจ่าย ${run.pay_date}`;
+  titleCell.value = `รายการโอนเงินเดือน — ${MONTHS[run.period_month - 1]} ${toEraYear(run.period_year, era)} · วันจ่าย ${run.pay_date}`;
   applyTitle(titleCell);
 
   const headerRow = ws.addRow(["รหัส", "ชื่อ-นามสกุล", "ธนาคาร", "เลขบัญชีธนาคาร", "จำนวนเงิน (บาท)", "หมายเหตุ"]);
@@ -160,10 +174,16 @@ export function buildBankPaymentWorkbook(run: PayrollRun, rows: PayrollCalcRow[]
   return wb;
 }
 
-function buildWhtSheet(ws: ExcelJS.Worksheet, run: PayrollRun, rows: PayrollCalcRow[], formLabel: string) {
+function buildWhtSheet(
+  ws: ExcelJS.Worksheet,
+  run: PayrollRun,
+  rows: PayrollCalcRow[],
+  formLabel: string,
+  era: YearEra,
+) {
   ws.mergeCells("A1:F1");
   const titleCell = ws.getCell("A1");
-  titleCell.value = `รายงานภาษีหัก ณ ที่จ่าย (${formLabel}) — ${MONTHS[run.period_month - 1]} ${run.period_year + 543}`;
+  titleCell.value = `รายงานภาษีหัก ณ ที่จ่าย (${formLabel}) — ${MONTHS[run.period_month - 1]} ${toEraYear(run.period_year, era)}`;
   applyTitle(titleCell);
 
   ws.mergeCells("A2:F2");
@@ -199,7 +219,11 @@ function buildWhtSheet(ws: ExcelJS.Worksheet, run: PayrollRun, rows: PayrollCalc
   ws.columns = [{ width: 10 }, { width: 22 }, { width: 20 }, { width: 14 }, { width: 16 }, { width: 14 }];
 }
 
-export function buildWhtWorkbook(run: PayrollRun, rows: PayrollCalcRow[]): ExcelJS.Workbook {
+export function buildWhtWorkbook(
+  run: PayrollRun,
+  rows: PayrollCalcRow[],
+  era: YearEra = "be",
+): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
 
   const ssoRows = rows.filter((r) => r.employee.sso_registered !== false);
@@ -208,20 +232,20 @@ export function buildWhtWorkbook(run: PayrollRun, rows: PayrollCalcRow[]): Excel
   if (ssoRows.length === 0 && contractRows.length === 0) {
     const ws = wb.addWorksheet("ภาษีหัก ณ ที่จ่าย");
     applyPageSetup(ws);
-    buildWhtSheet(ws, run, rows, "ภ.ง.ด.1");
+    buildWhtSheet(ws, run, rows, "ภ.ง.ด.1", era);
     return wb;
   }
 
   if (ssoRows.length > 0) {
     const ws = wb.addWorksheet("ภ.ง.ด.1");
     applyPageSetup(ws);
-    buildWhtSheet(ws, run, ssoRows, "ภ.ง.ด.1");
+    buildWhtSheet(ws, run, ssoRows, "ภ.ง.ด.1", era);
   }
 
   if (contractRows.length > 0) {
     const ws = wb.addWorksheet("ภ.ง.ด.3 (ค่าจ้างทำของ)");
     applyPageSetup(ws);
-    buildWhtSheet(ws, run, contractRows, "ภ.ง.ด.3");
+    buildWhtSheet(ws, run, contractRows, "ภ.ง.ด.3", era);
   }
 
   return wb;

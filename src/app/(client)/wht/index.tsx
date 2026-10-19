@@ -35,7 +35,7 @@ import { useToast } from "../../../hooks/useToast";
 import { formatCurrency } from "../../../lib/format";
 import { supabase } from "../../../lib/supabase";
 import { localTodayString } from "../../../lib/devDate";
-import { formatBuddhistDate, formatBuddhistMonth } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
 import { TABLE } from "../../../lib/tableStyles";
 import type { WhtVendor, WhtFormType } from "../../../types";
 
@@ -199,6 +199,7 @@ async function apiFetchBlob(url: string, body: unknown): Promise<Blob> {
 
 export default function WhtPage() {
   const { profile } = useAuth();
+  const docDate = useDocDate();
   const { clientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
   const navigate = useNavigate();
@@ -440,7 +441,7 @@ export default function WhtPage() {
 
   function formatDate(d: string) {
     if (!d) return "-";
-    return formatBuddhistDate(d);
+    return docDate.date(d);
   }
 
   const parsedNewAmount = parseFloat(newRecord.amount);
@@ -865,7 +866,7 @@ export default function WhtPage() {
                 <option value="">ทุกเดือน</option>
                 {availableMonths.map((m) => (
                   <option key={m} value={m}>
-                    {formatBuddhistMonth(m)}
+                    {docDate.month(m)}
                   </option>
                 ))}
               </select>

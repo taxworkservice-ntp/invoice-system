@@ -11,6 +11,7 @@ import { useTableSort } from "../ui/useTableSort";
 import { useStockReport, fetchFullStockReport } from "../../hooks/useReports";
 import type { StockMovementRow } from "../../hooks/useReports";
 import { formatCurrency } from "../../lib/format";
+import { useDocDate } from "../YearEraProvider";
 import { formatMixedStock } from "../../lib/stock";
 import { TABLE } from "../../lib/tableStyles";
 import type { Item } from "../../types";
@@ -22,14 +23,6 @@ function todayString() {
 function startOfMonth() {
   const d = new Date();
   return monthStartString(localTodayString());
-}
-
-function formatDate(date: string) {
-  const d = new Date(date);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear() + 543;
-  return `${day}/${month}/${year}`;
 }
 
 function SummaryCard({ icon, label, value, alert = false, onClick }: { icon: React.ReactNode; label: string; value: string; alert?: boolean; onClick?: () => void }) {
@@ -76,6 +69,7 @@ type ValuationSortKey = "name" | "stock_count" | "avg_cost" | "stock_value";
 type MovementSortKey = "date" | "itemName" | "type" | "qty" | "unitCost" | "movementValue" | "balance" | "balanceValue" | "docNumber";
 
 export function StockReport({ userId }: StockReportProps) {
+  const docDate = useDocDate();
   const navigate = useNavigate();
   const [dateFrom, setDateFrom] = useState(startOfMonth());
   const [dateTo, setDateTo] = useState(todayString());
@@ -101,6 +95,7 @@ export function StockReport({ userId }: StockReportProps) {
         movements: full.movements,
         dateFrom,
         dateTo,
+        era: docDate.era,
       });
       const blob = new Blob([bytes as BlobPart], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -469,7 +464,7 @@ export function StockReport({ userId }: StockReportProps) {
                           const badge = MOVEMENT_BADGE[m.typeKey] || "bg-paper-field text-ink-600";
                           return (
                             <tr key={m.id} className={TABLE.tbodyTr}>
-                              <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400">{formatDate(m.date)}</td>
+                              <td className="whitespace-nowrap px-3 py-2 text-label text-ink-400">{docDate.numeric(m.date)}</td>
                               <td className="whitespace-nowrap px-3 py-2 text-ink-500">{m.itemName}</td>
                               <td className="whitespace-nowrap px-3 py-2">
                                 <span className={`inline-flex rounded-full px-2 py-0.5 text-label font-medium ${badge}`}>{m.type}</span>
@@ -489,7 +484,7 @@ export function StockReport({ userId }: StockReportProps) {
                       let lastDate = "";
                       const rows: React.ReactNode[] = [];
                       items.forEach((m) => {
-                        const dayLabel = formatDate(m.date);
+                        const dayLabel = docDate.numeric(m.date);
                         if (dayLabel !== lastDate) {
                           lastDate = dayLabel;
                           rows.push(

@@ -11,6 +11,7 @@ import {
   type BillingRef,
 } from "../../lib/billingRefs";
 import { useAuth, useClientProfile, useWorkspaceRole } from "../../hooks/useAuth";
+import { useToast } from "../../hooks/useToast";
 import { AppShell } from "../../components/layout/AppShell";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -26,12 +27,13 @@ import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
 import { preloadDealDetail } from "../../lib/dealDetailCache";
 import { formatCurrency } from "../../lib/format";
-import { formatBuddhistDate, formatBuddhistDateTimeParts } from "../../lib/dates";
+import { useDocDate } from "../../components/YearEraProvider";
 import { HomeNudgeBanner } from "../../components/home/HomeNudgeBanner";
 import { DOC_TYPE_LABELS, DOC_TYPE_SHORT, DOC_TYPE_COLORS } from "../../constants";
 import { TABLE } from "../../lib/tableStyles";
 import type { Deal, Document, Customer, DocumentLineItem } from "../../types";
-import { getWorkspacePermissions } from "../../lib/permissions";
+import { getWorkspaceExperience, getWorkspacePermissions } from "../../lib/permissions";
+import { resolveCreation } from "../../lib/docCreation";
 
 type DealDoc = Pick<
   Document,
@@ -374,11 +376,11 @@ function getNextActionLabel(doc: DealDoc | null) {
   if (isOverdueDocument(doc)) return "เกินกำหนด — บันทึกรับเงิน →";
   if (doc.doc_type === "receipt" && doc.status === "draft") return "ยืนยันการรับเงิน →";
   if (doc.doc_type === "quotation" && doc.status === "draft") return "ส่งใบเสนอราคาให้ลูกค้า →";
-  if (doc.doc_type === "quotation" && doc.status === "sent") return "ลูกค้าตกลงแล้ว? สร้างบิลต่อ →";
+  if (doc.doc_type === "quotation" && doc.status === "sent") return "ลูกค้าตกลงแล้ว? ออกใบแจ้งหนี้ต่อ →";
   if (doc.doc_type === "invoice" && doc.status === "draft") return "ส่งใบแจ้งหนี้ให้ลูกค้า →";
-  if (doc.doc_type === "invoice" && doc.status === "sent") return "สร้างใบวางบิล →";
-  if (doc.doc_type === "delivery_note" && doc.status === "draft") return "บันทึกว่าส่งของแล้ว →";
-  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "สร้างบิลจากใบส่งของ →";
+  if (doc.doc_type === "invoice" && doc.status === "sent") return "ออกใบวางบิล →";
+  if (doc.doc_type === "delivery_note" && doc.status === "draft") return "บันทึกการส่งของ →";
+  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "ออกใบแจ้งหนี้จากใบส่งของ →";
   if (doc.doc_type === "billing_note" && doc.status === "draft") return "ส่งใบวางบิลให้ลูกค้า →";
   if (doc.doc_type === "billing_note" && doc.status === "sent") return "บันทึกรับเงิน →";
   return "";
@@ -628,11 +630,14 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const { profile } = useAuth();
   const { workspaceRole, workspacePermissions } = useWorkspaceRole();
   const permissions = getWorkspacePermissions(workspaceRole, workspacePermissions);
+  const experience = getWorkspaceExperience(workspaceRole, permissions);
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
+  const toast = useToast();
 
   const [deals, setDeals] = useState<DashboardDeal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1383,7 +1388,7 @@ export default function HomePage() {
                             avatar_color: null,
                             avatar_hidden: false,
                           };
-                          const updatedAtParts = formatBuddhistDateTimeParts(deal.updatedAt);
+                          const updatedAtParts = docDate.dateTimeParts(deal.updatedAt);
                           return (
                             <tr
                               key={deal.dealId}
@@ -1634,7 +1639,7 @@ export default function HomePage() {
                                   avatar_hidden: false,
                                 };
                                 const doneUpdatedParts = deal.updatedAt
-                                  ? formatBuddhistDateTimeParts(deal.updatedAt)
+                                  ? docDate.dateTimeParts(deal.updatedAt)
                                   : null;
                                 return (
                                   <tr
@@ -1691,7 +1696,7 @@ export default function HomePage() {
                                     <td
                                       className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums`}
                                     >
-                                      {deal.paidAt ? formatBuddhistDate(deal.paidAt) : "-"}
+                                      {deal.paidAt ? docDate.date(deal.paidAt) : "-"}
                                     </td>
                                     <td
                                       className={`${TABLE.tdDimmed} whitespace-nowrap tabular-nums text-label`}
@@ -1863,15 +1868,12 @@ export default function HomePage() {
         workspacePermissions={permissions}
         onSelect={(type) => {
           setNewSheetOpen(false);
-          if (type === "billing_note") {
-            navigate("/documents/new?type=billing_note");
+          const resolved = resolveCreation({ type, experience });
+          if (resolved.status === "ok") {
+            navigate(resolved.path);
             return;
           }
-          if (type === "invoice_from_delivery_notes") {
-            navigate("/documents/new?type=invoice_from_delivery_notes");
-            return;
-          }
-          navigate(`/deals/new?type=${type}`);
+          if (resolved.status === "denied") toast.error(resolved.reason);
         }}
       />
     </AppShell>

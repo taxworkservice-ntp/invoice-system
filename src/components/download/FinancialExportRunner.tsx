@@ -3,6 +3,7 @@ import { useFinancialReport } from "../../hooks/useReports";
 import { downloadBlob, datedFilename } from "../../lib/download/download";
 import { financialTransactionsCsvBlob } from "../../lib/download/csvReports";
 import { logDownload } from "../../lib/download/audit";
+import { useDocDate } from "../YearEraProvider";
 import type { DownloadJobContext, DownloadJobResult } from "../../hooks/useDownloadJob";
 
 interface FinancialExportRunnerProps {
@@ -37,6 +38,7 @@ export function FinancialExportRunner({
   onDone,
 }: FinancialExportRunnerProps) {
   const report = useFinancialReport(userId, from, to);
+  const docDate = useDocDate();
   const started = useRef(false);
 
   useEffect(() => {
@@ -69,6 +71,7 @@ export function FinancialExportRunner({
           companyName,
           vatRegistered,
           generatedAt: new Date(),
+          era: docDate.era,
         });
         downloadBlob(
           new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),

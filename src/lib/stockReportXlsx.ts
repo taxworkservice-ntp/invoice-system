@@ -3,6 +3,7 @@ import type { Item } from "../types";
 import type { StockSummary, StockMovementRow } from "../hooks/useReports";
 import { formatMixedStock, formatMovementQty, round2 } from "./stock";
 import { formatCurrency } from "./format";
+import { formatDocNumericDate, type YearEra } from "./dates";
 
 interface BuildOpts {
   summary: StockSummary | null;
@@ -11,6 +12,8 @@ interface BuildOpts {
   movements: StockMovementRow[];
   dateFrom: string;
   dateTo: string;
+  /** Workspace year system for the file's dates. */
+  era: YearEra;
 }
 
 const BRAND_FILL: ExcelJS.Fill = {
@@ -45,21 +48,13 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
   right: { style: "thin", color: { argb: "FFE8E6DF" } },
 };
 
-function formatThaiDate(iso: string): string {
-  const d = new Date(iso);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear() + 543;
-  return `${day}/${month}/${year}`;
+function formatThaiDate(iso: string, era: YearEra): string {
+  return formatDocNumericDate(iso, era);
 }
 
-function formatThaiDateTime(d: Date): string {
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear() + 543;
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${day}/${month}/${year} ${hh}:${mm}`;
+function formatThaiDateTime(d: Date, era: YearEra): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${formatDocNumericDate(d.toISOString(), era)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function applyHeader(cell: ExcelJS.Cell) {
@@ -95,7 +90,7 @@ function setColumnWidths(ws: ExcelJS.Worksheet, widths: number[]) {
   ws.columns = widths.map((w) => ({ width: w }));
 }
 
-function applyPageSetup(ws: ExcelJS.Worksheet) {
+function applyPageSetup(ws: ExcelJS.Worksheet, era: YearEra) {
   ws.pageSetup = {
     orientation: "landscape",
     fitToPage: true,
@@ -104,10 +99,10 @@ function applyPageSetup(ws: ExcelJS.Worksheet) {
     margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
   };
   ws.headerFooter.oddHeader = "รายงานสต็อก";
-  ws.headerFooter.oddFooter = "&Lหน้า &P จาก &N&Rสร้างเมื่อ " + formatThaiDateTime(new Date());
+  ws.headerFooter.oddFooter = "&Lหน้า &P จาก &N&Rสร้างเมื่อ " + formatThaiDateTime(new Date(), era);
 }
 
-function writeTitleBlock(ws: ExcelJS.Worksheet, spanTo: number, dateFrom: string, dateTo: string) {
+function writeTitleBlock(ws: ExcelJS.Worksheet, spanTo: number, dateFrom: string, dateTo: string, era: YearEra) {
   const lastCol = String.fromCharCode(64 + spanTo);
   ws.mergeCells(`A1:${lastCol}1`);
   const titleCell = ws.getCell("A1");
@@ -123,7 +118,7 @@ function writeTitleBlock(ws: ExcelJS.Worksheet, spanTo: number, dateFrom: string
 
   ws.mergeCells(`A3:${lastCol}3`);
   const tsCell = ws.getCell("A3");
-  tsCell.value = `สร้างเมื่อ ${formatThaiDateTime(new Date())}`;
+  tsCell.value = `สร้างเมื่อ ${formatThaiDateTime(new Date(), era)}`;
   tsCell.font = { size: 9, color: { argb: "FF9A9A9A" } };
   tsCell.alignment = { vertical: "middle", horizontal: "left" };
   ws.getRow(3).height = 18;
@@ -131,7 +126,7 @@ function writeTitleBlock(ws: ExcelJS.Worksheet, spanTo: number, dateFrom: string
 
 function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Worksheet {
   const ws = wb.addWorksheet("สรุปภาพรวม", { views: [{ state: "frozen", ySplit: 4 }] });
-  writeTitleBlock(ws, 2, opts.dateFrom, opts.dateTo);
+  writeTitleBlock(ws, 2, opts.dateFrom, opts.dateTo, opts.era);
 
   const kpis: Array<{ label: string; value: string; alert?: boolean }> = [
     { label: "สินค้าทั้งหมด", value: `${opts.summary?.totalItems ?? 0} รายการ` },
@@ -173,13 +168,13 @@ function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Works
   });
 
   setColumnWidths(ws, [28, 30]);
-  applyPageSetup(ws);
+  applyPageSetup(ws, opts.era);
   return ws;
 }
 
 function buildValuationSheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Worksheet {
   const ws = wb.addWorksheet("มูลค่าสต็อก", { views: [{ state: "frozen", ySplit: 5, xSplit: 1 }] });
-  writeTitleBlock(ws, 6, opts.dateFrom, opts.dateTo);
+  writeTitleBlock(ws, 6, opts.dateFrom, opts.dateTo, opts.era);
 
   const headerRow = ws.getRow(5);
   const headers = ["รายการ", "SKU", "คงเหลือ", "ทุนเฉลี่ย/หน่วย", "ทุนเฉลี่ย/หน่วยรอง", "มูลค่า"];
@@ -242,13 +237,13 @@ function buildValuationSheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Wor
   }
 
   setColumnWidths(ws, [32, 14, 22, 18, 24, 18]);
-  applyPageSetup(ws);
+  applyPageSetup(ws, opts.era);
   return ws;
 }
 
 function buildLowStockSheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Worksheet {
   const ws = wb.addWorksheet("สินค้าใกล้หมด", { views: [{ state: "frozen", ySplit: 5, xSplit: 1 }] });
-  writeTitleBlock(ws, 6, opts.dateFrom, opts.dateTo);
+  writeTitleBlock(ws, 6, opts.dateFrom, opts.dateTo, opts.era);
 
   const headerRow = ws.getRow(5);
   const headers = ["สถานะ", "รายการ", "SKU", "คงเหลือ", "เกณฑ์แจ้ง", "มูลค่า"];
@@ -294,13 +289,13 @@ function buildLowStockSheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Work
   }
 
   setColumnWidths(ws, [14, 32, 14, 22, 22, 18]);
-  applyPageSetup(ws);
+  applyPageSetup(ws, opts.era);
   return ws;
 }
 
 function buildMovementsSheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Worksheet {
   const ws = wb.addWorksheet("ความเคลื่อนไหว", { views: [{ state: "frozen", ySplit: 5, xSplit: 2 }] });
-  writeTitleBlock(ws, 11, opts.dateFrom, opts.dateTo);
+  writeTitleBlock(ws, 11, opts.dateFrom, opts.dateTo, opts.era);
 
   const headerRow = ws.getRow(5);
   const headers = [
@@ -326,7 +321,7 @@ function buildMovementsSheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Wor
   let currentRow = 6;
   let lastDate = "";
   opts.movements.forEach((m) => {
-    const dayLabel = formatThaiDate(m.date);
+    const dayLabel = formatThaiDate(m.date, opts.era);
     if (dayLabel !== lastDate) {
       lastDate = dayLabel;
       const sepRow = ws.getRow(currentRow);
@@ -388,7 +383,7 @@ function buildMovementsSheet(wb: ExcelJS.Workbook, opts: BuildOpts): ExcelJS.Wor
   }
 
   setColumnWidths(ws, [12, 28, 12, 18, 18, 14, 16, 18, 16, 18, 28]);
-  applyPageSetup(ws);
+  applyPageSetup(ws, opts.era);
   return ws;
 }
 

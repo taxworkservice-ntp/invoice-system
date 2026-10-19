@@ -18,7 +18,8 @@ import { getMonthRange, deltaCaptionForRange, useFinancialReport } from "../../h
 import { useWorkspaceRole } from "../../hooks/useAuth";
 import { getWorkspacePermissions } from "../../lib/permissions";
 import { formatCurrency } from "../../lib/format";
-import { formatBuddhistDate } from "../../lib/dates";
+import { useDocDate } from "../YearEraProvider";
+import { toEraYear } from "../../lib/dates";
 import { TransactionTable } from "./TransactionTable";
 import { ReportTable } from "./ReportTable";
 
@@ -168,6 +169,8 @@ interface FinancialReportProps {
 
 export function FinancialReport({ userId }: FinancialReportProps) {
   const navigate = useNavigate();
+  const docDate = useDocDate();
+  const yearLabel = (y: number) => toEraYear(y, docDate.era);
   const { workspaceRole, workspacePermissions } = useWorkspaceRole();
   // Viewers (canViewReports without canExportReports) can read the report
   // on screen but must not exfiltrate the full financial XLSX.
@@ -223,7 +226,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
   );
   const chartTitle =
     chartRange === "ytd"
-      ? `รายได้สะสมปี ${year + 543}`
+      ? `รายได้สะสมปี ${yearLabel(year)}`
       : chartRange === "12m"
         ? "รายได้ 12 เดือนย้อนหลัง"
         : "รายได้ 6 เดือนย้อนหลัง";
@@ -245,8 +248,9 @@ export function FinancialReport({ userId }: FinancialReportProps) {
         dealNotes,
         cogs,
         collectionRate,
-        periodLabel: `${MONTH_NAMES_TH[month - 1] || month} ${year + 543}`,
+        periodLabel: `${MONTH_NAMES_TH[month - 1] || month} ${yearLabel(year)}`,
         generatedAt: new Date(),
+        era: docDate.era,
       });
       const blob = new Blob([data], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -319,7 +323,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
             >
               {years.map((y) => (
                 <option key={y} value={y}>
-                  {y + 543}
+                  {yearLabel(y)}
                 </option>
               ))}
             </select>
@@ -425,7 +429,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
           </div>
           <BarChart
             data={chartMonths.map((m) => ({
-              label: `${monthLabel(m.month)}${chartRange === "12m" ? ` ${String(m.year + 543).slice(-2)}` : ""}`,
+              label: `${monthLabel(m.month)}${chartRange === "12m" ? ` ${String(yearLabel(m.year)).slice(-2)}` : ""}`,
               value: m.total,
               month: parseInt(m.month, 10),
               year: m.year,
@@ -564,7 +568,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
           {
             key: "date",
             label: "วันที่",
-            render: (row) => (row.date ? formatBuddhistDate(row.date) : "-"),
+            render: (row) => (row.date ? docDate.date(row.date) : "-"),
           },
           { key: "doc_number", label: "เลขที่", render: (row) => row.doc_number },
           {

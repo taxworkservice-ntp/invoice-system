@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../../components/layout/AppShell";
+import { useDocDate } from "../../../components/YearEraProvider";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { SectionCard } from "../../../components/ui/SectionCard";
@@ -206,6 +207,7 @@ function PermissionSections({
 
 export default function SettingsTeamPage() {
   const toast = useToast();
+  const docDate = useDocDate();
   const [tab, setTab] = useState<"members" | "roles" | "audit">("members");
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<WorkspaceRole[]>([]);
@@ -548,7 +550,10 @@ export default function SettingsTeamPage() {
                         <span className="text-ink-500">→ {entry.target_email}</span>
                       )}
                       <span className="ml-auto text-ink-400">
-                        {new Date(entry.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                        {(() => {
+                          const parts = docDate.dateTimeParts(entry.created_at);
+                          return `${parts.date} ${parts.time}`;
+                        })()}
                       </span>
                     </div>
                     <p className="mt-1 text-label leading-5 text-ink-500">{summarizeAuditChange(entry)}</p>

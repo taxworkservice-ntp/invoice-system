@@ -8,7 +8,8 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { useToast } from "../../../hooks/useToast";
 import { supabase } from "../../../lib/supabase";
 import { DOC_TYPE_LABELS } from "../../../constants";
-import { formatBuddhistDate } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
+import { toEraYear } from "../../../lib/dates";
 import type { DocumentType } from "../../../types";
 import { Download, FileText, BarChart3, Package, Database, FileSpreadsheet } from "lucide-react";
 import { Modal } from "../../../components/ui/Modal";
@@ -121,6 +122,7 @@ const chipClass = (active: boolean) =>
 
 export default function DownloadCenterPage() {
   const { profile } = useAuth();
+  const docDate = useDocDate();
   const { workspaceRole } = useWorkspaceRole();
   const { clientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
@@ -193,23 +195,24 @@ export default function DownloadCenterPage() {
   }, [finPeriodMode, finYear, finMonth, finQuarter, currentYear, currentMonth, now]);
 
   const finPeriodLabel = useMemo(() => {
+    const era = docDate.era;
     const fmtEnd = (() => {
       const [y, m, d] = finRange.end.split("-");
-      return `${d}/${m}/${Number(y) + 543}`;
+      return `${d}/${m}/${toEraYear(Number(y), era)}`;
     })();
     switch (finPeriodMode) {
       case "quarter": {
         const firstMonth = (finQuarter - 1) * 3 + 1;
-        return `ไตรมาส ${finQuarter} (${MONTH_LABELS[firstMonth - 1]}–${MONTH_LABELS[firstMonth + 1]} ${finYear + 543})`;
+        return `ไตรมาส ${finQuarter} (${MONTH_LABELS[firstMonth - 1]}–${MONTH_LABELS[firstMonth + 1]} ${toEraYear(finYear, era)})`;
       }
       case "ytd":
-        return `ตั้งแต่ต้นปี ${finYear + 543} (ถึง ${fmtEnd})`;
+        return `ตั้งแต่ต้นปี ${toEraYear(finYear, era)} (ถึง ${fmtEnd})`;
       case "year":
-        return `ทั้งปี ${finYear + 543} (ม.ค.–ธ.ค.)`;
+        return `ทั้งปี ${toEraYear(finYear, era)} (ม.ค.–ธ.ค.)`;
       default:
-        return `${THAI_MONTHS[finMonth - 1]} ${finYear + 543}`;
+        return `${THAI_MONTHS[finMonth - 1]} ${toEraYear(finYear, era)}`;
     }
-  }, [finPeriodMode, finYear, finMonth, finQuarter, finRange]);
+  }, [finPeriodMode, finYear, finMonth, finQuarter, finRange, docDate.era]);
 
   // Quick preset month (this/last)
   const quickMonth = useMemo(() => {
@@ -218,7 +221,7 @@ export default function DownloadCenterPage() {
     return { month: d.getMonth() + 1, year: d.getFullYear() };
   }, [currentYear, currentMonth, quickFilter]);
   const quickRange = useMemo(() => getMonthRange(quickMonth.year, quickMonth.month), [quickMonth]);
-  const selectedMonthLabel = `${THAI_MONTHS[quickMonth.month - 1]} ${quickMonth.year + 543}`;
+  const selectedMonthLabel = `${THAI_MONTHS[quickMonth.month - 1]} ${toEraYear(quickMonth.year, docDate.era)}`;
   const monthSuffix = MONTH_LABELS[quickMonth.month - 1];
 
   const presetTypes = useMemo(
@@ -479,7 +482,7 @@ export default function DownloadCenterPage() {
         downloadBlob(stockValuationCsvBlob(data.valuation), datedFilename(`stock_${stockFrom}_${stockTo}`, "csv"));
       } else {
         const { buildStockReportXlsx } = await import("../../../lib/stockReportXlsx");
-        const buffer = await buildStockReportXlsx({ ...data, dateFrom: stockFrom, dateTo: stockTo });
+        const buffer = await buildStockReportXlsx({ ...data, dateFrom: stockFrom, dateTo: stockTo, era: docDate.era });
         downloadBlob(
           new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
           `stock_${stockFrom}_to_${stockTo}.xlsx`,
@@ -838,7 +841,7 @@ export default function DownloadCenterPage() {
             <p className="text-body text-ink-600">ยืนยันการสร้างไฟล์ตามเงื่อนไข</p>
             <div className="space-y-1.5 rounded-control bg-paper-field p-3 text-body">
               <div className="flex justify-between"><span className="text-ink-500">ประเภท:</span><span>{docTypeLabels[builderDocType]?.th}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">ช่วงวันที่:</span><span>{builderRange.start ? formatBuddhistDate(builderRange.start) : "ทั้งหมด"}{builderRange.end ? ` – ${formatBuddhistDate(builderRange.end)}` : ""}</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">ช่วงวันที่:</span><span>{builderRange.start ? docDate.date(builderRange.start) : "ทั้งหมด"}{builderRange.end ? ` – ${docDate.date(builderRange.end)}` : ""}</span></div>
               <div className="flex justify-between"><span className="text-ink-500">สถานะ:</span><span>{STATUS_FILTERS.find((s) => s.key === statusFilter)?.label}</span></div>
               <div className="flex justify-between"><span className="text-ink-500">จำนวน:</span><span>{confirmCount} ฉบับ</span></div>
               <div className="flex justify-between"><span className="text-ink-500">รูปแบบ:</span><span>{mergePdf && copyType === "original" ? "รวมเป็น PDF ไฟล์เดียว" : zipGrouping ? "ZIP (แยกโฟลเดอร์)" : "ZIP"}{copyType === "both" ? " · ต้นฉบับ + สำเนา" : ""}</span></div>
@@ -936,12 +939,13 @@ function MonthSelect({ label, value, onChange }: { label: string; value: number;
 
 function YearSelect({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   const selectId = useId();
+  const docDate = useDocDate();
   const nowYear = new Date().getFullYear();
   return (
     <div>
       <label htmlFor={selectId} className="mb-0.5 block text-label text-ink-500">{label}</label>
       <select id={selectId} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-        {[nowYear - 1, nowYear, nowYear + 1].map((y) => (<option key={y} value={y}>{y + 543}</option>))}
+        {[nowYear - 1, nowYear, nowYear + 1].map((y) => (<option key={y} value={y}>{toEraYear(y, docDate.era)}</option>))}
       </select>
     </div>
   );

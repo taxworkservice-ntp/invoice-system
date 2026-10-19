@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { formatBangkokTime, formatDocNumericDate, toEraYear, type YearEra } from "./dates";
 import type {
   FinancialSummary,
   ARByCustomer,
@@ -135,7 +136,7 @@ function buildSummarySheet(wb: ExcelJS.Workbook, opts: BuildOpts) {
     metaParts.push(vatRegistered ? "สถานะ: จดทะเบียน VAT" : "สถานะ: ไม่จดทะเบียน VAT");
   if (generatedAt)
     metaParts.push(
-      `สร้างเมื่อ ${generatedAt.toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}`,
+      `สร้างเมื่อ ${formatDocNumericDate(generatedAt.toISOString(), opts.era)} ${formatBangkokTime(generatedAt.toISOString())}`,
     );
   if (metaParts.length > 0) {
     ws.getCell(`A${metaRow}`).font = { size: 9, color: { argb: "FF9B988F" } };
@@ -594,7 +595,8 @@ function buildTopCustomersSheet(wb: ExcelJS.Workbook, topCustomers: TopCustomer[
 function buildMonthlyTrendSheet(
   wb: ExcelJS.Workbook,
   monthly: MonthlyRevenue[],
-  periodLabel?: string,
+  periodLabel: string,
+  era: YearEra,
 ) {
   const ws = wb.addWorksheet("แนวโน้มรายได้");
 
@@ -627,7 +629,7 @@ function buildMonthlyTrendSheet(
   row = 4;
   for (let i = 0; i < monthly.length; i++) {
     const m = monthly[i];
-    const buddhistYear = m.year + 543;
+    const eraYear = toEraYear(m.year, era);
     const monthIdx = parseInt(m.month, 10) - 1;
     const monthName = MONTH_NAMES[monthIdx] || m.month;
 
@@ -641,7 +643,7 @@ function buildMonthlyTrendSheet(
     }
 
     applyBody(ws.getCell(row, 1), { right: true });
-    ws.getCell(row, 1).value = buddhistYear;
+    ws.getCell(row, 1).value = eraYear;
     applyBody(ws.getCell(row, 2));
     ws.getCell(row, 2).value = monthName;
     applyBody(ws.getCell(row, 3), { right: true, bold: true });
@@ -715,6 +717,8 @@ interface BuildOpts {
   companyName?: string;
   vatRegistered?: boolean;
   generatedAt?: Date;
+  /** Workspace year system for the file's dates. */
+  era: YearEra;
 }
 
 export async function buildFinancialReportXlsx(opts: BuildOpts): Promise<Uint8Array> {
@@ -733,7 +737,7 @@ export async function buildFinancialReportXlsx(opts: BuildOpts): Promise<Uint8Ar
     buildTopCustomersSheet(wb, opts.topCustomers);
   }
   if (opts.monthly && opts.monthly.length > 0) {
-    buildMonthlyTrendSheet(wb, opts.monthly, opts.periodLabel);
+    buildMonthlyTrendSheet(wb, opts.monthly, opts.periodLabel, opts.era);
   }
   if (opts.byType && opts.byType.length > 0) {
     buildRevenueByTypeSheet(wb, opts.byType);

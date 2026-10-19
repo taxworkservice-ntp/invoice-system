@@ -13,6 +13,8 @@ import {
   type WhtPayableRow,
 } from "../../lib/download/taxReports";
 import { DownloadJobBar } from "./DownloadJobBar";
+import { useDocDate } from "../YearEraProvider";
+import { toEraYear } from "../../lib/dates";
 
 const MONTH_LABELS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
@@ -35,6 +37,7 @@ interface TaxFiling {
  */
 export function TaxPackCard() {
   const { profile } = useAuth();
+  const docDate = useDocDate();
   const { clientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
   const job = useDownloadJob();
@@ -52,7 +55,7 @@ export function TaxPackCard() {
   const [loading, setLoading] = useState(false);
 
   const range = useMemo(() => getMonthRange(year, month), [year, month]);
-  const periodLabel = `${THAI_MONTHS[month - 1]} ${year + 543}`;
+  const periodLabel = `${THAI_MONTHS[month - 1]} ${toEraYear(year, docDate.era)}`;
   const outputVat = sales.reduce((sum, row) => sum + row.vatAmount, 0);
 
   const load = useCallback(async () => {
@@ -186,7 +189,7 @@ export function TaxPackCard() {
         <div>
           <label htmlFor="tax-year" className="mb-0.5 block text-label text-ink-500">ปี</label>
           <select id="tax-year" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-            {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (<option key={y} value={y}>{y + 543}</option>))}
+            {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (<option key={y} value={y}>{toEraYear(y, docDate.era)}</option>))}
           </select>
         </div>
       </div>

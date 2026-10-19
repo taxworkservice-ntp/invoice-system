@@ -2,6 +2,7 @@ import { calculateBreakdown, getEffectiveHourlyRate, resolveDivisorDays } from "
 import { isSsoExemptByAge } from "./ssoEligibility";
 import { resolveEffectiveLineItem } from "./rows";
 import { buildPayslipSlipNode, type PayslipCompany } from "./payslipPdf";
+import type { YearEra } from "../dates";
 import { slipNodeToPdfBlob, sanitizePdfFilename } from "./payslipPdfRender";
 import type { PayrollExportBundle } from "./exportRun";
 
@@ -19,6 +20,7 @@ export interface PayslipBatchResult {
 export async function buildPayslipsZip(
   bundle: PayrollExportBundle,
   company: PayslipCompany | null,
+  era: YearEra = "be",
 ): Promise<PayslipBatchResult> {
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
@@ -68,6 +70,7 @@ export async function buildPayslipsZip(
         { ...calc, totalDeductions },
         hourlyRate,
         company,
+        era,
       );
       const blob = await slipNodeToPdfBlob(node);
       zip.file(

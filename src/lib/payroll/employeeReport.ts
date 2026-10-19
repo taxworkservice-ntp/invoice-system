@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import type { Employee } from "../../types";
-import { formatBuddhistShort } from "./ssoExport";
+import { formatDocNumericDate, toEraYear, type YearEra } from "../dates";
 
 /**
  * HR employee report (รายงานพนักงาน) for the employee page export.
@@ -83,8 +83,8 @@ export function buildEmployeeReportRows(
   };
 }
 
-function toDisplay(iso: string | null | undefined): string {
-  return iso ? formatBuddhistShort(iso) : "—";
+function toDisplay(iso: string | null | undefined, era: YearEra): string {
+  return iso ? formatDocNumericDate(iso, era) : "—";
 }
 
 function addEmployeeSheet(
@@ -92,6 +92,7 @@ function addEmployeeSheet(
   name: string,
   title: string,
   rows: Employee[],
+  era: YearEra,
 ): void {
   const ws = wb.addWorksheet(name);
   ws.columns = [6, 14, 24, 18, 14, 12, 14, 20, 14, 30, 14, 14, 16, 14, 10].map((width) => ({
@@ -119,10 +120,10 @@ function addEmployeeSheet(
       emp.salary_type === "daily" ? "รายวัน" : "รายเดือน",
       Number(emp.base_salary) || 0,
       "",
-      toDisplay(emp.date_of_birth),
+      toDisplay(emp.date_of_birth, era),
       (emp.address ?? "").trim() || "—",
-      toDisplay(emp.start_date),
-      toDisplay(emp.end_date),
+      toDisplay(emp.start_date, era),
+      toDisplay(emp.end_date, era),
       emp.end_date ? RESIGN_LABELS[emp.resign_reason ?? ""] || "—" : "—",
       emp.status === "active" ? "กำลังทำงาน" : "ลาออกแล้ว",
       emp.sso_registered === false ? "ไม่ใช่" : "ใช่",
@@ -139,41 +140,46 @@ function addEmployeeSheet(
  */
 export function buildEmployeeReportWorkbook(
   built: EmployeeReportBuild,
-  opts: { year: number; month: number; companyName?: string | null },
+  opts: { year: number; month: number; companyName?: string | null; era?: YearEra },
 ): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const company = opts.companyName?.trim() ? `${opts.companyName.trim()} · ` : "";
-  const monthLabel = `ประจำเดือน ${opts.month}/${opts.year + 543}`;
+  const monthLabel = `ประจำเดือน ${opts.month}/${toEraYear(opts.year, opts.era ?? "be")}`;
 
   addEmployeeSheet(
     wb,
     "ทั้งหมด",
     `${company}รายงานพนักงาน — ทั้งหมด · จำนวน ${built.all.length} คน`,
     built.all,
+    opts.era ?? "be",
   );
   addEmployeeSheet(
     wb,
     "ประกันสังคม",
     `${company}รายงานพนักงาน — ประกันสังคม · จำนวน ${built.sso.length} คน`,
     built.sso,
+    opts.era ?? "be",
   );
   addEmployeeSheet(
     wb,
     "ไม่ขึ้นประกันสังคม",
     `${company}รายงานพนักงาน — ไม่ขึ้นประกันสังคม · จำนวน ${built.nonSso.length} คน`,
     built.nonSso,
+    opts.era ?? "be",
   );
   addEmployeeSheet(
     wb,
     "เข้าใหม่",
     `${company}รายงานพนักงาน — เข้าใหม่ ${monthLabel} · จำนวน ${built.joiners.length} คน`,
     built.joiners,
+    opts.era ?? "be",
   );
   addEmployeeSheet(
     wb,
     "ลาออก",
     `${company}รายงานพนักงาน — ลาออก ${monthLabel} · จำนวน ${built.leavers.length} คน`,
     built.leavers,
+    opts.era ?? "be",
   );
 
   return wb;

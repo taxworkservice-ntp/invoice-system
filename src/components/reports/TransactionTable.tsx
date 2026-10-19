@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatCurrency } from "../../lib/format";
+import { useDocDate } from "../YearEraProvider";
 import { Card } from "../ui/Card";
 import { EmptyState } from "../ui/EmptyState";
 import { SortableTh } from "../ui/SortableTh";
@@ -27,15 +28,9 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; className
   { key: "status", label: "สถานะ", align: "left" },
 ];
 
-function formatDateThai(iso: string) {
-  if (!iso) return "-";
-  const dateStr = iso.slice(0, 10);
-  const [y, m, d] = dateStr.split("-");
-  return `${d}/${m}/${Number(y) + 543}`;
-}
-
 export function TransactionTable({ transactions }: Props) {
   const navigate = useNavigate();
+  const docDate = useDocDate();
   const { sort, handleSort, sorted } = useTableSort<Transaction, SortKey>(transactions, {
     key: "date",
     dir: "desc",
@@ -57,13 +52,13 @@ export function TransactionTable({ transactions }: Props) {
 
   function getCellValue(t: Transaction, key: SortKey): string {
     switch (key) {
-      case "date": return formatDateThai(t.date);
+      case "date": return docDate.numeric(t.date);
       case "subtotal": case "vat_amount": case "total_amount": case "wht_amount": case "net_payable":
         return formatCurrency(Number(t[key]));
       case "status":
         return t.status;
       case "paid_at":
-        return t.paid_at ? formatDateThai(t.paid_at) : "-";
+        return t.paid_at ? docDate.numeric(t.paid_at) : "-";
       default:
         return String(t[key] || "-");
     }

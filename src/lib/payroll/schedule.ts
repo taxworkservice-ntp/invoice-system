@@ -1,3 +1,5 @@
+import { toEraYear, type YearEra } from "../dates";
+
 // Pure pay-cycle window suggestion utilities.
 // All dates are ISO "YYYY-MM-DD" strings handled in UTC to avoid TZ drift.
 
@@ -133,9 +135,13 @@ export function historyMonthKey(periodEnd: string): string {
  * Month-group heading with Buddhist year, e.g. "ส.ค. 2569".
  * Month is 1-based.
  */
-export function formatHistoryMonthLabel(year: number, month: number): string {
+export function formatHistoryMonthLabel(
+  year: number,
+  month: number,
+  era: YearEra = "be",
+): string {
   const short = THAI_MONTHS_SHORT[month - 1] ?? "";
-  return `${short} ${year + 543}`.trim();
+  return `${short} ${toEraYear(year, era)}`.trim();
 }
 
 export interface DescribedHistoryRun {

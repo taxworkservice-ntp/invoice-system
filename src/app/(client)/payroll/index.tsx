@@ -43,7 +43,8 @@ import { getWorkspacePermissions } from "../../../lib/permissions";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { getProxiedImageUrl } from "../../../lib/r2";
 import { thaiNumberToWords } from "../../../lib/thaiNumberToWords";
-import { formatBuddhistDate } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
+import { toEraYear } from "../../../lib/dates";
 import { useToast } from "../../../hooks/useToast";
 import {
   calculateBreakdown,
@@ -193,6 +194,7 @@ function getPayrollPeriod(month: number, year: number) {
 }
 
 export default function PayrollPage() {
+  const docDate = useDocDate();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const toast = useToast();
@@ -665,7 +667,7 @@ export default function PayrollPage() {
     if (!run || !userId) return;
     if (value < run.period_end) {
       setPayDate(run.pay_date);
-      toast.error(`วันจ่ายต้องไม่ก่อนวันสิ้นสุดรอบ (${formatBuddhistDate(run.period_end)})`);
+      toast.error(`วันจ่ายต้องไม่ก่อนวันสิ้นสุดรอบ (${docDate.date(run.period_end)})`);
       return;
     }
     const { error } = await supabase
@@ -1358,7 +1360,7 @@ export default function PayrollPage() {
   async function handleExportSummary() {
     if (!run) return;
     const rows = buildCalcRows();
-    const wb = buildRunSummaryWorkbook(run, rows);
+    const wb = buildRunSummaryWorkbook(run, rows, docDate.era);
     const blob = await workbookToBlob(wb);
     downloadBlob(
       blob,
@@ -1375,7 +1377,7 @@ export default function PayrollPage() {
   async function handleExportWht() {
     if (!run) return;
     const rows = buildCalcRows();
-    const wb = buildWhtWorkbook(run, rows);
+    const wb = buildWhtWorkbook(run, rows, docDate.era);
     const blob = await workbookToBlob(wb);
     downloadBlob(blob, `wht-${run.period_year}-${String(run.period_month).padStart(2, "0")}.xlsx`);
     await logAuditEvent({
@@ -1822,7 +1824,7 @@ export default function PayrollPage() {
                   setPayDateInvalid(true);
                   setTimeout(() => setPayDateInvalid(false), 3000);
                   toast.error(
-                    `วันจ่ายตอนนี้คือ ${formatBuddhistDate(payDate)} — ต้องเป็น ${formatBuddhistDate(run.period_end)} ขึ้นไป แก้ไขได้ที่ช่อง "วันจ่าย" ด้านบน`,
+                    `วันจ่ายตอนนี้คือ ${docDate.date(payDate)} — ต้องเป็น ${docDate.date(run.period_end)} ขึ้นไป แก้ไขได้ที่ช่อง "วันจ่าย" ด้านบน`,
                   );
                   return;
                 }
@@ -1888,7 +1890,7 @@ export default function PayrollPage() {
               >
                 {[year - 1, year, year + 1].map((y) => (
                   <option key={y} value={y}>
-                    {y + 543}
+                    {toEraYear(y, docDate.era)}
                   </option>
                 ))}
               </Select>
@@ -2038,7 +2040,7 @@ export default function PayrollPage() {
                 <summary className="flex items-center gap-2 text-ink-700 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                   <Layers className="w-4 h-4 text-ink-400" />
                   <span className="text-body font-medium">
-                    สรุปทั้งเดือน ({MONTHS[month - 1].label} {year + 543}) — {finalized.length}{" "}
+                    สรุปทั้งเดือน ({MONTHS[month - 1].label} {toEraYear(year, docDate.era)}) — {finalized.length}{" "}
                     รอบที่ปิดแล้ว
                   </span>
                   <span className="ml-auto text-label text-ink-400">
@@ -2202,7 +2204,7 @@ export default function PayrollPage() {
             <p className="text-body text-ink-500 mb-6 max-w-sm mx-auto">
               สร้างรอบเงินเดือนสำหรับ{" "}
               <strong>
-                {MONTHS[month - 1].label} {year + 543}
+                {MONTHS[month - 1].label} {toEraYear(year, docDate.era)}
               </strong>{" "}
               เพื่อเริ่มกรอกข้อมูลเงินเดือนพนักงาน
             </p>
@@ -2228,7 +2230,7 @@ export default function PayrollPage() {
                 <div className="flex items-center gap-2 text-green-800">
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
                   <span className="text-body font-medium">
-                    ปิดรอบแล้ว — {MONTHS[run.period_month - 1].label} {run.period_year + 543} ·
+                    ปิดรอบแล้ว — {MONTHS[run.period_month - 1].label} {toEraYear(run.period_year, docDate.era)} ·
                     วันจ่าย {run.pay_date}
                   </span>
                 </div>
@@ -3589,6 +3591,7 @@ function PayrollHistoryPanel({
   selectedRunId: string | null;
   onOpenRun: (run: PayrollRun) => void;
 }) {
+  const docDate = useDocDate();
   const groups = useMemo(() => {
     const byMonth = new Map<string, PayrollRun[]>();
     for (const r of runs) {
@@ -3603,11 +3606,11 @@ function PayrollHistoryPanel({
         const [y, m] = key.split("-").map(Number);
         return {
           key,
-          monthLabel: formatHistoryMonthLabel(y, m),
+          monthLabel: formatHistoryMonthLabel(y, m, docDate.era),
           items: [...list].sort((a, b) => (a.period_start < b.period_start ? 1 : -1)),
         };
       });
-  }, [runs]);
+  }, [runs, docDate]);
 
   // Only the selected month shows — older months hide behind one expander so
   // the panel stays compact and follows month jumps automatically.
@@ -5014,6 +5017,7 @@ function PayslipView({
   onBack,
   onPrint,
 }: PayslipViewProps) {
+  const docDate = useDocDate();
   // OT slips pay OT only — base is paid in salary rounds.
   const otOnly = run?.batch_type === "ot";
   const calc = calculateBreakdown(
@@ -5110,7 +5114,7 @@ function PayslipView({
                 </h1>
                 <p className="text-label text-ink-400 mt-0.5">
                   {otOnly ? "OT Pay Slip" : "Pay Slip"} ·{" "}
-                  {MONTHS[(run?.period_month ?? 1) - 1]?.label} {(run?.period_year ?? 2025) + 543}
+                  {MONTHS[(run?.period_month ?? 1) - 1]?.label} {toEraYear(run?.period_year ?? 2025, docDate.era)}
                 </p>
                 <div className="text-label text-ink-400 mt-1">วันจ่าย</div>
                 <div className="text-body font-medium text-ink-700">{run?.pay_date}</div>

@@ -1,4 +1,5 @@
 import type { Employee, PayrollRun, PayrollLineItem } from "../../types";
+import { toEraYear, type YearEra } from "../dates";
 import { thaiNumberToWords } from "../thaiNumberToWords";
 
 export interface PayslipCalc {
@@ -85,6 +86,7 @@ export function buildPayslipSlipNode(
   calc: PayslipCalc,
   hourlyRate: number,
   company?: PayslipCompany | null,
+  era: YearEra = "be",
 ): string {
   const otLines = (lineItem.ot_entries || [])
     .map((ot) => {
@@ -104,7 +106,7 @@ export function buildPayslipSlipNode(
         `<div class="line"><span>${esc(d.label)}</span><span>-฿${fmt(Number(d.amount) || 0)}</span></div>`,
     )
     .join("");
-  const periodLabel = `${MONTHS[(run.period_month ?? 1) - 1]} ${(run.period_year ?? 2025) + 543}`;
+  const periodLabel = `${MONTHS[(run.period_month ?? 1) - 1]} ${toEraYear(run.period_year ?? 2025, era)}`;
   // OT rounds produce OT-only slips with their own title.
   const isOtSlip = run.batch_type === "ot";
   const slipTitle = isOtSlip ? "สลิปค่าล่วงเวลา (OT)" : "สลิปเงินเดือน";
@@ -180,8 +182,9 @@ export function buildPayslipHtml(
   calc: PayslipCalc,
   hourlyRate: number,
   company?: PayslipCompany | null,
+  era: YearEra = "be",
 ): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>สลิปเงินเดือน ${esc(employee.full_name)}</title><style>@page { size: A4; margin: 0; } body { margin: 0; }</style></head><body>${buildPayslipSlipNode(employee, run, lineItem, calc, hourlyRate, company)}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>สลิปเงินเดือน ${esc(employee.full_name)}</title><style>@page { size: A4; margin: 0; } body { margin: 0; }</style></head><body>${buildPayslipSlipNode(employee, run, lineItem, calc, hourlyRate, company, era)}</body></html>`;
 }
 
 export interface BulkPayslipInput {
@@ -191,11 +194,12 @@ export interface BulkPayslipInput {
   calc: PayslipCalc;
   hourlyRate: number;
   company?: PayslipCompany | null;
+  era?: YearEra;
 }
 
 export function buildPayslipHtmlPerPage(inputs: BulkPayslipInput[]): string {
   const pages = inputs.map((i) =>
-    buildPayslipHtml(i.employee, i.run, i.lineItem, i.calc, i.hourlyRate, i.company),
+    buildPayslipHtml(i.employee, i.run, i.lineItem, i.calc, i.hourlyRate, i.company, i.era),
   );
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>สลิปเงินเดือน</title>
 <style>@page { size: A4; margin: 12mm; } body { font-family: 'Sarabun', Arial, sans-serif; } .page { page-break-after: always; } .page:last-child { page-break-after: auto; }</style></head><body>

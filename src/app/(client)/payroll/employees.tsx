@@ -29,7 +29,8 @@ import { splitInsuredName } from "../../../lib/payroll/ssoExport";
 import { currentAgeYears, wasSixtyAtHire } from "../../../lib/payroll/ssoEligibility";
 import { TABLE } from "../../../lib/tableStyles";
 import { formatCurrency } from "../../../lib/format";
-import { formatNumericThaiDate, daysSinceDate } from "../../../lib/dates";
+import { daysSinceDate, formatDocDate, toEraYear, type YearEra } from "../../../lib/dates";
+import { useDocDate } from "../../../components/YearEraProvider";
 import { useTableSort } from "../../../components/ui/useTableSort";
 import { SortableTh } from "../../../components/ui/SortableTh";
 import { supabase } from "../../../lib/supabase";
@@ -161,6 +162,7 @@ function employeeToForm(emp: Employee): EmployeeForm {
 }
 
 export default function EmployeesPage() {
+  const docDate = useDocDate();
   const toast = useToast();
   const { workspaceUserId, workspaceRole, workspacePermissions } = useWorkspaceRole();
   const canManagePayroll = getWorkspacePermissions(
@@ -688,7 +690,7 @@ export default function EmployeesPage() {
       return;
     }
     const built = buildEmployeeReportRows(employees, reportYear, reportMonth);
-    const wb = buildEmployeeReportWorkbook(built, { year: reportYear, month: reportMonth });
+    const wb = buildEmployeeReportWorkbook(built, { year: reportYear, month: reportMonth, era: docDate.era });
     const blob = await workbookToBlob(wb);
     const mm = String(reportMonth).padStart(2, "0");
     downloadBlob(blob, `employee-report-${reportYear}-${mm}.xlsx`);
@@ -918,7 +920,7 @@ export default function EmployeesPage() {
           >
             {[reportYear - 1, reportYear, reportYear + 1].map((y) => (
               <option key={y} value={y}>
-                {y + 543}
+                {toEraYear(y, docDate.era)}
               </option>
             ))}
           </Select>
@@ -983,7 +985,7 @@ export default function EmployeesPage() {
                     <span className="text-label text-ink-500">
                       {emp.position || "—"} ·{" "}
                       {emp.salary_type === "monthly" ? "รายเดือน" : "รายวัน"}
-                      {emp.start_date ? ` · เริ่ม ${formatNumericThaiDate(emp.start_date)}` : ""}
+                      {emp.start_date ? ` · เริ่ม ${docDate.numeric(emp.start_date)}` : ""}
                       {emp.tenureDays !== null && emp.tenureDays !== undefined
                         ? ` · ${emp.tenureDays.toLocaleString("en-US")} วัน`
                         : ""}
@@ -1142,7 +1144,7 @@ export default function EmployeesPage() {
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <span className="text-ink-700 tabular-nums">
-                          {emp.start_date ? formatNumericThaiDate(emp.start_date) : "—"}
+                          {emp.start_date ? docDate.numeric(emp.start_date) : "—"}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -1553,6 +1555,7 @@ interface ActivityPanelProps {
 
 function ActivityPanel({ entityType, entityId }: ActivityPanelProps) {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const docDate = useDocDate();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -1590,7 +1593,7 @@ function ActivityPanel({ entityType, entityId }: ActivityPanelProps) {
                   <span className="font-medium text-ink-700">{getActionLabel(log.action)}</span>
                   <span className="text-ink-400">{formatAuditDetail(log)}</span>
                 </div>
-                <div className="text-ink-400 text-label">{formatAuditTime(log.created_at)}</div>
+                <div className="text-ink-400 text-label">{formatAuditTime(log.created_at, docDate.era)}</div>
               </div>
             </div>
           ))}
@@ -1620,7 +1623,7 @@ function formatAuditDetail(log: AuditLogEntry): string {
   return "";
 }
 
-function formatAuditTime(dateStr: string): string {
+function formatAuditTime(dateStr: string, era: YearEra): string {
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -1632,7 +1635,7 @@ function formatAuditTime(dateStr: string): string {
   if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
   if (diffHr < 24) return `${diffHr} ชั่วโมงที่แล้ว`;
   if (diffDay < 7) return `${diffDay} วันที่แล้ว`;
-  return date.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+  return formatDocDate(date.toISOString(), era);
 }
 
 interface RecurringPanelProps {
