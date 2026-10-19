@@ -858,3 +858,27 @@ Left alone deliberately: `generate_wht_certificate_no` prints `YYMM###`
 (2-digit year, no prefix-year pattern) — flip it the same way if the WHT
 certificate should read 69…; no certificate numbers exist yet, so there is
 nothing to backfill.
+
+### 2026-10-19 — WHT certificate numbers follow the era too
+
+Format is `WT` + YY + MM + 3-digit running number, so a July-2026 certificate
+reads `WT2607008` in ค.ศ. and `WT6907008` in พ.ศ. (69 = 2569).
+
+The live generator is **client-side** (`src/lib/whtCertificate.ts`), not the
+`generate_wht_certificate_no` DB function (which is unused and still prints the
+old bare `YYMM###`). `nextWhtCertificateNo` now derives the stem from the
+workspace's era via `toEraYear()` — the repo's year-era check flagged the bare
+`+ 543` and the shared helper replaced it — and it scans **both** stems plus
+both legacy shapes (`WT…` and the bare digits some old rows carry), so a
+workspace that switches era mid-month continues at 009 rather than restarting
+over numbers that already exist. Callers may pass the era; when they don't the
+helper reads `client_profiles.year_era` once, so no call site can quietly keep
+issuing ค.ศ. numbers (batch payroll WHT sync included).
+
+Also fixed: `wht/print.tsx`'s fallback for a record that never got a stored
+number hardcoded `WT68…` (พ.ศ. 2568). It now derives the stem from the record's
+date and the workspace era.
+
+Tests: `tests/unit/whtCertificate.test.ts` (10 cases) pins the owner's example,
+the era resolution, the cross-era scan (asserting both stems are queried) and
+the skip/parse edge cases. 261 unit tests total.

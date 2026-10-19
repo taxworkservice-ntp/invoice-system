@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
+import { whtCertificateYymm } from "../../../lib/whtCertificate";
+import { resolveYearEra } from "../../../lib/yearEra";
 import { getProxiedImageUrl } from "../../../lib/r2";
 import type { WhtRecord, WhtVendor, ClientProfile } from "../../../types";
 
@@ -100,7 +102,12 @@ function cssTop(configTop: number, fs: number) {
 function buildFields(record: RecordWithVendor, profile: ClientProfile, seq: number): FieldDef[] {
   const v = record.vendor;
   const month = record.issue_date ? new Date(record.issue_date).getMonth() + 1 : 1;
-  const whtId = record.certificate_no || (month ? `WT68${String(month).padStart(2, "0")}${String(seq + 100).padStart(3, "0")}` : "");
+  // Fallback only (a record that never got a stored number): derive the stem
+  // from the workspace's year system instead of a hardcoded พ.ศ. year.
+  const fallbackStem = whtCertificateYymm(record.issue_date || "", resolveYearEra(profile));
+  const whtId =
+    record.certificate_no ||
+    (month ? `WT${fallbackStem}${String(seq + 100).padStart(3, "0")}` : "");
   const dateStr = fmtDate(record.issue_date);
   const amtStr = fmtNum(record.amount);
   const whtStr = fmtNum(record.wht_amount);
