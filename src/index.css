@@ -1167,13 +1167,16 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   text-align: left;
 }
 
-/* frozen SO header: second line under the DN ref (or the whole header on
-   an SO-grouped delivery note). Full-band width (the band is one merged cell),
-   semibold, wraps freely — the paginator charges one text line per wrapped
-   line at this same width. */
+/* Frozen SO header: the second line under the DN ref — the section titles
+   of that delivery note (or the whole header on an SO-grouped delivery note,
+   where the SO is the band's only line and keeps the heading weight).
+   It is a reference, not a second heading: quieter than the DN line, so the
+   band reads "which delivery note" first. It wraps freely (the band is one
+   merged cell) and the paginator charges one text line per wrapped line at
+   this same width. */
 .print-theme-classic-v2 .print-classic-dn-group-so {
-  font-weight: 600;
-  color: #0f172a;
+  font-weight: 500;
+  color: #6b7280;
   overflow-wrap: anywhere;
 }
 

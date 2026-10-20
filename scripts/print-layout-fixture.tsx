@@ -416,6 +416,9 @@ const dnLinks: InvoiceDeliveryNote[] = [
     user_id: "user-layout-baseline", delivery_note_number: "DN-2608-001",
     issue_date: "2026-08-20", subtotal: 1560, vat_amount: 109.2,
     total_amount: 1669.2, released_at: null, created_at: now,
+    // The frozen SO section of that delivery note: the band shows it as the
+    // reference line under the DN ref.
+    so_header: "SO-2569-001 งานติดตั้งไฟโรงงาน A",
   },
   {
     id: "dn-link-2", invoice_id: "doc-dn", delivery_note_id: "dn-src-2",
@@ -426,12 +429,19 @@ const dnLinks: InvoiceDeliveryNote[] = [
 ];
 
 const dnSourceById = new Map(dnSources.map((s) => [s.id, s]));
+// The frozen SO header per delivery note — the print data resolves it from
+// the link, so the band shows it as the reference line under the DN ref.
+const dnLinkBySourceId = new Map(dnLinks.map((l) => [l.delivery_note_id, l]));
 const dnLineDeliveryNoteMap = Object.fromEntries(
   dnDraftLines
     .filter((l) => l.source_document_id)
     .map((l) => {
       const src = dnSourceById.get(l.source_document_id!)!;
-      return [l.id, { number: src.number, issue_date: src.issue_date }];
+      const link = dnLinkBySourceId.get(l.source_document_id!);
+      return [
+        l.id,
+        { number: src.number, issue_date: src.issue_date, soHeader: link?.so_header ?? null },
+      ];
     }),
 );
 
@@ -517,7 +527,11 @@ const dnShortLineDeliveryNoteMap = Object.fromEntries(
     .filter((l) => l.source_document_id)
     .map((l) => {
       const src = dnShortSourceById.get(l.source_document_id!)!;
-      return [l.id, { number: src.number, issue_date: src.issue_date }];
+      const link = dnLinkBySourceId.get(l.source_document_id!);
+      return [
+        l.id,
+        { number: src.number, issue_date: src.issue_date, soHeader: link?.so_header ?? null },
+      ];
     }),
 );
 

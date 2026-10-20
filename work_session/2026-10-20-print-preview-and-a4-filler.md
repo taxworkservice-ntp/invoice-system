@@ -153,6 +153,26 @@ billing note) second. A pair therefore never moves when the deal's state
 changes — after a delivery is recorded the quotation pair keeps ส่งของก่อน on
 the left and only the labels change.
 
+### The classic V2 band and the delivery-note order
+
+The band row above a group of items carries two references: the delivery note
+and the frozen SO section. They are not the same level — the number cell is the
+DN group (the items under it are numbered G.j), so the DN ref heads the row and
+the SO line is a reference under it. The SO line was semibold like the heading,
+so two headings competed while the genuinely secondary part (the date) was the
+quiet one; it is now weight 500 in the muted tone, and the SO-grouped delivery
+note (where the SO is the only line) keeps the heading weight.
+
+The delivery notes of an invoice were already ordered by issue date, but
+several notes from the same day came back in an arbitrary order (an invoice
+showed DN-079, DN-086, DN-085, DN-084, DN-080). The picker now breaks the tie
+with the DN number, so a new invoice bills the deliveries in the order the
+office made them. The sort is in the picker, not in the renderer: a re-print has
+to match what the customer received.
+
+The print-layout fixture's DN now carries an SO section, so the band-with-SO
+look is covered by the pixel baselines (it had none).
+
 ## Closing the two loose ends
 
 **The macOS pixel baselines.** They were captured before the filler measurement

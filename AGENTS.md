@@ -114,6 +114,12 @@
   charges the narrower width in that mode (`dnGroupNarrow` /
   `narrowColumn`) — the paginator and the filler must agree, or the page
   budget and the rendered rows drift apart.
+- **The classic V2 band is a heading plus a reference.** The band row's
+  number cell is the delivery-note group (the items under it are numbered G.j),
+  so the DN ref heads the row. The frozen SO header is the reference *under*
+  it — quieter (weight 500, muted), never a second heading; the SO-grouped
+  delivery note, where the SO is the band's only line, keeps the heading
+  weight.
 - **Classic V2 blank filler rows are measured, not modelled.** The filler rows
   pad the items table so the totals row and the signature band sit at the
   bottom of the page. The page measures its own free space (the gap the

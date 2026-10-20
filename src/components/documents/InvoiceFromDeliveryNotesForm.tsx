@@ -268,7 +268,11 @@ export function InvoiceFromDeliveryNotesForm() {
         .eq("customer_id", selectedCustomerId)
         .eq("doc_type", "delivery_note")
         .eq("status", "sent")
-        .order("issue_date", { ascending: true });
+        // Oldest first, and the DN number breaks the tie: the invoice then
+        // bills the deliveries in the order the office made them (and the
+        // order the customer checks them against), not in an arbitrary one.
+        .order("issue_date", { ascending: true })
+        .order("doc_number", { ascending: true });
 
       if (dateFrom) query = query.gte("issue_date", dateFrom);
       if (dateTo) query = query.lte("issue_date", dateTo);
@@ -294,7 +298,8 @@ export function InvoiceFromDeliveryNotesForm() {
           .maybeSingle();
         if (preselectedDoc) {
           docList = [...docList, preselectedDoc as DeliveryNoteOption].sort((a, b) =>
-            (a.issue_date || "").localeCompare(b.issue_date || ""),
+            (a.issue_date || "").localeCompare(b.issue_date || "") ||
+            (a.doc_number || "").localeCompare(b.doc_number || ""),
           );
         }
       }
