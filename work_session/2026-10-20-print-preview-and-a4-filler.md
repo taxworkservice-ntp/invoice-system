@@ -173,6 +173,26 @@ to match what the customer received.
 The print-layout fixture's DN now carries an SO section, so the band-with-SO
 look is covered by the pixel baselines (it had none).
 
+### The home page's values never wrap
+
+On the home page (which *is* the deals list — `/deals` redirects there) four
+value cells wrapped their content: the last-edited date, the gross amount and
+the net payable in the deals table, and the customer code under the name in
+the receipts table. A value that needs two lines is a value that is hard to
+scan — the amounts read as "฿ 5,029,019.26" split over two lines.
+
+They now hold one line (`whitespace-nowrap`), the same treatment the values
+already had in the receipts table and on the other list pages. The prose
+columns keep the app's `truncate` + `title` treatment.
+
+The cost: the columns that hold a value take their natural width, so the
+deals table is ~1400px wide and scrolls horizontally below a ~1600px viewport
+(it fit before, by wrapping the values). The receipts table already scrolled
+134px, and /reports scrolls 56px, so a horizontal scroll is the app's pattern
+for a wide table — but if the amounts being off-screen on a 1440px laptop
+matters more than the values being on one line, the prose column
+(`max-w-[200px]`) can be trimmed, or the values can go back to wrapping.
+
 ## Closing the two loose ends
 
 **The macOS pixel baselines.** They were captured before the filler measurement

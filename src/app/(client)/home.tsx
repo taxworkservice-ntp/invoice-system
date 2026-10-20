@@ -1444,7 +1444,7 @@ export default function HomePage() {
                                   </div>
                                 )}
                               </td>
-                              <td className={TABLE.tdDimmed}>
+                              <td className={`${TABLE.tdDimmed} whitespace-nowrap`}>
                                 <div className="tabular-nums leading-tight">
                                   <div>{updatedAtParts.date}</div>
                                   <div className="text-label">เวลา {updatedAtParts.time}</div>
@@ -1465,7 +1465,7 @@ export default function HomePage() {
                                 </span>
                               </td>
                               <td className="px-3 py-3 md:py-2 text-right">
-                                <span className="text-ink-500 tabular-nums min-w-[100px] inline-block text-right">
+                                <span className="text-ink-500 tabular-nums min-w-[100px] inline-block text-right whitespace-nowrap">
                                   ฿ {formatCurrency(deal.grossAmount)}
                                   {deal.isPartiallyPaid && deal.partialReceived > 0 && (
                                     <span className="block text-label text-amber-700 font-medium leading-tight">
@@ -1476,7 +1476,7 @@ export default function HomePage() {
                               </td>
                               <td className="px-3 py-3 md:py-2 text-right">
                                 <span
-                                  className={`inline-block tabular-nums min-w-[100px] text-right ${deal.expectedWhtAmount > 0 ? "text-danger" : "text-ink-300"}`}
+                                  className={`inline-block tabular-nums min-w-[100px] text-right whitespace-nowrap ${deal.expectedWhtAmount > 0 ? "text-danger" : "text-ink-300"}`}
                                 >
                                   ฿ {formatCurrency(deal.expectedWhtAmount)}
                                   {deal.whtAmount > 0 &&
@@ -1488,7 +1488,7 @@ export default function HomePage() {
                                 </span>
                               </td>
                               <td className="px-3 py-3 md:py-2 text-right">
-                                <span className="text-ink-900 tabular-nums font-medium min-w-[100px] inline-block text-right">
+                                <span className="text-ink-900 tabular-nums font-medium min-w-[100px] inline-block text-right whitespace-nowrap">
                                   ฿ {formatCurrency(deal.netPayable)}
                                 </span>
                               </td>
@@ -1663,7 +1663,7 @@ export default function HomePage() {
                                             {deal.customerName}
                                           </div>
                                           {deal.customerCode && (
-                                            <div className="text-label font-mono text-primary">
+                                            <div className="text-label font-mono text-primary whitespace-nowrap">
                                               {deal.customerCode}
                                             </div>
                                           )}
