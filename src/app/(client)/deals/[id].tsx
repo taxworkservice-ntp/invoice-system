@@ -109,8 +109,22 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
   convert: "สร้างใบแจ้งหนี้จากรายการเดิม และให้ตรวจสอบก่อนบันทึก",
   delivery_from_quote: "บันทึกว่าส่งสินค้าแล้ว — ออกใบแจ้งหนี้ภายหลังได้",
   invoice_from_dns: "นำรายการจากใบส่งของมาออกใบแจ้งหนี้ และให้ตรวจสอบก่อนบันทึก",
-  billing: "รวมใบแจ้งหนี้ที่ยังไม่ชำระ และให้ตรวจสอบยอดก่อนบันทึก",
-  collect: "บันทึกรับเงินทันที ระบบจะออกใบเสร็จรับเงินให้",
+  billing: "ลูกค้าได้ใบวางบิล (ใบกำกับภาษี) แล้วบันทึกรับเงินทีหลัง",
+  collect: "ลูกค้าได้เฉพาะใบเสร็จรับเงิน — ยังไม่มีใบกำกับภาษี",
+};
+
+/** The tag on the workflow's next step. */
+const NEXT_STEP_TAG = "ขั้นตอนถัดไป";
+
+/**
+ * What a shortcut skips — the tag on the card that is not the next step.
+ * The delivery-first option skips nothing (it only reorders), so it has none.
+ */
+const ACTION_SKIP_TAGS: Record<string, string | undefined> = {
+  // รับเงินโดยไม่ออกใบวางบิล: the customer gets a receipt, not a tax invoice.
+  collect: "ข้ามใบวางบิล",
+  // ออกใบแจ้งหนี้โดยไม่บันทึกการส่ง: the invoice is issued, the delivery is not recorded.
+  convert: "ข้ามใบส่งของ",
 };
 
 type MainAction =
@@ -1508,6 +1522,29 @@ export default function DealDetailPage() {
 
   const skippedStage1 = !nonVoidedDocs.some((item) => item.document.doc_type === "quotation");
 
+  // The invoices still waiting to be paid — the list the billing note would
+  // offer: the sent invoices that are not already in a billing note (the
+  // billing-note form skips the locked and the voided-linked ones the same
+  // way).
+  const unpaidInvoices = useMemo(() => {
+    const billed = new Set<string>();
+    for (const item of docsWithMeta) {
+      for (const link of item.billing_invoices) billed.add(link.invoice_id);
+    }
+    return docsWithMeta
+      .map((item) => item.document)
+      .filter(
+        (doc) =>
+          doc.doc_type === "invoice" && doc.status === "sent" && !billed.has(doc.id),
+      );
+  }, [docsWithMeta]);
+
+  const unpaidInvoicesFacts = useMemo(() => {
+    if (unpaidInvoices.length === 0) return undefined;
+    const total = unpaidInvoices.reduce((sum, doc) => sum + (doc.total_amount || 0), 0);
+    return `${unpaidInvoices.length} ใบแจ้งหนี้ค้างชำระ · ฿${formatCurrency(total)}`;
+  }, [unpaidInvoices]);
+
   const mainAction: MainAction = useMemo(() => {
     if (!activeDoc) return null;
     const doc = activeDoc.document;
@@ -1645,11 +1682,18 @@ export default function DealDetailPage() {
   const nextStepOptions: NextStepOption[] = (() => {
     const build = (
       action: Exclude<NonNullable<MainAction>, { type: "done" }>,
+      isNextStep: boolean,
     ): NextStepOption => ({
       key: action.type,
       label: action.label,
       description: ACTION_DESCRIPTIONS[action.type] ?? actionHelper,
       icon: iconForAction(action.type),
+      // The next step is the app's primary blue; the shortcut that skips a
+      // step says which one it skips.
+      tag: isNextStep ? NEXT_STEP_TAG : ACTION_SKIP_TAGS[action.type],
+      emphasis: isNextStep ? "primary" : undefined,
+      // The billing note would cover every invoice still waiting to be paid.
+      facts: action.type === "billing" ? unpaidInvoicesFacts : undefined,
       danger: "danger" in action && action.danger === true,
       loading: actionLoadingId === action.doc.id,
       onClick: () => runAction(action),
@@ -1657,12 +1701,20 @@ export default function DealDetailPage() {
 
     if (!mainAction || mainAction.type === "done") return [];
 
-    const options: NextStepOption[] = [build(mainAction)];
-    if (optionalAction) options.push(build(optionalAction));
+    const options: NextStepOption[] = [build(mainAction, true)];
+    if (optionalAction) options.push(build(optionalAction, false));
 
-    // Invoice/billing on the left, delivery/payment on the right.
-    const deliverySide = (key: string) => key === "delivery_from_quote" || key === "collect";
-    if (options.length === 2 && deliverySide(options[0].key) && !deliverySide(options[1].key)) {
+    // The operational path (delivery / payment) reads first, the paperwork
+    // path (invoice / billing note) second. The sides follow the path, not
+    // which action happens to be the next step, so the pair does not move
+    // when the deal's state changes.
+    const operationalSide = (key: string) =>
+      key === "delivery_from_quote" || key === "collect";
+    if (
+      options.length === 2 &&
+      !operationalSide(options[0].key) &&
+      operationalSide(options[1].key)
+    ) {
       [options[0], options[1]] = [options[1], options[0]];
     }
     return options;

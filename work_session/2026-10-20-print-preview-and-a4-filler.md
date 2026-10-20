@@ -131,6 +131,25 @@ fresh (2 pages, the band complete) and is cached under the versioned key.
 - `scripts/print-layout-fixture.tsx` — a `?columnRules=1` switch and a `dn-short`
   document whose DN number is long enough to wrap in the description column.
 
+### The deal page's next-step choice
+
+The two ways forward on a deal (ออกใบวางบิล / รับเงินเลย, and
+ออกใบแจ้งหนี้ต่อ / ส่งของก่อน) were two equal white cards behind a หรือ
+divider — the hierarchy was invisible, the descriptions described mechanics
+instead of outcomes, and neither card showed the numbers the decision needs.
+
+Now the workflow's next step is the app's primary blue (the same button the app's
+primary actions use), the shortcut that skips a step is a quiet outline card, and
+each card states what the customer gets and what the other path skips. The
+billing card adds the facts: the count and the total of the invoices waiting
+to be paid — the same list the billing-note form offers.
+
+The sides follow the path, not which action happens to be the next step: the
+operational path (delivery / payment) reads first, the paperwork path (invoice /
+billing note) second. A pair therefore never moves when the deal's state
+changes — after a delivery is recorded the quotation pair keeps ส่งของก่อน on
+the left and only the labels change.
+
 ## Closing the two loose ends
 
 **The macOS pixel baselines.** They were captured before the filler measurement
