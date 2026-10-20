@@ -1,4 +1,5 @@
 import { matchRoute } from "../server/routes.js";
+import { runWithRequestContext } from "../server/handlers/_lib/context.js";
 
 function requestSegments(req) {
   const rawPath = req.query?.path;
@@ -9,7 +10,10 @@ function requestSegments(req) {
 
   // Supports direct requests to /api/index without the rewrite query.
   const pathname = String(req.url || "").split("?", 1)[0];
-  return pathname.replace(/^\/api(?:\/index)?\/?/, "").split("/").filter(Boolean);
+  return pathname
+    .replace(/^\/api(?:\/index)?\/?/, "")
+    .split("/")
+    .filter(Boolean);
 }
 
 export default async function handler(req, res) {
@@ -24,7 +28,7 @@ export default async function handler(req, res) {
 
     req.params = match.params;
     req.query = { ...req.query, ...match.params };
-    await (match.handler.default ?? match.handler)(req, res);
+    await runWithRequestContext(req, () => (match.handler.default ?? match.handler)(req, res));
   } catch (error) {
     console.error("[api]", req.url, error);
     if (!res.headersSent) {

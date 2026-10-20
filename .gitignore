@@ -19,3 +19,6 @@ playwright-report/
 
 # local dev api server output
 dev-api-*.log
+
+# local storage backend (DEV_STORAGE_DIR)
+.local-storage/

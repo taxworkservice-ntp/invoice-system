@@ -1,6 +1,14 @@
 import { requireStorageAccess, requireUser, validateStorageKey } from "../_lib/auth.js";
 import { ApiError, readJsonBody, sendError, sendJson } from "../_lib/http.js";
-import { deleteR2Object, getDownloadSignedUrl, getUploadSignedUrl, putR2Object } from "../_lib/r2.js";
+import {
+  deleteR2Object,
+  getDownloadSignedUrl,
+  getR2ObjectBytes,
+  getUploadSignedUrl,
+  putR2Object,
+  storageMode,
+  verifyLocalObjectSignature,
+} from "../_lib/r2.js";
 import { supabaseAdmin } from "../_lib/supabase.js";
 
 const MAX_BYTES_BY_PURPOSE = {
@@ -165,6 +173,34 @@ async function handleImageProxy(req, res) {
   res.status(200).send(buffer);
 }
 
+async function handleLocalObject(req, res) {
+  // Only the local disk backend serves objects this way; with R2 the
+  // pre-signed S3 URL is the download address.
+  if (storageMode !== "local") throw new ApiError(404, "Not found");
+  method(req, res, "GET");
+
+  const key = typeof req.query.key === "string" ? req.query.key : "";
+  if (!key) throw new ApiError(400, "Missing key");
+  validateStorageKey(key);
+
+  if (!verifyLocalObjectSignature({ key, expires: req.query.expires, sig: req.query.sig })) {
+    throw new ApiError(403, "Invalid or expired storage URL");
+  }
+
+  let object;
+  try {
+    object = await getR2ObjectBytes(key);
+  } catch (error) {
+    if (error?.code === "ENOENT") throw new ApiError(404, "File not found");
+    throw error;
+  }
+
+  res.setHeader("Content-Type", object.contentType);
+  res.setHeader("Content-Length", object.bytes.length);
+  res.setHeader("Cache-Control", "private, max-age=3600");
+  res.status(200).send(object.bytes);
+}
+
 async function handleRecordFile(req, res) {
   method(req, res, "POST");
 
@@ -242,6 +278,7 @@ export default async function handler(req, res) {
     if (action === "upload-file") return await handleUploadFile(req, res);
     if (action === "download-url" || action === "logo-url") return await handleDownloadUrl(req, res);
     if (action === "image-proxy") return await handleImageProxy(req, res);
+    if (action === "local-object") return await handleLocalObject(req, res);
     if (action === "record-file") return await handleRecordFile(req, res);
     if (action === "delete-file") return await handleDeleteFile(req, res);
     if (action === "delete-document-files") return await handleDeleteDocumentFiles(req, res);

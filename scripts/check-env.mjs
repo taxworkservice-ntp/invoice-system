@@ -28,6 +28,12 @@ const REQUIRED = [
   { name: "VITE_SUPABASE_ANON_KEY", usedBy: "client supabase init" },
   { name: "SUPABASE_URL", usedBy: "api functions" },
   { name: "SUPABASE_ANON_KEY", usedBy: "api functions" },
+];
+
+// These two are only required when the API runs with the real credentials.
+// DEV_STORAGE_DIR switches storage to disk and lets the API fall back to the
+// caller's own session (RLS), so a local checkout can run without them.
+const SERVER_ONLY = [
   { name: "SUPABASE_SERVICE_ROLE_KEY", usedBy: "api functions / cron / scripts" },
   { name: "CRON_SECRET", usedBy: "vercel cron → server/handlers/cron/overdue" },
 ];
@@ -50,9 +56,28 @@ for (const { name, usedBy } of REQUIRED) {
   }
 }
 
+const localMode = Boolean(process.env.DEV_STORAGE_DIR || env.has("DEV_STORAGE_DIR"));
+
+for (const { name, usedBy } of SERVER_ONLY) {
+  if (process.env[name] || env.has(name)) {
+    console.log(`PASS ${name} (${usedBy})`);
+  } else if (localMode) {
+    warnings += 1;
+    console.warn(
+      `WARN ${name} not set — local mode: the API runs caller-scoped (RLS). ` +
+        `Needed for ${usedBy}.`,
+    );
+  } else {
+    failures += 1;
+    console.error(`MISSING ${name} — needed by ${usedBy}`);
+  }
+}
+
 const r2Missing = R2_REQUIRED.filter((name) => !process.env[name] && !env.has(name));
 if (r2Missing.length === 0) {
   console.log("PASS R2_* storage variables");
+} else if (localMode) {
+  console.log("PASS storage — local disk backend (DEV_STORAGE_DIR), R2 credentials not needed");
 } else {
   warnings += 1;
   console.warn(
@@ -65,7 +90,9 @@ for (const prefix of FORBIDDEN_PREFIXES) {
   const hit = [...env.keys()].find((name) => name.startsWith(prefix));
   if (hit || process.env[hit ?? ""]) {
     failures += 1;
-    console.error(`FORBIDDEN ${hit} — Vite inlines VITE_* into the client bundle; rename without the prefix.`);
+    console.error(
+      `FORBIDDEN ${hit} — Vite inlines VITE_* into the client bundle; rename without the prefix.`,
+    );
   } else {
     console.log(`PASS no ${prefix}* variable`);
   }

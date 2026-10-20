@@ -5,10 +5,16 @@ import { access, constants, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { resolveHandler } from "../server/resolve.js";
+import { runWithRequestContext } from "../server/handlers/_lib/context.js";
 
 const PROD_ORIGIN = process.env.DEV_API_FALLBACK_ORIGIN || "https://invoice.taxworkaccount.com";
 const PORT = Number(process.env.DEV_API_PORT || 8787);
-const API_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "server", "handlers");
+const API_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "server",
+  "handlers",
+);
 
 async function loadEnvFiles() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,7 +27,10 @@ async function loadEnvFiles() {
       if (!match) continue;
       const key = match[1];
       let value = match[2].trim();
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1);
       }
       if (!(key in process.env)) process.env[key] = value;
@@ -36,8 +45,13 @@ await loadEnvFiles();
 // an opaque message in the browser, because the throw happens while the
 // handler module is being loaded. Naming them up front (and in the response)
 // turns a silent 500 into a one-line fix.
+//
+// Two of them have a local-dev stand-in:
+//   - SUPABASE_SERVICE_ROLE_KEY → the API falls back to the caller's own
+//     session (anon key + their JWT), so every query runs under RLS.
+//   - the R2_* set → DEV_STORAGE_DIR switches the storage backend to disk.
 const REQUIRED_SERVER_ENV = [
-  { name: "SUPABASE_SERVICE_ROLE_KEY", fallback: null },
+  { name: "SUPABASE_SERVICE_ROLE_KEY", fallback: null, scoped: true },
   { name: "SUPABASE_URL", fallback: "VITE_SUPABASE_URL" },
   { name: "SUPABASE_ANON_KEY", fallback: "VITE_SUPABASE_ANON_KEY" },
   { name: "R2_BUCKET", fallback: null, storage: true },
@@ -46,10 +60,18 @@ const REQUIRED_SERVER_ENV = [
   { name: "R2_ENDPOINT", fallback: null, storage: true },
 ];
 
+const localStorageDir = process.env.DEV_STORAGE_DIR;
+
 function missingServerEnv() {
-  return REQUIRED_SERVER_ENV.filter(
-    ({ name, fallback }) => !process.env[name] && !(fallback && process.env[fallback]),
-  );
+  return REQUIRED_SERVER_ENV.filter(({ name, fallback, storage, scoped }) => {
+    if (process.env[name]) return false;
+    if (fallback && process.env[fallback]) return false;
+    // The local disk backend replaces R2 entirely.
+    if (storage && localStorageDir) return false;
+    // A missing service-role key is not fatal: the API runs caller-scoped.
+    if (scoped) return false;
+    return true;
+  });
 }
 
 const ENV_FIX_HINT =
@@ -151,12 +173,17 @@ const server = createServer(async (req, res) => {
   const query = Object.fromEntries(url.searchParams.entries());
   Object.defineProperty(req, "query", { value: query, configurable: true, writable: true });
 
-  const segments = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
+  const segments = url.pathname
+    .replace(/^\/api\/?/, "")
+    .split("/")
+    .filter(Boolean);
 
   try {
     const match = await resolveHandler(segments, API_DIR);
     if (!match) {
-      console.log(`[dev-api] no local handler for ${req.method} ${url.pathname} → forwarding to prod`);
+      console.log(
+        `[dev-api] no local handler for ${req.method} ${url.pathname} → forwarding to prod`,
+      );
       return forwardToProd(req, res);
     }
 
@@ -167,7 +194,7 @@ const server = createServer(async (req, res) => {
     // work identically for path-style requests like /api/storage/image-proxy.
     req.query = { ...req.query, ...match.params };
     await parseBody(req);
-    await handler(req, res);
+    await runWithRequestContext(req, () => handler(req, res));
   } catch (error) {
     console.error(`[dev-api] ${req.method} ${url.pathname} failed:`, error);
     if (!res.headersSent) {
@@ -175,11 +202,14 @@ const server = createServer(async (req, res) => {
       // A missing server var throws while the handler module loads, so the
       // browser only ever saw "Internal server error". Say which var and how
       // to fix it instead — this is a local setup step, not a bug.
-      const missing = typeof message === "string" && message.startsWith("Missing required environment variable:");
-      res.status(500).send(JSON.stringify({
-        error: process.env.NODE_ENV === "production" ? "Internal server error" : message,
-        ...(missing ? { hint: ENV_FIX_HINT } : {}),
-      }));
+      const missing =
+        typeof message === "string" && message.startsWith("Missing required environment variable:");
+      res.status(500).send(
+        JSON.stringify({
+          error: process.env.NODE_ENV === "production" ? "Internal server error" : message,
+          ...(missing ? { hint: ENV_FIX_HINT } : {}),
+        }),
+      );
     }
   }
 });
@@ -187,6 +217,17 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`[dev-api] local API server on http://localhost:${PORT}`);
   console.log(`[dev-api] unmapped /api routes forward to ${PROD_ORIGIN}`);
+  console.log(
+    `[dev-api] storage: ${localStorageDir ? `local disk (${localStorageDir})` : "Cloudflare R2"}`,
+  );
+  console.log(
+    `[dev-api] supabase: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? "service-role key" : "caller-scoped (RLS)"}`,
+  );
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.log(
+      "[dev-api]   → without a service-role key the Supabase admin API (member/admin management) is unavailable.",
+    );
+  }
   const missing = missingServerEnv();
   if (missing.length > 0) {
     const required = missing.filter((item) => !item.storage).map((item) => item.name);
@@ -194,11 +235,15 @@ server.listen(PORT, () => {
     console.warn("[dev-api] ──────────────────────────────────────────────────────────────");
     if (required.length > 0) {
       console.warn(`[dev-api] MISSING server env: ${required.join(", ")}`);
-      console.warn("[dev-api]   → /api routes (PDF export, cron, admin) will answer 500 until set.");
+      console.warn(
+        "[dev-api]   → /api routes (PDF export, cron, admin) will answer 500 until set.",
+      );
     }
     if (storage.length > 0) {
       console.warn(`[dev-api] MISSING storage env: ${storage.join(", ")}`);
-      console.warn("[dev-api]   → storage routes (logo/image proxy, PDF cache) will answer 500 until set.");
+      console.warn(
+        "[dev-api]   → storage routes (logo/image proxy, PDF cache) will answer 500 until set.",
+      );
     }
     console.warn(`[dev-api] ${ENV_FIX_HINT}`);
     console.warn("[dev-api] ──────────────────────────────────────────────────────────────");
