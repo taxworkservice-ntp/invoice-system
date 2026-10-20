@@ -129,6 +129,18 @@ export function estimateLineItemHeight(
      * callers — invoice groups always carry a ref line).
      */
     dnGroupHasRefLine?: boolean;
+    /**
+     * classic_v2: the band's text sits in the description column instead of
+     * the merged band (the column rules run through the band row), so it
+     * wraps into more lines.
+     */
+    dnGroupNarrow?: boolean;
+    /**
+     * classic_v2: the band's own ref line ("DN-… วันที่: …"). Needed only
+     * when the text is in the description column: the ref line can wrap
+     * there, and every extra line has to be charged.
+     */
+    dnGroupRefText?: string | null;
     /** Classic V2 delivery note: use the DN note line metric (6.5pt/1.25). */
     dnNotes?: boolean;
     /** Classic V2 delivery note with compact spacing (classic_v2_compact_dn). */
@@ -219,9 +231,20 @@ export function estimateLineItemHeight(
   const subMm = subLines * textScale(SUBLINE_MM[key]);
   // Scaled text line only; the band's mm padding/border is fixed (identical
   // to the base-row treatment). At fontScale 1, non-DN is exactly DN_BAND_MM.
+  // The band's text sits in the description column when the column rules
+  // run through the band row: it then wraps into more lines, and so does the
+  // band's own ref line.
+  const narrowBand = isClassic && opts.dnGroupNarrow === true;
+  const soBandChars = Math.max(1, Math.floor(110 / Math.max(fontScale, 1)));
+  const soChars = narrowBand
+    ? Math.max(1, Math.floor(soBandChars * CLASSIC_V2_NARROW_TEXT_RATIO))
+    : soBandChars;
+  const refText = String(opts.dnGroupRefText || "").trim();
+  const refLines =
+    narrowBand && refText ? countLines(refText, soChars) : 0;
   const bandMm =
     isClassic && opts.hasDnGroupBand
-      ? bandFixedMm + bandLineMm * fontScale
+      ? bandFixedMm + bandLineMm * fontScale + (refLines > 1 ? (refLines - 1) * textScale(bandLineMm) : 0)
       : 0;
   // SO text spans the full band (roughly 2x the description column, slightly
   // smaller type). A band that also carries a ref line charges every SO line;
@@ -229,8 +252,7 @@ export function estimateLineItemHeight(
   // wrapped lines are charged (charging the first again over-reserved one
   // line per single-header section and split dense DNs).
   const soText = String(opts.dnGroupSoHeader || "").trim();
-  const soBandChars = Math.max(1, Math.floor(110 / Math.max(fontScale, 1)));
-  const soLines = isClassic && soText ? countLines(soText, soBandChars) : 0;
+  const soLines = isClassic && soText ? countLines(soText, soChars) : 0;
   const soExtraLines = opts.dnGroupHasRefLine === false ? Math.max(0, soLines - 1) : soLines;
   const soMm = soExtraLines * textScale(soLineMm);
   // Example photo: fixed print height (font-scale independent) + gap.
@@ -265,6 +287,14 @@ export function estimateSummaryRowHeight(
 // stays on one line, 180 wraps to two); the model charges 130 — the same ~85%
 // conservatism as NAME_CHARS_PER_LINE, so a long project name reserves a line
 // too many rather than too few.
+// The merged band spans the description column plus the four numeric
+// columns; the description column alone is what is left when the column rules
+// run through the band row. The ratio scales a chars-per-line budget from one
+// width to the other.
+const CLASSIC_V2_BAND_TEXT_MM = 181;
+const CLASSIC_V2_COLUMN_TEXT_MM = 93;
+const CLASSIC_V2_NARROW_TEXT_RATIO = CLASSIC_V2_COLUMN_TEXT_MM / CLASSIC_V2_BAND_TEXT_MM;
+
 const CLASSIC_V2_FULL_ROW_FIXED_MM = 3.06;
 const CLASSIC_V2_FULL_ROW_LINE_MM = 3.572;
 const CLASSIC_V2_FULL_ROW_CHARS_PER_LINE = 130;
@@ -282,12 +312,16 @@ const CLASSIC_V2_FULL_ROW_CHARS_PER_LINE = 130;
  */
 export function estimateClassicV2FullRowHeight(
   text: string | null | undefined,
-  opts: { labelChars?: number; fontScale?: number } = {},
+  opts: { labelChars?: number; fontScale?: number; narrowColumn?: boolean } = {},
 ): number {
   const value = typeof text === "string" ? text : "";
   if (!value.trim()) return 0;
   const fontScale = opts.fontScale ?? 1;
-  const perLine = CLASSIC_V2_FULL_ROW_CHARS_PER_LINE / fontScale;
+  // The text sits in the description column when the column rules run through
+  // the row, so it wraps into more lines.
+  const perLine =
+    (CLASSIC_V2_FULL_ROW_CHARS_PER_LINE / fontScale) *
+    (opts.narrowColumn ? CLASSIC_V2_NARROW_TEXT_RATIO : 1);
   const lines = value
     .split(/\r?\n/)
     .reduce((total, part, index) => {

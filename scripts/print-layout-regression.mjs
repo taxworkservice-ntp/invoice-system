@@ -1,13 +1,19 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import chromium from "@sparticuz/chromium";
-import playwright from "playwright-core";
 import { createServer } from "vite";
+import { launchPrintLayoutChromium, printLayoutPlatform } from "./print-layout-chromium.mjs";
 
 const root = process.cwd();
 const updateBaselines = process.argv.includes("--update");
-const baselineDir = path.join(root, "tests", "print-layout", "baselines");
+// Pixel baselines are platform-specific: font rasterisation differs between
+// macOS, Windows and Linux, so a baseline captured on one platform reports
+// thousands of "changed" pixels on another even though the layout is
+// identical. Each platform owns its baselines; a platform without them skips
+// the pixel comparison (the geometry checks — estimate and fill — stay the
+// portable gate).
+const platform = printLayoutPlatform();
+const baselineDir = path.join(root, "tests", "print-layout", "baselines", platform);
 const actualDir = path.join(root, "tests", "print-layout", "actual");
 const maxDiffPixels = Number(process.env.PRINT_LAYOUT_MAX_DIFF_PIXELS || 500);
 const pixelThreshold = Number(process.env.PRINT_LAYOUT_PIXEL_THRESHOLD || 12);
@@ -22,6 +28,9 @@ const variants = [
   { template: "classic_v2", copyType: "original", doc: "many", fontScale: "xlarge" },
   { template: "classic_v2", copyType: "original", doc: "many", fontScale: "xxlarge" },
   { template: "classic_v2", copyType: "original", doc: "delivery" },
+  // The DN document carries the band rows (the merged heading) — the classic
+  // V2 band look is locked here.
+  { template: "classic_v2", copyType: "original", doc: "dn" },
   { template: "classic_v2", copyType: "original", doc: "delivery", compactDn: true },
   { template: "classic_v2", copyType: "original", printTitle: "tax_invoice_delivery_invoice" },
   { template: "modern", copyType: "original", printTitle: "tax_invoice_delivery_invoice" },
@@ -35,6 +44,7 @@ function nameFor({ template, copyType, doc, appendix, fontScale, compactDn, prin
   if (doc === "many") parts.push("many");
   if (doc === "delivery") parts.push("delivery");
   if (doc === "qt") parts.push("qt");
+  if (doc === "dn" || doc === "dn-short") parts.push(doc);
   parts.push(template);
   parts.push(copyType);
   if (fontScale) parts.push(fontScale);
@@ -43,35 +53,6 @@ function nameFor({ template, copyType, doc, appendix, fontScale, compactDn, prin
   if (wht) parts.push("wht");
   if (appendix) parts.push("appendix");
   return `${parts.join("-")}.png`;
-}
-
-async function executablePath() {
-  const candidates = [
-    process.env.CHROME_EXECUTABLE_PATH,
-    "C:/Program Files/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
-    "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // Try the next known browser path.
-    }
-  }
-
-  const bundledPath = await chromium.executablePath();
-  try {
-    await fs.access(bundledPath);
-    return bundledPath;
-  } catch {
-    throw new Error(
-      "No Chromium executable found. Set CHROME_EXECUTABLE_PATH to Chrome or Edge before running print layout tests.",
-    );
-  }
 }
 
 async function comparePngs(page, expectedBuffer, actualBuffer) {
@@ -201,14 +182,9 @@ try {
   const port = typeof address === "object" && address ? address.port : 5173;
   const baseUrl = `http://127.0.0.1:${port}`;
 
-  // sparticuz args (e.g. --single-process) hang system Chrome on macOS —
-  // use them only with the bundled lambda binary.
-  const usingSystemChrome = Boolean(process.env.CHROME_EXECUTABLE_PATH);
-  browser = await playwright.chromium.launch({
-    args: usingSystemChrome ? [] : chromium.args,
-    executablePath: await executablePath(),
-    headless: usingSystemChrome ? true : chromium.headless,
-  });
+  // The bundled Lambda binary (and its --single-process args) only work on
+  // Linux; everywhere else the locally installed Chrome/Edge is used.
+  browser = await launchPrintLayoutChromium();
 
   const page = await browser.newPage({
     viewport: { width: 794, height: 1123 },
@@ -217,6 +193,22 @@ try {
   await page.emulateMedia({ media: "screen" });
 
   const failures = [];
+
+  // A platform without baselines has no pixel expectation to compare against:
+  // the rasterisation differs by platform, so a macOS baseline reports
+  // thousands of changed pixels on Windows even when the layout is identical.
+  // Capture this platform's baselines with `npm run test:print-layout:update`.
+  const hasBaselines = await fs
+    .readdir(baselineDir)
+    .then((entries) => entries.some((entry) => entry.endsWith(".png")))
+    .catch(() => false);
+
+  if (!hasBaselines && !updateBaselines) {
+    console.log(
+      `skip  no pixel baselines for "${platform}" — run npm run test:print-layout:update to capture them.\n` +
+        `      The portable gate is npm run test:print-layout:estimate and npm run test:print-layout:fill.`,
+    );
+  }
 
   for (const variant of variants) {
     const fileName = nameFor(variant);
@@ -228,6 +220,11 @@ try {
     if (updateBaselines) {
       await fs.writeFile(baselinePath, screenshot);
       console.log(`updated ${path.relative(root, baselinePath)}`);
+      continue;
+    }
+
+    if (!hasBaselines) {
+      console.log(`skip  ${fileName}: no "${platform}" baseline to compare against`);
       continue;
     }
 

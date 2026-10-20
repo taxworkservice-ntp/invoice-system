@@ -158,6 +158,13 @@ export interface ClientProfile {
   classic_v2_table_lines?: "all" | "rows" | "none";
   /** Classic V2 delivery notes: tighten paddings/margins/line-height (no font change) to fit more lines per page. */
   classic_v2_compact_dn?: boolean;
+  /**
+   * Classic V2: run the items table's column rules through the merged band
+   * rows (the DN group heading and the project heading). Their text moves
+   * into the description column and wraps there, so a long heading takes more
+   * lines. Default off — the band keeps the full row width.
+   */
+  classic_v2_column_rules_continuous?: boolean;
   show_signature_on_wht: boolean;
   show_stamp_on_wht: boolean;
   show_signature_on_docs?: Record<string, boolean> | null;

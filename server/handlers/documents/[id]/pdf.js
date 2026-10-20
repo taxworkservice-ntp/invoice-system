@@ -3,6 +3,7 @@ import { launchChromium } from "../../_lib/chromium.js";
 import { ApiError, readJsonBody, sendError, sendJson } from "../../_lib/http.js";
 import { getR2ObjectBytes, putR2Object } from "../../_lib/r2.js";
 import { supabaseAdmin } from "../../_lib/supabase.js";
+import { printSignature } from "../../_lib/printSignature.js";
 import { getEnv } from "../../_lib/env.js";
 
 function documentId(req) {
@@ -18,15 +19,18 @@ function normalizeCopyTypes(value) {
 }
 
 // Cache variant per render configuration. Single-copy downloads share one
-// key; two-copy downloads vary by order/interleave/reference mode, so each
-// used combination gets its own bounded key (≤4 per document).
-function pdfVariant(copyTypes, interleave, refCollapse) {
+// key; two-copy downloads vary by order/interleave, so each used combination
+// gets its own bounded key (≤4 per document).
+function pdfVariant(copyTypes, interleave) {
   if (copyTypes.length === 1) return copyTypes[0];
-  return `both-${copyTypes.join("-")}-il${interleave}-ref${refCollapse ? 1 : 0}`;
+  return `both-${copyTypes.join("-")}-il${interleave}`;
 }
 
-function pdfCacheKey(userId, documentId, variant) {
-  return `pdfs/${userId}/${documentId}/${variant}.pdf`;
+// The print signature is part of the key: a change to the print output —
+// the code (layout version) or the workspace's print settings — invalidates
+// the cached renders instead of serving the old ones.
+function pdfCacheKey(userId, documentId, variant, signature) {
+  return `pdfs/${userId}/${documentId}/${variant}-${signature}.pdf`;
 }
 
 function originFromRequest(req) {
@@ -99,8 +103,8 @@ function sendPdf(res, buffer, filename) {
 // so a hit can never serve bytes rendered from older content. The user-facing
 // documents.updated_at is deliberately NOT used here — profile/customer edits
 // bump the render version in bulk but must not move "last edited".
-async function lookupFreshCache(document, variant) {
-  const key = pdfCacheKey(document.user_id, document.id, variant);
+async function lookupFreshCache(document, variant, signature) {
+  const key = pdfCacheKey(document.user_id, document.id, variant, signature);
   const { data: file, error } = await supabaseAdmin
     .from("files")
     .select("r2_key, updated_at")
@@ -190,7 +194,6 @@ async function renderPdfBuffer({
   id,
   normalizedCopyTypes,
   interleave,
-  refCollapse,
 }) {
   let browser;
   let page;
@@ -206,8 +209,6 @@ async function renderPdfBuffer({
     const exportUrl = new URL(`/documents/${encodeURIComponent(id)}/print`, origin);
     exportUrl.searchParams.set("export", "pdf");
     exportUrl.searchParams.set("copyTypes", normalizedCopyTypes.join(","));
-    // Print-time reference collapse (classic V2): one line per DN group
-    if (refCollapse) exportUrl.searchParams.set("refCollapse", "1");
     exportUrl.searchParams.set("interleave", interleave);
 
     browser = await launchChromium();
@@ -368,7 +369,6 @@ export default async function handler(req, res) {
     // Two-copy page order: interleave pages (default) or print each copy
     // complete first (?interleave=0). Always forwarded explicitly.
     const interleave = body.interleave === 0 ? "0" : "1";
-    const refCollapse = body.refCollapse ? 1 : 0;
     // Warm mode (background pre-render after finalize): render + backfill
     // the cache, then reply with JSON instead of shipping PDF bytes to a
     // caller that would discard them.
@@ -389,6 +389,10 @@ export default async function handler(req, res) {
       .single();
 
     if (documentError || !document) throw new ApiError(404, "Document not found");
+    // The client sends the layout version it rendered with; the settings
+    // fingerprint is added here, so the warm (which knows no settings) and
+    // the download land on the same key.
+    const signature = await printSignature(document.user_id, body.layoutVersion);
     if (profile.role !== "admin" && document.user_id !== user.id) {
       throw new ApiError(403, "Forbidden");
     }
@@ -400,11 +404,11 @@ export default async function handler(req, res) {
       .single();
 
     const filename = filenameFor(document, docOwner?.company_name_th);
-    const variant = pdfVariant(normalizedCopyTypes, interleave, refCollapse);
-    const cacheKey = pdfCacheKey(document.user_id, document.id, variant);
+    const variant = pdfVariant(normalizedCopyTypes, interleave);
+    const cacheKey = pdfCacheKey(document.user_id, document.id, variant, signature);
 
     // Fast path: serve cached bytes rendered from identical content.
-    const cached = await lookupFreshCache(document, variant);
+    const cached = await lookupFreshCache(document, variant, signature);
     if (cached) {
       try {
         const { bytes } = await getR2ObjectBytes(cached.r2_key);
@@ -426,7 +430,6 @@ export default async function handler(req, res) {
       id,
       normalizedCopyTypes,
       interleave,
-      refCollapse,
     });
 
     await backfillPdfCache({

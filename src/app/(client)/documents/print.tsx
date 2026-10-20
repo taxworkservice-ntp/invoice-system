@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { localTodayString } from "../../../lib/devDate";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
@@ -20,14 +20,15 @@ import {
 } from "../../../lib/print";
 import { getDnVarianceParts } from "../../../lib/dnVariance";
 import { isDnMarkerLine } from "../../../lib/print";
-import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
+import { buildDnBlocks, buildDnSectionPlan, buildDnSoHeaderPlan, dnHeaderLabel, getDnSoHeaderText, planDnRows } from "../../../lib/dnGroups";
 import { apiFetchBlob } from "../../../lib/api";
 import { buildZipBlob, safeZipSegment } from "../../../lib/download/zip";
 import { warmPdfCache } from "../../../lib/pdfWarm";
 import { useToast } from "../../../hooks/useToast";
-import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_COMPACT_DN_BONUS_MM, CLASSIC_V2_SIG_STRIP_MM, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
+import { CLASSIC_V2_TYPE_GLOBAL_KEY, DOCUMENT_FONT_SCALE_DEFAULT, CLASSIC_V2_CHEQUE_STRIP_RESERVE_MM, CLASSIC_V2_META_ROW_RESERVE_MM, CLASSIC_V2_HIDE_EN_META_ROW_MM, CLASSIC_V2_HIDE_EN_THEAD_MM, CLASSIC_V2_HIDE_EN_SIG_MM, CLASSIC_V2_COMPACT_SIG_MM, CLASSIC_V2_COMPACT_DN_BONUS_MM, CLASSIC_V2_SIG_STRIP_MM, PRINT_LAYOUT_VERSION, PRINT_SHEET_HEIGHT_PX, getClassicV2FontScaleMult, getClassicV2EffectiveFontScaleMult, getClassicV2EffectiveSectionScaleMult } from "../../../constants";
 import { useWorkspaceFeatures } from "../../../hooks/useAuth";
 import { paginateRows, type GenericPageBatch } from "../../../lib/pagination";
+import { resolveYearEra } from "../../../lib/yearEra";
 import type { ClassicV2FontScales } from "../../../lib/pagination";
 import {
   estimateClassicV2FullRowHeight,
@@ -37,7 +38,6 @@ import {
 import type {
   BillingNoteInvoice,
   DocumentLineItem,
-  InvoiceDeliveryNote,
   ReceiptInvoice,
 } from "../../../types";
 
@@ -45,7 +45,7 @@ import { supabase } from "../../../lib/supabase";
 
 type CopyOrder = "original-first" | "copy-first";
 
-type SaveMode = "single" | "combined" | "separate";
+type SaveMode = "single" | "combined" | "separate" | "print";
 
 /** Small segmented toggle (rounded-control + line + primary tokens). */
 function Segmented<T extends string>({
@@ -103,10 +103,9 @@ function InlineControl({
 type PrintBatch =
   | { kind: "line_items"; batch: GenericPageBatch<DocumentLineItem> }
   | { kind: "billing_invoices"; batch: GenericPageBatch<BillingNoteInvoice> }
-  | { kind: "receipt_invoices"; batch: GenericPageBatch<ReceiptInvoice> }
-  | { kind: "dn_summary"; batch: GenericPageBatch<InvoiceDeliveryNote> };
+  | { kind: "receipt_invoices"; batch: GenericPageBatch<ReceiptInvoice> };
 
-function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix = data.document.dn_appendix, refMode = false): PrintBatch[] {
+function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix = data.document.dn_appendix): PrintBatch[] {
   const { filteredLineItems } = applyAppendixToData({ ...data, document: { ...data.document, dn_appendix: dnAppendix } });
   const isClassicV2 = data.template === "classic_v2";
   const sectionScales = data.clientProfile.pdf_section_font_scales ?? data.clientProfile.classic_v2_section_font_scales;
@@ -158,8 +157,14 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   // class and the compactDn row metrics; DN-only.
   const compactDn =
     isClassicV2 &&
-    data.document.doc_type === "delivery_note" &&
     data.clientProfile.classic_v2_compact_dn === true;
+  // The column rules run through the merged band rows: the band text and the
+  // project heading sit in the description column (and wrap there).
+  const columnRulesContinuous =
+    isClassicV2 && data.clientProfile.classic_v2_column_rules_continuous === true;
+  // The band label carries the DN ref with the workspace's year era — the
+  // same text the renderer prints, so the model charges the same lines.
+  const printEra = resolveYearEra(data.clientProfile);
   const metaRowReserveMm = hideEn
     ? CLASSIC_V2_META_ROW_RESERVE_MM - CLASSIC_V2_HIDE_EN_META_ROW_MM
     : CLASSIC_V2_META_ROW_RESERVE_MM;
@@ -184,7 +189,10 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       })
     : 0;
   const projectRowMm = isClassicV2
-    ? estimateClassicV2FullRowHeight(data.document.task_name, { fontScale: itemsScale })
+    ? estimateClassicV2FullRowHeight(data.document.task_name, {
+        fontScale: itemsScale,
+        narrowColumn: columnRulesContinuous,
+      })
     : 0;
   // Space savings returned to the budgets (fixed blocks render smaller):
   // hide-EN shrinks each visible meta row + thead + signature titles; the
@@ -215,22 +223,6 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
   const stripReserveMm = isClassicV2 && data.clientProfile.classic_v2_sign_every_page === true
     ? CLASSIC_V2_SIG_STRIP_MM
     : 0;
-  // Reference mode (classic V2): the DN summary table paginates with the
-  // same summary machinery as the billing-note table — identical fill-first
-  // behavior, continuous numbering, last-only padding and footer.
-  if (
-    isClassicV2 &&
-    refMode &&
-    data.document.doc_type === "invoice" &&
-    data.invoiceDeliveryNotes.length > 0
-  ) {
-    return paginateRows(
-      data.invoiceDeliveryNotes,
-      data.template,
-      "summary_rows",
-      { estimateHeight: () => estimateSummaryRowHeight(data.template, itemsScale, numScale), fontScale: budgetScales, extraReserveMm, spaceBonusMm, stripReserveMm },
-    ).map((batch) => ({ kind: "dn_summary", batch }));
-  }
   if (data.document.doc_type === "billing_note" && data.document.vat_registered) {
     return paginateRows(
       data.billingNoteInvoices,
@@ -301,6 +293,11 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
       // Empty number = SO-only band (DN section/legacy header): its first SO
       // line is already part of the band charge.
       headerHasRefLine: !!p.header?.number,
+      // With the column rules running through the band, the band's text sits
+      // in the description column — the ref line can wrap there, so it is
+      // charged at that width.
+      headerRefText:
+        columnRulesContinuous && p.header ? dnHeaderLabel(p.header, printEra) : null,
     }));
     return paginateRows(units, data.template, "line_items", {
       estimateHeight: (unit) =>
@@ -319,6 +316,8 @@ function getPrintBatches(data: PrintDocumentData, blankForm = false, dnAppendix 
           hasDnGroupBand: unit.hasHeader,
           dnGroupSoHeader: unit.soHeader,
           dnGroupHasRefLine: unit.headerHasRefLine,
+          dnGroupNarrow: columnRulesContinuous,
+          dnGroupRefText: unit.headerRefText,
           // DN line notes are shorter than the item-name metric; scope the
           // calibrated metric to delivery notes.
           dnNotes: data.document.doc_type === "delivery_note",
@@ -374,18 +373,30 @@ export default function DocumentPrintPreviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pdfError, setPdfError] = useState("");
+  // A sheet that throws while rendering leaves a blank page behind: the error
+  // boundary renders null and the failure is otherwise invisible — on screen it
+  // looks like an empty document, and in a downloaded PDF it looks like a blank
+  // page. The preview reports it here so the user can see (and quote) what
+  // went wrong instead of staring at an empty sheet.
+  const [renderError, setRenderError] = useState("");
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const previewSheetRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [previewHeight, setPreviewHeight] = useState<number | null>(null);
   const [previewViewportWidth, setPreviewViewportWidth] = useState<number | null>(null);
   const [previewMarginLeft, setPreviewMarginLeft] = useState<number | null>(null);
+  // Pages whose content is taller than A4. The preview grows past the page
+  // edge, but the exported PDF clips it (the page box is a fixed 297mm with
+  // overflow hidden) — so the preview warns before a truncated file is made.
+  const [overflowPages, setOverflowPages] = useState<number[]>([]);
   const [savingMode, setSavingMode] = useState<SaveMode | null>(null);
   const savingPdf = savingMode !== null;
   // Progress for the visible download status (total > 1 → determinate bar).
   const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
   const [showSlowHint, setShowSlowHint] = useState(false);
   const [lastFailedMode, setLastFailedMode] = useState<SaveMode | null>(null);
+  // Which copy a failed single download was for, so the retry repeats it.
+  const [lastFailedCopyType, setLastFailedCopyType] = useState<CopyType>("original");
   const abortRef = useRef<AbortController | null>(null);
   const toast = useToast();
   const [dnAppendix, setDnAppendix] = useState(
@@ -413,14 +424,14 @@ export default function DocumentPrintPreviewPage() {
     return () => window.clearTimeout(timer);
   }, [savingPdf]);
 
-  // Pre-warm the single-copy PDF while the user reviews the document so the
-  // common "บันทึกเป็น PDF" click is usually a cache hit. Fire-and-forget.
+  // Pre-warm the PDFs of both copies so the download buttons are usually a
+  // cache hit. Fire-and-forget. The two copies are separate cached renders,
+  // so warming only one would leave the other cold.
   useEffect(() => {
     if (!id || exportMode) return;
-    warmPdfCache(id);
+    warmPdfCache(id, "original");
+    warmPdfCache(id, "copy");
   }, [id, exportMode]);
-
-  const [copyType, setCopyType] = useState<CopyType>(exportCopyTypes[0] || "original");
   const [copyOrder, setCopyOrder] = useState<CopyOrder>(() => {
     if (typeof window === "undefined") return "original-first";
     return window.localStorage.getItem("invoice-system.copy-order") === "copy-first"
@@ -437,6 +448,9 @@ export default function DocumentPrintPreviewPage() {
     setInterleaveCopies(value);
     window.localStorage.setItem("invoice-system.interleave-copies", value ? "1" : "0");
   };
+  // The copies the preview shows, in the order the toolbar controls.
+  const previewCopyTypes: CopyType[] =
+    copyOrder === "copy-first" ? ["copy", "original"] : ["original", "copy"];
   const handleCopyOrderChange = (value: CopyOrder) => {
     setCopyOrder(value);
     window.localStorage.setItem("invoice-system.copy-order", value);
@@ -527,6 +541,48 @@ export default function DocumentPrintPreviewPage() {
     };
   }, [data]);
 
+  // Measure the rendered sheets against A4. The exported PDF clips a page box
+  // at 297mm, so a sheet taller than A4 loses its tail in the file while the
+  // preview still shows it — the user should hear about that before they
+  // download. Measured in layout pixels (offsetHeight), so the mobile preview
+  // zoom cannot distort the result.
+  useEffect(() => {
+    const container = previewSheetRef.current;
+    if (!container) return;
+
+    const limitPx = PRINT_SHEET_HEIGHT_PX + 2;
+    const measure = () => {
+      // The preview shows the original and the copy, so the sheets are counted
+      // per copy: the copy's sheets carry `print-copy`. Both copies overflow
+      // identically, so the page is reported once.
+      const over: number[] = [];
+      const pageOf = new Map<HTMLElement, number>();
+      const counters = { original: 0, copy: 0 };
+      container.querySelectorAll<HTMLElement>(".print-sheet").forEach((sheet) => {
+        const isCopy = sheet.classList.contains("print-copy");
+        counters[isCopy ? "copy" : "original"] += 1;
+        pageOf.set(sheet, counters[isCopy ? "copy" : "original"]);
+      });
+      container.querySelectorAll<HTMLElement>(".print-sheet").forEach((sheet) => {
+        if (sheet.offsetHeight > limitPx) {
+          const page = pageOf.get(sheet) ?? 0;
+          if (page > 0 && !over.includes(page)) over.push(page);
+        }
+      });
+      over.sort((a, b) => a - b);
+      setOverflowPages((previous) =>
+        previous.length === over.length && previous.every((page, i) => page === over[i])
+          ? previous
+          : over,
+      );
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [data]);
+
   async function triggerDownload(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
@@ -598,8 +654,87 @@ export default function DocumentPrintPreviewPage() {
     return apiFetchBlob(`/api/documents/${encodeURIComponent(id)}/pdf`, {
       method: "POST",
       signal,
-      body: JSON.stringify({ copyTypes, interleave: interleaveCopies ? 1 : 0 }),
+      body: JSON.stringify({
+        copyTypes,
+        interleave: interleaveCopies ? 1 : 0,
+        layoutVersion: PRINT_LAYOUT_VERSION,
+      }),
     });
+  }
+
+  /**
+   * Print the document without downloading a file.
+   *
+   * The paper output is the server-rendered PDF, opened in a tab and printed
+   * from the browser's PDF viewer. It renders both copies in the toolbar's
+   * order and paging — the same document the preview shows — so the paper
+   * equals the combined file on every platform.
+   *
+   * The tab must be opened inside the click handler — the render can take
+   * seconds, and a window.open() after an await loses the user gesture that
+   * popup blockers require. The tab shows a placeholder until the PDF is
+   * ready, then navigates to it.
+   */
+  async function handlePrint() {
+    const doc = data;
+    if (!doc || savingPdf) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — กรุณาอนุญาต pop-up สำหรับเว็บไซต์นี้");
+      return;
+    }
+
+    printWindow.document.write(
+      `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${pdfFilename(doc, "2ฉบับ")}</title></head>` +
+        `<body style="font-family:sans-serif;padding:24px;color:#444">กำลังเตรียมเอกสารสำหรับพิมพ์…</body></html>`,
+    );
+    printWindow.document.close();
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSavingMode("print");
+    setPdfError("");
+    setLastFailedMode(null);
+    setDownloadProgress({ current: 0, total: 1 });
+
+    try {
+      const blob = await getServerPdfBlob(previewCopyTypes, controller.signal);
+      const url = URL.createObjectURL(blob);
+
+      // Guard the load handler: the placeholder document fires its own load
+      // event, and printing that would print an empty page.
+      let pdfReady = false;
+      printWindow.onload = () => {
+        if (!pdfReady) return;
+        window.setTimeout(() => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch (error) {
+            console.warn("Automatic print was refused by the browser:", error);
+          }
+        }, 300);
+      };
+      pdfReady = true;
+      printWindow.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success("เปิดหน้าต่างพิมพ์แล้ว");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        printWindow.close();
+      } else {
+        console.error("Failed to open the print window:", err);
+        printWindow.close();
+        setPdfError("พิมพ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        setLastFailedMode("print");
+        toast.error("พิมพ์ไม่สำเร็จ");
+      }
+    } finally {
+      abortRef.current = null;
+      setSavingMode(null);
+      setDownloadProgress(null);
+    }
   }
 
   function cancelDownload() {
@@ -607,7 +742,7 @@ export default function DocumentPrintPreviewPage() {
   }
 
   function retryLastDownload() {
-    if (lastFailedMode === "single") void handleSavePdf();
+    if (lastFailedMode === "single") void handleSavePdf(lastFailedCopyType);
     else if (lastFailedMode === "combined") void handleSaveBothPdf();
     else if (lastFailedMode === "separate") void handleSaveBothSeparatePdf();
   }
@@ -649,10 +784,12 @@ export default function DocumentPrintPreviewPage() {
     }
   }
 
-  async function handleSavePdf() {
+  // One copy: the original or the copy. Both are separate cached server
+  // variants, so a repeat download is a cache hit.
+  async function handleSavePdf(copyType: CopyType) {
     const doc = data;
     if (!doc || savingPdf) return;
-    // Honor the ประเภท toggle: "สำเนา" downloads the copy variant.
+    setLastFailedCopyType(copyType);
     const suffix = copyType === "copy" ? "สำเนา" : undefined;
     await runDownload("single", 1, async ({ signal }) => {
       const blob = await getServerPdfBlob([copyType], signal);
@@ -707,17 +844,19 @@ export default function DocumentPrintPreviewPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#EEF2F6] flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-page-bg">
         <Spinner />
       </div>
     );
   }
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#EEF2F6] px-6 py-10">
-        <div className="mx-auto max-w-3xl rounded-[24px] border border-[#E4E7EC] bg-white p-8 shadow-sm">
-          <h1 className="text-[24px] font-semibold text-[#101828]">ไม่สามารถแสดงเอกสารได้</h1>
-          <p className="mt-3 text-[14px] text-[#475467]">{error || "ไม่สามารถเตรียมเอกสารสำหรับการพิมพ์ได้"}</p>
+      <div className="min-h-screen bg-page-bg px-6 py-10">
+        <div className="mx-auto max-w-3xl rounded-card border border-line bg-paper p-8">
+          <h1 className="text-subtitle font-semibold text-ink-900">ไม่สามารถแสดงเอกสารได้</h1>
+          <p className="mt-3 text-body text-ink-600">
+            {error || "ไม่สามารถเตรียมเอกสารสำหรับการพิมพ์ได้"}
+          </p>
           <div className="mt-6">
             <Button variant="secondary" onClick={() => navigate(-1)}>
               กลับ
@@ -742,7 +881,14 @@ export default function DocumentPrintPreviewPage() {
       : exportCopyTypes.flatMap((type) => batches.map((_, i) => ({ type, index: i })));
     return (
       <div className="print-export-stack">
-        <PrintErrorBoundary onError={() => {}}>
+        <PrintErrorBoundary
+          onError={(err) => {
+            // The PDF renderer collects console errors into its render log, so
+            // a crashed sheet shows up there instead of as a mystery blank
+            // page in the downloaded file.
+            console.error("[print] export render failed", err);
+          }}
+        >
           {pagePlan.map(({ type, index: i }) => {
             const { kind, batch } = batches[i];
             return (
@@ -757,8 +903,6 @@ export default function DocumentPrintPreviewPage() {
                     batchLineItems={kind === "line_items" ? batch.items : undefined}
                     batchBillingNoteInvoices={kind === "billing_invoices" ? batch.items : undefined}
                     batchReceiptInvoices={kind === "receipt_invoices" ? batch.items : undefined}
-                    batchDeliveryNotes={kind === "dn_summary" ? batch.items : undefined}
-                    batchDeliveryNoteStartIndex={kind === "dn_summary" ? batch.startIndex : undefined}
                     batchStartIndex={kind === "line_items" ? batch.startIndex : undefined}
                     summaryStartIndex={batch.startIndex}
                     blankForm={blankForm}
@@ -797,7 +941,7 @@ export default function DocumentPrintPreviewPage() {
     : data.document.doc_number || "เอกสาร";
 
 return (
-    <div className="print-preview-shell min-h-screen bg-cool-75 px-2 py-3 sm:px-4 sm:py-6">
+    <div className="print-preview-shell min-h-screen bg-page-bg px-2 py-3 sm:px-4 sm:py-6">
       <div
         className="print-toolbar mx-auto mb-3 w-full max-w-[230mm] sm:mb-4"
         style={previewViewportWidth ? { maxWidth: `${previewViewportWidth}px` } : undefined}
@@ -827,40 +971,106 @@ return (
           ) : null}
 
           <div className={`flex flex-col gap-3 ${hasDocumentOptions ? "pt-3" : ""}`}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <Button
-                onClick={handleSavePdf}
-                loading={savingMode === "single"}
-                disabled={savingPdf}
-                size="sm"
-                className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
+            {overflowPages.length > 0 ? (
+              <div
+                role="status"
+                className="flex items-start gap-2 rounded-control border border-warning-border bg-warning-soft px-3 py-2.5"
               >
-                บันทึกเป็น PDF
-              </Button>
-              <InlineControl label="ประเภท" className="sm:order-1">
-                <Segmented
-                  value={copyType}
-                  onChange={setCopyType}
-                  options={[
-                    { value: "original", label: "ต้นฉบับ" },
-                    { value: "copy", label: "สำเนา" },
-                  ]}
-                />
-              </InlineControl>
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
+                <p className="text-label leading-5 text-warning-text">
+                  หน้า {overflowPages.join(", ")} เกินขนาดกระดาษ A4 (ต้นฉบับและสำเนา) — ส่วนที่เกินจะถูกตัดในไฟล์ PDF
+                  ลองลดขนาดตัวอักษรของเอกสาร หรือแบ่งรายการออกเป็นหลายหน้า
+                </p>
+              </div>
+            ) : null}
+            {/* The three ways to get the document: both copies in one file,
+                one copy, or two files. The group label on the left says which
+                is which — the copy type is named in exactly one place. */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="shrink-0 sm:w-[180px]">
+                <p className="text-label font-medium text-ink-800">ทั้งสองฉบับ</p>
+                <p className="text-label text-ink-500">ตามที่แสดงในหน้านี้</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 sm:shrink-0">
+                <Button
+                  onClick={handlePrint}
+                  loading={savingMode === "print"}
+                  disabled={savingPdf}
+                  variant="secondary"
+                  size="sm"
+                  className="w-full sm:w-[120px]"
+                >
+                  พิมพ์
+                </Button>
+                <Button
+                  onClick={handleSaveBothPdf}
+                  loading={savingMode === "combined"}
+                  disabled={savingPdf}
+                  size="sm"
+                  className="w-full sm:w-[160px]"
+                >
+                  2 ฉบับ รวมไฟล์เดียว
+                </Button>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <Button
-                onClick={handleSaveBothPdf}
-                loading={savingMode === "combined"}
-                disabled={savingPdf}
-                variant="secondary"
-                size="sm"
-                className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
-              >
-                2 ฉบับ รวมไฟล์เดียว
-              </Button>
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:order-1">
+              <div className="shrink-0 sm:w-[180px]">
+                <p className="text-label font-medium text-ink-800">ฉบับเดียว</p>
+                <p className="text-label text-ink-500">ต้นฉบับ หรือ สำเนา ฉบับใดฉบับหนึ่ง</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1.5 sm:shrink-0">
+                <Button
+                  onClick={() => handleSavePdf("original")}
+                  loading={savingMode === "single"}
+                  disabled={savingPdf}
+                  variant="secondary"
+                  size="sm"
+                  className="w-full sm:w-[80px]"
+                >
+                  ต้นฉบับ
+                </Button>
+                <Button
+                  onClick={() => handleSavePdf("copy")}
+                  loading={savingMode === "single"}
+                  disabled={savingPdf}
+                  variant="secondary"
+                  size="sm"
+                  className="w-full sm:w-[80px]"
+                >
+                  สำเนา
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="shrink-0 sm:w-[180px]">
+                <p className="text-label font-medium text-ink-800">สองไฟล์</p>
+                <p className="text-label text-ink-500">ต้นฉบับ และ สำเนา แยกกัน</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 sm:shrink-0">
+                <Button
+                  onClick={handleSaveBothSeparatePdf}
+                  loading={savingMode === "separate"}
+                  disabled={savingPdf}
+                  variant="secondary"
+                  size="sm"
+                  className="w-full sm:w-[160px]"
+                >
+                  2 ฉบับ แยกไฟล์
+                </Button>
+                <span className="text-label text-ink-300">ZIP · 2 ไฟล์</span>
+              </div>
+            </div>
+
+            {/* How the two copies are arranged — it shapes the preview and the
+                combined file, so it sits apart from the outputs. */}
+            <div className="flex flex-col gap-3 border-t border-line pt-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="shrink-0 sm:w-[180px]">
+                <p className="text-label font-medium text-ink-800">จัดการฉบับ</p>
+                <p className="text-label text-ink-500">ลำดับและการเรียงหน้าของสองฉบับ</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                 <InlineControl label="ลำดับ">
                   <Segmented
                     value={copyOrder}
@@ -882,20 +1092,6 @@ return (
                   />
                 </InlineControl>
               </div>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <Button
-                onClick={handleSaveBothSeparatePdf}
-                loading={savingMode === "separate"}
-                disabled={savingPdf}
-                variant="secondary"
-                size="sm"
-                className="w-full sm:order-2 sm:w-[160px] sm:shrink-0"
-              >
-                2 ฉบับ แยกไฟล์
-              </Button>
-              <span className="text-label text-ink-300 sm:order-1">ZIP · 2 ไฟล์</span>
             </div>
 
             {savingPdf ? (
@@ -957,52 +1153,68 @@ return (
         className="mx-auto w-full max-w-[230mm]"
         style={previewViewportWidth ? { maxWidth: `${previewViewportWidth}px` } : undefined}
       >
-        <div
-          ref={previewFrameRef}
-          className="print-preview-frame"
-          style={previewHeight ? { height: `${previewHeight}px` } : undefined}
-        >
-          <div
-            ref={previewSheetRef}
-            className="print-preview-scale"
-            style={{
-              transform: `scale(${previewScale})`,
-              ...(previewMarginLeft != null ? { marginLeft: `${previewMarginLeft}px` } : {}),
-            }}
-          >
-            <PrintErrorBoundary onError={() => {}}>
-              {(() => {
-                  const batches = getPrintBatches(data, blankForm);
-                  return batches.map(({ kind, batch }, i) => {
-                    const props = {
-                      data,
-                      copyType,
-                      pageMode: batch.mode,
-                      pageIndex: i + 1,
-                      totalPages: batches.length,
-                      batchLineItems: kind === "line_items" ? batch.items : undefined,
-                      batchBillingNoteInvoices: kind === "billing_invoices" ? batch.items : undefined,
-                      batchReceiptInvoices: kind === "receipt_invoices" ? batch.items : undefined,
-                      batchStartIndex: kind === "line_items" ? batch.startIndex : undefined,
-                      summaryStartIndex: batch.startIndex,
-                      blankForm,
-                    };
-                    return data.template === "classic_v2" ? (
-                      <PrintDocumentClassicV2
-                        key={`p${i}`}
-                        {...props}
-                        batchDeliveryNotes={kind === "dn_summary" ? batch.items : undefined}
-                        batchDeliveryNoteStartIndex={kind === "dn_summary" ? batch.startIndex : undefined}
-                      />
-                    ) : (
-                      <PrintDocument key={`p${i}`} {...props} />
-                    );
-                  });
-                })()
-              }
-            </PrintErrorBoundary>
+        {renderError ? (
+          <div className="rounded-control border border-line bg-paper-field px-4 py-5">
+            <p className="text-body font-semibold text-ink-900">แสดงเอกสารไม่ได้</p>
+            <p className="mt-1 text-label leading-5 text-ink-600">{renderError}</p>
+            <p className="mt-3 text-label text-ink-400">
+              หากยังพิมพ์ไม่ได้ ให้ลองบันทึกเป็น PDF — เซิร์ฟเวอร์เรนเดอร์เอกสารคนละช่องทาง
+            </p>
           </div>
-        </div>
+        ) : (
+          <div
+            ref={previewFrameRef}
+            className="print-preview-frame"
+            style={previewHeight ? { height: `${previewHeight}px` } : undefined}
+          >
+            <div
+              ref={previewSheetRef}
+              className="print-preview-scale"
+              style={{
+                transform: `scale(${previewScale})`,
+                ...(previewMarginLeft != null ? { marginLeft: `${previewMarginLeft}px` } : {}),
+              }}
+            >
+              <PrintErrorBoundary onError={(err) => setRenderError(err?.message || String(err))}>
+                {(() => {
+                    const batches = getPrintBatches(data, blankForm);
+                    // The preview is the whole document: the original and the
+                    // copy, in the order and paging the toolbar controls — the
+                    // same plan the combined PDF and "พิมพ์" use, so what you
+                    // see is what you get. The page numbers stay per copy.
+                    const plan = interleaveCopies
+                      ? batches.flatMap((_, i) => previewCopyTypes.map((type) => ({ type, index: i })))
+                      : previewCopyTypes.flatMap((type) => batches.map((_, i) => ({ type, index: i })));
+                    return plan.map(({ type, index }) => {
+                      const { kind, batch } = batches[index];
+                      const props = {
+                        data,
+                        copyType: type,
+                        pageMode: batch.mode,
+                        pageIndex: index + 1,
+                        totalPages: batches.length,
+                        batchLineItems: kind === "line_items" ? batch.items : undefined,
+                        batchBillingNoteInvoices: kind === "billing_invoices" ? batch.items : undefined,
+                        batchReceiptInvoices: kind === "receipt_invoices" ? batch.items : undefined,
+                        batchStartIndex: kind === "line_items" ? batch.startIndex : undefined,
+                        summaryStartIndex: batch.startIndex,
+                        blankForm,
+                      };
+                      return data.template === "classic_v2" ? (
+                        <PrintDocumentClassicV2
+                          key={`${type}-p${index}`}
+                          {...props}
+                        />
+                      ) : (
+                        <PrintDocument key={`${type}-p${index}`} {...props} />
+                      );
+                    });
+                  })()
+                }
+              </PrintErrorBoundary>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

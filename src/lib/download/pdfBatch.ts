@@ -1,3 +1,4 @@
+import { PRINT_LAYOUT_VERSION } from "../../constants";
 import { ApiRequestError, apiFetchBlob } from "../api";
 import { documentPdfFilename } from "./download";
 
@@ -51,7 +52,7 @@ async function fetchPdfWithRetry(
     try {
       return await apiFetchBlob(`/api/documents/${encodeURIComponent(source.id)}/pdf`, {
         method: "POST",
-        body: JSON.stringify({ copyTypes }),
+        body: JSON.stringify({ copyTypes, layoutVersion: PRINT_LAYOUT_VERSION }),
       });
     } catch (error) {
       lastError = error;

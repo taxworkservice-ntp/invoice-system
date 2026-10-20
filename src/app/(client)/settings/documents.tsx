@@ -261,6 +261,7 @@ export default function SettingsDocumentsPage() {
   const [classicV2SignEveryPage, setClassicV2SignEveryPage] = useState(false);
   const [classicV2RegularItemFont, setClassicV2RegularItemFont] = useState(false);
   const [classicV2CompactDn, setClassicV2CompactDn] = useState(false);
+  const [classicV2ColumnRules, setClassicV2ColumnRules] = useState(false);
   const [classicV2SectionScales, setClassicV2SectionScales] = useState<Record<ClassicV2SectionFontKey, string>>(
     CLASSIC_V2_DEFAULT_SECTION_SCALES,
   );
@@ -316,6 +317,7 @@ export default function SettingsDocumentsPage() {
     setClassicV2SignEveryPage(clientProfile.classic_v2_sign_every_page === true);
     setClassicV2RegularItemFont(clientProfile.classic_v2_regular_item_font === true);
     setClassicV2CompactDn(clientProfile.classic_v2_compact_dn === true);
+    setClassicV2ColumnRules(clientProfile.classic_v2_column_rules_continuous === true);
     setSignatureKey(clientProfile.signature_url || null);
     setStampKey(clientProfile.stamp_url || null);
     setSignatureScale(clientProfile.signature_scale || "medium");
@@ -398,6 +400,7 @@ export default function SettingsDocumentsPage() {
       classic_v2_sign_every_page: classicV2SignEveryPage,
       classic_v2_regular_item_font: classicV2RegularItemFont,
       classic_v2_compact_dn: classicV2CompactDn,
+      classic_v2_column_rules_continuous: classicV2ColumnRules,
       // Shared pdf_* (canonical) + classic_v2_* (kept in sync so a rollback to
       // the previous build, which reads classic_v2_*, loses nothing).
       pdf_font_scale: classicV2FontScale,
@@ -505,6 +508,7 @@ export default function SettingsDocumentsPage() {
     classicV2SignEveryPage !== (clientProfile?.classic_v2_sign_every_page === true) ||
     classicV2RegularItemFont !== (clientProfile?.classic_v2_regular_item_font === true) ||
     classicV2CompactDn !== (clientProfile?.classic_v2_compact_dn === true) ||
+    classicV2ColumnRules !== (clientProfile?.classic_v2_column_rules_continuous === true) ||
     classicV2FontScale !== (clientProfile?.pdf_font_scale ?? clientProfile?.classic_v2_font_scale ?? "normal") ||
     JSON.stringify(classicV2TypeScales) !== JSON.stringify(clientProfile?.pdf_type_font_scales ?? clientProfile?.classic_v2_type_font_scales ?? {}) ||
     CLASSIC_V2_SECTION_FONT_KEYS.some(
@@ -747,6 +751,21 @@ export default function SettingsDocumentsPage() {
                   <option value="rows">เฉพาะแนวนอน</option>
                   <option value="none">ไม่แสดงเส้นคั่น</option>
                 </Select>
+              </SettingRow>
+            )}
+            {pdfTemplate === "classic_v2" && hasClassicV2 && (
+              <SettingRow
+                label="เส้นแนวตั้งต่อเนื่อง (คลาสสิก V2)"
+                description="เส้นแนวตั้งของตารางรายการจะต่อเนื่องผ่านแถบหัวกลุ่มใบส่งของและแถบชื่อโครงการ — ข้อความในแถบจะอยู่ในคอลัมน์รายการและตัดบรรทัดภายในคอลัมน์นั้น (แถบที่กว้างเต็มแถวจะสั้นลง)"
+                controlAlign="right"
+              >
+                <Switch
+                  checked={classicV2ColumnRules}
+                  onChange={(checked) => {
+                    setClassicV2ColumnRules(checked);
+                    setSaved(false);
+                  }}
+                />
               </SettingRow>
             )}
             {pdfTemplate === "classic_v2" && hasClassicV2 && (

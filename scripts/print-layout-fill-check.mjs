@@ -20,14 +20,14 @@
  *
  *   npm run test:print-layout:fill
  *
- * Needs a Chromium: set CHROME_EXECUTABLE_PATH, or rely on the bundled
- * `@sparticuz/chromium` (as the PNG regression does).
+ * Needs a Chromium: the locally installed Chrome/Edge is found
+ * automatically; CHROME_EXECUTABLE_PATH overrides it. The bundled
+ * `@sparticuz/chromium` binary is used on Linux only.
  */
 import path from "node:path";
 import process from "node:process";
-import chromium from "@sparticuz/chromium";
-import playwright from "playwright-core";
 import { createServer } from "vite";
+import { launchPrintLayoutChromium } from "./print-layout-chromium.mjs";
 import fs from "node:fs/promises";
 
 const root = process.cwd();
@@ -61,29 +61,15 @@ const VARIANTS = [
   { name: "invoice lines none", template: "classic_v2", doc: "project", pageMode: "single", tableLines: "none" },
   { name: "dn lines none", template: "classic_v2", doc: "dn", pageMode: "last", tableLines: "none" },
   { name: "dn (invoice from DNs) last", template: "classic_v2", doc: "dn", pageMode: "last" },
+  // A last page with few rows but a tall fixed stack (DN groups + terms +
+  // payment + the signature band): the filler rows must not spend a budget
+  // the page does not have, or the exported PDF clips the band.
+  { name: "dn short rows last", template: "classic_v2", doc: "dn-short", pageMode: "last" },
+  // The band text in the description column wraps into more lines — the
+  // filled sheet still has to stay inside A4.
+  { name: "dn last column rules", template: "classic_v2", doc: "dn", pageMode: "last", columnRules: true },
+  { name: "dn short rows last column rules", template: "classic_v2", doc: "dn-short", pageMode: "last", columnRules: true },
 ];
-
-async function executablePath() {
-  const candidates = [
-    process.env.CHROME_EXECUTABLE_PATH,
-    "C:/Program Files/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // Try the next known browser path.
-    }
-  }
-  const bundledPath = await chromium.executablePath();
-  await fs.access(bundledPath);
-  return bundledPath;
-}
 
 /** Measures one fixture variant: sheet height, filler rows, their row height. */
 async function measureVariant(page, baseUrl, variant) {
@@ -94,6 +80,7 @@ async function measureVariant(page, baseUrl, variant) {
   if (variant.fontScale) url.searchParams.set("fontScale", variant.fontScale);
   if (variant.compactDn) url.searchParams.set("compactDn", "1");
   if (variant.tableLines) url.searchParams.set("tableLines", variant.tableLines);
+  if (variant.columnRules) url.searchParams.set("columnRules", "1");
 
   await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForSelector(".print-sheet", { timeout: 15000 });
@@ -136,12 +123,9 @@ try {
   const port = typeof address === "object" && address ? address.port : 5173;
   const baseUrl = `http://127.0.0.1:${port}`;
 
-  const usingSystemChrome = Boolean(process.env.CHROME_EXECUTABLE_PATH);
-  browser = await playwright.chromium.launch({
-    args: usingSystemChrome ? [] : chromium.args,
-    executablePath: await executablePath(),
-    headless: true,
-  });
+  // The bundled Lambda binary (and its --single-process args) only work on
+  // Linux; everywhere else the locally installed Chrome/Edge is used.
+  browser = await launchPrintLayoutChromium();
   const page = await browser.newPage({
     viewport: { width: 794, height: 1123 },
     deviceScaleFactor: 1,

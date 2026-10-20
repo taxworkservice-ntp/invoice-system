@@ -357,6 +357,32 @@ export const CLASSIC_V2_COMPACT_DN_BONUS_MM = {
 export const CLASSIC_V2_SIG_STRIP_MM = 8;
 
 /**
+ * A4 sheet geometry — the print contract shared by the on-screen preview and
+ * the exported PDF.
+ *
+ * `.print-sheet` is `min-height: 297mm` and grows with its content; the PDF
+ * page box (`.print-export-page`) is a fixed 297mm with `overflow: hidden`, so
+ * a sheet taller than A4 is clipped in the PDF while the preview still shows
+ * everything. The preview measures against this to warn before that happens.
+ */
+export const PRINT_SHEET_HEIGHT_MM = 297;
+
+/**
+ * The print layout version — part of the PDF cache key, so a change to the
+ * print output invalidates the cached renders instead of serving the old
+ * ones. Bump it whenever the templates, the fonts, the pagination or the
+ * page geometry change.
+ */
+export const PRINT_LAYOUT_VERSION = 2;
+
+/** The sheet's vertical padding — the printable content box is the A4 height
+ * minus these. */
+export const PRINT_SHEET_PADDING_Y_MM = 10;
+
+/** A4 height in CSS pixels (96dpi). */
+export const PRINT_SHEET_HEIGHT_PX = (PRINT_SHEET_HEIGHT_MM * 96) / 25.4;
+
+/**
  * Effective classic V2 global scale for one document — precedence:
  * per-document override → per-document-type global → workspace profile preset.
  */

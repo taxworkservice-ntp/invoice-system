@@ -187,7 +187,7 @@ body {
 }
 
 .print-preview-shell {
-  color: #101828;
+  color: var(--ink-900);
 }
 
 .print-preview-frame {
@@ -531,7 +531,14 @@ html[data-accent-mode="gradient"] .print-theme-modern {
     display: none !important;
   }
 
-  .print-preview-shell {
+  /*
+   * The Tailwind utilities are emitted after this file's own rules, so a
+   * single-class print rule loses to a utility of the same specificity (the
+   * preview shell's `sm:py-6` beat `.print-preview-shell { padding: 0 }`).
+   * The layout rules below therefore carry an element qualifier, which beats
+   * any utility class without needing !important.
+   */
+  body .print-preview-shell {
     min-height: auto;
     background: #ffffff;
     padding: 0;
@@ -543,19 +550,50 @@ html[data-accent-mode="gradient"] .print-theme-modern {
 
   .print-preview-scale {
     transform: none !important;
+    /* The mobile preview zooms the sheet with a transform and an inline
+       offset; print resets both so the sheet sits at its true A4 width. */
+    margin-left: 0 !important;
+    width: auto !important;
   }
 
-  .print-sheet {
-    width: 100%;
-    min-height: auto;
-    margin: 0;
+  /*
+   * Print the preview as the same fixed A4 page boxes the exported PDF uses:
+   * one document page = one physical page, clipped at 297mm.
+   *
+   * The PDF path wraps every page in `.print-export-page` (210x297mm,
+   * overflow hidden, break-after page) and lets the sheet inside grow. The
+   * preview has no page wrapper, so the sheet itself becomes the page box
+   * here — the same geometry, the same clipping, the same page breaks.
+   *
+   * The height is 1px under A4 on purpose: 297mm is 1122.52 CSS px, and a
+   * browser rounds the page area down while the box rounds up. A box exactly
+   * 297mm tall then spills its last fraction of a pixel onto the next sheet
+   * and every document page becomes two physical pages. A single pixel of
+   * slack keeps the pagination exact; it is 0.26mm of the sheet's empty
+   * bottom margin.
+   */
+  body .print-sheet {
+    width: 210mm;
+    height: calc(297mm - 1px);
+    min-height: 0;
+    margin: 0 auto;
     padding: 10mm 8mm;
+    overflow: hidden;
     background: white;
+    break-inside: avoid;
+    break-after: page;
+    page-break-after: always;
   }
 
-  /* Let content flow across physical pages instead of clipping. */
-  .print-theme-modern.print-sheet {
-    display: block;
+  body .print-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* The modern sheet is a flex column with the footer pinned to the page
+     bottom — keep it, so the printed page matches the PDF. */
+  body .print-theme-modern.print-sheet {
+    display: flex;
   }
 
   /* Deal summary sheet: hide the app, show only the summary layout. */
@@ -1137,6 +1175,17 @@ html[data-accent-mode="gradient"] .print-theme-modern {
   font-weight: 600;
   color: #0f172a;
   overflow-wrap: anywhere;
+}
+
+/* Column rules running through the merged band rows: the heading text sits in
+   the description column, so a long token has to break there instead of
+   running over the column rule. */
+.print-theme-classic-v2.print-classic-column-rules-continuous
+  .print-classic-dn-group-label,
+.print-theme-classic-v2.print-classic-column-rules-continuous
+  .print-classic-project-name {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* hierarchy: child lines indent under their group header; the child number

@@ -1,9 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import chromium from "@sparticuz/chromium";
-import playwright from "playwright-core";
 import { createServer } from "vite";
+import { launchPrintLayoutChromium } from "./print-layout-chromium.mjs";
 
 /**
  * Measures actual rendered Classic V2 heights (mm) and prints them next to the
@@ -26,29 +25,6 @@ const scales = (process.env.MEASURE_SCALES || "1,1.6")
   .map((value) => Number(value.trim()))
   .filter((value) => Number.isFinite(value) && value > 0);
 
-async function executablePath() {
-  const candidates = [
-    process.env.CHROME_EXECUTABLE_PATH,
-    "C:/Program Files/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
-    "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // Try the next known browser path.
-    }
-  }
-  const bundledPath = await chromium.executablePath();
-  await fs.access(bundledPath);
-  return bundledPath;
-}
-
 let server;
 let browser;
 
@@ -64,12 +40,9 @@ try {
   const port = typeof address === "object" && address ? address.port : 5173;
   const baseUrl = `http://127.0.0.1:${port}`;
 
-  const usingSystemChrome = Boolean(process.env.CHROME_EXECUTABLE_PATH);
-  browser = await playwright.chromium.launch({
-    args: usingSystemChrome ? [] : chromium.args,
-    executablePath: await executablePath(),
-    headless: true,
-  });
+  // The bundled Lambda binary (and its --single-process args) only work on
+  // Linux; everywhere else the locally installed Chrome/Edge is used.
+  browser = await launchPrintLayoutChromium();
 
   const page = await browser.newPage({
     viewport: { width: 794, height: 1123 },

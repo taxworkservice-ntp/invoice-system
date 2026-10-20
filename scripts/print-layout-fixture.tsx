@@ -435,6 +435,92 @@ const dnLineDeliveryNoteMap = Object.fromEntries(
     }),
 );
 
+// --- "dn-short" fixture: a classic V2 invoice from delivery notes whose
+//     last page is short on rows but tall on fixed blocks (DN groups + terms +
+//     payment + the four-column signature band). Real invoices of this shape
+//     overflowed A4: the blank filler rows spent a model budget that was
+//     ~20mm larger than the page really had, and the exported PDF clipped the
+//     bottom of the signature band.
+const dnShortLines: DocumentLineItem[] = [
+  {
+    id: "dnshort-marker-1", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "ใบส่งของ DN-2608-001",
+    line_note: "วันที่ส่งของ: 20/8/2569", item_sku: null, item_type: "service",
+    unit: "", unit_price: 0, quantity: 0, base_quantity: null,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-1", source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 0, sort_order: 0, created_at: now,
+  },
+  {
+    id: "dnshort-line-1", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "เคลือบด้าน / เคลือบเงา",
+    line_note: "สี / ฟอยล์: ฟอยล์เงิน", item_sku: null, item_type: "service",
+    unit: "ชิ้น", unit_price: 120, quantity: 1, base_quantity: 1,
+    discount_percent: 0,discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-1", source_line_item_id: "src-line-1",
+    source_delivered_qty: 1, source_unit_price: 120,
+    line_total: 120, sort_order: 1, created_at: now,
+  },
+  {
+    id: "dnshort-line-2", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "เจาะรู + ติดตาไก่",
+    line_note: "สี / ฟอยล์: ฟอยล์ทองด้าน", item_sku: null, item_type: "service",
+    unit: "ชิ้น", unit_price: 88, quantity: 2, base_quantity: 2,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-1", source_line_item_id: "src-line-2",
+    source_delivered_qty: 2, source_unit_price: 88,
+    line_total: 176, sort_order: 2, created_at: now,
+  },
+  {
+    id: "dnshort-marker-2", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "ใบส่งของ DN-2608-002",
+    line_note: "วันที่ส่งของ: 25/8/2569", item_sku: null, item_type: "service",
+    unit: "", unit_price: 0, quantity: 0, base_quantity: null,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-2", source_line_item_id: null,
+    source_delivered_qty: null, source_unit_price: null,
+    line_total: 0, sort_order: 3, created_at: now,
+  },
+  {
+    id: "dnshort-line-3", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "กระดาษ A4 Double A 80gsm",
+    line_note: "ส่งที่ อาคาร B ชั้น 3", item_sku: null, item_type: "product",
+    unit: "แพ็ค", unit_price: 120, quantity: 10, base_quantity: 10,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-2", source_line_item_id: "src-line-3",
+    source_delivered_qty: 10, source_unit_price: 120,
+    line_total: 1200, sort_order: 4, created_at: now,
+  },
+  {
+    id: "dnshort-line-4", document_id: "doc-dn", user_id: "user-layout-baseline",
+    item_id: null, item_name: "ปากกาเจล 0.5 หมึกน้ำเงิน",
+    line_note: "สี / ฟอยล์: ฟอยล์เงิน", item_sku: null, item_type: "product",
+    unit: "ด้าม", unit_price: 15, quantity: 24, base_quantity: 24,
+    discount_percent: 0, discount_amount: 0, qty_carton: null, carton_unit: null,
+    source_document_id: "dn-src-2", source_line_item_id: "src-line-4",
+    source_delivered_qty: 24, source_unit_price: 15,
+    line_total: 360, sort_order: 5, created_at: now,
+  },
+] as unknown as DocumentLineItem[];
+
+// A long DN number: in the merged band it fits on one line, in the
+// description column it wraps — that is the difference the option makes.
+const dnShortSources = [
+  { id: "dn-src-1", number: "DN-2608-001-คลังสาขากรุงเทพ-ฝ่ายจัดการวัตถุดิบ-แผนกตรวจสอบคุณภาพ-ผู้มีอำนาจอนุมัติ", issue_date: "2026-08-20" },
+  { id: "dn-src-2", number: "DN-2608-002", issue_date: "2026-08-25" },
+];
+
+const dnShortSourceById = new Map(dnShortSources.map((s) => [s.id, s]));
+const dnShortLineDeliveryNoteMap = Object.fromEntries(
+  dnShortLines
+    .filter((l) => l.source_document_id)
+    .map((l) => {
+      const src = dnShortSourceById.get(l.source_document_id!)!;
+      return [l.id, { number: src.number, issue_date: src.issue_date }];
+    }),
+);
+
 // --- "qt" fixture: quotation with per-line example photos (classic V2) ---
 const qtImageSvg = `data:image/svg+xml,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
@@ -517,6 +603,30 @@ const dnData = (template: HtmlPrintTemplate): PrintDocumentData => ({
   lineItems: dnDraftLines,
   invoiceDeliveryNotes: dnLinks,
   lineDeliveryNoteMap: dnLineDeliveryNoteMap as PrintDocumentData["lineDeliveryNoteMap"],
+  showInlineDeliveryNotes: true,
+});
+
+const dnShortDocumentData: Document = {
+  ...documentData,
+  id: "doc-dn",
+  doc_number: "INV-2026-08-DN-SHORT",
+  // The base document's discount (an extra totals row) and note (a row in
+  // the items table) are kept on purpose: they are what makes the fixed
+  // blocks below the table taller than the page budget assumes.
+  task_name: "งานติดตั้งไฟโรงงาน A",
+  customer_po_number: "PO-2569-001",
+};
+
+const dnShortData = (template: HtmlPrintTemplate): PrintDocumentData => ({
+  ...data(template),
+  document: dnShortDocumentData,
+  // The real workspace prints the full header (company block + info band) on
+  // every page. That header is ~60mm the page budget never charged, so the
+  // filler rows had phantom space to spend and pushed the sheet past A4.
+  clientProfile: { ...clientProfile, classic_v2_full_page_header: true },
+  lineItems: dnShortLines,
+  invoiceDeliveryNotes: dnLinks,
+  lineDeliveryNoteMap: dnShortLineDeliveryNoteMap as PrintDocumentData["lineDeliveryNoteMap"],
   showInlineDeliveryNotes: true,
 });
 
@@ -620,6 +730,7 @@ const copyType: CopyType =
 const docVariant =
   params.get("doc") === "many" ? "many"
   : params.get("doc") === "dn" ? "dn"
+  : params.get("doc") === "dn-short" ? "dn-short"
   : params.get("doc") === "qt" ? "qt"
   : params.get("doc") === "delivery" ? "delivery"
   : params.get("doc") === "project" ? "project"
@@ -633,19 +744,15 @@ const pageMode =
     : "single";
 const baseData = docVariant === "many" ? manyData(template)
   : docVariant === "dn" ? dnData(template)
+  : docVariant === "dn-short" ? dnShortData(template)
   : docVariant === "qt" ? qtData(template)
   : docVariant === "delivery" ? deliveryData(template)
   : docVariant === "project" ? projectData(template)
   : data(template);
 // โหมดอ้างอิง (classic V2):
-//   refCollapse=1 → pass the refCollapse prop — DN reference table replaces
-//                   the items table (the PDF-export path, เหมือนใบวางบิล)
 //   refCollapse=lines → collapse each DN group to one items-table row via the
 //                   real collapseDeliveryNoteGroups (kept for lib regression)
 const refCollapseParam = params.get("refCollapse");
-const refCollapseProp =
-  refCollapseParam === "1" && template === "classic_v2" &&
-  baseData.document.doc_type === "invoice" && baseData.invoiceDeliveryNotes.length > 0;
 const collapsedLineItems =
   refCollapseParam === "lines" && template === "classic_v2"
     ? collapseDeliveryNoteGroups(baseData.lineItems, (marker) => {
@@ -725,6 +832,14 @@ if (params.get("compactDn") === "1") {
     classic_v2_compact_dn: true,
   };
 }
+// The column rules run through the merged band rows: the band text and the
+// project heading sit in the description column.
+if (params.get("columnRules") === "1") {
+  activeBaseData.clientProfile = {
+    ...activeBaseData.clientProfile,
+    classic_v2_column_rules_continuous: true,
+  };
+}
 const printTitleVariant = params.get("printTitle");
 if (printTitleVariant) {
   activeBaseData.document = {
@@ -769,7 +884,7 @@ createRoot(document.getElementById("root")!).render(
     <div className="print-export-stack">
       <div className="print-export-page">
         {template === "classic_v2" ? (
-          <PrintDocumentClassicV2 data={activeData} copyType={copyType} pageMode={pageMode} refCollapse={refCollapseProp} />
+          <PrintDocumentClassicV2 data={activeData} copyType={copyType} pageMode={pageMode} />
         ) : (
           <PrintDocument data={activeData} copyType={copyType} />
         )}

@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { formatCurrency, paymentMethodText, buildReceiptPaymentRows } from "../../lib/format";
 import { formatPrintDate } from "../../lib/dates";
 import { resolveYearEra } from "../../lib/yearEra";
@@ -16,6 +16,7 @@ import {
   splitDnSectionHeaders,
 } from "../../lib/dnGroups";
 import { getRowBudgets } from "../../lib/pagination";
+import { PRINT_SHEET_HEIGHT_MM, PRINT_SHEET_PADDING_Y_MM } from "../../constants";
 import {
   estimateClassicV2FullRowHeight,
   estimateLineItemHeight,
@@ -29,7 +30,6 @@ import type {
   BillingNoteInvoice,
   Customer,
   DocumentLineItem,
-  InvoiceDeliveryNote,
   ReceiptInvoice,
 } from "../../types";
 import type { PageMode } from "../../lib/pagination";
@@ -175,12 +175,9 @@ interface PrintDocumentClassicProps {
   batchLineItems?: DocumentLineItem[];
   batchBillingNoteInvoices?: BillingNoteInvoice[];
   batchReceiptInvoices?: ReceiptInvoice[];
-  batchDeliveryNotes?: InvoiceDeliveryNote[];
-  batchDeliveryNoteStartIndex?: number;
   batchStartIndex?: number;
   summaryStartIndex?: number;
   blankForm?: boolean;
-  refCollapse?: boolean;
 }
 
 export function PrintDocumentClassicV2({
@@ -192,12 +189,9 @@ export function PrintDocumentClassicV2({
   batchLineItems,
   batchBillingNoteInvoices,
   batchReceiptInvoices,
-  batchDeliveryNotes,
-  batchDeliveryNoteStartIndex,
   batchStartIndex,
   summaryStartIndex = 1,
   blankForm = false,
-  refCollapse = false,
 }: PrintDocumentClassicProps) {
   const {
     document,
@@ -263,16 +257,9 @@ export function PrintDocumentClassicV2({
   const isBillingNote = document.doc_type === "billing_note";
   const isReceiptOrBillingNoteTable =
     (isBillingNote || (document.doc_type === "receipt" && receiptRows.length > 0)) && document.vat_registered;
-  // Reference mode renders the DN summary table (same 136-unit geometry as
-  // the billing-note/receipt tables), so the bottom-row divider must use the
-  // 88/48 VAT-edge grid instead of the detail table's 122/60 grid.
-  const showDnReferenceTable =
-    refCollapse && document.doc_type === "invoice" && invoiceDeliveryNotes.length > 0;
-  // Paginated ref-mode batches arrive as row slices; single-page renders
-  // (fixture, legacy callers) fall back to the full link list.
-  const dnTableRows = batchDeliveryNotes ?? (showDnReferenceTable ? invoiceDeliveryNotes : undefined);
-  const dnTableStart = batchDeliveryNoteStartIndex ?? 1;
-  const useSummaryGrid = isReceiptOrBillingNoteTable || !!dnTableRows;
+  // The bottom-row divider uses the 88/48 VAT-edge grid for the
+  // billing-note/receipt summary tables and the 122/60 detail grid otherwise.
+  const useSummaryGrid = isReceiptOrBillingNoteTable;
   const isReceipt = document.doc_type === "receipt";
   const isCreditNote = document.doc_type === "credit_note";
   const isDebitNote = document.doc_type === "debit_note";
@@ -347,12 +334,19 @@ export function PrintDocumentClassicV2({
   // continuation page, and never on a blank form.
   const isFirstOrSingle = pageMode === "single" || pageMode === "first";
   const showProjectRow = !blankForm && !!document.task_name;
+  // The column rules run through the merged band rows: the band row and the
+  // project heading become normal rows (the heading text moves into the
+  // description column, the numeric cells stay empty but ruled).
+  const columnRulesContinuous = clientProfile.classic_v2_column_rules_continuous === true;
   const noteText = document.note?.trim();
   // Reserved heights (mm) for the two full-width table rows — the same helper
   // and the same scales the paginator uses in getPrintBatches(), so the filler
   // count below and the page breaks cannot disagree.
   const noteRowMm = estimateClassicV2FullRowHeight(noteText, { labelChars: 15, fontScale: totalsScaleMult });
-  const projectRowMm = estimateClassicV2FullRowHeight(document.task_name, { fontScale: itemsScaleMult });
+  const projectRowMm = estimateClassicV2FullRowHeight(document.task_name, {
+    fontScale: itemsScaleMult,
+    narrowColumn: columnRulesContinuous,
+  });
   // Group header rows, sum rows and inter-group spacers occupy physical rows
   // on the sheet — count them so the blank-row padding keeps the fixed height.
   const groupHeaderCount = tableLines.reduce(
@@ -371,7 +365,25 @@ export function PrintDocumentClassicV2({
   const minBlankLines = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_ITEM_ROWS - (tableLines.length + groupHeaderCount))
     : 0;
-  const blankLineCount = (() => {
+  // The measured filler count. `null` until the page has been measured; the
+  // model's count is the fallback (and the first guess) until then.
+  const sheetRef = useRef<HTMLElement | null>(null);
+  const itemsTableRef = useRef<HTMLTableElement | null>(null);
+  const [measuredBlankLines, setMeasuredBlankLines] = useState<number | null>(null);
+  // The model's blank-row metric: the fallback for the measurement below
+  // (and the only estimate available before the first paint).
+  const modelledBlankRowMm = Math.max(
+    1,
+    // Charge a filler row what it really renders: the same single-line row
+    // metric the paginator uses for content (text line + safety margin).
+    // The bare base row under-counts by ~0.8mm per row, which is enough to
+    // push a filled page past A4.
+    estimateLineItemHeight(FILLER_ROW_LINE, "classic_v2", {
+      fontScale: itemsScaleMult,
+      numScale: numScaleMult,
+    }),
+  );
+  const modelledBlankLineCount = (() => {
     if (!isLastOrSingle) return 0;
     try {
       const hideEn = clientProfile.classic_v2_hide_english_labels === true;
@@ -444,23 +456,20 @@ export function PrintDocumentClassicV2({
             hasDnGroupBand: !!entry && entry.header !== null,
             dnGroupSoHeader: entry?.header?.soHeader ?? null,
             dnGroupHasRefLine: !!entry?.header?.number,
+            // With the column rules running through the band, the band's text
+            // sits in the description column and wraps there.
+            dnGroupNarrow: columnRulesContinuous,
+            dnGroupRefText:
+              columnRulesContinuous && entry?.header
+                ? dnHeaderLabel(entry.header, era)
+                : null,
             dnNotes: isDeliveryNote,
             compactDn,
             hasLineImage: document.doc_type === "quotation" && !!line.image_url,
             hasInvoiceRef: hasMultiInvoiceRefs && !!invoiceNumberMap[line.document_id],
           });
       }
-      const blankRowMm = Math.max(
-        1,
-        // Charge a filler row what it really renders: the same single-line row
-        // metric the paginator uses for content (text line + safety margin).
-        // The bare base row under-counts by ~0.8mm per row, which is enough to
-        // push a filled page past A4.
-        estimateLineItemHeight(FILLER_ROW_LINE, "classic_v2", {
-          fontScale: itemsScaleMult,
-          numScale: numScaleMult,
-        }),
-      );
+      const blankRowMm = modelledBlankRowMm;
       // The project heading and the document note are reserved through the
       // budgets above (firstPageReserveMm / extraReserveMm), exactly like
       // getPrintBatches() does, so the filler count needs no hand-made charge
@@ -484,14 +493,122 @@ export function PrintDocumentClassicV2({
       return minBlankLines;
     }
   })();
+  // The measured count wins: it knows the space the page really has left, the
+  // model only knows a row capacity.
+  const blankLineCount = measuredBlankLines ?? modelledBlankLineCount;
+  // Measure the space the page really has left below the items table.
+  //
+  // The filler rows are table rows, so their count has to be known before the
+  // table renders — the page therefore renders with the model's count first
+  // and then re-renders with the measured one. The measurement is a fixed
+  // point: adding a row grows the table by exactly that row, which shrinks
+  // the space below the table by the same amount, so the count settles.
+  useLayoutEffect(() => {
+    if (!isLastOrSingle) return;
+    const sheet = sheetRef.current;
+    const table = itemsTableRef.current;
+    if (!sheet || !table) return;
+
+    const MM_PER_PX = 25.4 / 96;
+    // The content box, measured from the sheet's top edge: the page is A4
+    // tall and the sheet's padding sits above and below the content.
+    const contentBoxMm = PRINT_SHEET_HEIGHT_MM - PRINT_SHEET_PADDING_Y_MM;
+
+    const measure = () => {
+      const sheetRect = sheet.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+      if (!sheetRect.width || !tableRect.height) return;
+      // The mobile preview zooms the sheet with a transform — the rects come
+      // back scaled, so every measurement is divided by that scale.
+      const scale = sheetRect.width / (210 * MM_PER_PX);
+      const toMm = (px: number) => px / scale / MM_PER_PX;
+
+      // The blank rows are measured as a whole: they are not exactly the
+      // same height (the rules and the padding round differently), and a
+      // fraction of a millimetre per row is what pushed a filled sheet past A4.
+      const blankRowEls = Array.from(
+        table.querySelectorAll<HTMLElement>("tr.print-classic-blank-row"),
+      );
+      const blankRows = blankRowEls.length;
+      const blankRowsMm =
+        blankRows > 0
+          ? toMm(
+              blankRowEls[blankRows - 1].getBoundingClientRect().bottom -
+                blankRowEls[0].getBoundingClientRect().top,
+            )
+          : 0;
+      const blankRowMm = blankRows > 0 ? blankRowsMm / blankRows : 0;
+
+      const tableTopMm = toMm(tableRect.top - sheetRect.top);
+      const tableHeightMm = toMm(tableRect.height);
+      const rowsMm = tableHeightMm - blankRowsMm;
+      if (rowsMm < 0) return;
+
+      // The blocks below the table: the totals/terms/payment row and the
+      // signature band. The flexible pin gap between them is excluded — that
+      // gap is the space the filler is allowed to spend.
+      const bottomRow = sheet.querySelector<HTMLElement>(".print-classic-bottom-row");
+      const band = sheet.querySelector<HTMLElement>(".print-classic-bottom-band");
+      const pin = sheet.querySelector<HTMLElement>(".print-classic-bottom-pin");
+      if (!bottomRow || !band) return;
+      const tableBottomMm = tableTopMm + tableHeightMm;
+      const belowMm = toMm(band.getBoundingClientRect().bottom - sheetRect.top) - tableBottomMm;
+      // The pin spacer carries `margin-top: auto`, so the browser resolves it
+      // to the slack the page has left — the gap the filler may spend.
+      const pinGapMm = pin ? toMm(parseFloat(getComputedStyle(pin).marginTop) || 0) : 0;
+      const fixedBelowMm = belowMm - pinGapMm;
+
+      // The hard limit: what is left for the rows and the filler inside the
+      // A4 content box.
+      const limitMm = contentBoxMm - tableTopMm - rowsMm - fixedBelowMm;
+      // And the soft one: the flexible gap plus the filler rows that are
+      // already there. The filler never spends more than the smaller of the
+      // two — so it fills the page when there is room and gives rows back
+      // when there is not.
+      const roomMm = Math.min(pinGapMm + blankRowsMm, limitMm);
+      const rowMm = blankRowMm > 0 ? blankRowMm : modelledBlankRowMm;
+      if (rowMm <= 0) return;
+      const fits = Math.max(0, Math.floor(roomMm / rowMm + 1e-6));
+      // The same rule as before: fill the page when it buys at least two
+      // ruled rows, otherwise keep the minimum table height.
+      const count =
+        fits >= minBlankLines + 2 ? fits : Math.max(0, Math.min(minBlankLines, fits));
+      setMeasuredBlankLines((previous) => (previous === count ? previous : count));
+    };
+
+    measure();
+    let cancelled = false;
+    // The print fonts swap in after the first paint (font-display: swap) and
+    // the signature and stamp images load after that — both change the row
+    // heights, so the page is measured again whenever it changes size.
+    const observer = new ResizeObserver(() => {
+      if (!cancelled) measure();
+    });
+    observer.observe(sheet);
+    // `document` is the printed document record in this component, so the
+    // DOM document has to be reached through the window.
+    window.document.fonts?.ready
+      ?.then(() => {
+        if (!cancelled) measure();
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [
+    isLastOrSingle,
+    minBlankLines,
+    modelledBlankRowMm,
+    tableLines.length,
+    groupHeaderCount,
+  ]);
+
   const billingBlankCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - billingRows.length)
     : 0;
   const receiptBlankCount = isLastOrSingle
     ? Math.max(0, MIN_CLASSIC_RECEIPT_ROWS - receiptRows.length)
-    : 0;
-  const dnBlankCount = isLastOrSingle && dnTableRows
-    ? Math.max(0, MIN_CLASSIC_BILLING_NOTE_ROWS - dnTableRows.length)
     : 0;
   const bankInfo = [
     bankName && showBank ? `ธนาคาร: ${bankName}` : null,
@@ -537,6 +654,7 @@ export function PrintDocumentClassicV2({
 
   return (
     <article
+      ref={sheetRef}
       className={
         `print-sheet print-theme-classic print-theme-classic-v2${isCopy ? " print-copy" : ""}${documentClass}`
         + `${clientProfile.classic_v2_hide_english_labels ? " print-hide-en" : ""}`
@@ -545,6 +663,7 @@ export function PrintDocumentClassicV2({
         + `${compactDn ? " print-dn-compact" : ""}`
         + `${clientProfile.classic_v2_table_lines === "rows" ? " print-classic-table-lines-rows" : ""}`
         + `${clientProfile.classic_v2_table_lines === "none" ? " print-classic-table-lines-none" : ""}`
+        + `${columnRulesContinuous ? " print-classic-column-rules-continuous" : ""}`
       }
       style={{
         "--classic-font-scale": fontScaleMult,
@@ -774,72 +893,13 @@ export function PrintDocumentClassicV2({
           </div>
         ) : (
           <div className="print-classic-items-title">
-            {dnTableRows
-              ? "รายการใบส่งของ (DELIVERY NOTES)"
-              : document.doc_type === "receipt"
-                ? "รายการที่ชำระ"
-                : "รายการสินค้าและบริการ"}
+            {document.doc_type === "receipt" ? "รายการที่ชำระ" : "รายการสินค้าและบริการ"}
             <span className="en">ITEMS</span>
           </div>
         )}
 
         <div className="print-classic-table-frame">
-          {dnTableRows ? (
-            <table className="print-classic-items-table">
-              <colgroup>
-                <col style={{ width: "12mm" }} />
-                <col style={{ width: "32mm" }} />
-                <col style={{ width: "20mm" }} />
-                <col style={{ width: "24mm" }} />
-                <col style={{ width: "24mm" }} />
-                <col style={{ width: "24mm" }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>
-                    เลขที่<span className="en">NO.</span>
-                  </th>
-                  <th>
-                    เลขที่ใบส่งของ<span className="en">DELIVERY NOTE NO.</span>
-                  </th>
-                  <th>
-                    วันที่ส่งของ<span className="en">DELIVERY DATE</span>
-                  </th>
-                  <th style={{ textAlign: "right" }}>
-                    มูลค่า<span className="en">SUBTOTAL</span>
-                  </th>
-                  <th style={{ textAlign: "right" }}>
-                    ภาษีมูลค่าเพิ่ม<span className="en">VAT</span>
-                  </th>
-                  <th style={{ textAlign: "right" }}>
-                    รวม<span className="en">AMOUNT</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {dnTableRows.map((dn, i) => (
-                  <tr key={dn.id}>
-                    <td className="center">{dnTableStart + i}</td>
-                    <td>{dn.delivery_note_number}</td>
-                    <td>{dn.issue_date ? formatPrintDate(dn.issue_date, era) : "-"}</td>
-                    <td className="right">{formatCurrency(dn.subtotal)}</td>
-                    <td className="right">{formatCurrency(dn.vat_amount)}</td>
-                    <td className="right bold">{formatCurrency(dn.total_amount)}</td>
-                  </tr>
-                ))}
-                {Array.from({ length: dnBlankCount }).map((_, index) => (
-                  <tr key={`dn-blank-${index}`} className="print-classic-blank-row">
-                    <td className="center">&nbsp;</td>
-                    <td>&nbsp;</td>
-                    <td className="center">&nbsp;</td>
-                    <td className="right">&nbsp;</td>
-                    <td className="right">&nbsp;</td>
-                    <td className="right bold">&nbsp;</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : isBillingNote && document.vat_registered ? (
+          {isBillingNote && document.vat_registered ? (
             <table className="print-classic-items-table">
               <colgroup>
                 <col style={{ width: "12mm" }} />
@@ -967,7 +1027,7 @@ export function PrintDocumentClassicV2({
               </tbody>
             </table>
           ) : (
-            <table className="print-classic-items-table">
+            <table ref={itemsTableRef} className="print-classic-items-table">
               <colgroup>
                 <col style={{ width: "12mm" }} />
                 <col style={{ width: "87mm" }} />
@@ -1006,11 +1066,25 @@ export function PrintDocumentClassicV2({
                         the row still reads as part of the table and the first
                         column keeps its rule. */}
                     <td />
-                    <td colSpan={5}>
-                      {/* The project name is the heading for the work below —
-                          it stands alone, with no ชื่อโครงการ label. */}
-                      <span className="print-classic-project-name">{document.task_name}</span>
-                    </td>
+                    {columnRulesContinuous ? (
+                      <>
+                        <td>
+                          {/* The project name is the heading for the work below —
+                              it stands alone, with no ชื่อโครงการ label. */}
+                          <span className="print-classic-project-name">{document.task_name}</span>
+                        </td>
+                        <td />
+                        <td />
+                        <td />
+                        <td />
+                      </>
+                    ) : (
+                      <td colSpan={5}>
+                        {/* The project name is the heading for the work below —
+                            it stands alone, with no ชื่อโครงการ label. */}
+                        <span className="print-classic-project-name">{document.task_name}</span>
+                      </td>
+                    )}
                   </tr>
                 ) : null}
                 {tableLines.map((item) => {
@@ -1020,6 +1094,29 @@ export function PrintDocumentClassicV2({
                     const entry = dnRowPlanById.get(item.id);
                     const number = entry?.number ?? "";
                     const header = entry?.header ?? null;
+                    // The band's text: the DN ref line and the frozen SO
+                    // sections. It is built once and placed either in the
+                    // merged band cell or in the description cell.
+                    const bandLabel = header ? (
+                      <>
+                        {header.number ? (
+                          <RefItemName name={dnHeaderLabel(header, era)} />
+                        ) : null}
+                        {header.soHeader ? (
+                          header.number ? (
+                            <>
+                              {splitDnSectionHeaders(header.soHeader).map((soLine, soIndex) => (
+                                <div key={soIndex} className="print-classic-dn-group-so">
+                                  <RefItemName name={soLine} />
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <RefItemName name={header.soHeader} />
+                          )
+                        ) : null}
+                      </>
+                    ) : null;
                     // Child numbers (G.j) print in front of the description —
                     // only group and standalone numbers use the NO. column.
                     const isChild = number.includes(".");
@@ -1037,28 +1134,19 @@ export function PrintDocumentClassicV2({
                                 width (the paginator budgets it that way), so the
                                 column rules stop at this row — the spacer below
                                 is what keeps the grid running. */}
-                            <td className="print-classic-dn-group-label" colSpan={5}>
-                              {/* SO-only header (DN opt-in): the free text IS
-                                  the header. Standard groups keep the DN ref
-                                  line and append each frozen SO section as its
-                                  own line below it. */}
-                              {header.number ? (
-                                <RefItemName name={dnHeaderLabel(header, era)} />
-                              ) : null}
-                              {header.soHeader ? (
-                                header.number ? (
-                                  <>
-                                    {splitDnSectionHeaders(header.soHeader).map((soLine, soIndex) => (
-                                      <div key={soIndex} className="print-classic-dn-group-so">
-                                        <RefItemName name={soLine} />
-                                      </div>
-                                    ))}
-                                  </>
-                                ) : (
-                                  <RefItemName name={header.soHeader} />
-                                )
-                              ) : null}
-                            </td>
+                            {columnRulesContinuous ? (
+                              <>
+                                <td className="print-classic-dn-group-label">{bandLabel}</td>
+                                <td />
+                                <td />
+                                <td />
+                                <td />
+                              </>
+                            ) : (
+                              <td className="print-classic-dn-group-label" colSpan={5}>
+                                {bandLabel}
+                              </td>
+                            )}
                           </tr>
                         ) : null}
                         <tr className={isChild ? "print-classic-dn-child" : undefined}>

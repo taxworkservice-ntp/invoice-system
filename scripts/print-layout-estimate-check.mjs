@@ -17,14 +17,14 @@
  *
  *   npm run test:print-layout:estimate
  *
- * Needs a Chromium: set CHROME_EXECUTABLE_PATH, or rely on the bundled
- * `@sparticuz/chromium` (as the PNG regression does).
+ * Needs a Chromium: the locally installed Chrome/Edge is found
+ * automatically; CHROME_EXECUTABLE_PATH overrides it. The bundled
+ * `@sparticuz/chromium` binary is used on Linux only.
  */
 import path from "node:path";
 import process from "node:process";
-import chromium from "@sparticuz/chromium";
-import playwright from "playwright-core";
 import { createServer } from "vite";
+import { launchPrintLayoutChromium } from "./print-layout-chromium.mjs";
 import fs from "node:fs/promises";
 
 const root = process.cwd();
@@ -37,39 +37,15 @@ const VARIANTS = [
   { name: "delivery-compact", template: "classic_v2", doc: "delivery", compactDn: true },
   { name: "delivery-xlarge", template: "classic_v2", doc: "delivery", fontScale: "xlarge" },
   { name: "many", template: "classic_v2", doc: "many" },
+  // The DN document is the one with the band rows — the model's band charge
+  // is compared with the render here, with the merged band and with the band
+  // text in the description column.
+  { name: "dn bands", template: "classic_v2", doc: "dn-short" },
+  { name: "dn bands column rules", template: "classic_v2", doc: "dn-short", columnRules: true },
   // With the inner grid off the rows lose their 0.5px bottom border, so the
   // model (which charges for it) must stay an upper bound.
   { name: "project-no-lines", template: "classic_v2", doc: "project", tableLines: "none" },
 ];
-
-async function executablePath() {
-  const candidates = [
-    process.env.CHROME_EXECUTABLE_PATH,
-    "C:/Program Files/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // Try the next known browser path.
-    }
-  }
-
-  const bundledPath = await chromium.executablePath();
-  try {
-    await fs.access(bundledPath);
-    return bundledPath;
-  } catch {
-    throw new Error(
-      "No Chromium executable found. Set CHROME_EXECUTABLE_PATH to Chrome or Edge before running this check.",
-    );
-  }
-}
 
 /** Measures the fixture sheet and the model's predictions for the same rows. */
 async function measureVariant(page, baseUrl, variant) {
@@ -80,6 +56,7 @@ async function measureVariant(page, baseUrl, variant) {
   if (variant.fontScale) url.searchParams.set("fontScale", variant.fontScale);
   if (variant.compactDn) url.searchParams.set("compactDn", "1");
   if (variant.tableLines) url.searchParams.set("tableLines", variant.tableLines);
+  if (variant.columnRules) url.searchParams.set("columnRules", "1");
 
   await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForSelector(".print-sheet", { timeout: 15000 });
@@ -98,11 +75,13 @@ async function measureVariant(page, baseUrl, variant) {
       buildDnBlocks,
       buildDnSectionPlan,
       buildDnSoHeaderPlan,
+      dnHeaderLabel,
       filterDnRefMarkers,
       filterDnRenderLines,
       getDnSoHeaderText,
       planDnRows,
     } = await import("/src/lib/dnGroups.ts");
+    const { resolveYearEra } = await import("/src/lib/yearEra.ts");
     const { getClassicV2FontScaleMult, DOCUMENT_FONT_SCALE_DEFAULT } =
       await import("/src/constants/index.ts");
 
@@ -112,6 +91,10 @@ async function measureVariant(page, baseUrl, variant) {
         ? getClassicV2FontScaleMult(doc.print_font_scale)
         : getClassicV2FontScaleMult(clientProfile.pdf_font_scale ?? clientProfile.classic_v2_font_scale);
     const isDn = doc.doc_type === "delivery_note";
+    // The column rules running through the band put the band's text in the
+    // description column — the model has to charge that width.
+    const columnRules = clientProfile.classic_v2_column_rules_continuous === true;
+    const printEra = resolveYearEra(clientProfile);
     const compactDn = clientProfile.classic_v2_compact_dn === true;
     const rowOpts = (item) => ({
       fontScale: itemsScale,
@@ -156,6 +139,8 @@ async function measureVariant(page, baseUrl, variant) {
           hasDnGroupBand: true,
           dnGroupSoHeader: plan.header.soHeader,
           dnGroupHasRefLine: !!plan.header.number,
+          dnGroupNarrow: columnRules,
+          dnGroupRefText: columnRules ? dnHeaderLabel(plan.header, printEra) : null,
         });
         const without = estimateLineItemHeight(plan.item, "classic_v2", rowOpts(plan.item));
         predictedBands.push(withBand - without);
@@ -211,12 +196,9 @@ try {
   const port = typeof address === "object" && address ? address.port : 5173;
   const baseUrl = `http://127.0.0.1:${port}`;
 
-  const usingSystemChrome = Boolean(process.env.CHROME_EXECUTABLE_PATH);
-  browser = await playwright.chromium.launch({
-    args: usingSystemChrome ? [] : chromium.args,
-    executablePath: await executablePath(),
-    headless: usingSystemChrome ? true : chromium.headless,
-  });
+  // The bundled Lambda binary (and its --single-process args) only work on
+  // Linux; everywhere else the locally installed Chrome/Edge is used.
+  browser = await launchPrintLayoutChromium();
   const page = await browser.newPage({ viewport: { width: 794, height: 1123 } });
   await page.emulateMedia({ media: "screen" });
 
