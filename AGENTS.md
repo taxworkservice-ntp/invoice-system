@@ -49,7 +49,10 @@
   baseline captured on one platform reports thousands of changed pixels on
   another while the layout is identical. A platform without baselines skips the
   pixel comparison with a message; capture them with
-  `npm run test:print-layout:update`. The **portable** gate is the geometry
+  `npm run test:print-layout:update`. The baselines also carry the print layout
+  version they were captured with (`baselines/<platform>/layout.json`): a layout
+  change makes them stale, and the check then skips with a message instead of
+  reporting the change as a pixel failure. The **portable** gate is the geometry
   conformance checks: `npm run test:print-layout:estimate` (model vs rendered
   heights) and `npm run test:print-layout:fill` (a filled page must never grow
   past A4) — both measure millimetres, so they work on every platform.
@@ -79,6 +82,13 @@
 - The preview warns when a sheet is taller than A4 (the PDF clips it) and
   shows an error card when a sheet throws while rendering (the error boundary
   renders null, so a crash would otherwise be a blank page).
+- **The cached PDF renders expire by themselves.** The cache key carries the print
+  signature, so every layout or settings change leaves the previous renders
+  behind as orphans. Give the bucket an expiration rule on the `pdfs/` prefix
+  (Cloudflare → R2 → bucket → Settings → Object lifecycle rules, e.g. 30 days)
+  and the orphans clean themselves up. `npm run cache:prune -- --orphans` removes
+  the leftovers of an older layout now; `--all` flushes the cache (the next
+  download re-renders the document).
 - **The PDF cache is keyed by the print signature.** The key is
   `…/{variant}-{signature}.pdf`, where the signature is the layout version
   (the client sends `PRINT_LAYOUT_VERSION` from `src/constants/index.ts`) plus a

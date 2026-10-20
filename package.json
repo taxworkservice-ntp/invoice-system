@@ -16,6 +16,7 @@
     "test:print-layout:estimate": "node scripts/print-layout-estimate-check.mjs",
     "test:print-layout:fill": "node scripts/print-layout-fill-check.mjs",
     "test:print-layout:measure": "node scripts/print-layout-measure.mjs",
+    "cache:prune": "node scripts/prune-pdf-cache.mjs",
     "seed:testcompany": "node scripts/seed-testcompany.mjs",
     "seed:mock": "node scripts/seed-mock.mjs",
     "seed:mock:clean": "node scripts/seed-mock.mjs --clean",

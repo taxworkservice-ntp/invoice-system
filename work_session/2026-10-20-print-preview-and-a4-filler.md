@@ -131,13 +131,37 @@ fresh (2 pages, the band complete) and is cached under the versioned key.
 - `scripts/print-layout-fixture.tsx` — a `?columnRules=1` switch and a `dn-short`
   document whose DN number is long enough to wrap in the description column.
 
+## Closing the two loose ends
+
+**The macOS pixel baselines.** They were captured before the filler measurement
+changed the page, so they are stale — the macOS check would have reported
+tens of thousands of changed pixels that say nothing about the layout. The
+baselines now carry the print layout version they were captured with
+(`baselines/<platform>/layout.json`): a stale set is reported as stale and
+skipped, with the portable geometry checks named, instead of failing as a
+pixel diff. `baselines/mac/layout.json` records v1 (the old layout) and
+`baselines/win/layout.json` v2 (the current one), so the state is visible
+in the repo. Re-capturing on a Mac is one command:
+`npm run test:print-layout:update`.
+
+**The orphaned cached renders.** Every layout or settings change leaves the
+previous renders in the bucket — never read again, but they take space. Two
+answers: the durable one is an expiration rule on the bucket's `pdfs/` prefix
+(Cloudflare → R2 → bucket → Settings → Object lifecycle rules, e.g. 30 days),
+so the orphans expire by themselves; the immediate one is
+`npm run cache:prune -- --orphans` (removes the leftovers of an older
+layout) or `--all` (flushes the cache — the next download re-renders). The
+tool works on the bucket and on the local disk cache.
+
 ## Pending
 
 - `sql/20261020_classic_v2_column_rules.sql` is **applied** (the column exists);
   it was the only outstanding migration.
-- The **macOS** pixel baselines still show the pre-fix layout: re-capture them
-  on a Mac with `npm run test:print-layout:update` (the layouts differ by
-  platform, so the baselines cannot be moved between platforms).
+- The **macOS** pixel baselines are marked stale (layout v1) — re-capture them
+  on a Mac with `npm run test:print-layout:update`. Until then the macOS pixel
+  check skips with a message; the geometry checks cover every platform.
 - The layout version bump invalidates every cached PDF **in production** too:
   the first download of each document re-renders once. The old files stay in
-  the bucket as orphans — a bucket rule can expire them.
+  the bucket as orphans — `npm run cache:prune -- --orphans` removes the ones
+  from an older layout, and a bucket expiration rule keeps it from happening
+  again.

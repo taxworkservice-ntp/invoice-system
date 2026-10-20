@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { createServer } from "vite";
@@ -14,6 +15,10 @@ const updateBaselines = process.argv.includes("--update");
 // portable gate).
 const platform = printLayoutPlatform();
 const baselineDir = path.join(root, "tests", "print-layout", "baselines", platform);
+const baselineMetaPath = path.join(baselineDir, "layout.json");
+// The print layout version the code is at. The version lives with the print
+// code (src/constants/index.ts) — a change to the output must bump it.
+const layoutVersion = currentPrintLayoutVersion();
 const actualDir = path.join(root, "tests", "print-layout", "actual");
 const maxDiffPixels = Number(process.env.PRINT_LAYOUT_MAX_DIFF_PIXELS || 500);
 const pixelThreshold = Number(process.env.PRINT_LAYOUT_PIXEL_THRESHOLD || 12);
@@ -38,6 +43,13 @@ const variants = [
   { template: "modern", copyType: "original", doc: "qt", wht: true },
   { template: "modern", copyType: "original", doc: "many", appendix: true },
 ];
+
+/** The print layout version the code is at (src/constants/index.ts). */
+function currentPrintLayoutVersion() {
+  const source = fsSync.readFileSync(path.join(root, "src", "constants", "index.ts"), "utf8");
+  const parsed = Number(source.match(/PRINT_LAYOUT_VERSION\s*=\s*(\d+)/)?.[1]);
+  return Number.isFinite(parsed) ? parsed : 1;
+}
 
 function nameFor({ template, copyType, doc, appendix, fontScale, compactDn, printTitle, wht }) {
   const parts = [];
@@ -194,6 +206,14 @@ try {
 
   const failures = [];
 
+  if (updateBaselines) {
+    await fs.mkdir(baselineDir, { recursive: true });
+    await fs.writeFile(
+      baselineMetaPath,
+      `${JSON.stringify({ version: layoutVersion, platform, capturedAt: new Date().toISOString() }, null, 2)}\n`,
+    );
+  }
+
   // A platform without baselines has no pixel expectation to compare against:
   // the rasterisation differs by platform, so a macOS baseline reports
   // thousands of changed pixels on Windows even when the layout is identical.
@@ -210,6 +230,30 @@ try {
     );
   }
 
+  // Baselines captured with a different layout version cannot be compared to:
+  // the render itself changed. Say so and skip, rather than reporting the
+  // layout change as thousands of changed pixels.
+  const baselineVersion = await fs
+    .readFile(baselineMetaPath, "utf8")
+    .then((raw) => {
+      try {
+        return Number(JSON.parse(raw).version);
+      } catch {
+        return null;
+      }
+    })
+    .catch(() => null);
+  const baselinesAreStale =
+    hasBaselines && baselineVersion !== null && baselineVersion !== layoutVersion;
+  if (baselinesAreStale && !updateBaselines) {
+    console.log(
+      `skip  the "${platform}" baselines are from print layout v${baselineVersion}, the code is v${layoutVersion}.\n` +
+        `      Re-capture them with npm run test:print-layout:update — the layout changed, so the old\n` +
+        `      expectations are stale. The portable gate is npm run test:print-layout:estimate and\n` +
+        `      npm run test:print-layout:fill.`,
+    );
+  }
+
   for (const variant of variants) {
     const fileName = nameFor(variant);
     const baselinePath = path.join(baselineDir, fileName);
@@ -223,8 +267,10 @@ try {
       continue;
     }
 
-    if (!hasBaselines) {
-      console.log(`skip  ${fileName}: no "${platform}" baseline to compare against`);
+    if (!hasBaselines || baselinesAreStale) {
+      console.log(
+        `skip  ${fileName}: ${baselinesAreStale ? "the baselines are stale (nothing to compare against)" : `no "${platform}" baseline to compare against`}`,
+      );
       continue;
     }
 

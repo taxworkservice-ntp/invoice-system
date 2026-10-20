@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "platform": "mac",
+  "note": "captured before the classic V2 filler measurement changed the page — re-capture with npm run test:print-layout:update"
+}
