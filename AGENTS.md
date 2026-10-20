@@ -91,12 +91,13 @@
   download re-renders the document).
 - **The deal page's next step is a choice, not a button.** When the workflow
   offers two ways forward they render as a pair of choice cards
-  (`src/components/deal/NextStepChoice.tsx`): the workflow's next step is the
-  app's primary blue, the shortcut that skips a step is a quiet outline card,
-  and each card states what the *customer* gets (and what the other path
-  skips). The sides follow the path — the operational path (delivery / payment)
-  reads first, the paperwork path (invoice / billing note) second — so a pair
-  never moves when the deal's state changes.
+  (`src/components/deal/NextStepChoice.tsx`): both are blue so they read as
+  pressable next to each other, and the fill intensity ranks them — the solid
+  blue is the workflow's next step, the soft tint (`bg-primary-soft`) is the
+  shortcut that skips a step. Each card states what the *customer* gets (and
+  what the other path skips). The sides follow the path — the operational path
+  (delivery / payment) reads first, the paperwork path (invoice / billing note)
+  second — so a pair never moves when the deal's state changes.
 - **The PDF cache is keyed by the print signature.** The key is
   `…/{variant}-{signature}.pdf`, where the signature is the layout version
   (the client sends `PRINT_LAYOUT_VERSION` from `src/constants/index.ts`) plus a

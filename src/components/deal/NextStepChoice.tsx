@@ -63,6 +63,40 @@ function OptionCard({ option, dividerBefore }: { option: NextStepOption; divider
   // A danger action is never the primary blue: white text on the danger
   // tint would be unreadable.
   const isPrimary = option.emphasis === "primary" && !option.danger;
+  // The two choices are both blue — a white card next to a blue one reads as
+  // "not a button" — and the fill intensity carries the ranking: the solid
+  // blue is the workflow's next step, the soft tint is the shortcut that
+  // skips a step. On a tinted surface the text stays ink, the way the app's
+  // other tinted panels do it.
+  const surface = option.danger
+    ? {
+        card: "border-danger-border bg-danger-soft hover:border-danger",
+        title: "text-ink-900",
+        body: "text-ink-500",
+        facts: "text-ink-700",
+        icon: "bg-white text-danger",
+        tag: "bg-white text-danger",
+        arrow: "text-ink-300 group-hover:text-danger",
+      }
+    : isPrimary
+      ? {
+          card: "border-primary bg-primary text-white hover:bg-primary-deep",
+          title: "text-white",
+          body: "text-white/85",
+          facts: "text-white",
+          icon: "bg-white/15 text-white",
+          tag: "bg-white/20 text-white",
+          arrow: "text-white/70 group-hover:text-white",
+        }
+      : {
+          card: "border-primary-border bg-primary-soft hover:border-primary",
+          title: "text-ink-900",
+          body: "text-ink-500",
+          facts: "text-ink-700",
+          icon: "bg-white text-primary-deep",
+          tag: "bg-white text-primary-deep",
+          arrow: "text-ink-300 group-hover:text-primary",
+        };
   return (
     <>
       {dividerBefore && (
@@ -77,62 +111,36 @@ function OptionCard({ option, dividerBefore }: { option: NextStepOption; divider
         type="button"
         onClick={option.onClick}
         disabled={option.loading}
-        className={`group flex w-full items-start gap-3 rounded-card border px-4 py-3 text-left transition-colors active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${
-          option.danger
-            ? "border-danger-border bg-danger-soft hover:border-danger"
-            : isPrimary
-              ? "border-primary bg-primary text-white hover:bg-primary-deep"
-              : "border-card-border bg-white hover:border-line-strong hover:bg-paper-field"
-        }`}
+        className={`group flex w-full items-start gap-3 rounded-card border px-4 py-3 text-left transition-colors active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${surface.card}`}
       >
         <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-control ${
-            option.danger
-              ? "bg-white text-danger"
-              : isPrimary
-                ? "bg-white/15 text-white"
-                : "bg-primary-soft text-primary-deep"
-          }`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-control ${surface.icon}`}
         >
           <Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
-            <span className={`text-body font-semibold ${isPrimary ? "text-white" : "text-ink-900"}`}>
-              {option.label}
-            </span>
+            <span className={`text-body font-semibold ${surface.title}`}>{option.label}</span>
             {option.tag ? (
               <span
-                className={`rounded-full px-2 py-0.5 text-label font-medium leading-4 ${
-                  isPrimary ? "bg-white/20 text-white" : "bg-ink-50 text-ink-500"
-                }`}
+                className={`rounded-full px-2 py-0.5 text-label font-medium leading-4 ${surface.tag}`}
               >
                 {option.tag}
               </span>
             ) : null}
           </span>
-          <span
-            className={`mt-0.5 block text-label leading-5 ${
-              isPrimary ? "text-white/85" : "text-ink-500"
-            }`}
-          >
+          <span className={`mt-0.5 block text-label leading-5 ${surface.body}`}>
             {option.description}
           </span>
           {option.facts ? (
-            <span
-              className={`mt-1 block text-label font-medium leading-5 ${
-                isPrimary ? "text-white" : "text-ink-700"
-              }`}
-            >
+            <span className={`mt-1 block text-label font-medium leading-5 ${surface.facts}`}>
               {option.facts}
             </span>
           ) : null}
         </span>
         <span
           aria-hidden="true"
-          className={`mt-1 shrink-0 text-label transition-colors ${
-            isPrimary ? "text-white/70 group-hover:text-white" : "text-ink-300 group-hover:text-primary"
-          }`}
+          className={`mt-1 shrink-0 text-label transition-colors ${surface.arrow}`}
         >
           →
         </span>

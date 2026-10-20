@@ -138,11 +138,14 @@ The two ways forward on a deal (ออกใบวางบิล / รับเ
 divider — the hierarchy was invisible, the descriptions described mechanics
 instead of outcomes, and neither card showed the numbers the decision needs.
 
-Now the workflow's next step is the app's primary blue (the same button the app's
-primary actions use), the shortcut that skips a step is a quiet outline card, and
-each card states what the customer gets and what the other path skips. The
-billing card adds the facts: the count and the total of the invoices waiting
-to be paid — the same list the billing-note form offers.
+Now both choices are blue, so they read as pressable next to each other (a white
+card next to a blue one reads as "not a button"), and the fill intensity
+ranks them: the solid blue is the workflow's next step, the soft tint
+(`bg-primary-soft` + a blue border — the app's own "selected option" treatment)
+is the shortcut that skips a step. Each card states what the customer gets and
+what the other path skips. The billing card adds the facts: the count and the
+total of the invoices waiting to be paid — the same list the billing-note form
+offers.
 
 The sides follow the path, not which action happens to be the next step: the
 operational path (delivery / payment) reads first, the paperwork path (invoice /
