@@ -238,6 +238,12 @@ describe("creationPath — call-site shapes used across the app", () => {
     expect(creationPath("invoice_from_delivery_notes", { dnId: "dn-1" })).toBe(
       "/documents/new?type=invoice_from_delivery_notes&dnId=dn-1",
     );
+    // The deal page hands over every billable note of the deal, comma-separated.
+    expect(
+      creationPath("invoice_from_delivery_notes", { dnIds: "dn-1,dn-2,dn-3" }),
+    ).toBe(
+      "/documents/new?type=invoice_from_delivery_notes&dnIds=dn-1%2Cdn-2%2Cdn-3",
+    );
     expect(creationPath("delivery_note_from_quotation", { quotationId: "q-1" })).toBe(
       "/documents/new?type=delivery_note_from_quotation&quotationId=q-1",
     );

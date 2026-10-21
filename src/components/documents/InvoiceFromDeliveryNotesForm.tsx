@@ -129,7 +129,19 @@ export function InvoiceFromDeliveryNotesForm() {
   const navigate = useNavigate();
   const docDate = useDocDate();
   const [searchParams] = useSearchParams();
-  const preselectedDnId = searchParams.get("dnId");
+  // One or many delivery notes to preselect. The deal page hands over every
+  // billable note of the deal ("N ใบ"), so the ids arrive comma-separated;
+  // the single "dnId" (one note picked from the document list) keeps working.
+  const preselectedDnIds = useMemo(() => {
+    const ids = (searchParams.get("dnIds") || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const single = searchParams.get("dnId");
+    if (single && !ids.includes(single)) ids.push(single);
+    return ids;
+  }, [searchParams]);
+  const preselectedDnKey = preselectedDnIds.join(",");
   const { profile } = useAuth();
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
@@ -209,21 +221,22 @@ export function InvoiceFromDeliveryNotesForm() {
   }, [businessToday, dateFrom, dateTo, issueDate]);
 
   useEffect(() => {
-    if (!preselectedDnId || !userId) return;
+    const preselectedIds = preselectedDnKey ? preselectedDnKey.split(",") : [];
+    if (preselectedIds.length === 0 || !userId) return;
 
     let cancelled = false;
     async function loadPreselectedDeliveryNote() {
-      const { data: dn } = await supabase
+      const { data: dns } = await supabase
         .from("documents")
         .select("id, customer_id")
-        .eq("id", preselectedDnId)
+        .in("id", preselectedIds)
         .eq("user_id", userId)
         .eq("doc_type", "delivery_note")
-        .eq("status", "sent")
-        .maybeSingle();
+        .eq("status", "sent");
 
-      if (!cancelled && dn?.customer_id) {
-        setSelectedCustomerId(dn.customer_id);
+      const customerId = dns?.[0]?.customer_id;
+      if (!cancelled && customerId) {
+        setSelectedCustomerId(customerId);
       }
     }
 
@@ -231,7 +244,7 @@ export function InvoiceFromDeliveryNotesForm() {
     return () => {
       cancelled = true;
     };
-  }, [preselectedDnId, userId]);
+  }, [preselectedDnKey, userId]);
 
   const selectedCustomer = useMemo(
     () => customers.find((customer) => customer.id === selectedCustomerId) || null,
@@ -286,18 +299,19 @@ export function InvoiceFromDeliveryNotesForm() {
       }
 
       let docList = (docs || []) as DeliveryNoteOption[];
-      if (preselectedDnId && !docList.some((doc) => doc.id === preselectedDnId)) {
-        const { data: preselectedDoc } = await supabase
+      const preselectedIds = preselectedDnKey ? preselectedDnKey.split(",") : [];
+      const missingPreselected = preselectedIds.filter((id) => !docList.some((doc) => doc.id === id));
+      if (missingPreselected.length) {
+        const { data: preselectedDocs } = await supabase
           .from("documents")
           .select("*")
-          .eq("id", preselectedDnId)
+          .in("id", missingPreselected)
           .eq("user_id", userId)
           .eq("customer_id", selectedCustomerId)
           .eq("doc_type", "delivery_note")
-          .eq("status", "sent")
-          .maybeSingle();
-        if (preselectedDoc) {
-          docList = [...docList, preselectedDoc as DeliveryNoteOption].sort((a, b) =>
+          .eq("status", "sent");
+        if (preselectedDocs?.length) {
+          docList = [...docList, ...(preselectedDocs as DeliveryNoteOption[])].sort((a, b) =>
             (a.issue_date || "").localeCompare(b.issue_date || "") ||
             (a.doc_number || "").localeCompare(b.doc_number || ""),
           );
@@ -380,9 +394,14 @@ export function InvoiceFromDeliveryNotesForm() {
       if (cancelled) return;
 
       setDeliveryNotes(options);
+      // The notes the caller asked for win; the ones already fully billed are
+      // not in the options and cannot be billed again.
+      const preselectedInOptions = preselectedIds.filter((id) =>
+        options.some((doc) => doc.id === id),
+      );
       setSelectedIds(
-        preselectedDnId && options.some((doc) => doc.id === preselectedDnId)
-          ? new Set([preselectedDnId])
+        preselectedInOptions.length > 0
+          ? new Set(preselectedInOptions)
           : new Set(options.map((doc) => doc.id)),
       );
       setLoadingDns(false);
@@ -392,7 +411,7 @@ export function InvoiceFromDeliveryNotesForm() {
     return () => {
       cancelled = true;
     };
-  }, [dateFrom, dateTo, preselectedDnId, selectedCustomerId, userId]);
+  }, [dateFrom, dateTo, preselectedDnKey, selectedCustomerId, userId]);
 
   const selectedDeliveryNotes = useMemo(
     () => deliveryNotes.filter((doc) => selectedIds.has(doc.id)),

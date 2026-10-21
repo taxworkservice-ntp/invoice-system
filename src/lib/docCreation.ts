@@ -90,7 +90,7 @@ const CARRIED_PARAMS: Record<CreationForm, readonly string[]> = {
   billing_note: ["dealId", "documentId", "customer_id"],
   credit_note: ["dealId", "documentId"],
   invoice_from_quotation: ["quotationId", "documentId"],
-  invoice_from_delivery_notes: ["dnId", "documentId"],
+  invoice_from_delivery_notes: ["dnId", "dnIds", "documentId"],
   delivery_note_from_quotation: ["quotationId", "documentId"],
 };
 

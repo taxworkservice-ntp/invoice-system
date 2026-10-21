@@ -2443,7 +2443,9 @@ export default function DealDetailPage() {
                         className="w-full justify-center"
                         onClick={() =>
                           createDocument("invoice_from_delivery_notes", {
-                            dnId: billableSentDns[0].document.id,
+                            // Every billable note of the deal, not just the
+                            // first one — the button says "N ใบ".
+                            dnIds: billableSentDns.map((item) => item.document.id).join(","),
                           })
                         }
                       >
