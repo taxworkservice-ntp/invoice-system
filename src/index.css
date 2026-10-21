@@ -40,12 +40,50 @@
   --ink-900: #1a1a18;
   --ui-font-size: 14px;
   --ui-line-height: 22px;
+  /* UI type scale — the roles from src/design/tokens.ts, as variables so a
+     scope can shift the whole scale for one page (see .deal-type-scale).
+     The print layer is exempt: it has its own pt-based scale below. */
+  --fs-label: 12px;
+  --lh-label: 18px;
+  --fs-body: 14px;
+  --lh-body: 22px;
+  --fs-title: 17px;
+  --lh-title: 24px;
+  --fs-subtitle: 20px;
+  --lh-subtitle: 29px;
+  --fs-display: 22px;
+  --lh-display: 31px;
+  --fs-page: 26px;
+  --lh-page: 35px;
+  --fs-hero: 33px;
+  --lh-hero: 40px;
   /* Height of the fixed mobile bottom nav (see BottomNav.tsx). Sticky action
      bars offset by this so they never sit behind the nav. */
   --bottom-nav-height: 3.875rem;
   /* Frozen print base — the print layer is exempt from the UI type scale. */
   --print-font-size: 14px;
   --print-line-height: 1.6;
+}
+
+/* The deal page reads one point larger: every type role shifts by 1pt
+   (96/72 px) and the leading stays the same, so the type grows without the
+   rhythm changing. The shell chrome (the sidebar, the top bar, the title) is
+   outside this scope — only the page's content and its modals grow. */
+.deal-type-scale {
+  --fs-label: 13.333px;
+  --lh-label: 19.333px;
+  --fs-body: 15.333px;
+  --lh-body: 23.333px;
+  --fs-title: 18.333px;
+  --lh-title: 25.333px;
+  --fs-subtitle: 21.333px;
+  --lh-subtitle: 30.333px;
+  --fs-display: 23.333px;
+  --lh-display: 32.333px;
+  --fs-page: 27.333px;
+  --lh-page: 36.333px;
+  --fs-hero: 34.333px;
+  --lh-hero: 41.333px;
 }
 
 /* Hidden-scrollbar affordance for horizontal tab rows on mobile. */

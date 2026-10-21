@@ -17,14 +17,17 @@
  */
 export const fontSize = {
   // Canonical roles -----------------------------------------------------------
-  label: ["12px", { lineHeight: "18px" }],
-  body: ["14px", { lineHeight: "22px" }],
-  title: ["17px", { lineHeight: "24px" }],
-  subtitle: ["20px", { lineHeight: "29px" }],
-  display: ["22px", { lineHeight: "31px" }],
-  page: ["26px", { lineHeight: "35px" }],
+  // The sizes are CSS variables (declared in src/index.css) so a scope can
+  // shift the whole scale for one page — see .deal-type-scale. The defaults
+  // are the values below; the roles stay the single source of truth.
+  label: ["var(--fs-label)", { lineHeight: "var(--lh-label)" }],
+  body: ["var(--fs-body)", { lineHeight: "var(--lh-body)" }],
+  title: ["var(--fs-title)", { lineHeight: "var(--lh-title)" }],
+  subtitle: ["var(--fs-subtitle)", { lineHeight: "var(--lh-subtitle)" }],
+  display: ["var(--fs-display)", { lineHeight: "var(--lh-display)" }],
+  page: ["var(--fs-page)", { lineHeight: "var(--lh-page)" }],
   /** Large stat numbers (dashboard KPIs). */
-  hero: ["33px", { lineHeight: "40px" }],
+  hero: ["var(--fs-hero)", { lineHeight: "var(--lh-hero)" }],
 } as const;
 
 /** Warm neutral text ramp — the ONLY neutral for UI text and chrome. */

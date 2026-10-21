@@ -89,6 +89,13 @@
   and the orphans clean themselves up. `npm run cache:prune -- --orphans` removes
   the leftovers of an older layout now; `--all` flushes the cache (the next
   download re-renders the document).
+- **The UI type scale is variable-based, so a page can shift it.** The roles
+  live in `src/design/tokens.ts` as CSS variables (`--fs-body` and friends,
+  declared in `src/index.css`), so a scope can move the whole scale at once:
+  the deal page reads one point larger (the `.deal-type-scale` scope, applied to
+  the shell's `<main>` through `<AppShell typeScale="large">`). The size and
+  the line height shift together, so the leading never changes. The print layer
+  is exempt — it keeps its own pt-based scale.
 - **The deal page's next step is a choice, not a button.** When the workflow
   offers two ways forward they render as a pair of choice cards
   (`src/components/deal/NextStepChoice.tsx`): both are blue so they read as

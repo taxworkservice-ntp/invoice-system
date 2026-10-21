@@ -7,6 +7,10 @@ import { api, signInAndGetSession, uid } from "./helpers/env";
  * Two alternative next steps must read as a choice — equal cards with a `หรือ`
  * between them — instead of a primary button plus a footnote. A single next step
  * stays a plain action button.
+ *
+ * The sides follow the path, not which action happens to be the next step: the
+ * operational path (delivery / payment) reads first, the paperwork path (invoice /
+ * billing note) second — so the pair never moves when the deal's state changes.
  */
 async function seedDeal(
   client: Awaited<ReturnType<typeof api>>,
@@ -64,14 +68,16 @@ test.describe("deal page — next step choice", () => {
       await expect(convert).toBeVisible();
       await expect(deliver).toBeVisible();
 
-      // Invoice/billing reads first (left), delivery second (right).
+      // The operational path (delivery) reads first (left), the paperwork
+      // path (invoice) second — the sides follow the path, so the pair does
+      // not move when the deal's state changes.
       const [a, b] = await Promise.all([
         convert.boundingBox(),
         deliver.boundingBox(),
       ]);
       expect(Math.abs((a?.y ?? 0) - (b?.y ?? 0))).toBeLessThanOrEqual(2);
       expect(Math.abs((a?.width ?? 0) - (b?.width ?? 0))).toBeLessThanOrEqual(2);
-      expect(a?.x ?? 0).toBeLessThan(b?.x ?? 0);
+      expect(b?.x ?? 0).toBeLessThan(a?.x ?? 0);
       // The word between them.
       await expect(group.getByText("หรือ")).toBeVisible();
 
@@ -100,9 +106,10 @@ test.describe("deal page — next step choice", () => {
       const collect = group.getByRole("button", { name: /รับเงินโดยไม่ออกใบวางบิล/ });
       await expect(collect).toBeVisible();
       await expect(group.getByText("หรือ")).toBeVisible();
-      // Invoice/billing on the left, payment on the right.
+      // The operational path (payment) on the left, the paperwork path
+      // (billing note) on the right.
       const [b1, b2] = await Promise.all([billing.boundingBox(), collect.boundingBox()]);
-      expect(b1?.x ?? 0).toBeLessThan(b2?.x ?? 0);
+      expect(b2?.x ?? 0).toBeLessThan(b1?.x ?? 0);
 
       // Collecting opens the payment flow.
       await collect.click();
@@ -127,7 +134,7 @@ test.describe("deal page — next step choice", () => {
       const convert = group.getByRole("button", { name: /ออกใบแจ้งหนี้ต่อ/ });
       const deliver = group.getByRole("button", { name: /ส่งของก่อน/ });
       const [a, b] = await Promise.all([convert.boundingBox(), deliver.boundingBox()]);
-      expect(b?.y ?? 0).toBeGreaterThan((a?.y ?? 0) + (a?.height ?? 0) - 1);
+      expect(a?.y ?? 0).toBeGreaterThan((b?.y ?? 0) + (b?.height ?? 0) - 1);
       await expect(group.getByText("หรือ")).toBeVisible();
     } finally {
       await client.from("documents").delete().eq("deal_id", seed.dealId);

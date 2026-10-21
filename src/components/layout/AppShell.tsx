@@ -58,6 +58,12 @@ interface AppShellProps {
    * capped narrow for readability. See `contentWidth` in design tokens.
    */
   width?: ContentProfile;
+  /**
+   * "large" reads one point larger — the whole type scale shifts (the
+   * leading stays the same). Only the page's content and its modals grow;
+   * the shell chrome keeps the standard scale.
+   */
+  typeScale?: "large";
   children: React.ReactNode;
 }
 
@@ -99,6 +105,7 @@ export function AppShell({
   action,
   breadcrumbs,
   width = "data",
+  typeScale,
   children,
 }: AppShellProps) {
   const containerClass = contentClass[width];
@@ -248,7 +255,9 @@ export function AppShell({
           </div>
         )}
         <main
-          className={`mx-auto w-full px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8 ${containerClass}`}
+          className={`mx-auto w-full px-4 py-4 pb-24 sm:px-5 md:pb-6 lg:px-8 ${containerClass} ${
+            typeScale === "large" ? "deal-type-scale" : ""
+          }`}
         >
           {/* Year system comes from the app-level YearEraProvider (see App.tsx). */}
           {children}

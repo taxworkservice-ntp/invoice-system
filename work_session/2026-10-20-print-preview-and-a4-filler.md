@@ -193,6 +193,20 @@ for a wide table — but if the amounts being off-screen on a 1440px laptop
 matters more than the values being on one line, the prose column
 (`max-w-[200px]`) can be trimmed, or the values can go back to wrapping.
 
+### The deal page reads one point larger
+
+The type scale was literal pixels in the Tailwind config, so a page could not
+shift it. The roles are now CSS variables (`--fs-body` and friends, declared in
+`src/index.css`), which lets a scope move the whole scale: the deal page gets
++1pt (96/72px) on every role, the size and the line height together, so the
+leading never changes. The scope sits on the shell's `<main>` (the page's
+content and its inline modals), so the sidebar, the top bar and the page title
+keep the standard scale. The print layer is untouched — it has its own pt-based
+scale.
+
+The values are unchanged, so nothing else moves: the `/home` visual baselines
+still match pixel for pixel after the change.
+
 ## Closing the two loose ends
 
 **The macOS pixel baselines.** They were captured before the filler measurement

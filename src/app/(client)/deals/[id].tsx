@@ -1875,6 +1875,7 @@ export default function DealDetailPage() {
     <AppShell
       title={title}
       showBack
+      typeScale="large"
       action={
         <div className="flex shrink-0 items-center gap-2">
           <Button
