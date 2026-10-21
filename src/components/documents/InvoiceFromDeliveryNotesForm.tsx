@@ -1224,6 +1224,10 @@ export function InvoiceFromDeliveryNotesForm() {
                                   bare
                                   value={l.quantity}
                                   maxFractionDigits={3}
+                                  // The field must not show a number the
+                                  // system will not bill: what was delivered
+                                  // is the ceiling, and the clamp shows.
+                                  maxValue={l.maxQty}
                                   onValueChange={(next) =>
                                     updateLine(l.key, {
                                       quantity: Math.max(0, Math.min(next, l.maxQty)),
