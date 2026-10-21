@@ -61,11 +61,10 @@ In the live workspace 2 invoices are affected (`INV-2569-10-0012`,
 guard to the creation of an invoice (or one re-pointed at another
 quotation). An existing invoice moves through the flow freely.
 
-> **PENDING: apply `sql/20261021_quotation_invoice_status_guard.sql`**
-> (Supabase SQL editor). Until it is applied the quotation chain cannot
-> work, and the journey skips it with that reason. Nothing else needs a
-> migration, and no data surgery is needed — the two stuck invoices heal
-> through the UI once the guard is fixed.
+> **APPLIED** — the migration ran on 2026-10-21 and the quotation chain
+> works again: the journey walks all 14 steps, none of them skipped.
+> Nothing else needs a migration, and no data surgery was needed — the two
+> stuck invoices heal through the UI.
 
 ## The click-through journey
 
@@ -88,6 +87,32 @@ it does **not** need `supabase_key.md`. It cleans up exactly its own rows.
 The quotation chain is gated by a probe: it skips with the reason above
 until the migration is applied.
 
+## The journeys that had stopped typing
+
+The 2026-10-19 shared line editor moved the name, the price and the
+quantity into a modal, and the numeric fields became text fields with
+`inputMode="decimal"` (a native number input cannot show the grouping).
+The journeys still typed into the old places, so they failed *before* they
+asserted anything — and four of them need `supabase_key.md`, so nobody
+noticed.
+
+- `e2e/deal-flow-qa.spec.ts`, `e2e/deal-quotation.spec.ts` — the line
+  editor modal (the name, the price, "บันทึก").
+- `e2e/deal-flow-qa.spec.ts` — the payment amount is a decimal text field.
+- `e2e/delivery-partial.spec.ts` — the delivered quantity is in the editor.
+- `e2e/invoice-from-dn.spec.ts` — the grid quantity is a decimal text field.
+- `e2e/helpers/locators.ts` — the price caption is a `<label>` now.
+
+A new spec, `e2e/field-locators.spec.ts`, guards the locators themselves.
+It needs no service-role key, so it fails here first when a field moves
+again — with a message that says where the field went.
+
+One real bug came out of it: the grid quantity did not clamp visibly. The
+shared numeric field keeps the typed text while it has the focus, so the
+clamp (what was delivered is the ceiling) reached the data but never the
+field — the grid could show 99 while the invoice billed 5. The field now
+knows its ceiling (`maxValue={l.maxQty}`).
+
 ## Verification
 
 - `npx tsc -b --force` — clean.
@@ -95,11 +120,12 @@ until the migration is applied.
   form-routing and year-era checks pass.
 - `npm run test:print-layout:estimate` / `:fill` — pass (the print layout
   is untouched).
-- `npx playwright test e2e/deal-flow-journey.spec.ts` — 9 pass, 5 skipped
-  (the quotation chain).
-- The whole `journeys` project: 39 pass; the 16 failures are all
+- `npx playwright test e2e/deal-flow-journey.spec.ts` — 14 pass, 0 skip
+  (the quotation chain runs since the migration).
+- `npx playwright test e2e/field-locators.spec.ts` — 5 pass.
+- The whole `journeys` project: 48 pass; the 16 failures are all
   `ENOENT supabase_key.md` — the specs that need the service-role key, which
-  this machine does not have.
+  this machine does not have. No other failure.
 
 ## Next
 
@@ -107,8 +133,7 @@ until the migration is applied.
 2. Run `npx playwright test e2e/deal-flow-journey.spec.ts` where
    `supabase_key.md` exists — the whole journey, quotation chain included.
 3. Ship gate: the commits are on `taxworkservice-ntp/remote-work-Invoice`
-   (5 ahead of `origin/main`) → push the branch, check the Vercel preview
-   (read-only), then merge to `main`.
+   → the branch is pushed, and it is merged into `main`.
 4. The stranded invoices in the live workspace heal through the UI once the
    fix ships (the officer sends the note); a revert simply hides the action
    again.
