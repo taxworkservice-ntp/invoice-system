@@ -14,6 +14,13 @@ interface SendDocumentOptions {
 }
 
 function getSentStatus(document: SendableDocument): DocumentStatus {
+  // An adjustment note is issued, not sent: its RPC only accepts
+  // draft/issued (save_adjustment_note), and the credit-note form and the
+  // document page already issue it that way. Sending it as "sent" left a
+  // status the lifecycle does not define.
+  if (document.doc_type === "credit_note" || document.doc_type === "debit_note") {
+    return "issued";
+  }
   return "sent";
 }
 

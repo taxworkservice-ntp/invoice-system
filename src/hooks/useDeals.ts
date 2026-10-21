@@ -132,6 +132,7 @@ function hasPartial(docs: DealCardData[]) {
 function getStage(docType: string, status: string): "quote" | "invoice" | "collect" | "done" {
   if (docType === "quotation") return "quote";
   if (docType === "credit_note") return status === "draft" ? "collect" : "done";
+  if (docType === "debit_note") return status === "draft" ? "collect" : "done";
   if (docType === "invoice" && status !== "paid" && status !== "partially_paid") return "invoice";
   if (docType === "billing_note" && status !== "paid" && status !== "partially_paid")
     return "collect";

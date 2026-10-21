@@ -166,6 +166,10 @@ function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
     if (doc.status === "sent" || doc.status === "issued") return "done";
     return "done";
   }
+  if (doc.doc_type === "debit_note") {
+    if (doc.status === "draft") return "collect";
+    return "done";
+  }
   return "invoice";
 }
 
