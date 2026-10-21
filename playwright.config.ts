@@ -30,7 +30,11 @@ export default defineConfig({
       name: "journeys",
       dependencies: ["setup"],
       use: { storageState: "e2e/.auth/state.json" },
-      testIgnore: [/auth\.setup\.ts/, /visual\.spec\.ts/],
+      // The visual specs have their own projects (visual, visual-wide,
+      // visual-mobile) with their own baselines — the journeys project must
+      // not pick them up, or it would write a second set of baselines for the
+      // wrong viewport.
+      testIgnore: [/auth.setup.ts/, /visual.spec.ts/, /visual.mobile.spec.ts/],
     },
     {
       // Design-system visual baselines. Generate/refresh with
