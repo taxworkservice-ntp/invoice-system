@@ -138,6 +138,16 @@ type MainAction =
   | { type: "done"; label: string }
   | null;
 
+/** The label of the "send this draft" action, per document type. */
+function sendDraftLabel(doc: Document): string {
+  if (doc.doc_type === "quotation") return "ส่งใบเสนอราคาให้ลูกค้า";
+  if (doc.doc_type === "invoice") return "ส่งใบแจ้งหนี้ให้ลูกค้า";
+  if (doc.doc_type === "delivery_note") return "บันทึกการส่งของ";
+  if (doc.doc_type === "credit_note") return "ออกใบลดหนี้ให้ลูกค้า";
+  if (doc.doc_type === "debit_note") return "ออกใบเพิ่มหนี้ให้ลูกค้า";
+  return "ส่งใบวางบิลให้ลูกค้า";
+}
+
 function getDocStage(doc: Document): "quote" | "invoice" | "collect" | "done" {
   if (doc.status === "voided" || doc.status === "converted") return "done";
   if (doc.doc_type === "quotation") return "quote";
@@ -1545,6 +1555,19 @@ export default function DealDetailPage() {
     return `${unpaidInvoices.length} ใบแจ้งหนี้ค้างชำระ · ฿${formatCurrency(total)}`;
   }, [unpaidInvoices]);
 
+  // The draft billing note holding each invoice, if any. A note that was
+  // saved but never sent flips its invoices to "in_billing" and locks them to
+  // that note, so the note is what has to move next.
+  const draftBillingNoteFor = useMemo(() => {
+    const map = new Map<string, Document>();
+    for (const item of docsWithMeta) {
+      const note = item.document;
+      if (note.doc_type !== "billing_note" || note.status !== "draft") continue;
+      for (const link of item.billing_invoices) map.set(link.invoice_id, note);
+    }
+    return map;
+  }, [docsWithMeta]);
+
   const mainAction: MainAction = useMemo(() => {
     if (!activeDoc) return null;
     const doc = activeDoc.document;
@@ -1558,14 +1581,7 @@ export default function DealDetailPage() {
       return {
         type: "send_draft",
         doc,
-        label:
-          doc.doc_type === "quotation"
-            ? "ส่งใบเสนอราคาให้ลูกค้า"
-            : doc.doc_type === "invoice"
-              ? "ส่งใบแจ้งหนี้ให้ลูกค้า"
-              : doc.doc_type === "delivery_note"
-                ? "บันทึกการส่งของ"
-                : "ส่งใบวางบิลให้ลูกค้า",
+        label: sendDraftLabel(doc),
       };
     }
     if (doc.doc_type === "delivery_note" && doc.status === "sent") {
@@ -1577,6 +1593,15 @@ export default function DealDetailPage() {
       return hasQuotationDeliveryActivity
         ? { type: "delivery_from_quote", doc, label: "บันทึกการส่งของ" }
         : { type: "convert", doc, label: "ออกใบแจ้งหนี้ต่อ" };
+    }
+    // The invoice is waiting for a billing note that was drafted but never
+    // sent. It is locked to that note (the picker skips it, and the trigger
+    // blocks any other link), so the next step is to send the note.
+    if (doc.doc_type === "invoice" && doc.status === "in_billing") {
+      const draftNote = draftBillingNoteFor.get(doc.id);
+      if (draftNote && canSendDocumentType(permissions, "billing_note")) {
+        return { type: "send_draft", doc: draftNote, label: sendDraftLabel(draftNote) };
+      }
     }
     if (doc.doc_type === "invoice" && doc.status === "sent") {
       if (!permissions.canRecordPayments) return null;
@@ -1599,7 +1624,7 @@ export default function DealDetailPage() {
       return { type: "collect", doc, label: "รับชำระเพิ่ม" };
     }
     return null;
-  }, [activeDoc, allDone, hasQuotationDeliveryActivity, permissions]);
+  }, [activeDoc, allDone, hasQuotationDeliveryActivity, permissions, draftBillingNoteFor]);
 
   const optionalAction = useMemo(() => {
     if (!activeDoc || allDone) return null;
