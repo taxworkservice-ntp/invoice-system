@@ -1,14 +1,14 @@
 import type { Page } from "@playwright/test";
 
 /**
- * The line-item price field on the new/edit deal form.
+ * The line-item price field of the shared line editor.
  *
- * Its caption ("ราคา/หน่วย") is a plain <span> sibling, not a <label>, so the
- * input has no accessible name and cannot be found with getByLabel. Reach it
- * by following the first input after that caption.
+ * The caption ("ราคา/หน่วย") is a <label> next to the field, but it may carry
+ * a suffix ("• ต้องยืนยัน", "(เก็บไว้คิดบิลต่อ)"), so the name is matched as a
+ * substring and the input is reached by following that caption.
  */
 export function linePriceInput(page: Page) {
   return page
-    .locator('xpath=//span[contains(normalize-space(.), "ราคา/หน่วย")]/following::input[1]')
+    .locator('xpath=//label[contains(normalize-space(.), "ราคา/หน่วย")]/following::input[1]')
     .first();
 }

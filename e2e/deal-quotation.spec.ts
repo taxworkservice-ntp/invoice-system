@@ -17,12 +17,17 @@ test.describe.serial("deal + quotation journey", () => {
     await page.getByPlaceholder("ค้นหาชื่อ รหัส หรือเลขผู้เสียภาษี").fill(name);
     await page.getByText(name).first().click();
 
-    // Add a line item row, then fill it
+    // Add a line item: the name and the price live in the shared line
+    // editor (components/documents/LineItemEditorModal.tsx).
     await page.getByRole("button", { name: "เพิ่มสินค้าหรือบริการ" }).click();
-    const itemInput = page.getByPlaceholder("พิมพ์ชื่อสินค้าหรือบริการ...");
-    await itemInput.fill("E2E Service Item");
-    await itemInput.press("Enter");
-    await linePriceInput(page).fill("150");
+    const editor = page.locator("div.fixed.inset-0").filter({
+      has: page.getByRole("heading", { name: "เพิ่มรายการ" }),
+    });
+    await expect(editor).toBeVisible();
+    await editor.getByPlaceholder(/พิมพ์ชื่อสินค้าหรือบริการ/).fill("E2E Service Item");
+    await editor.getByLabel(/ราคา\/หน่วย/).fill("150");
+    await editor.getByRole("button", { name: "บันทึก", exact: true }).click();
+    await expect(editor).toBeHidden();
 
     // Confirm modal "ยืนยันการบันทึก" appears first; save inside it.
     // exact:true so it cannot match the form's own "ตรวจสอบและบันทึก".
@@ -92,8 +97,16 @@ test.describe.serial("deal + quotation journey", () => {
         (el) => el.value === "E2E Edit Item",
       ),
     );
+    // The price is edited in the shared line editor.
+    await page.getByRole("button", { name: "แก้ไขรายการนี้" }).click();
+    const editor = page.locator("div.fixed.inset-0").filter({
+      has: page.getByRole("heading", { name: "แก้ไขรายการ" }),
+    });
+    await expect(editor).toBeVisible();
     const priceInput = linePriceInput(page);
     await priceInput.fill("250");
+    await editor.getByRole("button", { name: "บันทึก", exact: true }).click();
+    await expect(editor).toBeHidden();
 
     await page.getByRole("button", { name: "บันทึกร่าง", exact: true }).click();
     const confirmModal = page.locator("div.fixed.inset-0").filter({

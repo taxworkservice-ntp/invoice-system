@@ -51,8 +51,15 @@ test.describe.serial("partial delivery journey", () => {
 
   test("partial DN: deliver 4 of 10", async ({ page }) => {
     await openDnForm(page);
-    const qty = page.locator('input[type="number"]').first();
-    await qty.fill("4");
+    // The delivered quantity lives in the shared line editor.
+    await page.getByTitle("แก้ไขจำนวน").first().click();
+    const editor = page.locator("div.fixed.inset-0").filter({
+      has: page.getByRole("heading", { name: "แก้ไขรายการ" }),
+    });
+    await expect(editor).toBeVisible();
+    await editor.getByLabel("จำนวนส่ง").fill("4");
+    await editor.getByRole("button", { name: "บันทึก", exact: true }).click();
+    await expect(editor).toBeHidden();
     await page.getByRole("button", { name: "สร้างใบส่งของฉบับร่าง" }).click();
     await page.waitForURL(
       /\/deals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,

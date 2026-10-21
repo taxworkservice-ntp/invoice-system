@@ -34,10 +34,15 @@ function modal(page: Page, heading: string) {
 
 async function addLineItem(page: Page, name: string, price: string) {
   await page.getByRole("button", { name: "เพิ่มสินค้าหรือบริการ" }).click();
-  const itemInput = page.getByPlaceholder("พิมพ์ชื่อสินค้าหรือบริการ...").last();
-  await itemInput.fill(name);
-  await itemInput.press("Enter");
-  await linePrice(page).fill(price);
+
+  // The name and the price live in the shared line editor
+  // (components/documents/LineItemEditorModal.tsx), not in the grid.
+  const editor = modal(page, "เพิ่มรายการ");
+  await expect(editor).toBeVisible();
+  await editor.getByPlaceholder(/พิมพ์ชื่อสินค้าหรือบริการ/).fill(name);
+  await editor.getByLabel(/ราคา\/หน่วย/).fill(price);
+  await editor.getByRole("button", { name: "บันทึก", exact: true }).click();
+  await expect(editor).toBeHidden();
 }
 
 async function saveThroughConfirm(page: Page, trigger: string) {
@@ -274,7 +279,13 @@ test.describe.serial("deal QA · document management", () => {
       ),
     );
 
+    // The price is edited in the shared line editor.
+    await page.getByRole("button", { name: "แก้ไขรายการนี้" }).click();
+    const editor = modal(page, "แก้ไขรายการ");
+    await expect(editor).toBeVisible();
     await linePrice(page).fill("250");
+    await editor.getByRole("button", { name: "บันทึก", exact: true }).click();
+    await expect(editor).toBeHidden();
     await saveThroughConfirm(page, "บันทึกร่าง");
 
     await page.waitForURL(new RegExp(`/deals/${editDealId}`));
@@ -602,7 +613,10 @@ test.describe.serial("deal QA · payment and receipt", () => {
     // F-QA3: the modal is interactive before its async prefill settles. Wait for
     // the prefill (amount + default bank account) before saving, otherwise the
     // click hits a stale remaining=0 and silently no-ops.
-    await expect(payModal.locator('input[type="number"]').first()).toHaveValue("10000", { timeout: 15_000 });
+    await expect(payModal.locator('input[inputmode="decimal"]').first()).toHaveValue(
+      /^10,?000$/,
+      { timeout: 15_000 },
+    );
     await expect.poll(async () => {
       const values = await payModal
         .locator("select")

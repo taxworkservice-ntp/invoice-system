@@ -502,8 +502,7 @@ test.describe.serial("deal flow journey · quotation → invoice → paid", () =
     guardAllowsStatusChange = await convertedInvoiceCanChangeStatus();
     const customer = await insertCustomer(customerName);
     customerId = customer.id;
-    const deal = await insertDeal(customer.id, "Journey Quote Deal");
-    dealId = deal.id;
+    // The deal itself is created by the form — the journey starts there.
   });
 
   const skipIfFrozen = () =>
@@ -526,8 +525,8 @@ test.describe.serial("deal flow journey · quotation → invoice → paid", () =
     await confirm.getByRole("button", { name: "บันทึก", exact: true }).click();
 
     await page.waitForURL(DEAL_UUID_RE);
-    const createdDealId = page.url().split("/deals/")[1].split(/[?#]/)[0];
-    expect(createdDealId).toBe(dealId);
+    dealId = page.url().split("/deals/")[1].split(/[?#]/)[0];
+    expect(dealId).toBeTruthy();
 
     const quotations = await documentsOf(dealId, "quotation");
     expect(quotations).toHaveLength(1);

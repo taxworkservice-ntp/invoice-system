@@ -67,10 +67,12 @@ test.describe.serial("invoice from delivery notes — both modes + guard", () =>
     await page.goto(`/documents/new?type=invoice_from_delivery_notes&dnId=${dn!.id}`);
     // switch to detail mode and try to over-bill
     await page.getByRole("checkbox", { name: /โหมดอ้างอิง/ }).uncheck();
-    const qty = page.locator('input[type="number"]').first();
-    await qty.fill("99");
-    // The input clamps to the remaining delivered quantity (5) —
+    // The grid quantity is a numeric text field (inputMode="decimal"),
+    // and it clamps to the remaining delivered quantity (5) —
     // over-billing cannot be submitted from the UI.
+    const qty = page.locator('input[inputmode="decimal"]').first();
+    await qty.fill("99");
+    await qty.blur();
     await expect(qty).toHaveValue("5");
     await page.getByRole("button", { name: "สร้างใบแจ้งหนี้" }).click();
     await page.waitForURL(
