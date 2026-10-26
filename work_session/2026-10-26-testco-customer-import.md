@@ -14,3 +14,11 @@
 - Detail page (`customers/[id].tsx`): when global is off, the `avatar:` status line and the whole `รูป avatar` editor are replaced with one muted note linking to `ตั้งค่า → การแสดงผล`. Values stay in DB.
 - `/customers` รหัส column is now sortable (`SortableTh` + `"code"` in `CustomerSortKey`; nulls sink last).
 - PENDING MANUAL STEP: apply `sql/20261026_avatar_default_off.sql` in Supabase SQL editor (Supabase migrations in `sql/` are applied manually).
+
+# 2026-10-26 (later) — Retarget to live client, clean testko
+
+- Live workspace บริษัท เอส.อาร์. แสตมป์ปิ้ง พลัส จำกัด currently holds only 2 customers.
+- `sql/remove_testko_customers.sql`: deletes the 126 spreadsheet rows from บริษัท เทสท์ โค จำกัด (match by tax_id or case-insensitive name); rows referenced by that workspace's deals/documents are KEPT and reported (`kept_referenced` + names, FKs are NO ACTION). Idempotent.
+- `sql/import_sr_stamping_customers.sql`: same 126 + mapping, OVERWRITE rule for the live workspace — match → UPDATE name/tax/address/note + reactivate, code preserved (backfilled when NULL); no match → INSERT with next free `C-###` from that workspace's max.
+- Suggested run order: pre-check both `client_profiles` rows (exact name spelling — scripts abort otherwise) → remove from testko → import to live → verify NOTICE counts + `select count(*)` per workspace + spot-check `/customers`.
+- PENDING MANUAL STEP: apply both scripts in Supabase SQL editor (no service key locally).
