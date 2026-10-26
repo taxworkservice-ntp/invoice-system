@@ -280,6 +280,7 @@ export default function CustomerDetailPage() {
 
   const [dealFilter, setDealFilter] = useState<DealFilter>("all");
   const businessToday = businessTodayString(clientProfile);
+  const avatarsGloballyOff = clientProfile?.show_customer_avatars !== true;
   const [rangePreset, setRangePreset] = useState<RangePreset>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -634,16 +635,18 @@ export default function CustomerDetailPage() {
             />
             <div className="flex-1 min-w-0">
               <h2 className="text-title font-semibold text-ink-900 truncate">{customer.name}</h2>
-              <div className="text-label text-ink-300 mt-0.5">
-                avatar:{" "}
-                {customer.avatar_hidden === true ? (
-                  <span>ซ่อนอยู่</span>
-                ) : customer.avatar_initials || customer.avatar_color ? (
-                  <span className="text-primary">กำหนดเอง</span>
-                ) : (
-                  "อัตโนมัติ"
-                )}
-              </div>
+              {avatarsGloballyOff ? null : (
+                <div className="text-label text-ink-300 mt-0.5">
+                  avatar:{" "}
+                  {customer.avatar_hidden === true ? (
+                    <span>ซ่อนอยู่</span>
+                  ) : customer.avatar_initials || customer.avatar_color ? (
+                    <span className="text-primary">กำหนดเอง</span>
+                  ) : (
+                    "อัตโนมัติ"
+                  )}
+                </div>
+              )}
             </div>
             {permissions.canManageCustomers && (
               <button
@@ -656,97 +659,114 @@ export default function CustomerDetailPage() {
           </div>
 
           <div className="border-t border-line-faint pt-3 mt-1">
-            <button
-              type="button"
-              onClick={() => setAvatarSectionOpen((prev) => !prev)}
-              className="flex w-full items-center justify-between gap-2 text-left"
-              aria-expanded={avatarSectionOpen}
-            >
-              <div className="text-label font-semibold text-ink-300">รูป avatar</div>
-              <ChevronDown
-                size={14}
-                className={`text-ink-300 transition-transform ${avatarSectionOpen ? "" : "-rotate-90"}`}
-              />
-            </button>
-            {avatarSectionOpen && (
-              <div className="mt-2 space-y-3">
-                <label className="flex items-center gap-2 text-body text-ink-700">
-                  <input
-                    type="checkbox"
-                    checked={useCustomAvatar}
-                    onChange={(e) => setUseCustomAvatar(e.target.checked)}
-                    className="w-4 h-4 rounded border-line-strong text-primary focus:ring-primary"
+            {avatarsGloballyOff ? (
+              <p className="text-label leading-relaxed text-ink-300">
+                Avatar ปิดอยู่ทั้งบริษัท — เปิดได้ที่{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/settings/company")}
+                  className="text-primary hover:underline"
+                >
+                  ตั้งค่า → การแสดงผล
+                </button>
+              </p>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setAvatarSectionOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                  aria-expanded={avatarSectionOpen}
+                >
+                  <div className="text-label font-semibold text-ink-300">รูป avatar</div>
+                  <ChevronDown
+                    size={14}
+                    className={`text-ink-300 transition-transform ${avatarSectionOpen ? "" : "-rotate-90"}`}
                   />
-                  กำหนด avatar เอง
-                </label>
-                <label className="flex items-center gap-2 text-body text-ink-700">
-                  <input
-                    type="checkbox"
-                    checked={editAvatarHidden}
-                    onChange={(e) => setEditAvatarHidden(e.target.checked)}
-                    className="w-4 h-4 rounded border-line-strong text-primary focus:ring-primary"
-                  />
-                  ซ่อน avatar นี้ (แสดงกล่องว่าง)
-                </label>
-
-                {useCustomAvatar && (
-                  <>
-                    <div>
-                      <div className="text-label text-ink-300 mb-1.5">ตัวอักษร (สูงสุด 3 ตัว)</div>
-                      <Input
-                        value={editAvatarInitials}
-                        onChange={(e) =>
-                          setEditAvatarInitials(e.target.value.toUpperCase().slice(0, 3))
-                        }
-                        placeholder="เช่น BP"
-                        maxLength={3}
-                        className="!w-24 !text-center font-semibold"
+                </button>
+                {avatarSectionOpen && (
+                  <div className="mt-2 space-y-3">
+                    <label className="flex items-center gap-2 text-body text-ink-700">
+                      <input
+                        type="checkbox"
+                        checked={useCustomAvatar}
+                        onChange={(e) => setUseCustomAvatar(e.target.checked)}
+                        className="w-4 h-4 rounded border-line-strong text-primary focus:ring-primary"
                       />
-                    </div>
-                    <div>
-                      <div className="text-label text-ink-300 mb-1.5">สีพื้น</div>
-                      <div className="flex flex-wrap gap-2">
-                        {AVATAR_PRESET_COLORS.map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => setEditAvatarColor(c)}
-                            aria-label={`เลือกสี ${c}`}
-                            className={`h-10 w-10 rounded-full border-2 transition-transform md:h-7 md:w-7 ${editAvatarColor.toLowerCase() === c.toLowerCase() ? "border-ink-900 scale-110" : c === "#FFFFFF" ? "border-ink-100 hover:scale-105" : "border-white hover:scale-105"}`}
-                            style={{ backgroundColor: c }}
+                      กำหนด avatar เอง
+                    </label>
+                    <label className="flex items-center gap-2 text-body text-ink-700">
+                      <input
+                        type="checkbox"
+                        checked={editAvatarHidden}
+                        onChange={(e) => setEditAvatarHidden(e.target.checked)}
+                        className="w-4 h-4 rounded border-line-strong text-primary focus:ring-primary"
+                      />
+                      ซ่อน avatar นี้ (แสดงกล่องว่าง)
+                    </label>
+
+                    {useCustomAvatar && (
+                      <>
+                        <div>
+                          <div className="text-label text-ink-300 mb-1.5">
+                            ตัวอักษร (สูงสุด 3 ตัว)
+                          </div>
+                          <Input
+                            value={editAvatarInitials}
+                            onChange={(e) =>
+                              setEditAvatarInitials(e.target.value.toUpperCase().slice(0, 3))
+                            }
+                            placeholder="เช่น BP"
+                            maxLength={3}
+                            className="!w-24 !text-center font-semibold"
                           />
-                        ))}
-                      </div>
+                        </div>
+                        <div>
+                          <div className="text-label text-ink-300 mb-1.5">สีพื้น</div>
+                          <div className="flex flex-wrap gap-2">
+                            {AVATAR_PRESET_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => setEditAvatarColor(c)}
+                                aria-label={`เลือกสี ${c}`}
+                                className={`h-10 w-10 rounded-full border-2 transition-transform md:h-7 md:w-7 ${editAvatarColor.toLowerCase() === c.toLowerCase() ? "border-ink-900 scale-110" : c === "#FFFFFF" ? "border-ink-100 hover:scale-105" : "border-white hover:scale-105"}`}
+                                style={{ backgroundColor: c }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={saveAvatar}
+                        loading={savingAvatar}
+                        disabled={savingAvatar}
+                        className="!text-label"
+                      >
+                        บันทึก avatar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={resetAvatar}
+                        disabled={
+                          savingAvatar ||
+                          (!customer.avatar_initials &&
+                            !customer.avatar_color &&
+                            customer.avatar_hidden !== true)
+                        }
+                        className="!text-label"
+                      >
+                        <RotateCcw size={12} className="mr-1" />
+                        คืนค่าอัตโนมัติ
+                      </Button>
                     </div>
-                  </>
+                  </div>
                 )}
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    onClick={saveAvatar}
-                    loading={savingAvatar}
-                    disabled={savingAvatar}
-                    className="!text-label"
-                  >
-                    บันทึก avatar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={resetAvatar}
-                    disabled={
-                      savingAvatar ||
-                      (!customer.avatar_initials &&
-                        !customer.avatar_color &&
-                        customer.avatar_hidden !== true)
-                    }
-                    className="!text-label"
-                  >
-                    <RotateCcw size={12} className="mr-1" />
-                    คืนค่าอัตโนมัติ
-                  </Button>
-                </div>
-              </div>
+              </>
             )}
           </div>
         </Card>

@@ -57,7 +57,7 @@ export default function CustomersPage() {
   const toast = useToast();
   const { customers, loading, refetch, updateCustomerLocal } = useCustomers(profile?.id);
   const { clientProfile } = useClientProfile(profile?.id);
-  const showAvatars = clientProfile?.show_customer_avatars !== false;
+  const showAvatars = clientProfile?.show_customer_avatars === true;
   const [search, setSearch] = useState("");
   const [dealStats, setDealStats] = useState<Record<string, CustomerDealStats>>({});
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -180,7 +180,7 @@ export default function CustomersPage() {
     [filtered, dealStats],
   );
   type CustomerSortKey =
-    "name" | "tax_id" | "phone" | "dealActive" | "dealDone" | "dealTotal" | "is_active";
+    "name" | "code" | "tax_id" | "phone" | "dealActive" | "dealDone" | "dealTotal" | "is_active";
   const customerSort = useTableSort<(typeof customerRows)[number], CustomerSortKey>(customerRows, {
     key: "name",
     dir: "asc",
@@ -361,7 +361,14 @@ export default function CustomersPage() {
                       onClick={() => customerSort.handleSort("name")}
                       className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
                     />
-                    <th className={`${TABLE.thStatic} whitespace-nowrap`}>รหัส</th>
+                    <SortableTh
+                      label="รหัส"
+                      align="left"
+                      active={customerSort.sort.key === "code"}
+                      dir={customerSort.sort.dir}
+                      onClick={() => customerSort.handleSort("code")}
+                      className={`${TABLE.thSortable} whitespace-nowrap`}
+                    />
                     <SortableTh
                       label="เลขผู้เสียภาษี"
                       align="left"

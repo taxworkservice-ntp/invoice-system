@@ -37,7 +37,7 @@ export default function SettingsCompanyPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
-  const [showAvatars, setShowAvatars] = useState(true);
+  const [showAvatars, setShowAvatars] = useState(false);
   const [savingAvatars, setSavingAvatars] = useState(false);
 
   const [bankName, setBankName] = useState("");
@@ -56,7 +56,7 @@ export default function SettingsCompanyPage() {
     setContactName(clientProfile.contact_name || "");
     setSsoAccountNo(clientProfile.sso_account_no || "");
     setSsoBranchNo(clientProfile.sso_branch_no || "000000");
-    setShowAvatars(clientProfile.show_customer_avatars !== false);
+    setShowAvatars(clientProfile.show_customer_avatars === true);
   }, [clientProfile]);
 
   useEffect(() => {
@@ -201,7 +201,7 @@ export default function SettingsCompanyPage() {
       .eq("user_id", profile.id);
     if (err) {
       // Revert: pre-migration DBs (42703) or real errors must not lie in the UI.
-      setShowAvatars(clientProfile.show_customer_avatars !== false);
+      setShowAvatars(clientProfile.show_customer_avatars === true);
       toast.error(
         err.code === "42703"
           ? "ยังไม่พบการตั้งค่านี้ — ให้ผู้ดูแลระบบรัน migration ก่อน"
@@ -368,10 +368,7 @@ export default function SettingsCompanyPage() {
           </div>
         </SectionCard>
 
-        <SectionCard
-          title="การแสดงผล"
-          description="เลือกรายการที่แสดงในหน้ารายการของบริษัทคุณ"
-        >
+        <SectionCard title="การแสดงผล" description="เลือกรายการที่แสดงในหน้ารายการของบริษัทคุณ">
           <div className="py-1.5">
             <Switch
               checked={showAvatars}

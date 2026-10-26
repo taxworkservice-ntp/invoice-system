@@ -56,7 +56,10 @@ type DealDoc = Pick<
 >;
 
 type DealWithRelations = Deal & {
-  customers: Pick<Customer, "id" | "name" | "code" | "avatar_initials" | "avatar_color" | "avatar_hidden"> | null;
+  customers: Pick<
+    Customer,
+    "id" | "name" | "code" | "avatar_initials" | "avatar_color" | "avatar_hidden"
+  > | null;
   documents: DealDoc[];
   deal_number: string | null;
 };
@@ -81,7 +84,10 @@ type DashboardDeal = {
   dealNumber: string | null;
   customerName: string;
   customerCode: string | null;
-  customerAvatar: Pick<Customer, "name" | "avatar_initials" | "avatar_color" | "avatar_hidden"> | null;
+  customerAvatar: Pick<
+    Customer,
+    "name" | "avatar_initials" | "avatar_color" | "avatar_hidden"
+  > | null;
   itemSummary: string;
   itemNames: string[];
   amount: number;
@@ -377,11 +383,13 @@ function getNextActionLabel(doc: DealDoc | null) {
   if (isOverdueDocument(doc)) return "เกินกำหนด — บันทึกรับเงิน →";
   if (doc.doc_type === "receipt" && doc.status === "draft") return "ยืนยันการรับเงิน →";
   if (doc.doc_type === "quotation" && doc.status === "draft") return "ส่งใบเสนอราคาให้ลูกค้า →";
-  if (doc.doc_type === "quotation" && doc.status === "sent") return "ลูกค้าตกลงแล้ว? ออกใบแจ้งหนี้ต่อ →";
+  if (doc.doc_type === "quotation" && doc.status === "sent")
+    return "ลูกค้าตกลงแล้ว? ออกใบแจ้งหนี้ต่อ →";
   if (doc.doc_type === "invoice" && doc.status === "draft") return "ส่งใบแจ้งหนี้ให้ลูกค้า →";
   if (doc.doc_type === "invoice" && doc.status === "sent") return "ออกใบวางบิล →";
   if (doc.doc_type === "delivery_note" && doc.status === "draft") return "บันทึกการส่งของ →";
-  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "ออกใบแจ้งหนี้จากใบส่งของ →";
+  if (doc.doc_type === "delivery_note" && doc.status === "sent")
+    return "ออกใบแจ้งหนี้จากใบส่งของ →";
   if (doc.doc_type === "billing_note" && doc.status === "draft") return "ส่งใบวางบิลให้ลูกค้า →";
   if (doc.doc_type === "billing_note" && doc.status === "sent") return "บันทึกรับเงิน →";
   return "";
@@ -1103,8 +1111,8 @@ export default function HomePage() {
   }, [totalDonePages, donePage]);
 
   const homeTitle = clientProfile?.company_name_th?.trim() || "หน้างานขาย";
-  // Tenant-level avatar toggle (missing pre-migration = shown).
-  const showAvatars = clientProfile?.show_customer_avatars !== false;
+  // Tenant-level avatar toggle (missing pre-migration = hidden).
+  const showAvatars = clientProfile?.show_customer_avatars === true;
   const actionCount = activeDealsAll.length;
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -1613,7 +1621,9 @@ export default function HomePage() {
                           <table className={`${TABLE.table} min-w-[900px]`}>
                             <thead>
                               <tr className={TABLE.theadTr}>
-                                <th className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}>
+                                <th
+                                  className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
+                                >
                                   ลูกค้า
                                 </th>
                                 <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ดีล</th>

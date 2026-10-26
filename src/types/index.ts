@@ -178,7 +178,7 @@ export interface ClientProfile {
   require_dn_price_review?: boolean;
   show_logo: boolean;
   show_company_name: boolean;
-  /** Show customer avatars in lists (default on). Off = names only, no boxes. */
+  /** Show customer avatars in lists (default off). Off = names only, no boxes. */
   show_customer_avatars: boolean;
   logo_layout?: "left" | "above" | null;
   dev_mode_enabled: boolean;
