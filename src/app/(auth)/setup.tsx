@@ -7,7 +7,6 @@ import { Input, Select } from "../../components/ui/Input";
 import { Spinner } from "../../components/ui/Spinner";
 import { useToast } from "../../hooks/useToast";
 import { OnboardingProgressDots } from "../../components/onboarding/OnboardingProgressDots";
-import { VatChoiceCards } from "../../components/onboarding/VatChoiceCards";
 
 const TOTAL_STEPS = 3;
 
@@ -23,8 +22,6 @@ export default function SetupPage() {
 
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
-  const [vatRegistered, setVatRegistered] = useState<boolean | null>(null);
-  const [taxId, setTaxId] = useState("");
 
   const [itemType, setItemType] = useState<"product" | "service">("product");
   const [itemName, setItemName] = useState("");
@@ -56,10 +53,6 @@ export default function SetupPage() {
       setErrors({ companyName: "กรุณากรอกชื่อบริษัท" });
       return;
     }
-    if (vatRegistered === null) {
-      setErrors({ vat: "กรุณาเลือกสถานะ VAT" });
-      return;
-    }
 
     setSaving(true);
 
@@ -70,9 +63,6 @@ export default function SetupPage() {
     const basePayload: Record<string, unknown> = {
       user_id: userId,
       company_name_th: companyName.trim(),
-      vat_registered: vatRegistered,
-      tax_id: vatRegistered ? taxId : null,
-      vat_rate: 7.0,
       default_wht_rate: "3",
       stock_deduct_trigger: "invoice",
     };
@@ -171,9 +161,7 @@ export default function SetupPage() {
           {step === 1 && (
             <div className="bg-white border border-card-border rounded-[10px] p-6">
               <div className="text-center mb-5">
-                <h2 className="text-display font-semibold text-ink-900">
-                  เริ่มต้นใช้งาน
-                </h2>
+                <h2 className="text-display font-semibold text-ink-900">เริ่มต้นใช้งาน</h2>
                 <p className="text-body text-ink-300 mt-1.5">
                   เริ่มต้นด้วยการตั้งค่าข้อมูลบริษัทของคุณ
                 </p>
@@ -202,40 +190,17 @@ export default function SetupPage() {
                   placeholder="ชื่อคุณ (ใช้สำหรับทักทายในแอป)"
                 />
 
-                <div>
-                  <label className="block text-label font-medium text-ink-600 mb-2">
-                    จดทะเบียน VAT หรือไม่ *
-                  </label>
-                  <VatChoiceCards value={vatRegistered} onChange={(val) => {
-                    setVatRegistered(val);
-                    setErrors((prev) => ({ ...prev, vat: "" }));
-                  }} />
-                  {errors.vat && (
-                    <p className="text-label text-red-500 mt-1">{errors.vat}</p>
-                  )}
+                <div className="rounded-control border border-card-border bg-paper-soft px-3 py-2.5 text-label leading-relaxed text-ink-600">
+                  สถานะ VAT กำหนดโดยผู้ดูแลระบบ — เริ่มต้นเป็น “ไม่จด VAT”
+                  และผู้ดูแลระบบจะเปิดให้เมื่อบริษัทจดทะเบียนแล้ว
                 </div>
-
-                {vatRegistered === true && (
-                  <div className="animate-slideDown">
-                    <Input
-                      label="เลขผู้เสียภาษี"
-                      value={taxId}
-                      onChange={(e) => setTaxId(e.target.value.replace(/\D/g, "").slice(0, 13))}
-                      placeholder="0000000000000 (13 หลัก)"
-                      maxLength={13}
-                    />
-                    <p className="text-label text-ink-300 mt-1">
-                      จำเป็นสำหรับการออกใบกำกับภาษีที่ถูกต้องตามกฎหมาย
-                    </p>
-                  </div>
-                )}
 
                 {error && <p className="text-label text-red-500">{error}</p>}
 
                 <Button
                   className="w-full text-title font-semibold"
                   onClick={handleSaveStep1}
-                  disabled={saving || !companyName.trim() || vatRegistered === null}
+                  disabled={saving || !companyName.trim()}
                 >
                   {saving ? "กำลังบันทึก..." : "ถัดไป →"}
                 </Button>
@@ -256,24 +221,20 @@ export default function SetupPage() {
                   <h2 className="text-display font-semibold text-ink-900">
                     เพิ่มสินค้าหรือบริการชิ้นแรก
                   </h2>
-                  <p className="text-body text-ink-300 mt-1">
-                    คุณสามารถเพิ่มเพิ่มเติมได้ภายหลัง
-                  </p>
+                  <p className="text-body text-ink-300 mt-1">คุณสามารถเพิ่มเพิ่มเติมได้ภายหลัง</p>
                 </div>
                 <div className="w-16 shrink-0" />
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-label font-medium text-ink-600 mb-2">
-                    ประเภท
-                  </label>
+                  <label className="block text-label font-medium text-ink-600 mb-2">ประเภท</label>
                   <div className="flex bg-page-bg rounded-control p-0.5">
                     {(["product", "service"] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setItemType(t)}
-                        className={`flex-1 py-2 text-body rounded-control text-center transition-colors ${ itemType === t ? "bg-white text-ink-900 font-medium" : "text-ink-300" }`}
+                        className={`flex-1 py-2 text-body rounded-control text-center transition-colors ${itemType === t ? "bg-white text-ink-900 font-medium" : "text-ink-300"}`}
                       >
                         {t === "product" ? "🛍 สินค้า" : "⚙ บริการ"}
                       </button>
@@ -340,9 +301,7 @@ export default function SetupPage() {
                   </div>
                 )}
 
-                {errors.item && (
-                  <p className="text-label text-red-500">{errors.item}</p>
-                )}
+                {errors.item && <p className="text-label text-red-500">{errors.item}</p>}
                 {error && <p className="text-label text-red-500">{error}</p>}
 
                 <Button
@@ -372,35 +331,43 @@ export default function SetupPage() {
               </div>
 
               <div className="bg-page-bg rounded-control p-4 mb-6 space-y-1">
-                <p className="text-body text-paid-text">
-                  ข้อมูลบริษัท: {companyName}
-                </p>
-                <p className="text-body text-paid-text">
-                  VAT: {vatRegistered ? "จดทะเบียน" : "ไม่ได้จด"}
-                </p>
-                {itemAdded && (
-                  <p className="text-body text-paid-text">
-                    สินค้า: {savedItemName}
-                  </p>
-                )}
+                <p className="text-body text-paid-text">ข้อมูลบริษัท: {companyName}</p>
+                {itemAdded && <p className="text-body text-paid-text">สินค้า: {savedItemName}</p>}
               </div>
 
               <div className="space-y-2 mb-4">
-                {([
-                  { icon: "01", title: "เริ่มงานขายแรก", desc: "เริ่มออกใบเสนอราคาหรือใบแจ้งหนี้", to: "/deals/new" },
-                  { icon: "02", title: "เพิ่มลูกค้าก่อน", desc: "บันทึกข้อมูลลูกค้าที่คุณทำงานด้วย", to: "/customers" },
-                  { icon: "03", title: "ตั้งค่าเพิ่มเติม", desc: "แก้ไขที่อยู่, prefix เอกสาร, และอื่นๆ", to: "/settings" },
-                ] as const).map((opt) => (
+                {(
+                  [
+                    {
+                      icon: "01",
+                      title: "เริ่มงานขายแรก",
+                      desc: "เริ่มออกใบเสนอราคาหรือใบแจ้งหนี้",
+                      to: "/deals/new",
+                    },
+                    {
+                      icon: "02",
+                      title: "เพิ่มลูกค้าก่อน",
+                      desc: "บันทึกข้อมูลลูกค้าที่คุณทำงานด้วย",
+                      to: "/customers",
+                    },
+                    {
+                      icon: "03",
+                      title: "ตั้งค่าเพิ่มเติม",
+                      desc: "แก้ไขที่อยู่, prefix เอกสาร, และอื่นๆ",
+                      to: "/settings",
+                    },
+                  ] as const
+                ).map((opt) => (
                   <div
                     key={opt.to}
                     onClick={() => handleNavigateAndComplete(opt.to)}
                     className="flex items-center gap-3 bg-white border border-card-border rounded-[10px] px-4 py-3.5 cursor-pointer hover:border-line-strong transition-all active:translate-y-[1px]"
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-page-bg text-label font-semibold text-ink-300">{opt.icon}</span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-page-bg text-label font-semibold text-ink-300">
+                      {opt.icon}
+                    </span>
                     <div>
-                      <div className="text-body font-medium text-ink-900">
-                        {opt.title}
-                      </div>
+                      <div className="text-body font-medium text-ink-900">{opt.title}</div>
                       <div className="text-label text-ink-300">{opt.desc}</div>
                     </div>
                   </div>

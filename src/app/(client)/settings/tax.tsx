@@ -4,10 +4,8 @@ import { useAuth, useClientProfile } from "../../../hooks/useAuth";
 import { AppShell } from "../../../components/layout/AppShell";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { SettingRow } from "../../../components/ui/SettingRow";
-import { Button } from "../../../components/ui/Button";
 import { SaveBar } from "../../../components/ui/SaveBar";
-import { Input, Select } from "../../../components/ui/Input";
-import { Modal } from "../../../components/ui/Modal";
+import { Select } from "../../../components/ui/Input";
 import { SettingsPageSkeleton } from "./_components/SettingsSkeleton";
 import { useToast } from "../../../hooks/useToast";
 import { WHT_RATE_OPTIONS } from "../../../constants";
@@ -19,22 +17,18 @@ export default function SettingsTaxPage() {
   const { clientProfile, loading, setClientProfile } = useClientProfile(profile?.id);
   const toast = useToast();
 
-  const [vatRegistered, setVatRegistered] = useState(false);
-  const [vatRate, setVatRate] = useState("7.00");
+  // VAT status and rate are managed by the platform administrator (see
+  // sql/20261027_vat_admin_only.sql) — this page only displays them.
+  const vatRegistered = clientProfile?.vat_registered === true;
+  const vatRate = String(clientProfile?.vat_rate ?? "0");
   const [defaultWhtRate, setDefaultWhtRate] = useState<WhtRate>("0");
   const [creditTermDays, setCreditTermDays] = useState(7);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
-  const [vatChangeOpen, setVatChangeOpen] = useState(false);
-  const [pendingVatRegistered, setPendingVatRegistered] = useState<boolean | null>(null);
-  const [vatChangeConfirmed, setVatChangeConfirmed] = useState(false);
-
   const hydrateFromProfile = useCallback(() => {
     if (!clientProfile) return;
-    setVatRegistered(clientProfile.vat_registered);
-    setVatRate(String(clientProfile.vat_rate));
     setDefaultWhtRate(clientProfile.default_wht_rate);
     setCreditTermDays(clientProfile.credit_term_days ?? 7);
   }, [clientProfile]);
@@ -49,12 +43,6 @@ export default function SettingsTaxPage() {
     setError("");
     setSaved(false);
 
-    const parsedVatRate = parseFloat(vatRate);
-    if (vatRegistered && (!Number.isFinite(parsedVatRate) || parsedVatRate < 0 || parsedVatRate > 100)) {
-      setError("กรุณากรอกอัตรา VAT ระหว่าง 0-100%");
-      setSaving(false);
-      return;
-    }
     if (!Number.isFinite(creditTermDays) || creditTermDays < 0 || creditTermDays > 90) {
       setError("กรุณากรอกเครดิตเทอมระหว่าง 0-90 วัน");
       setSaving(false);
@@ -64,8 +52,6 @@ export default function SettingsTaxPage() {
     const { error: err } = await supabase
       .from("client_profiles")
       .update({
-        vat_registered: vatRegistered,
-        vat_rate: vatRegistered ? parsedVatRate : clientProfile.vat_rate,
         default_wht_rate: defaultWhtRate,
         credit_term_days: creditTermDays,
       })
@@ -79,8 +65,6 @@ export default function SettingsTaxPage() {
       toast.success("บันทึกแล้ว");
       setClientProfile({
         ...clientProfile,
-        vat_registered: vatRegistered,
-        vat_rate: vatRegistered ? parsedVatRate : clientProfile.vat_rate,
         default_wht_rate: defaultWhtRate,
         credit_term_days: creditTermDays,
       });
@@ -88,27 +72,14 @@ export default function SettingsTaxPage() {
     setSaving(false);
   }
 
-  function openVatChange(nextValue: boolean) {
-    if (nextValue === vatRegistered) return;
-    setPendingVatRegistered(nextValue);
-    setVatChangeConfirmed(false);
-    setVatChangeOpen(true);
-  }
-
-  function confirmVatChange() {
-    if (pendingVatRegistered === null || !vatChangeConfirmed) return;
-    setVatRegistered(pendingVatRegistered);
-    setSaved(false);
-    setVatChangeOpen(false);
-    setPendingVatRegistered(null);
-    setVatChangeConfirmed(false);
-  }
-
-  if (loading) return <AppShell width="form" title="ตั้งค่า > ภาษี"><SettingsPageSkeleton /></AppShell>;
+  if (loading)
+    return (
+      <AppShell width="form" title="ตั้งค่า > ภาษี">
+        <SettingsPageSkeleton />
+      </AppShell>
+    );
 
   const isDirty =
-    vatRegistered !== clientProfile?.vat_registered ||
-    (vatRegistered && vatRate !== String(clientProfile?.vat_rate)) ||
     defaultWhtRate !== clientProfile?.default_wht_rate ||
     creditTermDays !== (clientProfile?.credit_term_days ?? 7);
   const effectiveVatRate = vatRegistered ? vatRate || "0" : "0";
@@ -118,7 +89,10 @@ export default function SettingsTaxPage() {
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/tax" />
 
-        <SectionCard title="ภาษีและการชำระเงิน" description="การตั้งค่ามีผลกับเอกสารใหม่เท่านั้น — เอกสารที่สร้างไปแล้วจะไม่เปลี่ยนแปลง">
+        <SectionCard
+          title="ภาษีและการชำระเงิน"
+          description="การตั้งค่ามีผลกับเอกสารใหม่เท่านั้น — เอกสารที่สร้างไปแล้วจะไม่เปลี่ยนแปลง"
+        >
           <div className="divide-y divide-line-faint">
             <div className="py-2.5">
               <div className="flex items-start justify-between gap-3">
@@ -128,14 +102,18 @@ export default function SettingsTaxPage() {
                     ใช้กำหนดชื่อเอกสาร การแสดง VAT และยอดภาษีของเอกสารใหม่
                   </p>
                 </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-label font-medium ${ vatRegistered ? "bg-emerald-50 text-emerald-700" : "bg-ink-50 text-ink-600" }`}>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-label font-medium ${vatRegistered ? "bg-emerald-50 text-emerald-700" : "bg-ink-50 text-ink-600"}`}
+                >
                   {vatRegistered ? "จด VAT" : "ไม่จด VAT"}
                 </span>
               </div>
             </div>
 
             <div className="py-2.5">
-              <div className={`rounded-[8px] border p-3 ${ vatRegistered ? "border-emerald-200 bg-emerald-50/60" : "border-card-border bg-paper-soft" }`}>
+              <div
+                className={`rounded-[8px] border p-3 ${vatRegistered ? "border-emerald-200 bg-emerald-50/60" : "border-card-border bg-paper-soft"}`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-body font-semibold text-ink-900">
@@ -147,34 +125,26 @@ export default function SettingsTaxPage() {
                         : "เอกสารขายใหม่จะไม่มีรายการ VAT และรับเงินทันทีจะออกเป็นใบเสร็จรับเงิน"}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => openVatChange(!vatRegistered)}
-                    className="shrink-0 !w-auto px-3 py-1.5 text-label"
-                  >
-                    เปลี่ยน
-                  </Button>
+                  <span className="shrink-0 rounded-full border border-card-border bg-white px-2.5 py-1 text-label font-medium text-ink-500">
+                    ดูแลโดยผู้ดูแลระบบ
+                  </span>
                 </div>
-                <div className="mt-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-relaxed text-amber-800">
-                  สถานะ VAT ถูกล็อกไว้เพื่อกันการกดผิด ต้องยืนยันแยกต่างหากก่อนเปลี่ยน
+                <div className="mt-2 rounded-[8px] border border-card-border bg-white px-3 py-2 text-label leading-relaxed text-ink-600">
+                  สถานะ VAT กำหนดโดยผู้ดูแลระบบ — หากต้องการเปลี่ยน กรุณาติดต่อผู้ดูแลระบบ
+                  การเปลี่ยนแปลงมีผลกับเอกสารใหม่เท่านั้น
                 </div>
               </div>
             </div>
 
             {vatRegistered && (
-              <SettingRow label="อัตราภาษีมูลค่าเพิ่ม" controlWidthClass="sm:w-[140px]">
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={vatRate}
-                    onChange={(e) => { setVatRate(e.target.value); setSaved(false); }}
-                    className="w-full rounded-control border border-card-border bg-white px-3 py-2 pr-8 text-right text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-body text-ink-300">%</span>
+              <SettingRow
+                label="อัตราภาษีมูลค่าเพิ่ม"
+                description="กำหนดโดยผู้ดูแลระบบ"
+                controlWidthClass="sm:w-[140px]"
+              >
+                <div className="flex items-center justify-end gap-1 rounded-control border border-card-border bg-paper-soft px-3 py-2 text-body tabular-nums text-ink-700">
+                  <span>{vatRate}</span>
+                  <span className="text-ink-300">%</span>
                 </div>
               </SettingRow>
             )}
@@ -184,7 +154,9 @@ export default function SettingsTaxPage() {
                 <div className="font-medium text-ink-900">ตัวอย่างผลกับเอกสารใหม่</div>
                 <div className="mt-1 grid gap-1 sm:grid-cols-3">
                   <span>ใบขาย: {vatRegistered ? "ใบกำกับภาษี" : "ใบแจ้งหนี้"}</span>
-                  <span>รับเงินทันที: {vatRegistered ? "ใบกำกับภาษี/ใบเสร็จ" : "ใบเสร็จรับเงิน"}</span>
+                  <span>
+                    รับเงินทันที: {vatRegistered ? "ใบกำกับภาษี/ใบเสร็จ" : "ใบเสร็จรับเงิน"}
+                  </span>
                   <span>VAT: {effectiveVatRate}%</span>
                 </div>
               </div>
@@ -197,10 +169,15 @@ export default function SettingsTaxPage() {
             >
               <Select
                 value={defaultWhtRate}
-                onChange={(e) => { setDefaultWhtRate(e.target.value as WhtRate); setSaved(false); }}
+                onChange={(e) => {
+                  setDefaultWhtRate(e.target.value as WhtRate);
+                  setSaved(false);
+                }}
               >
                 {WHT_RATE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </Select>
             </SettingRow>
@@ -216,7 +193,10 @@ export default function SettingsTaxPage() {
                   min={0}
                   max={90}
                   value={creditTermDays}
-                  onChange={(e) => { setCreditTermDays(Number(e.target.value)); setSaved(false); }}
+                  onChange={(e) => {
+                    setCreditTermDays(Number(e.target.value));
+                    setSaved(false);
+                  }}
                   className="w-20 px-2 py-1.5 text-body text-right border border-card-border rounded-control bg-white focus:outline-none focus:border-primary"
                 />
                 <span className="text-body text-ink-300">วัน</span>
@@ -227,61 +207,14 @@ export default function SettingsTaxPage() {
 
         <SaveBar
           tone={error ? "error" : saved ? "success" : isDirty ? "dirty" : "muted"}
-          label={error || (saved ? "บันทึกแล้ว" : isDirty ? "ยังไม่ได้บันทึก" : "การตั้งค่าทั้งหมดถูกบันทึกแล้ว")}
+          label={
+            error ||
+            (saved ? "บันทึกแล้ว" : isDirty ? "ยังไม่ได้บันทึก" : "การตั้งค่าทั้งหมดถูกบันทึกแล้ว")
+          }
           onSave={handleSave}
           saving={saving}
           onDiscard={isDirty && !saving ? hydrateFromProfile : undefined}
         />
-
-        <Modal
-          open={vatChangeOpen}
-          title="ยืนยันการเปลี่ยนสถานะ VAT"
-          onClose={() => {
-            setVatChangeOpen(false);
-            setPendingVatRegistered(null);
-            setVatChangeConfirmed(false);
-          }}
-        >
-          <div className="space-y-4">
-            <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-body leading-relaxed text-amber-900">
-              คุณกำลังจะเปลี่ยนจาก
-              <span className="font-semibold"> {vatRegistered ? "จด VAT" : "ไม่จด VAT"} </span>
-              เป็น
-              <span className="font-semibold"> {pendingVatRegistered ? "จด VAT" : "ไม่จด VAT"} </span>
-              สำหรับเอกสารใหม่หลังจากบันทึกการตั้งค่า
-            </div>
-
-            <div className="text-label leading-relaxed text-ink-600">
-              เอกสารที่สร้างไปแล้วจะไม่ถูกเปลี่ยนย้อนหลัง แต่เอกสารใหม่จะใช้ชื่อเอกสารและการคำนวณภาษีตามสถานะใหม่
-            </div>
-
-            <label className="flex cursor-pointer items-start gap-2 rounded-[8px] border border-card-border p-3 text-label leading-relaxed text-ink-700">
-              <input
-                type="checkbox"
-                checked={vatChangeConfirmed}
-                onChange={(e) => setVatChangeConfirmed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-100 text-primary"
-              />
-              <span>ฉันเข้าใจว่าสถานะ VAT มีผลกับเอกสารใหม่และยอดภาษีที่จะคำนวณหลังจากนี้</span>
-            </label>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setVatChangeOpen(false);
-                  setPendingVatRegistered(null);
-                  setVatChangeConfirmed(false);
-                }}
-              >
-                ยกเลิก
-              </Button>
-              <Button onClick={confirmVatChange} disabled={!vatChangeConfirmed}>
-                ยืนยันเปลี่ยนสถานะ
-              </Button>
-            </div>
-          </div>
-        </Modal>
       </div>
     </AppShell>
   );
