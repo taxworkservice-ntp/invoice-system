@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, ChevronDown, FileStack, Trash2 } from "lucide-react";
 import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
-import { DocumentOptionsCard, DocumentOptionRow } from "./DocumentOptions";
+import { DocumentOptionsCard } from "./DocumentOptions";
+import { InvoiceCreateConfirmModal, type InvoiceConfirmWarning } from "./InvoiceCreateConfirmModal";
 import { FormStep } from "./FormStep";
 import { FormActionBar } from "./FormActionBar";
 import { LineGridHeaderRow, LINE_GRID_COLS, numericInputClass } from "./lineGrid";
@@ -21,12 +22,24 @@ import { useToast } from "../../hooks/useToast";
 import { supabase } from "../../lib/supabase";
 import { warmPdfCache } from "../../lib/pdfWarm";
 import { resolveDocNumber } from "../../lib/docNumber";
-import { PRINT_TITLE_PRESETS, readLastPrintTitleVariant, writeLastPrintTitleVariant } from "../../lib/docLabels";
+import {
+  PRINT_TITLE_PRESETS,
+  readLastPrintTitleVariant,
+  writeLastPrintTitleVariant,
+} from "../../lib/docLabels";
 import { businessTodayString, localTodayString } from "../../lib/devDate";
 import { calculateTax } from "../../lib/tax";
 import { useDocDate } from "../YearEraProvider";
 import { formatCurrency } from "../../lib/format";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../lib/stock";
+import {
+  buildInvoiceLineRecords,
+  buildInvoicePreview,
+  invoiceLineNet,
+  type InvoiceInputLine,
+  type InvoicePresentationMode,
+  type InvoiceSource,
+} from "../../lib/invoiceFromSources";
 import { WHT_RATE_OPTIONS, VAT_DEFAULT } from "../../constants";
 import type { Customer, Document, DocumentLineItem, DocumentStatus, WhtRate } from "../../types";
 import { EditableDocNumber } from "./EditableDocNumber";
@@ -91,7 +104,10 @@ function monthRange(today: string, offset: number) {
 
 function buildItemSummary(items: DocumentLineItem[]) {
   if (!items.length) return "ไม่มีรายการ";
-  const summary = items.slice(0, 2).map((item) => `${item.item_name} × ${item.quantity}`).join(", ");
+  const summary = items
+    .slice(0, 2)
+    .map((item) => `${item.item_name} × ${item.quantity}`)
+    .join(", ");
   return items.length > 2 ? `${summary} และอีก ${items.length - 2} รายการ` : summary;
 }
 
@@ -105,12 +121,6 @@ function getQuotationTotal(qt: QuotationOption) {
   const total = Number(qt.total_amount);
   if (Number.isFinite(total) && total > 0) return total;
   return getQuotationSubtotal(qt);
-}
-
-function lineNetAmount(l: EditableInvoiceLine) {
-  const base = (Number(l.unit_price) || 0) * (Number(l.quantity) || 0);
-  const discount = l.discount_percent > 0 ? (base * l.discount_percent) / 100 : Number(l.discount_amount) || 0;
-  return Math.max(0, base - discount);
 }
 
 export function InvoiceFromQuotationForm() {
@@ -152,18 +162,9 @@ export function InvoiceFromQuotationForm() {
   // Tax-invoice printed-header title preset ("" = standard "ใบกำกับภาษี").
   // Defaults to the last selection (per browser).
   const [printTitleVariant, setPrintTitleVariant] = useState(() => readLastPrintTitleVariant());
-  // Ref mode: one printed line per source quotation instead of item detail.
-  // Default is detail (opt-in, remembered per browser) — ref-saved invoices
-  // can never be expanded back into item lines at print time.
-  const [refOnlyMode, setRefOnlyMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("invoice-system.invoiceRefOnly") === "true";
-  });
-
-  useEffect(() => {
-    window.localStorage.setItem("invoice-system.invoiceRefOnly", String(refOnlyMode));
-  }, [refOnlyMode]);
   const [error, setError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingMode, setPendingMode] = useState<InvoicePresentationMode>("detail");
 
   useEffect(() => {
     if (clientProfile) {
@@ -274,7 +275,11 @@ export function InvoiceFromQuotationForm() {
 
       const { data: lineItems } = await Promise.resolve(
         docIds.length
-          ? supabase.from("document_line_items").select("*").in("document_id", docIds).order("sort_order", { ascending: true })
+          ? supabase
+              .from("document_line_items")
+              .select("*")
+              .in("document_id", docIds)
+              .order("sort_order", { ascending: true })
           : Promise.resolve({ data: [] as DocumentLineItem[] }),
       );
 
@@ -303,7 +308,9 @@ export function InvoiceFromQuotationForm() {
           .select("source_document_id, source_line_item_id, quantity, document_id")
           .in("source_line_item_id", qtLineIds)
           .in("source_document_id", qtIds);
-        const invIds = Array.from(new Set(((invLines || []) as any[]).map((r) => r.document_id).filter(Boolean)));
+        const invIds = Array.from(
+          new Set(((invLines || []) as any[]).map((r) => r.document_id).filter(Boolean)),
+        );
         let validInvIds = new Set<string>();
         if (invIds.length) {
           const { data: invDocs } = await supabase
@@ -312,7 +319,9 @@ export function InvoiceFromQuotationForm() {
             .in("id", invIds);
           validInvIds = new Set(
             ((invDocs || []) as { id: string; doc_type: string; status: string }[])
-              .filter((d) => d.doc_type === "invoice" && d.status !== "voided" && d.status !== "draft")
+              .filter(
+                (d) => d.doc_type === "invoice" && d.status !== "voided" && d.status !== "draft",
+              )
               .map((d) => d.id),
           );
         }
@@ -329,7 +338,8 @@ export function InvoiceFromQuotationForm() {
             ...line,
             quotedQty: Number(line.quantity) || 0,
             billedQty: billedByLine.get(`${doc.id}::${line.id}`) || 0,
-            remaining: (Number(line.quantity) || 0) - (billedByLine.get(`${doc.id}::${line.id}`) || 0),
+            remaining:
+              (Number(line.quantity) || 0) - (billedByLine.get(`${doc.id}::${line.id}`) || 0),
           }));
           return {
             ...doc,
@@ -385,7 +395,9 @@ export function InvoiceFromQuotationForm() {
       // Keep any manually-added lines (not linked to a quotation) untouched.
       const manualLines = prev.filter((l) => !l.source_document_id);
       const prevByKey = new Map(
-        prev.filter((l) => l.source_document_id).map((l) => [`${l.source_document_id}::${l.source_line_item_id}`, l]),
+        prev
+          .filter((l) => l.source_document_id)
+          .map((l) => [`${l.source_document_id}::${l.source_line_item_id}`, l]),
       );
       const next: EditableInvoiceLine[] = [...manualLines];
       for (const qt of selectedQuotations) {
@@ -394,7 +406,11 @@ export function InvoiceFromQuotationForm() {
           const key = `${qt.id}::${l.id}`;
           const existing = prevByKey.get(key);
           if (existing) {
-            next.push({ ...existing, maxQty: l.remaining, quantity: Math.min(existing.quantity, l.remaining) });
+            next.push({
+              ...existing,
+              maxQty: l.remaining,
+              quantity: Math.min(existing.quantity, l.remaining),
+            });
           } else {
             next.push({
               key,
@@ -426,7 +442,9 @@ export function InvoiceFromQuotationForm() {
   }, [selectedQuotations]);
 
   const selectedDealId = useMemo(() => {
-    const dealIds = Array.from(new Set(selectedQuotations.map((doc) => doc.deal_id).filter(Boolean)));
+    const dealIds = Array.from(
+      new Set(selectedQuotations.map((doc) => doc.deal_id).filter(Boolean)),
+    );
     return dealIds.length === 1 ? dealIds[0] : null;
   }, [selectedQuotations]);
 
@@ -448,7 +466,9 @@ export function InvoiceFromQuotationForm() {
 
     const first = selectedQuotations[0];
     const mixed = selectedQuotations.some(
-      (doc) => doc.vat_registered !== first.vat_registered || Number(doc.vat_rate) !== Number(first.vat_rate),
+      (doc) =>
+        doc.vat_registered !== first.vat_registered ||
+        Number(doc.vat_rate) !== Number(first.vat_rate),
     );
 
     return {
@@ -459,30 +479,6 @@ export function InvoiceFromQuotationForm() {
   }, [clientProfile?.vat_rate, clientProfile?.vat_registered, selectedQuotations]);
 
   const billableLines = useMemo(() => invoiceLines.filter((l) => l.quantity > EPS), [invoiceLines]);
-
-  // Ref-mode summary: one row per source quotation with its billed total.
-  const refGroups = useMemo(() => {
-    const qtById = new Map(selectedQuotations.map((qt) => [qt.id, qt]));
-    const groups: { key: string; label: string; dateLabel: string; total: number; lineCount: number }[] = [];
-    for (const l of billableLines) {
-      if (!l.source_document_id) continue;
-      let group = groups.find((g) => g.key === l.source_document_id);
-      if (!group) {
-        const qt = qtById.get(l.source_document_id);
-        group = {
-          key: l.source_document_id,
-          label: `ใบเสนอราคา ${l.qtDocNumber}`,
-          dateLabel: qt?.issue_date ? docDate.date(qt.issue_date) : "",
-          total: 0,
-          lineCount: 0,
-        };
-        groups.push(group);
-      }
-      group.total += lineNetAmount(l);
-      group.lineCount += 1;
-    }
-    return groups;
-  }, [billableLines, selectedQuotations, docDate]);
 
   const tax = useMemo(() => {
     return calculateTax(
@@ -497,6 +493,97 @@ export function InvoiceFromQuotationForm() {
       parseFloat(whtRate),
     );
   }, [billableLines, taxSnapshot.vatRate, taxSnapshot.vatRegistered, whtRate]);
+
+  const invoiceSources = useMemo<InvoiceSource[]>(
+    () =>
+      selectedQuotations.map((qt) => {
+        const qtLabel = qt.doc_number || qt.id.slice(0, 8);
+        const dateLabel = qt.issue_date ? docDate.date(qt.issue_date) : "";
+        const lines = invoiceLines.filter((line) => line.source_document_id === qt.id);
+        const billableCount = lines.filter((line) => line.quantity > EPS).length;
+        return {
+          id: qt.id,
+          refItemName: `ใบเสนอราคา ${qtLabel}`,
+          refLineNote:
+            [dateLabel ? `วันที่เสนอราคา: ${dateLabel}` : null, `รายการ ${billableCount} บรรทัด`]
+              .filter(Boolean)
+              .join(" · ") || null,
+          detailHeaderName: `ใบเสนอราคา ${qtLabel}`,
+          detailHeaderNote: dateLabel ? `วันที่เสนอราคา: ${dateLabel}` : null,
+          lines: lines.map<InvoiceInputLine>((line) => ({
+            source_line_item_id: line.source_line_item_id,
+            item_name: line.item_name,
+            line_note: line.line_note,
+            item_sku: line.item_sku,
+            item_type: line.item_type,
+            unit: line.unit,
+            unit_price: line.unit_price,
+            quantity: line.quantity,
+            base_quantity: line.base_quantity,
+            discount_percent: line.discount_percent,
+            discount_amount: line.discount_amount,
+            qty_carton: line.qty_carton,
+            carton_unit: line.carton_unit,
+            source_delivered_qty: line.quotedQty,
+            source_unit_price: line.qtUnitPrice,
+          })),
+        };
+      }),
+    [selectedQuotations, invoiceLines, docDate],
+  );
+
+  const manualInvoiceLines = useMemo<InvoiceInputLine[]>(
+    () =>
+      invoiceLines
+        .filter((line) => !line.source_document_id)
+        .map((line) => ({
+          item_name: line.item_name,
+          line_note: line.line_note,
+          item_sku: line.item_sku,
+          item_type: line.item_type,
+          unit: line.unit,
+          unit_price: line.unit_price,
+          quantity: line.quantity,
+          base_quantity: line.base_quantity,
+          discount_percent: line.discount_percent,
+          discount_amount: line.discount_amount,
+          qty_carton: line.qty_carton,
+          carton_unit: line.carton_unit,
+        })),
+    [invoiceLines],
+  );
+
+  const detailRecords = useMemo(
+    () =>
+      buildInvoiceLineRecords({
+        mode: "detail",
+        sources: invoiceSources,
+        manualLines: manualInvoiceLines,
+      }),
+    [invoiceSources, manualInvoiceLines],
+  );
+  const referenceRecords = useMemo(
+    () =>
+      buildInvoiceLineRecords({
+        mode: "reference",
+        sources: invoiceSources,
+        manualLines: manualInvoiceLines,
+      }),
+    [invoiceSources, manualInvoiceLines],
+  );
+  const detailPreview = useMemo(
+    () => buildInvoicePreview(detailRecords, "detail"),
+    [detailRecords],
+  );
+  const referencePreview = useMemo(
+    () => buildInvoicePreview(referenceRecords, "reference"),
+    [referenceRecords],
+  );
+  const billableSourceCount = useMemo(
+    () =>
+      invoiceSources.filter((source) => source.lines.some((line) => line.quantity > EPS)).length,
+    [invoiceSources],
+  );
 
   const toggleQt = (id: string) => {
     setSelectedIds((prev) => {
@@ -543,7 +630,7 @@ export function InvoiceFromQuotationForm() {
     setInvoiceLines((prev) => prev.filter((l) => l.key !== key));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (mode: InvoicePresentationMode) => {
     if (!userId || !selectedCustomer || selectedQuotations.length === 0) return;
     if (hasMixedDeals) {
       setError("กรุณาแยกออกบิลตามงานขาย ไม่สามารถรวมเอกสารจากหลายงานขายได้");
@@ -566,147 +653,54 @@ export function InvoiceFromQuotationForm() {
     setError("");
 
     try {
-      const lineRecords: any[] = [];
-      let sortIndex = 0;
-      for (const qt of selectedQuotations) {
-        const groupLines = invoiceLines.filter((il) => il.source_document_id === qt.id && il.quantity > EPS);
-
-        if (refOnlyMode && groupLines.length > 0) {
-          // Ref mode: one printed line per quotation carrying its billed total.
-          const groupTotal = groupLines.reduce((sum, l) => sum + lineNetAmount(l), 0);
-          lineRecords.push({
-            item_id: null,
-            item_name: `ใบเสนอราคา ${qt.doc_number || qt.id.slice(0, 8)}`,
-            line_note: [
-              qt.issue_date ? `วันที่เสนอราคา: ${docDate.date(qt.issue_date)}` : null,
-              `รายการ ${groupLines.length} บรรทัด`,
-            ]
-              .filter(Boolean)
-              .join(" · "),
-            item_sku: null,
-            item_type: "service",
-            unit: "",
-            unit_price: groupTotal,
-            quantity: 1,
-            base_quantity: null,
-            discount_percent: 0,
-            discount_amount: 0,
-            qty_carton: null,
-            carton_unit: null,
-            line_total: groupTotal,
-            source_document_id: qt.id,
-            source_line_item_id: null,
-            sort_order: sortIndex++,
-          });
-          continue;
-        }
-
-        lineRecords.push({
-          item_id: null,
-          item_name: `ใบเสนอราคา ${qt.doc_number || qt.id.slice(0, 8)}`,
-          line_note: qt.issue_date ? `วันที่เสนอราคา: ${docDate.date(qt.issue_date)}` : null,
-          item_sku: null,
-          item_type: "service",
-          unit: "",
-          unit_price: 0,
-          quantity: 0,
-          base_quantity: null,
-          discount_percent: 0,
-          discount_amount: 0,
-          qty_carton: null,
-          carton_unit: null,
-          line_total: 0,
-          source_document_id: qt.id,
-          source_line_item_id: null,
-          sort_order: sortIndex++,
-        });
-        for (const l of invoiceLines.filter((il) => il.source_document_id === qt.id && il.quantity > EPS)) {
-          lineRecords.push({
-            item_id: null,
-            item_name: l.item_name,
-            line_note: l.line_note || null,
-            item_sku: l.item_sku || null,
-            item_type: l.item_type || "product",
-            unit: l.unit || "ชิ้น",
-            unit_price: Number(l.unit_price) || 0,
-            quantity: Number(l.quantity) || 0,
-            base_quantity: l.base_quantity,
-            discount_percent: Number(l.discount_percent) || 0,
-            discount_amount: Number(l.discount_amount) || 0,
-            qty_carton: l.qty_carton,
-            carton_unit: l.carton_unit || null,
-            line_total: lineNetAmount(l),
-            source_document_id: l.source_document_id,
-            source_line_item_id: l.source_line_item_id || null,
-            source_delivered_qty: l.quotedQty,
-            source_unit_price: l.qtUnitPrice,
-            sort_order: sortIndex++,
-          });
-        }
-      }
-
-      // Manual lines (not linked to any quotation) — e.g. freight / surcharges.
-      for (const l of invoiceLines.filter((il) => !il.source_document_id && il.quantity > EPS)) {
-        lineRecords.push({
-          item_id: null,
-          item_name: l.item_name,
-          line_note: l.line_note || null,
-          item_sku: l.item_sku || null,
-          item_type: l.item_type || "product",
-          unit: l.unit || "ชิ้น",
-          unit_price: Number(l.unit_price) || 0,
-          quantity: Number(l.quantity) || 0,
-          base_quantity: l.base_quantity,
-          discount_percent: Number(l.discount_percent) || 0,
-          discount_amount: Number(l.discount_amount) || 0,
-          qty_carton: l.qty_carton,
-          carton_unit: l.carton_unit || null,
-          line_total: lineNetAmount(l),
-          source_document_id: null,
-          source_line_item_id: null,
-          sort_order: sortIndex++,
-        });
-      }
+      // The preview and the payload share one builder, so they can never drift.
+      const lineRecords = mode === "detail" ? detailRecords : referenceRecords;
 
       // Transactional path: invoice + lines + source status flips + stock all
       // commit together or not at all (see create_invoice_from_sources).
-      const { data: created, error: createError } = await supabase.rpc("create_invoice_from_sources", {
-        p_user_id: userId,
-        p_document: {
-          doc_type: "invoice",
-          status: "sent",
-          customer_id: selectedCustomer.id,
-          deal_id: selectedDealId || selectedDealIds[0] || null,
-          doc_number: docNumberOverride || null,
-          issue_date: issueDate,
-          vat_registered: taxSnapshot.vatRegistered,
-          vat_rate: taxSnapshot.vatRate,
-          wht_rate: parseFloat(whtRate),
-          discount_percent: 0,
-          discount_amount: tax.discountAmount,
-          subtotal: tax.subtotal,
-          vat_amount: tax.vatAmount,
-          total_amount: tax.total,
-          wht_amount: tax.whtAmount,
-          net_payable: tax.netPayable,
-          note: note || null,
-          customer_po_number: customerPo.trim() || null,
-          task_name: taskName.trim() || null,
-          show_dn_variance: showVariance,
-          converted_from_id: selectedQuotations[0]?.id || null,
-          title: selectedCustomer.name,
-          // Print-only tax-invoice title preset; null when not VAT-registered.
-          print_title_variant: taxSnapshot.vatRegistered ? (printTitleVariant || null) : null,
+      const { data: created, error: createError } = await supabase.rpc(
+        "create_invoice_from_sources",
+        {
+          p_user_id: userId,
+          p_document: {
+            doc_type: "invoice",
+            status: "sent",
+            customer_id: selectedCustomer.id,
+            deal_id: selectedDealId || selectedDealIds[0] || null,
+            doc_number: docNumberOverride || null,
+            issue_date: issueDate,
+            vat_registered: taxSnapshot.vatRegistered,
+            vat_rate: taxSnapshot.vatRate,
+            wht_rate: parseFloat(whtRate),
+            discount_percent: 0,
+            discount_amount: tax.discountAmount,
+            subtotal: tax.subtotal,
+            vat_amount: tax.vatAmount,
+            total_amount: tax.total,
+            wht_amount: tax.whtAmount,
+            net_payable: tax.netPayable,
+            note: note || null,
+            customer_po_number: customerPo.trim() || null,
+            task_name: taskName.trim() || null,
+            show_dn_variance: mode === "detail" && showVariance,
+            converted_from_id: selectedQuotations[0]?.id || null,
+            title: selectedCustomer.name,
+            // Print-only tax-invoice title preset; null when not VAT-registered.
+            print_title_variant: taxSnapshot.vatRegistered ? printTitleVariant || null : null,
+          },
+          p_lines: lineRecords,
+          p_source_ids: selectedQuotations.map((qt) => qt.id),
         },
-        p_lines: lineRecords,
-        p_source_ids: selectedQuotations.map((qt) => qt.id),
-      });
+      );
       const record = Array.isArray(created) ? created[0] : created;
-      if (createError || !record?.document_id) throw createError || new Error("ไม่สามารถสร้างใบแจ้งหนี้ได้");
+      if (createError || !record?.document_id)
+        throw createError || new Error("ไม่สามารถสร้างใบแจ้งหนี้ได้");
 
       const warnings = (record as any).warnings as any[] | null;
       (warnings || []).forEach((w) =>
-        toast.info(`${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`)
+        toast.info(
+          `${w.itemName} สต็อกไม่พอ (มี ${w.available} ${w.unit} แต่ใช้ ${w.requested} ${w.unit})`,
+        ),
       );
 
       toast.success("สร้างใบแจ้งหนี้จากใบเสนอราคาแล้ว");
@@ -720,273 +714,337 @@ export function InvoiceFromQuotationForm() {
     }
   };
 
-  const canSave = Boolean(selectedCustomer && selectedQuotations.length > 0 && billableLines.length > 0);
+  const canSave = Boolean(
+    selectedCustomer && selectedQuotations.length > 0 && billableLines.length > 0,
+  );
+
+  const confirmWarnings: InvoiceConfirmWarning[] = [];
+  if (taxSnapshot.mixed) {
+    confirmWarnings.push({
+      tone: "warning",
+      title: "ใบเสนอราคาที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน",
+      description: "ระบบจะใช้การตั้งค่าภาษีจากใบเสนอราคาใบแรกในรายการ",
+    });
+  }
+
+  const openConfirm = () => {
+    if (!canSave || saving) return;
+    if (hasMixedDeals) {
+      setError("กรุณาแยกออกบิลตามงานขาย ไม่สามารถรวมเอกสารจากหลายงานขายได้");
+      return;
+    }
+    setError("");
+    setPendingMode("detail");
+    setConfirmOpen(true);
+  };
 
   return (
-    <AppShell title="ออกใบแจ้งหนี้จากใบเสนอราคา" showBack>
-      {error && (
-        <div className="mb-4 rounded-control border border-red-200 bg-red-50 p-3 text-body text-red-600">
-          {error}
-        </div>
-      )}
-
-      {clientProfile?.vat_registered && (
-        <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">โปรดยืนยันเวลาการออกใบกำกับภาษีกับบัญชีของคุณ</p>
-            <p className="mt-0.5 text-label leading-5">ระบบรองรับการรวมใบเสนอราคาหลายใบเพื่อออกใบกำกับภาษีภายหลัง แต่กิจการ VAT ควรตรวจสอบจุดรับรู้ภาษีให้ถูกต้อง</p>
+    <>
+      <AppShell title="ออกใบแจ้งหนี้จากใบเสนอราคา" showBack>
+        {error && (
+          <div className="mb-4 rounded-control border border-red-200 bg-red-50 p-3 text-body text-red-600">
+            {error}
           </div>
-        </div>
-      )}
+        )}
 
-      {taxSnapshot.mixed && (
-        <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">ใบเสนอราคาที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน</p>
-            <p className="mt-0.5 text-label leading-5">ระบบจะใช้การตั้งค่าภาษีจากใบเสนอราคาใบแรกในรายการ โปรดตรวจสอบก่อนสร้างใบแจ้งหนี้</p>
-          </div>
-        </div>
-      )}
-
-      {hasMixedDeals && (
-        <div className="mb-4 flex items-start gap-3 rounded-control border border-blue-200 bg-blue-50 p-3 text-body text-blue-900">
-          <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">ใบเสนอราคาที่เลือกมาจากหลายงานขาย</p>
-            <p className="mt-0.5 text-label leading-5">ระบบจะรวมใบเสนอราคาทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้ เพื่อให้มองเห็นขั้นตอนเอกสารต่อเนื่องบนหน้าหลัก</p>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        <FormStep number={1} title="ลูกค้าและรอบเอกสาร">
-          {customersLoading ? (
-            <Spinner />
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-label font-medium text-ink-600">ลูกค้า</label>
-                {selectedCustomer ? (
-                  <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
-                    <div className="min-w-0">
-                      <div className="text-body font-medium text-ink-900">{selectedCustomer.name}</div>
-                      {selectedCustomer.tax_id && <div className="mt-1 text-label text-ink-500">เลขผู้เสียภาษี: {selectedCustomer.tax_id}</div>}
-                      {selectedCustomer.address && <div className="mt-1 line-clamp-2 text-label text-ink-500">{selectedCustomer.address}</div>}
-                      {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
-                        <div className="mt-1 text-label text-amber-600">ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี</div>
-                      )}
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => setCustomerPickerOpen(true)}>เปลี่ยน</Button>
-                  </div>
-                ) : (
-                  <Button variant="secondary" className="w-full justify-center" onClick={() => setCustomerPickerOpen(true)}>
-                    เลือกลูกค้า
-                  </Button>
-                )}
-                <CustomerPickerModal
-                  open={customerPickerOpen}
-                  customers={customers}
-                  selectedCustomerId={selectedCustomerId}
-                  taxSensitive
-                  onClose={() => setCustomerPickerOpen(false)}
-                  onSelect={(customer) => setSelectedCustomerId(customer.id)}
-                  onCreate={async (customer) => addCustomer(customer)}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-label font-medium text-ink-600">วันที่ใบแจ้งหนี้</label>
-                <DateInput value={issueDate} onChange={(event) => setIssueDate(event.target.value)} />
-              </div>
-              <div className="sm:col-span-2 overflow-hidden rounded-card border border-card-border bg-paper-soft">
-                <button
-                  type="button"
-                  onClick={() => setDateExpanded((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-3 p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                >
-                  <div>
-                    <div className="text-label font-medium text-ink-700">ช่วงวันที่เสนอราคา</div>
-                    <div className="mt-0.5 text-label text-ink-500">{dateRangeSummary}</div>
-                  </div>
-                  <ChevronDown className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`} />
-                </button>
-                {dateExpanded && (
-                  <div className="border-t border-card-border p-3">
-                    <div className="mb-2 text-label text-ink-500">ใช้กรองใบเสนอราคาที่พร้อมนำมาออกใบแจ้งหนี้</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {([
-                        ["thisMonth", "เดือนนี้"],
-                        ["previousMonth", "เดือนก่อน"],
-                        ["last90Days", "ย้อนหลัง 90 วัน"],
-                        ["all", "ทั้งหมด"],
-                      ] as const).map(([preset, label]) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => {
-                            setDatePreset(preset);
-                            if (preset === "all") {
-                              setDateFrom("");
-                              setDateTo("");
-                            } else if (preset === "last90Days") {
-                              setDateFrom(defaultQuotationStartString(businessToday));
-                              setDateTo(businessToday);
-                            } else {
-                              const range = monthRange(businessToday, preset === "previousMonth" ? -1 : 0);
-                              setDateFrom(range.from);
-                              setDateTo(preset === "thisMonth" ? businessToday : range.to);
-                            }
-                          }}
-                          className={`rounded-full border px-2.5 py-1 text-label font-medium transition-colors ${ datePreset === preset ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-primary/40" }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1 block text-label font-medium text-ink-600">ตั้งแต่วันที่</label>
-                        <DateInput
-                          value={dateFrom}
-                          onChange={(event) => {
-                            setDatePreset("custom");
-                            setDateFrom(event.target.value);
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-label font-medium text-ink-600">ถึงวันที่</label>
-                        <DateInput
-                          value={dateTo}
-                          onChange={(event) => {
-                            setDatePreset("custom");
-                            setDateTo(event.target.value);
-                          }}
-                        />
-                      </div>
-                    </div>
-                    {datePreset === "all" ? (
-                      <div className="mt-2 text-label text-ink-500">แสดงใบเสนอราคาที่พร้อมออกใบแจ้งหนี้ทั้งหมด</div>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-              <p className="text-label leading-5 text-ink-500 sm:col-span-2">
-                ระบบแสดงเฉพาะรายการที่ยังไม่ถูกออกใบแจ้งหนี้ (คงเหลือหลังหักยอดที่ออกไปแล้ว) สามารถออกบิลทีละส่วนได้
+        {clientProfile?.vat_registered && (
+          <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">โปรดยืนยันเวลาการออกใบกำกับภาษีกับบัญชีของคุณ</p>
+              <p className="mt-0.5 text-label leading-5">
+                ระบบรองรับการรวมใบเสนอราคาหลายใบเพื่อออกใบกำกับภาษีภายหลัง แต่กิจการ VAT
+                ควรตรวจสอบจุดรับรู้ภาษีให้ถูกต้อง
               </p>
             </div>
-          )}
-        </FormStep>
+          </div>
+        )}
 
-        <FormStep
-          number={2}
-          title="เลือกใบเสนอราคา"
-          description="เลือกใบเสนอราคาที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)"
-          right={
-            quotations.length > 0 ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  if (selectedIds.size === quotations.length) setSelectedIds(new Set());
-                  else setSelectedIds(new Set(quotations.map((qt) => qt.id)));
-                }}
-              >
-                {selectedIds.size === quotations.length ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
-              </Button>
-            ) : undefined
-          }
-        >
-          {loadingQts ? (
-            <Spinner />
-          ) : !selectedCustomerId ? (
-            <EmptyState title="เลือกลูกค้าก่อน" description="ระบบจะแสดงใบเสนอราคาที่ส่งแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้" />
-          ) : quotations.length === 0 ? (
-            <EmptyState title="ไม่พบใบเสนอราคาที่พร้อมออกใบแจ้งหนี้" description="ใบเสนอราคาทั้งหมดอาจถูกออกใบแจ้งหนี้ครบแล้ว หรือลองเปลี่ยนช่วงวันที่" />
-          ) : (
-            <div className="space-y-2">
-              {quotations.map((qt) => (
-                <button
-                  key={qt.id}
-                  type="button"
-                  onClick={() => toggleQt(qt.id)}
-                  className={`w-full rounded-card border p-3 text-left transition-colors ${ selectedIds.has(qt.id) ? "border-primary bg-blue-50" : "border-card-border bg-white hover:bg-paper-field" }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(qt.id)}
-                      onChange={() => toggleQt(qt.id)}
-                      onClick={(event) => event.stopPropagation()}
-                      className="mt-1"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-ink-900">{qt.doc_number || "ไม่มีเลขเอกสาร"}</span>
-                        <span className="text-label text-ink-500">{docDate.date(qt.issue_date)}</span>
-                      </div>
-                      <div className="mt-1 text-label leading-5 text-ink-500">
-                        {buildItemSummary(qt.line_items.map((l) => ({ ...l, quantity: l.remaining })))}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right text-label text-ink-500">
-                      <div>{qt.line_items.length} รายการ</div>
-                      <div className="mt-1 font-medium text-ink-700">฿{formatCurrency(qt.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0))}</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
+        {taxSnapshot.mixed && (
+          <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">ใบเสนอราคาที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน</p>
+              <p className="mt-0.5 text-label leading-5">
+                ระบบจะใช้การตั้งค่าภาษีจากใบเสนอราคาใบแรกในรายการ โปรดตรวจสอบก่อนสร้างใบแจ้งหนี้
+              </p>
             </div>
-          )}
-        </FormStep>
+          </div>
+        )}
 
-        <FormStep
-          number={3}
-          title="รายการที่จะออกบิล"
-          description={
-            refOnlyMode
-              ? "โหมดอ้างอิง — PDF แสดง 1 บรรทัดต่อใบเสนอราคา (เหมือนใบวางบิล)"
-              : "รายการคัดลอกจากใบเสนอราคา สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้"
-          }
-          right={
-            <div className="rounded-full bg-paper-warm px-2.5 py-1 text-label text-ink-600">
-              {selectedQuotations.length} ใบเสนอราคา / {invoiceLines.length} รายการต้นทาง
+        {hasMixedDeals && (
+          <div className="mb-4 flex items-start gap-3 rounded-control border border-blue-200 bg-blue-50 p-3 text-body text-blue-900">
+            <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">ใบเสนอราคาที่เลือกมาจากหลายงานขาย</p>
+              <p className="mt-0.5 text-label leading-5">
+                ระบบจะรวมใบเสนอราคาทั้งหมดไว้ในงานขายเดียวกับใบแจ้งหนี้
+                เพื่อให้มองเห็นขั้นตอนเอกสารต่อเนื่องบนหน้าหลัก
+              </p>
             </div>
-          }
-        >
-          {billableLines.length === 0 ? (
-            <EmptyState title="ยังไม่มีรายการที่จะออกบิล" description="เลือกใบเสนอราคาด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)" />
-          ) : (
-            <div className="space-y-3">
-              {refOnlyMode && refGroups.length > 0 && (
-                <div className="space-y-2">
-                  {refGroups.map((group) => (
-                    <div
-                      key={group.key}
-                      className="flex items-center justify-between gap-3 rounded-card border border-card-border bg-paper-soft px-3 py-2.5"
-                    >
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <FormStep number={1} title="ลูกค้าและรอบเอกสาร">
+            {customersLoading ? (
+              <Spinner />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-label font-medium text-ink-600">ลูกค้า</label>
+                  {selectedCustomer ? (
+                    <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
                       <div className="min-w-0">
-                        <div className="text-body font-medium text-ink-900">{group.label}</div>
-                        <div className="mt-0.5 text-label text-ink-500">
-                          {[group.dateLabel, `รายการ ${group.lineCount} บรรทัด`].filter(Boolean).join(" · ")}
+                        <div className="text-body font-medium text-ink-900">
+                          {selectedCustomer.name}
+                        </div>
+                        {selectedCustomer.tax_id && (
+                          <div className="mt-1 text-label text-ink-500">
+                            เลขผู้เสียภาษี: {selectedCustomer.tax_id}
+                          </div>
+                        )}
+                        {selectedCustomer.address && (
+                          <div className="mt-1 line-clamp-2 text-label text-ink-500">
+                            {selectedCustomer.address}
+                          </div>
+                        )}
+                        {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
+                          <div className="mt-1 text-label text-amber-600">
+                            ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี
+                          </div>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setCustomerPickerOpen(true)}>
+                        เปลี่ยน
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      className="w-full justify-center"
+                      onClick={() => setCustomerPickerOpen(true)}
+                    >
+                      เลือกลูกค้า
+                    </Button>
+                  )}
+                  <CustomerPickerModal
+                    open={customerPickerOpen}
+                    customers={customers}
+                    selectedCustomerId={selectedCustomerId}
+                    taxSensitive
+                    onClose={() => setCustomerPickerOpen(false)}
+                    onSelect={(customer) => setSelectedCustomerId(customer.id)}
+                    onCreate={async (customer) => addCustomer(customer)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-label font-medium text-ink-600">
+                    วันที่ใบแจ้งหนี้
+                  </label>
+                  <DateInput
+                    value={issueDate}
+                    onChange={(event) => setIssueDate(event.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-2 overflow-hidden rounded-card border border-card-border bg-paper-soft">
+                  <button
+                    type="button"
+                    onClick={() => setDateExpanded((prev) => !prev)}
+                    className="flex w-full items-center justify-between gap-3 p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
+                    <div>
+                      <div className="text-label font-medium text-ink-700">ช่วงวันที่เสนอราคา</div>
+                      <div className="mt-0.5 text-label text-ink-500">{dateRangeSummary}</div>
+                    </div>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {dateExpanded && (
+                    <div className="border-t border-card-border p-3">
+                      <div className="mb-2 text-label text-ink-500">
+                        ใช้กรองใบเสนอราคาที่พร้อมนำมาออกใบแจ้งหนี้
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(
+                          [
+                            ["thisMonth", "เดือนนี้"],
+                            ["previousMonth", "เดือนก่อน"],
+                            ["last90Days", "ย้อนหลัง 90 วัน"],
+                            ["all", "ทั้งหมด"],
+                          ] as const
+                        ).map(([preset, label]) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              setDatePreset(preset);
+                              if (preset === "all") {
+                                setDateFrom("");
+                                setDateTo("");
+                              } else if (preset === "last90Days") {
+                                setDateFrom(defaultQuotationStartString(businessToday));
+                                setDateTo(businessToday);
+                              } else {
+                                const range = monthRange(
+                                  businessToday,
+                                  preset === "previousMonth" ? -1 : 0,
+                                );
+                                setDateFrom(range.from);
+                                setDateTo(preset === "thisMonth" ? businessToday : range.to);
+                              }
+                            }}
+                            className={`rounded-full border px-2.5 py-1 text-label font-medium transition-colors ${datePreset === preset ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-primary/40"}`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-label font-medium text-ink-600">
+                            ตั้งแต่วันที่
+                          </label>
+                          <DateInput
+                            value={dateFrom}
+                            onChange={(event) => {
+                              setDatePreset("custom");
+                              setDateFrom(event.target.value);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-label font-medium text-ink-600">
+                            ถึงวันที่
+                          </label>
+                          <DateInput
+                            value={dateTo}
+                            onChange={(event) => {
+                              setDatePreset("custom");
+                              setDateTo(event.target.value);
+                            }}
+                          />
                         </div>
                       </div>
-                      <span className="shrink-0 text-body font-semibold tabular-nums text-ink-900">
-                        ฿{formatCurrency(group.total)}
-                      </span>
+                      {datePreset === "all" ? (
+                        <div className="mt-2 text-label text-ink-500">
+                          แสดงใบเสนอราคาที่พร้อมออกใบแจ้งหนี้ทั้งหมด
+                        </div>
+                      ) : null}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-              <div className="overflow-hidden rounded-card border border-card-border">
-                <div className="overflow-x-auto">
-                  <div className="min-w-[620px]">
-                    <LineGridHeaderRow />
-                    <div className="divide-y divide-card-border">
-                      {invoiceLines
-                        .filter((l) => !refOnlyMode || !l.source_document_id)
-                        .map((l) => {
+                <p className="text-label leading-5 text-ink-500 sm:col-span-2">
+                  ระบบแสดงเฉพาะรายการที่ยังไม่ถูกออกใบแจ้งหนี้ (คงเหลือหลังหักยอดที่ออกไปแล้ว)
+                  สามารถออกบิลทีละส่วนได้
+                </p>
+              </div>
+            )}
+          </FormStep>
+
+          <FormStep
+            number={2}
+            title="เลือกใบเสนอราคา"
+            description="เลือกใบเสนอราคาที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)"
+            right={
+              quotations.length > 0 ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    if (selectedIds.size === quotations.length) setSelectedIds(new Set());
+                    else setSelectedIds(new Set(quotations.map((qt) => qt.id)));
+                  }}
+                >
+                  {selectedIds.size === quotations.length ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
+                </Button>
+              ) : undefined
+            }
+          >
+            {loadingQts ? (
+              <Spinner />
+            ) : !selectedCustomerId ? (
+              <EmptyState
+                title="เลือกลูกค้าก่อน"
+                description="ระบบจะแสดงใบเสนอราคาที่ส่งแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้"
+              />
+            ) : quotations.length === 0 ? (
+              <EmptyState
+                title="ไม่พบใบเสนอราคาที่พร้อมออกใบแจ้งหนี้"
+                description="ใบเสนอราคาทั้งหมดอาจถูกออกใบแจ้งหนี้ครบแล้ว หรือลองเปลี่ยนช่วงวันที่"
+              />
+            ) : (
+              <div className="space-y-2">
+                {quotations.map((qt) => (
+                  <button
+                    key={qt.id}
+                    type="button"
+                    onClick={() => toggleQt(qt.id)}
+                    className={`w-full rounded-card border p-3 text-left transition-colors ${selectedIds.has(qt.id) ? "border-primary bg-blue-50" : "border-card-border bg-white hover:bg-paper-field"}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(qt.id)}
+                        onChange={() => toggleQt(qt.id)}
+                        onClick={(event) => event.stopPropagation()}
+                        className="mt-1"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-ink-900">
+                            {qt.doc_number || "ไม่มีเลขเอกสาร"}
+                          </span>
+                          <span className="text-label text-ink-500">
+                            {docDate.date(qt.issue_date)}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-label leading-5 text-ink-500">
+                          {buildItemSummary(
+                            qt.line_items.map((l) => ({ ...l, quantity: l.remaining })),
+                          )}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right text-label text-ink-500">
+                        <div>{qt.line_items.length} รายการ</div>
+                        <div className="mt-1 font-medium text-ink-700">
+                          ฿
+                          {formatCurrency(
+                            qt.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0),
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </FormStep>
+
+          <FormStep
+            number={3}
+            title="รายการที่จะออกบิล"
+            description="รายการคัดลอกจากใบเสนอราคา สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้"
+            right={
+              <div className="rounded-full bg-paper-warm px-2.5 py-1 text-label text-ink-600">
+                {selectedQuotations.length} ใบเสนอราคา / {invoiceLines.length} รายการต้นทาง
+              </div>
+            }
+          >
+            {billableLines.length === 0 ? (
+              <EmptyState
+                title="ยังไม่มีรายการที่จะออกบิล"
+                description="เลือกใบเสนอราคาด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)"
+              />
+            ) : (
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-card border border-card-border">
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[620px]">
+                      <LineGridHeaderRow />
+                      <div className="divide-y divide-card-border">
+                        {invoiceLines.map((l) => {
                           const qtyChanged =
                             l.quotedQty > 0 && Math.abs(l.quantity - l.quotedQty) > EPS;
                           const priceChanged =
@@ -1072,7 +1130,7 @@ export function InvoiceFromQuotationForm() {
                                 />
                               </div>
                               <div className="pt-1.5 text-right text-body font-semibold tabular-nums text-ink-900">
-                                {formatCurrency(lineNetAmount(l))}
+                                {formatCurrency(invoiceLineNet(l))}
                               </div>
                               <button
                                 type="button"
@@ -1085,120 +1143,203 @@ export function InvoiceFromQuotationForm() {
                             </div>
                           );
                         })}
+                      </div>
                     </div>
                   </div>
                 </div>
+                <div>
+                  <Button
+                    variant="secondary"
+                    className="w-full justify-center"
+                    onClick={addManualLine}
+                  >
+                    + เพิ่มรายการเพิ่มเติม (ค่าขนส่ง / ส่วนต่าง)
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Button variant="secondary" className="w-full justify-center" onClick={addManualLine}>
-                  + เพิ่มรายการเพิ่มเติม (ค่าขนส่ง / ส่วนต่าง)
-                </Button>
+            )}
+          </FormStep>
+
+          <DocumentOptionsCard number={4}>
+            <div className="py-3 first:pt-0 last:pb-0">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="text-body font-medium text-ink-800">รูปแบบเอกสาร</div>
+                  <p className="mt-0.5 text-label leading-5 text-ink-500">
+                    เลือกโหมดรายละเอียดหรือโหมดอ้างอิงในขั้นตอนตรวจสอบก่อนสร้าง
+                  </p>
+                </div>
+                <span className="text-label text-ink-400">เลือกตอนยืนยัน</span>
               </div>
             </div>
-          )}
-        </FormStep>
+            {taxSnapshot.vatRegistered && (
+              <div className="py-3 first:pt-0 last:pb-0">
+                <Select
+                  label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
+                  value={printTitleVariant}
+                  onChange={(event) => {
+                    setPrintTitleVariant(event.target.value);
+                    writeLastPrintTitleVariant(event.target.value);
+                  }}
+                >
+                  <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
+                  {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
+                    <option key={value} value={value}>
+                      {preset.thai}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1 text-label leading-4 text-ink-400">
+                  ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น — ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
+                </p>
+              </div>
+            )}
+          </DocumentOptionsCard>
 
-        <DocumentOptionsCard number={4}>
-          <DocumentOptionRow
-            label="โหมดอ้างอิง"
-            description="PDF แสดง 1 บรรทัดต่อใบเสนอราคา (เหมือนใบวางบิล) ปิดเพื่อแสดงรายการสินค้าแบบละเอียด"
-            checked={refOnlyMode}
-            onChange={setRefOnlyMode}
-          />
-          {!refOnlyMode && (
-            <DocumentOptionRow
-              label="แสดงส่วนต่างจากใบเสนอราคาในใบกำกับภาษี"
-              badge="โหมดรายละเอียด"
-              description="พิมพ์จำนวน/ราคาที่เปลี่ยนไปจากใบเสนอราคาต้นทาง เป็นหลักฐานประกอบใบกำกับภาษี"
-              checked={showVariance}
-              onChange={setShowVariance}
-            />
-          )}
-          {taxSnapshot.vatRegistered && (
-            <div className="py-3 first:pt-0 last:pb-0">
+          <FormStep number={5} title="สรุปและบันทึก">
+            <div className="space-y-3">
               <Select
-                label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
-                value={printTitleVariant}
-                onChange={(event) => {
-                  setPrintTitleVariant(event.target.value);
-                  writeLastPrintTitleVariant(event.target.value);
-                }}
+                label="ภาษีหัก ณ ที่จ่าย"
+                value={whtRate}
+                onChange={(event) => setWhtRate(event.target.value as WhtRate)}
               >
-                <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
-                {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
-                  <option key={value} value={value}>{preset.thai}</option>
+                {WHT_RATE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </Select>
-              <p className="mt-1 text-label leading-4 text-ink-400">
-                ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น — ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
-              </p>
-            </div>
-          )}
-        </DocumentOptionsCard>
-
-        <FormStep number={5} title="สรุปและบันทึก">
-          <div className="space-y-3">
-            <Select label="ภาษีหัก ณ ที่จ่าย" value={whtRate} onChange={(event) => setWhtRate(event.target.value as WhtRate)}>
-              {WHT_RATE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-            <PoTaskFields
-              taskName={taskName}
-              onTaskNameChange={setTaskName}
-              customerPo={customerPo}
-              onCustomerPoChange={setCustomerPo}
-              taskSuggestions={referenceHistory.taskValues}
-              poSuggestions={referenceHistory.poValues}
-              sourceHint={
-                selectedQuotations[0]?.customer_po_number?.trim() || selectedQuotations[0]?.task_name?.trim()
-                  ? `ใบเสนอราคา ${selectedQuotations[0]?.doc_number || ""}`
-                  : null
-              }
-            />
-            <Input label="บันทึก" value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้" />
-            <div className="rounded-card border border-card-border bg-paper-soft p-3 text-body">
-              <div className="mb-2 flex items-center gap-2 text-label font-medium text-ink-500">
-                <FileStack className="h-3.5 w-3.5" />
-                รวม {selectedQuotations.length} ใบเสนอราคา / {billableLines.length} รายการที่ออกบิล
+              <PoTaskFields
+                taskName={taskName}
+                onTaskNameChange={setTaskName}
+                customerPo={customerPo}
+                onCustomerPoChange={setCustomerPo}
+                taskSuggestions={referenceHistory.taskValues}
+                poSuggestions={referenceHistory.poValues}
+                sourceHint={
+                  selectedQuotations[0]?.customer_po_number?.trim() ||
+                  selectedQuotations[0]?.task_name?.trim()
+                    ? `ใบเสนอราคา ${selectedQuotations[0]?.doc_number || ""}`
+                    : null
+                }
+              />
+              <Input
+                label="บันทึก"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้"
+              />
+              <div className="rounded-card border border-card-border bg-paper-soft p-3 text-body">
+                <div className="mb-2 flex items-center gap-2 text-label font-medium text-ink-500">
+                  <FileStack className="h-3.5 w-3.5" />
+                  รวม {selectedQuotations.length} ใบเสนอราคา / {billableLines.length}{" "}
+                  รายการที่ออกบิล
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span>รวมก่อนภาษี</span>
+                    <span>฿{formatCurrency(tax.subtotal)}</span>
+                  </div>
+                  {taxSnapshot.vatRegistered && (
+                    <div className="flex justify-between">
+                      <span>VAT {taxSnapshot.vatRate}%</span>
+                      <span>฿{formatCurrency(tax.vatAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-medium">
+                    <span>รวมทั้งสิ้น</span>
+                    <span>฿{formatCurrency(tax.total)}</span>
+                  </div>
+                  {tax.whtAmount > 0 && (
+                    <div className="flex justify-between text-red-600">
+                      <span>หัก ณ ที่จ่าย {whtRate}%</span>
+                      <span>-฿{formatCurrency(tax.whtAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-line-strong pt-2 text-title font-semibold">
+                    <span>ยอดชำระสุทธิ</span>
+                    <span>฿{formatCurrency(tax.netPayable)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between"><span>รวมก่อนภาษี</span><span>฿{formatCurrency(tax.subtotal)}</span></div>
-                {taxSnapshot.vatRegistered && <div className="flex justify-between"><span>VAT {taxSnapshot.vatRate}%</span><span>฿{formatCurrency(tax.vatAmount)}</span></div>}
-                <div className="flex justify-between font-medium"><span>รวมทั้งสิ้น</span><span>฿{formatCurrency(tax.total)}</span></div>
-                {tax.whtAmount > 0 && <div className="flex justify-between text-red-600"><span>หัก ณ ที่จ่าย {whtRate}%</span><span>-฿{formatCurrency(tax.whtAmount)}</span></div>}
-                <div className="flex justify-between border-t border-line-strong pt-2 text-title font-semibold"><span>ยอดชำระสุทธิ</span><span>฿{formatCurrency(tax.netPayable)}</span></div>
-              </div>
+              <EditableDocNumber
+                value={docNumberOverride}
+                onChange={setDocNumberOverride}
+                placeholder="เลขที่ใบแจ้งหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
+                autoGenerate={async () =>
+                  userId ? await resolveDocNumber(userId, "invoice", issueDate) : ""
+                }
+                className="mb-3"
+              />
             </div>
-            <EditableDocNumber
-              value={docNumberOverride}
-              onChange={setDocNumberOverride}
-              placeholder="เลขที่ใบแจ้งหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
-              autoGenerate={async () => userId ? await resolveDocNumber(userId, "invoice", issueDate) : ""}
-              className="mb-3"
-            />
-          </div>
-        </FormStep>
+          </FormStep>
 
-        <FormActionBar
-          contextLabel={`${selectedCustomer?.name || ""} · ${billableLines.length} รายการ`}
-          totalLabel="ยอดสุทธิ"
-          total={tax.netPayable}
-          primary={{
-            label: "สร้างใบแจ้งหนี้",
-            onClick: handleSave,
-            loading: saving,
-            disabled: !canSave || saving,
-          }}
-        />
-      </div>
-    </AppShell>
+          <FormActionBar
+            contextLabel={`${selectedCustomer?.name || ""} · ${billableLines.length} รายการ`}
+            totalLabel="ยอดสุทธิ"
+            total={tax.netPayable}
+            primary={{
+              label: "ตรวจสอบและสร้างใบแจ้งหนี้",
+              onClick: openConfirm,
+              loading: saving,
+              disabled: !canSave || saving,
+            }}
+          />
+        </div>
+      </AppShell>
+
+      <InvoiceCreateConfirmModal
+        open={confirmOpen}
+        sourceLabel="ใบเสนอราคา"
+        mode={pendingMode}
+        onModeChange={setPendingMode}
+        summary={{
+          customerName: selectedCustomer?.name || "",
+          issueDateLabel: docDate.date(issueDate),
+          docNumberLabel: docNumberOverride.trim() || "สร้างอัตโนมัติ",
+          sourceCount: billableSourceCount,
+          itemCount: billableLines.length,
+          poNumber: customerPo.trim() || null,
+          taskName: taskName.trim() || null,
+          note: note.trim() || null,
+        }}
+        detailPreview={detailPreview}
+        referencePreview={referencePreview}
+        totals={{
+          subtotal: tax.subtotal,
+          vat: tax.vatAmount,
+          vatRate: taxSnapshot.vatRate,
+          wht: tax.whtAmount,
+          whtRate: parseFloat(whtRate),
+          total: tax.total,
+          net: tax.netPayable,
+        }}
+        warnings={confirmWarnings}
+        variance={{
+          checked: showVariance,
+          onChange: setShowVariance,
+          label: "แสดงส่วนต่างจากใบเสนอราคาในใบกำกับภาษี",
+          description:
+            "พิมพ์จำนวน/ราคาที่เปลี่ยนไปจากใบเสนอราคาต้นทาง เป็นหลักฐานประกอบใบกำกับภาษี",
+        }}
+        saving={saving}
+        error={error}
+        onCancel={() => {
+          if (!saving) setConfirmOpen(false);
+        }}
+        onConfirm={() => {
+          void handleSave(pendingMode);
+        }}
+      />
+    </>
   );
 }
 
 function lineNetFromLine(l: QtLineWithRemaining) {
   const base = (Number(l.unit_price) || 0) * Math.max(0, l.remaining);
-  return Math.max(0, base - (l.discount_percent > 0 ? (base * l.discount_percent) / 100 : Number(l.discount_amount) || 0));
+  return Math.max(
+    0,
+    base -
+      (l.discount_percent > 0 ? (base * l.discount_percent) / 100 : Number(l.discount_amount) || 0),
+  );
 }

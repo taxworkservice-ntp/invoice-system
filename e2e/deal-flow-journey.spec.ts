@@ -364,7 +364,11 @@ test.describe.serial("deal flow journey · delivery note → invoice → paid", 
     await page.waitForURL(/invoice_from_delivery_notes/);
     await expect(page.getByText(/2 ใบส่งของ/).first()).toBeVisible();
 
-    await page.getByRole("button", { name: "สร้างใบแจ้งหนี้" }).click();
+    await page.getByRole("button", { name: "ตรวจสอบและสร้างใบแจ้งหนี้" }).click();
+    await page
+      .getByRole("dialog", { name: "ยืนยันสร้างใบแจ้งหนี้" })
+      .getByRole("button", { name: "ยืนยันสร้างใบแจ้งหนี้" })
+      .click();
     await page.waitForURL(DEAL_UUID_RE);
 
     const invoices = await documentsOf(dealId, "invoice");
@@ -557,7 +561,11 @@ test.describe.serial("deal flow journey · quotation → invoice → paid", () =
     await page.goto(`/deals/${dealId}`);
     await page.getByRole("button", { name: "ออกใบแจ้งหนี้ต่อ" }).click();
     await page.waitForURL(/\/documents\/new\?type=invoice_from_quotation/);
-    await page.getByRole("button", { name: "สร้างใบแจ้งหนี้" }).click();
+    await page.getByRole("button", { name: "ตรวจสอบและสร้างใบแจ้งหนี้" }).click();
+    await page
+      .getByRole("dialog", { name: "ยืนยันสร้างใบแจ้งหนี้" })
+      .getByRole("button", { name: "ยืนยันสร้างใบแจ้งหนี้" })
+      .click();
     // The form returns to the deal — the invoice is created and sent there.
     await page.waitForURL(DEAL_UUID_RE);
     await expect(page.getByText("รอวางบิล")).toBeVisible();

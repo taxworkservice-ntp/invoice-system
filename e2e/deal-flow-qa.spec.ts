@@ -53,7 +53,9 @@ async function saveThroughConfirm(page: Page, trigger: string) {
 }
 
 async function createItem(overrides: Record<string, unknown> = {}) {
-  const { data, error } = await (await api())
+  const { data, error } = await (
+    await api()
+  )
     .from("items")
     .insert({
       id: uid(),
@@ -116,9 +118,7 @@ test.describe.serial("deal QA · create → send → convert", () => {
 
     // Draft stage: pill + send action available.
     await expect(page.getByText("ร่าง", { exact: true }).first()).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "ส่งใบเสนอราคาให้ลูกค้า" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "ส่งใบเสนอราคาให้ลูกค้า" })).toBeVisible();
 
     // The draft landed with a document number and a positive total.
     const { data: docs, error } = await admin()
@@ -158,7 +158,11 @@ test.describe.serial("deal QA · create → send → convert", () => {
     await page.waitForURL(/\/documents\/new\?type=invoice_from_quotation/);
     await expect(page.getByText("ลูกค้าและรอบเอกสาร").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "สร้างใบแจ้งหนี้" }).click();
+    await page.getByRole("button", { name: "ตรวจสอบและสร้างใบแจ้งหนี้" }).click();
+    await page
+      .getByRole("dialog", { name: "ยืนยันสร้างใบแจ้งหนี้" })
+      .getByRole("button", { name: "ยืนยันสร้างใบแจ้งหนี้" })
+      .click();
     await page.waitForURL(UUID_RE);
     await expect(page.getByText("รอวางบิล")).toBeVisible();
     await expect(page.getByRole("button", { name: /^ออกใบวางบิล/ })).toBeVisible();
@@ -300,7 +304,9 @@ test.describe.serial("deal QA · document management", () => {
     expect(Number(qt!.subtotal)).toBe(250);
   });
 
-  test("B2 แก้ไขโดยออกฉบับใหม่ voids the sent invoice and creates a draft copy", async ({ page }) => {
+  test("B2 แก้ไขโดยออกฉบับใหม่ voids the sent invoice and creates a draft copy", async ({
+    page,
+  }) => {
     await page.goto(`/deals/${voidDealId}`);
     await page.getByRole("button", { name: "แก้ไขโดยออกฉบับใหม่" }).click();
 
@@ -516,14 +522,17 @@ test.describe.serial("deal QA · status + stock on send", () => {
 
     const adminClient = admin();
     await expect
-      .poll(async () => {
-        const { data } = await adminClient
-          .from("items")
-          .select("stock_count")
-          .eq("id", itemId)
-          .single();
-        return Number(data?.stock_count);
-      }, { timeout: 20_000 })
+      .poll(
+        async () => {
+          const { data } = await adminClient
+            .from("items")
+            .select("stock_count")
+            .eq("id", itemId)
+            .single();
+          return Number(data?.stock_count);
+        },
+        { timeout: 20_000 },
+      )
       .toBe(8);
 
     // Exactly one auto_out movement for this document (idempotency guard).
@@ -569,7 +578,9 @@ test.describe.serial("deal QA · payment and receipt", () => {
 
     // The default payment method is โอนเงิน, which requires a bank account.
     // Create one so the default path is exercisable.
-    const { data: bank, error: bankError } = await (await api())
+    const { data: bank, error: bankError } = await (
+      await api()
+    )
       .from("bank_accounts")
       .insert({
         id: uid(),
@@ -613,16 +624,20 @@ test.describe.serial("deal QA · payment and receipt", () => {
     // F-QA3: the modal is interactive before its async prefill settles. Wait for
     // the prefill (amount + default bank account) before saving, otherwise the
     // click hits a stale remaining=0 and silently no-ops.
-    await expect(payModal.locator('input[inputmode="decimal"]').first()).toHaveValue(
-      /^10,?000$/,
-      { timeout: 15_000 },
-    );
-    await expect.poll(async () => {
-      const values = await payModal
-        .locator("select")
-        .evaluateAll((els) => els.map((el) => (el as HTMLSelectElement).value));
-      return values.some((value) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value));
-    }, { timeout: 15_000 }).toBe(true);
+    await expect(payModal.locator('input[inputmode="decimal"]').first()).toHaveValue(/^10,?000$/, {
+      timeout: 15_000,
+    });
+    await expect
+      .poll(
+        async () => {
+          const values = await payModal
+            .locator("select")
+            .evaluateAll((els) => els.map((el) => (el as HTMLSelectElement).value));
+          return values.some((value) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value));
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true);
 
     await payModal.getByRole("button", { name: "บันทึกใบเสร็จ (ร่าง)" }).click();
 
@@ -648,15 +663,18 @@ test.describe.serial("deal QA · payment and receipt", () => {
 
     const adminClient = admin();
     await expect
-      .poll(async () => {
-        const { data } = await adminClient
-          .from("documents")
-          .select("status")
-          .eq("deal_id", dealId)
-          .eq("doc_type", "receipt")
-          .single();
-        return data?.status;
-      }, { timeout: 20_000 })
+      .poll(
+        async () => {
+          const { data } = await adminClient
+            .from("documents")
+            .select("status")
+            .eq("deal_id", dealId)
+            .eq("doc_type", "receipt")
+            .single();
+          return data?.status;
+        },
+        { timeout: 20_000 },
+      )
       .toBe("generated");
 
     const { data: bn } = await adminClient
