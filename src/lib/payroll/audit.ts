@@ -100,7 +100,6 @@ export const AUDIT_ACTIONS = {
   PAYROLL_WHT_SYNCED: "payroll_wht_synced",
   ADMIN_VIEW_AS_ENTER: "admin_view_as_enter",
   ADMIN_VIEW_AS_EXIT: "admin_view_as_exit",
-  VAT_SETTINGS_CHANGED: "vat_settings_changed",
 } as const;
 
 export const AUDIT_ENTITY_TYPES = {
@@ -133,7 +132,6 @@ export function getActionLabel(action: string): string {
     payroll_wht_synced: "ซิงก์ภาษีหัก ณ ที่จ่าย",
     admin_view_as_enter: "แอดมินเปิดดู workspace ลูกค้า",
     admin_view_as_exit: "แอดมินออกจากมุมมองลูกค้า",
-    vat_settings_changed: "แก้ไขสถานะ/อัตรา VAT ของ workspace",
   };
   return labels[action] ?? action;
 }

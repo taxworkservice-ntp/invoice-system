@@ -25,17 +25,17 @@ Check on every login whether the client needs onboarding:
 ```typescript
 // After successful login, before routing to home
 const { data: profile } = await supabase
-  .from("client_profiles")
-  .select("company_name_th, tax_id, vat_registered")
-  .eq("user_id", currentUserId)
-  .single();
+  .from('client_profiles')
+  .select('company_name_th, tax_id, vat_registered')
+  .eq('user_id', currentUserId)
+  .single()
 
 if (!profile || !profile.company_name_th) {
   // Route to onboarding
-  navigate("/setup");
+  navigate('/setup')
 } else {
   // Route to home dashboard
-  navigate("/home");
+  navigate('/home')
 }
 ```
 
@@ -82,30 +82,48 @@ Autofocus on load.
 **ชื่อผู้ติดต่อ — optional:**
 Placeholder: "ชื่อคุณ (ใช้สำหรับทักทายในแอป)"
 
-**สถานะ VAT — ตั้งโดยผู้ดูแลระบบ:**
-The onboarding form no longer asks about VAT. New workspaces start as
-"ไม่จด VAT" (database default) and the platform administrator switches the
-status (and rate) from `/admin/clients/:id` → Manage. The client's
-`/settings/tax` page shows the status read-only.
+**จดทะเบียน VAT หรือไม่:**
+Two large option cards side by side:
 
-Continue button:
+```
+┌──────────────┐  ┌──────────────┐
+│      🧾      │  │      📋      │
+│  จด VAT แล้ว │  │  ยังไม่ได้จด │
+│              │  │              │
+│ ออกใบกำกับ  │  │ ออกใบแจ้ง   │
+│ ภาษีได้      │  │ หนี้         │
+└──────────────┘  └──────────────┘
+```
+
+Card style: white, 0.5px border #E8E6DF, 10px radius, padding 16px, centered content.
+Selected: border #378ADD, bg #F0F7FF.
+Default: neither selected — user must choose one.
+
+**เลขผู้เสียภาษี — shown only if VAT selected:**
+Appears with slide-down animation when VAT card is tapped.
+Placeholder: "0000000000000 (13 หลัก)"
+Hint: "จำเป็นสำหรับการออกใบกำกับภาษีที่ถูกต้องตามกฎหมาย" — 11px, #888780
+
+**Continue button:**
 "ถัดไป →" — full width, blue, 8px radius, 15px, weight 600
-Disabled (gray) until company name is filled.
+Disabled (gray) until company name AND VAT choice are filled.
 On tap → save to client_profiles, advance to step 2.
 
 **On save step 1:**
-
 ```typescript
-await supabase.from("client_profiles").upsert({
-  user_id: currentUserId,
-  company_name_th: companyName,
-  contact_name: contactName || null,
-  // vat_registered / vat_rate / tax_id are not set here:
-  // the admin manages them, the insert picks up the DB defaults
-  // (vat_registered = false, vat_rate = 7.00).
-  default_wht_rate: "3",
-  stock_deduct_trigger: "invoice",
-});
+await supabase
+  .from('client_profiles')
+  .upsert({
+    user_id: currentUserId,
+    company_name_th: companyName,
+    contact_name: contactName || null,
+    vat_registered: vatRegistered,
+    tax_id: vatRegistered ? taxId : null,
+    // defaults for other fields
+    vat_rate: 7.00,
+    default_wht_rate: '3',
+    stock_deduct_trigger: 'invoice'
+  })
 
 // Create default doc number sequences (trigger fires automatically via DB trigger)
 ```
@@ -122,30 +140,24 @@ await supabase.from("client_profiles").upsert({
 Only the most essential fields:
 
 **ประเภท:**
-
 ```
 [  🛍 สินค้า  |  ⚙ บริการ  ]
 ```
-
 Segmented control. Default: สินค้า.
 
 **ชื่อ — required:**
 Placeholder: "เช่น กระดาษ A4, ออกแบบโลโก้..."
 
 **ราคา — required:**
-
 ```
 ฿  [________]   ต่อ  [ชิ้น ▾]
 ```
-
 Price input + unit dropdown side by side.
 
 **สต็อกเริ่มต้น (สินค้าเท่านั้น):**
-
 ```
 [0]  ชิ้น
 ```
-
 Shown only for product type.
 
 **Two buttons:**
@@ -153,27 +165,28 @@ Shown only for product type.
 "ข้ามขั้นตอนนี้ →" — full width, gray text, advances to step 3 without saving
 
 On save:
-
 ```typescript
-await supabase.from("items").insert({
-  user_id: currentUserId,
-  name: itemName,
-  item_type: itemType,
-  unit_price: price,
-  base_unit: unit,
-  stock_count: itemType === "product" ? initialStock : 0,
-});
+await supabase
+  .from('items')
+  .insert({
+    user_id: currentUserId,
+    name: itemName,
+    item_type: itemType,
+    unit_price: price,
+    base_unit: unit,
+    stock_count: itemType === 'product' ? initialStock : 0
+  })
 
 // Create initial stock movement if stock > 0
-if (itemType === "product" && initialStock > 0) {
-  await supabase.from("stock_movements").insert({
+if (itemType === 'product' && initialStock > 0) {
+  await supabase.from('stock_movements').insert({
     item_id: newItem.id,
     user_id: currentUserId,
-    movement_type: "manual_in",
+    movement_type: 'manual_in',
     qty_base: initialStock,
     balance_after: initialStock,
-    reason: "สต็อกเริ่มต้น",
-  });
+    reason: 'สต็อกเริ่มต้น'
+  })
 }
 ```
 
@@ -185,12 +198,11 @@ if (itemType === "product" && initialStock > 0) {
 "พร้อมแล้ว! 🎉" — 24px, weight 700, centered
 
 **Summary of what was set up:**
-
 ```
 ✓ ข้อมูลบริษัท: [company name]
+✓ VAT: [จดทะเบียน / ไม่ได้จด]
 [✓ สินค้า: [item name]]   ← shown only if item was added
 ```
-
 Each line: 14px, #27500A, left-aligned within centered card.
 
 **What they can do next — three option cards:**
@@ -256,31 +268,25 @@ until they complete each action. These are not blocking — just helpful reminde
 **Nudge 1 — Complete company profile:**
 Shown if address or tax_id is missing after onboarding.
 Small blue info card at top of home screen (below summary row):
-
 ```
 [ℹ] เพิ่มที่อยู่บริษัทเพื่อให้ PDF แสดงครบถ้วน  [ตั้งค่า →]
 ```
-
 Dismissible with ✕. Dismissed state stored in localStorage.
 
 **Nudge 2 — Add first customer:**
 Shown if customer count = 0.
 Same style blue info card:
-
 ```
 [ℹ] เพิ่มลูกค้าคนแรกเพื่อเริ่มสร้างเอกสาร  [เพิ่มลูกค้า →]
 ```
-
 Dismissible. Disappears automatically when first customer is added.
 
 **Nudge 3 — Add more items:**
 Shown if item count < 3 and user has been active for more than 1 day.
 Same style, lower priority:
-
 ```
 [ℹ] เพิ่มสินค้าหรือบริการในแค็ตตาล็อกเพื่อสร้างเอกสารได้เร็วขึ้น  [เพิ่ม →]
 ```
-
 Dismissible. Show max once.
 
 **Show at most 1 nudge at a time** — priority order: profile → customer → items.
@@ -303,14 +309,15 @@ Admin does NOT set up the client's company profile — the client does it themse
 
 ## Component Breakdown
 
-| Component                | Props                              |
-| ------------------------ | ---------------------------------- |
-| `OnboardingPage`         | —                                  |
-| `OnboardingStep1`        | onComplete                         |
-| `OnboardingStep2`        | onComplete, onSkip                 |
-| `OnboardingStep3`        | companyName, itemAdded, onNavigate |
-| `OnboardingProgressDots` | currentStep, totalSteps            |
-| `HomeNudgeBanner`        | type, onDismiss, onAction          |
+| Component | Props |
+|---|---|
+| `OnboardingPage` | — |
+| `OnboardingStep1` | onComplete |
+| `OnboardingStep2` | onComplete, onSkip |
+| `OnboardingStep3` | companyName, itemAdded, onNavigate |
+| `VATChoiceCards` | value, onChange |
+| `OnboardingProgressDots` | currentStep, totalSteps |
+| `HomeNudgeBanner` | type, onDismiss, onAction |
 
 ---
 

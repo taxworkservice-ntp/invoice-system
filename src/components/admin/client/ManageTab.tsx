@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { useToast } from "../../../hooks/useToast";
-import { logAuditEvent, AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from "../../../lib/payroll/audit";
 import {
   deleteAdminClient,
   fetchAdminResetBackupBlob,
@@ -95,80 +94,6 @@ export function ManageTab({
   const [downloadingBackupId, setDownloadingBackupId] = useState<string | null>(null);
   const [lastResetBackupId, setLastResetBackupId] = useState<string | null>(null);
   const [resettingDocs, setResettingDocs] = useState(false);
-
-  // VAT status and rate are admin-only (guard trigger in
-  // sql/20261027_vat_admin_only.sql). Drafts stay local until the confirmation
-  // modal is accepted, so a stray click cannot change tax behaviour.
-  const [vatRegisteredDraft, setVatRegisteredDraft] = useState(false);
-  const [vatRateDraft, setVatRateDraft] = useState("7.00");
-  const [vatSaving, setVatSaving] = useState(false);
-  const [vatModalOpen, setVatModalOpen] = useState(false);
-  const [vatAcknowledged, setVatAcknowledged] = useState(false);
-
-  useEffect(() => {
-    if (!clientProfile) return;
-    setVatRegisteredDraft(clientProfile.vat_registered === true);
-    setVatRateDraft(String(clientProfile.vat_rate ?? "7.00"));
-  }, [clientProfile]);
-
-  const vatDirty =
-    clientProfile != null &&
-    (vatRegisteredDraft !== (clientProfile.vat_registered === true) ||
-      (vatRegisteredDraft && Number(vatRateDraft) !== Number(clientProfile.vat_rate)));
-
-  function openVatConfirm() {
-    const parsedRate = parseFloat(vatRateDraft);
-    if (
-      vatRegisteredDraft &&
-      (!Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 100)
-    ) {
-      toast.error("กรุณากรอกอัตรา VAT ระหว่าง 0-100%");
-      return;
-    }
-    setVatAcknowledged(false);
-    setVatModalOpen(true);
-  }
-
-  async function handleSaveVat() {
-    if (!id || !clientProfile || !vatDirty) return;
-
-    const parsedRate = parseFloat(vatRateDraft);
-    const nextRate = vatRegisteredDraft ? parsedRate : Number(clientProfile.vat_rate);
-    setVatSaving(true);
-    try {
-      const { error } = await supabase
-        .from("client_profiles")
-        .update({
-          vat_registered: vatRegisteredDraft,
-          vat_rate: nextRate,
-        })
-        .eq("user_id", id);
-      if (error) throw error;
-
-      setClientProfile((prev) =>
-        prev ? { ...prev, vat_registered: vatRegisteredDraft, vat_rate: nextRate } : prev,
-      );
-      void logAuditEvent({
-        action: AUDIT_ACTIONS.VAT_SETTINGS_CHANGED,
-        entity_type: AUDIT_ENTITY_TYPES.CLIENT_PROFILE,
-        entity_id: id,
-        details: {
-          from: {
-            vat_registered: clientProfile.vat_registered,
-            vat_rate: Number(clientProfile.vat_rate),
-          },
-          to: { vat_registered: vatRegisteredDraft, vat_rate: nextRate },
-        },
-      });
-      toast.success("บันทึกการตั้งค่า VAT แล้ว");
-      setVatModalOpen(false);
-      setVatAcknowledged(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "บันทึกการตั้งค่า VAT ไม่สำเร็จ");
-    } finally {
-      setVatSaving(false);
-    }
-  }
 
   const confirmName = clientProfile?.company_name_th?.trim() || email.trim();
 
@@ -522,8 +447,8 @@ export function ManageTab({
         <SectionHeader>รูปแบบปีในเอกสาร</SectionHeader>
         <Card>
           <p className="text-body leading-6 text-ink-700">
-            ใช้กับวันที่บนเอกสาร หน้าจอของลูกค้ารายนี้ และเลขที่เอกสารใหม่ (เช่น INV-2569-10-0001) ·
-            เอกสารที่ออกไปแล้วไม่ถูกแก้ไข
+            ใช้กับวันที่บนเอกสาร หน้าจอของลูกค้ารายนี้ และเลขที่เอกสารใหม่ (เช่น
+            INV-2569-10-0001) · เอกสารที่ออกไปแล้วไม่ถูกแก้ไข
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {(
@@ -552,80 +477,6 @@ export function ManageTab({
               );
             })}
           </div>
-        </Card>
-
-        <SectionHeader>สถานะ VAT ของกิจการ</SectionHeader>
-        <Card>
-          <p className="text-body leading-6 text-ink-700">
-            ใช้กำหนดชื่อเอกสาร การแสดง VAT และยอดภาษีของเอกสารใหม่ · เอกสารที่ออกไปแล้วไม่ถูกแก้ไข ·
-            ลูกค้าเห็นค่านี้แบบอ่านอย่างเดียวที่หน้า ตั้งค่า &gt; ภาษี
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {(
-              [
-                { value: true, label: "จด VAT", sample: "ใบกำกับภาษี" },
-                { value: false, label: "ไม่จด VAT", sample: "ใบแจ้งหนี้" },
-              ] as const
-            ).map((option) => {
-              const active = vatRegisteredDraft === option.value;
-              return (
-                <button
-                  key={String(option.value)}
-                  type="button"
-                  disabled={vatSaving || !id}
-                  onClick={() => setVatRegisteredDraft(option.value)}
-                  aria-pressed={active}
-                  className={`rounded-control border px-3 py-2 text-left transition-colors disabled:opacity-50 ${
-                    active
-                      ? "border-primary bg-primary-soft text-primary-deep"
-                      : "border-card-border bg-white text-ink-600 hover:border-line-strong"
-                  }`}
-                >
-                  <span className="block text-body font-semibold">{option.label}</span>
-                  <span className="block text-label text-ink-500">{option.sample}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {vatRegisteredDraft && (
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-label font-medium text-ink-700">อัตราภาษีมูลค่าเพิ่ม</div>
-                <p className="mt-0.5 text-label leading-relaxed text-ink-300">
-                  ใช้กับเอกสารใหม่ที่มี VAT ในอนาคต
-                </p>
-              </div>
-              <div className="relative w-[120px] shrink-0">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={vatRateDraft}
-                  disabled={vatSaving || !id}
-                  onChange={(event) => setVatRateDraft(event.target.value)}
-                  className="w-full rounded-control border border-card-border bg-white px-3 py-2 pr-8 text-right text-body tabular-nums focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-body text-ink-300">
-                  %
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-3 rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-relaxed text-amber-800">
-            การเปลี่ยนสถานะ VAT มีผลกับเอกสารใหม่เท่านั้น — ต้องยืนยันแยกต่างหากก่อนบันทึก
-          </div>
-
-          <Button
-            className="mt-3 w-full justify-center"
-            onClick={openVatConfirm}
-            loading={vatSaving}
-            disabled={!vatDirty || !id}
-          >
-            บันทึกการตั้งค่า VAT
-          </Button>
         </Card>
 
         <SectionHeader>บัญชีและการเข้าถึง</SectionHeader>
@@ -1307,65 +1158,6 @@ export function ManageTab({
               disabled={!newPassword || !newPasswordConfirm}
             >
               เปลี่ยนรหัสผ่าน
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        open={vatModalOpen}
-        onClose={() => {
-          if (!vatSaving) {
-            setVatModalOpen(false);
-            setVatAcknowledged(false);
-          }
-        }}
-        title="ยืนยันการเปลี่ยนสถานะ VAT"
-      >
-        <div className="space-y-4">
-          <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-body leading-relaxed text-amber-900">
-            เปลี่ยนจาก
-            <span className="font-semibold">
-              {" "}
-              {clientProfile?.vat_registered ? "จด VAT" : "ไม่จด VAT"}{" "}
-            </span>
-            เป็น
-            <span className="font-semibold"> {vatRegisteredDraft ? "จด VAT" : "ไม่จด VAT"} </span>
-            {vatRegisteredDraft && (
-              <span>
-                · อัตรา <span className="font-semibold tabular-nums">{vatRateDraft}%</span>
-              </span>
-            )}
-          </div>
-
-          <div className="text-label leading-relaxed text-ink-600">
-            เอกสารที่สร้างไปแล้วจะไม่ถูกเปลี่ยนย้อนหลัง
-            แต่เอกสารใหม่จะใช้ชื่อเอกสารและการคำนวณภาษีตามสถานะใหม่
-          </div>
-
-          <label className="flex cursor-pointer items-start gap-2 rounded-[8px] border border-card-border p-3 text-label leading-relaxed text-ink-700">
-            <input
-              type="checkbox"
-              checked={vatAcknowledged}
-              onChange={(event) => setVatAcknowledged(event.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-ink-100 text-primary"
-            />
-            <span>ฉันเข้าใจว่าสถานะ VAT มีผลกับเอกสารใหม่และยอดภาษีที่จะคำนวณหลังจากนี้</span>
-          </label>
-
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setVatModalOpen(false);
-                setVatAcknowledged(false);
-              }}
-              disabled={vatSaving}
-            >
-              ยกเลิก
-            </Button>
-            <Button onClick={handleSaveVat} loading={vatSaving} disabled={!vatAcknowledged}>
-              ยืนยันเปลี่ยนสถานะ
             </Button>
           </div>
         </div>
