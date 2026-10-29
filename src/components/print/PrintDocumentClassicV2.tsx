@@ -16,7 +16,7 @@ import {
   splitDnSectionHeaders,
 } from "../../lib/dnGroups";
 import { getRowBudgets } from "../../lib/pagination";
-import { PRINT_SHEET_HEIGHT_MM, PRINT_SHEET_PADDING_Y_MM } from "../../constants";
+import { PRINT_SHEET_HEIGHT_MM, PRINT_SHEET_HEIGHT_PX, PRINT_SHEET_PADDING_Y_MM } from "../../constants";
 import {
   estimateClassicV2FullRowHeight,
   estimateLineItemHeight,
@@ -370,6 +370,11 @@ export function PrintDocumentClassicV2({
   const sheetRef = useRef<HTMLElement | null>(null);
   const itemsTableRef = useRef<HTMLTableElement | null>(null);
   const [measuredBlankLines, setMeasuredBlankLines] = useState<number | null>(null);
+  // On a transformed mobile preview, sub-pixel rounding can make the filler
+  // measurement alternate by one row. If the current render is over A4, give
+  // one row back and freeze additions until the page inputs change; otherwise
+  // the sheet height and the overflow warning oscillate (the screen shakes).
+  const fillerOverflowGuard = useRef(false);
   // The model's blank-row metric: the fallback for the measurement below
   // (and the only estimate available before the first paint).
   const modelledBlankRowMm = Math.max(
@@ -496,6 +501,8 @@ export function PrintDocumentClassicV2({
   // The measured count wins: it knows the space the page really has left, the
   // model only knows a row capacity.
   const blankLineCount = measuredBlankLines ?? modelledBlankLineCount;
+  const currentBlankLineCountRef = useRef(blankLineCount);
+  currentBlankLineCountRef.current = blankLineCount;
   // Measure the space the page really has left below the items table.
   //
   // The filler rows are table rows, so their count has to be known before the
@@ -508,6 +515,7 @@ export function PrintDocumentClassicV2({
     const sheet = sheetRef.current;
     const table = itemsTableRef.current;
     if (!sheet || !table) return;
+    fillerOverflowGuard.current = false;
 
     const MM_PER_PX = 25.4 / 96;
     // The content box, measured from the sheet's top edge: the page is A4
@@ -518,6 +526,21 @@ export function PrintDocumentClassicV2({
       const sheetRect = sheet.getBoundingClientRect();
       const tableRect = table.getBoundingClientRect();
       if (!sheetRect.width || !tableRect.height) return;
+
+      // Ground truth: the rendered sheet height (layout px, unaffected by the
+      // preview transform). Never let the filler push the sheet past A4 — the
+      // next pass would otherwise add the row back and oscillate.
+      if (sheet.offsetHeight > PRINT_SHEET_HEIGHT_PX + 1) {
+        const current = currentBlankLineCountRef.current;
+        if (current > 0) {
+          currentBlankLineCountRef.current = current - 1;
+          setMeasuredBlankLines(current - 1);
+        }
+        fillerOverflowGuard.current = true;
+        return;
+      }
+      if (fillerOverflowGuard.current) return;
+
       // The mobile preview zooms the sheet with a transform — the rects come
       // back scaled, so every measurement is divided by that scale.
       const scale = sheetRect.width / (210 * MM_PER_PX);
@@ -573,7 +596,11 @@ export function PrintDocumentClassicV2({
       // ruled rows, otherwise keep the minimum table height.
       const count =
         fits >= minBlankLines + 2 ? fits : Math.max(0, Math.min(minBlankLines, fits));
-      setMeasuredBlankLines((previous) => (previous === count ? previous : count));
+      setMeasuredBlankLines((previous) => {
+        if (previous === count) return previous;
+        currentBlankLineCountRef.current = count;
+        return count;
+      });
     };
 
     measure();

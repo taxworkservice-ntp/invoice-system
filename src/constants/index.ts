@@ -373,7 +373,8 @@ export const PRINT_SHEET_HEIGHT_MM = 297;
  * ones. Bump it whenever the templates, the fonts, the pagination or the
  * page geometry change.
  */
-export const PRINT_LAYOUT_VERSION = 2;
+// 3: Classic V2 filler guard — never add a row that pushes the sheet past A4.
+export const PRINT_LAYOUT_VERSION = 3;
 
 /** The sheet's vertical padding — the printable content box is the A4 height
  * minus these. */
