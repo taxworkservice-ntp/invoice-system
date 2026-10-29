@@ -107,6 +107,13 @@ export function buildPayrollCalcRows(params: {
 
 export type RowStatus = "complete" | "warning" | "incomplete" | "untouched";
 
+export const ROW_STATUS_LABELS: Record<RowStatus, string> = {
+  complete: "กรอกครบแล้ว",
+  warning: "มีข้อมูลที่ต้องตรวจสอบ",
+  incomplete: "ยังกรอกไม่ครบ",
+  untouched: "ยังไม่ได้กรอก",
+};
+
 /**
  * Per-row readiness for the payroll table (drives the accent border + the
  * finalize gate).

@@ -12,10 +12,21 @@ import type { Employee } from "../../types";
 
 interface AttendancePanelProps {
   employees: Employee[];
-  run: { period_start: string; period_end: string; ot_start?: string | null; ot_end?: string | null } | null;
+  run: {
+    period_start: string;
+    period_end: string;
+    ot_start?: string | null;
+    ot_end?: string | null;
+  } | null;
   paidLeaveDaysPerYear?: number | null;
   disabled?: boolean;
-  onApply: (updates: { employee_id: string; days_worked: number | null; absent_days: number }[]) => Promise<void>;
+  /** Drawer mode: render the form directly (the surrounding Modal owns the chrome). */
+  embedded?: boolean;
+  onApply: (
+    updates: { employee_id: string; days_worked: number | null; absent_days: number }[],
+  ) => Promise<void>;
+  /** Called after a successful apply so the drawer can close. */
+  onApplied?: () => void;
 }
 
 const SAMPLE = `employee_code,date,status,hours
@@ -23,7 +34,15 @@ EMP001,2026-09-01,มา,8
 EMP001,2026-09-02,ขาด,
 EMP002,2026-09-01,ลา,`;
 
-export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled, onApply }: AttendancePanelProps) {
+export function AttendancePanel({
+  employees,
+  run,
+  paidLeaveDaysPerYear,
+  disabled,
+  embedded = false,
+  onApply,
+  onApplied,
+}: AttendancePanelProps) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -63,122 +82,174 @@ export function AttendancePanel({ employees, run, paidLeaveDaysPerYear, disabled
     setApplying(true);
     const updates = knownSummaries.map((s) => {
       const emp = codeToEmployee.get(s.employee_code)!;
-      const mapped = summaryToPayrollInput(s, emp.salary_type, { paidLeaveDays: paidLeavePerMonth });
+      const mapped = summaryToPayrollInput(s, emp.salary_type, {
+        paidLeaveDays: paidLeavePerMonth,
+      });
       return { employee_id: emp.id, ...mapped };
     });
     await onApply(updates);
     setApplying(false);
     setApplied(true);
+    onApplied?.();
   }
+
+  const content = (
+    <div className="space-y-3">
+      <p className="text-label leading-5 text-ink-500">
+        วางข้อมูล CSV จากเครื่องสแกน/Excel (รหัส, วันที่ ปปปป-ดด-วว, สถานะ มา/ขาด/ลา/หยุด, ชั่วโมง)
+        ระบบจะสรุปวันทำงาน–วันขาดให้อัตโนมัติ แล้วกรอกลงแถวเงินเดือนแต่ละคน —
+        พนักงานรายวันใช้วันมาทำงานคูณอัตรารายวัน, รายเดือนหักวันขาดตามฐานคำนวณที่ตั้งไว้
+      </p>
+
+      <textarea
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setApplied(false);
+        }}
+        placeholder="วาง CSV ที่นี่…"
+        rows={6}
+        disabled={disabled}
+        className="w-full rounded-control border border-card-border bg-paper-field/50 px-3 py-2 font-mono text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleFillSample}
+          disabled={disabled}
+          className="!rounded-control !text-label"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5" /> ตัวอย่าง
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleParse}
+          disabled={disabled || !text.trim()}
+          className="!rounded-control !text-label"
+        >
+          ตรวจสอบข้อมูล
+        </Button>
+        {knownSummaries.length > 0 && (
+          <Button
+            size="sm"
+            onClick={handleApply}
+            disabled={disabled || applying}
+            className="!rounded-control !text-label"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {applying ? "กำลังกรอก…" : `กรอกลงเงินเดือน ${knownSummaries.length} คน`}
+          </Button>
+        )}
+      </div>
+
+      {errors.length > 0 && (
+        <div className="space-y-0.5 rounded-control border border-danger-border bg-danger-soft px-3 py-2">
+          {errors.map((e, i) => (
+            <p key={i} className="flex items-start gap-1.5 text-label text-danger-text">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {e}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {parsed.length > 0 && (
+        <div className="overflow-hidden rounded-control border border-card-border">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-label">
+              <thead>
+                <tr className="bg-paper-field text-ink-500">
+                  <th scope="col" className="px-2.5 py-1.5 text-left font-medium">
+                    รหัส
+                  </th>
+                  <th scope="col" className="px-2.5 py-1.5 text-right font-medium">
+                    มา
+                  </th>
+                  <th scope="col" className="px-2.5 py-1.5 text-right font-medium">
+                    ขาด
+                  </th>
+                  <th scope="col" className="px-2.5 py-1.5 text-right font-medium">
+                    ลา
+                  </th>
+                  <th scope="col" className="px-2.5 py-1.5 text-right font-medium">
+                    OT แนะนำ (ชม.)
+                  </th>
+                  <th scope="col" className="px-2.5 py-1.5 text-left font-medium">
+                    สถานะ
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line-faint">
+                {parsed.map((s) => {
+                  const known = codeToEmployee.has(s.employee_code);
+                  return (
+                    <tr key={s.employee_code} className={known ? "" : "bg-warning-soft/50"}>
+                      <td className="px-2.5 py-1.5 font-mono text-label text-ink-900">
+                        {s.employee_code}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right tabular-nums">{s.present_days}</td>
+                      <td className="px-2.5 py-1.5 text-right tabular-nums">{s.absent_days}</td>
+                      <td className="px-2.5 py-1.5 text-right tabular-nums">{s.leave_days}</td>
+                      <td className="px-2.5 py-1.5 text-right tabular-nums">
+                        {s.suggested_ot_hours || "—"}
+                      </td>
+                      <td className="px-2.5 py-1.5">
+                        {known ? (
+                          <span className="text-success-text">พร้อมกรอก</span>
+                        ) : (
+                          <span className="text-warning-text">ไม่พบรหัสในระบบ</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {unknownCodes.length > 0 && (
+        <p className="text-label text-warning-text">
+          มี {unknownCodes.length} รหัสที่ไม่ตรงกับพนักงานในระบบ — จะถูกข้ามตอนกรอก
+        </p>
+      )}
+
+      {applied && (
+        <p className="flex items-center gap-1.5 text-label text-success-text">
+          <CheckCircle2 className="h-3.5 w-3.5" /> กรอกข้อมูลเวลาเรียบร้อย —
+          ตรวจสอบยอดในตารางแล้วกดบันทึกแต่ละแถว
+        </p>
+      )}
+
+      {run && (
+        <p className="text-label text-ink-400">
+          ช่วง OT ที่ใช้ตัดรอบ:{" "}
+          {describeOtWindow(run.period_start, run.period_end, run.ot_start, run.ot_end)}
+        </p>
+      )}
+    </div>
+  );
+
+  if (embedded) return content;
 
   return (
     <details
-      className="bg-white border border-card-border rounded-card px-4 py-3"
+      className="rounded-card border border-card-border bg-white px-4 py-3"
       onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
     >
-      <summary className="flex items-center gap-2 text-ink-700 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-        <CalendarClock className="w-4 h-4 text-ink-400" />
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-ink-700 [&::-webkit-details-marker]:hidden">
+        <CalendarClock className="h-4 w-4 text-ink-400" />
         <span className="text-body font-medium">เวลา & การลา — นำเข้าจากไฟล์ตอกบัตร</span>
         <span className="ml-auto text-label text-ink-400">
-          {run ? describeOtWindow(run.period_start, run.period_end, run.ot_start, run.ot_end) : "เลือกรอบก่อน"}
+          {run
+            ? describeOtWindow(run.period_start, run.period_end, run.ot_start, run.ot_end)
+            : "เลือกรอบก่อน"}
         </span>
       </summary>
-
-      {open && (
-        <div className="pt-3 space-y-3">
-          <p className="text-label text-ink-500">
-            วางข้อมูล CSV จากเครื่องสแกน/Excel (รหัส, วันที่ ปปปป-ดด-วว, สถานะ มา/ขาด/ลา/หยุด, ชั่วโมง)
-            ระบบจะสรุปวันทำงาน–วันขาดให้อัตโนมัติ แล้วกรอกลงแถวเงินเดือนแต่ละคน —
-            พนักงานรายวันใช้วันมาทำงานคูณอัตรารายวัน, รายเดือนหักวันขาดตามฐานคำนวณที่ตั้งไว้
-          </p>
-
-          <textarea
-            value={text}
-            onChange={(e) => { setText(e.target.value); setApplied(false); }}
-            placeholder="วาง CSV ที่นี่…"
-            rows={5}
-            disabled={disabled}
-            className="w-full text-label font-mono rounded-control border border-card-border bg-paper-field/50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
-          />
-
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={handleFillSample} disabled={disabled} className="!text-label !rounded-control">
-              <FileSpreadsheet className="w-3.5 h-3.5" /> ตัวอย่าง
-            </Button>
-            <Button size="sm" variant="secondary" onClick={handleParse} disabled={disabled || !text.trim()} className="!text-label !rounded-control">
-              ตรวจสอบข้อมูล
-            </Button>
-            {knownSummaries.length > 0 && (
-              <Button size="sm" onClick={handleApply} disabled={disabled || applying} className="!text-label !rounded-control">
-                <Upload className="w-3.5 h-3.5" />
-                {applying ? "กำลังกรอก…" : `กรอกลงเงินเดือน ${knownSummaries.length} คน`}
-              </Button>
-            )}
-          </div>
-
-          {errors.length > 0 && (
-            <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2 space-y-0.5">
-              {errors.map((e, i) => (
-                <p key={i} className="flex items-start gap-1.5 text-label text-red-700">
-                  <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {e}
-                </p>
-              ))}
-            </div>
-          )}
-
-          {parsed.length > 0 && (
-            <div className="rounded-control border border-card-border overflow-hidden">
-              <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-label">
-                <thead>
-                  <tr className="bg-paper-field text-ink-500">
-                    <th className="px-2.5 py-1.5 text-left font-medium">รหัส</th>
-                    <th className="px-2.5 py-1.5 text-right font-medium">มา</th>
-                    <th className="px-2.5 py-1.5 text-right font-medium">ขาด</th>
-                    <th className="px-2.5 py-1.5 text-right font-medium">ลา</th>
-                    <th className="px-2.5 py-1.5 text-right font-medium">OT แนะนำ (ชม.)</th>
-                    <th className="px-2.5 py-1.5 text-left font-medium">สถานะ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line-faint">
-                  {parsed.map((s) => {
-                    const known = codeToEmployee.has(s.employee_code);
-                    return (
-                      <tr key={s.employee_code} className={known ? "" : "bg-amber-50/50"}>
-                        <td className="px-2.5 py-1.5 font-mono text-label text-ink-900">{s.employee_code}</td>
-                        <td className="px-2.5 py-1.5 text-right tabular-nums">{s.present_days}</td>
-                        <td className="px-2.5 py-1.5 text-right tabular-nums">{s.absent_days}</td>
-                        <td className="px-2.5 py-1.5 text-right tabular-nums">{s.leave_days}</td>
-                        <td className="px-2.5 py-1.5 text-right tabular-nums">{s.suggested_ot_hours || "—"}</td>
-                        <td className="px-2.5 py-1.5">
-                          {known ? (
-                            <span className="text-green-700">พร้อมกรอก</span>
-                          ) : (
-                            <span className="text-amber-700">ไม่พบรหัสในระบบ</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </div>
-            </div>
-          )}
-
-          {unknownCodes.length > 0 && (
-            <p className="text-label text-amber-700">
-              มี {unknownCodes.length} รหัสที่ไม่ตรงกับพนักงานในระบบ — จะถูกข้ามตอนกรอก
-            </p>
-          )}
-
-          {applied && (
-            <p className="flex items-center gap-1.5 text-label text-green-700">
-              <CheckCircle2 className="w-3.5 h-3.5" /> กรอกข้อมูลเวลาเรียบร้อย — ตรวจสอบยอดในตารางแล้วกดบันทึกแต่ละแถว
-            </p>
-          )}
-        </div>
-      )}
+      {open && <div className="pt-3">{content}</div>}
     </details>
   );
 }

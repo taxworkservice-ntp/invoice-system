@@ -135,11 +135,7 @@ export function historyMonthKey(periodEnd: string): string {
  * Month-group heading with Buddhist year, e.g. "ส.ค. 2569".
  * Month is 1-based.
  */
-export function formatHistoryMonthLabel(
-  year: number,
-  month: number,
-  era: YearEra = "be",
-): string {
+export function formatHistoryMonthLabel(year: number, month: number, era: YearEra = "be"): string {
   const short = THAI_MONTHS_SHORT[month - 1] ?? "";
   return `${short} ${toEraYear(year, era)}`.trim();
 }
@@ -257,6 +253,11 @@ export const BATCH_TYPE_LABELS: Record<BatchType, string> = {
   ot: "OT",
   adjustment: "ปรับปรุง",
 };
+
+/** Runtime-safe batch kind (pre-migration rows have no batch_type column). */
+export function batchTypeOf(run: { batch_type?: string | null }): BatchType {
+  return run.batch_type === "ot" || run.batch_type === "adjustment" ? run.batch_type : "salary";
+}
 
 /**
  * Deterministic salary batches expected per statutory month.

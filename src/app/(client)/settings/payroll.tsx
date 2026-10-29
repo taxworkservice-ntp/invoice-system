@@ -10,7 +10,10 @@ import { useToast } from "../../../hooks/useToast";
 import { useWorkspaceRole } from "../../../hooks/useAuth";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import { supabase } from "../../../lib/supabase";
-import { calculateBreakdown, type PayrollSettings as EngineSettings } from "../../../lib/payroll/calculations";
+import {
+  calculateBreakdown,
+  type PayrollSettings as EngineSettings,
+} from "../../../lib/payroll/calculations";
 import { formatPayRangeLabel, suggestNextWindow } from "../../../lib/payroll/schedule";
 import type { ClientPayrollSettings, PayFrequency } from "../../../types";
 
@@ -68,13 +71,19 @@ export default function SettingsPayrollPage() {
           setProrateMode(s.prorate_mode ?? DEFAULTS.prorate_mode);
           setAbsenceDeduction(s.absence_deduction ?? DEFAULTS.absence_deduction);
           setRoundingRule(s.rounding_rule ?? DEFAULTS.rounding_rule);
-          setSsoCeilingOverride(s.sso_ceiling_override != null ? String(s.sso_ceiling_override) : "");
+          setSsoCeilingOverride(
+            s.sso_ceiling_override != null ? String(s.sso_ceiling_override) : "",
+          );
           setPayFrequency(s.pay_frequency ?? DEFAULTS.pay_frequency);
           setPayAnchorDay(String(s.pay_anchor_day ?? 1));
           setPayCycleLenDays(s.pay_cycle_len_days != null ? String(s.pay_cycle_len_days) : "");
           setOtBatchesPerMonth(String(s.ot_batches_per_month ?? 0));
           setOtCutoffDays(String((s as { ot_cutoff_days?: number | null }).ot_cutoff_days ?? 0));
-          setPaidLeavePerYear(String((s as { paid_leave_days_per_year?: number | null }).paid_leave_days_per_year ?? 0));
+          setPaidLeavePerYear(
+            String(
+              (s as { paid_leave_days_per_year?: number | null }).paid_leave_days_per_year ?? 0,
+            ),
+          );
         }
         setLoading(false);
       });
@@ -108,7 +117,14 @@ export default function SettingsPayrollPage() {
 
   const cyclePreviewWin =
     payFrequency !== "monthly"
-      ? suggestNextWindow(payFrequency, { anchorDay: parseInt(payAnchorDay) || 1, cycleLenDays: parseInt(payCycleLenDays) || undefined }, null)
+      ? suggestNextWindow(
+          payFrequency,
+          {
+            anchorDay: parseInt(payAnchorDay) || 1,
+            cycleLenDays: parseInt(payCycleLenDays) || undefined,
+          },
+          null,
+        )
       : null;
 
   async function handleSave() {
@@ -124,7 +140,8 @@ export default function SettingsPayrollPage() {
       prorate_mode: prorateMode,
       absence_deduction: absenceDeduction,
       rounding_rule: roundingRule,
-      sso_ceiling_override: ssoCeilingOverride.trim() === "" ? null : parseFloat(ssoCeilingOverride) || null,
+      sso_ceiling_override:
+        ssoCeilingOverride.trim() === "" ? null : parseFloat(ssoCeilingOverride) || null,
       pay_frequency: payFrequency,
       pay_anchor_day: parseInt(payAnchorDay) || 1,
       pay_cycle_len_days: payCycleLenDays.trim() === "" ? null : parseInt(payCycleLenDays) || null,
@@ -137,8 +154,15 @@ export default function SettingsPayrollPage() {
       .from("client_payroll_settings")
       .upsert(payload, { onConflict: "user_id" });
     if (error?.code === "42703") {
-      const { ot_batches_per_month: _omit, ot_cutoff_days: _omit2, paid_leave_days_per_year: _omit3, ...legacy } = payload;
-      ({ error } = await supabase.from("client_payroll_settings").upsert(legacy, { onConflict: "user_id" }));
+      const {
+        ot_batches_per_month: _omit,
+        ot_cutoff_days: _omit2,
+        paid_leave_days_per_year: _omit3,
+        ...legacy
+      } = payload;
+      ({ error } = await supabase
+        .from("client_payroll_settings")
+        .upsert(legacy, { onConflict: "user_id" }));
     }
 
     if (error) {
@@ -150,7 +174,12 @@ export default function SettingsPayrollPage() {
     setSaving(false);
   }
 
-  if (loading) return <AppShell width="form" title="ตั้งค่า > เงินเดือน"><SettingsPageSkeleton /></AppShell>;
+  if (loading)
+    return (
+      <AppShell width="form" title="ตั้งค่า > เงินเดือน">
+        <SettingsPageSkeleton />
+      </AppShell>
+    );
 
   return (
     <AppShell width="form" title="ตั้งค่า > เงินเดือน">
@@ -158,7 +187,10 @@ export default function SettingsPayrollPage() {
         <SettingsTabs activePath="/settings/payroll" />
 
         {/* Calculation conventions */}
-        <SectionCard title="กฎการคำนวณ" description="ตั้งค่าวิธีแปลงเงินเดือนรายเดือนเป็นอัตรารายวัน/รายชั่วโมง การหักวันขาดงาน และการปัดเศษ">
+        <SectionCard
+          title="กฎการคำนวณ"
+          description="ตั้งค่าวิธีแปลงเงินเดือนรายเดือนเป็นอัตรารายวัน/รายชั่วโมง การหักวันขาดงาน และการปัดเศษ"
+        >
           <div className="divide-y divide-line-faint">
             <SettingRow label="ฐานคำนวณรายวัน" controlWidthClass="sm:w-[260px]">
               <Select value={prorateMode} onChange={(e) => setProrateMode(e.target.value)}>
@@ -197,36 +229,64 @@ export default function SettingsPayrollPage() {
         </SectionCard>
 
         {/* OT */}
-        <SectionCard title="การคำนวณ OT (ล่วงเวลา)" description="ตั้งค่าอัตราการคำนวณค่าแรงล่วงเวลา ใช้กับระบบจัดการเงินเดือน">
+        <SectionCard
+          title="การคำนวณ OT (ล่วงเวลา)"
+          description="ตั้งค่าอัตราการคำนวณค่าแรงล่วงเวลา ใช้กับระบบจัดการเงินเดือน"
+        >
           <div className="divide-y divide-line-faint">
             <SettingRow
               label="ตัวหารอัตรารายชั่วโมง"
-              description={prorateMode === "actual_days"
-                ? "ใช้จำนวนวันจริงของเดือนแทนตัวหารนี้ (ตั้ง \"ฐานคำนวณรายวัน\" ด้านบน)"
-                : "อัตรารายชั่วโมง = เงินเดือน ÷ ตัวหาร ÷ 8 (ค่าเริ่มต้น: 30 วัน)"}
+              description={
+                prorateMode === "actual_days"
+                  ? 'ใช้จำนวนวันจริงของเดือนแทนตัวหารนี้ (ตั้ง "ฐานคำนวณรายวัน" ด้านบน)'
+                  : "อัตรารายชั่วโมง = เงินเดือน ÷ ตัวหาร ÷ 8 (ค่าเริ่มต้น: 30 วัน)"
+              }
               controlWidthClass="sm:w-[160px]"
             >
-              <Input type="number" min="1" value={otDivisor} onChange={(e) => setOtDivisor(e.target.value)} placeholder="30" />
+              <Input
+                type="number"
+                min="1"
+                value={otDivisor}
+                onChange={(e) => setOtDivisor(e.target.value)}
+                placeholder="30"
+              />
             </SettingRow>
             <SettingRow
               label="OT ปกติ (เท่า)"
               description="ค่าคูณสำหรับ OT วันปกติ (ค่าเริ่มต้น: 1.5×)"
               controlWidthClass="sm:w-[160px]"
             >
-              <Input type="number" min="0" step="0.5" value={normalOtMultiplier} onChange={(e) => setNormalOtMultiplier(e.target.value)} placeholder="1.5" />
+              <Input
+                type="number"
+                min="0"
+                step="0.5"
+                value={normalOtMultiplier}
+                onChange={(e) => setNormalOtMultiplier(e.target.value)}
+                placeholder="1.5"
+              />
             </SettingRow>
             <SettingRow
               label="OT วันหยุด (เท่า)"
               description="ค่าคูณสำหรับ OT วันหยุด (ค่าเริ่มต้น: 3×)"
               controlWidthClass="sm:w-[160px]"
             >
-              <Input type="number" min="0" step="0.5" value={holidayOtMultiplier} onChange={(e) => setHolidayOtMultiplier(e.target.value)} placeholder="3.0" />
+              <Input
+                type="number"
+                min="0"
+                step="0.5"
+                value={holidayOtMultiplier}
+                onChange={(e) => setHolidayOtMultiplier(e.target.value)}
+                placeholder="3.0"
+              />
             </SettingRow>
           </div>
         </SectionCard>
 
         {/* Pay cycle */}
-        <SectionCard title="รอบการจ่ายเงิน" description="เงินเดือนกับ OT จ่ายแยกกันได้คนละรอบ ระบบจะเสนอช่วงรอบถัดไปให้อัตโนมัติ (ภาษี/ประกันสังคมสรุปตามเดือนเสมอ)"> 
+        <SectionCard
+          title="รอบการจ่ายเงิน"
+          description="เงินเดือนกับ OT จ่ายแยกกันได้คนละรอบ ระบบจะเสนอช่วงรอบถัดไปให้อัตโนมัติ (ภาษี/ประกันสังคมสรุปตามเดือนเสมอ)"
+        >
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Select
@@ -293,19 +353,24 @@ export default function SettingsPayrollPage() {
               />
             </div>
             <p className="text-label text-ink-400">
-              0 = จ่าย OT ตามจริงไม่กำหนดจำนวนรอบ (เช่น จ่ายแยกจากเงินเดือนเดือนละหลายครั้ง) — ตัวเลขนี้ใช้ตรวจเช็ครอบ OT ว่าครบตามแผนในหน้าสรุปทั้งเดือน
+              0 = จ่าย OT ตามจริงไม่กำหนดจำนวนรอบ (เช่น จ่ายแยกจากเงินเดือนเดือนละหลายครั้ง) —
+              ตัวเลขนี้ใช้ตรวจเช็ครอบ OT ว่าครบตามแผนในหน้าสรุปทั้งเดือน
             </p>
 
             {cyclePreviewWin && (
               <p className="text-label text-primary-deep bg-primary-soft rounded-control px-3 py-2 inline-block">
-                ตัวอย่างช่วงรอบถัดไป: {formatPayRangeLabel(cyclePreviewWin)} ({cyclePreviewWin.start} → {cyclePreviewWin.end})
+                ตัวอย่างช่วงรอบถัดไป: {formatPayRangeLabel(cyclePreviewWin)} (
+                {cyclePreviewWin.start} → {cyclePreviewWin.end})
               </p>
             )}
           </div>
         </SectionCard>
 
         {/* Mini-calculator */}
-        <SectionCard title="ทดลองคำนวณ" description="ใช้ค่าที่กรอกด้านบน (ยังไม่บันทึก) คำนวณตัวอย่างสลิปพนักงานรายเดือน">
+        <SectionCard
+          title="ทดลองคำนวณ"
+          description="ใช้ค่าที่กรอกด้านบน (ยังไม่บันทึก) คำนวณตัวอย่างสลิปพนักงานรายเดือน"
+        >
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
@@ -330,19 +395,30 @@ export default function SettingsPayrollPage() {
             <div className="rounded-control border border-card-border bg-paper-field p-4 space-y-1.5 text-body">
               <div className="flex justify-between">
                 <span className="text-ink-500">ค่าแรงรวม (หลังหักวันขาด)</span>
-                <span className="tabular-nums font-medium">฿{calcPreview.gross_pay.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums font-medium">
+                  ฿{calcPreview.gross_pay.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-500">ประกันสังคม (พนักงาน 5%)</span>
-                <span className="tabular-nums font-medium text-red-500">-฿{calcPreview.sso_employee.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums font-medium text-danger">
+                  -฿{calcPreview.sso_employee.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-500">ภาษีหัก ณ ที่จ่าย</span>
-                <span className="tabular-nums font-medium text-red-500">-฿{calcPreview.withholding_tax.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums font-medium text-danger">
+                  -฿
+                  {calcPreview.withholding_tax.toLocaleString("th-TH", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between border-t border-card-border pt-1.5 mt-1.5">
                 <span className="font-semibold">เงินเดือนสุทธิ</span>
-                <span className="tabular-nums font-semibold text-primary-deep">฿{calcPreview.net_pay.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums font-semibold text-primary-deep">
+                  ฿{calcPreview.net_pay.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                </span>
               </div>
             </div>
           </div>
