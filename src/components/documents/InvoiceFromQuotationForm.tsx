@@ -5,7 +5,13 @@ import { AppShell } from "../layout/AppShell";
 import { Card } from "../ui/Card";
 import { DocumentOptionsCard } from "./DocumentOptions";
 import { InvoiceCreateConfirmModal, type InvoiceConfirmWarning } from "./InvoiceCreateConfirmModal";
-import { FormStep } from "./FormStep";
+import {
+  FormStep,
+  FormProgress,
+  FormStepRail,
+  useScrollSpy,
+  type FormProgressStep,
+} from "./FormStep";
 import { FormActionBar } from "./FormActionBar";
 import { LineGridHeaderRow, LINE_GRID_COLS, numericInputClass } from "./lineGrid";
 import { NumericInput } from "../ui/NumericInput";
@@ -727,6 +733,14 @@ export function InvoiceFromQuotationForm() {
     });
   }
 
+  const spyActive = useScrollSpy([
+    "invoiceq-step-customer",
+    "invoiceq-step-quotes",
+    "invoiceq-step-lines",
+    "invoiceq-step-options",
+    "invoiceq-step-summary",
+  ]);
+
   const openConfirm = () => {
     if (!canSave || saving) return;
     if (hasMixedDeals) {
@@ -738,17 +752,54 @@ export function InvoiceFromQuotationForm() {
     setConfirmOpen(true);
   };
 
+  const step1Done = Boolean(selectedCustomer && issueDate);
+  const step2Done = selectedQuotations.length > 0;
+  const step3Done = invoiceLines.length > 0;
+  const guideSteps: FormProgressStep[] = [
+    {
+      label: "ลูกค้า",
+      state: step1Done ? "done" : "current",
+      targetId: "invoiceq-step-customer",
+    },
+    {
+      label: "ใบเสนอราคา",
+      state: step2Done ? "done" : step1Done ? "current" : "todo",
+      targetId: "invoiceq-step-quotes",
+    },
+    {
+      label: "รายการ",
+      state: step3Done ? "done" : step2Done ? "current" : "todo",
+      targetId: "invoiceq-step-lines",
+    },
+    {
+      label: "ตัวเลือก",
+      state: step3Done ? "done" : step2Done ? "current" : "todo",
+      targetId: "invoiceq-step-options",
+    },
+    {
+      label: "สรุป",
+      state: step3Done ? "current" : "todo",
+      targetId: "invoiceq-step-summary",
+    },
+  ];
+
+  const scrollToId = (id: string) => {
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 30);
+  };
+
   return (
     <>
       <AppShell title="ออกใบแจ้งหนี้จากใบเสนอราคา" showBack>
         {error && (
-          <div className="mb-4 rounded-control border border-red-200 bg-red-50 p-3 text-body text-red-600">
+          <div className="mb-4 rounded-control border border-danger-border bg-danger-soft p-3 text-body text-danger-text">
             {error}
           </div>
         )}
 
         {clientProfile?.vat_registered && (
-          <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
+          <div className="mb-4 flex items-start gap-3 rounded-control border border-warning-border bg-warning-soft p-3 text-body text-warning-text">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">โปรดยืนยันเวลาการออกใบกำกับภาษีกับบัญชีของคุณ</p>
@@ -761,7 +812,7 @@ export function InvoiceFromQuotationForm() {
         )}
 
         {taxSnapshot.mixed && (
-          <div className="mb-4 flex items-start gap-3 rounded-control border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
+          <div className="mb-4 flex items-start gap-3 rounded-control border border-warning-border bg-warning-soft p-3 text-body text-warning-text">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">ใบเสนอราคาที่เลือกมีการตั้งค่าภาษีไม่ตรงกัน</p>
@@ -773,7 +824,7 @@ export function InvoiceFromQuotationForm() {
         )}
 
         {hasMixedDeals && (
-          <div className="mb-4 flex items-start gap-3 rounded-control border border-blue-200 bg-blue-50 p-3 text-body text-blue-900">
+          <div className="mb-4 flex items-start gap-3 rounded-control border border-primary-border bg-primary-soft p-3 text-body text-primary-deep">
             <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">ใบเสนอราคาที่เลือกมาจากหลายงานขาย</p>
@@ -786,505 +837,524 @@ export function InvoiceFromQuotationForm() {
         )}
 
         <div className="space-y-4">
-          <FormStep number={1} title="ลูกค้าและรอบเอกสาร">
-            {customersLoading ? (
-              <Spinner />
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-label font-medium text-ink-600">ลูกค้า</label>
-                  {selectedCustomer ? (
-                    <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
-                      <div className="min-w-0">
-                        <div className="text-body font-medium text-ink-900">
-                          {selectedCustomer.name}
+          <div className="lg:hidden">
+            <FormProgress steps={guideSteps} onSelect={scrollToId} />
+          </div>
+          <div className="lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-4">
+            <FormStepRail steps={guideSteps} onSelect={scrollToId} activeId={spyActive} />
+            <div className="min-w-0 space-y-4">
+              <FormStep id="invoiceq-step-customer" number={1} title="ลูกค้าและรอบเอกสาร">
+                {customersLoading ? (
+                  <Spinner />
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-label font-medium text-ink-600">
+                        ลูกค้า
+                      </label>
+                      {selectedCustomer ? (
+                        <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
+                          <div className="min-w-0">
+                            <div className="text-body font-medium text-ink-900">
+                              {selectedCustomer.name}
+                            </div>
+                            {selectedCustomer.tax_id && (
+                              <div className="mt-1 text-label text-ink-500">
+                                เลขผู้เสียภาษี: {selectedCustomer.tax_id}
+                              </div>
+                            )}
+                            {selectedCustomer.address && (
+                              <div className="mt-1 line-clamp-2 text-label text-ink-500">
+                                {selectedCustomer.address}
+                              </div>
+                            )}
+                            {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
+                              <div className="mt-1 text-label text-warning-text">
+                                ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCustomerPickerOpen(true)}
+                          >
+                            เปลี่ยน
+                          </Button>
                         </div>
-                        {selectedCustomer.tax_id && (
-                          <div className="mt-1 text-label text-ink-500">
-                            เลขผู้เสียภาษี: {selectedCustomer.tax_id}
-                          </div>
-                        )}
-                        {selectedCustomer.address && (
-                          <div className="mt-1 line-clamp-2 text-label text-ink-500">
-                            {selectedCustomer.address}
-                          </div>
-                        )}
-                        {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
-                          <div className="mt-1 text-label text-amber-600">
-                            ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี
-                          </div>
-                        )}
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => setCustomerPickerOpen(true)}>
-                        เปลี่ยน
-                      </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          className="w-full justify-center"
+                          onClick={() => setCustomerPickerOpen(true)}
+                        >
+                          เลือกลูกค้า
+                        </Button>
+                      )}
+                      <CustomerPickerModal
+                        open={customerPickerOpen}
+                        customers={customers}
+                        selectedCustomerId={selectedCustomerId}
+                        taxSensitive
+                        onClose={() => setCustomerPickerOpen(false)}
+                        onSelect={(customer) => setSelectedCustomerId(customer.id)}
+                        onCreate={async (customer) => addCustomer(customer)}
+                      />
                     </div>
-                  ) : (
+                    <div>
+                      <label className="mb-1 block text-label font-medium text-ink-600">
+                        วันที่ใบแจ้งหนี้
+                      </label>
+                      <DateInput
+                        value={issueDate}
+                        onChange={(event) => setIssueDate(event.target.value)}
+                      />
+                    </div>
+                    <div className="sm:col-span-2 overflow-hidden rounded-card border border-card-border bg-paper-soft">
+                      <button
+                        type="button"
+                        onClick={() => setDateExpanded((prev) => !prev)}
+                        className="flex w-full items-center justify-between gap-3 p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                      >
+                        <div>
+                          <div className="text-label font-medium text-ink-700">
+                            ช่วงวันที่เสนอราคา
+                          </div>
+                          <div className="mt-0.5 text-label text-ink-500">{dateRangeSummary}</div>
+                        </div>
+                        <ChevronDown
+                          className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                      {dateExpanded && (
+                        <div className="border-t border-card-border p-3">
+                          <div className="mb-2 text-label text-ink-500">
+                            ใช้กรองใบเสนอราคาที่พร้อมนำมาออกใบแจ้งหนี้
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(
+                              [
+                                ["thisMonth", "เดือนนี้"],
+                                ["previousMonth", "เดือนก่อน"],
+                                ["last90Days", "ย้อนหลัง 90 วัน"],
+                                ["all", "ทั้งหมด"],
+                              ] as const
+                            ).map(([preset, label]) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => {
+                                  setDatePreset(preset);
+                                  if (preset === "all") {
+                                    setDateFrom("");
+                                    setDateTo("");
+                                  } else if (preset === "last90Days") {
+                                    setDateFrom(defaultQuotationStartString(businessToday));
+                                    setDateTo(businessToday);
+                                  } else {
+                                    const range = monthRange(
+                                      businessToday,
+                                      preset === "previousMonth" ? -1 : 0,
+                                    );
+                                    setDateFrom(range.from);
+                                    setDateTo(preset === "thisMonth" ? businessToday : range.to);
+                                  }
+                                }}
+                                className={`rounded-full border px-2.5 py-1 text-label font-medium transition-colors ${datePreset === preset ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-primary/40"}`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-1 block text-label font-medium text-ink-600">
+                                ตั้งแต่วันที่
+                              </label>
+                              <DateInput
+                                value={dateFrom}
+                                onChange={(event) => {
+                                  setDatePreset("custom");
+                                  setDateFrom(event.target.value);
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-label font-medium text-ink-600">
+                                ถึงวันที่
+                              </label>
+                              <DateInput
+                                value={dateTo}
+                                onChange={(event) => {
+                                  setDatePreset("custom");
+                                  setDateTo(event.target.value);
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {datePreset === "all" ? (
+                            <div className="mt-2 text-label text-ink-500">
+                              แสดงใบเสนอราคาที่พร้อมออกใบแจ้งหนี้ทั้งหมด
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-label leading-5 text-ink-500 sm:col-span-2">
+                      ระบบแสดงเฉพาะรายการที่ยังไม่ถูกออกใบแจ้งหนี้ (คงเหลือหลังหักยอดที่ออกไปแล้ว)
+                      สามารถออกบิลทีละส่วนได้
+                    </p>
+                  </div>
+                )}
+              </FormStep>
+
+              <FormStep
+                id="invoiceq-step-quotes"
+                number={2}
+                title="เลือกใบเสนอราคา"
+                description="เลือกใบเสนอราคาที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)"
+                right={
+                  quotations.length > 0 ? (
                     <Button
                       variant="secondary"
-                      className="w-full justify-center"
-                      onClick={() => setCustomerPickerOpen(true)}
+                      size="sm"
+                      onClick={() => {
+                        if (selectedIds.size === quotations.length) setSelectedIds(new Set());
+                        else setSelectedIds(new Set(quotations.map((qt) => qt.id)));
+                      }}
                     >
-                      เลือกลูกค้า
+                      {selectedIds.size === quotations.length ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
                     </Button>
-                  )}
-                  <CustomerPickerModal
-                    open={customerPickerOpen}
-                    customers={customers}
-                    selectedCustomerId={selectedCustomerId}
-                    taxSensitive
-                    onClose={() => setCustomerPickerOpen(false)}
-                    onSelect={(customer) => setSelectedCustomerId(customer.id)}
-                    onCreate={async (customer) => addCustomer(customer)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-label font-medium text-ink-600">
-                    วันที่ใบแจ้งหนี้
-                  </label>
-                  <DateInput
-                    value={issueDate}
-                    onChange={(event) => setIssueDate(event.target.value)}
-                  />
-                </div>
-                <div className="sm:col-span-2 overflow-hidden rounded-card border border-card-border bg-paper-soft">
-                  <button
-                    type="button"
-                    onClick={() => setDateExpanded((prev) => !prev)}
-                    className="flex w-full items-center justify-between gap-3 p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  >
-                    <div>
-                      <div className="text-label font-medium text-ink-700">ช่วงวันที่เสนอราคา</div>
-                      <div className="mt-0.5 text-label text-ink-500">{dateRangeSummary}</div>
-                    </div>
-                    <ChevronDown
-                      className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${dateExpanded ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                  {dateExpanded && (
-                    <div className="border-t border-card-border p-3">
-                      <div className="mb-2 text-label text-ink-500">
-                        ใช้กรองใบเสนอราคาที่พร้อมนำมาออกใบแจ้งหนี้
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(
-                          [
-                            ["thisMonth", "เดือนนี้"],
-                            ["previousMonth", "เดือนก่อน"],
-                            ["last90Days", "ย้อนหลัง 90 วัน"],
-                            ["all", "ทั้งหมด"],
-                          ] as const
-                        ).map(([preset, label]) => (
-                          <button
-                            key={preset}
-                            type="button"
-                            onClick={() => {
-                              setDatePreset(preset);
-                              if (preset === "all") {
-                                setDateFrom("");
-                                setDateTo("");
-                              } else if (preset === "last90Days") {
-                                setDateFrom(defaultQuotationStartString(businessToday));
-                                setDateTo(businessToday);
-                              } else {
-                                const range = monthRange(
-                                  businessToday,
-                                  preset === "previousMonth" ? -1 : 0,
-                                );
-                                setDateFrom(range.from);
-                                setDateTo(preset === "thisMonth" ? businessToday : range.to);
-                              }
-                            }}
-                            className={`rounded-full border px-2.5 py-1 text-label font-medium transition-colors ${datePreset === preset ? "border-primary bg-primary text-white" : "border-line bg-white text-ink-600 hover:border-primary/40"}`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1 block text-label font-medium text-ink-600">
-                            ตั้งแต่วันที่
-                          </label>
-                          <DateInput
-                            value={dateFrom}
-                            onChange={(event) => {
-                              setDatePreset("custom");
-                              setDateFrom(event.target.value);
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-label font-medium text-ink-600">
-                            ถึงวันที่
-                          </label>
-                          <DateInput
-                            value={dateTo}
-                            onChange={(event) => {
-                              setDatePreset("custom");
-                              setDateTo(event.target.value);
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {datePreset === "all" ? (
-                        <div className="mt-2 text-label text-ink-500">
-                          แสดงใบเสนอราคาที่พร้อมออกใบแจ้งหนี้ทั้งหมด
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-                <p className="text-label leading-5 text-ink-500 sm:col-span-2">
-                  ระบบแสดงเฉพาะรายการที่ยังไม่ถูกออกใบแจ้งหนี้ (คงเหลือหลังหักยอดที่ออกไปแล้ว)
-                  สามารถออกบิลทีละส่วนได้
-                </p>
-              </div>
-            )}
-          </FormStep>
-
-          <FormStep
-            number={2}
-            title="เลือกใบเสนอราคา"
-            description="เลือกใบเสนอราคาที่ต้องการออกบิล ระบบรองรับการออกบิลทีละส่วน (Partial)"
-            right={
-              quotations.length > 0 ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    if (selectedIds.size === quotations.length) setSelectedIds(new Set());
-                    else setSelectedIds(new Set(quotations.map((qt) => qt.id)));
-                  }}
-                >
-                  {selectedIds.size === quotations.length ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
-                </Button>
-              ) : undefined
-            }
-          >
-            {loadingQts ? (
-              <Spinner />
-            ) : !selectedCustomerId ? (
-              <EmptyState
-                title="เลือกลูกค้าก่อน"
-                description="ระบบจะแสดงใบเสนอราคาที่ส่งแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้"
-              />
-            ) : quotations.length === 0 ? (
-              <EmptyState
-                title="ไม่พบใบเสนอราคาที่พร้อมออกใบแจ้งหนี้"
-                description="ใบเสนอราคาทั้งหมดอาจถูกออกใบแจ้งหนี้ครบแล้ว หรือลองเปลี่ยนช่วงวันที่"
-              />
-            ) : (
-              <div className="space-y-2">
-                {quotations.map((qt) => (
-                  <button
-                    key={qt.id}
-                    type="button"
-                    onClick={() => toggleQt(qt.id)}
-                    className={`w-full rounded-card border p-3 text-left transition-colors ${selectedIds.has(qt.id) ? "border-primary bg-blue-50" : "border-card-border bg-white hover:bg-paper-field"}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(qt.id)}
-                        onChange={() => toggleQt(qt.id)}
-                        onClick={(event) => event.stopPropagation()}
-                        className="mt-1"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-ink-900">
-                            {qt.doc_number || "ไม่มีเลขเอกสาร"}
-                          </span>
-                          <span className="text-label text-ink-500">
-                            {docDate.date(qt.issue_date)}
-                          </span>
-                        </div>
-                        <div className="mt-1 text-label leading-5 text-ink-500">
-                          {buildItemSummary(
-                            qt.line_items.map((l) => ({ ...l, quantity: l.remaining })),
-                          )}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right text-label text-ink-500">
-                        <div>{qt.line_items.length} รายการ</div>
-                        <div className="mt-1 font-medium text-ink-700">
-                          ฿
-                          {formatCurrency(
-                            qt.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0),
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </FormStep>
-
-          <FormStep
-            number={3}
-            title="รายการที่จะออกบิล"
-            description="รายการคัดลอกจากใบเสนอราคา สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้"
-            right={
-              <div className="rounded-full bg-paper-warm px-2.5 py-1 text-label text-ink-600">
-                {selectedQuotations.length} ใบเสนอราคา / {invoiceLines.length} รายการต้นทาง
-              </div>
-            }
-          >
-            {billableLines.length === 0 ? (
-              <EmptyState
-                title="ยังไม่มีรายการที่จะออกบิล"
-                description="เลือกใบเสนอราคาด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)"
-              />
-            ) : (
-              <div className="space-y-3">
-                <div className="overflow-hidden rounded-card border border-card-border">
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[620px]">
-                      <LineGridHeaderRow />
-                      <div className="divide-y divide-card-border">
-                        {invoiceLines.map((l) => {
-                          const qtyChanged =
-                            l.quotedQty > 0 && Math.abs(l.quantity - l.quotedQty) > EPS;
-                          const priceChanged =
-                            l.qtUnitPrice > 0 && Math.abs(l.unit_price - l.qtUnitPrice) > EPS;
-                          return (
-                            <div
-                              key={l.key}
-                              className={`grid ${LINE_GRID_COLS} items-start gap-x-2 px-3 py-2`}
-                            >
-                              <div className="min-w-0">
-                                <input
-                                  value={l.item_name}
-                                  onChange={(event) =>
-                                    updateLine(l.key, { item_name: event.target.value })
-                                  }
-                                  placeholder="ชื่อรายการ"
-                                  className="w-full rounded-control border border-transparent bg-paper-field px-2 py-1.5 text-body font-medium text-ink-900 outline-none transition-colors placeholder:font-normal placeholder:text-ink-400 hover:border-line focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20"
-                                />
-                                <input
-                                  value={l.line_note}
-                                  onChange={(event) =>
-                                    updateLine(l.key, { line_note: event.target.value })
-                                  }
-                                  placeholder="+ รายละเอียด / สเปค"
-                                  className="mt-1 w-full rounded-control border border-transparent bg-transparent px-2 py-1 text-label text-ink-500 outline-none transition-colors placeholder:text-ink-300 hover:bg-paper-field focus:bg-paper-field focus:text-ink-900"
-                                />
-                              </div>
-                              <div>
-                                <NumericInput
-                                  bare
-                                  value={l.quantity}
-                                  maxFractionDigits={3}
-                                  onValueChange={(next) =>
-                                    updateLine(l.key, {
-                                      quantity: Math.max(0, Math.min(next, l.maxQty)),
-                                    })
-                                  }
-                                  className={numericInputClass(false)}
-                                />
-                                {qtyChanged && (
-                                  <div className="mt-0.5 text-right text-label leading-3 text-ink-400">
-                                    QT: {trimQty(l.quotedQty)}
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <input
-                                  value={l.unit}
-                                  onChange={(event) =>
-                                    updateLine(l.key, { unit: event.target.value })
-                                  }
-                                  className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-body text-ink-900 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
-                                />
-                              </div>
-                              <div>
-                                <NumericInput
-                                  bare
-                                  value={l.unit_price}
-                                  maxFractionDigits={2}
-                                  onValueChange={(next) =>
-                                    updateLine(l.key, { unit_price: Math.max(0, next) })
-                                  }
-                                  className={numericInputClass(priceChanged)}
-                                />
-                                {priceChanged && (
-                                  <div className="mt-0.5 text-right text-label font-medium leading-3 text-amber-600">
-                                    QT: {trimQty(l.qtUnitPrice)}
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <NumericInput
-                                  bare
-                                  value={l.discount_percent}
-                                  maxFractionDigits={2}
-                                  onValueChange={(next) =>
-                                    updateLine(l.key, {
-                                      discount_percent: Math.max(0, Math.min(100, next)),
-                                      discount_amount: 0,
-                                    })
-                                  }
-                                  className={numericInputClass(false)}
-                                />
-                              </div>
-                              <div className="pt-1.5 text-right text-body font-semibold tabular-nums text-ink-900">
-                                {formatCurrency(invoiceLineNet(l))}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeLine(l.key)}
-                                aria-label="ลบรายการ"
-                                className="mx-auto mt-1.5 text-ink-300 transition-colors hover:text-red-600"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <Button
-                    variant="secondary"
-                    className="w-full justify-center"
-                    onClick={addManualLine}
-                  >
-                    + เพิ่มรายการเพิ่มเติม (ค่าขนส่ง / ส่วนต่าง)
-                  </Button>
-                </div>
-              </div>
-            )}
-          </FormStep>
-
-          <DocumentOptionsCard number={4}>
-            <div className="py-3 first:pt-0 last:pb-0">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="text-body font-medium text-ink-800">รูปแบบเอกสาร</div>
-                  <p className="mt-0.5 text-label leading-5 text-ink-500">
-                    เลือกโหมดรายละเอียดหรือโหมดอ้างอิงในขั้นตอนตรวจสอบก่อนสร้าง
-                  </p>
-                </div>
-                <span className="text-label text-ink-400">เลือกตอนยืนยัน</span>
-              </div>
-            </div>
-            {taxSnapshot.vatRegistered && (
-              <div className="py-3 first:pt-0 last:pb-0">
-                <Select
-                  label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
-                  value={printTitleVariant}
-                  onChange={(event) => {
-                    setPrintTitleVariant(event.target.value);
-                    writeLastPrintTitleVariant(event.target.value);
-                  }}
-                >
-                  <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
-                  {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
-                    <option key={value} value={value}>
-                      {preset.thai}
-                    </option>
-                  ))}
-                </Select>
-                <p className="mt-1 text-label leading-4 text-ink-400">
-                  ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น — ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
-                </p>
-              </div>
-            )}
-          </DocumentOptionsCard>
-
-          <FormStep number={5} title="สรุปและบันทึก">
-            <div className="space-y-3">
-              <Select
-                label="ภาษีหัก ณ ที่จ่าย"
-                value={whtRate}
-                onChange={(event) => setWhtRate(event.target.value as WhtRate)}
+                  ) : undefined
+                }
               >
-                {WHT_RATE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-              <PoTaskFields
-                taskName={taskName}
-                onTaskNameChange={setTaskName}
-                customerPo={customerPo}
-                onCustomerPoChange={setCustomerPo}
-                taskSuggestions={referenceHistory.taskValues}
-                poSuggestions={referenceHistory.poValues}
-                sourceHint={
-                  selectedQuotations[0]?.customer_po_number?.trim() ||
-                  selectedQuotations[0]?.task_name?.trim()
-                    ? `ใบเสนอราคา ${selectedQuotations[0]?.doc_number || ""}`
-                    : null
+                {loadingQts ? (
+                  <Spinner />
+                ) : !selectedCustomerId ? (
+                  <EmptyState
+                    title="เลือกลูกค้าก่อน"
+                    description="ระบบจะแสดงใบเสนอราคาที่ส่งแล้วและยังไม่ถูกนำไปออกใบแจ้งหนี้"
+                  />
+                ) : quotations.length === 0 ? (
+                  <EmptyState
+                    title="ไม่พบใบเสนอราคาที่พร้อมออกใบแจ้งหนี้"
+                    description="ใบเสนอราคาทั้งหมดอาจถูกออกใบแจ้งหนี้ครบแล้ว หรือลองเปลี่ยนช่วงวันที่"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {quotations.map((qt) => (
+                      <button
+                        key={qt.id}
+                        type="button"
+                        onClick={() => toggleQt(qt.id)}
+                        className={`w-full rounded-card border p-3 text-left transition-colors ${selectedIds.has(qt.id) ? "border-primary bg-primary-soft" : "border-card-border bg-white hover:bg-paper-field"}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(qt.id)}
+                            onChange={() => toggleQt(qt.id)}
+                            onClick={(event) => event.stopPropagation()}
+                            className="mt-1"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-ink-900">
+                                {qt.doc_number || "ไม่มีเลขเอกสาร"}
+                              </span>
+                              <span className="text-label text-ink-500">
+                                {docDate.date(qt.issue_date)}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-label leading-5 text-ink-500">
+                              {buildItemSummary(
+                                qt.line_items.map((l) => ({ ...l, quantity: l.remaining })),
+                              )}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right text-label text-ink-500">
+                            <div>{qt.line_items.length} รายการ</div>
+                            <div className="mt-1 font-medium text-ink-700">
+                              ฿
+                              {formatCurrency(
+                                qt.line_items.reduce((sum, l) => sum + lineNetFromLine(l), 0),
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </FormStep>
+
+              <FormStep
+                id="invoiceq-step-lines"
+                number={3}
+                title="รายการที่จะออกบิล"
+                description="รายการคัดลอกจากใบเสนอราคา สามารถแก้ไขจำนวน ราคา รายละเอียด และส่วนลดได้ก่อนสร้างใบแจ้งหนี้"
+                right={
+                  <div className="rounded-full bg-paper-warm px-2.5 py-1 text-label text-ink-600">
+                    {selectedQuotations.length} ใบเสนอราคา / {invoiceLines.length} รายการต้นทาง
+                  </div>
                 }
-              />
-              <Input
-                label="บันทึก"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้"
-              />
-              <div className="rounded-card border border-card-border bg-paper-soft p-3 text-body">
-                <div className="mb-2 flex items-center gap-2 text-label font-medium text-ink-500">
-                  <FileStack className="h-3.5 w-3.5" />
-                  รวม {selectedQuotations.length} ใบเสนอราคา / {billableLines.length}{" "}
-                  รายการที่ออกบิล
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <span>รวมก่อนภาษี</span>
-                    <span>฿{formatCurrency(tax.subtotal)}</span>
-                  </div>
-                  {taxSnapshot.vatRegistered && (
-                    <div className="flex justify-between">
-                      <span>VAT {taxSnapshot.vatRate}%</span>
-                      <span>฿{formatCurrency(tax.vatAmount)}</span>
+              >
+                {billableLines.length === 0 ? (
+                  <EmptyState
+                    title="ยังไม่มีรายการที่จะออกบิล"
+                    description="เลือกใบเสนอราคาด้านบน จากนั้นปรับจำนวนที่ต้องการออกบิล (คงเหลือสามารถออกทีหลังได้)"
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="overflow-hidden rounded-card border border-card-border">
+                      <div className="overflow-x-auto">
+                        <div className="min-w-[620px]">
+                          <LineGridHeaderRow />
+                          <div className="divide-y divide-card-border">
+                            {invoiceLines.map((l) => {
+                              const qtyChanged =
+                                l.quotedQty > 0 && Math.abs(l.quantity - l.quotedQty) > EPS;
+                              const priceChanged =
+                                l.qtUnitPrice > 0 && Math.abs(l.unit_price - l.qtUnitPrice) > EPS;
+                              return (
+                                <div
+                                  key={l.key}
+                                  className={`grid ${LINE_GRID_COLS} items-start gap-x-2 px-3 py-2`}
+                                >
+                                  <div className="min-w-0">
+                                    <input
+                                      value={l.item_name}
+                                      onChange={(event) =>
+                                        updateLine(l.key, { item_name: event.target.value })
+                                      }
+                                      placeholder="ชื่อรายการ"
+                                      className="w-full rounded-control border border-transparent bg-paper-field px-2 py-1.5 text-body font-medium text-ink-900 outline-none transition-colors placeholder:font-normal placeholder:text-ink-400 hover:border-line focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20"
+                                    />
+                                    <input
+                                      value={l.line_note}
+                                      onChange={(event) =>
+                                        updateLine(l.key, { line_note: event.target.value })
+                                      }
+                                      placeholder="+ รายละเอียด / สเปค"
+                                      className="mt-1 w-full rounded-control border border-transparent bg-transparent px-2 py-1 text-label text-ink-500 outline-none transition-colors placeholder:text-ink-300 hover:bg-paper-field focus:bg-paper-field focus:text-ink-900"
+                                    />
+                                  </div>
+                                  <div>
+                                    <NumericInput
+                                      bare
+                                      value={l.quantity}
+                                      maxFractionDigits={3}
+                                      onValueChange={(next) =>
+                                        updateLine(l.key, {
+                                          quantity: Math.max(0, Math.min(next, l.maxQty)),
+                                        })
+                                      }
+                                      className={numericInputClass(false)}
+                                    />
+                                    {qtyChanged && (
+                                      <div className="mt-0.5 text-right text-label leading-3 text-ink-400">
+                                        QT: {trimQty(l.quotedQty)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <input
+                                      value={l.unit}
+                                      onChange={(event) =>
+                                        updateLine(l.key, { unit: event.target.value })
+                                      }
+                                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-body text-ink-900 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                    />
+                                  </div>
+                                  <div>
+                                    <NumericInput
+                                      bare
+                                      value={l.unit_price}
+                                      maxFractionDigits={2}
+                                      onValueChange={(next) =>
+                                        updateLine(l.key, { unit_price: Math.max(0, next) })
+                                      }
+                                      className={numericInputClass(priceChanged)}
+                                    />
+                                    {priceChanged && (
+                                      <div className="mt-0.5 text-right text-label font-medium leading-3 text-warning-text">
+                                        QT: {trimQty(l.qtUnitPrice)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <NumericInput
+                                      bare
+                                      value={l.discount_percent}
+                                      maxFractionDigits={2}
+                                      onValueChange={(next) =>
+                                        updateLine(l.key, {
+                                          discount_percent: Math.max(0, Math.min(100, next)),
+                                          discount_amount: 0,
+                                        })
+                                      }
+                                      className={numericInputClass(false)}
+                                    />
+                                  </div>
+                                  <div className="pt-1.5 text-right text-body font-semibold tabular-nums text-ink-900">
+                                    {formatCurrency(invoiceLineNet(l))}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeLine(l.key)}
+                                    aria-label="ลบรายการ"
+                                    className="mx-auto mt-1.5 text-ink-300 transition-colors hover:text-danger-text"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex justify-between font-medium">
-                    <span>รวมทั้งสิ้น</span>
-                    <span>฿{formatCurrency(tax.total)}</span>
-                  </div>
-                  {tax.whtAmount > 0 && (
-                    <div className="flex justify-between text-red-600">
-                      <span>หัก ณ ที่จ่าย {whtRate}%</span>
-                      <span>-฿{formatCurrency(tax.whtAmount)}</span>
+                    <div>
+                      <Button
+                        variant="secondary"
+                        className="w-full justify-center"
+                        onClick={addManualLine}
+                      >
+                        + เพิ่มรายการเพิ่มเติม (ค่าขนส่ง / ส่วนต่าง)
+                      </Button>
                     </div>
-                  )}
-                  <div className="flex justify-between border-t border-line-strong pt-2 text-title font-semibold">
-                    <span>ยอดชำระสุทธิ</span>
-                    <span>฿{formatCurrency(tax.netPayable)}</span>
+                  </div>
+                )}
+              </FormStep>
+
+              <DocumentOptionsCard id="invoiceq-step-options" number={4}>
+                <div className="py-3 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-body font-medium text-ink-800">รูปแบบเอกสาร</div>
+                      <p className="mt-0.5 text-label leading-5 text-ink-500">
+                        เลือกโหมดรายละเอียดหรือโหมดอ้างอิงในขั้นตอนตรวจสอบก่อนสร้าง
+                      </p>
+                    </div>
+                    <span className="text-label text-ink-400">เลือกตอนยืนยัน</span>
                   </div>
                 </div>
-              </div>
-              <EditableDocNumber
-                value={docNumberOverride}
-                onChange={setDocNumberOverride}
-                placeholder="เลขที่ใบแจ้งหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
-                autoGenerate={async () =>
-                  userId ? await resolveDocNumber(userId, "invoice", issueDate) : ""
-                }
-                className="mb-3"
+                {taxSnapshot.vatRegistered && (
+                  <div className="py-3 first:pt-0 last:pb-0">
+                    <Select
+                      label="ชื่อเรื่องบนหัวเอกสาร (สำหรับพิมพ์)"
+                      value={printTitleVariant}
+                      onChange={(event) => {
+                        setPrintTitleVariant(event.target.value);
+                        writeLastPrintTitleVariant(event.target.value);
+                      }}
+                    >
+                      <option value="">ใบกำกับภาษี (ค่าเริ่มต้น)</option>
+                      {Object.entries(PRINT_TITLE_PRESETS).map(([value, preset]) => (
+                        <option key={value} value={value}>
+                          {preset.thai}
+                        </option>
+                      ))}
+                    </Select>
+                    <p className="mt-1 text-label leading-4 text-ink-400">
+                      ใช้กับหัวกระดาษเมื่อพิมพ์/ออก PDF เท่านั้น —
+                      ประเภทเอกสารในระบบยังเป็นใบกำกับภาษี
+                    </p>
+                  </div>
+                )}
+              </DocumentOptionsCard>
+
+              <FormStep id="invoiceq-step-summary" number={5} title="สรุปและบันทึก">
+                <div className="space-y-3">
+                  <Select
+                    label="ภาษีหัก ณ ที่จ่าย"
+                    value={whtRate}
+                    onChange={(event) => setWhtRate(event.target.value as WhtRate)}
+                  >
+                    {WHT_RATE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <PoTaskFields
+                    taskName={taskName}
+                    onTaskNameChange={setTaskName}
+                    customerPo={customerPo}
+                    onCustomerPoChange={setCustomerPo}
+                    taskSuggestions={referenceHistory.taskValues}
+                    poSuggestions={referenceHistory.poValues}
+                    sourceHint={
+                      selectedQuotations[0]?.customer_po_number?.trim() ||
+                      selectedQuotations[0]?.task_name?.trim()
+                        ? `ใบเสนอราคา ${selectedQuotations[0]?.doc_number || ""}`
+                        : null
+                    }
+                  />
+                  <Input
+                    label="บันทึก"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="เช่น รวมใบเสนอราคาประจำเดือนนี้"
+                  />
+                  <div className="rounded-card border border-card-border bg-paper-soft p-3 text-body">
+                    <div className="mb-2 flex items-center gap-2 text-label font-medium text-ink-500">
+                      <FileStack className="h-3.5 w-3.5" />
+                      รวม {selectedQuotations.length} ใบเสนอราคา / {billableLines.length}{" "}
+                      รายการที่ออกบิล
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span>รวมก่อนภาษี</span>
+                        <span>฿{formatCurrency(tax.subtotal)}</span>
+                      </div>
+                      {taxSnapshot.vatRegistered && (
+                        <div className="flex justify-between">
+                          <span>VAT {taxSnapshot.vatRate}%</span>
+                          <span>฿{formatCurrency(tax.vatAmount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-medium">
+                        <span>รวมทั้งสิ้น</span>
+                        <span>฿{formatCurrency(tax.total)}</span>
+                      </div>
+                      {tax.whtAmount > 0 && (
+                        <div className="flex justify-between text-danger-text">
+                          <span>หัก ณ ที่จ่าย {whtRate}%</span>
+                          <span>-฿{formatCurrency(tax.whtAmount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-line-strong pt-2 text-title font-semibold">
+                        <span>ยอดชำระสุทธิ</span>
+                        <span>฿{formatCurrency(tax.netPayable)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <EditableDocNumber
+                    value={docNumberOverride}
+                    onChange={setDocNumberOverride}
+                    placeholder="เลขที่ใบแจ้งหนี้ (เว้นว่าง = สร้างอัตโนมัติ)"
+                    autoGenerate={async () =>
+                      userId ? await resolveDocNumber(userId, "invoice", issueDate) : ""
+                    }
+                    className="mb-3"
+                  />
+                </div>
+              </FormStep>
+
+              <FormActionBar
+                contextLabel={`${selectedCustomer?.name || ""} · ${billableLines.length} รายการ`}
+                totalLabel="ยอดสุทธิ"
+                total={tax.netPayable}
+                primary={{
+                  label: "ตรวจสอบและสร้างใบแจ้งหนี้",
+                  onClick: openConfirm,
+                  loading: saving,
+                  disabled: !canSave || saving,
+                }}
               />
             </div>
-          </FormStep>
-
-          <FormActionBar
-            contextLabel={`${selectedCustomer?.name || ""} · ${billableLines.length} รายการ`}
-            totalLabel="ยอดสุทธิ"
-            total={tax.netPayable}
-            primary={{
-              label: "ตรวจสอบและสร้างใบแจ้งหนี้",
-              onClick: openConfirm,
-              loading: saving,
-              disabled: !canSave || saving,
-            }}
-          />
+          </div>
         </div>
       </AppShell>
 

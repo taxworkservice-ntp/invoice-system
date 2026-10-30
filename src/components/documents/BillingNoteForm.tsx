@@ -11,7 +11,13 @@ import { EmptyState } from "../ui/EmptyState";
 import { Modal } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
 import { CustomerPickerModal } from "../customers/CustomerPickerModal";
-import { FormStep } from "./FormStep";
+import {
+  FormStep,
+  FormProgress,
+  FormStepRail,
+  useScrollSpy,
+  type FormProgressStep,
+} from "./FormStep";
 import { FormActionBar } from "./FormActionBar";
 import { useAuth, useClientProfile } from "../../hooks/useAuth";
 import { useCustomers } from "../../hooks/useCustomers";
@@ -33,10 +39,7 @@ import type {
   DocumentStatus,
   WhtRate,
 } from "../../types";
-import {
-  EditableDocNumber,
-  EditableDocNumberInline,
-} from "./EditableDocNumber";
+import { EditableDocNumber, EditableDocNumberInline } from "./EditableDocNumber";
 
 type InvoiceOption = Document & {
   line_items: DocumentLineItem[];
@@ -48,9 +51,7 @@ type InvoiceOption = Document & {
   isVoidedLinked?: boolean;
 };
 
-type FormErrors = Partial<
-  Record<"customer" | "invoices" | "dueDate" | "general", string>
->;
+type FormErrors = Partial<Record<"customer" | "invoices" | "dueDate" | "general", string>>;
 
 function resolveCreditTermDays(
   customer: Customer | null | undefined,
@@ -65,15 +66,11 @@ function buildItemSummary(items: DocumentLineItem[]) {
     .slice(0, 2)
     .map((item) => `${item.item_name} × ${item.quantity}`)
     .join(", ");
-  return items.length > 2
-    ? `${summary} และอีก ${items.length - 2} รายการ`
-    : summary;
+  return items.length > 2 ? `${summary} และอีก ${items.length - 2} รายการ` : summary;
 }
 
 function uniqueStrings(values: (string | null | undefined)[]) {
-  return [
-    ...new Set(values.filter((value): value is string => Boolean(value))),
-  ];
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
 function staticSkeletonLine(className: string) {
@@ -96,11 +93,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   const { clientProfile } = useClientProfile(userId);
   const businessToday = businessTodayString(clientProfile);
   const todayString = () => businessToday;
-  const {
-    customers,
-    loading: customersLoading,
-    addCustomer,
-  } = useCustomers(userId);
+  const { customers, loading: customersLoading, addCustomer } = useCustomers(userId);
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -109,22 +102,18 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   const [deleting, setDeleting] = useState(false);
   const [docNumberOverride, setDocNumberOverride] = useState("");
 
-  const [existingDocument, setExistingDocument] = useState<Document | null>(
-    null,
-  );
-  const [currentDocumentId, setCurrentDocumentId] = useState<
-    string | undefined
-  >(documentId);
+  const [existingDocument, setExistingDocument] = useState<Document | null>(null);
+  const [currentDocumentId, setCurrentDocumentId] = useState<string | undefined>(documentId);
   const [currentDeal, setCurrentDeal] = useState<
     (Pick<Deal, "id" | "title"> & { customer?: Customer | null }) | null
   >(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null,
-  );
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
   const [issueDate, setIssueDate] = useState(() => businessTodayString(clientProfile));
-  const [dueDate, setDueDate] = useState(() => addDaysString(businessTodayString(clientProfile), 7));
+  const [dueDate, setDueDate] = useState(() =>
+    addDaysString(businessTodayString(clientProfile), 7),
+  );
 
   useEffect(() => {
     if (!initialCustomerId || documentId || selectedCustomer) return;
@@ -137,16 +126,18 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
     const realToday = businessTodayString(null);
     if (issueDate === realToday) {
       setIssueDate(businessToday);
-      setDueDate(addDaysString(businessToday, resolveCreditTermDays(selectedCustomer, clientProfile?.credit_term_days)));
+      setDueDate(
+        addDaysString(
+          businessToday,
+          resolveCreditTermDays(selectedCustomer, clientProfile?.credit_term_days),
+        ),
+      );
     }
   }, [businessToday, clientProfile?.credit_term_days, documentId, issueDate, selectedCustomer]);
 
   useEffect(() => {
     if (clientProfile && !documentId) {
-      const days = resolveCreditTermDays(
-        selectedCustomer,
-        clientProfile.credit_term_days,
-      );
+      const days = resolveCreditTermDays(selectedCustomer, clientProfile.credit_term_days);
       setDueDate(addDaysString(issueDate, days));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,12 +153,8 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   const derivedPoTaskRef = useRef({ po: "", task: "" });
 
   const [invoiceOptions, setInvoiceOptions] = useState<InvoiceOption[]>([]);
-  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [savedInvoiceIds, setSavedInvoiceIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
+  const [savedInvoiceIds, setSavedInvoiceIds] = useState<Set<string>>(new Set());
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [otherDealsExpanded, setOtherDealsExpanded] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -183,8 +170,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   const selectedCustomerId = selectedCustomer?.id || null;
 
   const selectedInvoices = useMemo(
-    () =>
-      invoiceOptions.filter((invoice) => selectedInvoiceIds.has(invoice.id)),
+    () => invoiceOptions.filter((invoice) => selectedInvoiceIds.has(invoice.id)),
     [invoiceOptions, selectedInvoiceIds],
   );
 
@@ -217,14 +203,10 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   }, [dealId, invoiceOptions]);
 
   const otherDealInvoiceGroups = useMemo(() => {
-    const grouped = new Map<
-      string,
-      { dealId: string; label: string; invoices: InvoiceOption[] }
-    >();
+    const grouped = new Map<string, { dealId: string; label: string; invoices: InvoiceOption[] }>();
     for (const invoice of otherDealInvoices) {
       const key = invoice.deal_id || `no-deal-${invoice.id}`;
-      const label =
-        invoice.deal?.title || selectedCustomer?.name || "งานขายไม่มีชื่อ";
+      const label = invoice.deal?.title || selectedCustomer?.name || "งานขายไม่มีชื่อ";
       const group = grouped.get(key) || { dealId: key, label, invoices: [] };
       group.invoices.push(invoice);
       grouped.set(key, group);
@@ -233,18 +215,9 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   }, [otherDealInvoices, selectedCustomer?.name]);
 
   const totals = useMemo(() => {
-    const subtotal = selectedInvoices.reduce(
-      (sum, invoice) => sum + invoice.subtotal,
-      0,
-    );
-    const vatAmount = selectedInvoices.reduce(
-      (sum, invoice) => sum + invoice.vat_amount,
-      0,
-    );
-    const totalAmount = selectedInvoices.reduce(
-      (sum, invoice) => sum + invoice.total_amount,
-      0,
-    );
+    const subtotal = selectedInvoices.reduce((sum, invoice) => sum + invoice.subtotal, 0);
+    const vatAmount = selectedInvoices.reduce((sum, invoice) => sum + invoice.vat_amount, 0);
+    const totalAmount = selectedInvoices.reduce((sum, invoice) => sum + invoice.total_amount, 0);
     const whtPercent = parseFloat(whtRate);
     const whtAmount = Math.round(subtotal * whtPercent) / 100;
     const netPayable = Math.round((totalAmount - whtAmount) * 100) / 100;
@@ -257,30 +230,19 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
     };
   }, [selectedInvoices, whtRate]);
 
-  const pastDueDate = dueDate
-    ? new Date(dueDate) < new Date(todayString())
-    : false;
+  const pastDueDate = dueDate ? new Date(dueDate) < new Date(todayString()) : false;
 
   const loadInvoiceOptions = useCallback(
-    async (
-      customerId: string,
-      currentDocId?: string,
-      currentDealId?: string,
-    ) => {
+    async (customerId: string, currentDocId?: string, currentDealId?: string) => {
       if (!userId) return;
       setLoadingInvoices(true);
 
       const currentLinksPromise = currentDocId
-        ? supabase
-            .from("billing_note_invoices")
-            .select("*")
-            .eq("billing_note_id", currentDocId)
+        ? supabase.from("billing_note_invoices").select("*").eq("billing_note_id", currentDocId)
         : Promise.resolve({ data: [] as BillingNoteInvoice[], error: null });
 
       const { data: currentLinks } = await currentLinksPromise;
-      const currentLinkIds = new Set(
-        (currentLinks || []).map((link) => link.invoice_id),
-      );
+      const currentLinkIds = new Set((currentLinks || []).map((link) => link.invoice_id));
 
       const { data: invoiceDocs, error: invoiceError } = await supabase
         .from("documents")
@@ -297,68 +259,55 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
       }
 
       const invoiceIds = (invoiceDocs || []).map((invoice: any) => invoice.id);
-      const linkedInvoiceIds = [...currentLinkIds].filter(
-        (id) => !invoiceIds.includes(id),
-      );
+      const linkedInvoiceIds = [...currentLinkIds].filter((id) => !invoiceIds.includes(id));
       const allInvoiceIds = uniqueStrings([...invoiceIds, ...linkedInvoiceIds]);
 
       const missingInvoicesPromise = linkedInvoiceIds.length
-        ? supabase
-            .from("documents")
-            .select("*, deal:deal_id(id, title)")
-            .in("id", linkedInvoiceIds)
+        ? supabase.from("documents").select("*, deal:deal_id(id, title)").in("id", linkedInvoiceIds)
         : Promise.resolve({ data: [] as any[], error: null });
 
-      const [missingInvoicesResult, lineItemsResult, allLinksResult] =
-        await Promise.all([
-          missingInvoicesPromise,
-          allInvoiceIds.length
-            ? supabase
-                .from("document_line_items")
-                .select("*")
-                .in("document_id", allInvoiceIds)
-                .order("sort_order", { ascending: true })
-            : Promise.resolve({ data: [] as DocumentLineItem[], error: null }),
-          allInvoiceIds.length
-            ? supabase
-                .from("billing_note_invoices")
-                .select("invoice_id, billing_note_id")
-                .in("invoice_id", allInvoiceIds)
-            : Promise.resolve({
-                data: [] as { invoice_id: string; billing_note_id: string }[],
-                error: null,
-              }),
-        ]);
+      const [missingInvoicesResult, lineItemsResult, allLinksResult] = await Promise.all([
+        missingInvoicesPromise,
+        allInvoiceIds.length
+          ? supabase
+              .from("document_line_items")
+              .select("*")
+              .in("document_id", allInvoiceIds)
+              .order("sort_order", { ascending: true })
+          : Promise.resolve({ data: [] as DocumentLineItem[], error: null }),
+        allInvoiceIds.length
+          ? supabase
+              .from("billing_note_invoices")
+              .select("invoice_id, billing_note_id")
+              .in("invoice_id", allInvoiceIds)
+          : Promise.resolve({
+              data: [] as { invoice_id: string; billing_note_id: string }[],
+              error: null,
+            }),
+      ]);
 
       const allInvoicesRaw = [
         ...((invoiceDocs || []) as any[]),
         ...((missingInvoicesResult.data || []) as any[]),
       ];
       const lineItemsByInvoice = new Map<string, DocumentLineItem[]>();
-      ((lineItemsResult.data || []) as DocumentLineItem[]).forEach(
-        (lineItem) => {
-          const existing = lineItemsByInvoice.get(lineItem.document_id) || [];
-          existing.push(lineItem);
-          lineItemsByInvoice.set(lineItem.document_id, existing);
-        },
-      );
+      ((lineItemsResult.data || []) as DocumentLineItem[]).forEach((lineItem) => {
+        const existing = lineItemsByInvoice.get(lineItem.document_id) || [];
+        existing.push(lineItem);
+        lineItemsByInvoice.set(lineItem.document_id, existing);
+      });
 
       const billingNoteIds = uniqueStrings(
         (allLinksResult.data || []).map((link) => link.billing_note_id),
       );
       const { data: billingNoteDocs } = billingNoteIds.length
-        ? await supabase
-            .from("documents")
-            .select("id, status")
-            .in("id", billingNoteIds)
+        ? await supabase.from("documents").select("id, status").in("id", billingNoteIds)
         : { data: [] as Pick<Document, "id" | "status">[] };
 
       const billingNoteStatusMap = new Map<string, DocumentStatus>();
-      ((billingNoteDocs || []) as Pick<Document, "id" | "status">[]).forEach(
-        (billingDoc) => {
-          billingNoteStatusMap.set(billingDoc.id, billingDoc.status);
-        },
-      );
+      ((billingNoteDocs || []) as Pick<Document, "id" | "status">[]).forEach((billingDoc) => {
+        billingNoteStatusMap.set(billingDoc.id, billingDoc.status);
+      });
 
       const linkByInvoiceId = new Map<
         string,
@@ -383,8 +332,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
           const lineItems = lineItemsByInvoice.get(invoice.id) || [];
           const links = linkByInvoiceId.get(invoice.id) || [];
           const activeOtherLink = links.find(
-            (link) =>
-              link.billingNoteId !== currentDocId && link.status !== "voided",
+            (link) => link.billingNoteId !== currentDocId && link.status !== "voided",
           );
           const isCurrentLinked = currentLinkIds.has(invoice.id);
 
@@ -410,25 +358,16 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
       if (!initialHydratedRef.current) {
         if (currentDocId) {
           const validLinkedIds = options
-            .filter(
-              (invoice) =>
-                currentLinkIds.has(invoice.id) && invoice.status !== "voided",
-            )
+            .filter((invoice) => currentLinkIds.has(invoice.id) && invoice.status !== "voided")
             .map((invoice) => invoice.id);
           setSelectedInvoiceIds(new Set(validLinkedIds));
           setSavedInvoiceIds(new Set(validLinkedIds));
-          setShowVoidedWarning(
-            options.some((invoice) => invoice.isVoidedLinked),
-          );
+          setShowVoidedWarning(options.some((invoice) => invoice.isVoidedLinked));
         } else if (currentDealId) {
           setSelectedInvoiceIds(
             new Set(
               options
-                .filter(
-                  (invoice) =>
-                    invoice.deal_id === currentDealId &&
-                    invoice.status === "sent",
-                )
+                .filter((invoice) => invoice.deal_id === currentDealId && invoice.status === "sent")
                 .map((invoice) => invoice.id),
             ),
           );
@@ -471,20 +410,13 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
           document.due_date ||
             addDaysString(
               document.issue_date,
-              resolveCreditTermDays(
-                document.customer,
-                clientProfile?.credit_term_days,
-              ),
+              resolveCreditTermDays(document.customer, clientProfile?.credit_term_days),
             ),
         );
         setNote(document.note || "");
         setCustomerPo(document.customer_po_number || "");
         setTaskName(document.task_name || "");
-        setWhtRate(
-          String(
-            document.wht_rate || clientProfile?.default_wht_rate || "0",
-          ) as WhtRate,
-        );
+        setWhtRate(String(document.wht_rate || clientProfile?.default_wht_rate || "0") as WhtRate);
         setCurrentDeal(
           document.deal
             ? {
@@ -525,9 +457,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
         setWhtRate(clientProfile?.default_wht_rate || "0");
       }
     } catch (err: unknown) {
-      toast.error(
-        err instanceof Error ? err.message : "โหลดข้อมูลฟอร์มไม่สำเร็จ",
-      );
+      toast.error(err instanceof Error ? err.message : "โหลดข้อมูลฟอร์มไม่สำเร็จ");
       navigate("/documents", { replace: true });
     } finally {
       setLoading(false);
@@ -563,21 +493,11 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   }, [isDirty, isDraft, navigate, readOnly]);
 
   useEffect(() => {
-    if (
-      loading ||
-      !selectedCustomerId ||
-      documentId ||
-      dealId ||
-      !initialHydratedRef.current
-    )
+    if (loading || !selectedCustomerId || documentId || dealId || !initialHydratedRef.current)
       return;
-    loadInvoiceOptions(selectedCustomerId, currentDocumentId, undefined).catch(
-      (err: unknown) => {
-        toast.error(
-          err instanceof Error ? err.message : "โหลดใบแจ้งหนี้ไม่สำเร็จ",
-        );
-      },
-    );
+    loadInvoiceOptions(selectedCustomerId, currentDocumentId, undefined).catch((err: unknown) => {
+      toast.error(err instanceof Error ? err.message : "โหลดใบแจ้งหนี้ไม่สำเร็จ");
+    });
   }, [
     currentDocumentId,
     dealId,
@@ -592,10 +512,8 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
     const nextErrors: FormErrors = {};
     if (!selectedCustomerId) nextErrors.customer = "กรุณาเลือกลูกค้า";
     if (!dueDate) nextErrors.dueDate = "กรุณาระบุวันครบกำหนด";
-    else if (dueDate < issueDate)
-      nextErrors.dueDate = "วันครบกำหนดต้องไม่ก่อนวันที่ออกใบวางบิล";
-    if (selectedInvoiceIds.size === 0)
-      nextErrors.invoices = "กรุณาเลือกอย่างน้อย 1 ใบแจ้งหนี้";
+    else if (dueDate < issueDate) nextErrors.dueDate = "วันครบกำหนดต้องไม่ก่อนวันที่ออกใบวางบิล";
+    if (selectedInvoiceIds.size === 0) nextErrors.invoices = "กรุณาเลือกอย่างน้อย 1 ใบแจ้งหนี้";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }, [dueDate, issueDate, selectedCustomerId, selectedInvoiceIds.size]);
@@ -610,9 +528,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
       setSavedInvoiceIds(new Set());
       initialHydratedRef.current = true;
       loadInvoiceOptions(customer.id).catch((err: unknown) => {
-        toast.error(
-          err instanceof Error ? err.message : "โหลดใบแจ้งหนี้ไม่สำเร็จ",
-        );
+        toast.error(err instanceof Error ? err.message : "โหลดใบแจ้งหนี้ไม่สำเร็จ");
       });
     },
     [loadInvoiceOptions, toast],
@@ -629,9 +545,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
 
       const previouslySavedIds = [...savedInvoiceIds];
       const currentlySelectedIds = [...selectedInvoiceIds];
-      const deselectedIds = previouslySavedIds.filter(
-        (id) => !selectedInvoiceIds.has(id),
-      );
+      const deselectedIds = previouslySavedIds.filter((id) => !selectedInvoiceIds.has(id));
       const selectedInvoicesNow = invoiceOptions.filter((invoice) =>
         selectedInvoiceIds.has(invoice.id),
       );
@@ -650,8 +564,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
           .single();
 
         if (dealError || !createdDeal) {
-          const message =
-            dealError?.message || "ไม่สามารถสร้างดีลสำหรับใบวางบิลได้";
+          const message = dealError?.message || "ไม่สามารถสร้างดีลสำหรับใบวางบิลได้";
           setErrors((prev) => ({ ...prev, general: message }));
           toast.error(message);
           return null;
@@ -671,9 +584,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
         status: existingDocument?.status === "paid" ? "paid" : "draft",
         issue_date: issueDate,
         due_date: dueDate,
-        vat_registered: selectedInvoicesNow.some(
-          (invoice) => invoice.vat_registered,
-        ),
+        vat_registered: selectedInvoicesNow.some((invoice) => invoice.vat_registered),
         vat_rate: clientProfile?.vat_rate ?? 7,
         wht_rate: parseFloat(whtRate),
         subtotal: totals.subtotal,
@@ -692,11 +603,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
       }
 
       if (options?.assignDocNumber && !payload.doc_number) {
-        payload.doc_number = await resolveDocNumber(
-          userId,
-          "billing_note",
-          issueDate,
-        );
+        payload.doc_number = await resolveDocNumber(userId, "billing_note", issueDate);
       }
 
       try {
@@ -707,19 +614,11 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
               .eq("id", payload.id)
               .select("*")
               .single()
-          : await supabase
-              .from("documents")
-              .insert(payload)
-              .select("*")
-              .single();
+          : await supabase.from("documents").insert(payload).select("*").single();
 
-        if (docError || !savedDoc)
-          throw docError || new Error("ไม่สามารถบันทึกใบวางบิลได้");
+        if (docError || !savedDoc) throw docError || new Error("ไม่สามารถบันทึกใบวางบิลได้");
 
-        await supabase
-          .from("billing_note_invoices")
-          .delete()
-          .eq("billing_note_id", savedDoc.id);
+        await supabase.from("billing_note_invoices").delete().eq("billing_note_id", savedDoc.id);
 
         const linkRows = selectedInvoicesNow.map((invoice) => ({
           billing_note_id: savedDoc.id,
@@ -732,9 +631,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
           total_amount: invoice.total_amount,
         }));
 
-        const { error: linkError } = await supabase
-          .from("billing_note_invoices")
-          .insert(linkRows);
+        const { error: linkError } = await supabase.from("billing_note_invoices").insert(linkRows);
         if (linkError) {
           // Roll back the orphaned billing-note document if its links were
           // rejected (e.g. the DB guard blocked a duplicate active link).
@@ -779,9 +676,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
         if ((savedDoc as Document).status !== "draft") warmPdfCache(savedDoc.id);
 
         if (options?.showToast) {
-          toast.success(
-            options.navigateToDetail ? "บันทึกใบวางบิลแล้ว" : "บันทึกร่างแล้ว",
-          );
+          toast.success(options.navigateToDetail ? "บันทึกใบวางบิลแล้ว" : "บันทึกร่างแล้ว");
         }
 
         if (options?.navigateToDetail) {
@@ -792,8 +687,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
 
         return savedDoc as Document;
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "บันทึกใบวางบิลไม่สำเร็จ";
+        const message = err instanceof Error ? err.message : "บันทึกใบวางบิลไม่สำเร็จ";
         toast.error(message);
         setErrors((prev) => ({ ...prev, general: message }));
         return null;
@@ -861,12 +755,7 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
   const toggleInvoice = (invoiceId: string) => {
     if (readOnly) return;
     const invoice = invoiceOptions.find((option) => option.id === invoiceId);
-    if (
-      !invoice ||
-      invoice.isLockedByOtherBillingNote ||
-      invoice.isVoidedLinked
-    )
-      return;
+    if (!invoice || invoice.isLockedByOtherBillingNote || invoice.isVoidedLinked) return;
     setIsDirty(true);
     setSelectedInvoiceIds((prev) => {
       const next = new Set(prev);
@@ -906,6 +795,12 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
       </button>
     ) : undefined;
 
+  const spyActive = useScrollSpy([
+    "billing-step-customer",
+    "billing-step-invoices",
+    "billing-step-summary",
+  ]);
+
   if (loading || customersLoading) {
     return (
       <AppShell title="ใบวางบิล" showBack onBack={requestBack} action={topAction}>
@@ -924,479 +819,501 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
     );
   }
 
+  const step1Done = Boolean(selectedCustomer && issueDate && dueDate);
+  const step2Done = selectedInvoices.length > 0;
+  const guideSteps: FormProgressStep[] = [
+    {
+      label: "ลูกค้าและวันที่",
+      state: step1Done ? "done" : "current",
+      targetId: "billing-step-customer",
+    },
+    {
+      label: "ใบแจ้งหนี้",
+      state: step2Done ? "done" : step1Done ? "current" : "todo",
+      targetId: "billing-step-invoices",
+    },
+    {
+      label: "สรุป",
+      state: step2Done ? "current" : "todo",
+      targetId: "billing-step-summary",
+    },
+  ];
+
+  const scrollToId = (id: string) => {
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 30);
+  };
+
   return (
     <AppShell title="ใบวางบิล" showBack onBack={requestBack} action={topAction}>
       <div className="space-y-4 pb-24">
-        {showVoidedWarning && (
-          <div className="rounded-card border border-yellow-200 bg-yellow-50 p-4 text-body text-yellow-800">
-            <div className="flex items-start gap-2">
-              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-              <div>
-                <div className="font-medium">
-                  ใบแจ้งหนี้ที่เชื่อมอยู่ถูกยกเลิกแล้ว
-                </div>
-                <div className="mt-1 text-label text-yellow-700">
-                  กรุณาตรวจสอบรายการที่เลือกก่อนส่งอีกครั้ง
+        <div className="lg:hidden">
+          <FormProgress steps={guideSteps} onSelect={scrollToId} />
+        </div>
+        <div className="lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-4">
+          <FormStepRail steps={guideSteps} onSelect={scrollToId} activeId={spyActive} />
+          <div className="min-w-0 space-y-4">
+            {showVoidedWarning && (
+              <div className="rounded-card border border-warning-border bg-warning-soft p-4 text-body text-warning-text">
+                <div className="flex items-start gap-2">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <div className="font-medium">ใบแจ้งหนี้ที่เชื่อมอยู่ถูกยกเลิกแล้ว</div>
+                    <div className="mt-1 text-label text-warning-text">
+                      กรุณาตรวจสอบรายการที่เลือกก่อนส่งอีกครั้ง
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {existingDocument?.status === "paid" && (
-          <div className="rounded-card border border-green-200 bg-green-50 p-4 text-body text-green-800">
-            <div className="font-medium">ชำระแล้ว — เอกสารนี้ปิดแล้ว</div>
-          </div>
-        )}
-
-        {errors.general && (
-          <div className="rounded-card border border-red-200 bg-red-50 p-3 text-body text-red-600">
-            {errors.general}
-          </div>
-        )}
-
-        <Card>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-subtitle font-semibold text-ink-900">ใบวางบิล</div>
-              <div className="mt-1 text-body text-ink-500">
-                {selectedCustomer?.name || "ยังไม่ได้เลือกลูกค้า"}
+            {existingDocument?.status === "paid" && (
+              <div className="rounded-card border border-success-border bg-success-soft p-4 text-body text-success-text">
+                <div className="font-medium">ชำระแล้ว — เอกสารนี้ปิดแล้ว</div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge status={existingDocument?.status || "draft"} />
-              <EditableDocNumberInline
-                value={existingDocument?.doc_number || "-"}
-                onSave={async (newValue) => {
-                  if (!currentDocumentId || !userId) return;
-                  await assertDocNumberAvailable(userId, newValue, currentDocumentId);
-                  const { error } = await supabase
-                    .from("documents")
-                    .update({ doc_number: newValue })
-                    .eq("id", currentDocumentId);
-                  if (error) throw error;
-                  setExistingDocument((prev) =>
-                    prev ? { ...prev, doc_number: newValue } : prev,
-                  );
-                }}
-              />
-              {!existingDocument?.doc_number && (
-                <span className="text-label text-ink-500">
-                  ร่าง — ยังไม่มีเลขที่
-                </span>
-              )}
-            </div>
-          </div>
-        </Card>
+            )}
 
-        <FormStep number={1} title="ลูกค้าและวันที่">
-          {customerLocked ? (
-            selectedCustomer ? (
-              <div className="rounded-card border border-card-border bg-page-bg p-3">
-                <div className="text-body font-medium text-ink-900">
-                  {selectedCustomer.name}
+            {errors.general && (
+              <div className="rounded-card border border-danger-border bg-danger-soft p-3 text-body text-danger-text">
+                {errors.general}
+              </div>
+            )}
+
+            <Card>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-subtitle font-semibold text-ink-900">ใบวางบิล</div>
+                  <div className="mt-1 text-body text-ink-500">
+                    {selectedCustomer?.name || "ยังไม่ได้เลือกลูกค้า"}
+                  </div>
                 </div>
-                {selectedCustomer.tax_id && (
-                  <div className="mt-1 text-label text-ink-500">
-                    เลขผู้เสียภาษี: {selectedCustomer.tax_id}
-                  </div>
-                )}
-                {selectedCustomer.address && (
-                  <div className="mt-1 text-label text-ink-500 whitespace-pre-wrap">
-                    {selectedCustomer.address}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Spinner />
-            )
-          ) : selectedCustomer ? (
-            <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
-              <div className="min-w-0">
-                <div className="text-body font-medium text-ink-900">
-                  {selectedCustomer.name}
+                <div className="flex items-center gap-2">
+                  <Badge status={existingDocument?.status || "draft"} />
+                  <EditableDocNumberInline
+                    value={existingDocument?.doc_number || "-"}
+                    onSave={async (newValue) => {
+                      if (!currentDocumentId || !userId) return;
+                      await assertDocNumberAvailable(userId, newValue, currentDocumentId);
+                      const { error } = await supabase
+                        .from("documents")
+                        .update({ doc_number: newValue })
+                        .eq("id", currentDocumentId);
+                      if (error) throw error;
+                      setExistingDocument((prev) =>
+                        prev ? { ...prev, doc_number: newValue } : prev,
+                      );
+                    }}
+                  />
+                  {!existingDocument?.doc_number && (
+                    <span className="text-label text-ink-500">ร่าง — ยังไม่มีเลขที่</span>
+                  )}
                 </div>
-                {selectedCustomer.tax_id && (
-                  <div className="mt-1 text-label text-ink-500">
-                    เลขผู้เสียภาษี: {selectedCustomer.tax_id}
-                  </div>
-                )}
-                {selectedCustomer.address && (
-                  <div className="mt-1 line-clamp-2 text-label text-ink-500">
-                    {selectedCustomer.address}
-                  </div>
-                )}
-                {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
-                  <div className="mt-1 text-label text-amber-600">
-                    ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี
-                  </div>
-                )}
               </div>
-              {!readOnly && (
+            </Card>
+
+            <FormStep id="billing-step-customer" number={1} title="ลูกค้าและวันที่">
+              {customerLocked ? (
+                selectedCustomer ? (
+                  <div className="rounded-card border border-card-border bg-page-bg p-3">
+                    <div className="text-body font-medium text-ink-900">
+                      {selectedCustomer.name}
+                    </div>
+                    {selectedCustomer.tax_id && (
+                      <div className="mt-1 text-label text-ink-500">
+                        เลขผู้เสียภาษี: {selectedCustomer.tax_id}
+                      </div>
+                    )}
+                    {selectedCustomer.address && (
+                      <div className="mt-1 text-label text-ink-500 whitespace-pre-wrap">
+                        {selectedCustomer.address}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Spinner />
+                )
+              ) : selectedCustomer ? (
+                <div className="flex items-start justify-between gap-3 rounded-card border border-card-border bg-paper-soft p-3">
+                  <div className="min-w-0">
+                    <div className="text-body font-medium text-ink-900">
+                      {selectedCustomer.name}
+                    </div>
+                    {selectedCustomer.tax_id && (
+                      <div className="mt-1 text-label text-ink-500">
+                        เลขผู้เสียภาษี: {selectedCustomer.tax_id}
+                      </div>
+                    )}
+                    {selectedCustomer.address && (
+                      <div className="mt-1 line-clamp-2 text-label text-ink-500">
+                        {selectedCustomer.address}
+                      </div>
+                    )}
+                    {(!selectedCustomer.tax_id || !selectedCustomer.address) && (
+                      <div className="mt-1 text-label text-warning-text">
+                        ข้อมูลลูกค้ายังไม่ครบสำหรับเอกสารภาษี
+                      </div>
+                    )}
+                  </div>
+                  {!readOnly && (
+                    <Button variant="ghost" size="sm" onClick={() => setCustomerPickerOpen(true)}>
+                      เปลี่ยน
+                    </Button>
+                  )}
+                </div>
+              ) : (
                 <Button
-                  variant="ghost"
-                  size="sm"
+                  variant="secondary"
+                  className="w-full justify-center"
+                  disabled={readOnly}
                   onClick={() => setCustomerPickerOpen(true)}
                 >
-                  เปลี่ยน
+                  เลือกลูกค้า
                 </Button>
               )}
-            </div>
-          ) : (
-            <Button
-              variant="secondary"
-              className="w-full justify-center"
-              disabled={readOnly}
-              onClick={() => setCustomerPickerOpen(true)}
-            >
-              เลือกลูกค้า
-            </Button>
-          )}
-          {errors.customer && (
-            <div className="mt-2 text-label text-red-500">{errors.customer}</div>
-          )}
-          <CustomerPickerModal
-            open={customerPickerOpen && !readOnly}
-            customers={customers}
-            selectedCustomerId={selectedCustomer?.id}
-            taxSensitive
-            onClose={() => setCustomerPickerOpen(false)}
-            onSelect={handleSelectCustomer}
-            onCreate={async (customer) => addCustomer(customer)}
-          />
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label htmlFor="issueDate" className="block text-label font-medium text-ink-600 mb-1">
-                วันที่ออกใบวางบิล
-              </label>
-              <DateInput
-                id="issueDate"
-                value={issueDate}
-                onChange={(event) => {
-                  setIsDirty(true);
-                  const nextValue = event.target.value;
-                  setIssueDate(nextValue);
-                  setDueDate(
-                    addDaysString(
-                      nextValue,
-                      resolveCreditTermDays(
-                        selectedCustomer,
-                        clientProfile?.credit_term_days,
-                      ),
-                    ),
-                  );
-                }}
-                disabled={readOnly}
-              />
-              <div className="mt-1 text-label text-ink-500">
-                {docDate.date(issueDate)}
-              </div>
-            </div>
-            <div>
-              <label htmlFor="dueDate" className="block text-label font-medium text-ink-600 mb-1">
-                ครบกำหนดชำระ
-              </label>
-              <DateInput
-                id="dueDate"
-                value={dueDate}
-                onChange={(event) => {
-                  setIsDirty(true);
-                  setDueDate(event.target.value);
-                  setErrors((prev) => ({ ...prev, dueDate: "" }));
-                }}
-                disabled={readOnly}
-                className={errors.dueDate ? "border-red-400" : ""}
-              />{errors.dueDate && <p className="text-label text-red-500 mt-1">{errors.dueDate}</p>}
-              <div className="mt-1 text-label text-ink-500">
-                {dueDate ? docDate.date(dueDate) : "-"}
-              </div>
-              {pastDueDate && (
-                <div className="mt-1 flex items-center gap-1 text-label text-amber-600">
-                  <TriangleAlert className="h-3.5 w-3.5" />
-                  <span>วันครบกำหนดผ่านมาแล้ว</span>
-                </div>
+              {errors.customer && (
+                <div className="mt-2 text-label text-danger-text">{errors.customer}</div>
               )}
-            </div>
-          </div>
-        </FormStep>
-
-        <FormStep
-          number={2}
-          title="เลือกใบแจ้งหนี้"
-          right={
-            selectableInvoiceIds.length > 0 && !readOnly ? (
-              <Button variant="secondary" size="sm" onClick={toggleAllInvoices}>
-                {allSelectableSelected ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
-              </Button>
-            ) : undefined
-          }
-        >
-          {!selectedCustomerId ? (
-            <div className="rounded-card border border-dashed border-card-border bg-page-bg px-4 py-6 text-center text-body text-ink-500">
-              เลือกลูกค้าก่อนเพื่อดูใบแจ้งหนี้
-            </div>
-          ) : loadingInvoices ? (
-            <div className="space-y-2">
-              {[0, 1, 2].map((index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 rounded-card border border-card-border px-3 py-3"
-                >
-                  {staticSkeletonLine("h-5 w-5 rounded")}
-                  <div className="flex-1 space-y-2">
-                    {staticSkeletonLine("h-4 w-28")}
-                    {staticSkeletonLine("h-3 w-48")}
-                  </div>
-                  {staticSkeletonLine("h-4 w-16")}
-                </div>
-              ))}
-            </div>
-          ) : invoiceOptions.length === 0 ? (
-            <EmptyState
-              title="ไม่มีใบแจ้งหนี้ที่รอชำระ"
-              description="ลูกค้ารายนี้ไม่มีใบแจ้งหนี้ค้างชำระ"
-              action={
-                dealId ? (
-                  <button
-                    className="text-body font-medium text-primary"
-                    onClick={() => createDocument("invoice", { dealId })}
+              <CustomerPickerModal
+                open={customerPickerOpen && !readOnly}
+                customers={customers}
+                selectedCustomerId={selectedCustomer?.id}
+                taxSensitive
+                onClose={() => setCustomerPickerOpen(false)}
+                onSelect={handleSelectCustomer}
+                onCreate={async (customer) => addCustomer(customer)}
+              />
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="issueDate"
+                    className="block text-label font-medium text-ink-600 mb-1"
                   >
-                    สร้างใบแจ้งหนี้ใหม่ →
-                  </button>
+                    วันที่ออกใบวางบิล
+                  </label>
+                  <DateInput
+                    id="issueDate"
+                    value={issueDate}
+                    onChange={(event) => {
+                      setIsDirty(true);
+                      const nextValue = event.target.value;
+                      setIssueDate(nextValue);
+                      setDueDate(
+                        addDaysString(
+                          nextValue,
+                          resolveCreditTermDays(selectedCustomer, clientProfile?.credit_term_days),
+                        ),
+                      );
+                    }}
+                    disabled={readOnly}
+                  />
+                  <div className="mt-1 text-label text-ink-500">{docDate.date(issueDate)}</div>
+                </div>
+                <div>
+                  <label
+                    htmlFor="dueDate"
+                    className="block text-label font-medium text-ink-600 mb-1"
+                  >
+                    ครบกำหนดชำระ
+                  </label>
+                  <DateInput
+                    id="dueDate"
+                    value={dueDate}
+                    onChange={(event) => {
+                      setIsDirty(true);
+                      setDueDate(event.target.value);
+                      setErrors((prev) => ({ ...prev, dueDate: "" }));
+                    }}
+                    disabled={readOnly}
+                    className={errors.dueDate ? "border-danger" : ""}
+                  />
+                  {errors.dueDate && (
+                    <p className="text-label text-danger-text mt-1">{errors.dueDate}</p>
+                  )}
+                  <div className="mt-1 text-label text-ink-500">
+                    {dueDate ? docDate.date(dueDate) : "-"}
+                  </div>
+                  {pastDueDate && (
+                    <div className="mt-1 flex items-center gap-1 text-label text-warning-text">
+                      <TriangleAlert className="h-3.5 w-3.5" />
+                      <span>วันครบกำหนดผ่านมาแล้ว</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </FormStep>
+
+            <FormStep
+              id="billing-step-invoices"
+              number={2}
+              title="เลือกใบแจ้งหนี้"
+              right={
+                selectableInvoiceIds.length > 0 && !readOnly ? (
+                  <Button variant="secondary" size="sm" onClick={toggleAllInvoices}>
+                    {allSelectableSelected ? "ล้างที่เลือก" : "เลือกทั้งหมด"}
+                  </Button>
                 ) : undefined
               }
-            />
-          ) : (
-            <div className="space-y-3">
-              {dealId && availableCurrentDealInvoices.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-label text-ink-400">จากงานขายนี้</div>
-                  {availableCurrentDealInvoices.map((invoice) => (
-                    <InvoiceRow
-                      key={invoice.id}
-                      invoice={invoice}
-                      checked={selectedInvoiceIds.has(invoice.id)}
-                      disabled={Boolean(readOnly || invoice.isVoidedLinked)}
-                      onToggle={() => toggleInvoice(invoice.id)}
-                    />
+            >
+              {!selectedCustomerId ? (
+                <div className="rounded-card border border-dashed border-card-border bg-page-bg px-4 py-6 text-center text-body text-ink-500">
+                  เลือกลูกค้าก่อนเพื่อดูใบแจ้งหนี้
+                </div>
+              ) : loadingInvoices ? (
+                <div className="space-y-2">
+                  {[0, 1, 2].map((index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 rounded-card border border-card-border px-3 py-3"
+                    >
+                      {staticSkeletonLine("h-5 w-5 rounded")}
+                      <div className="flex-1 space-y-2">
+                        {staticSkeletonLine("h-4 w-28")}
+                        {staticSkeletonLine("h-3 w-48")}
+                      </div>
+                      {staticSkeletonLine("h-4 w-16")}
+                    </div>
                   ))}
                 </div>
-              )}
+              ) : invoiceOptions.length === 0 ? (
+                <EmptyState
+                  title="ไม่มีใบแจ้งหนี้ที่รอชำระ"
+                  description="ลูกค้ารายนี้ไม่มีใบแจ้งหนี้ค้างชำระ"
+                  action={
+                    dealId ? (
+                      <button
+                        className="text-body font-medium text-primary"
+                        onClick={() => createDocument("invoice", { dealId })}
+                      >
+                        สร้างใบแจ้งหนี้ใหม่ →
+                      </button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <div className="space-y-3">
+                  {dealId && availableCurrentDealInvoices.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-label text-ink-400">จากงานขายนี้</div>
+                      {availableCurrentDealInvoices.map((invoice) => (
+                        <InvoiceRow
+                          key={invoice.id}
+                          invoice={invoice}
+                          checked={selectedInvoiceIds.has(invoice.id)}
+                          disabled={Boolean(readOnly || invoice.isVoidedLinked)}
+                          onToggle={() => toggleInvoice(invoice.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
 
-              {otherDealInvoices.length > 0 && (
-                <div className="rounded-card border border-card-border">
-                  <button
-                    className="flex w-full items-center justify-between px-3 py-3 text-left text-body font-medium text-primary"
-                    onClick={() => setOtherDealsExpanded((prev) => !prev)}
-                    type="button"
-                  >
-                    <span>
-                      เพิ่มใบแจ้งหนี้จากงานขายอื่น ({otherDealInvoices.length}{" "}
-                      รายการ)
-                    </span>
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform ${otherDealsExpanded ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                  {otherDealsExpanded && (
-                    <div className="border-t border-card-border px-3 py-3">
-                      <div className="space-y-3">
-                        {otherDealInvoiceGroups.map((group) => (
-                          <div key={group.dealId} className="space-y-1">
-                            <div className="text-label text-ink-400">
-                              งานขาย: {group.label}
-                            </div>
-                            {group.invoices.map((invoice) => (
-                              <InvoiceRow
-                                key={invoice.id}
-                                invoice={invoice}
-                                checked={selectedInvoiceIds.has(invoice.id)}
-                                disabled={Boolean(
-                                  readOnly || invoice.isVoidedLinked,
-                                )}
-                                onToggle={() => toggleInvoice(invoice.id)}
-                              />
+                  {otherDealInvoices.length > 0 && (
+                    <div className="rounded-card border border-card-border">
+                      <button
+                        className="flex w-full items-center justify-between px-3 py-3 text-left text-body font-medium text-primary"
+                        onClick={() => setOtherDealsExpanded((prev) => !prev)}
+                        type="button"
+                      >
+                        <span>
+                          เพิ่มใบแจ้งหนี้จากงานขายอื่น ({otherDealInvoices.length} รายการ)
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${otherDealsExpanded ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                      {otherDealsExpanded && (
+                        <div className="border-t border-card-border px-3 py-3">
+                          <div className="space-y-3">
+                            {otherDealInvoiceGroups.map((group) => (
+                              <div key={group.dealId} className="space-y-1">
+                                <div className="text-label text-ink-400">งานขาย: {group.label}</div>
+                                {group.invoices.map((invoice) => (
+                                  <InvoiceRow
+                                    key={invoice.id}
+                                    invoice={invoice}
+                                    checked={selectedInvoiceIds.has(invoice.id)}
+                                    disabled={Boolean(readOnly || invoice.isVoidedLinked)}
+                                    onToggle={() => toggleInvoice(invoice.id)}
+                                  />
+                                ))}
+                              </div>
                             ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
-            </div>
-          )}
-          {errors.invoices && (
-            <div className="mt-2 text-label text-red-500">{errors.invoices}</div>
-          )}
-        </FormStep>
+              {errors.invoices && (
+                <div className="mt-2 text-label text-danger-text">{errors.invoices}</div>
+              )}
+            </FormStep>
 
-        <FormStep number={3} title="สรุปและบันทึก">
-          {selectedInvoices.length === 0 ? (
-            <div className="text-body text-ink-500">
-              ยังไม่ได้เลือกใบแจ้งหนี้
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                {selectedInvoices.map((invoice) => (
-                  <div
-                    key={invoice.id}
-                    className="border-b border-draft-bg pb-2 last:border-0"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-body font-medium text-ink-900">
-                          {invoice.doc_number}
-                        </div>
-                        <div className="text-label text-ink-500">
-                          {docDate.date(invoice.issue_date)}
-                        </div>
-                      </div>
-                      <div className="text-right text-label text-ink-700">
-                        <div>
-                          ฿{" "}
-                          {invoice.subtotal.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
-                        </div>
-                        <div>
-                          VAT ฿{" "}
-                          {invoice.vat_amount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
-                        </div>
-                        <div>
-                          รวม ฿{" "}
-                          {invoice.total_amount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
+            <FormStep id="billing-step-summary" number={3} title="สรุปและบันทึก">
+              {selectedInvoices.length === 0 ? (
+                <div className="text-body text-ink-500">ยังไม่ได้เลือกใบแจ้งหนี้</div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {selectedInvoices.map((invoice) => (
+                      <div key={invoice.id} className="border-b border-draft-bg pb-2 last:border-0">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-body font-medium text-ink-900">
+                              {invoice.doc_number}
+                            </div>
+                            <div className="text-label text-ink-500">
+                              {docDate.date(invoice.issue_date)}
+                            </div>
+                          </div>
+                          <div className="text-right text-label text-ink-700">
+                            <div>
+                              ฿{" "}
+                              {invoice.subtotal.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div>
+                              VAT ฿{" "}
+                              {invoice.vat_amount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div>
+                              รวม ฿{" "}
+                              {invoice.total_amount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })}
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-card-border pt-3 text-body">
+                    <div className="flex justify-between py-1">
+                      <span className="text-ink-500">ราคารวมทั้งหมด</span>
+                      <span>
+                        ฿{" "}
+                        {totals.subtotal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-ink-500">VAT รวม</span>
+                      <span>
+                        ฿{" "}
+                        {totals.vatAmount.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div className="my-2 h-px bg-card-border" />
+                    <div className="flex justify-between py-1 font-medium">
+                      <span>รวมทั้งสิ้น</span>
+                      <span>
+                        ฿{" "}
+                        {totals.totalAmount.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 text-danger-text">
+                      <span>หัก ณ ที่จ่าย {whtRate}%</span>
+                      <span>
+                        -฿{" "}
+                        {totals.whtAmount.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div className="my-2 h-px bg-card-border" />
+                    <div className="flex justify-between py-1 text-title font-semibold text-ink-900">
+                      <span>ยอดที่ต้องชำระ</span>
+                      <span>
+                        ฿{" "}
+                        {totals.netPayable.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
                     </div>
                   </div>
+                </div>
+              )}
+
+              <Select
+                id="whtRate"
+                label="ภาษีหัก ณ ที่จ่าย"
+                value={whtRate}
+                onChange={(event) => {
+                  setIsDirty(true);
+                  setWhtRate(event.target.value as WhtRate);
+                }}
+                disabled={readOnly}
+              >
+                {WHT_RATE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
-              </div>
+              </Select>
+              <div className="mt-2 text-label text-ink-500">คำนวณจากราคาก่อน VAT</div>
 
-              <div className="border-t border-card-border pt-3 text-body">
-                <div className="flex justify-between py-1">
-                  <span className="text-ink-500">ราคารวมทั้งหมด</span>
-                  <span>
-                    ฿{" "}
-                    {totals.subtotal.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-ink-500">VAT รวม</span>
-                  <span>
-                    ฿{" "}
-                    {totals.vatAmount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div className="my-2 h-px bg-card-border" />
-                <div className="flex justify-between py-1 font-medium">
-                  <span>รวมทั้งสิ้น</span>
-                  <span>
-                    ฿{" "}
-                    {totals.totalAmount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1 text-red-600">
-                  <span>หัก ณ ที่จ่าย {whtRate}%</span>
-                  <span>
-                    -฿{" "}
-                    {totals.whtAmount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div className="my-2 h-px bg-card-border" />
-                <div className="flex justify-between py-1 text-title font-semibold text-ink-900">
-                  <span>ยอดที่ต้องชำระ</span>
-                  <span>
-                    ฿{" "}
-                    {totals.netPayable.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+              <label
+                htmlFor="billingNoteNote"
+                className="block text-label font-medium text-ink-600 mb-1"
+              >
+                บันทึก
+              </label>
+              <textarea
+                id="billingNoteNote"
+                value={note}
+                onChange={(event) => {
+                  setIsDirty(true);
+                  setNote(event.target.value);
+                }}
+                rows={3}
+                placeholder="เช่น กรุณาโอนเงินภายในวันที่กำหนด ขอบคุณครับ/ค่ะ"
+                disabled={readOnly}
+                className="w-full rounded-card border border-card-border bg-white px-3 py-2 text-body placeholder:text-ink-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </FormStep>
 
-          <Select
-            id="whtRate"
-            label="ภาษีหัก ณ ที่จ่าย"
-            value={whtRate}
-            onChange={(event) => {
-              setIsDirty(true);
-              setWhtRate(event.target.value as WhtRate);
-            }}
-            disabled={readOnly}
-          >
-            {WHT_RATE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <div className="mt-2 text-label text-ink-500">คำนวณจากราคาก่อน VAT</div>
+            <EditableDocNumber
+              value={docNumberOverride}
+              onChange={(value) => {
+                setIsDirty(true);
+                setDocNumberOverride(value);
+              }}
+              placeholder="เลขที่ใบวางบิล (เว้นว่าง = สร้างอัตโนมัติ)"
+              autoGenerate={async () =>
+                userId ? await resolveDocNumber(userId, "billing_note", issueDate) : ""
+              }
+              className="mb-3 px-4 md:px-0"
+            />
 
-          <label htmlFor="billingNoteNote" className="block text-label font-medium text-ink-600 mb-1">
-            บันทึก
-          </label>
-          <textarea
-            id="billingNoteNote"
-            value={note}
-            onChange={(event) => {
-              setIsDirty(true);
-              setNote(event.target.value);
-            }}
-            rows={3}
-            placeholder="เช่น กรุณาโอนเงินภายในวันที่กำหนด ขอบคุณครับ/ค่ะ"
-            disabled={readOnly}
-            className="w-full rounded-card border border-card-border bg-white px-3 py-2 text-body placeholder:text-ink-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </FormStep>
-
-        <EditableDocNumber
-          value={docNumberOverride}
-          onChange={(value) => {
-            setIsDirty(true);
-            setDocNumberOverride(value);
-          }}
-          placeholder="เลขที่ใบวางบิล (เว้นว่าง = สร้างอัตโนมัติ)"
-          autoGenerate={async () =>
-            userId
-              ? await resolveDocNumber(userId, "billing_note", issueDate)
-              : ""
-          }
-          className="mb-3 px-4 md:px-0"
-        />
-
-        {isDraft && !readOnly && (
-          <FormActionBar
-            contextLabel={`${selectedCustomer?.name || ""} · ${selectedInvoiceIds.size} ใบแจ้งหนี้`}
-            totalLabel="ยอดโอนสุทธิ"
-            total={totals.netPayable}
-            secondary={{
-              label: "บันทึกร่าง",
-              onClick: handleSaveDraft,
-              loading: saving === "draft",
-            }}
-            primary={{
-              label: "บันทึกและดูรายละเอียด",
-              onClick: handleSaveAndPreview,
-              loading: saving === "preview",
-            }}
-          />
-        )}
+            {isDraft && !readOnly && (
+              <FormActionBar
+                contextLabel={`${selectedCustomer?.name || ""} · ${selectedInvoiceIds.size} ใบแจ้งหนี้`}
+                totalLabel="ยอดโอนสุทธิ"
+                total={totals.netPayable}
+                secondary={{
+                  label: "บันทึกร่าง",
+                  onClick: handleSaveDraft,
+                  loading: saving === "draft",
+                }}
+                primary={{
+                  label: "บันทึกและดูรายละเอียด",
+                  onClick: handleSaveAndPreview,
+                  loading: saving === "preview",
+                }}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
       <Modal
@@ -1433,21 +1350,13 @@ export function BillingNoteForm({ dealId, documentId, initialCustomerId }: Billi
       >
         <div className="space-y-4">
           <p className="text-body text-ink-600">
-            คุณแน่ใจว่าต้องการลบร่างใบวางบิลนี้?
-            ระบบจะคืนสถานะใบแจ้งหนี้ที่เลือกกลับเป็นส่งแล้ว
+            คุณแน่ใจว่าต้องการลบร่างใบวางบิลนี้? ระบบจะคืนสถานะใบแจ้งหนี้ที่เลือกกลับเป็นส่งแล้ว
           </p>
           <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => setDeleteModalOpen(false)}
-            >
+            <Button variant="secondary" onClick={() => setDeleteModalOpen(false)}>
               ยกเลิก
             </Button>
-            <Button
-              variant="danger"
-              onClick={handleDeleteDraft}
-              loading={deleting}
-            >
+            <Button variant="danger" onClick={handleDeleteDraft} loading={deleting}>
               ลบร่าง
             </Button>
           </div>
@@ -1471,7 +1380,7 @@ function InvoiceRow({
   const docDate = useDocDate();
   return (
     <label
-      className={`flex cursor-pointer items-start gap-3 border-b border-card-border px-0 py-3 last:border-0 ${checked ? "bg-blue-50/60" : "bg-white"} ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+      className={`flex cursor-pointer items-start gap-3 border-b border-card-border px-0 py-3 last:border-0 ${checked ? "bg-primary-soft/60" : "bg-white"} ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
     >
       <input
         type="checkbox"
@@ -1498,7 +1407,7 @@ function InvoiceRow({
           {docDate.date(invoice.issue_date)} • {invoice.itemSummary}
         </div>
         {invoice.isVoidedLinked && (
-          <div className="mt-2 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-label font-medium text-red-600">
+          <div className="mt-2 inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-label font-medium text-danger-text">
             ยกเลิกแล้ว
           </div>
         )}
