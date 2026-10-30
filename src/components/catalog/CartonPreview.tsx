@@ -7,18 +7,13 @@ interface Props {
   unitPrice: number;
 }
 
-export function CartonPreview({
-  baseUnit,
-  cartonUnit,
-  qtyPerCarton,
-  unitPrice,
-}: Props) {
+export function CartonPreview({ baseUnit, cartonUnit, qtyPerCarton, unitPrice }: Props) {
   if (qtyPerCarton <= 0) return null;
 
   const cartonPrice = unitPrice * qtyPerCarton;
 
   return (
-    <div className="bg-sent-bg rounded-control px-3 py-2 space-y-0.5 text-label text-primary-deep">
+    <div className="bg-primary-soft rounded-control px-3 py-2 space-y-0.5 text-label text-primary-deep">
       <div>
         1 {cartonUnit} = {qtyPerCarton} {baseUnit}
       </div>

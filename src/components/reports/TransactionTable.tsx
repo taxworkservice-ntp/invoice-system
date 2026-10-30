@@ -8,7 +8,18 @@ import { SortableTh } from "../ui/SortableTh";
 import { useTableSort } from "../ui/useTableSort";
 import type { Transaction } from "../../hooks/useReports";
 
-type SortKey = "date" | "doc_number" | "doc_type" | "customer_name" | "subtotal" | "vat_amount" | "total_amount" | "wht_amount" | "net_payable" | "paid_at" | "status";
+type SortKey =
+  | "date"
+  | "doc_number"
+  | "doc_type"
+  | "customer_name"
+  | "subtotal"
+  | "vat_amount"
+  | "total_amount"
+  | "wht_amount"
+  | "net_payable"
+  | "paid_at"
+  | "status";
 
 interface Props {
   transactions: Transaction[];
@@ -36,24 +47,30 @@ export function TransactionTable({ transactions }: Props) {
     dir: "desc",
   });
 
-  const totals = useMemo(() => ({
-    subtotal: sorted.reduce((s, t) => s + t.subtotal, 0),
-    vat_amount: sorted.reduce((s, t) => s + t.vat_amount, 0),
-    total_amount: sorted.reduce((s, t) => s + t.total_amount, 0),
-    wht_amount: sorted.reduce((s, t) => s + t.wht_amount, 0),
-    net_payable: sorted.reduce((s, t) => s + t.net_payable, 0),
-  }), [sorted]);
+  const totals = useMemo(
+    () => ({
+      subtotal: sorted.reduce((s, t) => s + t.subtotal, 0),
+      vat_amount: sorted.reduce((s, t) => s + t.vat_amount, 0),
+      total_amount: sorted.reduce((s, t) => s + t.total_amount, 0),
+      wht_amount: sorted.reduce((s, t) => s + t.wht_amount, 0),
+      net_payable: sorted.reduce((s, t) => s + t.net_payable, 0),
+    }),
+    [sorted],
+  );
 
   if (transactions.length === 0) {
-    return (
-      <EmptyState title="ไม่มีรายการ" description="ยังไม่มีรายการในช่วงนี้" />
-    );
+    return <EmptyState title="ไม่มีรายการ" description="ยังไม่มีรายการในช่วงนี้" />;
   }
 
   function getCellValue(t: Transaction, key: SortKey): string {
     switch (key) {
-      case "date": return docDate.numeric(t.date);
-      case "subtotal": case "vat_amount": case "total_amount": case "wht_amount": case "net_payable":
+      case "date":
+        return docDate.numeric(t.date);
+      case "subtotal":
+      case "vat_amount":
+      case "total_amount":
+      case "wht_amount":
+      case "net_payable":
         return formatCurrency(Number(t[key]));
       case "status":
         return t.status;
@@ -97,14 +114,21 @@ export function TransactionTable({ transactions }: Props) {
                 if (col.key === "status") {
                   return (
                     <td key={col.key} className="px-3 py-2 text-left whitespace-nowrap">
-                      <span className={`text-label px-1.5 py-0.5 rounded font-medium ${t.is_paid ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
+                      <span
+                        className={`text-label px-1.5 py-0.5 rounded font-medium ${t.is_paid ? "bg-success-soft text-success-text" : "bg-warning-soft text-warning-text"}`}
+                      >
                         {t.status}
                       </span>
                     </td>
                   );
                 }
                 const val = getCellValue(t, col.key);
-                const isMoney = col.key === "subtotal" || col.key === "vat_amount" || col.key === "total_amount" || col.key === "wht_amount" || col.key === "net_payable";
+                const isMoney =
+                  col.key === "subtotal" ||
+                  col.key === "vat_amount" ||
+                  col.key === "total_amount" ||
+                  col.key === "wht_amount" ||
+                  col.key === "net_payable";
                 return (
                   <td
                     key={col.key}
@@ -119,12 +143,24 @@ export function TransactionTable({ transactions }: Props) {
         </tbody>
         <tfoot>
           <tr className="border-t-[1.5px] border-line-strong bg-paper-field font-semibold text-ink-900">
-            <td className="px-3 py-2 text-left" colSpan={4}>รวม</td>
-            <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.subtotal)}</td>
-            <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.vat_amount)}</td>
-            <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.total_amount)}</td>
-            <td className="px-3 py-2 text-right tabular-nums text-danger">฿{formatCurrency(totals.wht_amount)}</td>
-            <td className="px-3 py-2 text-right tabular-nums">฿{formatCurrency(totals.net_payable)}</td>
+            <td className="px-3 py-2 text-left" colSpan={4}>
+              รวม
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums">
+              ฿{formatCurrency(totals.subtotal)}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums">
+              ฿{formatCurrency(totals.vat_amount)}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums">
+              ฿{formatCurrency(totals.total_amount)}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums text-danger">
+              ฿{formatCurrency(totals.wht_amount)}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums">
+              ฿{formatCurrency(totals.net_payable)}
+            </td>
             <td className="px-3 py-2"></td>
             <td className="px-3 py-2"></td>
           </tr>

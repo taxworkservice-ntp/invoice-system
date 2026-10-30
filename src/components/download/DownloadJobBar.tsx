@@ -28,19 +28,24 @@ export function DownloadJobBar({ state, onCancel, onRetry, onDismiss }: Download
               กำลังสร้างไฟล์{state.total > 0 ? ` ${state.current}/${state.total}` : "..."}
             </div>
             <div className="mt-1.5 h-2 w-full rounded-full bg-ink-50">
-              <div className="h-2 rounded-full bg-primary transition-all duration-300" style={{ width: `${percent}%` }} />
+              <div
+                className="h-2 rounded-full bg-primary transition-all duration-300"
+                style={{ width: `${percent}%` }}
+              />
             </div>
           </div>
-          <Button variant="secondary" size="sm" onClick={onCancel}>ยกเลิก</Button>
+          <Button variant="secondary" size="sm" onClick={onCancel}>
+            ยกเลิก
+          </Button>
         </div>
       )}
 
       {state.status === "done" && (
         <div className="flex items-start gap-3">
           {state.result && state.result.failed > 0 ? (
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
           ) : (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success-text" />
           )}
           <div className="min-w-0 flex-1 text-label leading-5 text-ink-600">
             {state.result
@@ -49,18 +54,28 @@ export function DownloadJobBar({ state, onCancel, onRetry, onDismiss }: Download
                 : `ดาวน์โหลด ${state.result.succeeded} ไฟล์เรียบร้อย`
               : "ดาวน์โหลดเรียบร้อย"}
             {state.result?.failures && state.result.failures.length > 0 && (
-              <ul className="mt-1 list-inside list-disc text-label text-amber-700">
+              <ul className="mt-1 list-inside list-disc text-label text-warning-text">
                 {state.result.failures.slice(0, 5).map((failure, index) => (
-                  <li key={`${failure.label}-${index}`}>{failure.label}{failure.error ? ` — ${failure.error}` : ""}</li>
+                  <li key={`${failure.label}-${index}`}>
+                    {failure.label}
+                    {failure.error ? ` — ${failure.error}` : ""}
+                  </li>
                 ))}
               </ul>
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {onRetry && (state.result?.failed ?? 0) > 0 && (
-              <Button variant="secondary" size="sm" onClick={onRetry}>ลองใหม่</Button>
+              <Button variant="secondary" size="sm" onClick={onRetry}>
+                ลองใหม่
+              </Button>
             )}
-            <button type="button" onClick={onDismiss} aria-label="ปิด" className="rounded p-1 text-ink-400 hover:bg-ink-50">
+            <button
+              type="button"
+              onClick={onDismiss}
+              aria-label="ปิด"
+              className="rounded p-1 text-ink-400 hover:bg-ink-50"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -69,11 +84,22 @@ export function DownloadJobBar({ state, onCancel, onRetry, onDismiss }: Download
 
       {state.status === "error" && (
         <div className="flex items-start gap-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-          <div className="min-w-0 flex-1 text-label leading-5 text-red-600">{state.error || "เกิดข้อผิดพลาด"}</div>
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-text" />
+          <div className="min-w-0 flex-1 text-label leading-5 text-danger-text">
+            {state.error || "เกิดข้อผิดพลาด"}
+          </div>
           <div className="flex shrink-0 items-center gap-1">
-            {onRetry && <Button variant="secondary" size="sm" onClick={onRetry}>ลองใหม่</Button>}
-            <button type="button" onClick={onDismiss} aria-label="ปิด" className="rounded p-1 text-ink-400 hover:bg-ink-50">
+            {onRetry && (
+              <Button variant="secondary" size="sm" onClick={onRetry}>
+                ลองใหม่
+              </Button>
+            )}
+            <button
+              type="button"
+              onClick={onDismiss}
+              aria-label="ปิด"
+              className="rounded p-1 text-ink-400 hover:bg-ink-50"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>

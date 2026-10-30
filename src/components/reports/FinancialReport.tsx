@@ -22,6 +22,7 @@ import { useDocDate } from "../YearEraProvider";
 import { toEraYear } from "../../lib/dates";
 import { TransactionTable } from "./TransactionTable";
 import { ReportTable } from "./ReportTable";
+import { Select } from "../ui/Select";
 
 const MONTH_NAMES_TH = [
   "ม.ค.",
@@ -288,7 +289,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
 
   if (error) {
     return (
-      <div className="rounded-card border border-red-200 bg-red-50 p-4 text-body text-red-600">
+      <div className="rounded-card border border-danger-border bg-danger-soft p-4 text-body text-danger-text">
         {error}
       </div>
     );
@@ -303,7 +304,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
             <span>ช่วงเวลา</span>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex">
-            <select
+            <Select
               aria-label="เดือนของรายงาน"
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
@@ -314,8 +315,8 @@ export function FinancialReport({ userId }: FinancialReportProps) {
                   {name}
                 </option>
               ))}
-            </select>
-            <select
+            </Select>
+            <Select
               aria-label="ปีของรายงาน"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
@@ -326,7 +327,7 @@ export function FinancialReport({ userId }: FinancialReportProps) {
                   {yearLabel(y)}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         {canExportReports && (

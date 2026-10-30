@@ -440,7 +440,7 @@ export default function MonitoringPage() {
                   type="button"
                   aria-pressed={filter === item.value}
                   onClick={() => setFilter(item.value)}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${filter === item.value ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${filter === item.value ? "border-primary bg-primary-soft text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
                 >
                   {item.label}
                 </button>

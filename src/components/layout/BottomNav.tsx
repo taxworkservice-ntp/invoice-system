@@ -111,7 +111,7 @@ export function BottomNav() {
                 key={item.path}
                 onClick={() => handleClick(item)}
                 aria-label={item.label}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${isLogout ? "text-red-500 hover:text-red-600" : active ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700"}`}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-card text-label transition-all duration-150 active:scale-95 ${isLogout ? "text-danger-text hover:text-danger-text" : active ? "text-primary font-semibold" : "text-ink-500 hover:text-ink-700"}`}
               >
                 {iconMap[item.path] || <Home className="w-5 h-5" />}
                 <span className="w-full truncate text-center text-label leading-tight">
@@ -142,7 +142,7 @@ export function BottomNav() {
                 <button
                   key={item.path}
                   onClick={() => handleOverflowClick(item)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-control text-body transition-colors ${isLogout ? "text-red-500 hover:bg-red-50" : isActive(item.path) ? "bg-primary-soft text-primary font-medium" : "text-ink-700 hover:bg-paper-field"}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-control text-body transition-colors ${isLogout ? "text-danger-text hover:bg-danger-soft" : isActive(item.path) ? "bg-primary-soft text-primary font-medium" : "text-ink-700 hover:bg-paper-field"}`}
                 >
                   {iconMap[item.path]}
                   <span>{item.label}</span>

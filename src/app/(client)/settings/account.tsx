@@ -95,27 +95,38 @@ export default function SettingsAccountPage() {
                   label="รหัสผ่านปัจจุบัน"
                   type="password"
                   value={currentPassword}
-                  onChange={(e) => { setCurrentPassword(e.target.value); setPasswordSaved(false); }}
+                  onChange={(e) => {
+                    setCurrentPassword(e.target.value);
+                    setPasswordSaved(false);
+                  }}
                   placeholder="รหัสผ่านปัจจุบัน"
                 />
                 <Input
                   label="รหัสผ่านใหม่"
                   type="password"
                   value={newPassword}
-                  onChange={(e) => { setNewPassword(e.target.value); setPasswordSaved(false); }}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordSaved(false);
+                  }}
                   placeholder="รหัสผ่านอย่างน้อย 6 ตัวอักษร"
                 />
                 <Input
                   label="ยืนยันรหัสผ่านใหม่"
                   type="password"
                   value={newPasswordConfirm}
-                  onChange={(e) => { setNewPasswordConfirm(e.target.value); setPasswordSaved(false); }}
+                  onChange={(e) => {
+                    setNewPasswordConfirm(e.target.value);
+                    setPasswordSaved(false);
+                  }}
                   placeholder="ใส่รหัสผ่านอีกครั้ง"
                 />
               </div>
 
-              {passwordError && <p className="mt-3 text-label text-red-500">{passwordError}</p>}
-              {passwordSaved && <p className="mt-3 text-label text-green-600">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว</p>}
+              {passwordError && <p className="mt-3 text-label text-danger-text">{passwordError}</p>}
+              {passwordSaved && (
+                <p className="mt-3 text-label text-success-text">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว</p>
+              )}
 
               <Button onClick={handleChangePassword} disabled={changingPassword} className="mt-4">
                 {changingPassword ? "กำลังเปลี่ยน..." : "เปลี่ยนรหัสผ่าน"}
@@ -127,7 +138,7 @@ export default function SettingsAccountPage() {
                 onClick={() => {
                   if (window.confirm("ออกจากระบบ?")) handleLogout();
                 }}
-                className="inline-flex min-h-11 items-center text-red-500 text-body font-medium hover:underline md:min-h-0"
+                className="inline-flex min-h-11 items-center text-danger-text text-body font-medium hover:underline md:min-h-0"
               >
                 ออกจากระบบ
               </button>

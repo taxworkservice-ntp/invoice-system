@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { UNIT_OPTIONS } from "./constants";
+import { Select } from "../ui/Select";
 
 interface Props {
   value: string;
@@ -10,7 +11,14 @@ interface Props {
   onAddPreset?: (value: string) => void;
 }
 
-export function UnitSelector({ value, onChange, label, disabled, customPresets = [], onAddPreset }: Props) {
+export function UnitSelector({
+  value,
+  onChange,
+  label,
+  disabled,
+  customPresets = [],
+  onAddPreset,
+}: Props) {
   const initialCustom = value && !UNIT_OPTIONS.includes(value) && !customPresets.includes(value);
   const [showCustom, setShowCustom] = useState(initialCustom);
   const [customValue, setCustomValue] = useState(initialCustom ? value : "");
@@ -18,12 +26,8 @@ export function UnitSelector({ value, onChange, label, disabled, customPresets =
 
   return (
     <div className="space-y-2">
-      {label && (
-        <div className="text-label font-semibold text-ink-300">
-          {label}
-        </div>
-      )}
-      <select
+      {label && <div className="text-label font-semibold text-ink-300">{label}</div>}
+      <Select
         value={isCustomSelected ? "custom" : value}
         onChange={(e) => {
           if (e.target.value === "custom") {
@@ -46,13 +50,15 @@ export function UnitSelector({ value, onChange, label, disabled, customPresets =
             {unit}
           </option>
         ))}
-        {customPresets.filter((u) => !UNIT_OPTIONS.includes(u)).map((unit) => (
-          <option key={unit} value={unit}>
-            {unit}
-          </option>
-        ))}
+        {customPresets
+          .filter((u) => !UNIT_OPTIONS.includes(u))
+          .map((unit) => (
+            <option key={unit} value={unit}>
+              {unit}
+            </option>
+          ))}
         <option value="custom">กำหนดเอง...</option>
-      </select>
+      </Select>
       {showCustom && (
         <input
           type="text"

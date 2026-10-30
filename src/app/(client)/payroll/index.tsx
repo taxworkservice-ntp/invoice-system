@@ -3527,7 +3527,7 @@ function WhtPickList({
                 </span>
               </label>
               {isPnd3 && (
-                <select
+                <Select
                   aria-label={`ประเภทรายจ่ายของ ${employee.full_name || employee.employee_code}`}
                   value={descOverrides[employee.id] ?? WHT_PND3_DEFAULT_DESC}
                   onChange={(e) => onDescChange(employee.id, e.target.value)}
@@ -3538,7 +3538,7 @@ function WhtPickList({
                       {opt}
                     </option>
                   ))}
-                </select>
+                </Select>
               )}
               <span
                 className={`text-label tabular-nums shrink-0 ${tax > 0 ? "text-ink-700 font-medium" : "text-ink-300"}`}

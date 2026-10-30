@@ -39,7 +39,18 @@ function StockRow({
   }
 
   return (
-    <tr className={`${TABLE.tbodyTr} group`} onClick={() => navigate(`/catalog/${item.id}`)}>
+    <tr
+      className={`${TABLE.tbodyTr} group cursor-pointer focus-visible:bg-paper-field focus-visible:outline-none`}
+      tabIndex={0}
+      onClick={() => navigate(`/catalog/${item.id}`)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate(`/catalog/${item.id}`);
+        }
+      }}
+    >
       {onToggleFavorite && (
         <td className="px-2 py-3 md:py-2 w-[42px]" onClick={(e) => e.stopPropagation()}>
           <button

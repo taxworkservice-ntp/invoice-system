@@ -49,12 +49,15 @@ export function CatalogAutocomplete({
   const search = value.trim().toLowerCase();
   const sortedItems = value.trim()
     ? items
-    : [...items].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th"));
+    : [...items].sort(
+        (a, b) =>
+          Number(b.is_favorite) - Number(a.is_favorite) || a.name.localeCompare(b.name, "th"),
+      );
 
   const filtered = search
-    ? sortedItems.filter((item) =>
-        item.name.toLowerCase().includes(search) ||
-        item.sku?.toLowerCase().includes(search),
+    ? sortedItems.filter(
+        (item) =>
+          item.name.toLowerCase().includes(search) || item.sku?.toLowerCase().includes(search),
       )
     : sortedItems;
 
@@ -108,14 +111,10 @@ export function CatalogAutocomplete({
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightIndex((prev) =>
-        prev < sliced.length - 1 ? prev + 1 : 0,
-      );
+      setHighlightIndex((prev) => (prev < sliced.length - 1 ? prev + 1 : 0));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightIndex((prev) =>
-        prev > 0 ? prev - 1 : sliced.length - 1,
-      );
+      setHighlightIndex((prev) => (prev > 0 ? prev - 1 : sliced.length - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (highlightIndex >= 0 && sliced[highlightIndex]) {
@@ -156,7 +155,7 @@ export function CatalogAutocomplete({
           onKeyDown={handleKeyDown}
         />
         {matched && (
-          <span className="absolute right-9 top-1/2 -translate-y-1/2 text-green-500">
+          <span className="absolute right-9 top-1/2 -translate-y-1/2 text-success-text">
             <Check size={14} />
           </span>
         )}
@@ -179,7 +178,7 @@ export function CatalogAutocomplete({
           {sliced.map((item, index) => (
             <li
               key={item.id}
-              className={`flex items-center gap-2 cursor-pointer px-3 py-2 text-body transition-colors ${ index === highlightIndex ? "bg-primary/10 text-primary" : "text-ink-700 hover:bg-paper-field" }`}
+              className={`flex items-center gap-2 cursor-pointer px-3 py-2 text-body transition-colors ${index === highlightIndex ? "bg-primary/10 text-primary" : "text-ink-700 hover:bg-paper-field"}`}
               onMouseDown={(e) => {
                 e.preventDefault();
                 onSelect(item);
@@ -188,19 +187,11 @@ export function CatalogAutocomplete({
               onMouseEnter={() => setHighlightIndex(index)}
             >
               <span className="shrink-0 text-ink-400">
-                {item.item_type === "service" ? (
-                  <Wrench size={12} />
-                ) : (
-                  <Package size={12} />
-                )}
+                {item.item_type === "service" ? <Wrench size={12} /> : <Package size={12} />}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate">{item.name}</div>
-                {item.sku && (
-                  <div className="text-label text-ink-400">
-                    {item.sku}
-                  </div>
-                )}
+                {item.sku && <div className="text-label text-ink-400">{item.sku}</div>}
               </div>
               <span className="shrink-0 text-label text-ink-400">
                 ฿{item.unit_price.toLocaleString()}
@@ -211,9 +202,7 @@ export function CatalogAutocomplete({
             </li>
           ))}
           {sliced.length === 0 && (
-            <li className="px-3 py-3 text-body text-ink-500">
-              ไม่พบรายการที่ตรงกับคำค้น
-            </li>
+            <li className="px-3 py-3 text-body text-ink-500">ไม่พบรายการที่ตรงกับคำค้น</li>
           )}
           {hiddenCount > 0 && (
             <li className="border-t border-line-faint bg-paper-field px-3 py-2 text-label text-ink-500">

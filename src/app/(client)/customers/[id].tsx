@@ -91,11 +91,11 @@ const STAGE_LABELS: Record<DealStage, string> = {
 
 const STAGE_COLORS: Record<DealStage, string> = {
   draft: "bg-ink-50 text-ink-500",
-  waiting: "bg-blue-50 text-blue-600",
-  pending_payment: "bg-green-50 text-green-600",
-  partial: "bg-amber-100 text-amber-700",
-  overdue: "bg-red-50 text-red-700",
-  paid: "bg-green-100 text-green-700",
+  waiting: "bg-primary-soft text-primary-deep",
+  pending_payment: "bg-success-soft text-success-text",
+  partial: "bg-warning-soft text-warning-text",
+  overdue: "bg-danger-soft text-danger-text",
+  paid: "bg-success-soft text-success-text",
   voided: "bg-ink-50 text-ink-400",
 };
 
@@ -614,7 +614,7 @@ export default function CustomerDetailPage() {
                       setMenuOpen(false);
                       setDeleteConfirm(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 text-body text-danger hover:bg-red-50 rounded-control transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-body text-danger hover:bg-danger-soft rounded-control transition-colors"
                   >
                     ลบลูกค้า
                   </button>
@@ -907,7 +907,7 @@ export default function CustomerDetailPage() {
                 )}
             </div>
             {showIncomplete && (
-              <div className="mt-3 flex items-start gap-2 bg-pending-bg text-pending-text text-label rounded-control px-2.5 py-2">
+              <div className="mt-3 flex items-start gap-2 bg-warning-soft text-warning-text text-label rounded-card px-2.5 py-2">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>ข้อมูลไม่ครบ — กรอกให้ครบเพื่อให้เอกสาร PDF แสดงถูกต้อง</span>
               </div>
@@ -928,7 +928,7 @@ export default function CustomerDetailPage() {
                     key={range.key}
                     type="button"
                     onClick={() => applyRangePreset(range.key)}
-                    className={`inline-flex min-h-11 shrink-0 items-center rounded-control border px-3 py-1.5 text-label font-medium transition-colors md:min-h-0 ${rangePreset === range.key ? "border-primary bg-primary text-white " : "border-line bg-white text-ink-600 hover:border-primary/40 hover:bg-blue-50/40"}`}
+                    className={`inline-flex min-h-11 shrink-0 items-center rounded-control border px-3 py-1.5 text-label font-medium transition-colors md:min-h-0 ${rangePreset === range.key ? "border-primary bg-primary text-white " : "border-line bg-white text-ink-600 hover:border-primary/40 hover:bg-primary-soft/40"}`}
                   >
                     {range.label}
                   </button>
@@ -1114,7 +1114,7 @@ export default function CustomerDetailPage() {
                           >
                             <div className="font-semibold">฿ {formatCurrency(item.amount)}</div>
                             {item.credit > 0 && (
-                              <div className="text-label font-medium text-blue-600">
+                              <div className="text-label font-medium text-primary-deep">
                                 เครดิต ฿{formatCurrency(item.credit)}
                               </div>
                             )}

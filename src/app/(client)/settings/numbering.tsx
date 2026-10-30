@@ -14,7 +14,15 @@ import { DOC_TYPE_LABELS, DOC_TYPE_NOTES } from "../../../constants";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { DocNumberSequence, DocumentType } from "../../../types";
 
-const DOC_TYPES: DocumentType[] = ["quotation", "invoice", "billing_note", "receipt", "delivery_note", "credit_note", "debit_note"];
+const DOC_TYPES: DocumentType[] = [
+  "quotation",
+  "invoice",
+  "billing_note",
+  "receipt",
+  "delivery_note",
+  "credit_note",
+  "debit_note",
+];
 
 export default function SettingsNumberingPage() {
   const { profile, clientProfile, setClientProfile } = useAuth();
@@ -132,16 +140,32 @@ export default function SettingsNumberingPage() {
         }
 
         if (existing?.id) {
-          return { id: existing.id, prefix, reset_yearly: resetYearly, start_sequence: startSequence };
+          return {
+            id: existing.id,
+            prefix,
+            reset_yearly: resetYearly,
+            start_sequence: startSequence,
+          };
         }
-        return { user_id: profile.id, doc_type: docType, prefix, reset_yearly: resetYearly, last_sequence: 0, start_sequence: startSequence };
+        return {
+          user_id: profile.id,
+          doc_type: docType,
+          prefix,
+          reset_yearly: resetYearly,
+          last_sequence: 0,
+          start_sequence: startSequence,
+        };
       });
 
       const writes = rows.map((row) => {
         if ("id" in row && row.id) {
           return supabase
             .from("doc_number_sequences")
-            .update({ prefix: row.prefix, reset_yearly: row.reset_yearly, start_sequence: row.start_sequence })
+            .update({
+              prefix: row.prefix,
+              reset_yearly: row.reset_yearly,
+              start_sequence: row.start_sequence,
+            })
             .eq("id", row.id);
         }
         const { id: _id, ...insertRow } = row as {
@@ -170,7 +194,9 @@ export default function SettingsNumberingPage() {
       if (firstError) throw firstError;
 
       if (isDevMode) {
-        setClientProfile((prev) => prev ? { ...prev, dev_effective_date: devEffectiveDate || null } : prev);
+        setClientProfile((prev) =>
+          prev ? { ...prev, dev_effective_date: devEffectiveDate || null } : prev,
+        );
       }
       setSuccess("บันทึกสำเร็จ");
       toast.success("บันทึกเลขที่เอกสารสำเร็จ");
@@ -183,17 +209,25 @@ export default function SettingsNumberingPage() {
     }
   }
 
-  if (loading) return <AppShell width="form" title="ตั้งค่า > เลขที่เอกสาร"><SettingsPageSkeleton /></AppShell>;
+  if (loading)
+    return (
+      <AppShell width="form" title="ตั้งค่า > เลขที่เอกสาร">
+        <SettingsPageSkeleton />
+      </AppShell>
+    );
 
   return (
     <AppShell width="form" title="ตั้งค่า > เลขที่เอกสาร">
       <div className="space-y-4">
         <SettingsTabs activePath="/settings/numbering" />
 
-        <SectionCard title="เลขที่เอกสาร" description="กำหนด prefix และการรีเซ็ตเลขรันของแต่ละประเภทเอกสาร">
+        <SectionCard
+          title="เลขที่เอกสาร"
+          description="กำหนด prefix และการรีเซ็ตเลขรันของแต่ละประเภทเอกสาร"
+        >
           <div className="space-y-4">
             {isDevMode && (
-              <div className="rounded-control border border-amber-200 bg-amber-50 p-3">
+              <div className="rounded-control border border-warning-border bg-warning-soft p-3">
                 <div className="grid gap-2 sm:grid-cols-[minmax(0,240px)_auto] sm:items-end">
                   <Input
                     id="devEffectiveDate"
@@ -201,13 +235,18 @@ export default function SettingsNumberingPage() {
                     type="date"
                     value={devEffectiveDate}
                     onChange={(event) => setDevEffectiveDate(event.target.value)}
-                    className="border-amber-300 bg-white"
+                    className="border-warning-border bg-white"
                   />
-                  <Button type="button" variant="secondary" onClick={() => setDevEffectiveDate("")} disabled={!devEffectiveDate || saving}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setDevEffectiveDate("")}
+                    disabled={!devEffectiveDate || saving}
+                  >
                     Clear fixed date
                   </Button>
                 </div>
-                <p className="mt-2 text-label text-amber-800">
+                <p className="mt-2 text-label text-warning-text">
                   Used as the default issue/payment date only. Audit timestamps stay real.
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,240px)_auto] sm:items-end">
@@ -218,10 +257,17 @@ export default function SettingsNumberingPage() {
                     min={1}
                     step={1}
                     value={bulkStartSequence}
-                    onChange={(event) => setBulkStartSequence(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
-                    className="border-amber-300 bg-white font-mono"
+                    onChange={(event) =>
+                      setBulkStartSequence(Math.max(1, Math.floor(Number(event.target.value) || 1)))
+                    }
+                    className="border-warning-border bg-white font-mono"
                   />
-                  <Button type="button" variant="secondary" onClick={applyStartSequenceToAll} disabled={saving}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={applyStartSequenceToAll}
+                    disabled={saving}
+                  >
                     Apply to all documents
                   </Button>
                 </div>
@@ -242,9 +288,13 @@ export default function SettingsNumberingPage() {
                   {DOC_TYPES.map((docType) => (
                     <tr key={docType} className="border-b border-card-border/50">
                       <td className="py-2 pr-2 align-top">
-                        <div className="font-medium text-ink-900">{DOC_TYPE_LABELS[docType].th}</div>
+                        <div className="font-medium text-ink-900">
+                          {DOC_TYPE_LABELS[docType].th}
+                        </div>
                         {DOC_TYPE_NOTES[docType] && (
-                          <div className="mt-0.5 max-w-[260px] text-label leading-snug text-ink-500">{DOC_TYPE_NOTES[docType]}</div>
+                          <div className="mt-0.5 max-w-[260px] text-label leading-snug text-ink-500">
+                            {DOC_TYPE_NOTES[docType]}
+                          </div>
                         )}
                       </td>
                       <td className="py-2 pr-2">
@@ -269,7 +319,10 @@ export default function SettingsNumberingPage() {
                       )}
                       <td className="py-2 text-center">
                         <div className="flex justify-center">
-                          <Switch checked={getResetYearly(docType)} onChange={(checked) => setResetYearly(docType, checked)} />
+                          <Switch
+                            checked={getResetYearly(docType)}
+                            onChange={(checked) => setResetYearly(docType, checked)}
+                          />
                         </div>
                       </td>
                     </tr>

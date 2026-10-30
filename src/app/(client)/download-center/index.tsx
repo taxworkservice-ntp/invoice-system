@@ -25,7 +25,15 @@ import { FinancialExportRunner } from "../../../components/download/FinancialExp
 import { TaxPackCard } from "../../../components/download/TaxPackCard";
 import { WhtBatchCard } from "../../../components/download/WhtBatchCard";
 import { PayrollExportCard } from "../../../components/download/PayrollExportCard";
-import type { BillingNoteInvoice, Customer, Deal, Document, DocumentLineItem, Item, StockMovement } from "../../../types";
+import type {
+  BillingNoteInvoice,
+  Customer,
+  Deal,
+  Document,
+  DocumentLineItem,
+  Item,
+  StockMovement,
+} from "../../../types";
 
 type CopyType = "original" | "both";
 
@@ -40,16 +48,24 @@ interface BuilderDoc {
 }
 
 type ConfirmAction =
-  | { type: "preset"; preset: (typeof PRESET_TYPES)[number] }
-  | { type: "builder" }
-  | null;
+  { type: "preset"; preset: (typeof PRESET_TYPES)[number] } | { type: "builder" } | null;
 
-const PRESET_TYPES: { key: string; label: string; docType: DocumentType; variant: "thisMonth" | "unpaid" }[] = [
+const PRESET_TYPES: {
+  key: string;
+  label: string;
+  docType: DocumentType;
+  variant: "thisMonth" | "unpaid";
+}[] = [
   { key: "invoice", label: "ใบแจ้งหนี้เดือนนี้", docType: "invoice", variant: "thisMonth" },
   { key: "billing", label: "ใบวางบิลเดือนนี้", docType: "billing_note", variant: "thisMonth" },
   { key: "receipt", label: "ใบเสร็จเดือนนี้", docType: "receipt", variant: "thisMonth" },
   { key: "delivery", label: "ใบส่งของเดือนนี้", docType: "delivery_note", variant: "thisMonth" },
-  { key: "billing_unpaid", label: "ใบวางบิลที่ยังไม่ชำระ", docType: "billing_note", variant: "unpaid" },
+  {
+    key: "billing_unpaid",
+    label: "ใบวางบิลที่ยังไม่ชำระ",
+    docType: "billing_note",
+    variant: "unpaid",
+  },
   { key: "credit", label: "ใบลดหนี้เดือนนี้", docType: "credit_note", variant: "thisMonth" },
   { key: "debit", label: "ใบเพิ่มหนี้เดือนนี้", docType: "debit_note", variant: "thisMonth" },
 ];
@@ -79,15 +95,45 @@ const STATUS_FILTER_MAP: Record<Exclude<StatusFilter, "active" | "all">, string[
   overdue: ["overdue"],
 };
 
-const MONTH_LABELS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+const MONTH_LABELS = [
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
+];
+const THAI_MONTHS = [
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
+];
 
 function getMonthRange(year: number, month: number) {
   const m = String(month).padStart(2, "0");
   return { start: `${year}-${m}-01`, end: `${year}-${m}-${new Date(year, month, 0).getDate()}` };
 }
 
-function computeRange(mode: RangeMode, customFrom: string, customTo: string): { start?: string; end?: string } {
+function computeRange(
+  mode: RangeMode,
+  customFrom: string,
+  customTo: string,
+): { start?: string; end?: string } {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth() + 1;
@@ -101,7 +147,10 @@ function computeRange(mode: RangeMode, customFrom: string, customTo: string): { 
     case "thisQuarter": {
       const first = Math.floor((m - 1) / 3) * 3 + 1;
       const last = first + 2;
-      return { start: `${y}-${String(first).padStart(2, "0")}-01`, end: `${y}-${String(last).padStart(2, "0")}-${new Date(y, last, 0).getDate()}` };
+      return {
+        start: `${y}-${String(first).padStart(2, "0")}-01`,
+        end: `${y}-${String(last).padStart(2, "0")}-${new Date(y, last, 0).getDate()}`,
+      };
     }
     case "ytd":
       return { start: `${y}-01-01`, end: now.toISOString().slice(0, 10) };
@@ -168,12 +217,17 @@ export default function DownloadCenterPage() {
   const [finYear, setFinYear] = useState(currentYear);
   const [financialFormat, setFinancialFormat] = useState<"xlsx" | "csv">("xlsx");
   const [stockFormat, setStockFormat] = useState<"xlsx" | "csv">("xlsx");
-  const [stockFrom, setStockFrom] = useState(`${currentYear}-${String(currentMonth).padStart(2, "0")}-01`);
+  const [stockFrom, setStockFrom] = useState(
+    `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`,
+  );
   const [stockTo, setStockTo] = useState(new Date().toISOString().slice(0, 10));
   const [dataExporting, setDataExporting] = useState(false);
-  const [financialRequest, setFinancialRequest] = useState<
-    { from: string; to: string; periodLabel: string; format: "xlsx" | "csv" } | null
-  >(null);
+  const [financialRequest, setFinancialRequest] = useState<{
+    from: string;
+    to: string;
+    periodLabel: string;
+    format: "xlsx" | "csv";
+  } | null>(null);
 
   const isVatRegistered = clientProfile?.vat_registered;
 
@@ -183,10 +237,16 @@ export default function DownloadCenterPage() {
       case "quarter": {
         const firstMonth = (finQuarter - 1) * 3 + 1;
         const lastMonth = firstMonth + 2;
-        return { start: `${finYear}-${String(firstMonth).padStart(2, "0")}-01`, end: `${finYear}-${String(lastMonth).padStart(2, "0")}-${new Date(finYear, lastMonth, 0).getDate()}` };
+        return {
+          start: `${finYear}-${String(firstMonth).padStart(2, "0")}-01`,
+          end: `${finYear}-${String(lastMonth).padStart(2, "0")}-${new Date(finYear, lastMonth, 0).getDate()}`,
+        };
       }
       case "ytd":
-        return { start: `${finYear}-01-01`, end: finYear === currentYear ? todayISO : `${finYear}-12-31` };
+        return {
+          start: `${finYear}-01-01`,
+          end: finYear === currentYear ? todayISO : `${finYear}-12-31`,
+        };
       case "year":
         return { start: `${finYear}-01-01`, end: `${finYear}-12-31` };
       default:
@@ -281,10 +341,12 @@ export default function DownloadCenterPage() {
   }, [fetchPresetCounts]);
 
   // --- documents builder filter application ---
-  const builderRange = useMemo(() => computeRange(rangeMode, customFrom, customTo), [rangeMode, customFrom, customTo]);
+  const builderRange = useMemo(
+    () => computeRange(rangeMode, customFrom, customTo),
+    [rangeMode, customFrom, customTo],
+  );
 
   const applyBuilderFilters = useCallback(
-     
     (query: any): any => {
       let q = query.eq("user_id", userId).eq("doc_type", builderDocType);
       if (builderCustomerId) q = q.eq("customer_id", builderCustomerId);
@@ -319,7 +381,8 @@ export default function DownloadCenterPage() {
     meta: { kind: string; params: Record<string, unknown>; artifactLabel: string },
   ) => {
     if (!userId || !clientProfile) return;
-    const copyTypes: Array<"original" | "copy"> = copyType === "both" ? ["original", "copy"] : ["original"];
+    const copyTypes: Array<"original" | "copy"> =
+      copyType === "both" ? ["original", "copy"] : ["original"];
     const docTypeById = new Map(docs.map((d) => [d.id, d.doc_type]));
     lastDocsJobRef.current = { docs, meta };
     await docsJob.run(async ({ signal, onProgress }) => {
@@ -344,7 +407,9 @@ export default function DownloadCenterPage() {
         format = "pdf";
       } else if (ok.length > 0) {
         const entries = ok.map((r) => ({
-          path: zipGrouping ? `${safeZipSegment(docTypeLabel(docTypeById.get(r.id)))}/${r.filename}` : r.filename,
+          path: zipGrouping
+            ? `${safeZipSegment(docTypeLabel(docTypeById.get(r.id)))}/${r.filename}`
+            : r.filename,
           blob: r.blob as Blob,
         }));
         artifact = datedFilename("documents", "zip");
@@ -356,7 +421,13 @@ export default function DownloadCenterPage() {
         actorUserId,
         kind: meta.kind,
         format,
-        params: { ...meta.params, copyType, grouping: zipGrouping, merge: canMerge, artifactLabel: meta.artifactLabel },
+        params: {
+          ...meta.params,
+          copyType,
+          grouping: zipGrouping,
+          merge: canMerge,
+          artifactLabel: meta.artifactLabel,
+        },
         fileCount: ok.length,
         status: failed.length === 0 ? "success" : ok.length === 0 ? "failed" : "partial",
         error: failed.length > 0 ? `${failed.length} ไฟล์ล้มเหลว` : undefined,
@@ -377,7 +448,9 @@ export default function DownloadCenterPage() {
     const last = lastDocsJobRef.current;
     const failed = docsJob.result?.failures ?? [];
     if (!last || failed.length === 0) return;
-    const failedIds = new Set(failed.map((failure) => failure.id).filter((id): id is string => Boolean(id)));
+    const failedIds = new Set(
+      failed.map((failure) => failure.id).filter((id): id is string => Boolean(id)),
+    );
     const retryDocs = last.docs.filter((doc) => failedIds.has(doc.id));
     if (retryDocs.length === 0) return;
     void runDocumentsJob(retryDocs, last.meta);
@@ -394,7 +467,8 @@ export default function DownloadCenterPage() {
       .eq("doc_type", preset.docType)
       .in("status", NON_DRAFT_STATUSES)
       .order("issue_date", { ascending: false });
-    if (preset.variant === "thisMonth") query = query.gte("issue_date", quickRange.start).lte("issue_date", quickRange.end);
+    if (preset.variant === "thisMonth")
+      query = query.gte("issue_date", quickRange.start).lte("issue_date", quickRange.end);
     else if (preset.variant === "unpaid") query = query.neq("status", "paid");
     const { data: docs, error } = await query;
     if (error) {
@@ -415,7 +489,10 @@ export default function DownloadCenterPage() {
   const handleBuilderDownload = async () => {
     if (!userId || !clientProfile) return;
     const { data: docs, error } = await applyBuilderFilters(
-      supabase.from("documents").select("id, doc_number, issue_date, doc_type").order("issue_date", { ascending: false }),
+      supabase
+        .from("documents")
+        .select("id, doc_number, issue_date, doc_type")
+        .order("issue_date", { ascending: false }),
     );
     if (error) {
       toast.error("โหลดรายการเอกสารไม่สำเร็จ");
@@ -427,7 +504,13 @@ export default function DownloadCenterPage() {
     }
     await runDocumentsJob(docs as BuilderDoc[], {
       kind: "documents",
-      params: { source: "builder", doc_type: builderDocType, range: builderRange, status: statusFilter, customer: builderCustomerId || null },
+      params: {
+        source: "builder",
+        doc_type: builderDocType,
+        range: builderRange,
+        status: statusFilter,
+        customer: builderCustomerId || null,
+      },
       artifactLabel: "เอกสารตามเงื่อนไข",
     });
   };
@@ -437,7 +520,9 @@ export default function DownloadCenterPage() {
     const { data: docs, error } = await applyBuilderFilters(
       supabase
         .from("documents")
-        .select("id, doc_number, doc_type, status, issue_date, due_date, subtotal, vat_amount, wht_amount, total_amount, net_payable, paid_at, customer:customer_id(name)")
+        .select(
+          "id, doc_number, doc_type, status, issue_date, due_date, subtotal, vat_amount, wht_amount, total_amount, net_payable, paid_at, customer:customer_id(name)",
+        )
         .order("issue_date", { ascending: false }),
     );
     if (error) {
@@ -449,7 +534,12 @@ export default function DownloadCenterPage() {
       return;
     }
     const rows = (docs as Array<Record<string, unknown>>).map((doc) => ({
-      ...(doc as unknown as { doc_number: string | null; doc_type: string; status: string; issue_date: string | null }),
+      ...(doc as unknown as {
+        doc_number: string | null;
+        doc_type: string;
+        status: string;
+        issue_date: string | null;
+      }),
       customer_name: (doc as { customer?: { name?: string } }).customer?.name ?? "",
     }));
     downloadBlob(documentsCsvBlob(rows), datedFilename("documents_export", "csv"));
@@ -458,7 +548,12 @@ export default function DownloadCenterPage() {
       actorUserId,
       kind: "documents",
       format: "csv",
-      params: { source: "builder", doc_type: builderDocType, range: builderRange, status: statusFilter },
+      params: {
+        source: "builder",
+        doc_type: builderDocType,
+        range: builderRange,
+        status: statusFilter,
+      },
       fileCount: rows.length,
       status: "success",
     });
@@ -469,7 +564,12 @@ export default function DownloadCenterPage() {
   const handleFinancialExport = (format: "xlsx" | "csv") => {
     if (!userId) return;
     reportJob.reset();
-    setFinancialRequest({ from: finRange.start, to: finRange.end, periodLabel: finPeriodLabel, format });
+    setFinancialRequest({
+      from: finRange.start,
+      to: finRange.end,
+      periodLabel: finPeriodLabel,
+      format,
+    });
   };
 
   const handleStockExport = (format: "xlsx" | "csv") => {
@@ -479,12 +579,22 @@ export default function DownloadCenterPage() {
       const { fetchFullStockReport } = await import("../../../hooks/useReports");
       const data = await fetchFullStockReport(userId, stockFrom, stockTo);
       if (format === "csv") {
-        downloadBlob(stockValuationCsvBlob(data.valuation), datedFilename(`stock_${stockFrom}_${stockTo}`, "csv"));
+        downloadBlob(
+          stockValuationCsvBlob(data.valuation),
+          datedFilename(`stock_${stockFrom}_${stockTo}`, "csv"),
+        );
       } else {
         const { buildStockReportXlsx } = await import("../../../lib/stockReportXlsx");
-        const buffer = await buildStockReportXlsx({ ...data, dateFrom: stockFrom, dateTo: stockTo, era: docDate.era });
+        const buffer = await buildStockReportXlsx({
+          ...data,
+          dateFrom: stockFrom,
+          dateTo: stockTo,
+          era: docDate.era,
+        });
         downloadBlob(
-          new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+          new Blob([buffer], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          }),
           `stock_${stockFrom}_to_${stockTo}.xlsx`,
         );
       }
@@ -505,21 +615,52 @@ export default function DownloadCenterPage() {
     setDataExporting(true);
     try {
       const [customersRes, itemsRes, dealsRes, documentsRes, movementsRes] = await Promise.all([
-        supabase.from("customers").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
-        supabase.from("items").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
-        supabase.from("deals").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
-        supabase.from("documents").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
-        supabase.from("stock_movements").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+        supabase
+          .from("customers")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("deals")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("documents")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("stock_movements")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true }),
       ]);
-      const firstError = [customersRes, itemsRes, dealsRes, documentsRes, movementsRes].find((result) => result.error)?.error;
+      const firstError = [customersRes, itemsRes, dealsRes, documentsRes, movementsRes].find(
+        (result) => result.error,
+      )?.error;
       if (firstError) throw firstError;
 
       const documents = (documentsRes.data || []) as Document[];
       const documentIds = documents.map((document) => document.id);
-      const billingNoteIds = documents.filter((document) => document.doc_type === "billing_note").map((document) => document.id);
-      const [{ data: lineItems, error: lineItemsError }, { data: billingLinks, error: billingLinksError }] = await Promise.all([
-        documentIds.length ? supabase.from("document_line_items").select("*").in("document_id", documentIds) : Promise.resolve({ data: [], error: null }),
-        billingNoteIds.length ? supabase.from("billing_note_invoices").select("*").in("billing_note_id", billingNoteIds) : Promise.resolve({ data: [], error: null }),
+      const billingNoteIds = documents
+        .filter((document) => document.doc_type === "billing_note")
+        .map((document) => document.id);
+      const [
+        { data: lineItems, error: lineItemsError },
+        { data: billingLinks, error: billingLinksError },
+      ] = await Promise.all([
+        documentIds.length
+          ? supabase.from("document_line_items").select("*").in("document_id", documentIds)
+          : Promise.resolve({ data: [], error: null }),
+        billingNoteIds.length
+          ? supabase.from("billing_note_invoices").select("*").in("billing_note_id", billingNoteIds)
+          : Promise.resolve({ data: [], error: null }),
       ]);
       if (lineItemsError) throw lineItemsError;
       if (billingLinksError) throw billingLinksError;
@@ -534,8 +675,20 @@ export default function DownloadCenterPage() {
         billingLinks: (billingLinks || []) as BillingNoteInvoice[],
         stockMovements: (movementsRes.data || []) as StockMovement[],
       });
-      downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), datedFilename("company-data", "xlsx"));
-      await logDownload({ workspaceUserId: userId, actorUserId, kind: "backup", format: "xlsx", params: { scope: "company-data" }, status: "success" });
+      downloadBlob(
+        new Blob([buffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        datedFilename("company-data", "xlsx"),
+      );
+      await logDownload({
+        workspaceUserId: userId,
+        actorUserId,
+        kind: "backup",
+        format: "xlsx",
+        params: { scope: "company-data" },
+        status: "success",
+      });
       toast.success("ส่งออกข้อมูลบริษัทเรียบร้อยแล้ว");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "ส่งออกข้อมูลบริษัทไม่สำเร็จ");
@@ -555,7 +708,9 @@ export default function DownloadCenterPage() {
   const busy = docsJob.status === "running" || reportJob.status === "running";
 
   const confirmCount =
-    confirmAction?.type === "preset" ? counts[confirmAction.preset.key] ?? 0 : builderCount ?? 0;
+    confirmAction?.type === "preset"
+      ? (counts[confirmAction.preset.key] ?? 0)
+      : (builderCount ?? 0);
 
   return (
     <AppShell title="ศูนย์ดาวน์โหลด">
@@ -571,8 +726,20 @@ export default function DownloadCenterPage() {
                 <span className="text-label font-semibold text-ink-400">ดาวน์โหลดด่วน</span>
               </div>
               <div className="flex gap-1">
-                <button type="button" onClick={() => setQuickFilter("thisMonth")} className={chipClass(quickFilter === "thisMonth")}>เดือนนี้</button>
-                <button type="button" onClick={() => setQuickFilter("prevMonth")} className={chipClass(quickFilter === "prevMonth")}>เดือนก่อน</button>
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter("thisMonth")}
+                  className={chipClass(quickFilter === "thisMonth")}
+                >
+                  เดือนนี้
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter("prevMonth")}
+                  className={chipClass(quickFilter === "prevMonth")}
+                >
+                  เดือนก่อน
+                </button>
               </div>
             </div>
             <div className="text-label text-ink-400">{selectedMonthLabel}</div>
@@ -628,7 +795,12 @@ export default function DownloadCenterPage() {
               <div className="mb-2 text-label font-semibold text-ink-500">ช่วงวันที่</div>
               <div className="flex flex-wrap gap-1.5">
                 {RANGE_MODES.map((mode) => (
-                  <button key={mode.key} type="button" onClick={() => setRangeMode(mode.key)} className={chipClass(rangeMode === mode.key)}>
+                  <button
+                    key={mode.key}
+                    type="button"
+                    onClick={() => setRangeMode(mode.key)}
+                    className={chipClass(rangeMode === mode.key)}
+                  >
                     {mode.label}
                   </button>
                 ))}
@@ -636,31 +808,62 @@ export default function DownloadCenterPage() {
               {rangeMode === "custom" && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="builder-from" className="mb-0.5 block text-label text-ink-500">จากวันที่</label>
-                    <input id="builder-from" type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <label htmlFor="builder-from" className="mb-0.5 block text-label text-ink-500">
+                      จากวันที่
+                    </label>
+                    <input
+                      id="builder-from"
+                      type="date"
+                      value={customFrom}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
                   </div>
                   <div>
-                    <label htmlFor="builder-to" className="mb-0.5 block text-label text-ink-500">ถึงวันที่</label>
-                    <input id="builder-to" type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <label htmlFor="builder-to" className="mb-0.5 block text-label text-ink-500">
+                      ถึงวันที่
+                    </label>
+                    <input
+                      id="builder-to"
+                      type="date"
+                      value={customTo}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
                   </div>
                 </div>
               )}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Select label="ประเภทเอกสาร" value={builderDocType} onChange={(e) => setBuilderDocType(e.target.value as DocumentType)}>
+              <Select
+                label="ประเภทเอกสาร"
+                value={builderDocType}
+                onChange={(e) => setBuilderDocType(e.target.value as DocumentType)}
+              >
                 {Object.entries(docTypeLabels).map(([key, label]) => (
-                  <option key={key} value={key}>{label.th}</option>
+                  <option key={key} value={key}>
+                    {label.th}
+                  </option>
                 ))}
               </Select>
-              <CustomerQuickSelect value={builderCustomerId} onChange={setBuilderCustomerId} userId={userId} />
+              <CustomerQuickSelect
+                value={builderCustomerId}
+                onChange={setBuilderCustomerId}
+                userId={userId}
+              />
             </div>
 
             <div>
               <div className="mb-2 text-label font-semibold text-ink-500">สถานะ</div>
               <div className="flex flex-wrap gap-1.5">
                 {STATUS_FILTERS.map((status) => (
-                  <button key={status.key} type="button" onClick={() => setStatusFilter(status.key)} className={chipClass(statusFilter === status.key)}>
+                  <button
+                    key={status.key}
+                    type="button"
+                    onClick={() => setStatusFilter(status.key)}
+                    className={chipClass(statusFilter === status.key)}
+                  >
                     {status.label}
                   </button>
                 ))}
@@ -669,11 +872,24 @@ export default function DownloadCenterPage() {
 
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="flex cursor-pointer items-center gap-2 rounded-control border border-card-border bg-paper-field px-3 py-2 text-label text-ink-700">
-                <input type="checkbox" checked={zipGrouping} onChange={(e) => setZipGrouping(e.target.checked)} className="h-4 w-4 rounded border-line text-primary focus:ring-primary" />
+                <input
+                  type="checkbox"
+                  checked={zipGrouping}
+                  onChange={(e) => setZipGrouping(e.target.checked)}
+                  className="h-4 w-4 rounded border-line text-primary focus:ring-primary"
+                />
                 จัดโฟลเดอร์ใน ZIP ตามประเภทเอกสาร
               </label>
-              <label className={`flex cursor-pointer items-center gap-2 rounded-control border border-card-border px-3 py-2 text-label ${copyType === "both" ? "bg-paper-field text-ink-400" : "bg-paper-field text-ink-700"}`}>
-                <input type="checkbox" checked={mergePdf} disabled={copyType === "both"} onChange={(e) => setMergePdf(e.target.checked)} className="h-4 w-4 rounded border-line text-primary focus:ring-primary disabled:opacity-50" />
+              <label
+                className={`flex cursor-pointer items-center gap-2 rounded-control border border-card-border px-3 py-2 text-label ${copyType === "both" ? "bg-paper-field text-ink-400" : "bg-paper-field text-ink-700"}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={mergePdf}
+                  disabled={copyType === "both"}
+                  onChange={(e) => setMergePdf(e.target.checked)}
+                  className="h-4 w-4 rounded border-line text-primary focus:ring-primary disabled:opacity-50"
+                />
                 รวมเป็น PDF ไฟล์เดียว {copyType === "both" && "(ไม่ใช้กับต้นฉบับ+สำเนา)"}
               </label>
             </div>
@@ -681,23 +897,48 @@ export default function DownloadCenterPage() {
             <div>
               <div className="mb-2 text-label font-semibold text-ink-500">รูปแบบสำเนา</div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setCopyType("original")} className={chipClass(copyType === "original")}>ต้นฉบับ</button>
-                <button type="button" onClick={() => setCopyType("both")} className={chipClass(copyType === "both")}>ต้นฉบับ + สำเนา</button>
+                <button
+                  type="button"
+                  onClick={() => setCopyType("original")}
+                  className={chipClass(copyType === "original")}
+                >
+                  ต้นฉบับ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCopyType("both")}
+                  className={chipClass(copyType === "both")}
+                >
+                  ต้นฉบับ + สำเนา
+                </button>
               </div>
             </div>
 
             <div className="flex flex-col gap-2 border-t border-card-border pt-4 sm:flex-row">
-              <Button onClick={() => setConfirmAction({ type: "builder" })} disabled={busy || builderCount === 0} className="flex-1">
+              <Button
+                onClick={() => setConfirmAction({ type: "builder" })}
+                disabled={busy || builderCount === 0}
+                className="flex-1"
+              >
                 <Download className="mr-2 h-4 w-4" />
-                {mergePdf && copyType === "original" ? "รวมเป็น PDF ไฟล์เดียว" : "ดาวน์โหลดเป็น ZIP"}
+                {mergePdf && copyType === "original"
+                  ? "รวมเป็น PDF ไฟล์เดียว"
+                  : "ดาวน์โหลดเป็น ZIP"}
                 {builderCount != null ? ` (${builderCount})` : ""}
               </Button>
-              <Button variant="secondary" onClick={handleBuilderCsv} disabled={busy || builderCount === 0} className="sm:w-48">
+              <Button
+                variant="secondary"
+                onClick={handleBuilderCsv}
+                disabled={busy || builderCount === 0}
+                className="sm:w-48"
+              >
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 ดาวน์โหลด CSV
               </Button>
             </div>
-            {builderCount === 0 && <div className="text-label text-ink-400">ไม่พบเอกสารตามเงื่อนไขที่เลือก</div>}
+            {builderCount === 0 && (
+              <div className="text-label text-ink-400">ไม่พบเอกสารตามเงื่อนไขที่เลือก</div>
+            )}
           </div>
         </Card>
 
@@ -727,20 +968,48 @@ export default function DownloadCenterPage() {
                 }
               >
                 <div className="mb-2 flex flex-wrap gap-1">
-                  {([["month", "เดือน"], ["quarter", "ไตรมาส"], ["ytd", "YTD"], ["year", "ทั้งปี"]] as const).map(([mode, label]) => (
-                    <button key={mode} type="button" onClick={() => setFinPeriodMode(mode)} className={chipClass(finPeriodMode === mode)}>
+                  {(
+                    [
+                      ["month", "เดือน"],
+                      ["quarter", "ไตรมาส"],
+                      ["ytd", "YTD"],
+                      ["year", "ทั้งปี"],
+                    ] as const
+                  ).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setFinPeriodMode(mode)}
+                      className={chipClass(finPeriodMode === mode)}
+                    >
                       {label}
                     </button>
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {finPeriodMode === "month" && <MonthSelect label="เดือน" value={finMonth} onChange={setFinMonth} />}
+                  {finPeriodMode === "month" && (
+                    <MonthSelect label="เดือน" value={finMonth} onChange={setFinMonth} />
+                  )}
                   {finPeriodMode === "quarter" && (
                     <div>
-                      <label htmlFor="download-fin-quarter" className="mb-0.5 block text-label text-ink-500">ไตรมาส</label>
-                      <select id="download-fin-quarter" value={finQuarter} onChange={(e) => setFinQuarter(Number(e.target.value))} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        {[1, 2, 3, 4].map((q) => (<option key={q} value={q}>Q{q}</option>))}
-                      </select>
+                      <label
+                        htmlFor="download-fin-quarter"
+                        className="mb-0.5 block text-label text-ink-500"
+                      >
+                        ไตรมาส
+                      </label>
+                      <Select
+                        id="download-fin-quarter"
+                        value={finQuarter}
+                        onChange={(e) => setFinQuarter(Number(e.target.value))}
+                        className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        {[1, 2, 3, 4].map((q) => (
+                          <option key={q} value={q}>
+                            Q{q}
+                          </option>
+                        ))}
+                      </Select>
                     </div>
                   )}
                   <YearSelect label="ปี" value={finYear} onChange={setFinYear} />
@@ -759,12 +1028,34 @@ export default function DownloadCenterPage() {
               >
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label htmlFor="download-stock-from" className="mb-0.5 block text-label text-ink-500">จากวันที่</label>
-                    <input id="download-stock-from" type="date" value={stockFrom} onChange={(e) => setStockFrom(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <label
+                      htmlFor="download-stock-from"
+                      className="mb-0.5 block text-label text-ink-500"
+                    >
+                      จากวันที่
+                    </label>
+                    <input
+                      id="download-stock-from"
+                      type="date"
+                      value={stockFrom}
+                      onChange={(e) => setStockFrom(e.target.value)}
+                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
                   </div>
                   <div>
-                    <label htmlFor="download-stock-to" className="mb-0.5 block text-label text-ink-500">ถึงวันที่</label>
-                    <input id="download-stock-to" type="date" value={stockTo} onChange={(e) => setStockTo(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <label
+                      htmlFor="download-stock-to"
+                      className="mb-0.5 block text-label text-ink-500"
+                    >
+                      ถึงวันที่
+                    </label>
+                    <input
+                      id="download-stock-to"
+                      type="date"
+                      value={stockTo}
+                      onChange={(e) => setStockTo(e.target.value)}
+                      className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
                   </div>
                 </div>
               </ReportCard>
@@ -794,11 +1085,21 @@ export default function DownloadCenterPage() {
                 </span>
                 <div>
                   <div className="text-body font-semibold text-ink-900">สำรองข้อมูลและส่งออก</div>
-                  <p className="mt-1 text-label leading-5 text-ink-500">ดาวน์โหลดสำเนาข้อมูลบริษัทไว้เปิดใน Excel การส่งออกจะไม่ลบหรือเปลี่ยนแปลงข้อมูลในระบบ</p>
-                  <div className="mt-1 text-label text-ink-400">รวมข้อมูลบริษัท ลูกค้า สินค้า งานขาย เอกสาร รายการเอกสาร ใบวางบิล และสต็อก</div>
+                  <p className="mt-1 text-label leading-5 text-ink-500">
+                    ดาวน์โหลดสำเนาข้อมูลบริษัทไว้เปิดใน Excel
+                    การส่งออกจะไม่ลบหรือเปลี่ยนแปลงข้อมูลในระบบ
+                  </p>
+                  <div className="mt-1 text-label text-ink-400">
+                    รวมข้อมูลบริษัท ลูกค้า สินค้า งานขาย เอกสาร รายการเอกสาร ใบวางบิล และสต็อก
+                  </div>
                 </div>
               </div>
-              <Button onClick={handleCompanyDataExport} loading={dataExporting} disabled={dataExporting} className="shrink-0">
+              <Button
+                onClick={handleCompanyDataExport}
+                loading={dataExporting}
+                disabled={dataExporting}
+                className="shrink-0"
+              >
                 {dataExporting ? "กำลังสร้างไฟล์..." : "ดาวน์โหลดข้อมูลทั้งหมด (Excel)"}
               </Button>
             </div>
@@ -824,15 +1125,31 @@ export default function DownloadCenterPage() {
         />
       )}
 
-      <Modal open={!!confirmAction} onClose={() => setConfirmAction(null)} title="ยืนยันการดาวน์โหลด">
+      <Modal
+        open={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        title="ยืนยันการดาวน์โหลด"
+      >
         {confirmAction?.type === "preset" && (
           <div className="space-y-3">
             <p className="text-body text-ink-600">คุณต้องการดาวน์โหลดเอกสารต่อไปนี้หรือไม่?</p>
             <div className="space-y-1.5 rounded-control bg-paper-field p-3 text-body">
-              <div className="flex justify-between"><span className="text-ink-500">ประเภท:</span><span>{confirmAction.preset.label}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">เดือน:</span><span>{selectedMonthLabel}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">จำนวน:</span><span>{confirmCount} ฉบับ</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">รูปแบบ:</span><span>{copyType === "original" ? "ต้นฉบับ" : "ต้นฉบับ + สำเนา"}</span></div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">ประเภท:</span>
+                <span>{confirmAction.preset.label}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">เดือน:</span>
+                <span>{selectedMonthLabel}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">จำนวน:</span>
+                <span>{confirmCount} ฉบับ</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">รูปแบบ:</span>
+                <span>{copyType === "original" ? "ต้นฉบับ" : "ต้นฉบับ + สำเนา"}</span>
+              </div>
             </div>
           </div>
         )}
@@ -840,16 +1157,43 @@ export default function DownloadCenterPage() {
           <div className="space-y-3">
             <p className="text-body text-ink-600">ยืนยันการสร้างไฟล์ตามเงื่อนไข</p>
             <div className="space-y-1.5 rounded-control bg-paper-field p-3 text-body">
-              <div className="flex justify-between"><span className="text-ink-500">ประเภท:</span><span>{docTypeLabels[builderDocType]?.th}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">ช่วงวันที่:</span><span>{builderRange.start ? docDate.date(builderRange.start) : "ทั้งหมด"}{builderRange.end ? ` – ${docDate.date(builderRange.end)}` : ""}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">สถานะ:</span><span>{STATUS_FILTERS.find((s) => s.key === statusFilter)?.label}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">จำนวน:</span><span>{confirmCount} ฉบับ</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">รูปแบบ:</span><span>{mergePdf && copyType === "original" ? "รวมเป็น PDF ไฟล์เดียว" : zipGrouping ? "ZIP (แยกโฟลเดอร์)" : "ZIP"}{copyType === "both" ? " · ต้นฉบับ + สำเนา" : ""}</span></div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">ประเภท:</span>
+                <span>{docTypeLabels[builderDocType]?.th}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">ช่วงวันที่:</span>
+                <span>
+                  {builderRange.start ? docDate.date(builderRange.start) : "ทั้งหมด"}
+                  {builderRange.end ? ` – ${docDate.date(builderRange.end)}` : ""}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">สถานะ:</span>
+                <span>{STATUS_FILTERS.find((s) => s.key === statusFilter)?.label}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">จำนวน:</span>
+                <span>{confirmCount} ฉบับ</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-500">รูปแบบ:</span>
+                <span>
+                  {mergePdf && copyType === "original"
+                    ? "รวมเป็น PDF ไฟล์เดียว"
+                    : zipGrouping
+                      ? "ZIP (แยกโฟลเดอร์)"
+                      : "ZIP"}
+                  {copyType === "both" ? " · ต้นฉบับ + สำเนา" : ""}
+                </span>
+              </div>
             </div>
           </div>
         )}
         <div className="mt-4 flex justify-end gap-2 border-t border-line-faint pt-3">
-          <Button variant="secondary" onClick={() => setConfirmAction(null)}>ยกเลิก</Button>
+          <Button variant="secondary" onClick={() => setConfirmAction(null)}>
+            ยกเลิก
+          </Button>
           <Button
             variant="primary"
             onClick={() => {
@@ -868,7 +1212,13 @@ export default function DownloadCenterPage() {
   );
 }
 
-function FormatToggle({ value, onChange }: { value: "xlsx" | "csv"; onChange: (v: "xlsx" | "csv") => void }) {
+function FormatToggle({
+  value,
+  onChange,
+}: {
+  value: "xlsx" | "csv";
+  onChange: (v: "xlsx" | "csv") => void;
+}) {
   return (
     <div className="mb-2 inline-flex overflow-hidden rounded-control border border-card-border">
       {(["xlsx", "csv"] as const).map((format) => (
@@ -885,7 +1235,15 @@ function FormatToggle({ value, onChange }: { value: "xlsx" | "csv"; onChange: (v
   );
 }
 
-function CustomerQuickSelect({ value, onChange, userId }: { value: string; onChange: (id: string) => void; userId: string }) {
+function CustomerQuickSelect({
+  value,
+  onChange,
+  userId,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  userId: string;
+}) {
   const selectId = useId();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loadError, setLoadError] = useState(false);
@@ -913,40 +1271,88 @@ function CustomerQuickSelect({ value, onChange, userId }: { value: string; onCha
 
   return (
     <div>
-      <label htmlFor={selectId} className="mb-1 block text-label font-medium text-ink-600">ลูกค้า (ไม่บังคับ)</label>
-      <select id={selectId} value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+      <label htmlFor={selectId} className="mb-1 block text-label font-medium text-ink-600">
+        ลูกค้า (ไม่บังคับ)
+      </label>
+      <Select
+        id={selectId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-control border border-card-border bg-white px-3 py-2 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+      >
         <option value="">ทั้งหมด</option>
         {customers.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</option>
+          <option key={c.id} value={c.id}>
+            {c.name}
+            {c.code ? ` (${c.code})` : ""}
+          </option>
         ))}
-      </select>
-      {loadError && <p className="mt-1 text-label text-red-500">โหลดรายชื่อลูกค้าไม่สำเร็จ</p>}
+      </Select>
+      {loadError && <p className="mt-1 text-label text-danger-text">โหลดรายชื่อลูกค้าไม่สำเร็จ</p>}
     </div>
   );
 }
 
-function MonthSelect({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function MonthSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
   const selectId = useId();
   return (
     <div>
-      <label htmlFor={selectId} className="mb-0.5 block text-label text-ink-500">{label}</label>
-      <select id={selectId} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-        {MONTH_LABELS.map((l, i) => (<option key={i} value={i + 1}>{l}</option>))}
-      </select>
+      <label htmlFor={selectId} className="mb-0.5 block text-label text-ink-500">
+        {label}
+      </label>
+      <Select
+        id={selectId}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+      >
+        {MONTH_LABELS.map((l, i) => (
+          <option key={i} value={i + 1}>
+            {l}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
 
-function YearSelect({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function YearSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
   const selectId = useId();
   const docDate = useDocDate();
   const nowYear = new Date().getFullYear();
   return (
     <div>
-      <label htmlFor={selectId} className="mb-0.5 block text-label text-ink-500">{label}</label>
-      <select id={selectId} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-        {[nowYear - 1, nowYear, nowYear + 1].map((y) => (<option key={y} value={y}>{toEraYear(y, docDate.era)}</option>))}
-      </select>
+      <label htmlFor={selectId} className="mb-0.5 block text-label text-ink-500">
+        {label}
+      </label>
+      <Select
+        id={selectId}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full rounded-control border border-card-border bg-white px-2 py-1.5 text-label focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+      >
+        {[nowYear - 1, nowYear, nowYear + 1].map((y) => (
+          <option key={y} value={y}>
+            {toEraYear(y, docDate.era)}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
@@ -971,10 +1377,10 @@ function ReportCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col rounded-control border border-card-border bg-white p-4 transition-colors hover:border-primary/30 hover:bg-blue-50/30">
+    <div className="flex flex-col rounded-control border border-card-border bg-white p-4 transition-colors hover:border-primary/30 hover:bg-primary-soft/30">
       <div className="mb-1.5 flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="shrink-0 rounded-control bg-blue-50 p-1.5 text-primary">{icon}</div>
+          <div className="shrink-0 rounded-control bg-primary-soft p-1.5 text-primary">{icon}</div>
           <div className="min-w-0">
             <div className="truncate text-body font-semibold text-ink-900">{title}</div>
             <div className="text-label leading-snug text-ink-500">{description}</div>
@@ -985,7 +1391,14 @@ function ReportCard({
         {formatToggle}
         {children}
       </div>
-      <Button size="sm" variant="primary" loading={exporting} onClick={onDownload} disabled={disabled} className="mt-3 w-full">
+      <Button
+        size="sm"
+        variant="primary"
+        loading={exporting}
+        onClick={onDownload}
+        disabled={disabled}
+        className="mt-3 w-full"
+      >
         {!exporting && <Download className="mr-1.5 h-3.5 w-3.5" />}
         {exporting ? "กำลังสร้าง..." : "ดาวน์โหลด"}
       </Button>

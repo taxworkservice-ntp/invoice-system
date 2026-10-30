@@ -808,31 +808,31 @@ export default function WhtPage() {
             )}
 
             {payrollStrip && (
-              <div className="rounded-card border border-teal-200 bg-teal-50/60 px-4 py-3">
+              <div className="rounded-card border border-accent-teal/30 bg-accent-teal/10/60 px-4 py-3">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body">
-                  <span className="inline-flex items-center gap-1 font-medium text-teal-800">
+                  <span className="inline-flex items-center gap-1 font-medium text-accent-teal">
                     <Sparkles size={13} /> จากรอบเงินเดือน
                   </span>
-                  <span className="text-teal-700">
+                  <span className="text-accent-teal">
                     {payrollStrip.count} รายการ · ภาษีรวม{" "}
                     <strong className="tabular-nums">
                       ฿{formatCurrency(payrollStrip.totalWht)}
                     </strong>
                   </span>
-                  <span className="text-label text-teal-600">
+                  <span className="text-label text-accent-teal">
                     ภ.ง.ด.1 {payrollStrip.pnd1Count} (฿{formatCurrency(payrollStrip.pnd1Wht)}) ·
                     ภ.ง.ด.3 {payrollStrip.pnd3Count} (฿{formatCurrency(payrollStrip.pnd3Wht)})
                   </span>
                   <button
                     type="button"
                     onClick={() => navigate("/payroll")}
-                    className="ml-auto text-label font-medium text-teal-700 hover:text-teal-900 underline underline-offset-2"
+                    className="ml-auto text-label font-medium text-accent-teal hover:text-accent-teal underline underline-offset-2"
                   >
                     ← กลับหน้าเงินเดือน
                   </button>
                 </div>
                 {missingTaxIdCount > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1 text-label text-amber-700">
+                  <div className="mt-2 flex flex-wrap items-center gap-1 text-label text-warning-text">
                     <Info size={13} className="shrink-0" />
                     <span>
                       พนักงาน {missingTaxIdCount} คนยังไม่มีเลขภาษี —
@@ -841,7 +841,7 @@ export default function WhtPage() {
                     <button
                       type="button"
                       onClick={() => navigate("/payroll/employees")}
-                      className="font-medium underline underline-offset-2 hover:text-amber-900"
+                      className="font-medium underline underline-offset-2 hover:text-warning-text"
                     >
                       ไปเพิ่มที่หน้าพนักงาน
                     </button>
@@ -857,7 +857,7 @@ export default function WhtPage() {
                 placeholder="ค้นหาชื่อ เลขที่ผู้เสียภาษี เลขใบรับรอง..."
                 className="flex-1 min-w-[200px]"
               />
-              <select
+              <Select
                 aria-label="กรองตามเดือน"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
@@ -869,8 +869,8 @@ export default function WhtPage() {
                     {docDate.month(m)}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
                 aria-label="กรองตามผู้ขาย"
                 value={vendorFilter}
                 onChange={(e) => setVendorFilter(e.target.value)}
@@ -882,8 +882,8 @@ export default function WhtPage() {
                     {v.name}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
                 aria-label="กรองตามแบบภาษี"
                 value={formFilter}
                 onChange={(e) => setFormFilter(e.target.value)}
@@ -895,8 +895,8 @@ export default function WhtPage() {
                     {WHT_FORM_TYPE_LABELS[ft]}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
                 aria-label="กรองตามแหล่งที่มา"
                 value={sourceFilter}
                 onChange={(e) => {
@@ -912,7 +912,7 @@ export default function WhtPage() {
                 <option value="">ทุกแหล่งที่มา</option>
                 <option value="manual">รายการรับเอง</option>
                 <option value="payroll">จากเงินเดือน</option>
-              </select>
+              </Select>
               <Button onClick={openAddRecord} className="!rounded-control shrink-0">
                 <Plus size={15} className="mr-1" /> เพิ่มรายการ
               </Button>
@@ -950,7 +950,7 @@ export default function WhtPage() {
                     type="button"
                     onClick={() => setShowSig(!showSig)}
                     title={`ลายเซ็น: ${showSig ? "แสดง" : "ซ่อน"}`}
-                    className={`inline-flex min-h-11 items-center gap-1 rounded border px-2 py-0.5 transition-colors md:min-h-0 ${showSig ? "border-blue-200 bg-blue-50 text-blue-600" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500"}`}
+                    className={`inline-flex min-h-11 items-center gap-1 rounded border px-2 py-0.5 transition-colors md:min-h-0 ${showSig ? "border-primary-border bg-primary-soft text-primary-deep" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500"}`}
                   >
                     {showSig ? <Eye size={12} /> : <EyeOff size={12} />}
                     <span className="text-label">ลายเซ็น</span>
@@ -959,7 +959,7 @@ export default function WhtPage() {
                     type="button"
                     onClick={() => setShowStp(!showStp)}
                     title={`ตราประทับ: ${showStp ? "แสดง" : "ซ่อน"}`}
-                    className={`inline-flex min-h-11 items-center gap-1 rounded border px-2 py-0.5 transition-colors md:min-h-0 ${showStp ? "border-orange-200 bg-orange-50 text-orange-600" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500"}`}
+                    className={`inline-flex min-h-11 items-center gap-1 rounded border px-2 py-0.5 transition-colors md:min-h-0 ${showStp ? "border-warning-border bg-warning-soft text-warning-text" : "border-line text-ink-400 hover:border-line-strong hover:text-ink-500"}`}
                   >
                     {showStp ? <Eye size={12} /> : <EyeOff size={12} />}
                     <span className="text-label">ตรา</span>
@@ -1080,7 +1080,7 @@ export default function WhtPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleUnmarkDone(r.id)}
-                                  className="inline-flex h-11 w-11 items-center justify-center text-green-500 transition-colors hover:text-green-600 md:h-auto md:w-auto"
+                                  className="inline-flex h-11 w-11 items-center justify-center text-success-text transition-colors hover:text-success-text md:h-auto md:w-auto"
                                   title="เรียบร้อยแล้ว — คลิกเพื่อย้อนกลับ"
                                 >
                                   <CheckCircle size={16} />
@@ -1089,7 +1089,7 @@ export default function WhtPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleMarkDone(r.id)}
-                                  className="inline-flex h-11 w-11 items-center justify-center text-ink-200 transition-colors hover:text-green-500 md:h-auto md:w-auto"
+                                  className="inline-flex h-11 w-11 items-center justify-center text-ink-200 transition-colors hover:text-success-text md:h-auto md:w-auto"
                                   title="รอจัดการ — คลิกเมื่อเรียบร้อย"
                                 >
                                   <Circle size={16} />
@@ -1124,7 +1124,7 @@ export default function WhtPage() {
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/payroll?run=${r.payroll_run_id}`)}
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 text-label font-medium hover:bg-teal-100 transition-colors"
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-accent-teal/10 text-accent-teal text-label font-medium hover:bg-accent-teal/10 transition-colors"
                                     title="สร้างอัตโนมัติจากรอบเงินเดือน — กดเพื่อเปิดรอบนั้น"
                                   >
                                     <Sparkles size={10} /> Payroll
@@ -1172,7 +1172,7 @@ export default function WhtPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteRecord(r.id)}
-                                    className="p-2.5 rounded-control hover:bg-red-50 text-ink-200 hover:text-red-500 transition-colors md:p-1.5"
+                                    className="p-2.5 rounded-control hover:bg-danger-soft text-ink-200 hover:text-danger-text transition-colors md:p-1.5"
                                     title="ลบ"
                                   >
                                     <Trash2 size={15} />
@@ -1182,7 +1182,7 @@ export default function WhtPage() {
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/payroll?run=${r.payroll_run_id}`)}
-                                    className="p-2.5 rounded-control hover:bg-teal-50 text-ink-200 hover:text-teal-700 transition-colors md:p-1.5"
+                                    className="p-2.5 rounded-control hover:bg-accent-teal/10 text-ink-200 hover:text-accent-teal transition-colors md:p-1.5"
                                     title="แก้ไขที่รอบเงินเดือน"
                                   >
                                     <ExternalLink size={15} />
@@ -1255,7 +1255,9 @@ export default function WhtPage() {
                   <table className={`${TABLE.table} min-w-[720px]`}>
                     <thead>
                       <tr className={TABLE.theadTr}>
-                        <th className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}>
+                        <th
+                          className={`${TABLE.thStatic} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
+                        >
                           ชื่อ
                         </th>
                         <th className={`${TABLE.thStatic} whitespace-nowrap`}>เลขผู้เสียภาษี</th>
@@ -1274,10 +1276,7 @@ export default function WhtPage() {
                           onClick={() => openEditVendor(v)}
                         >
                           <td className={`${TABLE.tdSticky} px-3 py-3 md:py-2`}>
-                            <span
-                              className="text-ink-900 truncate block max-w-full"
-                              title={v.name}
-                            >
+                            <span className="text-ink-900 truncate block max-w-full" title={v.name}>
                               {v.name}
                             </span>
                           </td>
@@ -1314,7 +1313,7 @@ export default function WhtPage() {
                                 handleDeleteVendor(v.id);
                               }}
                               aria-label="ลบผู้ขาย"
-                              className="p-2.5 md:p-1.5 rounded-control hover:bg-red-50 text-ink-200 hover:text-red-500"
+                              className="p-2.5 md:p-1.5 rounded-control hover:bg-danger-soft text-ink-200 hover:text-danger-text"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -1393,9 +1392,9 @@ export default function WhtPage() {
                   setAmountError(null);
                 }}
                 placeholder="0.00"
-                className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-red-400" : "border-card-border"}`}
+                className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-danger" : "border-card-border"}`}
               />
-              {amountError && <p className="text-label text-red-500 mt-1">{amountError}</p>}
+              {amountError && <p className="text-label text-danger-text mt-1">{amountError}</p>}
             </div>
             <div>
               <label
@@ -1426,7 +1425,7 @@ export default function WhtPage() {
                   </button>
                 </div>
               ) : (
-                <select
+                <Select
                   value={newRecord.description}
                   onChange={(e) => {
                     const desc = e.target.value;
@@ -1451,7 +1450,7 @@ export default function WhtPage() {
                     </option>
                   ))}
                   <option value="__custom__">อื่นๆ (พิมพ์เอง)</option>
-                </select>
+                </Select>
               )}
             </div>
             <Select
@@ -1505,7 +1504,7 @@ export default function WhtPage() {
       <Modal open={!!showEditRecord} onClose={closeEditRecord} title="แก้ไขรายการ หัก ณ ที่จ่าย">
         <div>
           {showEditRecord?.certificate_no && (
-            <div className="mb-3 flex items-start gap-2 rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-800">
+            <div className="mb-3 flex items-start gap-2 rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label leading-5 text-warning-text">
               <Info size={14} className="shrink-0 mt-0.5" />
               <span>
                 ใบรับรอง{" "}
@@ -1568,9 +1567,9 @@ export default function WhtPage() {
                   setAmountError(null);
                 }}
                 placeholder="0.00"
-                className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-red-400" : "border-card-border"}`}
+                className={`w-full px-3 py-2 text-body border rounded-control bg-white placeholder:text-ink-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${amountError ? "border-danger" : "border-card-border"}`}
               />
-              {amountError && <p className="text-label text-red-500 mt-1">{amountError}</p>}
+              {amountError && <p className="text-label text-danger-text mt-1">{amountError}</p>}
             </div>
             <div>
               <label
@@ -1603,7 +1602,7 @@ export default function WhtPage() {
                   </button>
                 </div>
               ) : (
-                <select
+                <Select
                   value={editRecordForm.description}
                   onChange={(e) => {
                     const desc = e.target.value;
@@ -1628,7 +1627,7 @@ export default function WhtPage() {
                     </option>
                   ))}
                   <option value="__custom__">อื่นๆ (พิมพ์เอง)</option>
-                </select>
+                </Select>
               )}
             </div>
             <Select

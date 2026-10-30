@@ -614,7 +614,7 @@ export function ManageTab({
             </div>
           )}
 
-          <div className="mt-3 rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-relaxed text-amber-800">
+          <div className="mt-3 rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label leading-relaxed text-warning-text">
             การเปลี่ยนสถานะ VAT มีผลกับเอกสารใหม่เท่านั้น — ต้องยืนยันแยกต่างหากก่อนบันทึก
           </div>
 
@@ -653,9 +653,9 @@ export function ManageTab({
               เปลี่ยนรหัสผ่าน (กำหนดเอง)
             </Button>
 
-            <div className="rounded-control border border-amber-200 bg-amber-50 p-3">
-              <div className="text-label font-semibold text-amber-800">Dev Mode</div>
-              <p className="mt-1 text-body leading-6 text-amber-900">
+            <div className="rounded-control border border-warning-border bg-warning-soft p-3">
+              <div className="text-label font-semibold text-warning-text">Dev Mode</div>
+              <p className="mt-1 text-body leading-6 text-warning-text">
                 Allow client to freely edit document numbers (invoice number, receipt number, etc.).
                 Currently: <strong>{clientProfile?.dev_mode_enabled ? "ON" : "OFF"}</strong>
               </p>
@@ -680,14 +680,14 @@ export function ManageTab({
         <SectionHeader>โซนอันตราย</SectionHeader>
         <Card className="!border-danger/30">
           <div className="space-y-2">
-            <div className="rounded-control border border-amber-200 bg-amber-50 p-3">
-              <div className="text-label font-semibold text-amber-800">Start New Workspace</div>
-              <p className="mt-1 text-body leading-6 text-amber-900">
+            <div className="rounded-control border border-warning-border bg-warning-soft p-3">
+              <div className="text-label font-semibold text-warning-text">Start New Workspace</div>
+              <p className="mt-1 text-body leading-6 text-warning-text">
                 Archive active deals, customers, and catalog items for this client, then reset
                 document numbering. Old documents remain available as history, and deal numbers
                 (DL-) continue after the highest archived number.
               </p>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-label text-amber-900/80">
+              <div className="mt-2 grid grid-cols-3 gap-2 text-label text-warning-text/80">
                 <div>Active deals: {activeDealCount}</div>
                 <div>Active customers: {activeCustomerCount}</div>
                 <div>Active items: {activeItemCount}</div>
@@ -701,11 +701,11 @@ export function ManageTab({
               </Button>
             </div>
 
-            <div className="rounded-control border border-orange-200 bg-orange-50 p-3">
-              <div className="text-label font-semibold text-orange-800">
+            <div className="rounded-control border border-warning-border bg-warning-soft p-3">
+              <div className="text-label font-semibold text-warning-text">
                 Clear Documents &amp; Numbering
               </div>
-              <p className="mt-1 text-body leading-6 text-orange-900">
+              <p className="mt-1 text-body leading-6 text-warning-text">
                 End-of-trial cleanup: delete all documents, deals, stock movements, and WHT records
                 for this client. Document numbering restarts at 1 and deal numbering (DL-) restarts
                 at 00001. Item stock counts are restored to their pre-trial levels. Customers,
@@ -721,9 +721,9 @@ export function ManageTab({
               </Button>
             </div>
 
-            <div className="rounded-control border border-orange-200 bg-orange-50 p-3">
-              <div className="text-label font-semibold text-orange-800">Reset All Data</div>
-              <p className="mt-1 text-body leading-6 text-orange-900">
+            <div className="rounded-control border border-warning-border bg-warning-soft p-3">
+              <div className="text-label font-semibold text-warning-text">Reset All Data</div>
+              <p className="mt-1 text-body leading-6 text-warning-text">
                 Permanently delete all documents, deals, customers, catalog items, stock history,
                 and WHT records. Number sequences (documents and deals) will be reset. The client
                 account and profile settings are preserved. This action cannot be undone.
@@ -737,9 +737,9 @@ export function ManageTab({
               </Button>
             </div>
 
-            <div className="rounded-control border border-red-200 bg-red-50 p-3">
-              <div className="text-label font-semibold text-red-800">Delete Client</div>
-              <p className="mt-1 text-body leading-6 text-red-900">
+            <div className="rounded-control border border-danger-border bg-danger-soft p-3">
+              <div className="text-label font-semibold text-danger-text">Delete Client</div>
+              <p className="mt-1 text-body leading-6 text-danger-text">
                 Permanently delete this client, all their documents, customers, items, and account
                 data. This action cannot be undone.
               </p>
@@ -1050,7 +1050,7 @@ export function ManageTab({
                 </div>
               </div>
               {restoreDryRun.newer_data_warning && (
-                <div className="rounded-control border border-red-200 bg-red-50 p-3 text-body leading-6 text-red-800">
+                <div className="rounded-control border border-danger-border bg-danger-soft p-3 text-body leading-6 text-danger-text">
                   มีข้อมูลใหม่กว่าจะถูกแทนที่ (
                   {restoreDryRun.tables.filter((row) => row.current > 0).length} ตาราง).
                   ติ๊กยืนยันด้านล่างเพื่อดำเนินการต่อ
@@ -1203,7 +1203,7 @@ export function ManageTab({
       >
         <div className="space-y-4">
           <p className="text-body leading-6 text-ink-700">
-            This will <strong className="text-red-600">permanently delete</strong> the client{" "}
+            This will <strong className="text-danger-text">permanently delete</strong> the client{" "}
             <strong>{clientProfile?.company_name_th || email}</strong>, including:
           </p>
           <ul className="text-body text-ink-600 list-disc pl-5 space-y-1">
@@ -1215,7 +1215,7 @@ export function ManageTab({
             <li>Company profile, settings, and numbering</li>
             <li>Login account ({email})</li>
           </ul>
-          <p className="text-body font-semibold text-red-600">
+          <p className="text-body font-semibold text-danger-text">
             The login account is deleted permanently. A backup of the workspace tables is saved
             first and stays available in the reset history below.
           </p>
@@ -1323,7 +1323,7 @@ export function ManageTab({
         title="ยืนยันการเปลี่ยนสถานะ VAT"
       >
         <div className="space-y-4">
-          <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-body leading-relaxed text-amber-900">
+          <div className="rounded-[8px] border border-warning-border bg-warning-soft px-3 py-2.5 text-body leading-relaxed text-warning-text">
             เปลี่ยนจาก
             <span className="font-semibold">
               {" "}

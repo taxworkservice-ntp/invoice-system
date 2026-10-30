@@ -29,7 +29,11 @@ export default function AdminClientNewPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
-  const [createdResult, setCreatedResult] = useState<{ userId: string; email: string; tempPassword?: string } | null>(null);
+  const [createdResult, setCreatedResult] = useState<{
+    userId: string;
+    email: string;
+    tempPassword?: string;
+  } | null>(null);
 
   function handleGeneratePassword() {
     setTempPassword(generatePassword());
@@ -64,10 +68,7 @@ export default function AdminClientNewPage() {
         toast.success(`สร้างบัญชีและส่งอีเมลเชิญไปที่ ${result.email}`);
       }
     } catch (e: any) {
-      if (
-        e.message?.includes("already been registered") ||
-        e.message?.includes("already exists")
-      ) {
+      if (e.message?.includes("already been registered") || e.message?.includes("already exists")) {
         setEmailError("อีเมลนี้ถูกใช้สร้างบัญชีแล้ว");
       } else {
         setError(e.message || "เกิดข้อผิดพลาดในการสร้างลูกค้า");
@@ -88,9 +89,7 @@ export default function AdminClientNewPage() {
               >
                 <span className="text-body">← ลูกค้า</span>
               </button>
-              <h1 className="text-body font-semibold text-ink-800">
-                สร้างบัญชีสำเร็จ
-              </h1>
+              <h1 className="text-body font-semibold text-ink-800">สร้างบัญชีสำเร็จ</h1>
             </div>
           </div>
         </header>
@@ -124,7 +123,7 @@ export default function AdminClientNewPage() {
                     <Copy size={14} />
                   </Button>
                 </div>
-                <p className="text-label text-amber-700">
+                <p className="text-label text-warning-text">
                   กรุณาบันทึกรหัสผ่านนี้ — ลูกค้าจะต้องใช้รหัสผ่านนี้เพื่อเข้าสู่ระบบครั้งแรก
                   เมื่อเข้าสู่ระบบแล้ว ระบบจะบังคับให้ลูกค้าตั้งรหัสผ่านใหม่
                 </p>
@@ -170,9 +169,7 @@ export default function AdminClientNewPage() {
             >
               <span className="text-body">← ลูกค้า</span>
             </button>
-            <h1 className="text-body font-semibold text-ink-800">
-              เพิ่มลูกค้าใหม่
-            </h1>
+            <h1 className="text-body font-semibold text-ink-800">เพิ่มลูกค้าใหม่</h1>
           </div>
         </div>
       </header>
@@ -274,7 +271,7 @@ export default function AdminClientNewPage() {
                 />
               </div>
 
-              {error && <p className="text-label text-red-500">{error}</p>}
+              {error && <p className="text-label text-danger-text">{error}</p>}
 
               <Button type="submit" className="w-full" loading={creating} disabled={creating}>
                 {tempPassword ? "สร้างบัญชี" : "สร้างบัญชีและส่งอีเมลเชิญ"}
