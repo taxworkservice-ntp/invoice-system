@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import { useBankAccounts } from "../../hooks/useBankAccounts";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { Select } from "../ui/Select";
 import { NumericInput } from "../ui/NumericInput";
 import { Modal } from "../ui/Modal";
 import { DateInput } from "../ui/DateInput";
@@ -16,7 +17,10 @@ import {
   RECEIPT_BACKDATE_REASON_OPTIONS,
   toLocalMiddayIso,
 } from "../../lib/receiptBackdating";
-import { getReceiptInputBasisPreference, setReceiptInputBasisPreference } from "../../lib/receiptInputBasis";
+import {
+  getReceiptInputBasisPreference,
+  setReceiptInputBasisPreference,
+} from "../../lib/receiptInputBasis";
 import type { ReceiptInputBasis } from "../../lib/tax";
 import { getReceiptTotalsForDocument } from "../../lib/receiptTotals";
 import { resolveDocNumber } from "../../lib/docNumber";
@@ -60,9 +64,7 @@ export function PaymentModal({
 
   const [paying, setPaying] = useState<Paying>(null);
   const [mismatchConfirm, setMismatchConfirm] = useState(false);
-  const [inputBasis, setInputBasis] = useState<ReceiptInputBasis>(
-    getReceiptInputBasisPreference(),
-  );
+  const [inputBasis, setInputBasis] = useState<ReceiptInputBasis>(getReceiptInputBasisPreference());
   const [baseAmount, setBaseAmount] = useState(0);
   const [baseRemaining, setBaseRemaining] = useState(0);
   const [previousWht, setPreviousWht] = useState(0);
@@ -92,8 +94,10 @@ export function PaymentModal({
     let cancelled = false;
 
     async function init() {
-      const { preTaxAmount: previousTotal, whtAmount: prevWht } =
-        await getReceiptTotalsForDocument(sourceDoc, userId!);
+      const { preTaxAmount: previousTotal, whtAmount: prevWht } = await getReceiptTotalsForDocument(
+        sourceDoc,
+        userId!,
+      );
       if (cancelled) return;
       const remaining = Math.max(0, sourceDoc.subtotal - previousTotal);
       setBaseRemaining(remaining);
@@ -207,41 +211,41 @@ export function PaymentModal({
       }
 
       const payload: Record<string, unknown> = {
-          user_id: userId,
-          deal_id: sourceDoc.deal_id ?? dealId ?? null,
-          customer_id: sourceDoc.customer_id,
-          doc_type: "receipt",
-          status: "draft",
-          issue_date: payDate,
-          converted_from_id: sourceDoc.id,
-          // Keep the source invoice's PO/job reference on the receipt —
-          // printed in the classic V2 info band.
-          customer_po_number: sourceDoc.customer_po_number,
-          task_name: sourceDoc.task_name,
-          vat_registered: sourceDoc.vat_registered,
-          vat_rate: sourceDoc.vat_rate,
-          wht_rate: sourceDoc.wht_rate,
-          discount_percent: sourceDoc.discount_percent,
-          discount_amount: sourceDoc.discount_amount,
-          subtotal: allocation.preTax,
-          vat_amount: allocation.vatAmount,
-          total_amount: allocation.grossAmount,
-          wht_amount: allocation.whtAmount,
-          net_payable: allocation.netAmount,
-          payment_method: method,
-          bank_account_id: method === "bank_transfer" ? bankAccountId : null,
-          payment_detail:
-            method === "cheque"
-              ? {
-                  cheque_no: chequeNo.trim() || null,
-                  cheque_bank: chequeBank.trim() || null,
-                  cheque_date: chequeDate || null,
-                }
-              : null,
-          amount_received: allocation.netAmount,
-          wht_certificate_no: whtCert || null,
-          paid_at: paidAt,
-          ...backdateFields,
+        user_id: userId,
+        deal_id: sourceDoc.deal_id ?? dealId ?? null,
+        customer_id: sourceDoc.customer_id,
+        doc_type: "receipt",
+        status: "draft",
+        issue_date: payDate,
+        converted_from_id: sourceDoc.id,
+        // Keep the source invoice's PO/job reference on the receipt —
+        // printed in the classic V2 info band.
+        customer_po_number: sourceDoc.customer_po_number,
+        task_name: sourceDoc.task_name,
+        vat_registered: sourceDoc.vat_registered,
+        vat_rate: sourceDoc.vat_rate,
+        wht_rate: sourceDoc.wht_rate,
+        discount_percent: sourceDoc.discount_percent,
+        discount_amount: sourceDoc.discount_amount,
+        subtotal: allocation.preTax,
+        vat_amount: allocation.vatAmount,
+        total_amount: allocation.grossAmount,
+        wht_amount: allocation.whtAmount,
+        net_payable: allocation.netAmount,
+        payment_method: method,
+        bank_account_id: method === "bank_transfer" ? bankAccountId : null,
+        payment_detail:
+          method === "cheque"
+            ? {
+                cheque_no: chequeNo.trim() || null,
+                cheque_bank: chequeBank.trim() || null,
+                cheque_date: chequeDate || null,
+              }
+            : null,
+        amount_received: allocation.netAmount,
+        wht_certificate_no: whtCert || null,
+        paid_at: paidAt,
+        ...backdateFields,
       };
 
       if (draftReceipt) {
@@ -261,7 +265,11 @@ export function PaymentModal({
         if (receiptError || !receipt) throw receiptError || new Error("ไม่สามารถสร้างใบเสร็จได้");
       }
 
-      toast.success(isEditingDraft ? "บันทึกการแก้ไขใบเสร็จแล้ว" : "บันทึกใบเสร็จเป็นร่างแล้ว — ยืนยันรับเงินเมื่อตรวจสอบยอดในบัญชีแล้ว");
+      toast.success(
+        isEditingDraft
+          ? "บันทึกการแก้ไขใบเสร็จแล้ว"
+          : "บันทึกใบเสร็จเป็นร่างแล้ว — ยืนยันรับเงินเมื่อตรวจสอบยอดในบัญชีแล้ว",
+      );
       onClose();
       onSaved();
     } catch (err: unknown) {
@@ -291,37 +299,52 @@ export function PaymentModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={isEditingDraft ? "แก้ไขใบเสร็จร่าง" : "บันทึกรับเงิน (ร่างใบเสร็จ)"}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEditingDraft ? "แก้ไขใบเสร็จร่าง" : "บันทึกรับเงิน (ร่างใบเสร็จ)"}
+    >
       <div className="space-y-4">
         {mismatchConfirm ? (
           <>
-            <div className="rounded-card border border-amber-200 bg-amber-50 p-4">
-              <p className="text-body font-semibold text-amber-900">ยอดก่อน VAT ไม่ตรงกับยอดคงเหลือ</p>
+            <div className="rounded-card border border-warning-border bg-warning-soft p-4">
+              <p className="text-body font-semibold text-warning-text">
+                ยอดก่อน VAT ไม่ตรงกับยอดคงเหลือ
+              </p>
               <div className="mt-3 space-y-1.5 text-body">
                 <div className="flex justify-between">
-                  <span className="text-amber-700">ยอดก่อน VAT คงเหลือ</span>
-                  <span className="font-medium text-amber-900">฿{formatCurrency(baseRemaining)}</span>
+                  <span className="text-warning-text">ยอดก่อน VAT คงเหลือ</span>
+                  <span className="font-medium text-warning-text">
+                    ฿{formatCurrency(baseRemaining)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-amber-700">ยอดก่อน VAT ของงวดนี้</span>
-                  <span className="font-medium text-amber-900">฿{formatCurrency(preview?.preTax || 0)}</span>
+                  <span className="text-warning-text">ยอดก่อน VAT ของงวดนี้</span>
+                  <span className="font-medium text-warning-text">
+                    ฿{formatCurrency(preview?.preTax || 0)}
+                  </span>
                 </div>
-                <div className="border-t border-amber-200 pt-1.5 flex justify-between">
-                  <span className="text-amber-700">ส่วนต่าง</span>
-                  <span className="font-semibold text-amber-900">
-                    {(preview?.preTax || 0) > baseRemaining ? "+" : ""}฿{formatCurrency((preview?.preTax || 0) - baseRemaining)}
+                <div className="border-t border-warning-border pt-1.5 flex justify-between">
+                  <span className="text-warning-text">ส่วนต่าง</span>
+                  <span className="font-semibold text-warning-text">
+                    {(preview?.preTax || 0) > baseRemaining ? "+" : ""}฿
+                    {formatCurrency((preview?.preTax || 0) - baseRemaining)}
                   </span>
                 </div>
               </div>
-              <p className="mt-3 text-label text-amber-700">
+              <p className="mt-3 text-label text-warning-text">
                 {(preview?.preTax || 0) < baseRemaining
                   ? "คุณกำลังบันทึกชำระบางส่วน ยอดคงเหลือจะแสดงในรายงานลูกหนี้จนกว่าจะชำระครบ"
                   : "ยอดก่อน VAT เกินยอดคงเหลือ ระบบจะไม่บันทึกยอดส่วนเกิน"}
               </p>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="secondary" onClick={() => setMismatchConfirm(false)}>กลับไปแก้ไข</Button>
-              <Button variant="primary" onClick={() => void handleSaveDraft()} loading={!!paying}>{isEditingDraft ? "บันทึกการแก้ไข" : "บันทึกใบเสร็จ (ร่าง)"}</Button>
+              <Button variant="secondary" onClick={() => setMismatchConfirm(false)}>
+                กลับไปแก้ไข
+              </Button>
+              <Button variant="primary" onClick={() => void handleSaveDraft()} loading={!!paying}>
+                {isEditingDraft ? "บันทึกการแก้ไข" : "บันทึกใบเสร็จ (ร่าง)"}
+              </Button>
             </div>
           </>
         ) : (
@@ -333,33 +356,52 @@ export function PaymentModal({
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-ink-500">ยอดก่อน VAT ของงวดนี้</span>
-                <span className="font-medium text-ink-700">฿{formatCurrency(preview?.preTax || 0)}</span>
+                <span className="font-medium text-ink-700">
+                  ฿{formatCurrency(preview?.preTax || 0)}
+                </span>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-ink-500">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</span>
-                <span className="font-medium text-ink-700">฿{formatCurrency(preview?.grossAmount || 0)}</span>
+                <span className="font-medium text-ink-700">
+                  ฿{formatCurrency(preview?.grossAmount || 0)}
+                </span>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-ink-500">หัก ณ ที่จ่าย</span>
-                <span className="font-medium text-ink-700">฿{formatCurrency(preview?.whtAmount || 0)}</span>
+                <span className="font-medium text-ink-700">
+                  ฿{formatCurrency(preview?.whtAmount || 0)}
+                </span>
               </div>
               <div className="mt-3 border-t border-card-border pt-2 flex items-center justify-between">
                 <span className="font-medium text-ink-700">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</span>
-                <span className="text-title font-semibold">฿{formatCurrency(preview?.netAmount || 0)}</span>
+                <span className="text-title font-semibold">
+                  ฿{formatCurrency(preview?.netAmount || 0)}
+                </span>
               </div>
             </div>
 
             <FieldGuidance
               title="กรอกยอดโดยอ้างอิงจาก"
               items={[
-                { label: "ยอดชำระก่อน VAT", description: "ใช้เมื่อกำหนดงวดผ่อนก่อนคิด VAT เช่น งวดละ 200,000 บาท" },
-                { label: "ยอดรวมก่อนหักภาษี ณ ที่จ่าย", description: "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท" },
-                { label: "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย", description: "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท" },
+                {
+                  label: "ยอดชำระก่อน VAT",
+                  description: "ใช้เมื่อกำหนดงวดผ่อนก่อนคิด VAT เช่น งวดละ 200,000 บาท",
+                },
+                {
+                  label: "ยอดรวมก่อนหักภาษี ณ ที่จ่าย",
+                  description:
+                    "ใช้เมื่อลูกค้าตกลงจ่ายยอดรวมรวม VAT ก่อนหักภาษี ณ ที่จ่าย เช่น 214,000 บาท",
+                },
+                {
+                  label: "ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย",
+                  description:
+                    "ใช้เมื่ออ้างอิงจากยอดโอนเข้าบัญชีจริงหลังหักภาษี ณ ที่จ่าย เช่น 208,000 บาท",
+                },
               ]}
               tip="ไม่แน่ใจ? เลือก “ยอดชำระก่อน VAT” ตามตารางงวด ระบบคำนวณ VAT, หัก ณ ที่จ่าย และยอดโอนจริงให้อัตโนมัติ"
             />
-            <select
-              className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white"
+            <Select
+              aria-label="กรอกยอดโดยอ้างอิงจาก"
               value={inputBasis}
               onChange={(e) => {
                 const nextBasis = e.target.value as ReceiptInputBasis;
@@ -380,7 +422,7 @@ export function PaymentModal({
               <option value="pre_tax">ยอดชำระก่อน VAT</option>
               <option value="gross">ยอดรวมก่อนหักภาษี ณ ที่จ่าย</option>
               <option value="net_cash">ยอดโอนจริงหลังหักภาษี ณ ที่จ่าย</option>
-            </select>
+            </Select>
 
             <NumericInput
               label={
@@ -396,18 +438,17 @@ export function PaymentModal({
               minFractionDigits={2}
             />
 
-            <div>
-              <label className="block text-label font-medium text-ink-500 mb-1">วิธีชำระเงิน</label>
-              <select
-                className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white"
-                value={method}
-                onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-              >
-                {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="วิธีชำระเงิน"
+              value={method}
+              onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+            >
+              {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
 
             {method === "cheque" && (
               <div className="space-y-3 rounded-card border border-card-border bg-paper-soft p-3">
@@ -427,39 +468,41 @@ export function PaymentModal({
                   placeholder="เช่น ธ.กสิไทย สาขา..."
                 />
                 <div>
-                  <label className="mb-1 block text-label font-medium text-ink-500">วันที่สั่งจ่าย</label>
-                  <DateInput
-                    value={chequeDate}
-                    onChange={(e) => setChequeDate(e.target.value)}
-                  />
+                  <label className="mb-1 block text-label font-medium text-ink-600">
+                    วันที่สั่งจ่าย
+                  </label>
+                  <DateInput value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} />
                 </div>
               </div>
             )}
 
             {method === "bank_transfer" && (
-              <div>
-                <label className="block text-label font-medium text-ink-500 mb-1">รับเข้าบัญชี</label>
-                <select
-                  className="w-full px-3 py-2 text-body border border-card-border rounded-control bg-white"
-                  value={bankAccountId ?? ""}
-                  onChange={(e) => setBankAccountId(e.target.value || null)}
-                >
-                  {bankLoading ? (
-                    <option value="" disabled>กำลังโหลดบัญชี...</option>
-                  ) : bankAccounts.length === 0 ? (
-                    <option value="" disabled>ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า</option>
-                  ) : !bankAccountId ? (
-                    <option value="" disabled>เลือกบัญชีที่รับโอนเงิน</option>
-                  ) : (
-                    bankAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.bank_name} · {account.account_number}
-                        {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
+              <Select
+                label="รับเข้าบัญชี"
+                value={bankAccountId ?? ""}
+                onChange={(e) => setBankAccountId(e.target.value || null)}
+              >
+                {bankLoading ? (
+                  <option value="" disabled>
+                    กำลังโหลดบัญชี...
+                  </option>
+                ) : bankAccounts.length === 0 ? (
+                  <option value="" disabled>
+                    ยังไม่มีบัญชีธนาคาร ไปเพิ่มในตั้งค่า
+                  </option>
+                ) : !bankAccountId ? (
+                  <option value="" disabled>
+                    เลือกบัญชีที่รับโอนเงิน
+                  </option>
+                ) : (
+                  bankAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.bank_name} · {account.account_number}
+                      {account.account_holder_name ? ` · ${account.account_holder_name}` : ""}
+                    </option>
+                  ))
+                )}
+              </Select>
             )}
 
             <Input
@@ -470,7 +513,9 @@ export function PaymentModal({
             />
 
             <div>
-              <label className="mb-1 block text-label font-medium text-ink-500">วันที่รับเงิน</label>
+              <label className="mb-1 block text-label font-medium text-ink-600">
+                วันที่รับเงิน
+              </label>
               <DateInput
                 value={payDate}
                 max={businessToday}
@@ -479,32 +524,37 @@ export function PaymentModal({
             </div>
 
             {isPastDate(payDate, businessToday) && (
-              <div className="rounded-card border border-amber-200 bg-amber-50 px-3 py-3">
-                <p className="text-body font-medium text-amber-900">กำลังออกใบเสร็จย้อนหลัง</p>
-                <p className="mt-1 text-label leading-5 text-amber-800">
-                  วันที่บนใบเสร็จจะใช้วันที่รับเงินจริง และระบบจะเก็บเวลาที่เข้ามาบันทึกไว้แยกกันเพื่อใช้ตรวจสอบย้อนหลัง
+              <div className="rounded-card border border-warning-border bg-warning-soft px-3 py-3">
+                <p className="text-body font-medium text-warning-text">กำลังออกใบเสร็จย้อนหลัง</p>
+                <p className="mt-1 text-label leading-5 text-warning-text">
+                  วันที่บนใบเสร็จจะใช้วันที่รับเงินจริง
+                  และระบบจะเก็บเวลาที่เข้ามาบันทึกไว้แยกกันเพื่อใช้ตรวจสอบย้อนหลัง
                 </p>
                 <div className="mt-3">
-                  <label className="mb-1 block text-label font-medium text-amber-900">เหตุผลในการออกย้อนหลัง</label>
-                  <select
+                  <Select
+                    label="เหตุผลในการออกย้อนหลัง"
+                    size="sm"
                     value={backdateReason}
                     onChange={(e) => setBackdateReason(e.target.value)}
-                    className="w-full rounded-control border border-amber-200 bg-white px-3 py-2 text-body text-ink-900 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
                   >
                     <option value="">เลือกเหตุผล</option>
                     {RECEIPT_BACKDATE_REASON_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="mt-3">
-                  <label className="mb-1 block text-label font-medium text-amber-900">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
+                  <label className="mb-1 block text-label font-medium text-warning-text">
+                    หมายเหตุเพิ่มเติม (ถ้ามี)
+                  </label>
                   <textarea
                     value={backdateNote}
                     onChange={(e) => setBackdateNote(e.target.value)}
                     rows={3}
                     placeholder="รายละเอียดเพิ่มเติม เช่น วันที่ได้รับสลิป หรือข้อมูลที่ต้องการให้ทีมบัญชีเห็น"
-                    className="w-full rounded-control border border-amber-200 bg-white px-3 py-2 text-body text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    className="w-full rounded-control border border-warning-border bg-white px-3 py-2 text-body text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-warning focus:ring-2 focus:ring-warning/20"
                   />
                 </div>
               </div>
@@ -515,7 +565,11 @@ export function PaymentModal({
                 ปิด
               </Button>
               <Button onClick={handleAttemptSave} disabled={paying !== null || baseAmount <= 0}>
-                {paying ? "กำลังบันทึก..." : isEditingDraft ? "บันทึกการแก้ไข" : "บันทึกใบเสร็จ (ร่าง)"}
+                {paying
+                  ? "กำลังบันทึก..."
+                  : isEditingDraft
+                    ? "บันทึกการแก้ไข"
+                    : "บันทึกใบเสร็จ (ร่าง)"}
               </Button>
             </div>
           </>

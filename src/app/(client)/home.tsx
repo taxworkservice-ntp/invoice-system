@@ -18,6 +18,7 @@ import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { SortableTh } from "../../components/ui/SortableTh";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useTableSort } from "../../components/ui/useTableSort";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
 import { SummaryRow } from "../../components/home/SummaryRow";
@@ -1160,19 +1161,18 @@ export default function HomePage() {
                   </div>
                   <div className="ml-auto text-label text-ink-400">{activeDeals.length} รายการ</div>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {quickFilters.map((filter) => (
-                    <button
-                      key={filter.value}
-                      type="button"
-                      onClick={() => setHomeFilter(filter.value)}
-                      className={`shrink-0 rounded-full border px-3 py-1.5 text-label font-medium transition-colors ${homeFilter === filter.value ? "border-primary bg-blue-50 text-primary" : "border-card-border bg-white text-ink-500 hover:bg-paper-field"}`}
-                    >
-                      {filter.label}
-                      <span className="ml-1 text-label opacity-70">{filter.count}</span>
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  ariaLabel="กรองงานขาย"
+                  options={quickFilters.map((filter) => ({
+                    value: filter.value,
+                    label: filter.label,
+                    count: filter.count,
+                  }))}
+                  value={homeFilter}
+                  onChange={setHomeFilter}
+                  wrap={false}
+                  className="w-full"
+                />
               </div>
 
               {activeDeals.length === 0 ? (

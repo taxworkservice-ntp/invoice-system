@@ -1,15 +1,9 @@
 import type { DocumentStatus, DocumentType } from "../../types";
 import { DOC_TYPE_COLORS, STATUS_COLORS, STATUS_LABELS } from "../../constants";
 import { documentTypeLabel } from "../../lib/docLabels";
+import { StatusPill } from "./StatusPill";
 
-type BadgeTone =
-  | "primary"
-  | "teal"
-  | "amber"
-  | "green"
-  | "gray"
-  | "red"
-  | "stone";
+type BadgeTone = "primary" | "teal" | "amber" | "green" | "gray" | "red" | "stone";
 
 const TONE_COLORS: Record<BadgeTone, { bg: string; text: string }> = {
   primary: { bg: "bg-primary-soft", text: "text-primary-deep" },
@@ -55,9 +49,5 @@ export function StatusBadge({
     text = STATUS_LABELS[status] || status;
   }
 
-  return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-label font-medium ${color.bg} ${color.text} ${className}`}>
-      {text}
-    </span>
-  );
+  return <StatusPill label={text} className={`${color.bg} ${color.text} ${className}`} />;
 }

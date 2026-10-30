@@ -1,5 +1,8 @@
 import React, { useId } from "react";
 
+export { Select } from "./Select";
+export type { SelectProps } from "./Select";
+
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
@@ -40,30 +43,3 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
     </div>
   );
 });
-
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string;
-  children: React.ReactNode;
-}
-
-export function Select({ label, className = "", id, children, ...props }: SelectProps) {
-  const generatedId = useId();
-  const fieldId = id ?? generatedId;
-
-  return (
-    <div>
-      {label && (
-        <label htmlFor={fieldId} className="block text-label font-medium text-ink-600 mb-1">
-          {label}
-        </label>
-      )}
-      <select
-        id={fieldId}
-        className={`w-full min-h-11 md:min-h-0 px-3 py-2 text-body border border-card-border rounded-control bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors ${className}`}
-        {...props}
-      >
-        {children}
-      </select>
-    </div>
-  );
-}

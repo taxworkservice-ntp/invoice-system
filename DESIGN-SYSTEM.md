@@ -11,15 +11,15 @@ once in **`src/design/tokens.ts`**, which `tailwind.config.ts` imports.
 
 Roles, not sizes. Use the role that matches the content's job.
 
-| Token | Size / line | Use for |
-|---|---|---|
-| `text-label` | 12 / 18 | form labels, badges, table headers, helper text, meta |
-| `text-body` | 14 / 22 | body copy, table cells, inputs, buttons (`md`) |
-| `text-title` | 17 / 24 | card, section and modal titles |
-| `text-subtitle` | 20 / 29 | page subtitles, large section headers |
-| `text-display` | 22 / 31 | emphasized headings |
-| `text-page` | 26 / 35 | page titles |
-| `text-hero` | 33 / 40 | dashboard KPI numbers |
+| Token           | Size / line | Use for                                               |
+| --------------- | ----------- | ----------------------------------------------------- |
+| `text-label`    | 12 / 18     | form labels, badges, table headers, helper text, meta |
+| `text-body`     | 14 / 22     | body copy, table cells, inputs, buttons (`md`)        |
+| `text-title`    | 17 / 24     | card, section and modal titles                        |
+| `text-subtitle` | 20 / 29     | page subtitles, large section headers                 |
+| `text-display`  | 22 / 31     | emphasized headings                                   |
+| `text-page`     | 26 / 35     | page titles                                           |
+| `text-hero`     | 33 / 40     | dashboard KPI numbers                                 |
 
 **Rules**
 
@@ -33,18 +33,21 @@ Roles, not sizes. Use the role that matches the content's job.
 ## 2. Colour
 
 ### Neutral text ramp — `ink` only
+
 `ink-900` (primary text) → `ink-700` → `ink-600` → `ink-500` → `ink-400`
 (secondary/muted) → `ink-300` (disabled/placeholder) → `ink-100`/`ink-50` (fills).
 
 `gray-*`, `stone-*`, `slate-*` and `cool-*` are **retired for UI**. Never use them.
 
 ### Surfaces
+
 - Page: `bg-page-bg`
 - Card: `bg-white` + `border-[0.5px] border-card-border`
 - Field / subtle fill: `bg-paper-field`
 - Hairlines: `line`, `line-faint`, `line-soft`, `line-strong`
 
 ### Semantic colours (only when the meaning is real)
+
 - `primary` / `primary-soft` / `primary-deep` / `primary-border`
 - `success` / `success-soft` / `success-text` / `success-border`
 - `warning` / `warning-soft` / `warning-text` / `warning-border`
@@ -52,25 +55,27 @@ Roles, not sizes. Use the role that matches the content's job.
 - `accent-teal`
 
 ### Document status (from the master prompt, do not drift)
-| Status | Background | Text |
-|---|---|---|
-| Draft / Voided | `draft-bg` `#F1EFE8` | `draft-text` `#444441` / `voided-text` `#888780` |
-| Sent / In billing | `sent-bg` `#E6F1FB` | `sent-text` `#0C447C` |
-| Paid / Generated | `paid-bg` `#EAF3DE` | `paid-text` `#27500A` |
-| Overdue | `overdue-bg` `#FCEBEB` | `overdue-text` `#791F1F` |
-| Pending / Quote | `pending-bg` `#FAEEDA` | `pending-text` `#633806` |
 
-Use `StatusBadge` / `Badge` — never hand-roll a status pill.
+| Status            | Background             | Text                                             |
+| ----------------- | ---------------------- | ------------------------------------------------ |
+| Draft / Voided    | `draft-bg` `#F1EFE8`   | `draft-text` `#444441` / `voided-text` `#888780` |
+| Sent / In billing | `sent-bg` `#E6F1FB`    | `sent-text` `#0C447C`                            |
+| Paid / Generated  | `paid-bg` `#EAF3DE`    | `paid-text` `#27500A`                            |
+| Overdue           | `overdue-bg` `#FCEBEB` | `overdue-text` `#791F1F`                         |
+| Pending / Quote   | `pending-bg` `#FAEEDA` | `pending-text` `#633806`                         |
+
+Use `StatusPill` for the shape, and `StatusBadge` / domain wrappers
+(`DealStatusPill`) for the colour mapping — never hand-roll a status pill.
 
 ## 3. Radius
 
 Two shapes, plus pills.
 
-| Token | Value | Use for |
-|---|---|---|
-| `rounded-card` | 10px | cards, sections, modals, panels, drawers |
-| `rounded-control` | 8px | buttons, inputs, selects, menu items, view toggles |
-| `rounded-full` | — | badges, status pills, avatars, switches |
+| Token             | Value | Use for                                            |
+| ----------------- | ----- | -------------------------------------------------- |
+| `rounded-card`    | 10px  | cards, sections, modals, panels, drawers           |
+| `rounded-control` | 8px   | buttons, inputs, selects, menu items, view toggles |
+| `rounded-full`    | —     | badges, status pills, avatars, switches            |
 
 `rounded-xl`, `rounded-2xl`, `rounded-sheet`, `rounded-hero` and arbitrary
 radii are retired.
@@ -89,17 +94,24 @@ Everything else separates with a border.
 
 Prefer a component over a hand-built equivalent.
 
-| Component | Notes |
-|---|---|
-| `Button` | `size="sm"` = label, `size="md"` = body. `tone` for semantic colours. |
-| `Input` / `Select` / `DateInput` | label = `text-label text-ink-600`, field = `text-body` |
-| `Card` / `SectionCard` | 0.5px border, `rounded-card`, flat |
-| `SettingRow` | label + description on the left, control on the right |
-| `Modal` | overlay elevation, `text-title` header |
-| `Toast` | overlay elevation, `text-body` |
-| `Badge` / `StatusBadge` | status pills |
-| `Money` / `AmountRow` | money is always `tabular-nums` |
-| `TABLE` (`src/lib/tableStyles.ts`) | one table style: body cells 14px, headers 12px |
+| Component                          | Notes                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------ |
+| `Button`                           | `size="sm"` = label, `size="md"` = body. `tone` for semantic colours.          |
+| `IconButton`                       | icon-only control; `aria-label` is required, 44px on mobile                    |
+| `Input` / `Select` / `DateInput`   | label = `text-label text-ink-600`, field = `text-body`; `Select` has `sm`/`md` |
+| `PageHeader`                       | in-page context header: title, subtitle, meta, leading, actions                |
+| `Toolbar`                          | search + filters + actions on one responsive row                               |
+| `SegmentedControl`                 | view toggles / filters; `tone="primary"` for section switchers                 |
+| `TabList`                          | tabbed panels; keyboard arrows, `aria-controls`                                |
+| `ActionMenu`                       | overflow `⋯` menu with sections and radio items                                |
+| `StatusPill`                       | the one pill shape; colour classes come from the domain wrapper                |
+| `Card` / `SectionCard`             | 0.5px border, `rounded-card`, flat                                             |
+| `SettingRow`                       | label + description on the left, control on the right                          |
+| `Modal`                            | overlay elevation, `text-title` header                                         |
+| `Toast`                            | overlay elevation, `text-body`                                                 |
+| `Badge` / `StatusBadge`            | document status pills; both delegate to `StatusPill`                           |
+| `Money` / `AmountRow`              | money is always `tabular-nums`                                                 |
+| `TABLE` (`src/lib/tableStyles.ts`) | one table style: body cells 14px, headers 12px                                 |
 
 ## 6. Spacing and content width
 
@@ -110,10 +122,10 @@ Prefer a component over a hand-built equivalent.
 takes a content profile and applies it to the top bar, breadcrumbs and content,
 so they can never disagree.
 
-| Profile             | Token          | Width             | Use for                          |
-| ------------------- | -------------- | ----------------- | -------------------------------- |
-| `data` (default)  | `max-w-page` | fluid, cap 2048   | list, detail and report pages    |
-| `form`            | `max-w-form` | 896, fixed        | settings and simple create/edit forms |
+| Profile          | Token        | Width           | Use for                               |
+| ---------------- | ------------ | --------------- | ------------------------------------- |
+| `data` (default) | `max-w-page` | fluid, cap 2048 | list, detail and report pages         |
+| `form`           | `max-w-form` | 896, fixed      | settings and simple create/edit forms |
 
 Data pages are **fluid**: on laptops and 1920 desktops the cap never binds, so
 tables get the full width beside the sidebar. It engages only on ultrawide/4K,
@@ -123,11 +135,11 @@ label/control rows stop being readable when stretched.
 **Rows inside a page.** Monitor width must arrive as more content, never as
 stretched content:
 
-| Row kind                                               | Rule                                                                                                 |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Row kind                                               | Rule                                                                                              |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | Fixed item count (KPI cards, stat strips, filter bars) | cap with `max-w-row` (1280) — they never gain items, so stretching only yields sparse 500px cards |
-| Item count can grow (card lists, preset grids)         | add a `3xl:` (1792px) column step to the grid                                                      |
-| Tables                                                 | fill the container; never cap, never add columns                                                     |
+| Item count can grow (card lists, preset grids)         | add a `3xl:` (1792px) column step to the grid                                                     |
+| Tables                                                 | fill the container; never cap, never add columns                                                  |
 
 Do not reintroduce `max-w-7xl` / `max-w-screen-2xl` containers, and do not use
 `max-w-page` / `max-w-form` outside `AppShell` — `lint:design` fails on both.
