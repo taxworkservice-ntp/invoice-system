@@ -2,10 +2,9 @@
 
 ## Scope
 
-App-wide consistency program, first three slices: the shared UI kit, the
-documents/payments surface, and the deal detail loop, plus strict design-lint
-enforcement on the migrated paths. No database, schema, money, stock or print
-changes.
+App-wide consistency program, four slices: the shared UI kit, the
+documents/payments surface, the deal detail loop, and the final app-wide
+token/control sweep. No database, schema, money, stock or print changes.
 
 ## Commits
 
@@ -16,10 +15,11 @@ changes.
 | `300c083` | `feat(documents): unified guide rails and tokenized forms`    |
 | `db14d08` | `chore(design): enforce strict tokens on migrated surfaces`   |
 | `354398f` | `refactor(deals): extract detail surfaces and branch billing` |
+| `16014fc` | `chore(design): finish app-wide token and control sweep`      |
 
 Rollback tags: `checkpoint/pre-deal-workflow-2026-10-30`,
 `checkpoint/post-deal-workflow`, `checkpoint/post-ui-consistency`,
-`checkpoint/post-deal-loop`.
+`checkpoint/post-deal-loop`, `checkpoint/app-consistency`.
 
 ## UI kit
 
@@ -60,6 +60,22 @@ from `components/ui/Select`. `StatusBadge` and `DealStatusPill` delegate to
   “ไปงานที่รวมบิล” card that replaces the normal next-step actions. Home labels
   are unchanged. Covered by `e2e/combined-billing.spec.ts`.
 
+## App-wide sweep
+
+- `DOC_TYPE_COLORS`, `STATUS_COLORS` and `CHIP_COLORS` now use semantic tokens;
+  no raw `amber/blue/green/red/emerald/violet/purple/orange/yellow/pink/teal`
+  utilities remain in `src/app`, `src/components` or `src/constants`.
+- 21 remaining native `<select>` controls migrated to the shared `Select`
+  (settings, WHT, download-center, payroll, admin team, catalog, reports).
+- Five hand-rolled status pills replaced with token/`StatusPill` shapes
+  (customers, settings team tabs, carton preview, stock actions).
+- Stock report rows are keyboard reachable (Enter/Space), including the
+  portfolio table and the low-stock lists.
+- `STRICT_SCOPE` now covers all app/components/constants; strict rules:
+  raw semantic colours, native selects, hand-rolled status pills. The print
+  layer remains exempt and was restored untouched after the formatter ran.
+- Formatting-only churn was reverted; only semantic changes were committed.
+
 ## Enforcement
 
 `scripts/check-design-system.mjs` has a `STRICT_SCOPE` for the migrated paths.
@@ -75,30 +91,30 @@ new violation. `DESIGN-SYSTEM.md` documents this and the new kit.
 ## Verification
 
 - `npm run lint` — 0 errors, 84 pre-existing warnings; design/form/year checks
-  pass (strict rules included).
+  pass (strict rules included, app-wide).
 - `npm run build` — passed.
-- `npx vitest run tests/unit --exclude tests/unit/pdfWarm.test.ts` — 286 passed;
-  `documentAmount` + `dealWorkflow` targeted tests pass.
+- `npx vitest run tests/unit` — 288 passed (the stale `pdfWarm` expectation is
+  excluded locally).
 - `npx playwright test e2e/deal-flow-journey.spec.ts e2e/next-step-choice.spec.ts
 e2e/combined-billing.spec.ts` — 19/19 passed.
 - Local-only specs that need `supabase_key.md` (service role) still cannot run:
   `receipt-draft`, `billing-note`, `credit-note`. The deal-flow journey exercises
   the same forms/payment path through the anon-key workspace.
-- Visual QA at 1280/390: extracted header, both tabs, history, management and
-  mobile layout are unchanged.
+- Visual QA at 1280: deal detail, WHT filters, download-center, settings/team,
+  catalog list and reports. The settings/team 500 toast is the known local-mode
+  admin-API limitation (no service-role key), not a UI regression.
 - Visual baselines were not refreshed: the shared test workspace has accumulated
   QA deals, so a recapture must happen on a clean workspace.
 
 ## Pending
 
-- Tokenize `DOC_TYPE_COLORS` / `STATUS_COLORS` / `CHIP_COLORS` in
-  `src/constants/index.ts` and add the constants file to `STRICT_SCOPE`.
-- Extend `STRICT_SCOPE` to settings, WHT, reports and admin after their token
-  sweep; then delete the remaining allowlisted raw colours.
 - Apply `PageHeader`/`Toolbar` and one loading/empty/error rule to the remaining
-  list/detail pages.
+  list/detail/settings pages — a separate page-template initiative, not required
+  for token/control consistency.
 - Recapture visual baselines on a clean workspace; add the deal/detail pages to
   the visual suite.
+- Optional: migrate the stock-report view switcher to `SegmentedControl`/`TabList`
+  (the rows are already keyboard accessible).
 
 ## Notes
 
