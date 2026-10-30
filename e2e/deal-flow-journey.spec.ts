@@ -442,7 +442,7 @@ test.describe.serial("deal flow journey · delivery note → invoice → paid", 
     await expect(confirm).toBeVisible();
     await confirm.getByRole("button", { name: "ส่งเอกสาร" }).click();
 
-    await expect(page.getByText("รอชำระ").first()).toBeVisible();
+    await expect(page.getByText("รอรับเงิน").first()).toBeVisible();
 
     const [note] = await documentsOf(dealId, "billing_note");
     expect(note.status).toBe("sent");
@@ -549,7 +549,7 @@ test.describe.serial("deal flow journey · quotation → invoice → paid", () =
     // A quotation goes out without a confirmation step (only the financial
     // documents ask before they lock).
     await page.getByRole("button", { name: "ส่งใบเสนอราคาให้ลูกค้า" }).click();
-    await expect(page.getByText("รอลูกค้าตอบ")).toBeVisible();
+    await expect(page.getByRole("button", { name: /ออกใบแจ้งหนี้ต่อ/ })).toBeVisible();
 
     const [quotation] = await documentsOf(dealId, "quotation");
     expect(quotation.status).toBe("sent");
