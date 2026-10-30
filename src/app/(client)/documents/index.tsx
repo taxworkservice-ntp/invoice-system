@@ -100,8 +100,18 @@ const CORRECTION_TYPES = ["credit_note", "debit_note"];
 const DONE_STATUSES: DocStatus[] = ["paid", "generated", "issued"];
 
 const MONTH_LABELS = [
-  "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
-  "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
 ];
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -118,7 +128,8 @@ function getNextStepText(doc: Document): string {
   if (doc.status === "overdue") return "ต้องติดตามการชำระ";
   if (doc.doc_type === "quotation" && doc.status === "sent") return "รอลูกค้ายืนยัน";
   if (doc.doc_type === "invoice" && doc.status === "sent") return "พร้อมวางบิลหรือรับเงิน";
-  if (doc.doc_type === "delivery_note" && doc.status === "sent") return "ส่งของแล้ว รอออกใบแจ้งหนี้";
+  if (doc.doc_type === "delivery_note" && doc.status === "sent")
+    return "ส่งของแล้ว รอออกใบแจ้งหนี้";
   if (doc.doc_type === "billing_note" && doc.status === "sent") return "รอรับเงิน";
   if (DONE_STATUSES.includes(doc.status)) return "เสร็จสมบูรณ์";
   if (doc.status === "voided") return "เก็บไว้เป็นประวัติ";
@@ -129,10 +140,18 @@ function getQuickAction(
   doc: Document,
   permissions: WorkspacePermissions,
 ): { id: DocumentActionId; label: string } | null {
-  if (doc.status === "draft" && doc.doc_type !== "receipt" && !CORRECTION_TYPES.includes(doc.doc_type)) {
+  if (
+    doc.status === "draft" &&
+    doc.doc_type !== "receipt" &&
+    !CORRECTION_TYPES.includes(doc.doc_type)
+  ) {
     return { id: "edit", label: "แก้ไข" };
   }
-  if (doc.status === "sent" && doc.doc_type === "quotation" && canSendDocumentType(permissions, doc.doc_type)) {
+  if (
+    doc.status === "sent" &&
+    doc.doc_type === "quotation" &&
+    canSendDocumentType(permissions, doc.doc_type)
+  ) {
     return { id: "convert", label: "ออกใบแจ้งหนี้" };
   }
   if (
@@ -142,7 +161,11 @@ function getQuickAction(
   ) {
     return { id: "pay", label: "รับเงิน" };
   }
-  if (doc.status === "sent" && doc.doc_type === "delivery_note" && canSendDocumentType(permissions, doc.doc_type)) {
+  if (
+    doc.status === "sent" &&
+    doc.doc_type === "delivery_note" &&
+    canSendDocumentType(permissions, doc.doc_type)
+  ) {
     return { id: "invoice_from_dn", label: "ออกบิล" };
   }
   return null;
@@ -153,7 +176,9 @@ function readRecents(): string[] {
   try {
     const raw = window.localStorage.getItem(RECENTS_KEY);
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
   } catch {
     return [];
   }
@@ -236,8 +261,22 @@ export default function DocumentsPage() {
       whtOnly,
     }),
     [
-      q, typeFilter, statusFilter, monthFilter, yearFilter, dateFrom, dateTo, hideVoided,
-      amountMin, amountMax, aging, customerId, item, method, vatOnly, whtOnly,
+      q,
+      typeFilter,
+      statusFilter,
+      monthFilter,
+      yearFilter,
+      dateFrom,
+      dateTo,
+      hideVoided,
+      amountMin,
+      amountMax,
+      aging,
+      customerId,
+      item,
+      method,
+      vatOnly,
+      whtOnly,
     ],
   );
 
@@ -307,7 +346,10 @@ export default function DocumentsPage() {
         target &&
         (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if (typing) return;
-      if (event.key === "/" || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")) {
+      if (
+        event.key === "/" ||
+        ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")
+      ) {
         event.preventDefault();
         searchRef.current?.focus();
         searchRef.current?.select();
@@ -325,26 +367,72 @@ export default function DocumentsPage() {
   const summary = useMemo(
     () => ({
       draft: documents.filter((doc) => doc.status === "draft").length,
-      dnReady: documents.filter((doc) => doc.doc_type === "delivery_note" && doc.status === "sent").length,
+      dnReady: documents.filter((doc) => doc.doc_type === "delivery_note" && doc.status === "sent")
+        .length,
       collect: documents.filter(
         (doc) =>
           doc.doc_type === "billing_note" &&
           ["sent", "overdue", "partially_paid"].includes(doc.status),
       ).length,
       overdue: documents.filter((doc) => isOverdue(doc)).length,
-      paid: documents.filter((doc) => doc.doc_type === "billing_note" && doc.status === "paid").length,
+      paid: documents.filter((doc) => doc.doc_type === "billing_note" && doc.status === "paid")
+        .length,
       voided: documents.filter((doc) => doc.status === "voided").length,
     }),
     [documents, isOverdue],
   );
 
   const stats: StatChip[] = [
-    { key: "draft", label: "ร่าง", count: summary.draft, status: "draft", tone: "blue", icon: <FileText className="h-4 w-4" /> },
-    { key: "dn", label: "DN รอออกบิล", count: summary.dnReady, type: "delivery_note", status: "sent", tone: "blue", icon: <FileText className="h-4 w-4" /> },
-    { key: "collect", label: "BN รอรับเงิน", count: summary.collect, type: "billing_note", tone: "amber", icon: <Clock3 className="h-4 w-4" /> },
-    { key: "overdue", label: "เกินกำหนด", count: summary.overdue, status: "overdue", tone: "red", icon: <AlertTriangle className="h-4 w-4" /> },
-    { key: "paid", label: "รับเงินแล้ว", count: summary.paid, type: "billing_note", status: "paid", tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },
-    { key: "voided", label: "ยกเลิก", count: summary.voided, status: "voided", tone: "gray", icon: <XCircle className="h-4 w-4" /> },
+    {
+      key: "draft",
+      label: "ร่าง",
+      count: summary.draft,
+      status: "draft",
+      tone: "blue",
+      icon: <FileText className="h-4 w-4" />,
+    },
+    {
+      key: "dn",
+      label: "DN รอออกบิล",
+      count: summary.dnReady,
+      type: "delivery_note",
+      status: "sent",
+      tone: "blue",
+      icon: <FileText className="h-4 w-4" />,
+    },
+    {
+      key: "collect",
+      label: "BN รอรับเงิน",
+      count: summary.collect,
+      type: "billing_note",
+      tone: "amber",
+      icon: <Clock3 className="h-4 w-4" />,
+    },
+    {
+      key: "overdue",
+      label: "เกินกำหนด",
+      count: summary.overdue,
+      status: "overdue",
+      tone: "red",
+      icon: <AlertTriangle className="h-4 w-4" />,
+    },
+    {
+      key: "paid",
+      label: "รับเงินแล้ว",
+      count: summary.paid,
+      type: "billing_note",
+      status: "paid",
+      tone: "green",
+      icon: <CheckCircle2 className="h-4 w-4" />,
+    },
+    {
+      key: "voided",
+      label: "ยกเลิก",
+      count: summary.voided,
+      status: "voided",
+      tone: "gray",
+      icon: <XCircle className="h-4 w-4" />,
+    },
   ];
 
   const filtered = useMemo(
@@ -367,7 +455,9 @@ export default function DocumentsPage() {
       const name = (doc as { customer?: { name?: string } }).customer?.name;
       if (doc.customer_id && name) map.set(doc.customer_id, name);
     }
-    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, "th"));
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name, "th"),
+    );
   }, [documents]);
 
   const itemNames = useMemo(() => {
@@ -377,7 +467,9 @@ export default function DocumentsPage() {
         if (line.item_name) names.add(line.item_name);
       }
     }
-    return Array.from(names).sort((a, b) => a.localeCompare(b, "th")).slice(0, 500);
+    return Array.from(names)
+      .sort((a, b) => a.localeCompare(b, "th"))
+      .slice(0, 500);
   }, [documents]);
 
   const availableYears = useMemo(() => {
@@ -439,7 +531,10 @@ export default function DocumentsPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [inlineLoading, setInlineLoading] = useState<string | null>(null);
   const [sendConfirmDoc, setSendConfirmDoc] = useState<Document | null>(null);
-  const [pendingConfirm, setPendingConfirm] = useState<{ docId: string; action: "void" | "delete" } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    docId: string;
+    action: "void" | "delete";
+  } | null>(null);
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
@@ -448,9 +543,13 @@ export default function DocumentsPage() {
     if (!profile?.id) return;
     setInlineLoading(doc.id);
     try {
-      const { warnings } = await sendDocumentWithSideEffects(doc, profile.id, { issueDate: devIssueDate });
+      const { warnings } = await sendDocumentWithSideEffects(doc, profile.id, {
+        issueDate: devIssueDate,
+      });
       warnings.forEach((warning) => toast.info(`${warning.itemName} สต็อกไม่พอ`));
-      toast.success(doc.doc_type === "delivery_note" ? "บันทึกการส่งของ" : "ทำเครื่องหมายว่าส่งแล้ว");
+      toast.success(
+        doc.doc_type === "delivery_note" ? "บันทึกการส่งของ" : "ทำเครื่องหมายว่าส่งแล้ว",
+      );
       warmPdfCache(doc.id);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
@@ -461,7 +560,10 @@ export default function DocumentsPage() {
 
   const handleInlineAction = async (doc: Document, action: DocumentActionId) => {
     if (!profile?.id) return;
-    if ((action === "send" || action === "issue_cn") && !canSendDocumentType(permissions, doc.doc_type)) {
+    if (
+      (action === "send" || action === "issue_cn") &&
+      !canSendDocumentType(permissions, doc.doc_type)
+    ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
@@ -518,11 +620,17 @@ export default function DocumentsPage() {
       setPendingConfirm(null);
       return;
     }
-    if ((action === "pay" || action === "billing" || action === "confirm_receipt") && !permissions.canRecordPayments) {
+    if (
+      (action === "pay" || action === "billing" || action === "confirm_receipt") &&
+      !permissions.canRecordPayments
+    ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
-    if ((action === "convert" || action === "invoice_from_dn") && !canSendDocumentType(permissions, doc.doc_type)) {
+    if (
+      (action === "convert" || action === "invoice_from_dn") &&
+      !canSendDocumentType(permissions, doc.doc_type)
+    ) {
       toast.error("สิทธิ์นี้ทำได้เฉพาะ Owner หรือ Manager");
       return;
     }
@@ -603,10 +711,13 @@ export default function DocumentsPage() {
       }
 
       const JSZip = (await import("jszip")).default;
-      const { getPrintableDocumentDataBase, generatePDFBlob, isHtmlPrintTemplate } = await import("../../../lib/print");
+      const { getPrintableDocumentDataBase, generatePDFBlob, isHtmlPrintTemplate } =
+        await import("../../../lib/print");
       const generateBlob = async (docId: string) => {
         const data = await getPrintableDocumentDataBase(docId);
-        const template = isHtmlPrintTemplate(clientProfile.pdf_template) ? clientProfile.pdf_template : "modern";
+        const template = isHtmlPrintTemplate(clientProfile.pdf_template)
+          ? clientProfile.pdf_template
+          : "modern";
         return generatePDFBlob({ ...data, template } as Parameters<typeof generatePDFBlob>[0]);
       };
 
@@ -638,7 +749,15 @@ export default function DocumentsPage() {
   };
 
   function handleExportCSV() {
-    const headers = ["เลขที่เอกสาร", "ประเภท", "สถานะ", "ลูกค้า", "วันที่ออก", "วันครบกำหนด", "ยอดสุทธิ"];
+    const headers = [
+      "เลขที่เอกสาร",
+      "ประเภท",
+      "สถานะ",
+      "ลูกค้า",
+      "วันที่ออก",
+      "วันครบกำหนด",
+      "ยอดสุทธิ",
+    ];
     const rows = filtered.map((doc) => [
       doc.doc_number || "",
       DOC_TYPE_LABELS[doc.doc_type].th,
@@ -657,7 +776,9 @@ export default function DocumentsPage() {
         <section className="rounded-card border border-card-border bg-white p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-subtitle font-semibold tracking-tight text-ink-900">คลังเอกสาร</h1>
+              <h1 className="text-subtitle font-semibold tracking-tight text-ink-900">
+                คลังเอกสาร
+              </h1>
               <p className="mt-0.5 text-body text-ink-500">ค้นหา พิมพ์ และตรวจสอบเอกสารย้อนหลัง</p>
             </div>
             <span className="hidden shrink-0 rounded-full bg-paper-field px-3 py-1 text-label font-medium text-ink-400 sm:block">
@@ -731,10 +852,12 @@ export default function DocumentsPage() {
                   type="button"
                   onClick={() => toggleStat(stat)}
                   aria-pressed={active}
-                  className={`flex items-center justify-between gap-2 rounded-card border px-3 py-2 text-left transition-colors ${ active ? tones : "border-card-border bg-white text-ink-700 hover:border-ink-200" }`}
+                  className={`flex items-center justify-between gap-2 rounded-card border px-3 py-2 text-left transition-colors ${active ? tones : "border-card-border bg-white text-ink-700 hover:border-ink-200"}`}
                 >
                   <div>
-                    <div className="text-subtitle font-semibold leading-none tabular-nums">{stat.count}</div>
+                    <div className="text-subtitle font-semibold leading-none tabular-nums">
+                      {stat.count}
+                    </div>
                     <div className="mt-1 text-label leading-tight opacity-75">{stat.label}</div>
                   </div>
                   <span className="shrink-0 opacity-70">{stat.icon}</span>
@@ -797,7 +920,9 @@ export default function DocumentsPage() {
                 label="เรียงลำดับ"
                 value={sort}
                 onChange={(event) =>
-                  updateParams({ sort: event.target.value === "newest" ? null : event.target.value })
+                  updateParams({
+                    sort: event.target.value === "newest" ? null : event.target.value,
+                  })
                 }
               >
                 {SORT_OPTIONS.map((option) => (
@@ -861,7 +986,12 @@ export default function DocumentsPage() {
                   ยกเลิกเลือก ({selectedDocIds.size})
                 </Button>
               ) : (
-                <Button variant="secondary" size="sm" onClick={selectAllFiltered} disabled={filtered.length === 0}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={selectAllFiltered}
+                  disabled={filtered.length === 0}
+                >
                   เลือกทั้งหมด
                 </Button>
               )}
@@ -870,8 +1000,16 @@ export default function DocumentsPage() {
                 CSV
               </Button>
               {selectedDocIds.size > 0 && (
-                <Button variant="primary" size="sm" onClick={handleBulkDownloadPDF} loading={bulkDownloading} disabled={bulkDownloading}>
-                  {bulkDownloading ? `กำลังสร้าง ${bulkProgress.current}/${bulkProgress.total}` : "ดาวน์โหลด PDF"}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleBulkDownloadPDF}
+                  loading={bulkDownloading}
+                  disabled={bulkDownloading}
+                >
+                  {bulkDownloading
+                    ? `กำลังสร้าง ${bulkProgress.current}/${bulkProgress.total}`
+                    : "ดาวน์โหลด PDF"}
                 </Button>
               )}
             </div>
@@ -920,7 +1058,9 @@ export default function DocumentsPage() {
                     doc={doc}
                     permissions={permissions}
                     overdue={isOverdue(doc)}
-                    customerName={(doc as { customer?: { name?: string } }).customer?.name || "ไม่ได้ระบุลูกค้า"}
+                    customerName={
+                      (doc as { customer?: { name?: string } }).customer?.name || "ไม่ได้ระบุลูกค้า"
+                    }
                     nextStep={getNextStepText(doc)}
                     displayAmount={getDocumentDisplayAmount(doc)}
                     displayAmountLabel={getDisplayAmountLabel(doc)}
@@ -941,7 +1081,10 @@ export default function DocumentsPage() {
               </div>
               {visibleCount < filtered.length && (
                 <div className="border-t border-line-faint p-4 text-center">
-                  <Button variant="secondary" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+                  >
                     โหลดเพิ่ม ({filtered.length - visibleCount} รายการ)
                   </Button>
                 </div>
@@ -952,13 +1095,23 @@ export default function DocumentsPage() {
 
         {selectedDocIds.size > 0 && (
           <div className="sticky-action z-30 mx-auto flex w-full max-w-lg items-center justify-between gap-3 rounded-card border border-primary/30 bg-white px-5 py-3 md:hidden">
-            <span className="text-body font-medium text-primary">เลือก {selectedDocIds.size} รายการ</span>
+            <span className="text-body font-medium text-primary">
+              เลือก {selectedDocIds.size} รายการ
+            </span>
             <div className="flex items-center gap-2">
               <Button variant="secondary" size="sm" onClick={clearSelection}>
                 ล้าง
               </Button>
-              <Button variant="primary" size="sm" onClick={handleBulkDownloadPDF} loading={bulkDownloading} disabled={bulkDownloading}>
-                {bulkDownloading ? `${bulkProgress.current}/${bulkProgress.total}` : "ดาวน์โหลด ZIP"}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleBulkDownloadPDF}
+                loading={bulkDownloading}
+                disabled={bulkDownloading}
+              >
+                {bulkDownloading
+                  ? `${bulkProgress.current}/${bulkProgress.total}`
+                  : "ดาวน์โหลด ZIP"}
               </Button>
             </div>
           </div>
@@ -974,11 +1127,16 @@ export default function DocumentsPage() {
         onApply={applyFilters}
       />
 
-      <Modal open={!!sendConfirmDoc} onClose={() => setSendConfirmDoc(null)} title="ยืนยันการส่งเอกสาร">
+      <Modal
+        open={!!sendConfirmDoc}
+        onClose={() => setSendConfirmDoc(null)}
+        title="ยืนยันการส่งเอกสาร"
+      >
         {sendConfirmDoc && (
           <div className="space-y-4">
-            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
-              <span className="font-semibold">{sendConfirmDoc.doc_number || "เอกสาร"}</span> จะถูกล็อคหลังส่ง หากผิดต้องยกเลิกและออกใหม่
+            <div className="rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label leading-5 text-warning-text">
+              <span className="font-semibold">{sendConfirmDoc.doc_number || "เอกสาร"}</span>{" "}
+              จะถูกล็อคหลังส่ง หากผิดต้องยกเลิกและออกใหม่
             </div>
             <p className="text-body text-ink-600">ยืนยันส่งเอกสารนี้ให้ลูกค้าหรือไม่?</p>
             <div className="flex justify-end gap-2">

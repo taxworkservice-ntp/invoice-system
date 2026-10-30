@@ -1,7 +1,23 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, Ban, CalendarDays, CheckCircle2, CircleDollarSign, Copy, CreditCard, FileStack, FileText, MoreHorizontal, NotebookText, Pencil, Printer, Trash2, UserRound } from "lucide-react";
+import {
+  ArrowRight,
+  Ban,
+  CalendarDays,
+  CheckCircle2,
+  CircleDollarSign,
+  Copy,
+  CreditCard,
+  FileStack,
+  FileText,
+  MoreHorizontal,
+  NotebookText,
+  Pencil,
+  Printer,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { AppShell } from "../../../components/layout/AppShell";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
@@ -25,7 +41,10 @@ import { confirmDraftReceipt } from "../../../lib/receiptConfirm";
 import { PaymentModal } from "../../../components/payments/PaymentModal";
 import { businessTodayString } from "../../../lib/devDate";
 import { deductStockOnDocumentSent, restoreStockOnVoid } from "../../../lib/stock";
-import { EditableDocNumber, EditableDocNumberInline } from "../../../components/documents/EditableDocNumber";
+import {
+  EditableDocNumber,
+  EditableDocNumberInline,
+} from "../../../components/documents/EditableDocNumber";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { Money } from "../../../components/ui/Money";
 import { AmountRow } from "../../../components/ui/AmountRow";
@@ -36,7 +55,18 @@ import { useDocDate } from "../../../components/YearEraProvider";
 import { formatCurrency } from "../../../lib/format";
 import { TABLE } from "../../../lib/tableStyles";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
-import type { Document, Customer, DocumentStatus, PaymentMethod, ClientProfile, DocumentLineItem, BillingNoteInvoice, InvoiceDeliveryNote, ReceiptInvoice, DocumentType } from "../../../types";
+import type {
+  Document,
+  Customer,
+  DocumentStatus,
+  PaymentMethod,
+  ClientProfile,
+  DocumentLineItem,
+  BillingNoteInvoice,
+  InvoiceDeliveryNote,
+  ReceiptInvoice,
+  DocumentType,
+} from "../../../types";
 
 function getDisplayAmount(doc: Document): number {
   return doc.doc_type === "delivery_note" ? doc.total_amount : doc.net_payable;
@@ -56,7 +86,13 @@ const CORRECTION_REASONS = [
   { value: "other", label: "อื่น ๆ" },
 ] as const;
 
-function DocTypeBadge({ docType, vatRegistered }: { docType: Document["doc_type"]; vatRegistered: boolean }) {
+function DocTypeBadge({
+  docType,
+  vatRegistered,
+}: {
+  docType: Document["doc_type"];
+  vatRegistered: boolean;
+}) {
   return <StatusBadge docType={docType} vatRegistered={vatRegistered} />;
 }
 
@@ -98,7 +134,7 @@ function MenuItem({
       type="button"
       role="menuitem"
       onClick={onClick}
-      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-body ${ danger ? "text-red-600 hover:bg-red-50" : "text-ink-700 hover:bg-paper-field" }`}
+      className={`flex w-full items-center gap-2 rounded-control px-3 py-1.5 text-left text-body transition-colors ${danger ? "text-danger-text hover:bg-danger-soft" : "text-ink-700 hover:bg-paper-field"}`}
     >
       {icon}
       <span>{children}</span>
@@ -117,7 +153,8 @@ export default function DocumentDetailPage() {
   const userId = profile?.id;
   const { clientProfile } = useClientProfile(userId);
   const businessToday = businessTodayString(clientProfile);
-  const devIssueDate = clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
+  const devIssueDate =
+    clientProfile?.dev_mode_enabled && clientProfile.dev_effective_date ? businessToday : undefined;
   const todayString = () => businessToday;
 
   const [doc, setDoc] = useState<Document | null>(null);
@@ -145,11 +182,21 @@ export default function DocumentDetailPage() {
   const [showNumberOverride, setShowNumberOverride] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
-  const [dnInvoiceRef, setDnInvoiceRef] = useState<{ id: string; doc_number: string | null } | null>(null);
-  const [copiedFromRef, setCopiedFromRef] = useState<{ id: string; doc_number: string | null } | null>(null);
-  const [replacementRef, setReplacementRef] = useState<{ id: string; doc_number: string | null } | null>(null);
-  const [dealChain, setDealChain] = useState<{ id: string; doc_type: DocumentType; doc_number: string | null }[]>([]);
-
+  const [dnInvoiceRef, setDnInvoiceRef] = useState<{
+    id: string;
+    doc_number: string | null;
+  } | null>(null);
+  const [copiedFromRef, setCopiedFromRef] = useState<{
+    id: string;
+    doc_number: string | null;
+  } | null>(null);
+  const [replacementRef, setReplacementRef] = useState<{
+    id: string;
+    doc_number: string | null;
+  } | null>(null);
+  const [dealChain, setDealChain] = useState<
+    { id: string; doc_type: DocumentType; doc_number: string | null }[]
+  >([]);
 
   const fetchDoc = async () => {
     if (!id) return;
@@ -182,9 +229,29 @@ export default function DocumentDetailPage() {
               .order("created_at", { ascending: true })
           : Promise.resolve({ data: [] }),
       ]);
-      setCopiedFromRef(copiedFromResult.data ? { id: (copiedFromResult.data as any).id, doc_number: (copiedFromResult.data as any).doc_number } : null);
-      setReplacementRef(replacementResult.data ? { id: (replacementResult.data as any).id, doc_number: (replacementResult.data as any).doc_number } : null);
-      setDealChain((dealChainResult.data || []) as { id: string; doc_type: DocumentType; doc_number: string | null }[]);
+      setCopiedFromRef(
+        copiedFromResult.data
+          ? {
+              id: (copiedFromResult.data as any).id,
+              doc_number: (copiedFromResult.data as any).doc_number,
+            }
+          : null,
+      );
+      setReplacementRef(
+        replacementResult.data
+          ? {
+              id: (replacementResult.data as any).id,
+              doc_number: (replacementResult.data as any).doc_number,
+            }
+          : null,
+      );
+      setDealChain(
+        (dealChainResult.data || []) as {
+          id: string;
+          doc_type: DocumentType;
+          doc_number: string | null;
+        }[],
+      );
       if (data.doc_type === "delivery_note") {
         const { data: link } = await supabase
           .from("invoice_delivery_notes")
@@ -257,10 +324,13 @@ export default function DocumentDetailPage() {
     }
     setVoiding(true);
     try {
-      const reasonLabel = CORRECTION_REASONS.find((reason) => reason.value === correctionReason)?.label;
-      const finalReason = voidAndRecreate && reasonLabel
-        ? `${reasonLabel}${voidReason.trim() ? `: ${voidReason.trim()}` : ""}`
-        : voidReason;
+      const reasonLabel = CORRECTION_REASONS.find(
+        (reason) => reason.value === correctionReason,
+      )?.label;
+      const finalReason =
+        voidAndRecreate && reasonLabel
+          ? `${reasonLabel}${voidReason.trim() ? `: ${voidReason.trim()}` : ""}`
+          : voidReason;
       await voidDocumentWithSideEffects(doc, userId, finalReason);
 
       let recreatedDocId: string | null = null;
@@ -268,7 +338,12 @@ export default function DocumentDetailPage() {
 
       if (voidAndRecreate) {
         const issueDate = doc.issue_date || todayString();
-        const newDocNumber = await resolveDocNumber(userId, doc.doc_type, issueDate, docNumberOverride);
+        const newDocNumber = await resolveDocNumber(
+          userId,
+          doc.doc_type,
+          issueDate,
+          docNumberOverride,
+        );
         const { data: newDoc } = await supabase
           .from("documents")
           .insert({
@@ -330,11 +405,12 @@ export default function DocumentDetailPage() {
                 carton_unit: lineItem.carton_unit,
                 source_document_id: lineItem.source_document_id,
                 source_line_item_id: lineItem.source_line_item_id,
-                source_section: (lineItem as { source_section?: number | null }).source_section ?? null,
+                source_section:
+                  (lineItem as { source_section?: number | null }).source_section ?? null,
                 line_total: lineItem.line_total,
                 image_url: lineItem.image_url || null,
                 sort_order: index,
-              }))
+              })),
             );
           }
         }
@@ -356,7 +432,7 @@ export default function DocumentDetailPage() {
                 subtotal: billingNote.subtotal,
                 vat_amount: billingNote.vat_amount,
                 total_amount: billingNote.total_amount,
-              }))
+              })),
             );
           }
         }
@@ -422,16 +498,29 @@ export default function DocumentDetailPage() {
   type ReceiptInvoiceSortKey = "invoice_number" | "issue_date" | "paid_amount";
   type DeliveryNoteSortKey = "delivery_note_number" | "issue_date" | "total_amount";
 
-  const lineItemSort = useTableSort<DocumentLineItem, LineItemSortKey>(doc?.line_items || [], { key: "item_name", dir: "asc" });
-  const billingInvoiceSort = useTableSort<BillingNoteInvoice, BillingInvoiceSortKey>(doc?.billing_invoices || [], { key: "invoice_number", dir: "asc" });
-  const receiptInvoiceSort = useTableSort<ReceiptInvoice, ReceiptInvoiceSortKey>(doc?.receipt_invoices || [], { key: "invoice_number", dir: "asc" });
-  const deliveryNoteSort = useTableSort<InvoiceDeliveryNote, DeliveryNoteSortKey>(doc?.invoice_delivery_notes || [], { key: "delivery_note_number", dir: "asc" });
+  const lineItemSort = useTableSort<DocumentLineItem, LineItemSortKey>(doc?.line_items || [], {
+    key: "item_name",
+    dir: "asc",
+  });
+  const billingInvoiceSort = useTableSort<BillingNoteInvoice, BillingInvoiceSortKey>(
+    doc?.billing_invoices || [],
+    { key: "invoice_number", dir: "asc" },
+  );
+  const receiptInvoiceSort = useTableSort<ReceiptInvoice, ReceiptInvoiceSortKey>(
+    doc?.receipt_invoices || [],
+    { key: "invoice_number", dir: "asc" },
+  );
+  const deliveryNoteSort = useTableSort<InvoiceDeliveryNote, DeliveryNoteSortKey>(
+    doc?.invoice_delivery_notes || [],
+    { key: "delivery_note_number", dir: "asc" },
+  );
 
   // Receipt settled via a billing note: display the ใบวางบิล itself as the
   // paid reference (mirrors print.ts behavior).
   const sourceBillingNoteId =
     doc?.doc_type === "receipt"
-      ? doc.receipt_invoices?.find((r) => r.source_billing_note_id)?.source_billing_note_id ?? null
+      ? (doc.receipt_invoices?.find((r) => r.source_billing_note_id)?.source_billing_note_id ??
+        null)
       : null;
   const [paidViaBillingNote, setPaidViaBillingNote] = useState<Document | null>(null);
   useEffect(() => {
@@ -464,7 +553,7 @@ export default function DocumentDetailPage() {
   if (error || !doc) {
     return (
       <AppShell title="เอกสาร" showBack>
-        <div className="text-center py-12 text-red-500">{error || "ไม่พบเอกสาร"}</div>
+        <div className="text-center py-12 text-danger-text">{error || "ไม่พบเอกสาร"}</div>
       </AppShell>
     );
   }
@@ -479,19 +568,22 @@ export default function DocumentDetailPage() {
   const isSettled = isPaid || isPartiallyPaid;
   const isVoided = doc.status === "voided";
   const isOverdue = isDocumentOverdue(doc, businessToday);
-  const lineDiscountTotal = doc.line_items?.reduce((sum, item) => sum + (item.discount_amount || 0), 0) || 0;
+  const lineDiscountTotal =
+    doc.line_items?.reduce((sum, item) => sum + (item.discount_amount || 0), 0) || 0;
   const grossSubtotal = doc.subtotal + (doc.discount_amount || 0) + lineDiscountTotal;
   const docLabel = documentTypeLabel(doc.doc_type, doc.vat_registered);
   const customerName = customer?.name || "ไม่ได้ระบุลูกค้า";
   const issueDateLabel = formatDate(doc.issue_date);
   const dueDateLabel = doc.due_date ? formatDate(doc.due_date) : "ไม่มีกำหนด";
   const hasBackdateAudit = Boolean(doc.backdated_at || doc.backdated_reason);
-  const canEditDocument = doc.doc_type === "billing_note" || doc.doc_type === "credit_note" || doc.doc_type === "debit_note";
-  const isUtilityBill = doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
-  const isCorrectionCandidate =
-    doc.doc_type === "invoice" ||
+  const canEditDocument =
+    doc.doc_type === "billing_note" ||
     doc.doc_type === "credit_note" ||
     doc.doc_type === "debit_note";
+  const isUtilityBill =
+    doc.line_items?.some((li) => (li.line_note || "").includes("[USAGE_BILL]")) ?? false;
+  const isCorrectionCandidate =
+    doc.doc_type === "invoice" || doc.doc_type === "credit_note" || doc.doc_type === "debit_note";
   const correctionTitle =
     doc.doc_type === "credit_note" || doc.doc_type === "debit_note"
       ? doc.doc_type === "credit_note"
@@ -509,10 +601,10 @@ export default function DocumentDetailPage() {
           : isPartiallyPaid
             ? "ชำระบางส่วน ยังเหลือยอดค้างชำระ"
             : isOverdue
-            ? "เกินกำหนดแล้ว ควรติดตามการชำระ"
-            : isSent || isIssued
-              ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
-              : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
+              ? "เกินกำหนดแล้ว ควรติดตามการชำระ"
+              : isSent || isIssued
+                ? "เอกสารถูกส่งแล้ว รอดำเนินการขั้นถัดไป"
+                : "ฉบับร่าง ตรวจสอบและส่งเมื่อพร้อม";
 
   const openVoidModal = (recreate: boolean) => {
     setVoidReason("");
@@ -539,7 +631,7 @@ export default function DocumentDetailPage() {
     } finally {
       setActionLoading(null);
     }
-  }
+  };
 
   const confirmReceipt = async () => {
     setConfirmingReceipt(true);
@@ -558,21 +650,41 @@ export default function DocumentDetailPage() {
     } finally {
       setConfirmingReceipt(false);
     }
-  }
+  };
 
-  const canEditDraft = isDraft && doc.doc_type !== "receipt" && doc.doc_type !== "credit_note" && doc.doc_type !== "debit_note";
-  const canIssueCorrection = isDraft && (doc.doc_type === "credit_note" || doc.doc_type === "debit_note") && canSendDocumentType(permissions, doc.doc_type);
+  const canEditDraft =
+    isDraft &&
+    doc.doc_type !== "receipt" &&
+    doc.doc_type !== "credit_note" &&
+    doc.doc_type !== "debit_note";
+  const canIssueCorrection =
+    isDraft &&
+    (doc.doc_type === "credit_note" || doc.doc_type === "debit_note") &&
+    canSendDocumentType(permissions, doc.doc_type);
   const canConfirmReceipt = isDraft && doc.doc_type === "receipt" && permissions.canRecordPayments;
-  const isCollectible = (isSent || isPartiallyPaid) && (doc.doc_type === "invoice" || doc.doc_type === "billing_note");
+  const isCollectible =
+    (isSent || isPartiallyPaid) && (doc.doc_type === "invoice" || doc.doc_type === "billing_note");
   const canTakePayment = isCollectible && !doc.deal_id && permissions.canRecordPayments;
 
   const primaryAction: ReactNode = canConfirmReceipt ? (
-    <Button variant="primary" size="md" className="w-full sm:w-auto" loading={confirmingReceipt} onClick={confirmReceipt}>
+    <Button
+      variant="primary"
+      size="md"
+      className="w-full sm:w-auto"
+      loading={confirmingReceipt}
+      onClick={confirmReceipt}
+    >
       <CheckCircle2 className="mr-1.5 h-4 w-4" />
       ยืนยันการรับเงิน
     </Button>
   ) : canIssueCorrection ? (
-    <Button variant="primary" size="md" className="w-full sm:w-auto" loading={actionLoading === "send"} onClick={issueCreditNote}>
+    <Button
+      variant="primary"
+      size="md"
+      className="w-full sm:w-auto"
+      loading={actionLoading === "send"}
+      onClick={issueCreditNote}
+    >
       <FileText className="mr-1.5 h-4 w-4" />
       {doc.doc_type === "debit_note" ? "ออกใบเพิ่มหนี้" : "ออกใบลดหนี้"}
     </Button>
@@ -587,7 +699,12 @@ export default function DocumentDetailPage() {
       แก้ไขฉบับร่าง
     </Button>
   ) : isCollectible && doc.deal_id ? (
-    <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
+    <Button
+      variant="primary"
+      size="md"
+      className="w-full sm:w-auto"
+      onClick={() => navigate(`/deals/${doc.deal_id}`)}
+    >
       เปิดงานขายเพื่อดำเนินการต่อ
     </Button>
   ) : canTakePayment ? (
@@ -605,7 +722,9 @@ export default function DocumentDetailPage() {
     doc.status !== "voided" &&
     ["invoice", "quotation", "billing_note", "delivery_note"].includes(doc.doc_type);
   const canCreateCorrection =
-    (isSent || isPartiallyPaid) && doc.doc_type === "invoice" && canSendDocumentType(permissions, "credit_note");
+    (isSent || isPartiallyPaid) &&
+    doc.doc_type === "invoice" &&
+    canSendDocumentType(permissions, "credit_note");
   const recreateLabel =
     doc.doc_type === "credit_note" || doc.doc_type === "debit_note"
       ? "ยกเลิกและออกฉบับใหม่"
@@ -613,7 +732,13 @@ export default function DocumentDetailPage() {
         ? "แก้ไขโดยออกฉบับใหม่"
         : "ยกเลิกและสร้างใหม่";
   const hasMenuActions =
-    Boolean((isConverted && doc.doc_type === "delivery_note" && dnInvoiceRef) || canCreateCorrection || canCopy || canVoid || canRecreate) ||
+    Boolean(
+      (isConverted && doc.doc_type === "delivery_note" && dnInvoiceRef) ||
+      canCreateCorrection ||
+      canCopy ||
+      canVoid ||
+      canRecreate,
+    ) ||
     (isDraft && permissions.canDeleteDocuments);
 
   return (
@@ -627,7 +752,7 @@ export default function DocumentDetailPage() {
       ]}
     >
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-control text-body text-red-600">
+        <div className="mb-4 p-3 rounded-control border border-danger-border bg-danger-soft text-body text-danger-text">
           {error}
         </div>
       )}
@@ -651,22 +776,27 @@ export default function DocumentDetailPage() {
                   onSave={async (newValue) => {
                     if (!id || !userId) return;
                     await assertDocNumberAvailable(userId, newValue, id);
-                    const { error } = await supabase.from("documents").update({ doc_number: newValue }).eq("id", id);
+                    const { error } = await supabase
+                      .from("documents")
+                      .update({ doc_number: newValue })
+                      .eq("id", id);
                     if (error) throw error;
-                    setDoc((prev) => prev ? { ...prev, doc_number: newValue } : prev);
+                    setDoc((prev) => (prev ? { ...prev, doc_number: newValue } : prev));
                     toast.success("เปลี่ยนเลขที่เอกสารแล้ว");
                   }}
                 />
               </h2>
               {isVoided && doc.voided_reason && (
-                <p className="mt-1 text-label italic text-ink-300">เหตุผลการยกเลิก: {doc.voided_reason}</p>
+                <p className="mt-1 text-label italic text-ink-300">
+                  เหตุผลการยกเลิก: {doc.voided_reason}
+                </p>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {copiedFromRef && (
                   <button
                     type="button"
                     onClick={() => navigate(`/documents/${copiedFromRef.id}`)}
-                    className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-label font-medium text-blue-700 hover:bg-blue-100"
+                    className="inline-flex rounded-full border border-primary-border bg-primary-soft px-3 py-1 text-label font-medium text-primary-deep hover:bg-primary-soft"
                   >
                     ออกแทน {copiedFromRef.doc_number || "เอกสารเดิม"}
                   </button>
@@ -675,7 +805,7 @@ export default function DocumentDetailPage() {
                   <button
                     type="button"
                     onClick={() => navigate(`/documents/${replacementRef.id}`)}
-                    className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-label font-medium text-amber-800 hover:bg-amber-100"
+                    className="inline-flex rounded-full border border-warning-border bg-warning-soft px-3 py-1 text-label font-medium text-warning-text hover:bg-warning-soft"
                   >
                     ออกใหม่เป็น {replacementRef.doc_number || "ฉบับใหม่"}
                   </button>
@@ -701,7 +831,7 @@ export default function DocumentDetailPage() {
             {dealChain.length > 1 && (
               <div className="flex items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {(() => {
-                  const steps = dealChain.map(d => {
+                  const steps = dealChain.map((d) => {
                     const vatReg = d.doc_type === "invoice" ? doc.vat_registered : false;
                     return {
                       key: d.doc_type,
@@ -713,7 +843,7 @@ export default function DocumentDetailPage() {
                     <span key={`${step.key}-${i}`} className="flex shrink-0 items-center gap-1">
                       {i > 0 && <span className="text-label text-ink-200">→</span>}
                       <span
-                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-label font-medium ${ step.active ? "bg-primary text-white" : "bg-paper-field text-ink-400" }`}
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-label font-medium ${step.active ? "bg-primary text-white" : "bg-paper-field text-ink-400"}`}
                       >
                         {step.label}
                       </span>
@@ -743,7 +873,9 @@ export default function DocumentDetailPage() {
                   <ArrowRight className="h-3.5 w-3.5" />
                   ครบกำหนด
                 </dt>
-                <dd className={`mt-1 text-body font-medium ${isOverdue ? "text-red-700" : "text-ink-900"}`}>
+                <dd
+                  className={`mt-1 text-body font-medium ${isOverdue ? "text-danger-text" : "text-ink-900"}`}
+                >
                   {dueDateLabel}
                 </dd>
               </div>
@@ -764,14 +896,21 @@ export default function DocumentDetailPage() {
               <CircleDollarSign className="h-4 w-4" />
               {getDisplayAmountLabel(doc)}
             </div>
-            <Money value={getDisplayAmount(doc)} className="mt-2 block text-page font-semibold text-ink-900" />
+            <Money
+              value={getDisplayAmount(doc)}
+              className="mt-2 block text-page font-semibold text-ink-900"
+            />
             <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="primary" size="sm" onClick={handleGeneratePdf}>
                 <Printer className="mr-1 h-3.5 w-3.5" />
                 พิมพ์ / PDF
               </Button>
               {canEditDocument && (
-                <Button variant="secondary" size="sm" onClick={() => navigate(`/documents/${doc.id}/edit`)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate(`/documents/${doc.id}/edit`)}
+                >
                   แก้ไขเอกสาร
                 </Button>
               )}
@@ -792,252 +931,338 @@ export default function DocumentDetailPage() {
       </div>
 
       <div
-        className={`mb-4 rounded-card border px-4 py-3 text-body ${ isVoided ? "border-danger-border bg-danger-soft text-danger-text" : isPaid ? "border-success-border bg-success-soft text-success-text" : isPartiallyPaid ? "border-warning-border bg-warning-soft text-warning-text" : isOverdue ? "border-danger-border bg-danger-soft text-danger-text" : isSent || isIssued ? "border-sent-bg bg-primary-soft text-primary-deep" : "border-line-strong bg-paper-warm text-ink-700" }`}
+        className={`mb-4 rounded-card border px-4 py-3 text-body ${isVoided ? "border-danger-border bg-danger-soft text-danger-text" : isPaid ? "border-success-border bg-success-soft text-success-text" : isPartiallyPaid ? "border-warning-border bg-warning-soft text-warning-text" : isOverdue ? "border-danger-border bg-danger-soft text-danger-text" : isSent || isIssued ? "border-sent-bg bg-primary-soft text-primary-deep" : "border-line-strong bg-paper-warm text-ink-700"}`}
       >
         {statusMessage}
       </div>
 
       {doc.line_items && doc.line_items.length > 0 && (
-        <DetailCard title="รายการเอกสาร" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
+        <DetailCard
+          title="รายการเอกสาร"
+          icon={<FileStack className="h-4 w-4" />}
+          className="mb-4 overflow-hidden !p-0"
+        >
           <div className="-mt-4 overflow-x-auto">
-          <table className={TABLE.table}>
-            <thead>
-              <tr className={TABLE.theadTr}>
-                <th className={`w-8 px-4 py-3 text-left ${TABLE.thSortable}`}>#</th>
-                <SortableTh
-                  label="รายการ"
-                  align="left"
-                  active={lineItemSort.sort.key === "item_name"}
-                  dir={lineItemSort.sort.dir}
-                  onClick={() => lineItemSort.handleSort("item_name")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="จำนวน"
-                  align="right"
-                  active={lineItemSort.sort.key === "quantity"}
-                  dir={lineItemSort.sort.dir}
-                  onClick={() => lineItemSort.handleSort("quantity")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="ราคา/หน่วย"
-                  align="right"
-                  active={lineItemSort.sort.key === "unit_price"}
-                  dir={lineItemSort.sort.dir}
-                  onClick={() => lineItemSort.handleSort("unit_price")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="รวม"
-                  align="right"
-                  active={lineItemSort.sort.key === "line_total"}
-                  dir={lineItemSort.sort.dir}
-                  onClick={() => lineItemSort.handleSort("line_total")}
-                  className={TABLE.thSortable}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {lineItemSort.sorted.map((item, index) => (
-                <tr key={item.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-ink-400">{index + 1}</td>
-                  <td className="px-4 py-2 text-ink-500">
-                    <div>{item.item_name}</div>
-                    {item.line_note ? <div className="mt-1 text-label text-ink-500">{item.line_note}</div> : null}
-                    {item.discount_amount > 0 && (
-                      <div className="text-label text-red-500">
-                        ส่วนลด {item.discount_percent}% (-฿{formatCurrency(item.discount_amount)})
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-right text-ink-500">{item.quantity} {item.unit}</td>
-                  <td className="px-4 py-2 text-right text-ink-500"><Money value={item.unit_price} /></td>
-                  <td className="px-4 py-2 text-right font-medium text-ink-500"><Money value={item.line_total} /></td>
+            <table className={TABLE.table}>
+              <thead>
+                <tr className={TABLE.theadTr}>
+                  <th className={`w-8 px-4 py-3 text-left ${TABLE.thSortable}`}>#</th>
+                  <SortableTh
+                    label="รายการ"
+                    align="left"
+                    active={lineItemSort.sort.key === "item_name"}
+                    dir={lineItemSort.sort.dir}
+                    onClick={() => lineItemSort.handleSort("item_name")}
+                    className={TABLE.thSortable}
+                  />
+                  <SortableTh
+                    label="จำนวน"
+                    align="right"
+                    active={lineItemSort.sort.key === "quantity"}
+                    dir={lineItemSort.sort.dir}
+                    onClick={() => lineItemSort.handleSort("quantity")}
+                    className={TABLE.thSortable}
+                  />
+                  <SortableTh
+                    label="ราคา/หน่วย"
+                    align="right"
+                    active={lineItemSort.sort.key === "unit_price"}
+                    dir={lineItemSort.sort.dir}
+                    onClick={() => lineItemSort.handleSort("unit_price")}
+                    className={TABLE.thSortable}
+                  />
+                  <SortableTh
+                    label="รวม"
+                    align="right"
+                    active={lineItemSort.sort.key === "line_total"}
+                    dir={lineItemSort.sort.dir}
+                    onClick={() => lineItemSort.handleSort("line_total")}
+                    className={TABLE.thSortable}
+                  />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {lineItemSort.sorted.map((item, index) => (
+                  <tr key={item.id} className={TABLE.tbodyTr}>
+                    <td className="px-4 py-2 text-ink-400">{index + 1}</td>
+                    <td className="px-4 py-2 text-ink-500">
+                      <div>{item.item_name}</div>
+                      {item.line_note ? (
+                        <div className="mt-1 text-label text-ink-500">{item.line_note}</div>
+                      ) : null}
+                      {item.discount_amount > 0 && (
+                        <div className="text-label text-danger-text">
+                          ส่วนลด {item.discount_percent}% (-฿{formatCurrency(item.discount_amount)})
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right text-ink-500">
+                      {item.quantity} {item.unit}
+                    </td>
+                    <td className="px-4 py-2 text-right text-ink-500">
+                      <Money value={item.unit_price} />
+                    </td>
+                    <td className="px-4 py-2 text-right font-medium text-ink-500">
+                      <Money value={item.line_total} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </DetailCard>
       )}
 
-      {doc.doc_type === "billing_note" && doc.billing_invoices && doc.billing_invoices.length > 0 && (
-        <DetailCard title="ใบแจ้งหนี้ที่รวม" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
-          <div className="-mt-4 overflow-x-auto">
-          <table className={TABLE.table}>
-            <thead>
-              <tr className={TABLE.theadTr}>
-                <SortableTh
-                  label="เลขที่ใบแจ้งหนี้"
-                  align="left"
-                  active={billingInvoiceSort.sort.key === "invoice_number"}
-                  dir={billingInvoiceSort.sort.dir}
-                  onClick={() => billingInvoiceSort.handleSort("invoice_number")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="ยอดก่อน VAT"
-                  align="right"
-                  active={billingInvoiceSort.sort.key === "subtotal"}
-                  dir={billingInvoiceSort.sort.dir}
-                  onClick={() => billingInvoiceSort.handleSort("subtotal")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="VAT"
-                  align="right"
-                  active={billingInvoiceSort.sort.key === "vat_amount"}
-                  dir={billingInvoiceSort.sort.dir}
-                  onClick={() => billingInvoiceSort.handleSort("vat_amount")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="รวม"
-                  align="right"
-                  active={billingInvoiceSort.sort.key === "total_amount"}
-                  dir={billingInvoiceSort.sort.dir}
-                  onClick={() => billingInvoiceSort.handleSort("total_amount")}
-                  className={TABLE.thSortable}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {billingInvoiceSort.sorted.map((invoice) => (
-                <tr key={invoice.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-ink-500">{invoice.invoice_number}</td>
-                  <td className="px-4 py-2 text-right text-ink-500"><Money value={invoice.subtotal} /></td>
-                  <td className="px-4 py-2 text-right text-ink-500"><Money value={invoice.vat_amount} /></td>
-                  <td className="px-4 py-2 text-right text-ink-500"><Money value={invoice.total_amount} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </DetailCard>
-      )}
+      {doc.doc_type === "billing_note" &&
+        doc.billing_invoices &&
+        doc.billing_invoices.length > 0 && (
+          <DetailCard
+            title="ใบแจ้งหนี้ที่รวม"
+            icon={<FileStack className="h-4 w-4" />}
+            className="mb-4 overflow-hidden !p-0"
+          >
+            <div className="-mt-4 overflow-x-auto">
+              <table className={TABLE.table}>
+                <thead>
+                  <tr className={TABLE.theadTr}>
+                    <SortableTh
+                      label="เลขที่ใบแจ้งหนี้"
+                      align="left"
+                      active={billingInvoiceSort.sort.key === "invoice_number"}
+                      dir={billingInvoiceSort.sort.dir}
+                      onClick={() => billingInvoiceSort.handleSort("invoice_number")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="ยอดก่อน VAT"
+                      align="right"
+                      active={billingInvoiceSort.sort.key === "subtotal"}
+                      dir={billingInvoiceSort.sort.dir}
+                      onClick={() => billingInvoiceSort.handleSort("subtotal")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="VAT"
+                      align="right"
+                      active={billingInvoiceSort.sort.key === "vat_amount"}
+                      dir={billingInvoiceSort.sort.dir}
+                      onClick={() => billingInvoiceSort.handleSort("vat_amount")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="รวม"
+                      align="right"
+                      active={billingInvoiceSort.sort.key === "total_amount"}
+                      dir={billingInvoiceSort.sort.dir}
+                      onClick={() => billingInvoiceSort.handleSort("total_amount")}
+                      className={TABLE.thSortable}
+                    />
+                  </tr>
+                </thead>
+                <tbody>
+                  {billingInvoiceSort.sorted.map((invoice) => (
+                    <tr key={invoice.id} className={TABLE.tbodyTr}>
+                      <td className="px-4 py-2 text-ink-500">{invoice.invoice_number}</td>
+                      <td className="px-4 py-2 text-right text-ink-500">
+                        <Money value={invoice.subtotal} />
+                      </td>
+                      <td className="px-4 py-2 text-right text-ink-500">
+                        <Money value={invoice.vat_amount} />
+                      </td>
+                      <td className="px-4 py-2 text-right text-ink-500">
+                        <Money value={invoice.total_amount} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DetailCard>
+        )}
 
       {doc.doc_type === "receipt" && paidViaBillingNote && (
-        <DetailCard title="ใบวางบิลที่ชำระ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
+        <DetailCard
+          title="ใบวางบิลที่ชำระ"
+          icon={<FileStack className="h-4 w-4" />}
+          className="mb-4 overflow-hidden !p-0"
+        >
           <div className="-mt-4 overflow-x-auto">
-          <table className={TABLE.table}>
-            <thead>
-              <tr className={TABLE.theadTr}>
-                <SortableTh label="เลขที่ใบวางบิล" align="left" active={false} dir="asc" onClick={() => undefined} className={TABLE.thSortable} />
-                <SortableTh label="วันที่ออก" align="left" active={false} dir="asc" onClick={() => undefined} className={TABLE.thSortable} />
-                <SortableTh label="จำนวนเงิน" align="right" active={false} dir="asc" onClick={() => undefined} className={TABLE.thSortable} />
-              </tr>
-            </thead>
-            <tbody>
-              <tr className={TABLE.tbodyTr}>
-                <td className="px-4 py-2 text-ink-500">{paidViaBillingNote.doc_number || "-"}</td>
-                <td className="px-4 py-2 text-ink-500">{paidViaBillingNote.issue_date ? formatDate(paidViaBillingNote.issue_date) : "-"}</td>
-                <td className="px-4 py-2 text-right font-medium text-ink-500"><Money value={paidViaBillingNote.total_amount} /></td>
-              </tr>
-            </tbody>
-          </table>
+            <table className={TABLE.table}>
+              <thead>
+                <tr className={TABLE.theadTr}>
+                  <SortableTh
+                    label="เลขที่ใบวางบิล"
+                    align="left"
+                    active={false}
+                    dir="asc"
+                    onClick={() => undefined}
+                    className={TABLE.thSortable}
+                  />
+                  <SortableTh
+                    label="วันที่ออก"
+                    align="left"
+                    active={false}
+                    dir="asc"
+                    onClick={() => undefined}
+                    className={TABLE.thSortable}
+                  />
+                  <SortableTh
+                    label="จำนวนเงิน"
+                    align="right"
+                    active={false}
+                    dir="asc"
+                    onClick={() => undefined}
+                    className={TABLE.thSortable}
+                  />
+                </tr>
+              </thead>
+              <tbody>
+                <tr className={TABLE.tbodyTr}>
+                  <td className="px-4 py-2 text-ink-500">{paidViaBillingNote.doc_number || "-"}</td>
+                  <td className="px-4 py-2 text-ink-500">
+                    {paidViaBillingNote.issue_date
+                      ? formatDate(paidViaBillingNote.issue_date)
+                      : "-"}
+                  </td>
+                  <td className="px-4 py-2 text-right font-medium text-ink-500">
+                    <Money value={paidViaBillingNote.total_amount} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </DetailCard>
       )}
 
-      {doc.doc_type === "receipt" && !paidViaBillingNote && doc.receipt_invoices && doc.receipt_invoices.length > 0 && (
-        <DetailCard title="ใบแจ้งหนี้ที่ชำระ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
-          <div className="-mt-4 overflow-x-auto">
-          <table className={TABLE.table}>
-            <thead>
-              <tr className={TABLE.theadTr}>
-                <SortableTh
-                  label="เลขที่ใบแจ้งหนี้"
-                  align="left"
-                  active={receiptInvoiceSort.sort.key === "invoice_number"}
-                  dir={receiptInvoiceSort.sort.dir}
-                  onClick={() => receiptInvoiceSort.handleSort("invoice_number")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="วันที่ออก"
-                  align="left"
-                  active={receiptInvoiceSort.sort.key === "issue_date"}
-                  dir={receiptInvoiceSort.sort.dir}
-                  onClick={() => receiptInvoiceSort.handleSort("issue_date")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="รับชำระ"
-                  align="right"
-                  active={receiptInvoiceSort.sort.key === "paid_amount"}
-                  dir={receiptInvoiceSort.sort.dir}
-                  onClick={() => receiptInvoiceSort.handleSort("paid_amount")}
-                  className={TABLE.thSortable}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {receiptInvoiceSort.sorted.map((invoice) => (
-                <tr key={invoice.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-ink-500">{invoice.invoice_number}</td>
-                  <td className="px-4 py-2 text-ink-500">{invoice.issue_date ? formatDate(invoice.issue_date) : "-"}</td>
-                  <td className="px-4 py-2 text-right font-medium text-ink-500"><Money value={invoice.paid_amount} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </DetailCard>
-      )}
+      {doc.doc_type === "receipt" &&
+        !paidViaBillingNote &&
+        doc.receipt_invoices &&
+        doc.receipt_invoices.length > 0 && (
+          <DetailCard
+            title="ใบแจ้งหนี้ที่ชำระ"
+            icon={<FileStack className="h-4 w-4" />}
+            className="mb-4 overflow-hidden !p-0"
+          >
+            <div className="-mt-4 overflow-x-auto">
+              <table className={TABLE.table}>
+                <thead>
+                  <tr className={TABLE.theadTr}>
+                    <SortableTh
+                      label="เลขที่ใบแจ้งหนี้"
+                      align="left"
+                      active={receiptInvoiceSort.sort.key === "invoice_number"}
+                      dir={receiptInvoiceSort.sort.dir}
+                      onClick={() => receiptInvoiceSort.handleSort("invoice_number")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="วันที่ออก"
+                      align="left"
+                      active={receiptInvoiceSort.sort.key === "issue_date"}
+                      dir={receiptInvoiceSort.sort.dir}
+                      onClick={() => receiptInvoiceSort.handleSort("issue_date")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="รับชำระ"
+                      align="right"
+                      active={receiptInvoiceSort.sort.key === "paid_amount"}
+                      dir={receiptInvoiceSort.sort.dir}
+                      onClick={() => receiptInvoiceSort.handleSort("paid_amount")}
+                      className={TABLE.thSortable}
+                    />
+                  </tr>
+                </thead>
+                <tbody>
+                  {receiptInvoiceSort.sorted.map((invoice) => (
+                    <tr key={invoice.id} className={TABLE.tbodyTr}>
+                      <td className="px-4 py-2 text-ink-500">{invoice.invoice_number}</td>
+                      <td className="px-4 py-2 text-ink-500">
+                        {invoice.issue_date ? formatDate(invoice.issue_date) : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-right font-medium text-ink-500">
+                        <Money value={invoice.paid_amount} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DetailCard>
+        )}
 
-      {doc.doc_type === "invoice" && doc.invoice_delivery_notes && doc.invoice_delivery_notes.length > 0 && (
-        <DetailCard title="อ้างอิงใบส่งของ" icon={<FileStack className="h-4 w-4" />} className="mb-4 overflow-hidden !p-0">
-          <div className="-mt-4 overflow-x-auto">
-          <table className={TABLE.table}>
-            <thead>
-              <tr className={TABLE.theadTr}>
-                <SortableTh
-                  label="เลขที่ใบส่งของ"
-                  align="left"
-                  active={deliveryNoteSort.sort.key === "delivery_note_number"}
-                  dir={deliveryNoteSort.sort.dir}
-                  onClick={() => deliveryNoteSort.handleSort("delivery_note_number")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="วันที่ส่งของ"
-                  align="left"
-                  active={deliveryNoteSort.sort.key === "issue_date"}
-                  dir={deliveryNoteSort.sort.dir}
-                  onClick={() => deliveryNoteSort.handleSort("issue_date")}
-                  className={TABLE.thSortable}
-                />
-                <SortableTh
-                  label="มูลค่าอ้างอิง"
-                  align="right"
-                  active={deliveryNoteSort.sort.key === "total_amount"}
-                  dir={deliveryNoteSort.sort.dir}
-                  onClick={() => deliveryNoteSort.handleSort("total_amount")}
-                  className={TABLE.thSortable}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {deliveryNoteSort.sorted.map((deliveryNote) => (
-                <tr key={deliveryNote.id} className={TABLE.tbodyTr}>
-                  <td className="px-4 py-2 text-ink-500">{deliveryNote.delivery_note_number}</td>
-                  <td className="px-4 py-2 text-ink-500">{deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}</td>
-                  <td className="px-4 py-2 text-right text-ink-500"><Money value={deliveryNote.total_amount} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </DetailCard>
-      )}
+      {doc.doc_type === "invoice" &&
+        doc.invoice_delivery_notes &&
+        doc.invoice_delivery_notes.length > 0 && (
+          <DetailCard
+            title="อ้างอิงใบส่งของ"
+            icon={<FileStack className="h-4 w-4" />}
+            className="mb-4 overflow-hidden !p-0"
+          >
+            <div className="-mt-4 overflow-x-auto">
+              <table className={TABLE.table}>
+                <thead>
+                  <tr className={TABLE.theadTr}>
+                    <SortableTh
+                      label="เลขที่ใบส่งของ"
+                      align="left"
+                      active={deliveryNoteSort.sort.key === "delivery_note_number"}
+                      dir={deliveryNoteSort.sort.dir}
+                      onClick={() => deliveryNoteSort.handleSort("delivery_note_number")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="วันที่ส่งของ"
+                      align="left"
+                      active={deliveryNoteSort.sort.key === "issue_date"}
+                      dir={deliveryNoteSort.sort.dir}
+                      onClick={() => deliveryNoteSort.handleSort("issue_date")}
+                      className={TABLE.thSortable}
+                    />
+                    <SortableTh
+                      label="มูลค่าอ้างอิง"
+                      align="right"
+                      active={deliveryNoteSort.sort.key === "total_amount"}
+                      dir={deliveryNoteSort.sort.dir}
+                      onClick={() => deliveryNoteSort.handleSort("total_amount")}
+                      className={TABLE.thSortable}
+                    />
+                  </tr>
+                </thead>
+                <tbody>
+                  {deliveryNoteSort.sorted.map((deliveryNote) => (
+                    <tr key={deliveryNote.id} className={TABLE.tbodyTr}>
+                      <td className="px-4 py-2 text-ink-500">
+                        {deliveryNote.delivery_note_number}
+                      </td>
+                      <td className="px-4 py-2 text-ink-500">
+                        {deliveryNote.issue_date ? formatDate(deliveryNote.issue_date) : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-right text-ink-500">
+                        <Money value={deliveryNote.total_amount} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DetailCard>
+        )}
 
       <DetailCard title="สรุปยอด" icon={<CircleDollarSign className="h-4 w-4" />} className="mb-4">
         <div className="space-y-2">
           {lineDiscountTotal > 0 && (
             <>
-              <AmountRow label="ยอดก่อนส่วนลด" value={`฿${formatCurrency(grossSubtotal)}`} tone="muted" />
-              <AmountRow label="ส่วนลดรายการ" value={`-฿${formatCurrency(lineDiscountTotal)}`} tone="red" />
+              <AmountRow
+                label="ยอดก่อนส่วนลด"
+                value={`฿${formatCurrency(grossSubtotal)}`}
+                tone="muted"
+              />
+              <AmountRow
+                label="ส่วนลดรายการ"
+                value={`-฿${formatCurrency(lineDiscountTotal)}`}
+                tone="red"
+              />
             </>
           )}
           {doc.discount_amount > 0 && (
@@ -1049,26 +1274,52 @@ export default function DocumentDetailPage() {
           )}
           {doc.doc_type === "delivery_note" ? (
             <div className="rounded-control bg-paper-field px-3 py-2">
-              <AmountRow label="มูลค่าอ้างอิง" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" />
+              <AmountRow
+                label="มูลค่าอ้างอิง"
+                value={`฿${formatCurrency(doc.total_amount)}`}
+                tone="strong"
+              />
             </div>
           ) : (
             <>
               {!doc.vat_registered && (
                 <div className="rounded-control bg-paper-field px-3 py-2">
-                  <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" />
+                  <AmountRow
+                    label="รวมทั้งสิ้น"
+                    value={`฿${formatCurrency(doc.total_amount)}`}
+                    tone="strong"
+                  />
                 </div>
               )}
               {doc.vat_registered && (
                 <div className="rounded-control bg-paper-field px-3 py-2">
-                  <AmountRow label="ยอดก่อน VAT" value={`฿${formatCurrency(doc.subtotal)}`} tone="default" />
-                  <AmountRow label={`VAT ${doc.vat_rate}%`} value={`฿${formatCurrency(doc.vat_amount)}`} tone="default" className="mt-1.5" />
-                  <AmountRow label="รวมทั้งสิ้น" value={`฿${formatCurrency(doc.total_amount)}`} tone="strong" className="mt-2 border-t border-line-soft pt-2" />
+                  <AmountRow
+                    label="ยอดก่อน VAT"
+                    value={`฿${formatCurrency(doc.subtotal)}`}
+                    tone="default"
+                  />
+                  <AmountRow
+                    label={`VAT ${doc.vat_rate}%`}
+                    value={`฿${formatCurrency(doc.vat_amount)}`}
+                    tone="default"
+                    className="mt-1.5"
+                  />
+                  <AmountRow
+                    label="รวมทั้งสิ้น"
+                    value={`฿${formatCurrency(doc.total_amount)}`}
+                    tone="strong"
+                    className="mt-2 border-t border-line-soft pt-2"
+                  />
                 </div>
               )}
             </>
           )}
           {doc.wht_rate > 0 && doc.doc_type !== "delivery_note" && (
-            <AmountRow label={`หัก ณ ที่จ่าย ${doc.wht_rate}%`} value={`-฿${formatCurrency(doc.wht_amount)}`} tone="red" />
+            <AmountRow
+              label={`หัก ณ ที่จ่าย ${doc.wht_rate}%`}
+              value={`-฿${formatCurrency(doc.wht_amount)}`}
+              tone="red"
+            />
           )}
           <AmountRow
             label={getDisplayAmountLabel(doc)}
@@ -1080,64 +1331,82 @@ export default function DocumentDetailPage() {
       </DetailCard>
 
       {isSettled && (doc.payment_method || doc.paid_at || doc.amount_received != null) && (
-        <DetailCard title="ข้อมูลรับเงิน" icon={<CircleDollarSign className="h-4 w-4" />} className={`mb-4 ${isPartiallyPaid ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"}`}>
+        <DetailCard
+          title="ข้อมูลรับเงิน"
+          icon={<CircleDollarSign className="h-4 w-4" />}
+          className={`mb-4 ${isPartiallyPaid ? "border-warning-border bg-warning-soft" : "border-success-border bg-success-soft"}`}
+        >
           <div className="space-y-1 text-body">
-          {doc.payment_method && (
-            <div className="flex justify-between">
-              <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>วิธีชำระ:</span>
-              <span>{PAYMENT_METHOD_LABELS[doc.payment_method] || doc.payment_method}</span>
-            </div>
-          )}
-          {doc.amount_received != null && (
-            <div className="flex justify-between">
-              <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>จำนวนเงิน:</span>
-              <Money value={doc.amount_received} />
-            </div>
-          )}
-          {isPartiallyPaid && (
-            <div className="flex justify-between text-amber-700">
-              <span>คงเหลือ:</span>
-              <span className="font-semibold"><Money value={Math.max(0, doc.net_payable - (doc.amount_received || 0))} /></span>
-            </div>
-          )}
-          {doc.paid_at && (
-            <div className="flex justify-between">
-              <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>วันที่:</span>
-              <span>{formatDate(doc.paid_at)}</span>
-            </div>
-          )}
-          {doc.wht_certificate_no && (
-            <div className="flex justify-between">
-              <span className={isPartiallyPaid ? "text-amber-700" : "text-green-700"}>ใบหักภาษี:</span>
-              <span>{doc.wht_certificate_no}</span>
-            </div>
-          )}
+            {doc.payment_method && (
+              <div className="flex justify-between">
+                <span className={isPartiallyPaid ? "text-warning-text" : "text-success-text"}>
+                  วิธีชำระ:
+                </span>
+                <span>{PAYMENT_METHOD_LABELS[doc.payment_method] || doc.payment_method}</span>
+              </div>
+            )}
+            {doc.amount_received != null && (
+              <div className="flex justify-between">
+                <span className={isPartiallyPaid ? "text-warning-text" : "text-success-text"}>
+                  จำนวนเงิน:
+                </span>
+                <Money value={doc.amount_received} />
+              </div>
+            )}
+            {isPartiallyPaid && (
+              <div className="flex justify-between text-warning-text">
+                <span>คงเหลือ:</span>
+                <span className="font-semibold">
+                  <Money value={Math.max(0, doc.net_payable - (doc.amount_received || 0))} />
+                </span>
+              </div>
+            )}
+            {doc.paid_at && (
+              <div className="flex justify-between">
+                <span className={isPartiallyPaid ? "text-warning-text" : "text-success-text"}>
+                  วันที่:
+                </span>
+                <span>{formatDate(doc.paid_at)}</span>
+              </div>
+            )}
+            {doc.wht_certificate_no && (
+              <div className="flex justify-between">
+                <span className={isPartiallyPaid ? "text-warning-text" : "text-success-text"}>
+                  ใบหักภาษี:
+                </span>
+                <span>{doc.wht_certificate_no}</span>
+              </div>
+            )}
           </div>
         </DetailCard>
       )}
 
       {hasBackdateAudit && (
-        <DetailCard title="ข้อมูลการออกย้อนหลัง" icon={<CalendarDays className="h-4 w-4" />} className="mb-4 border-amber-200 bg-amber-50">
-          <div className="space-y-2 text-body text-amber-950">
+        <DetailCard
+          title="ข้อมูลการออกย้อนหลัง"
+          icon={<CalendarDays className="h-4 w-4" />}
+          className="mb-4 border-warning-border bg-warning-soft"
+        >
+          <div className="space-y-2 text-body text-warning-text">
             <div className="flex justify-between gap-4">
-              <span className="text-amber-800">วันที่บนใบเสร็จ</span>
+              <span className="text-warning-text">วันที่บนใบเสร็จ</span>
               <span>{formatDate(doc.issue_date)}</span>
             </div>
             {doc.backdated_at && (
               <div className="flex justify-between gap-4">
-                <span className="text-amber-800">บันทึกย้อนหลังเมื่อ</span>
+                <span className="text-warning-text">บันทึกย้อนหลังเมื่อ</span>
                 <span>{formatDate(doc.backdated_at)}</span>
               </div>
             )}
             {doc.created_at && (
               <div className="flex justify-between gap-4">
-                <span className="text-amber-800">สร้างในระบบเมื่อ</span>
+                <span className="text-warning-text">สร้างในระบบเมื่อ</span>
                 <span>{formatDate(doc.created_at)}</span>
               </div>
             )}
             {doc.backdated_reason && (
-              <div className="rounded-card border border-amber-200 bg-white/70 p-3 text-body text-amber-950">
-                <div className="mb-1 text-label font-medium text-amber-700">เหตุผล</div>
+              <div className="rounded-card border border-warning-border bg-white/70 p-3 text-body text-warning-text">
+                <div className="mb-1 text-label font-medium text-warning-text">เหตุผล</div>
                 <p className="whitespace-pre-wrap">{doc.backdated_reason}</p>
               </div>
             )}
@@ -1159,12 +1428,22 @@ export default function DocumentDetailPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             {primaryAction}
-            <Button variant="secondary" size="md" className="w-full sm:w-auto" onClick={handleGeneratePdf}>
+            <Button
+              variant="secondary"
+              size="md"
+              className="w-full sm:w-auto"
+              onClick={handleGeneratePdf}
+            >
               <Printer className="mr-1.5 h-4 w-4" />
               พิมพ์ / PDF
             </Button>
             {doc.deal_id && (
-              <Button variant="secondary" size="md" className="w-full sm:w-auto" onClick={() => navigate(`/deals/${doc.deal_id}`)}>
+              <Button
+                variant="secondary"
+                size="md"
+                className="w-full sm:w-auto"
+                onClick={() => navigate(`/deals/${doc.deal_id}`)}
+              >
                 ไปที่หน้างานขาย
               </Button>
             )}
@@ -1282,7 +1561,8 @@ export default function DocumentDetailPage() {
       >
         <div className="space-y-3">
           <div className="rounded-control border border-line bg-paper-field px-3 py-2 text-body text-ink-700">
-            เอกสารเดิม: <span className="font-semibold text-ink-900">{doc.doc_number || docLabel.thai}</span>
+            เอกสารเดิม:{" "}
+            <span className="font-semibold text-ink-900">{doc.doc_number || docLabel.thai}</span>
           </div>
           <p className="text-body text-ink-600">
             {voidAndRecreate
@@ -1290,35 +1570,43 @@ export default function DocumentDetailPage() {
               : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้?"}
           </p>
           {voidAndRecreate && isCorrectionCandidate && (
-            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
-              เอกสารที่ออกแล้วแก้ไขทับฉบับเดิมไม่ได้ หากเป็นการลดยอดหรือคืนเงิน ให้ใช้เมนู “ออกใบลดหนี้” แทน
+            <div className="rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label leading-5 text-warning-text">
+              เอกสารที่ออกแล้วแก้ไขทับฉบับเดิมไม่ได้ หากเป็นการลดยอดหรือคืนเงิน ให้ใช้เมนู
+              “ออกใบลดหนี้” แทน
             </div>
           )}
           {voidAndRecreate && isCorrectionCandidate && (
-            <label className="block text-body text-ink-700">
-              <span className="mb-1 block font-medium">สาเหตุการแก้ไข *</span>
-              <select
-                value={correctionReason}
-                onChange={(event) => setCorrectionReason(event.target.value)}
-                className="w-full rounded-control border border-card-border bg-white px-3 py-2.5 text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">เลือกสาเหตุ</option>
-                {CORRECTION_REASONS.map((reason) => (
-                  <option key={reason.value} value={reason.value}>{reason.label}</option>
-                ))}
-              </select>
-            </label>
+            <Select
+              label="สาเหตุการแก้ไข *"
+              value={correctionReason}
+              onChange={(event) => setCorrectionReason(event.target.value)}
+            >
+              <option value="">เลือกสาเหตุ</option>
+              {CORRECTION_REASONS.map((reason) => (
+                <option key={reason.value} value={reason.value}>
+                  {reason.label}
+                </option>
+              ))}
+            </Select>
           )}
           <Input
             label={voidAndRecreate ? "รายละเอียดเพิ่มเติม (ถ้ามี)" : "เหตุผลการยกเลิก"}
             value={voidReason}
             onChange={(e) => setVoidReason(e.target.value)}
-            placeholder={voidAndRecreate ? "อธิบายสิ่งที่ต้องแก้ เช่น เปลี่ยนที่อยู่บริษัท" : "ไม่บังคับ"}
+            placeholder={
+              voidAndRecreate ? "อธิบายสิ่งที่ต้องแก้ เช่น เปลี่ยนที่อยู่บริษัท" : "ไม่บังคับ"
+            }
             required={false}
           />
           <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setVoidModal(false)}>ปิด</Button>
-            <Button variant={voidAndRecreate && isCorrectionCandidate ? "primary" : "danger"} onClick={handleVoid} loading={voiding}>
+            <Button variant="secondary" onClick={() => setVoidModal(false)}>
+              ปิด
+            </Button>
+            <Button
+              variant={voidAndRecreate && isCorrectionCandidate ? "primary" : "danger"}
+              onClick={handleVoid}
+              loading={voiding}
+            >
               {voidAndRecreate ? correctionTitle : "ยืนยัน"}
             </Button>
           </div>
@@ -1342,12 +1630,15 @@ export default function DocumentDetailPage() {
             คุณแน่ใจว่าต้องการลบเอกสารนี้? การลบไม่สามารถเรียกคืนได้
           </p>
           <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setDeleteModal(false)}>ยกเลิก</Button>
-            <Button variant="danger" onClick={handleDelete} loading={deleting}>ลบ</Button>
+            <Button variant="secondary" onClick={() => setDeleteModal(false)}>
+              ยกเลิก
+            </Button>
+            <Button variant="danger" onClick={handleDelete} loading={deleting}>
+              ลบ
+            </Button>
           </div>
         </div>
       </Modal>
-
     </AppShell>
   );
 }
