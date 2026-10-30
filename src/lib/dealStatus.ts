@@ -1,5 +1,3 @@
-import { STATUS_LABELS } from "../constants";
-
 /** Structural doc subset — full Document rows and dashboard picks satisfy it. */
 export interface StatusDocLike {
   id: string;
@@ -48,12 +46,7 @@ export function sortDocsNewestFirst<T extends StatusDocLike>(documents: T[]): T[
   });
 }
 
-const AMOUNT_DOC_ORDER = [
-  "billing_note",
-  "invoice",
-  "quotation",
-  "delivery_note",
-];
+const AMOUNT_DOC_ORDER = ["billing_note", "invoice", "quotation", "delivery_note"];
 
 /**
  * Which document headlines the deal's money. Order: BN > INV > QT > DN,
@@ -67,28 +60,4 @@ export function pickAmountDocument<T extends StatusDocLike>(documents: T[]): T |
     if (found) return found;
   }
   return null;
-}
-
-/** Deal-page status pill (label + color classes), with the overdue override. */
-export function getStatusPill(
-  doc:
-    | (Pick<StatusDocLike, "doc_type" | "status" | "due_date"> & { id?: string })
-    | null,
-): { label: string; className: string } {
-  if (!doc) return { label: "ยังไม่มีเอกสาร", className: "bg-ink-50 text-ink-500" };
-  if (doc.status === "draft") return { label: "ร่าง", className: "bg-draft-bg text-draft-text" };
-  if (doc.status === "paid") return { label: "ชำระแล้ว", className: "bg-paid-bg text-paid-text" };
-  if (doc.status === "partially_paid")
-    return { label: "ชำระบางส่วน", className: "bg-amber-100 text-amber-700" };
-  if (isDocumentOverdue(doc)) return { label: "เกินกำหนด", className: "bg-overdue-bg text-overdue-text" };
-  if (doc.doc_type === "quotation" && doc.status === "sent")
-    return { label: "รอลูกค้าตอบ", className: "bg-amber-100 text-amber-700" };
-  if (doc.doc_type === "invoice" && (doc.status === "sent" || doc.status === "in_billing"))
-    return { label: "รอวางบิล", className: "bg-sent-bg text-sent-text" };
-  if (doc.doc_type === "billing_note" && doc.status === "sent")
-    return { label: "รอชำระ", className: "bg-sent-bg text-sent-text" };
-  return {
-    label: STATUS_LABELS[doc.status as keyof typeof STATUS_LABELS] || doc.status,
-    className: "bg-ink-50 text-ink-600",
-  };
 }

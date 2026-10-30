@@ -2,11 +2,11 @@ import { expect, test } from "@playwright/test";
 import { api, signInAndGetSession, uid } from "./helpers/env";
 
 /**
- * Next-step "this or that" cards on the deal page.
+ * Next-step cards on the deal page.
  *
  * Two alternative next steps must read as a choice — equal cards with a `หรือ`
- * between them — instead of a primary button plus a footnote. A single next step
- * stays a plain action button.
+ * between them. A single next step uses the same card grammar (no bare button,
+ * no extra hint box), so the workflow never changes shape between states.
  *
  * The sides follow the path, not which action happens to be the next step: the
  * operational path (delivery / payment) reads first, the paperwork path (invoice /
@@ -15,7 +15,7 @@ import { api, signInAndGetSession, uid } from "./helpers/env";
 async function seedDeal(
   client: Awaited<ReturnType<typeof api>>,
   userId: string,
-  docType: "quotation" | "invoice",
+  docType: "quotation" | "invoice" | "delivery_note",
   status: "sent",
 ) {
   const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -71,10 +71,7 @@ test.describe("deal page — next step choice", () => {
       // The operational path (delivery) reads first (left), the paperwork
       // path (invoice) second — the sides follow the path, so the pair does
       // not move when the deal's state changes.
-      const [a, b] = await Promise.all([
-        convert.boundingBox(),
-        deliver.boundingBox(),
-      ]);
+      const [a, b] = await Promise.all([convert.boundingBox(), deliver.boundingBox()]);
       expect(Math.abs((a?.y ?? 0) - (b?.y ?? 0))).toBeLessThanOrEqual(2);
       expect(Math.abs((a?.width ?? 0) - (b?.width ?? 0))).toBeLessThanOrEqual(2);
       expect(b?.x ?? 0).toBeLessThan(a?.x ?? 0);
@@ -136,6 +133,25 @@ test.describe("deal page — next step choice", () => {
       const [a, b] = await Promise.all([convert.boundingBox(), deliver.boundingBox()]);
       expect(a?.y ?? 0).toBeGreaterThan((b?.y ?? 0) + (b?.height ?? 0) - 1);
       await expect(group.getByText("หรือ")).toBeVisible();
+    } finally {
+      await client.from("documents").delete().eq("deal_id", seed.dealId);
+      await client.from("deals").delete().eq("id", seed.dealId);
+      await client.from("customers").delete().eq("id", seed.customerId);
+    }
+  });
+
+  test("a single next step uses the same card grammar", async ({ page }) => {
+    const session = await signInAndGetSession();
+    const client = await api();
+    const seed = await seedDeal(client, session.user.id, "delivery_note", "sent");
+
+    try {
+      await page.goto(`/deals/${seed.dealId}`);
+
+      const group = page.getByRole("group", { name: "ขั้นตอนถัดไป", exact: true });
+      await expect(group).toBeVisible();
+      await expect(group.getByRole("button", { name: /ออกใบแจ้งหนี้จากใบส่งของ/ })).toBeVisible();
+      await expect(group.getByText("หรือ")).toHaveCount(0);
     } finally {
       await client.from("documents").delete().eq("deal_id", seed.dealId);
       await client.from("deals").delete().eq("id", seed.dealId);

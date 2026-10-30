@@ -19,7 +19,10 @@ import {
   Truck,
   Wallet,
 } from "lucide-react";
-import { NextStepChoice, type NextStepOption } from "../../../components/deal/NextStepChoice";
+import { NextStepPanel, type NextStepOption } from "../../../components/deal/NextStepPanel";
+import { DealLifecycle } from "../../../components/deal/DealLifecycle";
+import { DealStatusPill } from "../../../components/deal/DealStatusPill";
+import { DealStageMenu } from "../../../components/deal/DealStageMenu";
 import {
   fetchSourceDealsForInvoices,
   fetchWorkspaceBillingRefs,
@@ -61,17 +64,14 @@ import { revertDeal } from "../../../lib/documentRevert";
 import { EditableDocNumber } from "../../../components/documents/EditableDocNumber";
 import { DealNotes } from "../../../components/deals/DealNotes";
 import { CustomerPickerModal } from "../../../components/customers/CustomerPickerModal";
-import {
-  MANUAL_STAGES,
-  MANUAL_STAGE_LABELS,
-  findCustomerLockingDocs,
-} from "../../../lib/dealStages";
+import { findCustomerLockingDocs } from "../../../lib/dealStages";
 import { DOC_TYPE_LABELS, PAYMENT_METHOD_LABELS, STATUS_LABELS } from "../../../constants";
 import { documentTypeLabel } from "../../../lib/docLabels";
 import { getDnVarianceParts, getSourceVarianceLabel, hasDnVariance } from "../../../lib/dnVariance";
 import { canSendDocumentType, getWorkspacePermissions } from "../../../lib/permissions";
 import { isRefSummaryLine } from "../../../lib/refSummary";
-import { isDocumentOverdue, pickAmountDocument, getStatusPill } from "../../../lib/dealStatus";
+import { isDocumentOverdue, pickAmountDocument } from "../../../lib/dealStatus";
+import { DEAL_PHASE_ORDER, deriveDealStage, type DealPhase } from "../../../lib/dealWorkflow";
 import type {
   Document,
   DocumentLineItem,
@@ -1017,7 +1017,7 @@ export default function DealDetailPage() {
       .eq("id", activeDoc.document.id);
 
     toast.success(
-      `ยกเลิก ${activeDoc.document.doc_number || "เอกสาร"} แล้ว — ${invoiceIds.length} ดีลถูกแยกกลับ · สร้างใหม่ได้ทันที`,
+      `ยกเลิก ${activeDoc.document.doc_number || "เอกสาร"} แล้ว — ${invoiceIds.length} งานขายถูกแยกกลับ · สร้างใหม่ได้ทันที`,
     );
     navigate("/home");
   };
@@ -1237,7 +1237,7 @@ export default function DealDetailPage() {
     }
   };
 
-  const handleSetManualStage = async (value: string) => {
+  const handleSetManualStage = async (value: string | null) => {
     if (!dealId || stageOverrideBusy) return;
     if (!permissions.canCreateEditDocuments) {
       toast.error("คุณไม่มีสิทธิ์เปลี่ยนสถานะงานขาย");
@@ -1513,28 +1513,52 @@ export default function DealDetailPage() {
     return activeDoc?.document || nonVoidedDocs[nonVoidedDocs.length - 1]?.document || null;
   }, [activeDoc, allDone, nonVoidedDocs]);
   const title = deal?.title || customer?.name || "งานขาย";
-  const statusPill = getStatusPill(statusDoc);
   const isOverdue = statusDoc ? isDocumentOverdue(statusDoc) : false;
+  const workflow = useMemo(
+    () =>
+      deriveDealStage({
+        documents: nonVoidedDocs.map((item) => item.document),
+        latestDocument: activeDoc?.document ?? null,
+        isDone: allDone,
+        isOverdue,
+        manualStage: deal?.manual_stage ?? null,
+      }),
+    [nonVoidedDocs, activeDoc, allDone, isOverdue, deal?.manual_stage],
+  );
+  const lifecyclePosition =
+    workflow.phase === "done"
+      ? DEAL_PHASE_ORDER.length
+      : DEAL_PHASE_ORDER.indexOf(workflow.phase) + 1;
+  const docByPhase = useMemo(() => {
+    const map = new Map<DealPhase, Document>();
+    for (const item of nonVoidedDocs) {
+      const doc = item.document;
+      const phase: DealPhase | null =
+        doc.doc_type === "quotation"
+          ? "quote"
+          : doc.doc_type === "delivery_note"
+            ? "deliver"
+            : doc.doc_type === "invoice"
+              ? "invoice"
+              : ["billing_note", "receipt", "credit_note", "debit_note"].includes(doc.doc_type)
+                ? "collect"
+                : null;
+      if (phase) map.set(phase, doc);
+    }
+    const closingDoc =
+      [...nonVoidedDocs].reverse().find((item) => item.document.doc_type === "receipt")?.document ??
+      [...nonVoidedDocs].reverse().find((item) => item.document.status === "paid")?.document ??
+      map.get("collect") ??
+      map.get("invoice");
+    if (closingDoc) map.set("done", closingDoc);
+    return map;
+  }, [nonVoidedDocs]);
   const amountLabel =
     amountDoc?.document.doc_type === "billing_note"
       ? "ยอดที่ต้องรับ"
       : amountDoc?.document.doc_type === "invoice"
         ? "ยอดในใบแจ้งหนี้"
         : "ยอดในใบเสนอราคา";
-
-  const currentStage = allDone
-    ? 4
-    : activeDoc?.document.doc_type === "quotation"
-      ? 1
-      : activeDoc?.document.doc_type === "invoice"
-        ? 2
-        : activeDoc?.document.doc_type === "delivery_note"
-          ? 2
-          : activeDoc?.document.doc_type === "billing_note"
-            ? 3
-            : 4;
-
-  const skippedStage1 = !nonVoidedDocs.some((item) => item.document.doc_type === "quotation");
 
   // The invoices still waiting to be paid — the list the billing note would
   // offer: the sent invoices that are not already in a billing note (the
@@ -1547,10 +1571,7 @@ export default function DealDetailPage() {
     }
     return docsWithMeta
       .map((item) => item.document)
-      .filter(
-        (doc) =>
-          doc.doc_type === "invoice" && doc.status === "sent" && !billed.has(doc.id),
-      );
+      .filter((doc) => doc.doc_type === "invoice" && doc.status === "sent" && !billed.has(doc.id));
   }, [docsWithMeta]);
 
   const unpaidInvoicesFacts = useMemo(() => {
@@ -1641,7 +1662,11 @@ export default function DealDetailPage() {
     ) {
       return mainAction?.type === "delivery_from_quote"
         ? { type: "convert" as const, doc, label: "ออกใบแจ้งหนี้โดยไม่บันทึกการส่ง" }
-        : { type: "delivery_from_quote" as const, doc, label: "ส่งของก่อน แล้วออกใบแจ้งหนี้ภายหลัง" };
+        : {
+            type: "delivery_from_quote" as const,
+            doc,
+            label: "ส่งของก่อน แล้วออกใบแจ้งหนี้ภายหลัง",
+          };
     }
 
     if (doc.doc_type === "invoice" && doc.status === "sent" && permissions.canRecordPayments) {
@@ -1659,34 +1684,17 @@ export default function DealDetailPage() {
     return activeDoc.document.doc_number;
   }, [activeDoc, docDate]);
 
-  const actionHelper = useMemo(() => {
-    if (!activeDoc || !mainAction) return "";
-    if (mainAction.type === "send_draft" && activeDoc.document.doc_type === "invoice") {
-      return "เมื่อส่งใบแจ้งหนี้ ระบบจะตัดสต็อกสินค้าที่อยู่ในเอกสาร";
-    }
-    if (mainAction.type === "convert") return "ระบบจะสร้างใบแจ้งหนี้จากรายการเดิมให้คุณตรวจสอบ";
-    if (mainAction.type === "billing")
-      return "เลือกใบแจ้งหนี้ที่ต้องการรวม แล้วตรวจสอบยอดก่อนบันทึก";
-    if (mainAction.type === "collect")
-      return "กรอกวันที่และวิธีรับเงิน ระบบจะสร้างใบเสร็จให้โดยอัตโนมัติ";
-    if (mainAction.type === "delivery_from_quote")
-      return "เลือกจำนวนสินค้าที่ส่งในครั้งนี้ แล้วบันทึกใบส่งของ";
-    if (mainAction.type === "invoice_from_dns")
-      return "ระบบจะนำรายการจากใบส่งของมาให้ตรวจสอบก่อนออกบิล";
-    return "";
-  }, [activeDoc, mainAction]);
-
   /** One place that performs a next-step action — cards and buttons share it. */
   function runAction(action: Exclude<NonNullable<MainAction>, { type: "done" }>) {
-      if (action.type === "send_draft") handleSendDraft(action.doc);
-      if (action.type === "confirm_receipt") setConfirmingReceiptDoc(action.doc);
-      if (action.type === "convert")
-        createDocument("invoice_from_quotation", { quotationId: action.doc.id });
-      if (action.type === "delivery_from_quote")
-        createDocument("delivery_note_from_quotation", { quotationId: action.doc.id });
-      if (action.type === "invoice_from_dns")
-        createDocument("invoice_from_delivery_notes", { dnId: action.doc.id });
-      if (action.type === "billing") createDocument("billing_note", { dealId });
+    if (action.type === "send_draft") handleSendDraft(action.doc);
+    if (action.type === "confirm_receipt") setConfirmingReceiptDoc(action.doc);
+    if (action.type === "convert")
+      createDocument("invoice_from_quotation", { quotationId: action.doc.id });
+    if (action.type === "delivery_from_quote")
+      createDocument("delivery_note_from_quotation", { quotationId: action.doc.id });
+    if (action.type === "invoice_from_dns")
+      createDocument("invoice_from_delivery_notes", { dnId: action.doc.id });
+    if (action.type === "billing") createDocument("billing_note", { dealId });
     if (action.type === "collect") handleOpenPaymentModal(action.doc);
   }
 
@@ -1715,7 +1723,7 @@ export default function DealDetailPage() {
     ): NextStepOption => ({
       key: action.type,
       label: action.label,
-      description: ACTION_DESCRIPTIONS[action.type] ?? actionHelper,
+      description: ACTION_DESCRIPTIONS[action.type] ?? "",
       icon: iconForAction(action.type),
       // The next step is the app's primary blue; the shortcut that skips a
       // step says which one it skips.
@@ -1737,8 +1745,7 @@ export default function DealDetailPage() {
     // path (invoice / billing note) second. The sides follow the path, not
     // which action happens to be the next step, so the pair does not move
     // when the deal's state changes.
-    const operationalSide = (key: string) =>
-      key === "delivery_from_quote" || key === "collect";
+    const operationalSide = (key: string) => key === "delivery_from_quote" || key === "collect";
     if (
       options.length === 2 &&
       !operationalSide(options[0].key) &&
@@ -1749,31 +1756,10 @@ export default function DealDetailPage() {
     return options;
   })();
 
-
   function handleCopyText(text: string) {
     navigator.clipboard.writeText(text);
     toast.success("คัดลอกแล้ว");
   }
-
-  const docByStage = useMemo(() => {
-    const map = new Map<number, DocWithMeta>();
-    for (const item of nonVoidedDocs) {
-      const doc = item.document;
-      if (map.has(1) && map.has(2) && map.has(3) && map.has(4)) break;
-      if (doc.doc_type === "quotation" && !map.has(1)) map.set(1, item);
-      if (doc.doc_type === "invoice" && !map.has(2)) map.set(2, item);
-      if (doc.doc_type === "delivery_note" && !map.has(2)) map.set(2, item);
-      if (doc.doc_type === "billing_note" && !map.has(3)) map.set(3, item);
-      if (doc.doc_type === "receipt" && !map.has(4)) map.set(4, item);
-    }
-    if (!map.has(4)) {
-      const paidDoc = nonVoidedDocs.find(
-        (item) => item.document.status === "paid" || item.document.status === "generated",
-      );
-      if (paidDoc) map.set(4, paidDoc);
-    }
-    return map;
-  }, [nonVoidedDocs]);
 
   const summaryStats = useMemo(() => {
     const best = nonVoidedDocs
@@ -1877,7 +1863,7 @@ export default function DealDetailPage() {
       <AppShell title="งานขาย" showBack>
         {loadError ? (
           <div className="space-y-3 py-10 text-center">
-            <p className="text-body font-medium text-red-700">โหลดงานขายไม่สำเร็จ</p>
+            <p className="text-body font-medium text-danger-text">โหลดงานขายไม่สำเร็จ</p>
             <p className="text-label text-ink-500">{loadError}</p>
             <Button
               variant="secondary"
@@ -2006,25 +1992,18 @@ export default function DealDetailPage() {
                 <div className="mt-1 text-label text-ink-400">ยังไม่มีรายการสินค้า</div>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span
-                  className={`inline-flex px-2 py-0.5 rounded-control text-label font-medium ${statusPill.className}`}
-                >
-                  {statusPill.label}
-                </span>
-                <select
-                  value={deal?.manual_stage ?? ""}
-                  onChange={(e) => handleSetManualStage(e.target.value)}
-                  disabled={stageOverrideBusy || !deal}
-                  className="rounded-control border border-card-border bg-white px-1.5 py-0.5 text-label text-ink-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-                  title="ระบุสถานะที่แสดงบนหน้าหลักเอง เมื่อสถานะอัตโนมัติไม่ตรงกับความจริง"
-                >
-                  <option value="">สถานะหน้าหลัก: อัตโนมัติ</option>
-                  {MANUAL_STAGES.map((stage) => (
-                    <option key={stage} value={stage}>
-                      สถานะหน้าหลัก: {MANUAL_STAGE_LABELS[stage]}
-                    </option>
-                  ))}
-                </select>
+                <DealStatusPill
+                  label={workflow.stageLabel}
+                  phase={workflow.phase}
+                  overdue={isOverdue}
+                  manual={workflow.isManual}
+                />
+                <DealStageMenu
+                  value={deal?.manual_stage ?? null}
+                  busy={stageOverrideBusy}
+                  canEdit={permissions.canCreateEditDocuments && !allDone}
+                  onChange={handleSetManualStage}
+                />
               </div>
             </div>
             <div className="text-right shrink-0">
@@ -2049,7 +2028,7 @@ export default function DealDetailPage() {
                 <button
                   type="button"
                   onClick={() => navigate(`/deals/${billingRefs.billedIn!.dealId}`)}
-                  className={`flex w-full items-center justify-between gap-2 rounded-control border px-3 py-2 text-label transition-colors ${invoicePaymentTone(billingRefs.billedIn.invoiceStatus) === "paid" ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-100 bg-amber-50 text-amber-800 hover:bg-amber-100"}`}
+                  className={`flex w-full items-center justify-between gap-2 rounded-control border px-3 py-2 text-label transition-colors ${invoicePaymentTone(billingRefs.billedIn.invoiceStatus) === "paid" ? "border-success-border bg-success-soft text-success-text hover:bg-success-soft" : "border-warning-border bg-warning-soft text-warning-text hover:bg-warning-soft"}`}
                 >
                   <span>
                     {billingRefs.billedIn.kind === "billing_note"
@@ -2066,7 +2045,7 @@ export default function DealDetailPage() {
                 </button>
               )}
               {billingRefs.sourceDeals.length > 0 && (
-                <div className="flex items-start gap-2 rounded-control border border-blue-100 bg-blue-50 px-3 py-2 text-label text-blue-800">
+                <div className="flex items-start gap-2 rounded-control border border-primary-border bg-primary-soft px-3 py-2 text-label text-primary-deep">
                   <FileStack className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <span>
                     รวมจาก {billingRefs.sourceDeals.length} งานขาย:{" "}
@@ -2088,7 +2067,7 @@ export default function DealDetailPage() {
             </div>
           )}
           {isOverdue && activeDoc?.document.due_date && (
-            <div className="mt-3 flex items-start gap-2 rounded-control bg-red-50 border border-red-100 px-3 py-2 text-label text-red-700">
+            <div className="mt-3 flex items-start gap-2 rounded-control border border-danger-border bg-danger-soft px-3 py-2 text-label text-danger-text">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>
                 เอกสารนี้เกินกำหนดชำระแล้ว ตั้งแต่ {docDate.date(activeDoc.document.due_date)}
@@ -2102,7 +2081,7 @@ export default function DealDetailPage() {
             if (!partialDoc) return null;
             const remaining = (partialDoc.net_payable || 0) - (partialDoc.amount_received || 0);
             return (
-              <div className="mt-3 flex items-start gap-2 rounded-control bg-amber-50 border border-amber-100 px-3 py-2 text-label text-amber-800">
+              <div className="mt-3 flex items-start gap-2 rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label text-warning-text">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <div>
                   <span className="font-semibold">ชำระบางส่วน</span>— รับแล้ว ฿
@@ -2143,118 +2122,49 @@ export default function DealDetailPage() {
             <Card>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="text-label font-semibold text-ink-500">ขั้นตอน</div>
-                <div className="text-label text-ink-400">{currentStage}/4</div>
-              </div>
-              <div className="flex items-start mb-4">
-                {[
-                  { step: 1, top: "ใบเสนอ", bottom: "ราคา" },
-                  { step: 2, top: "ใบแจ้ง", bottom: "หนี้" },
-                  { step: 3, top: "วางบิล", bottom: "เก็บเงิน" },
-                  { step: 4, top: "เสร็จ", bottom: "สิ้น" },
-                ].map((stage, index) => {
-                  const isDone = currentStage > stage.step || (allDone && stage.step === 4);
-                  const isActive = currentStage === stage.step && !allDone;
-                  const isSkipped = stage.step === 1 && skippedStage1;
-                  const connectorDone = index < 3 && currentStage > stage.step + 0;
-                  const stageDoc = docByStage.get(stage.step);
-                  return (
-                    <div key={stage.step} className="flex items-start flex-1">
-                      <div className="flex flex-col items-center flex-1">
-                        <div
-                          onClick={
-                            stageDoc
-                              ? () => navigate(`/documents/${stageDoc.document.id}`)
-                              : undefined
-                          }
-                          className={[
-                            "w-8 h-8 rounded-full flex items-center justify-center text-label font-semibold relative z-[1]",
-                            stageDoc ? "cursor-pointer" : "",
-                            isSkipped ? "bg-ink-50 text-ink-400" : "",
-                            isDone ? "bg-paid-bg text-paid-text" : "",
-                            isActive ? "bg-primary text-white ring-4 ring-primary/15" : "",
-                            !isDone && !isActive && !isSkipped ? "bg-ink-50 text-ink-400" : "",
-                          ].join(" ")}
-                        >
-                          {isSkipped ? (
-                            "–"
-                          ) : isDone ? (
-                            <CheckCircle2 className="h-4 w-4" />
-                          ) : (
-                            stage.step
-                          )}
-                        </div>
-                        <div
-                          className={`mt-1.5 text-label leading-4 text-center ${isDone ? "text-paid-text" : isActive ? "text-primary font-semibold" : "text-ink-500"}`}
-                        >
-                          {stage.top}
-                          <br />
-                          {stage.bottom}
-                        </div>
-                        {isDone && stageDoc?.document.doc_number && (
-                          <div className="mt-0.5 max-w-[64px] truncate text-label text-paid-text">
-                            {stageDoc.document.doc_number}
-                          </div>
-                        )}
-                      </div>
-                      {index < 3 && (
-                        <div
-                          className={`mt-[15px] h-0.5 flex-1 ${connectorDone ? "bg-green-200" : "bg-card-border"}`}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {mainAction?.type === "done" ? (
-                <div className="text-center text-body font-semibold text-paid-text py-1">
-                  {mainAction.label}
+                <div className="text-label text-ink-400">
+                  {lifecyclePosition}/{DEAL_PHASE_ORDER.length}
                 </div>
-              ) : mainAction ? (
-                <>
-                  {actionHint && (
-                    <div
-                      className={`mb-2 text-center text-label ${isOverdue ? "text-red-700" : "text-ink-500"}`}
-                    >
-                      {actionHint}
-                    </div>
-                  )}
-                  {nextStepOptions.length > 1 ? (
-                    <NextStepChoice options={nextStepOptions} />
-                  ) : (
-                    <>
-                      <Button
-                        variant={"danger" in mainAction && mainAction.danger ? "danger" : "primary"}
-                        className="w-full justify-center py-3 text-body"
-                        loading={actionLoadingId === mainAction.doc.id}
-                        onClick={() => nextStepOptions[0]?.onClick()}
+              </div>
+              <DealLifecycle
+                phase={workflow.phase}
+                skipped={workflow.skipped}
+                canSelect={(phase) => docByPhase.has(phase)}
+                onSelect={(phase) => {
+                  const doc = docByPhase.get(phase);
+                  if (doc) navigate(`/documents/${doc.id}`);
+                }}
+              />
+              <div className="mt-4">
+                {mainAction && mainAction.type !== "done" ? (
+                  <>
+                    {actionHint ? (
+                      <div
+                        className={`mb-2 flex items-center gap-1.5 text-label ${isOverdue ? "text-danger-text" : "text-ink-500"}`}
                       >
-                        {mainAction.label}
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>{actionHint}</span>
+                      </div>
+                    ) : null}
+                    <NextStepPanel options={nextStepOptions} />
+                    {activeDoc?.document.status === "draft" && (
+                      <Button
+                        variant="secondary"
+                        className="mt-2 w-full justify-center py-3 text-body"
+                        onClick={handleCurrentDocAction}
+                      >
+                        แก้ไขฉบับร่าง
                       </Button>
-                      {actionHelper && (
-                        <div className="mt-2 rounded-control bg-blue-50 px-3 py-2 text-center text-label leading-4 text-blue-800">
-                          ขั้นตอนถัดไป: {actionHelper}
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {activeDoc?.document.status === "draft" && (
-                    <Button
-                      variant="secondary"
-                      className="mt-2 w-full justify-center py-3 text-body"
-                      onClick={handleCurrentDocAction}
-                    >
-                      แก้ไขฉบับร่าง
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <div className="rounded-control bg-paper-field px-3 py-2 text-center text-label leading-5 text-ink-600">
-                  {activeDoc && !allDone
-                    ? "รอผู้จัดการดำเนินการต่อ เอกสารนี้ถูกบันทึกเป็นฉบับร่างแล้ว"
-                    : "ไม่มีการดำเนินการที่ต้องทำตอนนี้"}
-                </div>
-              )}
+                    )}
+                  </>
+                ) : mainAction?.type === "done" ? null : (
+                  <div className="rounded-control bg-paper-field px-3 py-2 text-center text-label leading-5 text-ink-600">
+                    {activeDoc && !allDone
+                      ? "รอผู้จัดการดำเนินการต่อ เอกสารนี้ถูกบันทึกเป็นฉบับร่างแล้ว"
+                      : "ไม่มีการดำเนินการที่ต้องทำตอนนี้"}
+                  </div>
+                )}
+              </div>
             </Card>
             {!allDone &&
               (() => {
@@ -2263,14 +2173,14 @@ export default function DealDetailPage() {
                 );
                 if (pendingDrafts.length === 0) return null;
                 return (
-                  <Card className="border-amber-200 bg-amber-50">
+                  <Card className="border-warning-border bg-warning-soft">
                     <div className="flex items-start gap-3">
-                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-body font-semibold text-amber-900">
+                        <div className="text-body font-semibold text-warning-text">
                           มีฉบับร่างค้าง {pendingDrafts.length} รายการ
                         </div>
-                        <p className="mt-1 text-label leading-5 text-amber-800">
+                        <p className="mt-1 text-label leading-5 text-warning-text">
                           ฉบับร่างจะทำให้งานขายยังไม่ปิด — เปิดส่งต่อ หรือลบออกหากไม่ต้องใช้
                         </p>
                         <div className="mt-2 space-y-1">
@@ -2279,7 +2189,7 @@ export default function DealDetailPage() {
                               key={item.document.id}
                               type="button"
                               onClick={() => navigate(`/documents/${item.document.id}`)}
-                              className="block w-full rounded-control border border-amber-200 bg-white px-3 py-2 text-left text-label font-medium text-ink-900 transition-colors hover:bg-amber-100"
+                              className="block w-full rounded-control border border-warning-border bg-white px-3 py-2 text-left text-label font-medium text-ink-900 transition-colors hover:bg-warning-soft"
                             >
                               {DOC_TYPE_LABELS[item.document.doc_type]?.th ||
                                 item.document.doc_type}
@@ -2293,12 +2203,12 @@ export default function DealDetailPage() {
                 );
               })()}
             {allDone && summaryStats && (
-              <Card className="border-green-200 bg-green-50">
+              <Card className="border-success-border bg-success-soft">
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success-text" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-body font-semibold text-green-800">งานขายเสร็จสิ้น</div>
-                    <div className="mt-1 space-y-0.5 text-label leading-5 text-green-700">
+                    <div className="text-body font-semibold text-success-text">งานขายเสร็จสิ้น</div>
+                    <div className="mt-1 space-y-0.5 text-label leading-5 text-success-text">
                       <div>รับเงินแล้ว ฿{formatCurrency(summaryStats.totalCollected)}</div>
                       {summaryStats.lastPaid && (
                         <div>
@@ -2321,7 +2231,7 @@ export default function DealDetailPage() {
                   </div>
                 </div>
                 {availableCloneTypes.length > 0 && (
-                  <div className="mt-3 border-t border-green-200 pt-3">
+                  <div className="mt-3 border-t border-success-border pt-3">
                     <Button
                       variant="secondary"
                       className="w-full justify-center"
@@ -2336,7 +2246,7 @@ export default function DealDetailPage() {
             )}
             {deliveryProgress && (
               <Card
-                className={` ${deliveryProgress.hasOverDelivery ? "border-amber-200 bg-amber-50" : ""}`}
+                className={` ${deliveryProgress.hasOverDelivery ? "border-warning-border bg-warning-soft" : ""}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -2356,7 +2266,7 @@ export default function DealDetailPage() {
                     </div>
                   </div>
                   <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-label font-medium ${allDone ? "bg-paid-bg text-paid-text" : deliveryProgress.allDelivered ? "bg-green-100 text-green-700" : deliveryProgress.hasOverDelivery ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-700"}`}
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-label font-medium ${allDone ? "bg-paid-bg text-paid-text" : deliveryProgress.allDelivered ? "bg-success-soft text-success-text" : deliveryProgress.hasOverDelivery ? "bg-warning-soft text-warning-text" : "bg-primary-soft text-primary-deep"}`}
                   >
                     {allDone
                       ? "ชำระแล้ว"
@@ -2386,7 +2296,7 @@ export default function DealDetailPage() {
                           </div>
                         </div>
                         <div
-                          className={`shrink-0 text-right font-medium ${row.remaining < 0 ? "text-amber-700" : "text-ink-700"}`}
+                          className={`shrink-0 text-right font-medium ${row.remaining < 0 ? "text-warning-text" : "text-ink-700"}`}
                         >
                           คงเหลือ {formatQty(row.remaining)} {row.line.unit}
                         </div>
@@ -2457,48 +2367,11 @@ export default function DealDetailPage() {
                     )}
                   </div>
                 )}
-
-                {deliveryNotes.length > 0 && (
-                  <div className="mt-3 space-y-1.5">
-                    <div className="text-label font-semibold text-ink-500">
-                      ใบส่งของในดีลนี้ ({deliveryNotes.length})
-                    </div>
-                    {deliveryNotes.map((item) => {
-                      const doc = item.document;
-                      const isDraft = doc.status === "draft";
-                      const isConverted = doc.status === "converted";
-                      return (
-                        <button
-                          key={doc.id}
-                          type="button"
-                          onClick={() => navigate(`/documents/${doc.id}`)}
-                          className="w-full rounded-control border border-white/70 bg-white/70 px-3 py-2 text-left transition-colors hover:bg-white"
-                        >
-                          <div className="flex items-center justify-between gap-3 text-label">
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate font-medium text-ink-900">
-                                {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
-                              </div>
-                              <div className="mt-0.5 text-ink-500">
-                                {docDate.date(doc.issue_date)}
-                              </div>
-                            </div>
-                            <span
-                              className={`shrink-0 rounded-control px-2 py-0.5 text-label font-medium ${isDraft ? "bg-amber-100 text-amber-700" : isConverted ? "bg-ink-50 text-ink-600" : "bg-paid-bg text-paid-text"}`}
-                            >
-                              {isDraft ? "ร่าง" : isConverted ? "รวมในบิลแล้ว" : "ส่งแล้ว"}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </Card>
             )}
             <FinancialSummaryCard summary={financialSummary}>
               <div
-                className={`rounded-full px-2.5 py-1 text-label font-medium ${financialSummary.outstanding > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}
+                className={`rounded-full px-2.5 py-1 text-label font-medium ${financialSummary.outstanding > 0 ? "bg-warning-soft text-warning-text" : "bg-success-soft text-success-text"}`}
               >
                 {financialSummary.outstanding > 0 ? "ยังมียอดค้าง" : "รับครบแล้ว"}
               </div>
@@ -2673,7 +2546,7 @@ export default function DealDetailPage() {
                                     event.stopPropagation();
                                     navigate(`/deals/${borrowed.sourceDealId}`);
                                   }}
-                                  className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700 hover:bg-blue-100"
+                                  className="mt-1 inline-flex rounded-full border border-primary-border bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep hover:bg-primary-soft"
                                   title="เปิดงานขายต้นทางของเอกสารนี้"
                                 >
                                   จากงานขาย {borrowed.sourceDealNumber || "(ไม่มีเลขงานขาย)"}
@@ -2759,14 +2632,14 @@ export default function DealDetailPage() {
                                 )}
                               </div>
                               {copiedFromDoc && (
-                                <div className="mt-1 inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-label font-medium text-blue-700">
+                                <div className="mt-1 inline-flex rounded-full border border-primary-border bg-primary-soft px-2 py-0.5 text-label font-medium text-primary-deep">
                                   ออกแทน {copiedFromDoc.doc_number || "เอกสารเดิม"}
                                 </div>
                               )}
                               {doc.doc_type === "delivery_note" &&
                               doc.status === "draft" &&
                               doc.is_blank_form ? (
-                                <div className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-700">
+                                <div className="mt-1 inline-flex rounded-full border border-warning-border bg-warning-soft px-2 py-0.5 text-label font-medium text-warning-text">
                                   ฟอร์มเปล่า
                                 </div>
                               ) : null}
@@ -2812,14 +2685,14 @@ export default function DealDetailPage() {
                                         : "ส่วนต่างจากเอกสารต้นฉบับ";
                                     return (
                                       <div className="mt-1">
-                                        <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-700">
+                                        <span className="inline-flex rounded-full border border-warning-border bg-warning-soft px-2 py-0.5 text-label font-medium text-warning-text">
                                           {badgeLabel}
                                         </span>
                                         <ul className="mt-1 space-y-0.5">
                                           {varianceLines.map((vl, vi) => (
                                             <li
                                               key={vi}
-                                              className="text-label leading-snug text-amber-800"
+                                              className="text-label leading-snug text-warning-text"
                                             >
                                               <span className="font-medium">{vl.name}</span> —{" "}
                                               {vl.parts.join(" | ")}
@@ -2835,7 +2708,7 @@ export default function DealDetailPage() {
                                 {doc.due_date ? (
                                   <>
                                     {" • ครบ "}
-                                    <span className={overdue ? "text-red-700" : ""}>
+                                    <span className={overdue ? "text-danger-text" : ""}>
                                       {docDate.date(doc.due_date)}
                                     </span>
                                   </>
@@ -2870,7 +2743,9 @@ export default function DealDetailPage() {
                                       {doc.payment_method && (
                                         <div
                                           className={
-                                            doc.wht_amount > 0 ? "text-ink-400" : "text-green-600"
+                                            doc.wht_amount > 0
+                                              ? "text-ink-400"
+                                              : "text-success-text"
                                           }
                                         >
                                           {PAYMENT_METHOD_LABELS[doc.payment_method]}
@@ -2879,7 +2754,7 @@ export default function DealDetailPage() {
                                     </>
                                   ) : doc.status === "partially_paid" ? (
                                     <>
-                                      <div className="text-green-700">
+                                      <div className="text-success-text">
                                         <span className="font-medium">เก็บแล้ว</span> ฿
                                         {(doc.amount_received || 0).toLocaleString()}
                                       </div>
@@ -2913,7 +2788,7 @@ export default function DealDetailPage() {
                                       </div>
                                     </>
                                   ) : (
-                                    <div className="text-green-600">
+                                    <div className="text-success-text">
                                       {doc.paid_at ? docDate.date(doc.paid_at) : ""}
                                       {doc.payment_method
                                         ? ` · ${PAYMENT_METHOD_LABELS[doc.payment_method]}`
@@ -2956,9 +2831,11 @@ export default function DealDetailPage() {
                                   event.stopPropagation();
                                   handleOpenPreview(doc);
                                 }}
-                                className="mt-0.5 inline-flex min-h-11 items-center justify-center rounded-control border border-primary bg-white px-2.5 py-1 text-label font-medium text-primary transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:min-h-0"
+                                className="mt-0.5 inline-flex h-11 w-11 items-center justify-center rounded-control text-ink-400 transition-colors hover:bg-ink-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:h-8 md:w-8"
+                                title="พิมพ์ / PDF"
+                                aria-label="พิมพ์ / PDF"
                               >
-                                พิมพ์ / PDF
+                                <Printer className="h-4 w-4" />
                               </button>
                             </div>
                           </div>
@@ -3000,7 +2877,7 @@ export default function DealDetailPage() {
                                   {doc.doc_number || "ยังไม่มีเลขเอกสาร"}
                                 </div>
                                 {replacementDoc && (
-                                  <div className="mt-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-800">
+                                  <div className="mt-1 inline-flex rounded-full border border-warning-border bg-warning-soft px-2 py-0.5 text-label font-medium text-warning-text">
                                     ออกใหม่เป็น {replacementDoc.doc_number || "ฉบับใหม่"}
                                   </div>
                                 )}
@@ -3024,9 +2901,11 @@ export default function DealDetailPage() {
                                     event.stopPropagation();
                                     handleOpenPreview(doc);
                                   }}
-                                  className="mt-0.5 inline-flex items-center justify-center rounded-control border border-line-strong bg-white px-2.5 py-1 text-label font-medium text-ink-500 transition-colors hover:bg-paper-field focus:outline-none focus-visible:ring-2 focus-visible:ring-line"
+                                  className="mt-0.5 inline-flex h-11 w-11 items-center justify-center rounded-control text-ink-400 transition-colors hover:bg-paper-field hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 md:h-8 md:w-8"
+                                  title="พิมพ์ / PDF"
+                                  aria-label="พิมพ์ / PDF"
                                 >
-                                  พิมพ์ / PDF
+                                  <Printer className="h-4 w-4" />
                                 </button>
                               </div>
                             </div>
@@ -3037,16 +2916,29 @@ export default function DealDetailPage() {
                 </div>
               )}
             </div>
-            <EditableDocNumber
-              value={docNumberOverride}
-              onChange={setDocNumberOverride}
-              placeholder="ตั้งเลขที่เอกสารเอง (เว้นว่าง = อัตโนมัติ)"
-              className="mb-3"
-            />
             <Card>
-              <div className="text-label font-semibold text-ink-500">การจัดการเอกสาร</div>
-              <div className="mt-1 text-label text-ink-500">
-                แก้ไขเอกสารล่าสุดหรือจัดการเอกสารที่เกี่ยวข้อง
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-label font-semibold text-ink-500">จัดการเอกสารล่าสุด</div>
+                  <div className="mt-1 text-label text-ink-500">
+                    แก้ไขหรือยกเลิกเอกสารที่กำลังดำเนินการ
+                  </div>
+                </div>
+                {activeDoc && (
+                  <div className="hidden min-w-0 text-right text-label text-ink-400 sm:block">
+                    <div className="truncate font-medium text-ink-600">
+                      {
+                        documentTypeLabel(
+                          activeDoc.document.doc_type,
+                          activeDoc.document.vat_registered,
+                        ).thai
+                      }
+                    </div>
+                    <div className="truncate">
+                      {activeDoc.document.doc_number || "ยังไม่มีเลขเอกสาร"}
+                    </div>
+                  </div>
+                )}
               </div>
               {activeDoc && (
                 <div className="mt-3 rounded-control border border-line bg-paper-field px-3 py-2 text-label leading-5 text-ink-700">
@@ -3057,24 +2949,12 @@ export default function DealDetailPage() {
                       : "เอกสารที่ส่งแล้วจะถูกยกเลิกและสร้างฉบับร่างใหม่ โดยเก็บฉบับเดิมไว้เป็นประวัติ"}
                 </div>
               )}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {nonVoidedDocs.length > 0 && (
-                  <div className="col-span-2">
-                    <Button
-                      variant="secondary"
-                      tone="blue"
-                      className="w-full justify-center"
-                      onClick={() => setShowDocList(true)}
-                    >
-                      พิมพ์เอกสาร ({nonVoidedDocs.length})
-                    </Button>
-                  </div>
-                )}
+              <div className="mt-3 space-y-2">
                 {activeDoc?.document.status === "draft" ? null : (
                   <Button
                     variant="secondary"
                     tone="blue"
-                    className="col-span-2 justify-center"
+                    className="w-full justify-center"
                     onClick={handleCurrentDocAction}
                   >
                     {activeDoc?.document.doc_type === "billing_note" &&
@@ -3090,7 +2970,7 @@ export default function DealDetailPage() {
                     <Button
                       variant="secondary"
                       tone="red"
-                      className="col-span-2 justify-center"
+                      className="w-full justify-center"
                       onClick={handleUnlinkAllInvoices}
                     >
                       แยกใบแจ้งหนี้ออกจากใบวางบิล
@@ -3100,14 +2980,14 @@ export default function DealDetailPage() {
                   <Button
                     variant="secondary"
                     tone="red"
-                    className="col-span-2 justify-center"
+                    className="w-full justify-center"
                     onClick={handleUnlinkAllDeliveryNotes}
                   >
                     แยกใบส่งของออกจากใบแจ้งหนี้
                   </Button>
                 )}
                 {allDone && hasPaidDocs && canSendDocumentType(permissions, "credit_note") && (
-                  <div className="col-span-2 grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="secondary"
                       tone="slate"
@@ -3127,7 +3007,16 @@ export default function DealDetailPage() {
                   </div>
                 )}
                 {isDevMode && (
-                  <div className="col-span-2 mt-2 pt-2 border-t border-amber-200">
+                  <div className="mt-3 space-y-2 border-t border-line pt-3">
+                    <div className="text-label font-semibold text-ink-400">เครื่องมือ Dev</div>
+                    <div className="text-label text-ink-500">
+                      เลขที่เอกสาร (เว้นว่าง = อัตโนมัติ)
+                    </div>
+                    <EditableDocNumber
+                      value={docNumberOverride}
+                      onChange={setDocNumberOverride}
+                      placeholder="เลขที่เอกสาร"
+                    />
                     <Button
                       variant="secondary"
                       tone="red"
@@ -3151,7 +3040,7 @@ export default function DealDetailPage() {
       >
         {sendConfirmDoc && (
           <div className="space-y-4">
-            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
+            <div className="rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label leading-5 text-warning-text">
               <span className="font-semibold">{sendConfirmDoc.doc_number || "เอกสาร"}</span>{" "}
               จะถูกล็อคหลังส่ง หากผิดต้องยกเลิกและออกใหม่
             </div>
@@ -3248,7 +3137,7 @@ export default function DealDetailPage() {
               : "คุณแน่ใจว่าต้องการยกเลิกเอกสารนี้? สินค้าจะถูกคืนสต็อก"}
           </p>
           {voidAndRecreate && voidDocument && voidDocument.doc_type === "invoice" && (
-            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
+            <div className="rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label leading-5 text-warning-text">
               หากเอกสารนี้ผูกกับใบวางบิล ใบเสร็จ หรือใบส่งของ
               ระบบจะปลดสถานะที่เกี่ยวข้องตามกฎการยกเลิกเดิม และเก็บประวัติไว้ตรวจสอบย้อนหลัง
             </div>
@@ -3313,7 +3202,7 @@ export default function DealDetailPage() {
       >
         {unlinkDnConfirm && (
           <div className="space-y-3">
-            <div className="rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-label leading-5 text-amber-900">
+            <div className="rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-label leading-5 text-warning-text">
               <span className="font-semibold">{unlinkDnConfirm.invoiceNo}</span>{" "}
               จะถูกยกเลิกและเก็บไว้เป็นประวัติ ใบส่งของ {unlinkDnConfirm.dns.length}{" "}
               ใบจะถูกแยกออกและกลับไปออกบิลใหม่ได้ทันที
@@ -3423,7 +3312,7 @@ export default function DealDetailPage() {
         title="ยืนยันการลบงานขาย (Dev)"
       >
         <div className="space-y-4">
-          <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2.5 text-body text-red-800">
+          <div className="rounded-control border border-danger-border bg-danger-soft px-3 py-2.5 text-body text-danger-text">
             การดำเนินการนี้จะลบงานขายนี้<strong>อย่างถาวร</strong> รวมถึง:
             <ul className="mt-1.5 list-disc pl-5 text-label space-y-0.5">
               <li>ยกเลิกเอกสารทุกฉบับ (คืนสต็อกหากมีการตัด)</li>
@@ -3464,7 +3353,7 @@ export default function DealDetailPage() {
         {pendingCustomer && deal && (
           <div className="space-y-4">
             {customerLockingDocs.length > 0 ? (
-              <div className="rounded-control border border-red-200 bg-red-50 px-3 py-2.5 text-body text-red-800">
+              <div className="rounded-control border border-danger-border bg-danger-soft px-3 py-2.5 text-body text-danger-text">
                 ไม่สามารถเปลี่ยนลูกค้าได้ เพราะมีเอกสารที่ออกแล้วผูกกับลูกค้าเดิม:
                 <ul className="mt-1.5 list-disc pl-5 text-label space-y-0.5">
                   {customerLockingDocs.slice(0, 5).map((doc) => (
@@ -3494,7 +3383,7 @@ export default function DealDetailPage() {
                       : "ไม่มีเอกสารฉบับร่างที่ต้องย้าย"}
                   </li>
                   {sentQuotations.length > 0 && (
-                    <li className="text-amber-700">
+                    <li className="text-warning-text">
                       ใบเสนอราคาที่ส่งแล้ว {sentQuotations.length} ฉบับจะยังผูกกับลูกค้าเดิม —
                       หากส่งให้ลูกค้าผิดตัว ควรยกเลิกแล้วออกใหม่
                     </li>

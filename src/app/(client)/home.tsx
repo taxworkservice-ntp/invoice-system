@@ -21,7 +21,7 @@ import { SortableTh } from "../../components/ui/SortableTh";
 import { useTableSort } from "../../components/ui/useTableSort";
 import { HomeTopBar } from "../../components/home/HomeTopBar";
 import { SummaryRow } from "../../components/home/SummaryRow";
-import { isManualStage, MANUAL_STAGE_LABELS, type ManualStage } from "../../lib/dealStages";
+import { deriveDealStage, type DealQueue } from "../../lib/dealWorkflow";
 import { NewDealSheet } from "../../components/home/NewDealSheet";
 import { CustomerAvatar } from "../../components/customer/CustomerAvatar";
 import { supabase } from "../../lib/supabase";
@@ -128,8 +128,7 @@ type DashboardDeal = {
   billingSourceDeals: Array<{ dealId: string; dealNumber: string | null }>;
 };
 
-type HomeQueue =
-  "wait_send" | "wait_invoice" | "wait_collect" | "partial" | "overdue" | "progress" | "done";
+type HomeQueue = DealQueue;
 type HomeFilter =
   | "all"
   | "wait_send"
@@ -143,26 +142,26 @@ const QUEUE_COLORS: Record<HomeQueue, { bg: string; text: string; dot: string }>
   wait_send: {
     bg: "bg-warning-soft",
     text: "text-warning-text",
-    dot: "bg-amber-500",
+    dot: "bg-warning",
   },
   wait_invoice: {
     bg: "bg-primary-soft",
     text: "text-primary-deep",
-    dot: "bg-violet-500",
+    dot: "bg-primary",
   },
   wait_collect: {
     bg: "bg-success-soft",
     text: "text-success-text",
-    dot: "bg-emerald-500",
+    dot: "bg-success",
   },
   partial: {
     bg: "bg-warning-soft",
     text: "text-warning-text",
-    dot: "bg-amber-600",
+    dot: "bg-warning-text",
   },
-  overdue: { bg: "bg-danger-soft", text: "text-danger", dot: "bg-danger" },
+  overdue: { bg: "bg-danger-soft", text: "text-danger-text", dot: "bg-danger" },
   progress: { bg: "bg-primary-soft", text: "text-primary-deep", dot: "bg-primary" },
-  done: { bg: "bg-ink-50", text: "text-ink-500", dot: "bg-ink-200" },
+  done: { bg: "bg-ink-50", text: "text-ink-500", dot: "bg-ink-300" },
 };
 
 function isResolvedStatus(status: Document["status"]) {
@@ -285,10 +284,6 @@ function getReceiptDocuments(documents: DealDoc[]) {
   );
 }
 
-function hasPartialPayment(documents: DealDoc[]) {
-  return documents.some((doc) => doc.status === "partially_paid");
-}
-
 function getCompletedAt(documents: DealDoc[]) {
   const nonVoided = documents.filter((doc) => doc.status !== "voided");
   const downstreamQuotes = getQuotationsWithDownstream(nonVoided);
@@ -395,164 +390,19 @@ function getNextActionLabel(doc: DealDoc | null) {
   return "";
 }
 
-function getDnWaitingForInvoice(documents: DealDoc[]) {
-  return documents.filter((doc) => doc.doc_type === "delivery_note" && doc.status === "sent");
-}
-
-function getBillingWaitingForPayment(documents: DealDoc[]) {
-  return documents.filter(
-    (doc) => doc.doc_type === "billing_note" && (doc.status === "sent" || doc.status === "overdue"),
-  );
-}
-
-function getQuotationDeliveryProgress(documents: DealDoc[]) {
-  const nonVoided = documents.filter((doc) => doc.status !== "voided");
-  const quote = [...nonVoided].reverse().find((doc) => doc.doc_type === "quotation");
-  if (!quote?.line_items?.length) return null;
-
-  const deliveredByQuoteLine = new Map<string, number>();
-  for (const doc of nonVoided) {
-    if (doc.doc_type !== "delivery_note" || (doc.status !== "sent" && doc.status !== "converted"))
-      continue;
-    for (const line of doc.line_items || []) {
-      if (line.source_document_id !== quote.id || !line.source_line_item_id) continue;
-      deliveredByQuoteLine.set(
-        line.source_line_item_id,
-        (deliveredByQuoteLine.get(line.source_line_item_id) || 0) + line.quantity,
-      );
-    }
-  }
-
-  const quoted = quote.line_items.reduce((sum, line) => sum + line.quantity, 0);
-  const delivered = quote.line_items.reduce(
-    (sum, line) => sum + (deliveredByQuoteLine.get(line.id) || 0),
-    0,
-  );
-  if (delivered <= 0) return null;
-  return { delivered, quoted };
-}
-
-function getStageInfo(
-  documents: DealDoc[],
-  latestDocument: DealDoc | null,
-  isDone: boolean,
-  isOverdue: boolean,
-) {
-  const dnWaiting = getDnWaitingForInvoice(documents);
-  const billingWaiting = getBillingWaitingForPayment(documents);
-  const quoteProgress = getQuotationDeliveryProgress(documents);
-
-  if (isDone)
-    return {
-      stageLabel: "เสร็จแล้ว",
-      stageHint: "ปิดงานแล้ว",
-      queue: "done" as HomeQueue,
-    };
-  if (isOverdue)
-    return {
-      stageLabel: "เกินกำหนด",
-      stageHint: "ต้องติดตาม",
-      queue: "overdue" as HomeQueue,
-    };
-  if (hasPartialPayment(documents))
-    return {
-      stageLabel: "ชำระบางส่วน",
-      stageHint: "ยังรับเงินไม่ครบ",
-      queue: "partial" as HomeQueue,
-    };
-  if (dnWaiting.length > 0) {
-    return {
-      stageLabel: "รอออกใบแจ้งหนี้",
-      stageHint: `ส่งของแล้ว ${dnWaiting.length} ใบ`,
-      queue: "wait_invoice" as HomeQueue,
-    };
-  }
-  if (billingWaiting.length > 0)
-    return {
-      stageLabel: "รอรับเงิน",
-      stageHint: "ใบวางบิลส่งแล้ว",
-      queue: "wait_collect" as HomeQueue,
-    };
-  // Draft receipt = payment recorded but not confirmed yet.
-  const draftReceipt = documents.find(
-    (doc) => doc.doc_type === "receipt" && doc.status === "draft",
-  );
-  if (draftReceipt)
-    return {
-      stageLabel: "รอยืนยันการรับเงิน",
-      stageHint: "ใบเสร็จร่าง",
-      queue: "wait_collect" as HomeQueue,
-    };
-  if (latestDocument?.status === "draft") {
-    const label =
-      latestDocument.doc_type === "quotation"
-        ? "รอส่งใบเสนอราคา"
-        : latestDocument.doc_type === "delivery_note"
-          ? "รอส่งของ"
-          : latestDocument.doc_type === "invoice"
-            ? "รอส่งใบแจ้งหนี้"
-            : latestDocument.doc_type === "billing_note"
-              ? "รอส่งใบวางบิล"
-              : "รอส่งเอกสาร";
-    const draftCount = documents.filter((doc) => doc.status === "draft").length;
-    return {
-      stageLabel: label,
-      stageHint: draftCount > 1 ? `ฉบับร่าง • มี ${draftCount} ร่างค้าง` : "ฉบับร่าง",
-      queue: "wait_send" as HomeQueue,
-    };
-  }
-  if (quoteProgress) {
-    return {
-      stageLabel: "กำลังส่งของ",
-      stageHint: `ส่งแล้ว ${quoteProgress.delivered.toLocaleString("th-TH")} / ${quoteProgress.quoted.toLocaleString("th-TH")}`,
-      queue: "progress" as HomeQueue,
-    };
-  }
-  if (latestDocument?.doc_type === "quotation")
-    return {
-      stageLabel: "ใบเสนอราคา",
-      stageHint: "รอลูกค้าตอบ",
-      queue: "progress" as HomeQueue,
-    };
-  if (latestDocument?.doc_type === "invoice")
-    return {
-      stageLabel: "รอวางบิล",
-      stageHint: "ใบแจ้งหนี้ส่งแล้ว",
-      queue: "progress" as HomeQueue,
-    };
-  if (latestDocument?.doc_type === "delivery_note")
-    return {
-      stageLabel: "ใบส่งของ",
-      stageHint: "รอดำเนินการต่อ",
-      queue: "progress" as HomeQueue,
-    };
-  return {
-    stageLabel: "กำลังดำเนินการ",
-    stageHint: latestDocument?.doc_number || "",
-    queue: "progress" as HomeQueue,
-  };
-}
-
 function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<string>): DashboardDeal {
   const latestDocument = getMostUrgentDocument(deal.documents || []);
   const amountDocument = getAmountDocument(deal.documents || []);
   const paidAt = getCompletedAt(deal.documents || []);
   const isDone = isDealDone(deal.documents || [], billingHeldIds);
   const isOverdue = isOverdueDocument(latestDocument);
-  const stageInfo = getStageInfo(deal.documents || [], latestDocument, isDone, isOverdue);
-
-  // Officer-pinned stage wins over the derived stage, except completion which
-  // is factual (derived from document state) and always takes precedence.
-  let stageLabel = stageInfo.stageLabel;
-  let stageHint = stageInfo.stageHint;
-  let queue: HomeQueue = stageInfo.queue;
-  let isStageManual = false;
-  if (!isDone && isManualStage(deal.manual_stage)) {
-    queue = deal.manual_stage;
-    stageLabel = MANUAL_STAGE_LABELS[deal.manual_stage];
-    stageHint = "ตั้งค่าสถานะเอง";
-    isStageManual = true;
-  }
+  const stageInfo = deriveDealStage({
+    documents: deal.documents || [],
+    latestDocument,
+    isDone,
+    isOverdue,
+    manualStage: deal.manual_stage,
+  });
 
   const latestNote = (deal.notes || []).length > 0 ? deal.notes![0].content : "";
   const latestNoteRole = (deal.notes || []).length > 0 ? deal.notes![0].author_role : "";
@@ -604,10 +454,10 @@ function deriveDashboardDeal(deal: DealWithRelations, billingHeldIds?: Set<strin
     expectedWhtAmount,
     receiptCount,
     status: isOverdue ? "overdue" : latestDocument?.status || "draft",
-    stageLabel,
-    stageHint,
-    queue,
-    isStageManual,
+    stageLabel: stageInfo.stageLabel,
+    stageHint: stageInfo.stageHint,
+    queue: stageInfo.queue,
+    isStageManual: stageInfo.isManual,
     createdAt: deal.created_at,
     // Most recent activity across the deal itself and any of its documents, so
     // editing the deal (without touching documents) still surfaces it on top.
@@ -1344,7 +1194,7 @@ export default function HomePage() {
                             onClick={() => dealSort.handleSort("customerName")}
                             className={`${TABLE.thSortable} ${TABLE.thSticky} min-w-[140px] md:min-w-[180px]`}
                           />
-                          <th className={`${TABLE.thStatic} w-[84px]`}>เลขที่ดีล</th>
+                          <th className={`${TABLE.thStatic} w-[84px]`}>เลขที่งานขาย</th>
                           <th className={`${TABLE.thStatic} whitespace-nowrap`}>เอกสารล่าสุด</th>
                           <SortableTh
                             label="สถานะ"
@@ -1527,8 +1377,8 @@ export default function HomePage() {
                 <section>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                      <div className="text-label font-semibold text-emerald-700">
+                      <div className="h-2 w-2 rounded-full bg-success" />
+                      <div className="text-label font-semibold text-success-text">
                         เสร็จสิ้นล่าสุด
                       </div>
                     </div>
@@ -1626,7 +1476,7 @@ export default function HomePage() {
                                 >
                                   ลูกค้า
                                 </th>
-                                <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่ดีล</th>
+                                <th className={`${TABLE.thStatic} w-[90px]`}>เลขที่งานขาย</th>
                                 <th className={`${TABLE.thStatic} w-[135px]`}>เลขที่ใบเสร็จ</th>
                                 <th className={`${TABLE.thStatic} w-[105px]`}>วันที่ชำระ</th>
                                 <th className={`${TABLE.thStatic} w-[140px]`}>แก้ไขล่าสุด</th>
@@ -1778,7 +1628,7 @@ export default function HomePage() {
                                                 e.stopPropagation();
                                                 navigate(`/deals/${deal.billedIn!.dealId}`);
                                               }}
-                                              className={`inline-flex max-w-full items-center gap-1 rounded-control border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 hover:bg-amber-100"}`}
+                                              className={`inline-flex max-w-full items-center gap-1 rounded-control border px-1.5 py-0.5 text-left whitespace-nowrap transition-colors ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "border-success-border bg-success-soft hover:bg-success-soft" : "border-warning-border bg-warning-soft hover:bg-warning-soft"}`}
                                               title={
                                                 deal.billedIn.kind === "billing_note"
                                                   ? `งานนี้ถูกวางบิลในใบวางบิลของงานขายดังกล่าว (${deal.billedIn.invoiceNumber || "ไม่มีเลขเอกสาร"}) — เปิดงานขายนั้น`
@@ -1786,7 +1636,7 @@ export default function HomePage() {
                                               }
                                             >
                                               <span
-                                                className={`truncate text-label font-semibold leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-emerald-700" : "text-amber-700"}`}
+                                                className={`truncate text-label font-semibold leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-success-text" : "text-warning-text"}`}
                                               >
                                                 {deal.billedIn.kind === "billing_note"
                                                   ? "วางบิลใน"
@@ -1794,7 +1644,7 @@ export default function HomePage() {
                                                 {deal.billedIn.dealNumber || "—"}
                                               </span>
                                               <span
-                                                className={`shrink-0 text-label leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-emerald-600" : "text-amber-600"}`}
+                                                className={`shrink-0 text-label leading-4 ${invoicePaymentTone(deal.billedIn.invoiceStatus) === "paid" ? "text-success-text" : "text-warning-text"}`}
                                               >
                                                 · {invoicePaymentLabel(deal.billedIn.invoiceStatus)}
                                               </span>
